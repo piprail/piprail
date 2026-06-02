@@ -72,4 +72,4 @@ Verification is local and confirms the transaction succeeded, is recent, and act
 
 ## License
 
-MIT — pure open source. See [sdk/LICENSE](sdk/LICENSE).
+MIT — pure open source. See [LICENSE](LICENSE).
