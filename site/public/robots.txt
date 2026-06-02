@@ -1,4 +1,52 @@
+# robots.txt — piprail.com
+# PipRail is open source (MIT), backendless, and free. Crawl freely.
+# AI discovery / IDE-agent navigation file: https://piprail.com/llms.txt
+# Full single-fetch reference: https://piprail.com/llms-full.txt
+
+# Everyone is welcome — nothing here is private.
 User-agent: *
+Allow: /
+
+# --- AI answer-engine & search crawlers (explicitly welcomed) ---
+# Being cited in ChatGPT / Claude / Perplexity / Google AI answers is the point.
+
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: Claude-User
+Allow: /
+
+User-agent: Claude-SearchBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+User-agent: DuckAssistBot
+Allow: /
+
+User-agent: Applebot
+Allow: /
+
+User-agent: Google-Extended
 Allow: /
 
 Sitemap: https://piprail.com/sitemap-index.xml

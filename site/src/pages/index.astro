@@ -63,6 +63,54 @@ const why = [
 
 // How to support the project (sponsor / fund / partner).
 const backWays = ['Fund development', 'Sponsor a chain', 'Integrate & partner']
+
+// FAQ — a visible Q&A that also powers the FAQPage structured data below.
+// The two MUST match (search + AI engines expect schema to mirror the page).
+const faqs = [
+  {
+    q: `What is x402?`,
+    a: `x402 revives the dormant HTTP 402 "Payment Required" status code as a real payment protocol. A server answers a request with 402 plus a machine-readable challenge (price, token, chain, pay-to address); the caller pays on-chain and retries with proof, and the request goes through. It lets an HTTP endpoint charge for itself — no API keys, accounts, or invoices — which is exactly what AI agents need to pay for data and compute autonomously.`,
+  },
+  {
+    q: `How do I accept crypto payments in Next.js?`,
+    a: `Install @piprail/sdk and viem, then in a Route Handler build a gate once with createPaymentGate({ chain: 'base', token: 'USDC', amount: '0.05', payTo }) and call gate.verify(req.headers.get('payment-signature')) inside GET. If the result is 'paid', return the resource + receipt header; if 'challenge', return it with status 402; otherwise return toInvalidBody(result) with 402. No backend or database — verification runs locally against your own RPC. The same createPaymentGate pattern covers Hono, Fastify, Workers, Bun, and Deno; Express gets the requirePayment one-liner.`,
+  },
+  {
+    q: `How do AI agents pay for APIs with PipRail?`,
+    a: `Wrap the agent's HTTP calls with PipRailClient. Give it a wallet and a chain, then call client.fetch(url): on a 402 it reads the challenge, sends the payment on-chain, waits for confirmation, and retries with proof — automatically. Use client.quote(url) to learn a price without paying, client.estimateCost(url) to budget gas, and an opt-in spend policy (maxAmount, maxTotal, chains, tokens, hosts) that refuses out-of-bounds calls before any send. paymentTools(client) hands the same to an LLM via MCP, the Vercel AI SDK, or function-calling — budget-bound so it can't overspend.`,
+  },
+  {
+    q: `Which chains and tokens does PipRail support?`,
+    a: `24 chains across 8 families: 17 EVM mainnets (Ethereum, Base, Arbitrum, Optimism, Polygon, BNB Chain, Avalanche, Mantle, Sonic, Linea, Scroll, Celo, zkSync, Unichain, World Chain, Sei, Injective) plus Solana, TON, Tron, NEAR, Sui, Stellar, and the XRP Ledger. USDC almost everywhere, USDT on most chains, EURC on Stellar, RLUSD on XRPL, or any other token by address. One parameter — chain — picks everything.`,
+  },
+  {
+    q: `Is there a fee to use PipRail?`,
+    a: `No. PipRail charges no fee and takes no cut. It's an open-source (MIT) npm package, not a platform or hosted service. Payments settle straight into your own wallet — there's no PipRail backend, facilitator, or middleman in the path. You pay only normal network gas on whichever chain you choose.`,
+  },
+  {
+    q: `Does PipRail need a backend, database, or account?`,
+    a: `None. PipRail is backendless and self-custodial: no server to run, no database, no auth, no sign-up. Payment proofs are verified locally on-chain against your own RPC, with an in-memory replay guard (pluggable to Redis for multi-instance). The x402 v2 spec explicitly lets resource servers host verification themselves, so this shape is spec-supported, not a workaround.`,
+  },
+  {
+    q: `How do I accept several chains in one request?`,
+    a: `Pass an accept array to requirePayment or createPaymentGate — one challenge that offers several chains/tokens under a shared nonce, and the agent pays with whatever it holds. Verification picks the match by network + asset and re-derives every field from its own trusted spec, so a forged echo can't redirect it and a proof can't be redeemed twice.`,
+  },
+  {
+    q: `Can the same app both take and make payments?`,
+    a: `Yes — that's the design. Use requirePayment (Express) or createPaymentGate (everything else) to charge for a route, and PipRailClient to pay for calls the same app makes outbound. Install the one package, add a wallet, and you can monetize and pay in the same process. It's pure TypeScript and runs headless or in the browser.`,
+  },
+]
+
+const faqLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  '@id': 'https://piprail.com/#faq',
+  mainEntity: faqs.map((f) => ({
+    '@type': 'Question',
+    name: f.q,
+    acceptedAnswer: { '@type': 'Answer', text: f.a },
+  })),
+}
 ---
 
 <Layout>
@@ -357,6 +405,24 @@ const backWays = ['Fund development', 'Sponsor a chain', 'Integrate & partner']
         facilitator required. Self-custody throughout: the payer signs and
         broadcasts their own transfer; PipRail never holds funds.
       </p>
+    </section>
+
+    <!-- FAQ -->
+    <section id="faq" class="scroll-mt-20 border-t border-white/10 py-20 sm:py-24">
+      <SectionHeading title="FAQ.">
+        Quick answers for the developers — and agents — sizing PipRail up.
+      </SectionHeading>
+      <div class="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 md:grid-cols-2">
+        {
+          faqs.map((f) => (
+            <div class="bg-neutral-950 p-6 sm:p-8">
+              <h3 class="text-base font-medium text-neutral-100">{f.q}</h3>
+              <p class="mt-3 text-sm leading-relaxed text-neutral-400">{f.a}</p>
+            </div>
+          ))
+        }
+      </div>
+      <script is:inline type="application/ld+json" set:html={JSON.stringify(faqLd)} />
     </section>
 
     <!-- CTA -->

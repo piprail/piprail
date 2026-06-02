@@ -1,0 +1,204 @@
+# PipRail — full reference for agents
+
+> Accept and make x402 "402 Payment Required" crypto payments from any HTTP request, across 24 chains in 8 families, with no backend, no database, no account, and no fee. Payments settle straight into your own wallet, verified locally against your own RPC. `@piprail/sdk` is an open-source (MIT) TypeScript SDK that runs headless or in the browser. This file is the everything-in-one-fetch version: the pitch, real code, the chain list, and the error model.
+
+## What it is
+
+PipRail is two things, no server:
+
+1. `@piprail/sdk` — a TypeScript SDK for x402 agent payments that works on any EVM chain plus Solana, TON, Tron, NEAR, Sui, Stellar, and the XRP Ledger. `npm install`, name your chain, add your wallet, done. One parameter (`chain`) picks everything.
+2. A static landing page at piprail.com.
+
+There is no hosted backend, no facilitator, and no fee. Payments go straight to the developer's wallet and are verified locally against their own RPC, with an in-memory replay guard (pluggable for multi-instance). The x402 v2 spec explicitly allows resource servers to host verification themselves, so this backendless shape is spec-supported.
+
+## What is x402
+
+x402 revives the HTTP 402 "Payment Required" status code as a real protocol. A server answers a request with `402` plus a machine-readable challenge — price, token, chain, pay-to address, and a nonce. The caller pays on-chain, then retries the request with proof in the `payment-signature` header. The server verifies the proof against its own RPC and serves the resource, returning a receipt in the `payment-response` header. No API keys, no accounts, no invoices — an endpoint charges for itself, which is exactly what autonomous AI agents need.
+
+## Install
+
+```bash
+npm install @piprail/sdk viem
+```
+
+`viem` is the peer dependency for EVM chains. Solana, TON, and other non-EVM families lazy-load their own libraries on first use, so pure-EVM installs never download them.
+
+## Take payments — one line (Express)
+
+```ts
+import express from 'express'
+import { requirePayment } from '@piprail/sdk'
+
+express()
+  .get('/report',
+    requirePayment({ chain: 'base', token: 'USDC', amount: '0.05', payTo: '0xYourWallet…' }),
+    (_req, res) => res.json({ report: 'TOP SECRET' }),
+  )
+  .listen(3000)
+```
+
+That route now costs 0.05 USDC on Base, paid to your wallet. The first request gets a `402` with payment instructions; once the caller pays on-chain, the request goes through. You didn't paste a token address, run a server, deploy a contract, or sign up for anything.
+
+## Take payments — any framework (createPaymentGate)
+
+`requirePayment` is Express-only. Everywhere else (Next.js, Hono, Fastify, Cloudflare Workers, Bun, Deno) uses `createPaymentGate` — build a gate once, then switch on what `verify()` returns. Next.js App Router Route Handler:
+
+```ts
+import { createPaymentGate, toInvalidBody } from '@piprail/sdk'
+
+// Build the gate once at module scope. It holds the payment requirement and an
+// in-memory replay guard (pass isUsed/markUsed for multi-instance — e.g. Redis).
+const gate = createPaymentGate({
+  chain: 'base',
+  token: 'USDC',
+  amount: '0.05',
+  payTo: '0xYourWallet…', // set from env in production
+})
+
+export async function GET(req: Request): Promise<Response> {
+  // The proof of payment (if any) rides in the `payment-signature` header.
+  const result = await gate.verify(req.headers.get('payment-signature') ?? undefined)
+
+  if (result.kind === 'paid') {
+    return Response.json(
+      { report: 'TOP SECRET' },
+      { headers: { 'payment-response': result.receiptHeader } },
+    )
+  }
+
+  if (result.kind === 'challenge') {
+    return Response.json(result.challenge, {
+      status: 402,
+      headers: { 'payment-required': result.requiredHeader },
+    })
+  }
+
+  // Proof rejected (wrong amount, expired, replayed…): 402 + canonical x402 body.
+  return Response.json(toInvalidBody(result), { status: 402 })
+}
+```
+
+## Make payments — wrap fetch (PipRailClient)
+
+```ts
+import { PipRailClient } from '@piprail/sdk'
+
+const client = new PipRailClient({
+  wallet: { privateKey: process.env.AGENT_KEY },
+  chain: 'base',
+})
+
+const res = await client.fetch('https://api.example.com/report') // pays the 402 for you
+const data = await res.json()
+```
+
+On a `402`, the client reads the challenge, sends the payment on-chain, waits for confirmation, and retries with proof — all inside `client.fetch`. The same app can take payments with `requirePayment`/`createPaymentGate` and make them with `PipRailClient`.
+
+## Built for agents — spend safely
+
+A funded key on the internet needs guardrails. Opt in to a `policy` and the client refuses anything outside it before any on-chain send. All opt-in, all local, no backend; omit it and the client behaves exactly as before.
+
+```ts
+const client = new PipRailClient({
+  wallet: { privateKey: process.env.AGENT_KEY },
+  chain: 'base',
+  policy: {
+    maxAmount: '0.10',        // never pay more than $0.10 for one call
+    maxTotal: '5.00',         // never spend more than $5 total (per token)
+    chains: ['base'],         // only on Base
+    tokens: ['USDC'],         // only in USDC
+    hosts: ['*.example.com'], // only these hosts
+  },
+  onBeforePay: (q) => Number(q.amountFormatted) <= 0.05, // final say on each payment
+})
+
+// 1) Learn the price WITHOUT paying.
+const q = await client.quote('https://api.example.com/report')
+//  → { amountFormatted: '0.05', symbol: 'USDC', chain: 'base', withinPolicy: true, … } | null
+
+// 2) Know the GAS too — the native-coin fee to send it (you pay USDC, but burn ETH/SOL/TRX for gas).
+const est = await client.estimateCost('https://api.example.com/report')
+//  → { quote: {…}, cost: { feeSymbol: 'ETH', feeFormatted: '0.000105', basis: 'estimated', … } } | null
+
+// 3) Pay (auto). Over-budget / declined → throws PaymentDeclinedError; nothing moves.
+const res = await client.fetch('https://api.example.com/report')
+
+// 4) Account for it.
+client.spent() // → { count, byAsset: [{ symbol:'USDC', totalFormatted:'0.05', … }], records }
+```
+
+The budget can't be fooled: `maxAmount`/`maxTotal` are enforced against the token's true decimals (the SDK's own, via the driver), so a server can't slip past a cap by understating the price, and an unrecognised asset is refused unless you set `allowUnknownTokens`.
+
+## Hand an LLM a budget-bound wallet
+
+`paymentTools(client)` returns framework-agnostic tool descriptors (name + description + JSON Schema + `invoke`) — drop them into MCP, the Vercel AI SDK, OpenAI/Anthropic function-calling, or LangChain. The budget rides on the client, so the model can't overspend.
+
+```ts
+import { paymentTools } from '@piprail/sdk'
+const tools = paymentTools(client) // → [piprail_quote_payment, piprail_pay_request]
+```
+
+## Accept several chains at once
+
+`requirePayment` (and `createPaymentGate`) take an `accept: [...]` array — one challenge payable on any of several chains/tokens across all eight families. The agent pays with whatever it holds.
+
+```ts
+requirePayment({
+  accept: [
+    { chain: 'base',   token: 'USDC', amount: '0.05', payTo: '0xYourEvmWallet…' },
+    { chain: 'tron',   token: 'USDT', amount: '0.05', payTo: 'TYourTronWallet…' },
+    { chain: 'xrpl',   token: 'USDC', amount: '0.05', payTo: 'rYourXrplWallet…' },
+    { chain: 'solana', token: 'USDC', amount: '0.05', payTo: 'YourSolWallet…' },
+  ],
+})
+```
+
+- Gate: each option resolves through its own driver and is listed in the challenge's `accepts[]`, sharing one nonce. Give a per-option `payTo` for each non-EVM chain (address shapes differ per family).
+- Payer: a `PipRailClient` is bound to one chain; it picks the offered accept whose network it supports and its `policy` allows, pays that one, and ignores the rest.
+- Verify: the gate selects the matching requirement by network + asset and re-derives every checked field from its own trusted spec — a forged `accepted` echo can't redirect it, and the same proof can't be redeemed twice.
+
+## One word picks the chain
+
+```ts
+requirePayment({ chain: 'base',     token: 'USDC', amount: '0.05', payTo }) // USDC on Base
+requirePayment({ chain: 'arbitrum', token: 'USDC', amount: '0.05', payTo }) // USDC on Arbitrum
+requirePayment({ chain: 'bnb',      token: 'USDT', amount: '1',    payTo }) // USDT on BNB
+requirePayment({ chain: 'solana',   token: 'USDC', amount: '0.05', payTo }) // USDC on Solana
+requirePayment({ chain: 'ton',      token: 'USDT', amount: '1',    payTo }) // USD₮ on TON
+requirePayment({ chain: 'tron',     token: 'USDT', amount: '1',    payTo }) // USD₮ on Tron
+```
+
+Any other EVM chain works by passing a viem `Chain` or `{ id, rpcUrl }` plus `token: { address, decimals }`. Custom tokens are supported per family: SPL `{ mint, decimals }`, TON jetton `{ master, decimals }`, Stellar `{ issuer, code, decimals }`, XRPL `{ issuer, currencyHex, decimals }`, TRC-20 `{ address, decimals }`, NEP-141 `{ contractId, decimals }`, Sui `{ coinType, decimals }`.
+
+## The 24 chains, by family
+
+- EVM (17 mainnets): Ethereum, Base, Arbitrum, Optimism, Polygon, BNB Chain, Avalanche, Mantle, Sonic, Linea, Scroll, Celo, zkSync, Unichain, World Chain, Sei, Injective. USDC on all; USDT on all except Base, World Chain, and Sei.
+- Solana: USDC, USDT.
+- TON: USD₮ only (native USDC doesn't exist on TON).
+- Tron: USD₮ only (TRC-20). The largest USDT rail; a transfer burns real TRX, so gas estimates matter most here.
+- NEAR: USDC, USDT (both native NEP-141).
+- Sui: USDC.
+- Stellar: USDC, EURC (7-decimal assets, memo-bound).
+- XRP Ledger (XRPL): USDC, RLUSD (receiving needs a one-time trustline).
+
+Every token address was verified on-chain before shipping. USDC is the common denominator across families.
+
+## Error model
+
+Two channels, and only two:
+
+1. THROWN — a typed `PipRailError` subclass with a stable `.code`, for config / flow / wallet / affordability problems the caller acts on. Catch with `err instanceof PipRailError` or branch on `err.code`. Notable codes: `INSUFFICIENT_FUNDS` (`InsufficientFundsError` — wallet can't cover the transfer plus fees/reserve/trustline; affordability always converges on this one error); `PAYMENT_DECLINED` (`PaymentDeclinedError` — the client refused to pay before any send, because the spend policy or an `onBeforePay` hook said no — nothing moves on-chain); `NON_REPLAYABLE_BODY` (`init.body` isn't replayable, e.g. a one-shot stream).
+2. RETURNED — server-side verification of an on-chain proof returns a `VerifyResult` `{ ok: false, error, detail }` where `error` is a `VerifyErrorCode`. These never throw for an RPC hiccup. Values include `tx_not_found` (proof not on chain yet or a transient RPC read failed — transient, safe to retry), `payment_expired` (older than the replay window — definitive), and `tx_already_used` (the proof was already redeemed — replay, raised by the gate, not the driver).
+
+The rule of thumb for agents: a thrown `PaymentDeclinedError` means your own budget/policy stopped the payment before anything happened; a thrown `InsufficientFundsError` means top up the wallet; a returned `tx_not_found` is transient (retry shortly); `payment_expired` and `tx_already_used` are definitive (re-request a fresh challenge).
+
+## Links
+
+- Website: https://piprail.com
+- npm: https://www.npmjs.com/package/@piprail/sdk
+- GitHub (MIT): https://github.com/piprail/piprail
+- SDK README: https://github.com/piprail/piprail/blob/main/sdk/README.md
+- Concepts: https://github.com/piprail/piprail/blob/main/examples/CONCEPTS.md
+- Error codes: https://github.com/piprail/piprail/blob/main/sdk/ERRORS.md
+- Agent guidelines: https://github.com/piprail/piprail/blob/main/AGENTS.md
+- Examples: https://github.com/piprail/piprail/blob/main/examples/README.md
