@@ -28,29 +28,21 @@ app.get('/report',
 
 That route now costs **0.05 USDC on Base**, paid to your wallet. One parameter picks the chain — `'base'`, `'bnb'`, `'arbitrum'`, `'solana'`, `'tron'`, `'sui'`, … 24 in all.
 
-## Monorepo layout
+## What's in here
 
 ```
 piprail/
 ├── sdk/         # @piprail/sdk — the npm package (the product)
-├── site/        # piprail.com — static Astro 5 + Tailwind v4 landing (deploys to Netlify)
+├── site/        # piprail.com — the landing site (Astro 5 + Tailwind v4, deploys to Netlify)
 ├── examples/    # runnable merchant + agent demos + a live Anvil end-to-end
 └── .github/     # CI: build/test checks · npm publish on a sdk-v* tag
 ```
 
-No `contracts/`, no server, no database. PipRail is a tool you install, not a platform you sign up for.
-
-## Workspaces
-
-An npm-workspace monorepo. **Only `@piprail/sdk` is published to npm** — the other two are private workspaces (the website and the demos), not installable packages.
-
-| Workspace | Path | Published | What it is |
-|---|---|:--:|---|
-| **`@piprail/sdk`** | `sdk/` | ✅ [npm](https://www.npmjs.com/package/@piprail/sdk) | The product. Accept payments (`requirePayment` / `createPaymentGate`) and make them (`PipRailClient`) across 24 chains. |
-| `@piprail/site` | `site/` | — _private_ | `piprail.com` — static Astro 5 + Tailwind v4 landing, deployed to Netlify. |
-| `@piprail/examples` | `examples/` | — _private_ | Runnable merchant + agent demos and a live end-to-end against a local Anvil chain. |
+**`@piprail/sdk`** is the product — and the only thing published to npm. `site/` is the source of [piprail.com](https://piprail.com); `examples/` holds runnable demos. Both live here in the repo but aren't npm packages.
 
 → Full API & guides: **[sdk/README.md](sdk/README.md)**
+
+No `contracts/`, no server, no database. PipRail is a tool you install, not a platform you sign up for.
 
 ## Quick start
 
