@@ -4,7 +4,7 @@
  *   import { requirePayment } from '@piprail/sdk'
  *
  *   app.get('/report',
- *     requirePayment({ chain: 'base', amount: '0.05', payTo: '0xMerchant…' }),
+ *     requirePayment({ chain: 'base', token: 'USDC', amount: '0.05', payTo: '0xMerchant…' }),
  *     (req, res) => res.json({ secret: 42 })
  *   )
  *

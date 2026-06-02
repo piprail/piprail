@@ -9,7 +9,7 @@ import {
  * Chains are a parameter, and the popular ones are built in.
  *
  * The easy path — name a built-in chain:
- *   requirePayment({ chain: 'base', amount: '0.05', payTo })   // USDC on Base
+ *   requirePayment({ chain: 'base', token: 'USDC', amount: '0.05', payTo })   // USDC on Base
  *
  * The exotic path — ANY EVM chain we don't ship, by viem `Chain` or a bare
  * `{ id, rpcUrl }`, plus the token you want paid in:

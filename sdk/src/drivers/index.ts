@@ -6,7 +6,7 @@
  * `enableSolana()` step. Naming `chain: 'solana'` just works, exactly like
  * `chain: 'base'`:
  *
- *   requirePayment({ chain: 'solana', amount: '0.05', payTo })   // mounts on first use
+ *   requirePayment({ chain: 'solana', token: 'USDC', amount: '0.05', payTo })   // mounts on first use
  *
  * The mount is one dynamic `import()`, so a pure-EVM consumer never pulls in
  * `@solana/web3.js` — it only loads when a Solana chain is actually used.

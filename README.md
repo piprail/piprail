@@ -1,8 +1,17 @@
+<div align="center">
+
 # PipRail
 
-**The drop-in payment layer for the agent economy — any EVM chain and Solana, in a couple of lines.**
+**The drop-in payment layer for the agent economy — 24 chains, a couple of lines, straight to your wallet.**
 
-`@piprail/sdk` lets any HTTP endpoint charge for itself and any agent pay for itself, using the open [x402](https://x402.org) "402 Payment Required" standard. No backend, no database, no account, no fee — payments settle **straight into your wallet**, verified locally against your own RPC.
+[![npm](https://img.shields.io/npm/v/@piprail/sdk.svg?logo=npm&color=cb3837)](https://www.npmjs.com/package/@piprail/sdk)
+[![types](https://img.shields.io/npm/types/@piprail/sdk.svg?color=3178c6)](https://www.npmjs.com/package/@piprail/sdk)
+[![license](https://img.shields.io/github/license/piprail/piprail.svg?color=brightgreen)](LICENSE)
+[![x402 v2](https://img.shields.io/badge/x402-v2-6e56cf.svg)](https://x402.org)
+
+</div>
+
+`@piprail/sdk` lets any HTTP endpoint charge for itself and any agent pay for itself, using the open [x402](https://x402.org) "402 Payment Required" standard — across **24 chains in 8 families**: every major EVM chain plus **Solana, TON, Tron, NEAR, Sui, Stellar & the XRP Ledger**. No backend, no database, no account, no fee — payments settle **straight into your wallet**, verified locally against your own RPC.
 
 ```bash
 npm install @piprail/sdk viem
@@ -12,24 +21,36 @@ npm install @piprail/sdk viem
 import { requirePayment } from '@piprail/sdk'
 
 app.get('/report',
-  requirePayment({ chain: 'base', amount: '0.05', payTo: '0xYourWallet…' }),
+  requirePayment({ chain: 'base', token: 'USDC', amount: '0.05', payTo: '0xYourWallet…' }),
   (_req, res) => res.json({ report: 'TOP SECRET' }),
 )
 ```
 
-That route now costs 0.05 USDC on Base, paid to your wallet. One word picks the chain — `'base'`, `'bnb'`, `'arbitrum'`, … or `'solana'`.
+That route now costs **0.05 USDC on Base**, paid to your wallet. One parameter picks the chain — `'base'`, `'bnb'`, `'arbitrum'`, `'solana'`, `'tron'`, `'sui'`, … 24 in all.
 
-## Structure
+## Monorepo layout
 
 ```
 piprail/
 ├── sdk/         # @piprail/sdk — the npm package (the product)
-├── site/        # piprail.com — static Astro 5 + Tailwind v4 landing
-├── examples/    # runnable merchant + agent + live e2e against Anvil
-└── .github/     # CI: SDK publish on tag · site deploy on push
+├── site/        # piprail.com — static Astro 5 + Tailwind v4 landing (deploys to Netlify)
+├── examples/    # runnable merchant + agent demos + a live Anvil end-to-end
+└── .github/     # CI: build/test checks · npm publish on a sdk-v* tag
 ```
 
 No `contracts/`, no server, no database. PipRail is a tool you install, not a platform you sign up for.
+
+## Workspaces
+
+An npm-workspace monorepo. **Only `@piprail/sdk` is published to npm** — the other two are private workspaces (the website and the demos), not installable packages.
+
+| Workspace | Path | Published | What it is |
+|---|---|:--:|---|
+| **`@piprail/sdk`** | `sdk/` | ✅ [npm](https://www.npmjs.com/package/@piprail/sdk) | The product. Accept payments (`requirePayment` / `createPaymentGate`) and make them (`PipRailClient`) across 24 chains. |
+| `@piprail/site` | `site/` | — _private_ | `piprail.com` — static Astro 5 + Tailwind v4 landing, deployed to Netlify. |
+| `@piprail/examples` | `examples/` | — _private_ | Runnable merchant + agent demos and a live end-to-end against a local Anvil chain. |
+
+→ Full API & guides: **[sdk/README.md](sdk/README.md)**
 
 ## Quick start
 
@@ -37,22 +58,12 @@ No `contracts/`, no server, no database. PipRail is a tool you install, not a pl
 npm install              # install workspace deps
 
 npm run build:sdk        # build the SDK
-npm run test:sdk         # run the SDK unit suite
+npm run test:sdk         # run the SDK test suite
 npm run typecheck        # typecheck the SDK
 
 npm run dev              # run the landing site → http://localhost:4321
 npm run e2e              # live end-to-end against a local Anvil chain
 ```
-
-## Packages
-
-| Package | Path | Description |
-|---|---|---|
-| `@piprail/sdk` | `sdk/` | The SDK. Accept payments (`requirePayment` / `createPaymentGate`) and make them (`PipRailClient`), on any EVM chain and Solana. |
-| `@piprail/site` | `site/` | `piprail.com` landing page. Static Astro 5 + Tailwind v4, deployed to Cloudflare Pages. |
-| `@piprail/examples` | `examples/` | Runnable examples + live e2e tests against a local Anvil chain. |
-
-See [sdk/README.md](sdk/README.md) for the full API.
 
 ## How it works
 
