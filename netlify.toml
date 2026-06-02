@@ -1,0 +1,11 @@
+# PipRail site — static Astro 5, built from the site/ workspace of this monorepo.
+# Netlify installs at the repo root (npm workspace, root lockfile) and builds the
+# site; the static output in site/dist is what gets published.
+[build]
+  command = "npm run build"
+  publish = "site/dist"
+  # Skip a site rebuild when a push didn't touch the site (e.g. SDK-only commits).
+  ignore = "git diff --quiet HEAD^ HEAD -- site/ package.json package-lock.json netlify.toml"
+
+[build.environment]
+  NODE_VERSION = "22"
