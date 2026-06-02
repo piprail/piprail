@@ -1,9 +1,9 @@
 name: site
 
-# Builds the Astro site on every change to site/, and deploys it to
-# Cloudflare Pages when the Cloudflare secrets are present. Until
-# CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID are added to the repo, the
-# build still runs (validating the site) and the deploy step is skipped.
+# CI build check only. Deployment is handled by DigitalOcean App Platform,
+# which auto-builds and deploys the site (root build command `npm run build`,
+# output `site/dist`) on every push to main. This workflow just catches a
+# broken site build early on PRs/pushes — no deploy, no secrets.
 on:
   push:
     branches: [main]
@@ -16,18 +16,11 @@ on:
     paths:
       - 'site/**'
       - '.github/workflows/site.yml'
-  workflow_dispatch:
 
 jobs:
-  deploy:
-    name: build + deploy to Cloudflare Pages
+  build:
+    name: build (CI check)
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      deployments: write
-    env:
-      CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -37,13 +30,3 @@ jobs:
           cache-dependency-path: package-lock.json
       - run: npm ci
       - run: npm run build -w @piprail/site
-      - name: Deploy to Cloudflare Pages
-        if: ${{ env.CF_API_TOKEN != '' }}
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ env.CF_API_TOKEN }}
-          accountId: ${{ env.CF_ACCOUNT_ID }}
-          command: pages deploy site/dist --project-name=piprail
-      - name: Cloudflare not configured — deploy skipped
-        if: ${{ env.CF_API_TOKEN == '' }}
-        run: echo "::notice::Built the site but skipped deploy — add CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID repo secrets to enable Cloudflare Pages deploys."
