@@ -1,0 +1,31 @@
+name: sdk-release
+
+# Publishes @piprail/sdk to npm when a tag matching sdk-v* is pushed
+# (e.g. `git tag sdk-v1.0.0 && git push origin sdk-v1.0.0`).
+# Triggered by tag only (no paths filter — paths filtering is unreliable on
+# tag pushes), and gated by the package's own prepublishOnly (build + test +
+# typecheck) which runs inside the workspace on publish.
+on:
+  push:
+    tags:
+      - 'sdk-v*'
+
+jobs:
+  publish:
+    name: publish @piprail/sdk to npm
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: 'https://registry.npmjs.org'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm run build -w @piprail/sdk
+      - run: npm publish -w @piprail/sdk --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

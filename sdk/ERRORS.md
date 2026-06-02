@@ -1,0 +1,182 @@
+# PipRail error handling — the standard
+
+This is the **single source of truth** for how `@piprail/sdk` reports errors. It is
+deliberately small and uniform: every module — the client, the server gate, the registry,
+and every chain driver (EVM, Solana, TON, Stellar, and any future family) — follows it
+*exactly*, so a human developer, a merchant server, or an AI agent always gets a **typed,
+understandable** reason, never an opaque chain-library blob.
+
+> If you're adding a chain/family/token, the `add-chain-integration` skill points here.
+> Follow §5 (the driver contract) verbatim and your module is consistent by construction.
+
+---
+
+## 1. Two channels, and only two
+
+Every failure surfaces through exactly one of two chain-agnostic channels:
+
+| | Channel | Shape | For |
+|---|---|---|---|
+| **1** | **THROWN** | a typed [`PipRailError`](src/errors.ts) subclass with a stable `.code` | config / flow / wallet / registry / affordability problems the caller acts on |
+| **2** | **RETURNED** | `VerifyResult` `{ ok: false, error, detail }` where `error` is a `VerifyErrorCode` | the outcome of verifying an on-chain proof (server side) |
+
+- **Thrown** errors are caught with `err instanceof PipRailError`, or branched on `err.code`
+  (a stable `SCREAMING_SNAKE` string). They never leak a raw `viem`/`@solana`/`@ton`/
+  `@stellar` error for a condition the SDK recognises.
+- **Returned** `VerifyResult` is how a driver's `verify()` reports *why a proof was rejected*
+  without throwing. The gate turns `{ ok: false, error, detail }` into the canonical 402
+  body `{ x402Version: 2, status: 'invalid', error, detail }` (built once by
+  [`toInvalidBody`](src/server.ts)); the client relays it to the agent.
+
+Rule of thumb: **config/flow/wallet/registry/affordability → throw; proof-verification
+outcome → return.** Replay (`tx_already_used`) is the one verify-style code emitted by the
+*gate* (not a driver), because only the gate owns the used-proof set.
+
+---
+
+## 2. Channel 1 — thrown `PipRailError`
+
+Base class [`PipRailError`](src/errors.ts) (abstract; `.name` = the subclass name; supports
+`{ cause }`). All are exported from the package root.
+
+| `.code` | Class | Thrown when | Thrown by |
+|---|---|---|---|
+| `WRONG_FAMILY` | `WrongFamilyError` | wallet / `payTo` / token given in another family's shape (or a malformed same-family shape) | every driver (`bindWallet`, `assertValidPayTo`, `resolveToken`) |
+| `UNKNOWN_TOKEN` | `UnknownTokenError` | a built-in token symbol the chain doesn't ship (e.g. `token: 'DOGE'`) | every driver (`resolveToken`) |
+| `INSUFFICIENT_FUNDS` | `InsufficientFundsError` | wallet can't cover the transfer (+ fees/reserve/trustline) | every driver (`send`) — see §6 |
+| `WRONG_CHAIN` | `WrongChainError` | a bring-your-own `walletClient` is on a different chain than configured | EVM wallet adapter; client pre-send guard |
+| `CONFIRMATION_TIMEOUT` | `ConfirmationTimeoutError` | broadcast OK but the tx didn't confirm within the driver's window (re-check the ref) | every driver (`confirm`) |
+| `PAYMENT_TIMEOUT` | `PaymentTimeoutError` | the **server** didn't respond within `retryTimeoutMs` *after* a confirmed payment | client |
+| `MAX_RETRIES_EXCEEDED` | `MaxRetriesExceededError` | server kept returning 402 after the proof confirmed — **message embeds the last server `error — detail`** | client |
+| `PAYMENT_DECLINED` | `PaymentDeclinedError` | the client refused to pay BEFORE any send — over the spend `policy` (amount/total/chain/token/host), or an `onBeforePay` hook returned false / threw | client |
+| `INVALID_ENVELOPE` | `InvalidEnvelopeError` | a 402 had no parseable x402 challenge | client |
+| `NO_COMPATIBLE_ACCEPT` | `NoCompatibleAcceptError` | the challenge offered no `accepts[]` entry for the client's network | client |
+| `NON_REPLAYABLE_BODY` | `NonReplayableBodyError` | `init.body` isn't replayable (e.g. a one-shot stream) | client |
+| `MISSING_DRIVER` | `MissingDriverError` | a family's **optional peer deps aren't installed** (the lazy `import()` failed) — message names the exact `npm install` and sets `{ cause }` | registry loaders |
+| `UNSUPPORTED_NETWORK` | `UnsupportedNetworkError` | no driver for the family, or the driver's `resolve()` returned `null` (unrecognised `chain`) | registry |
+
+`MISSING_DRIVER` vs `UNSUPPORTED_NETWORK` is a deliberate split: *deps not installed* vs
+*chain not supported*. Don't reuse one for the other.
+
+---
+
+## 3. Channel 2 — returned `VerifyErrorCode`
+
+A closed `snake_case` union ([`x402.ts`](src/x402.ts)). A driver's `verify()` returns one of
+these on `{ ok: false, error, detail }`. **The compiler enforces the set** — you can't invent
+a code, and you must use the same code other drivers use for the same condition.
+
+| code | meaning | transient? | who emits it |
+|---|---|---|---|
+| `tx_not_found` | proof tx not on chain yet (RPC lag) or a transient RPC read failed | **transient** | all drivers |
+| `insufficient_confirmations` | mined, but `< minConfirmations` | **transient** | EVM (chains with a discrete confirmation count) |
+| `tx_reverted` | the tx is on chain but failed / reverted | definitive | all |
+| `no_meta` | the tx carries no metadata to inspect | definitive | Solana |
+| `wrong_recipient` | paid, but not to `payTo` | definitive | EVM / Solana native path |
+| `amount_too_low` | paid to `payTo`, but `< required` | definitive | all |
+| `transfer_not_found` | no matching transfer (asset / amount / nonce) to `payTo` | definitive | all |
+| `payment_expired` | older than `maxTimeoutSeconds` (replay window) | definitive | all |
+| `tx_already_used` | this proof was already redeemed (replay) | definitive | the **gate** (not drivers) |
+
+**Family-specificity is structural, not drift.** Account-watch chains (TON, Stellar) scan the
+merchant account and can't tell "wrong recipient" from "no payment", so both collapse to
+`transfer_not_found`; `no_meta` is Solana-only; `insufficient_confirmations` needs a discrete
+confirmation count (EVM). Likewise EVM/Solana digest verifiers report a short token payment as
+`transfer_not_found` (no nonce binding to point at), while nonce-bound chains (TON/Stellar)
+can say `amount_too_low`. All correct.
+
+**`transient`/`definitive` are informational.** The built-in client retries **every** code up
+to `maxPaymentRetries` with a short backoff (which absorbs RPC lag) — it does *not* branch on
+the code. A consumer building a custom client may branch on it.
+
+---
+
+## 4. What the agent receives
+
+- **Rejected proof →** a `402` with body `{ x402Version: 2, status: 'invalid', error, detail }`.
+  Always build it with [`toInvalidBody(result)`](src/server.ts) so Express, Hono, Fastify,
+  Workers, etc. emit the *identical* envelope.
+- **Client gave up →** `MaxRetriesExceededError` whose message embeds the last server
+  `error — detail` (e.g. `… Last server rejection: amount_too_low — Paid 40000, required
+  500000.`), and a `payment-failed` event carrying the same reason.
+- **Client refused to pay →** `PaymentDeclinedError` thrown *before* any on-chain send — the
+  quote exceeded the client's `policy`, or an `onBeforePay` hook returned false. Nothing moved.
+- **Config / flow / wallet problem →** a thrown `PipRailError` with a stable `.code`.
+
+Observability hooks never change control flow: the gate wraps `onPaid`, and the client routes
+every event through a private `safeEmit()` that swallows handler throws — a logging bug can't
+abort a payment.
+
+---
+
+## 5. The driver error contract (follow this verbatim)
+
+Every `PaymentDriver` / `ResolvedNetwork` method has a fixed error behaviour:
+
+| method | on error |
+|---|---|
+| `resolve(opts)` | recognise + bind, **or return `null`** (registry maps `null` → `UnsupportedNetworkError`). Never throw a raw chain error for unrecognised input. |
+| `resolveToken(token)` | unknown built-in symbol → `UnknownTokenError`; a foreign-family object token → `WrongFamilyError` (call the shared [`rejectForeignToken(token, family, network)`](src/drivers/shared.ts)); a malformed own-family token → `WrongFamilyError`. |
+| `assertValidPayTo(payTo)` | a non-family address → `WrongFamilyError`. |
+| `bindWallet(wallet)` | a foreign / unusable wallet shape → `WrongFamilyError`. |
+| `send(wallet, accept)` | wrap the broadcast; map affordability → `InsufficientFundsError` (§6); **rethrow everything else unchanged** (never swallow). |
+| `verify(ref, accept)` | **return** a `VerifyResult` with a canonical `VerifyErrorCode`. **Guard every RPC read** so a transient failure returns `tx_not_found` — `verify()` must not throw for an RPC hiccup. Re-derive the watched account from the trusted `accept`, never the client ref. |
+| `confirm(ref, n)` | broadcast-but-not-confirmed / timeout → `ConfirmationTimeoutError`. |
+
+### 6. Affordability converges on one error, by two mechanisms
+
+"Wallet can't pay" must always surface as **`InsufficientFundsError`** — but the *detection*
+is per-chain, because each library exposes a different signal:
+
+- **Message-regex drivers (Solana, TON):** `send()` does
+  `catch (err) { throw toInsufficientFundsError(err) ?? err }`. The shared
+  [`toInsufficientFundsError`](src/errors.ts) matches the common "can't afford it" messages and
+  returns `null` on a miss (so the original error propagates unchanged — never swallowed).
+- **Structured-error drivers (EVM, Stellar):** detect from typed data — EVM walks viem's
+  `BaseError` chain for a nested `InsufficientFundsError`; Stellar reads Horizon
+  `result_codes` (and treats an unfunded source account's `loadAccount` 404 as the same). Both
+  then *also* fall through to `toInsufficientFundsError` as a message-level backstop, so the
+  two paths can't drift in vocabulary.
+
+Either way the caller sees one `InsufficientFundsError` with `.code === 'INSUFFICIENT_FUNDS'`.
+
+---
+
+## 7. Registry / loader pattern
+
+- EVM is registered eagerly (`viem` is the one hard peer dep). Solana / TON / Stellar mount
+  lazily via a single dynamic `import()` in [`drivers/index.ts`](src/drivers/index.ts) the
+  first time their `chain` is named — no setup call.
+- A failed lazy `import()` → `MissingDriverError` naming the exact `npm install` + `{ cause }`.
+  The in-flight promise isn't cached on failure, so a later call can retry.
+- No driver for the family, or `resolve()` → `null` → `UnsupportedNetworkError`.
+- Add a family = one loader entry + a mirrored `drivers/<family>/` folder. Nothing else in the
+  protocol layer changes.
+
+---
+
+## 8. Shared building blocks (don't reinvent per chain)
+
+| Helper | Where | Purpose |
+|---|---|---|
+| `toInsufficientFundsError(err)` | [`errors.ts`](src/errors.ts) | message → `InsufficientFundsError \| null` (the affordability backstop) |
+| `rejectForeignToken(token, family, network)` | [`drivers/shared.ts`](src/drivers/shared.ts) | uniform `WrongFamilyError` for a foreign-family object token (data-driven; a new family is auto-covered) |
+| `toInvalidBody(result)` | [`server.ts`](src/server.ts) | the canonical 402 'invalid' JSON body for every framework adapter |
+| `delay(ms)` | [`util/async.ts`](src/util/async.ts) | the one poll/confirm delay shared by all drivers |
+| `safeEmit(event)` | client (private); the gate mirrors it with an inline try/catch around `onPaid` | observability hooks never abort the flow |
+
+---
+
+## 9. New-module error checklist
+
+```
+- [ ] verify() returns ONLY canonical VerifyErrorCode values (compiler-enforced); same code
+      as other drivers for the same condition; every RPC read guarded → tx_not_found on failure.
+- [ ] send() wraps the broadcast and maps affordability → InsufficientFundsError
+      (toInsufficientFundsError for message-only chains; structured detection + that backstop otherwise).
+- [ ] confirm() → ConfirmationTimeoutError on broadcast-but-not-confirmed.
+- [ ] resolveToken(): unknown symbol → UnknownTokenError; foreign token → rejectForeignToken(...).
+- [ ] bindWallet() / assertValidPayTo() → WrongFamilyError for the wrong shape, message names the right one.
+- [ ] loader entry throws MissingDriverError with the exact `npm install` + { cause }.
+- [ ] No raw chain error escapes for a condition the SDK recognises; the rest rethrow unchanged.
+```

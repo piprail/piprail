@@ -1,0 +1,72 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build artifacts
+dist/
+build/
+.astro/
+
+# SDK build/test
+sdk/dist/
+sdk/test-results/
+sdk/*.tgz
+
+# Contracts build
+contracts/out/
+contracts/cache/
+contracts/cache_hardhat/
+contracts/broadcast/
+contracts/artifacts/
+
+# Site build
+site/dist/
+site/.astro/
+
+# Env files
+.env
+.env.local
+.env.*.local
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Misc
+.cache/
+coverage/
+.nyc_output/
+
+# Local-only mainnet test scripts (read keys from external .secrets at runtime)
+examples/*.local.mjs
+
+# Local-only secret store (wallet mnemonic + private key). NEVER commit.
+.secrets/
+
+# Root build/scratch outputs (Foundry leftovers, packed tarballs, etc.)
+/out/
+/cache/
+
+# Design working files + asset backups — kept local, not shipped in the repo
+/design/
+/site/asset-backups/
+
+# Local agent tooling / planning notes (not part of the product)
+/.claude/
+/CLAUDE.md
+
+# Stray local screenshots
+screencapture-*.png
+Screenshot*.png

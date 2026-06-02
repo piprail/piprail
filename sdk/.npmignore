@@ -1,0 +1,12 @@
+node_modules/
+src/
+test/
+tsconfig.json
+tsup.config.ts
+vitest.config.ts
+.eslintrc*
+.prettierrc*
+.gitignore
+.github/
+*.tgz
+*.log

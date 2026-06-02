@@ -1,0 +1,34 @@
+---
+// A bordered checklist grid. Each item is { label, desc? }; an accent check
+// marks every row. `cols={2}` lays it out in two columns from `sm` up.
+import { Check } from 'lucide-astro'
+
+interface Item {
+  label: string
+  desc?: string
+}
+interface Props {
+  items: Item[]
+  cols?: 1 | 2
+}
+
+const { items, cols = 1 } = Astro.props
+---
+
+<ul
+  class:list={[
+    'grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10',
+    cols === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1',
+  ]}
+>
+  {items.map((it) => (
+    <li class="flex items-start gap-3 bg-neutral-950 px-5 py-4 text-[15px]">
+      <span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-soft ring-1 ring-inset ring-accent/25">
+        <Check size={12} class="text-accent" aria-hidden="true" />
+      </span>
+      <span class="leading-snug text-neutral-200">
+        {it.label}{it.desc && <span class="text-neutral-500"> — {it.desc}</span>}
+      </span>
+    </li>
+  ))}
+</ul>

@@ -1,0 +1,101 @@
+---
+import '../styles/global.css'
+
+interface Props {
+  title?: string
+  description?: string
+}
+
+const {
+  title = 'PipRail — x402 crypto payment SDK for every chain (EVM, Solana, TON, Tron, NEAR, Sui, Stellar, XRPL)',
+  description =
+    'Accept and make x402 crypto payments on any EVM chain, Solana, TON, Tron, NEAR, Sui, Stellar, and the XRP Ledger — in one line. No middleman, no account, no fee: USDC/USDT settles straight to your wallet, verified locally against your own RPC. Agent-safe spend budgets, one-line multi-chain, pre-pay gas estimates, MCP-ready. The drop-in payment SDK for AI agents.',
+} = Astro.props
+
+const site = Astro.site?.href.replace(/\/$/, '') ?? 'https://piprail.com'
+const canonical = new URL(Astro.url.pathname, site).href
+const ogImage = `${site}/og.png`
+
+// What PipRail can do — a machine-readable capability list for search engines and
+// AI agents scraping the page. Mirrors the SDK's actual feature set.
+const featureList = [
+  'One-line x402 (HTTP 402 Payment Required) payments — gate a server route, or auto-pay as a client',
+  'Widest native, self-custodial chain coverage of any x402 SDK — the only package that reaches TON, Tron, NEAR, Sui, and the XRP Ledger together, with the payer broadcasting their own transfer (no facilitator settling in the middle)',
+  '24 chains built in: 17 EVM mainnets, Solana, TON, Tron, NEAR, Sui, Stellar, and the XRP Ledger — one parameter picks the chain',
+  'Pay in USDC, USDT, EURC, or the chain native coin; any other token by address',
+  'No hosted backend, no database, no account, no fee, no hosted facilitator — self-custody, verified locally against your own RPC',
+  'Agent spend controls: per-call and lifetime budgets with chain/token/host allowlists, refused before any on-chain send',
+  'Quote a price without paying, approve each payment, and read back a per-token spend ledger',
+  'Multi-chain accepts: one challenge offers several chains and the agent pays with what it holds',
+  'Framework-agnostic agent toolkit for MCP, the Vercel AI SDK, and LLM function-calling',
+  'TypeScript, runs headless or in the browser, MIT licensed',
+]
+
+// SoftwareApplication structured data — helps search engines + AI agents understand the product.
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'PipRail',
+  alternateName: '@piprail/sdk',
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'Node.js, Browser',
+  description,
+  url: site,
+  downloadUrl: 'https://www.npmjs.com/package/@piprail/sdk',
+  codeRepository: 'https://github.com/piprail',
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+  programmingLanguage: 'TypeScript',
+  license: 'https://opensource.org/licenses/MIT',
+  author: { '@type': 'Person', name: 'John Weeks' },
+  featureList,
+  keywords:
+    'x402, crypto payments, agent payments, agentic commerce, machine payments, EVM, Solana, TON, Tron, NEAR, Sui, Stellar, XRPL, XRP, USDC, USDT, EURC, RLUSD, stablecoin, 402 Payment Required, AI agents, MCP, multi-chain, spend budget, web3 SDK',
+}
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="generator" content={Astro.generator} />
+
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <meta name="theme-color" content="#0a0b0c" />
+    <meta
+      name="keywords"
+      content="x402, crypto payment SDK, agent payments, agentic commerce, EVM, Solana, TON, Tron, NEAR, Sui, Stellar, XRPL, XRP, USDC, USDT, EURC, RLUSD, stablecoin, 402 Payment Required, AI agents, MCP, multi-chain, spend budget, web3, machine payments"
+    />
+
+    <!-- Open Graph -->
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:site_name" content="PipRail" />
+    <meta property="og:image" content={ogImage} />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+  </head>
+  <body class="min-h-screen antialiased">
+    <slot />
+  </body>
+</html>

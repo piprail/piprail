@@ -1,0 +1,466 @@
+---
+import Layout from '../layouts/Layout.astro'
+import CodeWindow from '../components/CodeWindow.astro'
+import SectionHeading from '../components/SectionHeading.astro'
+import FeatureGrid from '../components/FeatureGrid.astro'
+import { chains } from '../data/chains'
+import {
+  acceptCode, payCode, oneParamCode, exoticCode, solanaCode, agentSafeCode, multiAcceptCode,
+} from '../data/snippets'
+import {
+  Zap, Coins, ShieldCheck, PackageCheck,
+  Boxes, Percent, Code2, Scale, ArrowRight, Globe,
+} from 'lucide-astro'
+
+const stats = [
+  { icon: Boxes, v: '24', l: 'chains built in' },
+  { icon: Percent, v: '0', l: 'protocol fee' },
+  { icon: Code2, v: '1', l: 'line to integrate' },
+  { icon: Scale, v: 'MIT', l: 'open source' },
+]
+
+// "A tool, not a platform" — what you DON'T need.
+const noNeed = [
+  { label: 'No lock-in' }, { label: 'No database' }, { label: 'No account or API key' },
+  { label: 'No monthly fee' }, { label: 'No contract to deploy' }, { label: 'No hosted facilitator' },
+]
+
+// Agent spend controls — the client-side guardrails.
+const agentGuards = [
+  { label: 'Spend limits', desc: 'per-call + lifetime caps, enforced on the token’s true decimals' },
+  { label: 'Quote first', desc: 'learn the exact price without paying it' },
+  { label: 'Estimate the gas', desc: 'native-coin network fee before you pay — on every chain' },
+  { label: 'Approve each pay', desc: 'a final yes/no hook before any funds move' },
+  { label: 'Spend ledger', desc: 'read back exactly what was spent, per token' },
+  { label: 'One wallet, an LLM tool', desc: 'drop into MCP or the AI SDK — budget rides along' },
+]
+
+const steps = [
+  { icon: Zap, n: '01', t: 'Agent calls your route', d: 'It gets back a 402 quote — price, token, payTo, and chain.' },
+  { icon: Coins, n: '02', t: 'Agent pays on-chain', d: 'One transfer, straight to your wallet. PipRail never touches the funds.' },
+  { icon: ShieldCheck, n: '03', t: 'You verify locally', d: 'Your server checks the tx against your own RPC: succeeded, recent, right amount and recipient.' },
+  { icon: PackageCheck, n: '04', t: 'You return the data', d: '200 OK, the gated content flows, and the same proof can never be spent twice.' },
+]
+
+// Why PipRail — the honest, defensible differentiators vs the x402 field.
+const why = [
+  {
+    icon: Globe,
+    t: 'Widest coverage in x402',
+    d: '24 chains across 8 families, with native, self-custodial drivers — the only package that reaches TON, Tron, NEAR, Sui, and the XRP Ledger together. No other x402 SDK ships this many.',
+  },
+  {
+    icon: ShieldCheck,
+    t: 'Backendless by default',
+    d: 'No facilitator, no relayer, no protocol fee. The payer broadcasts their own transfer, and you verify it against your own RPC — where most x402 stacks settle through a third-party facilitator in the middle.',
+  },
+  {
+    icon: Zap,
+    t: 'One line, zero infra',
+    d: 'npm install, name a chain, add a wallet. Nothing to sign up for, deploy, or host — you’re charging agents in minutes.',
+  },
+]
+
+// How to support the project (sponsor / fund / partner).
+const backWays = ['Fund development', 'Sponsor a chain', 'Integrate & partner']
+---
+
+<Layout>
+  <!-- Nav -->
+  <header class="mx-auto flex max-w-6xl items-center justify-between px-4 py-6 sm:px-6">
+    <a href="/" class="flex items-center gap-2.5 font-semibold tracking-tight">
+      <img src="/logo.png" alt="" width="28" height="28" class="h-7 w-7 rounded-lg ring-1 ring-white/10" />
+      PipRail
+    </a>
+    <nav class="flex items-center gap-6 text-sm text-muted sm:gap-7">
+      <a href="https://www.npmjs.com/package/@piprail/sdk" class="transition hover:text-neutral-100">npm</a>
+      <a href="https://github.com/piprail" class="transition hover:text-neutral-100">GitHub</a>
+      <a href="https://x402.org" class="hidden transition hover:text-neutral-100 sm:inline">x402</a>
+    </nav>
+  </header>
+
+  <main class="mx-auto max-w-6xl px-4 sm:px-6">
+    <!-- Hero -->
+    <section class="fade-up py-16 text-center sm:py-20 md:py-28">
+      <p class="mb-7 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3.5 py-1.5 text-xs text-muted">
+        <span class="h-1.5 w-1.5 rounded-full bg-accent animate-pulse"></span>
+        Open x402 standard · verified live on mainnet
+      </p>
+      <h1 class="mx-auto max-w-4xl text-[2.5rem] font-semibold leading-[1.05] tracking-tight sm:text-6xl md:text-7xl">
+        The payment layer for the
+        <span class="text-accent">agent economy</span>.
+      </h1>
+      <p class="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-neutral-400 sm:text-lg md:text-xl">
+        Accept x402 crypto payments on any EVM chain, Solana, TON, Tron, NEAR, Sui, Stellar, and XRPL — in one line.
+        USDC, USDT, or the chain's native coin settles <span class="text-neutral-200">straight into your wallet</span>.
+        No middleman, no account, no fee.
+      </p>
+
+      <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        <div class="flex w-full max-w-xs items-center gap-3 rounded-xl border border-white/10 bg-neutral-900/80 px-5 py-3.5 font-mono text-sm sm:w-auto">
+          <span class="select-none text-neutral-600">$</span>
+          <span class="truncate">npm install @piprail/sdk viem</span>
+        </div>
+        <a
+          href="https://www.npmjs.com/package/@piprail/sdk"
+          class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto"
+        >
+          Get started <ArrowRight size={16} aria-hidden="true" />
+        </a>
+      </div>
+
+      <!-- Chain strip -->
+      <div class="mt-14 sm:mt-16">
+        <p class="mb-6 text-[11px] uppercase tracking-[0.2em] text-neutral-600">Live on every major chain</p>
+        <div class="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-x-7 gap-y-5 sm:gap-x-9">
+          {chains.map((c) => (
+            <img
+              src={`/chains/${c.slug}.svg`}
+              alt={`${c.name} logo`}
+              width="28"
+              height="28"
+              loading="lazy"
+              class="h-7 w-7 rounded-full ring-1 ring-white/10 opacity-90 transition hover:scale-110 hover:opacity-100"
+            />
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <!-- Stats -->
+    <section aria-label="At a glance" class="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 md:grid-cols-4">
+      {stats.map((s) => {
+        const Icon = s.icon
+        return (
+          <div class="bg-neutral-950 px-5 py-7 text-center sm:py-8">
+            <Icon size={18} class="mx-auto mb-2.5 text-neutral-600" aria-hidden="true" />
+            <p class="text-3xl font-semibold tracking-tight text-neutral-100 md:text-4xl">{s.v}</p>
+            <p class="mt-1 text-sm text-neutral-500">{s.l}</p>
+          </div>
+        )
+      })}
+    </section>
+
+    <!-- Accept / Pay -->
+    <section class="py-20 sm:py-24">
+      <SectionHeading title="Two sides, one SDK." class="mb-10 max-w-2xl sm:mb-12">
+        The same package lets a server <span class="text-neutral-200">charge</span> for a
+        route and an agent <span class="text-neutral-200">pay</span> for one. Both in a
+        couple of lines.
+      </SectionHeading>
+
+      <div class="grid gap-6 lg:grid-cols-2">
+        <div class="min-w-0">
+          <h3 class="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted">
+            <span class="h-1.5 w-1.5 rounded-full bg-accent"></span> Accept — charge for any endpoint
+          </h3>
+          <CodeWindow file="server.ts" code={acceptCode} />
+          <p class="mt-3 text-sm leading-relaxed text-neutral-500">
+            Drop it into Express, Hono, Next.js, or a Cloudflare/Vercel edge function. No
+            always-on backend, no database.
+          </p>
+        </div>
+        <div class="min-w-0">
+          <h3 class="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted">
+            <span class="h-1.5 w-1.5 rounded-full bg-accent"></span> Pay — let an agent pay for itself
+          </h3>
+          <CodeWindow file="agent.ts" code={payCode} />
+          <p class="mt-3 text-sm leading-relaxed text-neutral-500">
+            Runs anywhere JavaScript does: Node, edge, or the browser. In-browser agents and
+            dapps pay client-side.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- One parameter, every chain -->
+    <section class="border-t border-white/10 py-20 sm:py-24">
+      <SectionHeading title="One word picks the chain.">
+        Switch networks by changing a single string — from Ethereum to Solana
+        to TON. Same one line, same wallet, every chain that matters.
+      </SectionHeading>
+      <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:items-center">
+        <CodeWindow code={oneParamCode} preClass="overflow-x-auto p-5 font-mono text-[12px] leading-[1.7] sm:text-sm" />
+        <div class="space-y-5">
+          <div class="flex flex-wrap gap-2">
+            {chains.slice(0, 8).map((c) => (
+              <span class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/3 px-3 py-1.5 text-sm text-neutral-300">
+                <img src={`/chains/${c.slug}.svg`} alt="" width="16" height="16" loading="lazy" class="h-4 w-4 rounded-full ring-1 ring-white/10" />
+                {c.name}
+              </span>
+            ))}
+            <a href="#chains" class="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/3 px-3 py-1.5 text-sm text-neutral-400 transition hover:border-white/20 hover:text-neutral-200">
+              +{chains.length - 8} more
+            </a>
+          </div>
+          <div class="flex items-center gap-3 rounded-xl border border-white/10 bg-white/2 px-4 py-3">
+            <span class="flex shrink-0 items-center">
+              <img src="/tokens/usdc.svg" alt="USDC" width="24" height="24" class="h-6 w-6 rounded-full ring-1 ring-neutral-950" />
+              <img src="/tokens/usdt.svg" alt="USDT" width="24" height="24" class="-ml-2 h-6 w-6 rounded-full ring-1 ring-neutral-950" />
+            </span>
+            <p class="text-sm leading-snug text-neutral-400">
+              <span class="text-neutral-200">USDC, USDT, or the native coin</span> on every chain —
+              name the token, the SDK fills in the rest.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- …or accept several at once -->
+      <div class="mt-6">
+        <p class="mb-3 text-xs font-medium uppercase tracking-wider text-muted">Or take several chains in one challenge</p>
+        <CodeWindow code={multiAcceptCode} />
+        <p class="mt-3 max-w-3xl text-sm leading-relaxed text-neutral-500">
+          Offer many chains at once, and the paying agent picks the one it holds funds on — no
+          per-chain routes to wire up.
+        </p>
+      </div>
+    </section>
+
+    <!-- Agent-safe -->
+    <section class="border-t border-white/10 py-20 sm:py-24">
+      <SectionHeading title="Agent-safe by default.">
+        Hand an autonomous agent a wallet without losing sleep. Set a budget, and PipRail
+        refuses anything outside it <span class="text-neutral-200">before a single token moves</span> —
+        learn a price before paying, approve each spend, and read back exactly what went out.
+      </SectionHeading>
+      <div class="grid gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:items-center">
+        <CodeWindow file="agent.ts" code={agentSafeCode} class="min-w-0" />
+        <FeatureGrid items={agentGuards} />
+      </div>
+    </section>
+
+    <!-- A tool, not a platform -->
+    <section class="border-t border-white/10 py-20 sm:py-24">
+      <div class="grid gap-10 xl:grid-cols-2 xl:items-center xl:gap-14">
+        <div>
+          <h2 class="text-3xl font-semibold tracking-tight md:text-4xl">A tool, not a platform.</h2>
+          <p class="mt-4 max-w-md text-base leading-relaxed text-neutral-400 sm:text-lg">
+            PipRail is an SDK you <code class="rounded bg-white/5 px-1.5 py-0.5 font-mono text-[0.9em] text-neutral-300">npm&nbsp;install</code> —
+            not a service you sign up for. Verification runs in your own process,
+            against your own RPC. Nothing sits between the payer and your wallet, and
+            PipRail never takes a cut of a payment. The open SDK is free and
+            standalone, and always will be.
+          </p>
+        </div>
+        <FeatureGrid items={noNeed} cols={2} />
+      </div>
+    </section>
+
+    <!-- Why PipRail — differentiation -->
+    <section class="border-t border-white/10 py-20 sm:py-24">
+      <SectionHeading title="No other x402 SDK reaches this far.">
+        PipRail ships native, self-custodial drivers for more chains than any other x402 SDK —
+        and it's the only package that reaches TON, Tron, NEAR, Sui, and the XRP Ledger
+        together. Backendless, no fee, no one in the middle.
+      </SectionHeading>
+      <div class="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 md:grid-cols-3">
+        {why.map((w) => {
+          const Icon = w.icon
+          return (
+            <div class="bg-neutral-950 p-6 sm:p-8">
+              <span class="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5">
+                <Icon size={18} class="text-accent" aria-hidden="true" />
+              </span>
+              <p class="mt-4 text-lg font-medium text-neutral-100">{w.t}</p>
+              <p class="mt-2 leading-relaxed text-neutral-500">{w.d}</p>
+            </div>
+          )
+        })}
+      </div>
+    </section>
+
+    <!-- Chains grid -->
+    <section id="chains" class="scroll-mt-20 border-t border-white/10 py-20 sm:py-24">
+      <SectionHeading title="Built-in chains.">
+        Seventeen EVM mainnets, plus Solana, TON, Tron, NEAR, Sui, Stellar, and
+        the XRP Ledger — each with its canonical stablecoins or native coin, ready
+        to go. Any other chain works via one config object.
+      </SectionHeading>
+
+      {/* A structured, named list — chain on the left, its built-in stablecoins
+          named (icon + label) on the right. Clear to humans who don't read the
+          icons, and machine-readable for agents/scrapers. flex-wrap keeps it
+          pristine on every width: one line on wide rows, chain-then-tokens when
+          narrow. Two columns from tablet up so it never gets long or squashed. */}
+      <ul class="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 sm:grid-cols-2">
+        {chains.map((c) => (
+          <li class="group flex flex-wrap items-center gap-x-3 gap-y-2.5 bg-neutral-950 px-4 py-4 transition hover:bg-neutral-900 sm:px-5">
+            <img
+              src={`/chains/${c.slug}.svg`}
+              alt={`${c.name} logo`}
+              width="36"
+              height="36"
+              loading="lazy"
+              class="h-9 w-9 shrink-0 rounded-full ring-1 ring-white/10 transition group-hover:scale-105"
+            />
+            <span class="mr-auto text-[15px] font-medium text-neutral-100">{c.name}</span>
+            <span class="flex flex-wrap items-center gap-1.5">
+              {c.tokens.map((t) => (
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-1 text-xs font-medium text-neutral-300 ring-1 ring-white/10">
+                  <img
+                    src={`/tokens/${t}.svg`}
+                    alt=""
+                    width="16"
+                    height="16"
+                    loading="lazy"
+                    class="h-4 w-4 rounded-full"
+                  />
+                  {t.toUpperCase()}
+                </span>
+              ))}
+            </span>
+          </li>
+        ))}
+        {/* Keep the 2-col grid a clean rectangle when the chain count is odd. */}
+        {chains.length % 2 === 1 && (
+          <li class="hidden bg-neutral-950 sm:block" aria-hidden="true"></li>
+        )}
+      </ul>
+
+      <div class="mt-6 grid gap-6 lg:grid-cols-2">
+        <div class="min-w-0">
+          <p class="mb-3 text-xs font-medium uppercase tracking-wider text-muted">Any other EVM chain</p>
+          <CodeWindow code={exoticCode} />
+        </div>
+        <div class="min-w-0">
+          <p class="mb-3 text-xs font-medium uppercase tracking-wider text-muted">Beyond EVM — Solana, TON, Tron, NEAR, Sui, Stellar &amp; XRPL auto-mount</p>
+          <CodeWindow code={solanaCode} />
+        </div>
+      </div>
+    </section>
+
+    <!-- How it works -->
+    <section class="border-t border-white/10 py-20 sm:py-24">
+      <SectionHeading title="How it works." class="mb-10 max-w-2xl sm:mb-12">
+        A four-step round trip over plain HTTP. No facilitator, no custody.
+      </SectionHeading>
+      <div class="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 md:grid-cols-2">
+        {steps.map((s) => {
+          const Icon = s.icon
+          return (
+            <div class="bg-neutral-950 p-6 sm:p-8">
+              <div class="flex items-center gap-3">
+                <span class="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5">
+                  <Icon size={18} class="text-accent" aria-hidden="true" />
+                </span>
+                <span class="font-mono text-sm font-medium text-neutral-500">{s.n}</span>
+              </div>
+              <p class="mt-4 text-lg font-medium text-neutral-100">{s.t}</p>
+              <p class="mt-2 leading-relaxed text-neutral-500">{s.d}</p>
+            </div>
+          )
+        })}
+      </div>
+      <p class="mt-6 max-w-3xl text-sm leading-relaxed text-neutral-500">
+        x402 v2 (§7) explicitly endorses merchant-local verification — no
+        facilitator required. Self-custody throughout: the payer signs and
+        broadcasts their own transfer; PipRail never holds funds.
+      </p>
+    </section>
+
+    <!-- CTA -->
+    <section class="border-t border-white/10 py-24 text-center sm:py-28">
+      <h2 class="mx-auto max-w-2xl text-3xl font-semibold leading-tight tracking-tight sm:text-4xl md:text-5xl">
+        Get paid by agents in the next five minutes.
+      </h2>
+      <p class="mx-auto mt-5 max-w-xl text-base text-neutral-400 sm:text-lg">
+        One install. One line. Straight to your wallet, on every chain that matters.
+      </p>
+      <div class="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        <div class="flex w-full max-w-xs items-center gap-3 rounded-xl border border-white/10 bg-neutral-900/80 px-5 py-3.5 font-mono text-sm sm:w-auto">
+          <span class="select-none text-neutral-600">$</span>
+          <span class="truncate">npm install @piprail/sdk viem</span>
+        </div>
+        <a
+          href="https://www.npmjs.com/package/@piprail/sdk"
+          class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto"
+        >
+          Read the docs <ArrowRight size={16} aria-hidden="true" />
+        </a>
+      </div>
+    </section>
+    <!-- Back the project -->
+    <section class="border-t border-white/10 py-20 text-center sm:py-24">
+      <h2 class="mx-auto max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl">
+        Back the open payment layer.
+      </h2>
+      <p class="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-neutral-400 sm:text-lg">
+        PipRail is MIT-licensed and takes <span class="text-neutral-200">zero protocol fee</span> —
+        neutral infrastructure for the agent economy to settle on, across every chain. If you're a
+        <span class="text-neutral-200">chain, foundation, or company</span> that wants open payment
+        rails to win, partner with us.
+      </p>
+      <div class="mx-auto mt-7 flex max-w-xl flex-wrap items-center justify-center gap-2">
+        {backWays.map((w) => (
+          <span class="rounded-full border border-white/10 bg-white/5 px-3.5 py-1.5 text-sm text-neutral-300">{w}</span>
+        ))}
+      </div>
+      <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        <a
+          href="https://x.com/johnweeksdev"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto"
+        >
+          Partner with us <ArrowRight size={16} aria-hidden="true" />
+        </a>
+        <a
+          href="https://github.com/piprail"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto"
+        >
+          GitHub
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+    <div class="border-t border-white/10 pt-10">
+      <!-- Brand + project links -->
+      <div class="flex flex-col gap-6 text-sm text-neutral-500 sm:flex-row sm:items-center sm:gap-7">
+        <a href="/" class="flex items-center gap-2 font-semibold text-neutral-200 transition hover:text-white">
+          <img src="/logo.png" alt="" width="24" height="24" class="h-6 w-6 rounded-md ring-1 ring-white/10" />
+          PipRail
+        </a>
+        <nav class="flex items-center gap-6">
+          <a href="https://www.npmjs.com/package/@piprail/sdk" class="transition hover:text-neutral-200">npm</a>
+          <a href="https://github.com/piprail" class="transition hover:text-neutral-200">GitHub</a>
+          <a href="https://x402.org" class="transition hover:text-neutral-200">x402</a>
+        </nav>
+        <span class="text-xs text-neutral-600 sm:ml-auto">MIT · pay straight to your wallet</span>
+      </div>
+
+      <!-- Maintainer credit -->
+      <div class="mt-8 flex flex-col gap-4 border-t border-white/6 pt-8 sm:flex-row sm:items-center sm:justify-between">
+        <p class="text-sm leading-relaxed text-neutral-500">
+          Built &amp; maintained by <span class="font-medium text-neutral-300">John Weeks</span>.
+          Questions or ideas? The fastest way to reach me is GitHub or X.
+        </p>
+        <div class="flex items-center gap-2.5">
+          <a
+            href="https://github.com/John-Weeks-Dev"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="John Weeks on GitHub"
+            class="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-neutral-400 transition hover:border-white/20 hover:text-white"
+          >
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.91 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222 0 1.606-.014 2.898-.014 3.293 0 .322.216.694.825.576C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"></path></svg>
+          </a>
+          <a
+            href="https://x.com/johnweeksdev"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="John Weeks on X"
+            class="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-neutral-400 transition hover:border-white/20 hover:text-white"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path></svg>
+          </a>
+        </div>
+      </div>
+    </div>
+  </footer>
+</Layout>

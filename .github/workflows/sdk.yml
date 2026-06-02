@@ -1,0 +1,43 @@
+name: sdk
+
+# CI for the @piprail/sdk workspace. Publishing lives in release.yml (tag-driven),
+# so this file only gates: typecheck + build + test + pack inspection.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'sdk/**'
+      - 'examples/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/sdk.yml'
+  pull_request:
+    paths:
+      - 'sdk/**'
+      - 'examples/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/sdk.yml'
+
+jobs:
+  test:
+    name: build + test + typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          # Single workspace lockfile at the repo root — npm ci installs all
+          # workspaces (sdk, site, examples) from it.
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm run typecheck -w @piprail/sdk
+      - run: npm run typecheck:test -w @piprail/sdk
+      # Build before test: the pack inspection and the lazy-chunk invariant
+      # rely on a fresh dist/.
+      - run: npm run build -w @piprail/sdk
+      - run: npm test -w @piprail/sdk
+      - name: pack inspection
+        run: npm pack --dry-run -w @piprail/sdk

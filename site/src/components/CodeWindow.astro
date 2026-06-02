@@ -1,0 +1,30 @@
+---
+// A terminal-style code block. Pass `file` to show the dot-chrome + filename
+// header (server.ts / agent.ts); omit it for a bare bordered snippet. `code` is
+// pre-highlighted HTML (tok-* spans). Override `preClass` for a different size.
+interface Props {
+  code: string
+  file?: string
+  class?: string
+  preClass?: string
+}
+
+const {
+  code,
+  file,
+  class: wrapperClass = '',
+  preClass = 'overflow-x-auto p-4 font-mono text-[11.5px] leading-[1.7] sm:p-5 sm:text-[13px]',
+} = Astro.props
+---
+
+<div class:list={['overflow-hidden rounded-xl border border-white/10 bg-neutral-900/80', wrapperClass]}>
+  {file && (
+    <div class="flex items-center gap-1.5 border-b border-white/5 px-4 py-3">
+      <span class="h-2.5 w-2.5 rounded-full bg-white/10"></span>
+      <span class="h-2.5 w-2.5 rounded-full bg-white/10"></span>
+      <span class="h-2.5 w-2.5 rounded-full bg-white/10"></span>
+      <span class="ml-2 font-mono text-xs text-neutral-600">{file}</span>
+    </div>
+  )}
+  <pre class={preClass}><code set:html={code} /></pre>
+</div>

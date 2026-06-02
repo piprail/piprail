@@ -1,0 +1,15 @@
+---
+// A section heading block: an h2 + a lead paragraph (the default slot, which may
+// contain inline highlight spans). Keeps every section's header identical.
+interface Props {
+  title: string
+  class?: string
+}
+
+const { title, class: cls = 'mb-10 max-w-2xl' } = Astro.props
+---
+
+<div class={cls}>
+  <h2 class="text-3xl font-semibold tracking-tight md:text-4xl">{title}</h2>
+  <p class="mt-4 text-base leading-relaxed text-neutral-400 sm:text-lg"><slot /></p>
+</div>

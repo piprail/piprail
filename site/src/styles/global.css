@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: oklch(0.145 0.005 260);
+  --color-fg: oklch(0.985 0 0);
+  --color-muted: oklch(0.62 0.01 260);
+  --color-line: oklch(1 0 0 / 0.08);
+  --color-accent: oklch(0.78 0.17 162);        /* emerald — "paid" */
+  --color-accent-soft: oklch(0.78 0.17 162 / 0.12);
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", "Menlo", monospace;
+}
+
+html {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  font-feature-settings: "ss01", "cv11", "cv05";
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Soft emerald glow behind the hero, fading into the page. */
+body {
+  background:
+    radial-gradient(900px 500px at 50% -8%, oklch(0.78 0.17 162 / 0.10), transparent 70%),
+    radial-gradient(700px 500px at 85% 8%, oklch(0.7 0.16 250 / 0.06), transparent 70%);
+}
+
+::selection {
+  background: var(--color-accent);
+  color: var(--color-bg);
+}
+
+/* Thin, quiet scrollbars on the code blocks. */
+pre::-webkit-scrollbar { height: 6px; }
+pre::-webkit-scrollbar-thumb { background: oklch(1 0 0 / 0.12); border-radius: 999px; }
+
+/* Code-token colors — one word (the chain) is amber so the eye lands on it. */
+.tok-kw    { color: oklch(0.62 0.01 260); }
+.tok-str   { color: oklch(0.84 0.13 162); }
+.tok-fn    { color: oklch(0.8 0.11 235); }
+.tok-chain { color: oklch(0.85 0.14 85); font-weight: 600; }
+.tok-num   { color: oklch(0.8 0.12 25); }
+.tok-com   { color: oklch(0.5 0.01 260); font-style: italic; }
+
+/* Load-in motion — CSS only, no JS runtime. */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+.fade-up { animation: fade-up 0.7s cubic-bezier(0.2, 0.6, 0.2, 1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .fade-up { animation: none; }
+  .animate-pulse { animation: none; }
+}

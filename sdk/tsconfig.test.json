@@ -1,0 +1,10 @@
+{
+  "//": "Type-checks src + tests together (the base tsconfig excludes test/ so the published build never includes it). Run with `npm run typecheck:test`. Part of the SDK build standard — see STANDARDS.md.",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "noEmit": true
+  },
+  "include": ["src/**/*", "test/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
