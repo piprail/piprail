@@ -7,14 +7,12 @@ on:
     branches: [main]
     paths:
       - 'sdk/**'
-      - 'examples/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/sdk.yml'
   pull_request:
     paths:
       - 'sdk/**'
-      - 'examples/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/sdk.yml'

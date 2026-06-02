@@ -1,0 +1,26 @@
+# PipRail
+
+> Accept x402 "402 Payment Required" crypto payments from any HTTP request — across 24 chains (every major EVM chain plus Solana, TON, Tron, NEAR, Sui, Stellar & the XRP Ledger). No backend, no database, no fee; payments settle straight to your wallet, verified locally against your own RPC.
+
+PipRail is `@piprail/sdk`, an open-source TypeScript SDK. Gate any route so it charges for itself, or point an agent at a paid URL and it pays itself. `requirePayment` is Express middleware; `createPaymentGate` is the framework-agnostic core for everything else; `PipRailClient` pays; `paymentTools` exposes payment to a model.
+
+## Docs
+
+- [SDK README](https://github.com/piprail/piprail/blob/main/sdk/README.md): full API — accept & make payments, all 24 chains, wallet formats per family, custom tokens, multi-chain accepts, spend policy, gas estimation.
+- [Concepts](https://github.com/piprail/piprail/blob/main/examples/CONCEPTS.md): the 402 loop, who owns what, which primitive to use when, replay protection, local verification.
+- [Error codes](https://github.com/piprail/piprail/blob/main/sdk/ERRORS.md): every typed error (thrown `PipRailError` codes; returned `VerifyErrorCode`s) and how to handle it.
+- [Agent guidelines](https://github.com/piprail/piprail/blob/main/AGENTS.md): commands, project structure, API ground truth, and the Always/Ask-first/Never rules.
+
+## Examples
+
+- [Examples overview](https://github.com/piprail/piprail/blob/main/examples/README.md): which folder for which task.
+- [Express](https://github.com/piprail/piprail/tree/main/examples/express): gate a route with `requirePayment`.
+- [Next.js App Router](https://github.com/piprail/piprail/tree/main/examples/next-app-router): gate a Route Handler with `createPaymentGate` (the pattern for Hono, Fastify, Workers, Bun, Deno too).
+- [Agent](https://github.com/piprail/piprail/tree/main/examples/agent): an agent that auto-pays a 402, with a spend policy.
+- [MCP server](https://github.com/piprail/piprail/tree/main/examples/mcp): expose payment to Claude / any MCP client as a budget-bound wallet.
+
+## Links
+
+- [Website](https://piprail.com)
+- [npm: @piprail/sdk](https://www.npmjs.com/package/@piprail/sdk)
+- [GitHub](https://github.com/piprail/piprail)

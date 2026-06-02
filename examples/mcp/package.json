@@ -1,0 +1,20 @@
+{
+  "name": "@piprail/example-mcp",
+  "private": true,
+  "type": "module",
+  "version": "0.0.1",
+  "description": "PipRail MCP server — hand an LLM a budget-bound payment wallet.",
+  "bin": {
+    "piprail-mcp": "./server.mjs"
+  },
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@piprail/sdk": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

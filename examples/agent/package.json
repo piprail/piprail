@@ -1,0 +1,14 @@
+{
+  "name": "@piprail/example-agent",
+  "private": true,
+  "type": "module",
+  "version": "0.0.1",
+  "description": "PipRail agent — auto-pay a 402, with optional spend guardrails.",
+  "scripts": {
+    "pay": "node pay.mjs",
+    "pay:policy": "node pay-with-policy.mjs"
+  },
+  "dependencies": {
+    "@piprail/sdk": "^1.0.0"
+  }
+}

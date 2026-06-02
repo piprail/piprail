@@ -1,0 +1,14 @@
+{
+  "name": "@piprail/example-express",
+  "private": true,
+  "type": "module",
+  "version": "0.0.1",
+  "description": "PipRail + Express — accept payments in one middleware.",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "@piprail/sdk": "^1.0.0",
+    "express": "^4"
+  }
+}

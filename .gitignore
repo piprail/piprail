@@ -70,3 +70,6 @@ examples/*.local.mjs
 # Stray local screenshots
 screencapture-*.png
 Screenshot*.png
+
+# Local test harnesses (our Anvil/mainnet rigs) — not for the public repo
+/playground/

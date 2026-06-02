@@ -6,16 +6,14 @@
   "type": "module",
   "workspaces": [
     "sdk",
-    "site",
-    "examples"
+    "site"
   ],
   "scripts": {
     "dev": "npm run dev -w @piprail/site",
     "build": "npm run build -w @piprail/site",
     "build:sdk": "npm run build -w @piprail/sdk",
     "test:sdk": "npm test -w @piprail/sdk",
-    "typecheck": "npm run typecheck -w @piprail/sdk",
-    "e2e": "node examples/e2e.mjs"
+    "typecheck": "npm run typecheck -w @piprail/sdk"
   },
   "engines": {
     "node": ">=20"
