@@ -68,6 +68,12 @@ The same app can **take** payments and **make** them. Built for autonomous agent
 
 <sub>\*USDC on every EVM chain; USDT on all of them except Base, World Chain, and Sei. Any other EVM chain works via a viem `Chain` or `{ id, rpcUrl }` — no allowlist. Every token address was verified on-chain before shipping.</sub>
 
+## ✨ Why PipRail
+
+Anything should be able to charge for itself — an API, a dataset, a model, an agent — and **anyone** should be able to get paid for it in seconds, without asking a platform for permission. The agent economy will run on millions of tiny, machine-to-machine payments, and that rail should be **open, free, and self-custodial** — not a toll booth owned by a middleman.
+
+So we built it that way: no backend, no fees, no gatekeeper — an MIT library that turns any endpoint into a paid one and any agent into a paying customer, on every major chain. The goal is simple and audacious: **make open, self-custodial payments the default rail for the agent economy.**
+
 ## ⚙️ How it works
 
 ```
@@ -119,5 +125,7 @@ npm run e2e              # live end-to-end against a local Anvil chain
 
 <div align="center">
 <br/>
+<img src="site/public/logo.png" alt="PipRail" width="64" />
+
 <sub>Built for the agent economy · <a href="https://piprail.com">piprail.com</a></sub>
 </div>
