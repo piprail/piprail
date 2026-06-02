@@ -4,7 +4,9 @@ PipRail's **code** is open source under the [MIT License](LICENSE) — use it, f
 
 ## What's covered
 
-"PipRail", the PipRail logo, and the **`@piprail`** npm scope are marks of the PipRail project. The MIT license covers the source code; it does **not** grant any right to use these marks.
+**PipRail™**, the PipRail logo, and the **`@piprail`** npm scope are trademarks of the PipRail project, asserted through use. The MIT license covers the source code; it does **not** grant any right to use these marks.
+
+You don't need a company to hold a mark this way — the ™ and consistent public use establish the claim. If the marks are ever formally registered (e.g. with the EUIPO or USPTO), a legal owner will be named at that point.
 
 ## You can do this freely (no permission needed)
 

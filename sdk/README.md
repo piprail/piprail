@@ -492,6 +492,6 @@ Methods: `fetch` · `get` · `post` (return the gated `Response` after settlemen
 - Node 20+ or a modern browser.
 - `viem ^2.21` (peer dep). Solana: `@solana/web3.js`, `@solana/spl-token`, `bs58` (optional peers). TON: `@ton/ton`, `@ton/core`, `@ton/crypto` (optional peers). Stellar: `@stellar/stellar-sdk` (optional peer). XRPL: `xrpl` (optional peer). Tron: `tronweb` (optional peer). NEAR: `near-api-js` (optional peer). Sui: `@mysten/sui` (optional peer).
 
-## License
+## License & trademark
 
-MIT — pure open source.
+The code is **MIT** — use it, fork it, ship it. **PipRail™**, the logo, and the `@piprail` npm scope are trademarks of the PipRail project: build on the code freely, but please don't call a fork "PipRail" or imply it's official. See [TRADEMARK.md](https://github.com/piprail/piprail/blob/main/TRADEMARK.md).

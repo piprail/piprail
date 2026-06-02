@@ -123,7 +123,7 @@ npm run e2e              # live end-to-end against a local Anvil chain
 
 **Code:** [MIT](LICENSE) — use it, fork it, ship it, commercially or otherwise.
 
-**Name & brand:** "PipRail", the logo, and the `@piprail` npm scope are project marks — MIT covers the *code*, not the *name*. Build on it freely; just don't call a fork "PipRail" or imply it's official. See [TRADEMARK.md](TRADEMARK.md).
+**Name & brand:** **PipRail™**, the logo, and the `@piprail` npm scope are trademarks of the PipRail project — MIT covers the *code*, not the *name*. Build on it freely; just don't call a fork "PipRail" or imply it's official. See [TRADEMARK.md](TRADEMARK.md).
 
 Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) (a simple DCO sign-off, no CLA).
 
