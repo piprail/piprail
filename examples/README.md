@@ -2,6 +2,14 @@
 
 Dead-simple, copy-paste examples — for humans **and** agents. Each folder is a standalone app that installs `@piprail/sdk` from npm.
 
+## 🌐 No build? Run it in the browser
+
+| What | Folder | How |
+|---|---|---|
+| A single HTML page that loads the SDK from a CDN and runs a **live 402 demo** in-browser | [`browser/`](./browser) | just open `index.html` — no npm, no bundler, no backend |
+
+> `@piprail/sdk` runs in the browser **and** on the server. The merchant gate needs only your wallet **address** (no key), so it works anywhere; the payer client pays from Node or a browser (with the visitor's wallet). This example proves it end-to-end — see [`browser/README.md`](./browser).
+
 ## Accept payments
 
 | Framework | Folder | Primitive |

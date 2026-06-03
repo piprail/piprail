@@ -55,4 +55,5 @@ pre::-webkit-scrollbar-thumb { background: oklch(1 0 0 / 0.12); border-radius: 9
   html { scroll-behavior: auto; }
   .fade-up { animation: none; }
   .animate-pulse { animation: none; }
+  .animate-ping { animation: none; }
 }

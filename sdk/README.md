@@ -445,6 +445,27 @@ export async function handler(req: Request): Promise<Response> {
 
 Reuse one gate per route — its in-memory replay guard stops a proof being spent twice. Running multiple instances? Pass your own `isUsed` / `markUsed` (e.g. Redis `SET NX`).
 
+## In the browser — no build, no npm
+
+The SDK is browser-clean (no Node-only globals in the protocol layer), so a plain HTML page can take **or** make payments straight from a CDN — every npm-mirroring CDN serves it automatically:
+
+```html
+<script type="module">
+  import { PipRailClient } from 'https://esm.sh/@piprail/sdk'   // or jsDelivr: .../npm/@piprail/sdk@1/+esm
+  // In a browser, sign with the visitor's wallet — never a raw key (page source is public):
+  import { createWalletClient, custom } from 'https://esm.sh/viem'
+  const walletClient = createWalletClient({ transport: custom(window.ethereum) })
+
+  const client = new PipRailClient({ chain: 'base', wallet: { walletClient } })
+  const res = await client.fetch('https://api.example.com/paid')   // 402 → wallet signs → 200
+</script>
+```
+
+- **Which chains run in the browser.** EVM (viem) works out of the box; **Solana, Sui, and NEAR** load their libs from the CDN too (an [import map](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script/type/importmap) pins each to a browser-ESM build — see [`examples/browser/`](../examples/browser)). A few chains' libraries (**TON, Tron, XRPL, Stellar**) don't ship a clean browser ESM build yet, so use those **server-side** — the identical one line, on Node/Bun/Deno/Workers. The lazy import means a pure-EVM page never downloads any of them.
+- **The merchant gate runs anywhere.** `createPaymentGate` needs only a `payTo` address — no key — so building challenges and verifying proofs works in the browser too (the typical *deployment* is still a server, since a browser can't receive inbound HTTP to gate).
+- **Both halves verified on Node and in a real browser**, against the published package. Runnable showcase: [`examples/browser/`](../examples/browser) — a single HTML file with a live, in-browser 402 demo; or try it hosted at [piprail.com/demo](https://piprail.com/demo).
+- **Keys:** raw `{ privateKey }` wallets belong only in a **server's** environment. In a browser, use an injected `walletClient` as above.
+
 ## Architecture (under the hood)
 
 Two layers, one contract. Worth knowing if you're extending the SDK or auditing it.

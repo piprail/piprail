@@ -17,7 +17,8 @@ Full pitch + all code inline: [llms-full.txt](https://piprail.com/llms-full.txt)
 
 ## Examples
 
-- [Examples overview](https://github.com/piprail/piprail/blob/main/examples/README.md): runnable merchant + agent demos (Express, Next.js App Router, an auto-paying agent with a spend policy, and an MCP server) — pick the folder for your task and navigate from there.
+- [Live demo](https://piprail.com/demo): an interactive page that loads the SDK from a CDN and runs a real x402 `402` challenge + quote **in your browser**, across chains — no install, no backend. Proof the SDK runs client-side as well as server-side.
+- [Examples overview](https://github.com/piprail/piprail/blob/main/examples/README.md): runnable merchant + agent demos (Express, Next.js App Router, an auto-paying agent with a spend policy, an MCP server, and a no-build **browser/CDN** HTML page) — pick the folder for your task and navigate from there.
 
 ## Chains
 
@@ -27,5 +28,6 @@ Full pitch + all code inline: [llms-full.txt](https://piprail.com/llms-full.txt)
 ## Links
 
 - [Website](https://piprail.com)
+- [Live demo](https://piprail.com/demo) — try x402 in your browser, no install
 - [npm: @piprail/sdk](https://www.npmjs.com/package/@piprail/sdk)
 - [GitHub](https://github.com/piprail/piprail)

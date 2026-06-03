@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PipRail — x402 payments in a &lt;script&gt; tag</title>
+<meta name="description" content="Accept and make x402 crypto payments from a plain HTML page — no build, no backend, no npm. Loaded straight from a CDN. Runs in the browser and on the server, across 24 chains." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: oklch(0.145 0.005 260);
+    --fg: oklch(0.985 0 0);
+    --muted: oklch(0.62 0.01 260);
+    --line: oklch(1 0 0 / 0.08);
+    --panel: oklch(1 0 0 / 0.03);
+    --accent: oklch(0.78 0.17 162);
+    --accent-soft: oklch(0.78 0.17 162 / 0.12);
+    --amber: oklch(0.85 0.14 85);
+    --blue: oklch(0.8 0.11 235);
+    --sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--bg); color: var(--fg); font-family: var(--sans); -webkit-font-smoothing: antialiased; scroll-behavior: smooth; }
+  body {
+    margin: 0; line-height: 1.6;
+    background:
+      radial-gradient(900px 520px at 50% -8%, oklch(0.78 0.17 162 / 0.12), transparent 70%),
+      radial-gradient(720px 520px at 88% 6%, oklch(0.7 0.16 250 / 0.07), transparent 70%);
+  }
+  ::selection { background: var(--accent); color: var(--bg); }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 24px; }
+  .mono { font-family: var(--mono); }
+  .accent { color: var(--accent); }
+  .muted { color: var(--muted); }
+
+  header { padding: 28px 0 8px; }
+  .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; letter-spacing: -0.02em; font-size: 19px; }
+  .dot { width: 11px; height: 11px; border-radius: 999px; background: var(--accent); box-shadow: 0 0 16px 2px oklch(0.78 0.17 162 / 0.6); }
+  .nav { margin-left: auto; display: flex; gap: 22px; font-size: 14px; }
+  .nav a { color: var(--muted); }
+  .row { display: flex; align-items: center; }
+
+  /* hero */
+  .hero { padding: 64px 0 28px; text-align: center; }
+  .pill { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 500; color: var(--accent);
+          background: var(--accent-soft); border: 1px solid oklch(0.78 0.17 162 / 0.25); padding: 6px 13px; border-radius: 999px; }
+  h1 { font-size: clamp(34px, 6vw, 60px); line-height: 1.05; letter-spacing: -0.03em; margin: 22px 0 0; font-weight: 700; }
+  h1 .grad { background: linear-gradient(90deg, var(--accent), oklch(0.84 0.13 200)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .sub { font-size: clamp(16px, 2.3vw, 20px); color: var(--muted); max-width: 680px; margin: 20px auto 0; }
+  .cta { margin-top: 30px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn { font-family: var(--sans); font-size: 14.5px; font-weight: 600; padding: 11px 20px; border-radius: 11px; border: 1px solid var(--line); cursor: pointer; color: var(--fg); background: var(--panel); transition: .15s; }
+  .btn:hover { border-color: oklch(0.78 0.17 162 / 0.5); }
+  .btn.primary { background: var(--accent); color: var(--bg); border-color: transparent; }
+  .btn.primary:hover { filter: brightness(1.08); text-decoration: none; }
+  .status { margin-top: 18px; font-size: 13px; color: var(--muted); font-family: var(--mono); }
+  .status b { color: var(--accent); font-weight: 500; }
+
+  section { padding: 40px 0; border-top: 1px solid var(--line); }
+  h2 { font-size: clamp(22px, 3.4vw, 30px); letter-spacing: -0.02em; margin: 0 0 6px; }
+  .lead { color: var(--muted); max-width: 720px; margin: 0 0 26px; }
+
+  /* runs-everywhere matrix */
+  .matrix { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  .matrix > div { background: var(--bg); padding: 16px 18px; font-size: 14.5px; }
+  .matrix .head { background: var(--panel); font-weight: 600; color: var(--muted); font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; }
+  .matrix .lbl { font-weight: 600; }
+  .matrix .lbl small { display: block; font-weight: 400; color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+  .yes { color: var(--accent); font-weight: 600; }
+  .yes::before { content: "✓ "; }
+
+  /* demo */
+  .demo { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 22px; }
+  .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
+  .controls label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .05em; }
+  .controls select, .controls input { width: 100%; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 9px; padding: 9px 11px; font-family: var(--mono); font-size: 13.5px; }
+  .controls input:focus, .controls select:focus { outline: none; border-color: oklch(0.78 0.17 162 / 0.55); }
+  .flow { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 20px; }
+  @media (max-width: 760px) { .flow { grid-template-columns: 1fr; } .matrix { grid-template-columns: 1fr; } }
+  .card { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .card .cap { font-size: 11.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); padding: 10px 14px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; }
+  .tag402 { background: oklch(0.8 0.12 25 / 0.15); color: oklch(0.82 0.13 25); border-radius: 5px; padding: 1px 7px; font-weight: 600; font-family: var(--mono); font-size: 11px; }
+  .tag200 { background: var(--accent-soft); color: var(--accent); border-radius: 5px; padding: 1px 7px; font-weight: 600; font-family: var(--mono); font-size: 11px; }
+  pre { margin: 0; padding: 14px; overflow-x: auto; font-family: var(--mono); font-size: 12.5px; line-height: 1.6; color: oklch(0.9 0.01 260); }
+  .quote-card { padding: 16px; display: grid; gap: 10px; }
+  .qrow { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; border-bottom: 1px dashed var(--line); padding-bottom: 9px; }
+  .qrow:last-child { border: 0; padding: 0; }
+  .qrow .k { color: var(--muted); }
+  .qrow .v { font-family: var(--mono); font-weight: 500; }
+  .big { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+  .ok-badge { color: var(--accent); font-size: 13px; }
+
+  /* code tabs */
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .tab { font-size: 13px; font-weight: 500; padding: 8px 14px; border-radius: 9px; border: 1px solid var(--line); cursor: pointer; color: var(--muted); background: transparent; }
+  .tab.active { background: var(--accent-soft); color: var(--accent); border-color: oklch(0.78 0.17 162 / 0.4); }
+  .codepanel { display: none; border: 1px solid var(--line); border-radius: 12px; position: relative; }
+  .codepanel.active { display: block; }
+  .codepanel .copy { position: absolute; top: 10px; right: 10px; font-size: 11px; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); cursor: pointer; }
+  .codepanel .copy:hover { color: var(--accent); border-color: oklch(0.78 0.17 162 / 0.4); }
+  .k { } .c-kw { color: var(--muted); } .c-str { color: oklch(0.84 0.13 162); } .c-fn { color: var(--blue); } .c-chain { color: var(--amber); font-weight: 600; } .c-com { color: oklch(0.5 0.01 260); font-style: italic; }
+
+  /* chains */
+  .chains { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+  .chip { display: inline-flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px 7px 8px; font-size: 13.5px; font-weight: 500; }
+  .chip img { width: 22px; height: 22px; border-radius: 999px; background: oklch(1 0 0 / 0.06); }
+  .feat { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+  .feat .f { background: var(--panel); border: 1px solid var(--line); border-radius: 13px; padding: 18px; }
+  .feat .f h3 { margin: 0 0 6px; font-size: 16px; }
+  .feat .f p { margin: 0; color: var(--muted); font-size: 14px; }
+  footer { padding: 40px 0 60px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13.5px; display: flex; flex-wrap: wrap; gap: 18px; align-items: center; }
+  .warn { margin-top: 14px; font-size: 13px; color: var(--amber); background: oklch(0.85 0.14 85 / 0.08); border: 1px solid oklch(0.85 0.14 85 / 0.25); border-radius: 10px; padding: 11px 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="row">
+    <div class="brand"><span class="dot"></span> PipRail</div>
+    <nav class="nav">
+      <a href="https://piprail.com">Site</a>
+      <a href="https://www.npmjs.com/package/@piprail/sdk">npm</a>
+      <a href="https://github.com/piprail/piprail">GitHub</a>
+    </nav>
+  </header>
+
+  <div class="hero">
+    <span class="pill"><span class="dot" style="width:7px;height:7px"></span> No build · no backend · no npm</span>
+    <h1>x402 payments in a<br /><span class="grad">&lt;script&gt; tag.</span></h1>
+    <p class="sub">PipRail is one TypeScript SDK for "402 Payment Required" crypto payments. It runs <b>in this browser</b> and on any server, takes <b>or</b> makes payments across <b>24 chains</b>, and you loaded it from a CDN — nothing installed. Everything below is live, running right now on this page.</p>
+    <div class="cta">
+      <a class="btn primary" href="#demo">Try the live demo ↓</a>
+      <a class="btn" href="https://www.npmjs.com/package/@piprail/sdk">Read the docs</a>
+    </div>
+    <div class="status" id="status">⏳ loading <b>@piprail/sdk</b> from jsDelivr…</div>
+  </div>
+
+  <!-- runs everywhere -->
+  <section>
+    <h2>One SDK. Everywhere it needs to run.</h2>
+    <p class="lead">The merchant side needs only your wallet <b>address</b> — no private key, so it gates a route anywhere. The payer side signs with a wallet. Both halves run in Node, in serverless, and right here in the browser. We verified every cell against the published package — including a real on-chain payment made <b>from a browser</b>.</p>
+    <div class="matrix">
+      <div class="head">Capability</div><div class="head">Server (Node · Bun · Deno · Workers)</div><div class="head">Browser</div>
+      <div class="lbl">Take payments<small><span class="mono">requirePayment</span> / <span class="mono">createPaymentGate</span> — address only</small></div>
+      <div class="yes">works</div><div class="yes">works</div>
+      <div class="lbl">Make payments<small><span class="mono">PipRailClient</span> — quote, estimate, pay</small></div>
+      <div class="yes">works</div><div class="yes">works</div>
+      <div class="lbl">Settle a real on-chain payment<small>sign → broadcast → confirm → verify</small></div>
+      <div class="yes">every chain</div><div class="yes">works</div>
+    </div>
+  </section>
+
+  <!-- live demo -->
+  <section id="demo">
+    <h2>Live: the whole 402 loop, in your browser</h2>
+    <p class="lead">Pick what a merchant wants to charge. PipRail builds the real x402 <span class="mono">402 Payment Required</span> challenge <b>here, in your browser, from your wallet address alone</b> — then an agent reads it and prices the payment. Same code that runs on a server against any live URL. No keys, no network calls for this step.</p>
+
+    <div class="demo">
+      <div class="controls">
+        <div><label>Chain</label>
+          <select id="chain">
+            <option value="base">Base</option>
+            <option value="bnb">BNB Chain</option>
+            <option value="arbitrum">Arbitrum</option>
+            <option value="optimism">Optimism</option>
+            <option value="polygon">Polygon</option>
+            <option value="ethereum">Ethereum</option>
+          </select>
+        </div>
+        <div><label>Token</label>
+          <select id="token"><option>USDC</option><option>USDT</option><option value="native">native coin</option></select>
+        </div>
+        <div><label>Amount</label><input id="amount" value="0.05" /></div>
+        <div><label>Pay to (your wallet — edit me)</label><input id="payto" value="0x1111111111111111111111111111111111111111" /></div>
+      </div>
+
+      <div class="flow">
+        <div class="card">
+          <div class="cap"><span class="tag402">402</span> what the merchant serves <span class="muted">— built in-browser</span></div>
+          <pre id="challenge" class="mono">click "Run the 402 loop"…</pre>
+        </div>
+        <div class="card">
+          <div class="cap">🤖 what the paying agent sees <span class="muted">— PipRailClient.quote()</span></div>
+          <div class="quote-card" id="quote"><span class="muted">…then the agent prices it here.</span></div>
+        </div>
+      </div>
+      <div class="cta" style="justify-content:flex-start;margin-top:18px">
+        <button class="btn primary" id="run">▶ Run the 402 loop</button>
+        <span class="status" id="demostatus"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- code -->
+  <section>
+    <h2>Copy, paste, get paid</h2>
+    <p class="lead">The same library, four ways. Pick the surface you need.</p>
+    <div class="tabs">
+      <button class="tab active" data-tab="srv">Take (Express)</button>
+      <button class="tab" data-tab="gate">Take (any framework)</button>
+      <button class="tab" data-tab="cdn">Make (browser / CDN)</button>
+      <button class="tab" data-tab="agent">Give an agent a budget</button>
+    </div>
+
+    <div class="codepanel active" id="srv"><button class="copy">copy</button><pre>
+<span class="c-com">// One line gates a route. Needs only your wallet address — no key.</span>
+<span class="c-kw">import</span> { requirePayment } <span class="c-kw">from</span> <span class="c-str">'@piprail/sdk'</span>
+
+app.<span class="c-fn">get</span>(<span class="c-str">'/report'</span>,
+  <span class="c-fn">requirePayment</span>({ chain: <span class="c-chain">'base'</span>, token: <span class="c-str">'USDC'</span>, amount: <span class="c-str">'0.05'</span>, payTo: <span class="c-str">'0xYourWallet…'</span> }),
+  (req, res) => res.<span class="c-fn">json</span>({ secret: 42 })   <span class="c-com">// runs only once paid</span>
+)</pre></div>
+
+    <div class="codepanel" id="gate"><button class="copy">copy</button><pre>
+<span class="c-com">// Framework-agnostic core — Next.js, Hono, Fastify, Workers, Bun, Deno.</span>
+<span class="c-kw">import</span> { createPaymentGate, toInvalidBody } <span class="c-kw">from</span> <span class="c-str">'@piprail/sdk'</span>
+
+<span class="c-kw">const</span> gate = <span class="c-fn">createPaymentGate</span>({ chain: <span class="c-chain">'solana'</span>, token: <span class="c-str">'USDC'</span>, amount: <span class="c-str">'0.05'</span>, payTo: <span class="c-str">'YourSolWallet…'</span> })
+
+<span class="c-kw">const</span> r = <span class="c-kw">await</span> gate.<span class="c-fn">verify</span>(req.headers[<span class="c-str">'payment-signature'</span>])
+<span class="c-kw">if</span> (r.kind === <span class="c-str">'paid'</span>) <span class="c-com">/* serve it */</span>;  <span class="c-kw">else</span> <span class="c-com">/* return 402 r.challenge */</span></pre></div>
+
+    <div class="codepanel" id="cdn"><button class="copy">copy</button><pre>
+<span class="c-com">&lt;!-- A plain HTML page. No build, no npm. --&gt;</span>
+<span class="c-kw">&lt;script type="module"&gt;</span>
+  <span class="c-kw">import</span> { PipRailClient } <span class="c-kw">from</span> <span class="c-str">'https://esm.sh/@piprail/sdk'</span>
+
+  <span class="c-com">// In a browser, sign with the visitor's wallet (MetaMask) — never a raw key.</span>
+  <span class="c-kw">const</span> client = <span class="c-kw">new</span> <span class="c-fn">PipRailClient</span>({ chain: <span class="c-chain">'base'</span>, wallet: { walletClient } })
+  <span class="c-kw">const</span> res = <span class="c-kw">await</span> client.<span class="c-fn">fetch</span>(<span class="c-str">'https://api.example.com/paid'</span>)  <span class="c-com">// 402 → pays → 200</span>
+<span class="c-kw">&lt;/script&gt;</span></pre></div>
+
+    <div class="codepanel" id="agent"><button class="copy">copy</button><pre>
+<span class="c-com">// Hand a model two tools + a hard spend cap. It pays for what it needs.</span>
+<span class="c-kw">import</span> { PipRailClient, paymentTools } <span class="c-kw">from</span> <span class="c-str">'@piprail/sdk'</span>
+
+<span class="c-kw">const</span> client = <span class="c-kw">new</span> <span class="c-fn">PipRailClient</span>({
+  chain: <span class="c-chain">'base'</span>, wallet: { privateKey: process.env.KEY },
+  policy: { maxAmount: <span class="c-str">'0.10'</span>, maxTotal: <span class="c-str">'2.00'</span> }   <span class="c-com">// refuses to overspend</span>
+})
+<span class="c-kw">const</span> tools = <span class="c-fn">paymentTools</span>(client)  <span class="c-com">// piprail_quote_payment + piprail_pay_request</span></pre></div>
+    <div class="warn">⚠ In the browser, never put a raw private key in your page — source is public. Use the visitor's injected wallet (a viem <span class="mono">walletClient</span> from MetaMask). Raw keys belong only in a server's environment.</div>
+  </section>
+
+  <!-- chains -->
+  <section>
+    <h2>24 chains, one parameter</h2>
+    <p class="lead">USDC almost everywhere, USDT on most, plus each chain's native coin — change one word: <span class="mono accent">chain: 'base' → 'solana' → 'tron' → …</span>. Eight families, no exceptions.</p>
+    <div class="chains" id="chains"></div>
+  </section>
+
+  <section>
+    <div class="feat">
+      <div class="f"><h3>🚫 No backend</h3><p>Payments settle straight to your wallet, verified locally against your own RPC. No database, no account, no fee.</p></div>
+      <div class="f"><h3>🪶 Lean by design</h3><p>EVM needs only <span class="mono">viem</span>. Non-EVM chain libs lazy-load on first use — a pure-EVM page never downloads them.</p></div>
+      <div class="f"><h3>🔒 Self-custody</h3><p>The payer signs and broadcasts their own transfer. PipRail never holds funds and never takes a cut.</p></div>
+      <div class="f"><h3>🤖 Built for agents</h3><p>Spend policy + an approval hook + LLM tools. Point an agent at a paid URL and it pays itself — within budget.</p></div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="brand"><span class="dot"></span> PipRail</div>
+    <span class="muted">MIT · open source</span>
+    <a href="https://www.npmjs.com/package/@piprail/sdk">npm</a>
+    <a href="https://github.com/piprail/piprail">GitHub</a>
+    <a href="https://piprail.com">piprail.com</a>
+    <span class="muted" id="ver" style="margin-left:auto"></span>
+  </footer>
+</div>
+
+<script type="module">
+  const $ = (id) => document.getElementById(id)
+  const set = (id, txt) => { $(id).textContent = txt }
+
+  // EVM USDC/USDT addresses for the in-browser challenge (so the 402 shows a real asset id).
+  const TOKENS = {
+    base:     { USDC: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
+    bnb:      { USDC: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d', USDT: '0x55d398326f99059fF775485246999027B3197955' },
+    arbitrum: { USDC: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831', USDT: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9' },
+    optimism: { USDC: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85', USDT: '0x94b008aA00579c1307B0EF2c499aD98a8ce58e58' },
+    polygon:  { USDC: '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359', USDT: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F' },
+    ethereum: { USDC: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', USDT: '0xdAC17F958D2ee523a2206206994597C13D831ec7' },
+  }
+
+  let sdk
+  try {
+    sdk = await import('https://cdn.jsdelivr.net/npm/@piprail/sdk@1/+esm')
+    set('status', '')
+    $('status').innerHTML = '✅ <b>@piprail/sdk</b> loaded from jsDelivr — live, in your browser. ' +
+      '<span class="muted">' + (typeof sdk.createPaymentGate) + ' createPaymentGate · ' + (typeof sdk.PipRailClient) + ' PipRailClient</span>'
+    $('ver').textContent = 'running @piprail/sdk via jsDelivr +esm'
+    $('run').disabled = false
+  } catch (e) {
+    $('status').innerHTML = '❌ could not load the SDK from the CDN: ' + String(e.message || e)
+  }
+
+  // Render the 402 loop: gate builds the challenge (address-only), client quotes it.
+  async function runLoop() {
+    if (!sdk) return
+    set('demostatus', 'building…')
+    const chain = $('chain').value
+    const tokenSel = $('token').value
+    const token = tokenSel === 'native' ? 'native' : tokenSel
+    const amount = $('amount').value.trim() || '0.05'
+    const payTo = $('payto').value.trim()
+
+    // guard: USDT isn't on Base; fall back to USDC so the demo never dead-ends
+    let useToken = token
+    if (useToken === 'USDT' && !(TOKENS[chain] && TOKENS[chain].USDT)) useToken = 'USDC'
+
+    try {
+      // 1) MERCHANT — build the real 402 from the wallet address alone (no key)
+      const gateCfg = { chain, token: useToken, amount, payTo, description: 'A premium report' }
+      const gate = sdk.createPaymentGate(gateCfg)
+      const { challenge, requiredHeader } = await gate.challenge('https://api.example.com/report')
+      const a = challenge.accepts[0]
+      $('challenge').textContent =
+        'HTTP/1.1 402 Payment Required\n' +
+        'payment-required: ' + requiredHeader.slice(0, 46) + '…\n\n' +
+        JSON.stringify(challenge, null, 2)
+
+      // 2) AGENT — quote it with the real client (transport mocked; the parse is real)
+      const realFetch = window.fetch
+      window.fetch = async (u) => String(u).includes('piprail-demo')
+        ? new Response(JSON.stringify(challenge), { status: 402, headers: { 'payment-required': requiredHeader, 'content-type': 'application/json' } })
+        : realFetch(u)
+      // throwaway key — quoting NEVER signs or sends; it only reads + prices the 402
+      const client = new sdk.PipRailClient({ chain, wallet: { privateKey: '0x' + '1'.repeat(64) }, policy: { maxAmount: '1.00' } })
+      const q = await client.quote('https://piprail-demo/report')
+      window.fetch = realFetch
+
+      $('quote').innerHTML =
+        '<div class="qrow"><span class="k">pay</span><span class="v big accent">' + q.amountFormatted + ' ' + (q.symbol || a.asset.slice(0, 6)) + '</span></div>' +
+        '<div class="qrow"><span class="k">chain</span><span class="v">' + chain + ' <span class="muted">(' + q.network + ')</span></span></div>' +
+        '<div class="qrow"><span class="k">to</span><span class="v">' + q.payTo.slice(0, 10) + '…' + q.payTo.slice(-6) + '</span></div>' +
+        '<div class="qrow"><span class="k">SDK recognised the token</span><span class="v">' + (q.recognized ? 'yes ✓' : 'custom') + '</span></div>' +
+        '<div class="qrow"><span class="k">within agent budget</span><span class="v ' + (q.withinPolicy ? 'accent' : '') + '">' + (q.withinPolicy ? 'yes — would pay ✓' : 'no — refused') + '</span></div>' +
+        '<div class="ok-badge">→ then <b>client.fetch()</b> pays on-chain and the gated data unlocks.</div>'
+      set('demostatus', useToken !== token ? '(USDT isn’t native on ' + chain + ' — showed USDC)' : 'built + quoted in-browser ✓')
+    } catch (e) {
+      set('demostatus', '')
+      $('quote').innerHTML = '<span style="color:var(--amber)">' + String(e.message || e) + '</span>'
+    }
+  }
+  $('run').addEventListener('click', runLoop)
+  ;['chain', 'token', 'amount', 'payto'].forEach((id) => $(id).addEventListener('change', () => { if ($('challenge').textContent.indexOf('click') < 0) runLoop() }))
+
+  // code tabs
+  document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach((x) => x.classList.remove('active'))
+    document.querySelectorAll('.codepanel').forEach((x) => x.classList.remove('active'))
+    t.classList.add('active'); $(t.dataset.tab).classList.add('active')
+  }))
+  document.querySelectorAll('.copy').forEach((b) => b.addEventListener('click', () => {
+    navigator.clipboard.writeText(b.parentElement.querySelector('pre').textContent.trim()); b.textContent = 'copied ✓'; setTimeout(() => (b.textContent = 'copy'), 1200)
+  }))
+
+  // chain chips (logos from the live site)
+  const FAMILIES = [['ethereum', 'EVM ×17'], ['solana', 'Solana'], ['ton', 'TON'], ['tron', 'Tron'], ['near', 'NEAR'], ['sui', 'Sui'], ['stellar', 'Stellar'], ['xrpl', 'XRPL']]
+  $('chains').innerHTML = FAMILIES.map(([slug, name]) =>
+    '<span class="chip"><img src="https://piprail.com/chains/' + slug + '.svg" alt="" onerror="this.style.display=\'none\'" />' + name + '</span>').join('')
+</script>
+</body>
+</html>

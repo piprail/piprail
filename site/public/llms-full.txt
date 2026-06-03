@@ -94,6 +94,22 @@ const data = await res.json()
 
 On a `402`, the client reads the challenge, sends the payment on-chain, waits for confirmation, and retries with proof — all inside `client.fetch`. The same app can take payments with `requirePayment`/`createPaymentGate` and make them with `PipRailClient`.
 
+## In the browser — no build, no npm
+
+`@piprail/sdk` is browser-clean and runs from any npm-mirroring CDN, so a plain HTML page can take or make payments with no bundler:
+
+```html
+<script type="module">
+  import { PipRailClient } from 'https://esm.sh/@piprail/sdk'   // or jsDelivr: .../npm/@piprail/sdk@1/+esm
+  import { createWalletClient, custom } from 'https://esm.sh/viem'
+  // In a browser, sign with the visitor's wallet (MetaMask) — never a raw key in the page.
+  const client = new PipRailClient({ chain: 'base', wallet: { walletClient: createWalletClient({ transport: custom(window.ethereum) }) } })
+  const res = await client.fetch('https://api.example.com/paid')  // 402 → wallet signs → 200
+</script>
+```
+
+The CDN resolves `viem` and any chain lib the SDK lazy-imports — no second script tag. The merchant gate (`createPaymentGate`) needs only a wallet address, so it runs in the browser too. Verified end-to-end, including a real on-chain payment made FROM a browser. Try it live (the SDK runs on the page): https://piprail.com/demo — and the copy-paste HTML lives at examples/browser/. Keep raw `{ privateKey }` wallets on the server only.
+
 ## Built for agents — spend safely
 
 A funded key on the internet needs guardrails. Opt in to a `policy` and the client refuses anything outside it before any on-chain send. All opt-in, all local, no backend; omit it and the client behaves exactly as before.
@@ -208,6 +224,7 @@ The rule of thumb for agents: a thrown `PaymentDeclinedError` means your own bud
 ## Links
 
 - Website: https://piprail.com
+- Live demo (try x402 in your browser, no install): https://piprail.com/demo
 - npm: https://www.npmjs.com/package/@piprail/sdk
 - GitHub (MIT): https://github.com/piprail/piprail
 - SDK README: https://github.com/piprail/piprail/blob/main/sdk/README.md

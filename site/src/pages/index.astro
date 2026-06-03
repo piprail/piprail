@@ -1,5 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro'
+import Navigation from '../components/Navigation.astro'
+import Footer from '../components/Footer.astro'
 import CodeWindow from '../components/CodeWindow.astro'
 import SectionHeading from '../components/SectionHeading.astro'
 import FeatureGrid from '../components/FeatureGrid.astro'
@@ -9,7 +11,8 @@ import {
 } from '../data/snippets'
 import {
   Zap, Coins, ShieldCheck, PackageCheck,
-  Boxes, Percent, Code2, Scale, ArrowRight, Globe, ChevronDown,
+  Boxes, Percent, Code2, Scale, ArrowRight, Globe, ChevronDown, Play,
+  Handshake, Puzzle, Landmark, Mail,
 } from 'lucide-astro'
 
 const stats = [
@@ -74,8 +77,6 @@ const familyLogos = [
   { slug: 'xrpl', label: 'XRPL' },
 ]
 
-// How to support the project (sponsor / fund / partner).
-const backWays = ['Fund development', 'Sponsor a chain', 'Integrate & partner']
 
 // FAQ — a visible Q&A that also powers the FAQPage structured data below.
 // The two MUST match (search + AI engines expect schema to mirror the page).
@@ -131,18 +132,7 @@ const faqLd = {
 ---
 
 <Layout>
-  <!-- Nav -->
-  <header class="mx-auto flex max-w-6xl items-center justify-between px-4 py-6 sm:px-6">
-    <a href="/" class="flex items-center gap-2.5 font-semibold tracking-tight">
-      <img src="/logo.png" alt="" width="28" height="28" class="h-7 w-7 rounded-lg ring-1 ring-white/10" />
-      PipRail
-    </a>
-    <nav class="flex items-center gap-6 text-sm text-muted sm:gap-7">
-      <a href="https://www.npmjs.com/package/@piprail/sdk" class="transition hover:text-neutral-100">npm</a>
-      <a href="https://github.com/piprail" class="transition hover:text-neutral-100">GitHub</a>
-      <a href="https://x402.org" class="hidden transition hover:text-neutral-100 sm:inline">x402</a>
-    </nav>
-  </header>
+  <Navigation path="/" />
 
   <main class="mx-auto max-w-6xl px-4 sm:px-6">
     <!-- Hero -->
@@ -192,15 +182,76 @@ const faqLd = {
       </div>
     </section>
 
+    <!-- Try the live demo -->
+    <section aria-label="Live demo" class="relative overflow-hidden rounded-3xl border border-accent/20 bg-linear-to-br from-accent/8 via-white/2 to-transparent p-8 sm:p-10 lg:p-14">
+      <div class="pointer-events-none absolute -right-24 -top-28 h-80 w-80 rounded-full bg-accent/10 blur-3xl"></div>
+      <div class="relative grid items-center gap-10 lg:grid-cols-[1.05fr_1fr] lg:gap-14">
+        <!-- copy -->
+        <div>
+          <span class="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-accent">
+            <span class="relative flex h-2 w-2">
+              <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75"></span>
+              <span class="relative inline-flex h-2 w-2 rounded-full bg-accent"></span>
+            </span>
+            Live demo
+          </span>
+          <h2 class="mt-4 text-3xl font-semibold leading-[1.1] tracking-tight sm:text-4xl">
+            Don’t take our word for it.<br class="hidden sm:block" />
+            <span class="text-accent">Run it in your browser.</span>
+          </h2>
+          <p class="mt-4 max-w-xl text-base leading-relaxed text-neutral-400 sm:text-lg">
+            Build a real <span class="font-mono text-neutral-200">402</span> payment challenge and watch an agent
+            price it — live, client-side, across 24 chains. No install, no backend; the SDK loads from a CDN right on the page.
+          </p>
+          <ul class="mt-6 flex flex-wrap gap-x-6 gap-y-2.5 text-sm font-medium text-neutral-300">
+            <li class="inline-flex items-center gap-2"><Globe size={16} class="text-accent" aria-hidden="true" /> Runs in your browser</li>
+            <li class="inline-flex items-center gap-2"><Boxes size={16} class="text-accent" aria-hidden="true" /> 24 chains</li>
+            <li class="inline-flex items-center gap-2"><Zap size={16} class="text-accent" aria-hidden="true" /> Zero install</li>
+          </ul>
+          <div class="mt-8 flex flex-col gap-3 sm:flex-row">
+            <a href="/demo" class="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110">
+              <Play size={15} fill="currentColor" aria-hidden="true" /> Try the live demo
+            </a>
+            <a href="https://github.com/piprail/piprail/tree/main/examples/browser" class="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20">
+              Copy the HTML
+            </a>
+          </div>
+        </div>
+        <!-- faux-browser preview teasing the real demo -->
+        <div class="relative">
+          <div class="overflow-hidden rounded-xl border border-white/10 bg-neutral-900/80 shadow-2xl shadow-black/40">
+            <div class="flex items-center gap-1.5 border-b border-white/5 px-4 py-2.5">
+              <span class="h-2.5 w-2.5 rounded-full bg-white/10"></span>
+              <span class="h-2.5 w-2.5 rounded-full bg-white/10"></span>
+              <span class="h-2.5 w-2.5 rounded-full bg-white/10"></span>
+              <span class="ml-2 truncate font-mono text-xs text-neutral-500">piprail.com/demo</span>
+            </div>
+            <div class="space-y-3 p-4 font-mono text-[11.5px] leading-relaxed sm:text-[12.5px]">
+              <div><span class="rounded bg-rose-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-rose-300">402</span> <span class="text-neutral-500">Payment Required · Base · USDC</span></div>
+              <pre class="overflow-hidden rounded-lg bg-black/30 p-3 text-neutral-300">{`{
+  "amount": "50000",
+  "asset":  "0x8335…2913",
+  "payTo":  "0xYourWallet"
+}`}</pre>
+              <div class="flex items-center justify-between rounded-lg border border-accent/20 bg-accent/8 px-3 py-2.5">
+                <span class="text-neutral-400">🤖 agent pays</span>
+                <span class="font-semibold text-accent">0.05 USDC ✓</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- Stats -->
-    <section aria-label="At a glance" class="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 md:grid-cols-4">
+    <section aria-label="At a glance" class="mt-16 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 sm:mt-24 md:grid-cols-4">
       {stats.map((s) => {
         const Icon = s.icon
         return (
-          <div class="bg-neutral-950 px-5 py-7 text-center sm:py-8">
-            <Icon size={18} class="mx-auto mb-2.5 text-neutral-600" aria-hidden="true" />
+          <div class="bg-neutral-950 px-5 py-8 text-center transition-colors hover:bg-neutral-900/60 sm:py-9">
+            <Icon size={18} class="mx-auto mb-3 text-accent/70" aria-hidden="true" />
             <p class="text-3xl font-semibold tracking-tight text-neutral-100 md:text-4xl">{s.v}</p>
-            <p class="mt-1 text-sm text-neutral-500">{s.l}</p>
+            <p class="mt-1.5 text-sm text-neutral-400">{s.l}</p>
           </div>
         )
       })}
@@ -500,23 +551,27 @@ const faqLd = {
 
     <!-- FAQ -->
     <section id="faq" class="scroll-mt-20 border-t border-white/10 py-20 sm:py-24">
-      <SectionHeading title="FAQ.">
-        Quick answers for the developers — and agents — sizing PipRail up.
-      </SectionHeading>
-      <div class="mx-auto max-w-3xl divide-y divide-white/10 overflow-hidden rounded-2xl border border-white/10 bg-neutral-950">
-        {
-          faqs.map((f, i) => (
-            <details class="group" open={i === 0}>
-              <summary class="flex cursor-pointer list-none items-center justify-between gap-5 px-6 py-5 text-[15px] font-medium text-neutral-100 transition hover:bg-white/3 [&::-webkit-details-marker]:hidden sm:px-7">
-                <span>{f.q}</span>
-                <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 text-neutral-400 transition group-open:border-accent/40 group-open:text-accent">
-                  <ChevronDown size={16} class="transition-transform duration-300 group-open:rotate-180" aria-hidden="true" />
-                </span>
-              </summary>
-              <p class="-mt-1 px-6 pb-6 pr-14 text-sm leading-relaxed text-neutral-400 sm:px-7 sm:pr-20">{f.a}</p>
-            </details>
-          ))
-        }
+      <div class="grid gap-8 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:gap-16">
+        <div class="lg:sticky lg:top-24 lg:self-start">
+          <SectionHeading title="FAQ." class="max-w-sm">
+            Quick answers for the developers — and agents — sizing PipRail up.
+          </SectionHeading>
+        </div>
+        <div class="divide-y divide-white/10 overflow-hidden rounded-2xl border border-white/10 bg-neutral-950">
+          {
+            faqs.map((f, i) => (
+              <details class="group" open={i === 0}>
+                <summary class="flex cursor-pointer list-none items-center justify-between gap-5 px-6 py-5 text-[15px] font-medium text-neutral-100 transition hover:bg-white/3 [&::-webkit-details-marker]:hidden sm:px-7">
+                  <span>{f.q}</span>
+                  <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 text-neutral-400 transition group-open:border-accent/40 group-open:text-accent">
+                    <ChevronDown size={16} class="transition-transform duration-300 group-open:rotate-180" aria-hidden="true" />
+                  </span>
+                </summary>
+                <p class="-mt-1 px-6 pb-6 text-sm leading-relaxed text-neutral-400 sm:px-7">{f.a}</p>
+              </details>
+            ))
+          }
+        </div>
       </div>
       <script is:inline type="application/ld+json" set:html={JSON.stringify(faqLd)} />
     </section>
@@ -542,30 +597,59 @@ const faqLd = {
         </a>
       </div>
     </section>
-    <!-- Back the project -->
-    <section class="border-t border-white/10 py-20 text-center sm:py-24">
-      <h2 class="mx-auto max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl">
-        Back the universal payment rail.
-      </h2>
-      <p class="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-neutral-400 sm:text-lg">
-        PipRail is MIT-licensed and takes <span class="text-neutral-200">zero protocol fee</span> —
-        neutral infrastructure for the agent economy to settle on, across every chain. If you're a
-        <span class="text-neutral-200">chain, foundation, or company</span> that wants open payment
-        rails to win, partner with us.
-      </p>
-      <div class="mx-auto mt-7 flex max-w-xl flex-wrap items-center justify-center gap-2">
-        {backWays.map((w) => (
-          <span class="rounded-full border border-white/10 bg-white/5 px-3.5 py-1.5 text-sm text-neutral-300">{w}</span>
-        ))}
+    <!-- Partnerships & opportunities -->
+    <section id="support" class="scroll-mt-20 border-t border-white/10 py-20 sm:py-28">
+      <div class="mx-auto max-w-2xl text-center">
+        <span class="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/8 px-3.5 py-1.5 text-xs font-medium text-accent">
+          <Handshake size={14} aria-hidden="true" /> Open for partnership
+        </span>
+        <h2 class="mt-5 text-3xl font-semibold leading-[1.1] tracking-tight sm:text-4xl md:text-5xl">
+          Let’s build the universal payment rail, <span class="text-accent">together</span>.
+        </h2>
+        <p class="mx-auto mt-5 max-w-xl text-base leading-relaxed text-neutral-400 sm:text-lg">
+          PipRail is MIT-licensed, takes <span class="text-neutral-200">zero protocol fee</span>, and is built to be
+          neutral infrastructure the whole agent economy can settle on. We’re actively open to
+          <span class="text-neutral-200">grants, sponsorships, integrations, and strategic opportunities</span> — and ready to move fast.
+        </p>
       </div>
-      <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+
+      <div class="mx-auto mt-12 grid max-w-5xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="rounded-2xl border border-white/10 bg-white/2.5 p-6 transition hover:border-accent/30 hover:bg-white/5">
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl border border-accent/20 bg-accent/10 text-accent"><Landmark size={18} aria-hidden="true" /></div>
+          <h3 class="mt-4 text-base font-semibold">Foundations &amp; grants</h3>
+          <p class="mt-1.5 text-sm leading-relaxed text-neutral-400">Funding ecosystem development and native support for your chain — RetroPGF, builder programs, grants. We deploy them well.</p>
+        </div>
+        <div class="rounded-2xl border border-white/10 bg-white/2.5 p-6 transition hover:border-accent/30 hover:bg-white/5">
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl border border-accent/20 bg-accent/10 text-accent"><Boxes size={18} aria-hidden="true" /></div>
+          <h3 class="mt-4 text-base font-semibold">Chains &amp; ecosystems</h3>
+          <p class="mt-1.5 text-sm leading-relaxed text-neutral-400">Want PipRail native on your chain? Sponsor an integration and hand your developers a one-line, self-custodial rail.</p>
+        </div>
+        <div class="rounded-2xl border border-white/10 bg-white/2.5 p-6 transition hover:border-accent/30 hover:bg-white/5">
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl border border-accent/20 bg-accent/10 text-accent"><Puzzle size={18} aria-hidden="true" /></div>
+          <h3 class="mt-4 text-base font-semibold">Integrate &amp; partner</h3>
+          <p class="mt-1.5 text-sm leading-relaxed text-neutral-400">Building a wallet, an agent framework, or a marketplace? We’ll wire PipRail in and co-launch with you.</p>
+        </div>
+        <div class="rounded-2xl border border-white/10 bg-white/2.5 p-6 transition hover:border-accent/30 hover:bg-white/5">
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl border border-accent/20 bg-accent/10 text-accent"><Handshake size={18} aria-hidden="true" /></div>
+          <h3 class="mt-4 text-base font-semibold">Mergers &amp; opportunities</h3>
+          <p class="mt-1.5 text-sm leading-relaxed text-neutral-400">Open to acquisitions, strategic deals, and joining forces. Serious inquiries get a fast, professional reply.</p>
+        </div>
+      </div>
+
+      <div class="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        <a
+          href="mailto:john.weeks.dev@gmail.com?subject=PipRail%20partnership%20%2F%20opportunity"
+          class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto"
+        >
+          <Mail size={16} aria-hidden="true" /> Start a conversation
+        </a>
         <a
           href="https://x.com/johnweeksdev"
           target="_blank"
           rel="noopener noreferrer"
-          class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto"
+          class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto"
         >
-          Partner with us <ArrowRight size={16} aria-hidden="true" />
+          DM on X
         </a>
         <a
           href="https://github.com/piprail"
@@ -579,54 +663,5 @@ const faqLd = {
     </section>
   </main>
 
-  <!-- Footer -->
-  <footer class="mx-auto max-w-6xl px-4 py-12 sm:px-6">
-    <div class="border-t border-white/10 pt-10">
-      <!-- Brand + project links -->
-      <div class="flex flex-col gap-6 text-sm text-neutral-500 sm:flex-row sm:items-center sm:gap-7">
-        <a href="/" class="flex items-center gap-2 font-semibold text-neutral-200 transition hover:text-white">
-          <img src="/logo.png" alt="" width="24" height="24" class="h-6 w-6 rounded-md ring-1 ring-white/10" />
-          PipRail
-        </a>
-        <nav class="flex items-center gap-6">
-          <a href="https://www.npmjs.com/package/@piprail/sdk" class="transition hover:text-neutral-200">npm</a>
-          <a href="https://github.com/piprail" class="transition hover:text-neutral-200">GitHub</a>
-          <a href="https://x402.org" class="transition hover:text-neutral-200">x402</a>
-        </nav>
-        <span class="text-xs text-neutral-600 sm:ml-auto">MIT · pay straight to your wallet</span>
-      </div>
-
-      <!-- Maintainer credit -->
-      <div class="mt-8 flex flex-col gap-4 border-t border-white/6 pt-8 sm:flex-row sm:items-center sm:justify-between">
-        <p class="text-sm leading-relaxed text-neutral-500">
-          Built &amp; maintained by <span class="font-medium text-neutral-300">John Weeks</span>.
-          Questions or ideas? The fastest way to reach me is GitHub or X.
-        </p>
-        <div class="flex items-center gap-2.5">
-          <a
-            href="https://github.com/John-Weeks-Dev"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="John Weeks on GitHub"
-            class="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-neutral-400 transition hover:border-white/20 hover:text-white"
-          >
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.91 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222 0 1.606-.014 2.898-.014 3.293 0 .322.216.694.825.576C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"></path></svg>
-          </a>
-          <a
-            href="https://x.com/johnweeksdev"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="John Weeks on X"
-            class="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-neutral-400 transition hover:border-white/20 hover:text-white"
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path></svg>
-          </a>
-        </div>
-      </div>
-
-      <p class="mt-8 text-xs leading-relaxed text-neutral-600">
-        © 2026 the PipRail project · PipRail™ and the PipRail logo are trademarks of the PipRail project · source code <a href="https://github.com/piprail/piprail/blob/main/LICENSE" class="underline transition hover:text-neutral-400">MIT-licensed</a>
-      </p>
-    </div>
-  </footer>
+  <Footer />
 </Layout>

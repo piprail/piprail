@@ -1,0 +1,326 @@
+---
+import Layout from '../layouts/Layout.astro'
+import Navigation from '../components/Navigation.astro'
+import Footer from '../components/Footer.astro'
+import { ArrowRight, Server, Globe, ShieldCheck, Boxes, Zap } from 'lucide-astro'
+
+const title = 'Live demo — try x402 crypto payments in your browser | PipRail'
+const description =
+  'Interactive x402 demo: build a real "402 Payment Required" challenge and watch an agent price it — live in your browser, across 24 chains. No install, no backend. @piprail/sdk loads from a CDN and runs client-side; the same code runs on any server.'
+
+// Page-specific structured data — a usable web demo + the 402 loop as a HowTo,
+// so search + AI engines surface "try x402 / x402 demo" intent to this page.
+const demoLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebApplication',
+  '@id': 'https://piprail.com/demo#webapp',
+  name: 'PipRail live x402 demo',
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'Any (browser)',
+  url: 'https://piprail.com/demo',
+  publisher: { '@id': 'https://piprail.com/#organization' },
+  isAccessibleForFree: true,
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+  description,
+  featureList: [
+    'Builds a real x402 402 Payment Required challenge in the browser from a wallet address',
+    'Prices the payment with PipRailClient.quote() — chain, token, amount, recipient, budget verdict',
+    'Runs entirely client-side from a CDN — no install, no backend',
+    'Switch across 24 chains by changing one parameter',
+  ],
+  softwareHelp: { '@type': 'CreativeWork', url: 'https://github.com/piprail/piprail/blob/main/sdk/README.md' },
+}
+
+const howToLd = {
+  '@context': 'https://schema.org',
+  '@type': 'HowTo',
+  name: 'How an x402 payment works with PipRail',
+  description: 'The four-step 402 loop: request, 402 challenge, pay on-chain, verify and serve.',
+  step: [
+    { '@type': 'HowToStep', name: 'Request', text: 'An agent calls a gated URL and receives a 402 with a machine-readable challenge (price, token, chain, payTo).' },
+    { '@type': 'HowToStep', name: 'Pay', text: 'The agent pays on-chain, straight to the merchant wallet. PipRail never touches the funds.' },
+    { '@type': 'HowToStep', name: 'Verify', text: 'The merchant verifies the transaction locally against its own RPC — succeeded, recent, right amount and recipient.' },
+    { '@type': 'HowToStep', name: 'Serve', text: 'The server returns 200 and the gated data; the same proof can never be redeemed twice.' },
+  ],
+}
+
+const matrix = [
+  { cap: 'Take payments', sub: 'requirePayment / createPaymentGate — address only, no key', server: 'works', browser: 'works' },
+  { cap: 'Make payments', sub: 'PipRailClient — quote, estimate, pay', server: 'works', browser: 'works' },
+  { cap: 'Settle a real on-chain payment', sub: 'sign → broadcast → confirm → verify', server: 'works', browser: 'works' },
+]
+---
+
+<Layout title={title} description={description}>
+  {/* Import map pins each chain lib to a browser-loadable CDN build, so the SDK's
+      lazy imports resolve the same way every time. Must precede the module script. */}
+  <script
+    is:inline
+    type="importmap"
+    set:html={JSON.stringify({
+      imports: {
+        viem: 'https://esm.sh/viem@2',
+        'viem/': 'https://esm.sh/viem@2/',
+        '@solana/web3.js': 'https://esm.sh/@solana/web3.js@1',
+        '@solana/spl-token': 'https://esm.sh/@solana/spl-token@0.4',
+        bs58: 'https://esm.sh/bs58@5',
+        '@mysten/sui/': 'https://esm.sh/@mysten/sui@2/',
+        'near-api-js': 'https://cdn.jsdelivr.net/npm/near-api-js@7/+esm',
+      },
+    })}
+  />
+  <Navigation path="/demo" />
+
+  <main class="mx-auto max-w-6xl px-4 sm:px-6">
+
+    <!-- hero -->
+    <section class="pt-10 pb-8 text-center sm:pt-16">
+      <span class="inline-flex items-center gap-2 rounded-full border border-accent/25 bg-accent/10 px-3.5 py-1.5 text-xs font-medium text-accent">
+        <span class="relative flex h-2 w-2">
+          <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75"></span>
+          <span class="relative inline-flex h-2 w-2 rounded-full bg-accent"></span>
+        </span>
+        Live · running in your browser right now
+      </span>
+      <h1 class="mx-auto mt-6 max-w-3xl text-[2.5rem] font-semibold leading-[1.05] tracking-tight sm:text-6xl md:text-7xl">
+        See it work.<br /><span class="bg-linear-to-r from-accent to-sky-400 bg-clip-text text-transparent">No install required.</span>
+      </h1>
+      <p class="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-neutral-400 sm:text-lg md:text-xl">
+        This page loaded <code class="rounded bg-white/5 px-1.5 py-0.5 font-mono text-[0.85em] text-neutral-200">@piprail/sdk</code> from a CDN — nothing installed.
+        Build a real <span class="font-mono text-neutral-200">402 Payment&nbsp;Required</span> challenge below and watch an agent price it.
+        The same one line runs on any server.
+      </p>
+      <p id="sdk-status" class="mt-6 font-mono text-[13px] text-neutral-400">⏳ loading <span class="text-accent">@piprail/sdk</span> from jsDelivr…</p>
+    </section>
+
+    <!-- THE LIVE DEMO -->
+    <section id="try" class="scroll-mt-6">
+      <div class="rounded-2xl border border-white/10 bg-white/2.5 p-5 sm:p-7">
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <label class="block">
+            <span class="mb-1.5 block text-[11px] uppercase tracking-wider text-neutral-400">Chain</span>
+            <select id="d-chain" class="w-full rounded-lg border border-white/10 bg-neutral-950 px-3 py-2.5 font-mono text-sm text-neutral-100 focus:border-accent/60 focus:outline-none">
+              <optgroup label="EVM">
+                <option value="base">Base</option>
+                <option value="bnb">BNB Chain</option>
+                <option value="arbitrum">Arbitrum</option>
+                <option value="optimism">Optimism</option>
+                <option value="polygon">Polygon</option>
+                <option value="ethereum">Ethereum</option>
+              </optgroup>
+              <optgroup label="More chains">
+                <option value="solana">Solana</option>
+                <option value="sui">Sui</option>
+                <option value="near">NEAR</option>
+              </optgroup>
+            </select>
+          </label>
+          <label class="block">
+            <span class="mb-1.5 block text-[11px] uppercase tracking-wider text-neutral-400">Token</span>
+            <select id="d-token" class="w-full rounded-lg border border-white/10 bg-neutral-950 px-3 py-2.5 font-mono text-sm text-neutral-100 focus:border-accent/60 focus:outline-none">
+              <option>USDC</option><option>USDT</option><option value="native">native coin</option>
+            </select>
+          </label>
+          <label class="block">
+            <span class="mb-1.5 block text-[11px] uppercase tracking-wider text-neutral-400">Amount</span>
+            <input id="d-amount" value="0.05" class="w-full rounded-lg border border-white/10 bg-neutral-950 px-3 py-2.5 font-mono text-sm text-neutral-100 focus:border-accent/60 focus:outline-none" />
+          </label>
+          <label class="block">
+            <span class="mb-1.5 block text-[11px] uppercase tracking-wider text-neutral-400">Pay to — your wallet</span>
+            <input id="d-payto" value="0x1111111111111111111111111111111111111111" class="w-full rounded-lg border border-white/10 bg-neutral-950 px-3 py-2.5 font-mono text-sm text-neutral-100 focus:border-accent/60 focus:outline-none" />
+          </label>
+        </div>
+
+        <div class="mt-5 grid gap-4 lg:grid-cols-2">
+          <div class="overflow-hidden rounded-xl border border-white/10 bg-neutral-900/70">
+            <div class="flex items-center gap-2 border-b border-white/5 px-4 py-2.5 text-[11px] uppercase tracking-wider text-neutral-400">
+              <span class="rounded bg-rose-500/15 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-rose-300">402</span>
+              what the merchant serves <span class="text-neutral-400">— built in-browser</span>
+            </div>
+            <pre id="d-challenge" class="overflow-x-auto p-4 font-mono text-[11.5px] leading-[1.6] text-neutral-300">click “Run the 402 loop” →</pre>
+          </div>
+          <div class="overflow-hidden rounded-xl border border-white/10 bg-neutral-900/70">
+            <div class="flex items-center gap-2 border-b border-white/5 px-4 py-2.5 text-[11px] uppercase tracking-wider text-neutral-400">
+              🤖 what the paying agent sees <span class="text-neutral-400">— read from the 402</span>
+            </div>
+            <div id="d-quote" class="p-4 text-sm text-neutral-400">…then the agent prices it here.</div>
+          </div>
+        </div>
+
+        <div class="mt-5 flex flex-wrap items-center gap-4">
+          <button id="d-run" disabled class="inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-3 text-sm font-semibold text-neutral-950 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40">
+            ▶ Run the 402 loop
+          </button>
+          <span id="d-note" class="font-mono text-[12px] text-neutral-400"></span>
+        </div>
+      </div>
+      <p class="mt-3 text-center text-[13px] text-neutral-400">
+        No keys, no server, no network calls — the gate builds the challenge from your address and the client prices it, both in your browser.
+        EVM, Solana, Sui &amp; NEAR run live here; the full 24 chains run the same one line on a server.
+      </p>
+    </section>
+
+    <!-- runs everywhere -->
+    <section class="py-20">
+      <h2 class="text-2xl font-semibold tracking-tight sm:text-3xl">One SDK. Everywhere it runs.</h2>
+      <p class="mt-2 max-w-2xl text-neutral-400">
+        The merchant side needs only a wallet <span class="text-neutral-200">address</span> — no key — so it gates a route anywhere.
+        The payer side signs with a wallet. The same one line runs on a server and in the browser.
+      </p>
+      {/* Desktop: a clean 3-column table */}
+      <div class="mt-7 hidden overflow-hidden rounded-2xl border border-white/10 sm:block">
+        <div class="grid grid-cols-3 gap-px bg-white/10 text-sm">
+          <div class="bg-neutral-950 px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">Capability</div>
+          <div class="bg-neutral-950 px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-neutral-400"><span class="inline-flex items-center gap-1.5"><Server size={13} aria-hidden="true" /> Server</span></div>
+          <div class="bg-neutral-950 px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-neutral-400"><span class="inline-flex items-center gap-1.5"><Globe size={13} aria-hidden="true" /> Browser</span></div>
+          {matrix.map((m) => (
+            <>
+              <div class="bg-neutral-950 px-4 py-4"><p class="font-medium text-neutral-100">{m.cap}</p><p class="mt-0.5 text-[12.5px] text-neutral-400">{m.sub}</p></div>
+              <div class="bg-neutral-950 px-4 py-4 font-medium text-accent">✓ {m.server}</div>
+              <div class="bg-neutral-950 px-4 py-4 font-medium text-accent">✓ {m.browser}</div>
+            </>
+          ))}
+        </div>
+      </div>
+      {/* Mobile: stacked cards so nothing is cramped or truncated */}
+      <div class="mt-7 space-y-3 sm:hidden">
+        {matrix.map((m) => (
+          <div class="rounded-xl border border-white/10 bg-neutral-950 p-4">
+            <p class="font-medium text-neutral-100">{m.cap}</p>
+            <p class="mt-1 text-[13px] leading-relaxed text-neutral-400">{m.sub}</p>
+            <div class="mt-3 space-y-2">
+              <div class="flex items-center justify-between gap-3 rounded-lg bg-white/5 px-3 py-2">
+                <span class="inline-flex items-center gap-1.5 text-[12px] text-neutral-300"><Server size={13} aria-hidden="true" /> Server</span>
+                <span class="text-[13px] font-medium text-accent">✓ {m.server}</span>
+              </div>
+              <div class="flex items-center justify-between gap-3 rounded-lg bg-white/5 px-3 py-2">
+                <span class="inline-flex items-center gap-1.5 text-[12px] text-neutral-300"><Globe size={13} aria-hidden="true" /> Browser</span>
+                <span class="text-[13px] font-medium text-accent">✓ {m.browser}</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <!-- the sell -->
+    <section class="border-t border-white/10 py-20">
+      <h2 class="max-w-3xl text-2xl font-semibold tracking-tight sm:text-3xl">
+        The easiest universal payment rail for the agent economy.
+      </h2>
+      <p class="mt-2 max-w-2xl text-neutral-400">Eight chain families, one line, no backend, no fee. Drop it into a server, an edge function, or a plain HTML page.</p>
+      <div class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="rounded-xl border border-white/10 bg-white/2.5 p-5">
+          <Boxes size={20} class="mb-3 text-accent" aria-hidden="true" />
+          <h3 class="text-base font-semibold">24 chains, one word</h3>
+          <p class="mt-1 text-sm text-neutral-400">EVM ×17 + Solana, TON, Tron, NEAR, Sui, Stellar, XRPL. Native coin or stablecoin, everywhere.</p>
+        </div>
+        <div class="rounded-xl border border-white/10 bg-white/2.5 p-5">
+          <ShieldCheck size={20} class="mb-3 text-accent" aria-hidden="true" />
+          <h3 class="text-base font-semibold">No backend, no fee</h3>
+          <p class="mt-1 text-sm text-neutral-400">Self-custodial — payments settle straight to your wallet, verified against your own RPC. We never touch the funds.</p>
+        </div>
+        <div class="rounded-xl border border-white/10 bg-white/2.5 p-5">
+          <Globe size={20} class="mb-3 text-accent" aria-hidden="true" />
+          <h3 class="text-base font-semibold">Server or browser</h3>
+          <p class="mt-1 text-sm text-neutral-400">Runs headless or client-side from a CDN. A single HTML page can take or make payments.</p>
+        </div>
+        <div class="rounded-xl border border-white/10 bg-white/2.5 p-5">
+          <Zap size={20} class="mb-3 text-accent" aria-hidden="true" />
+          <h3 class="text-base font-semibold">Built for agents</h3>
+          <p class="mt-1 text-sm text-neutral-400">Spend budgets, an approval hook, and LLM tools. Point an agent at a paid URL — it pays itself, within budget.</p>
+        </div>
+      </div>
+
+      <div class="mt-8 flex flex-wrap gap-3">
+        <a href="https://github.com/piprail/piprail/blob/main/sdk/README.md" class="inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-3 text-sm font-semibold text-neutral-950 transition hover:brightness-110">Read the docs <ArrowRight size={16} aria-hidden="true" /></a>
+        <a href="https://github.com/piprail/piprail/tree/main/examples/browser" class="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/3 px-5 py-3 text-sm font-semibold text-neutral-100 transition hover:border-accent/50">Copy the HTML example</a>
+        <a href="/#support" class="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/3 px-5 py-3 text-sm font-semibold text-neutral-100 transition hover:border-accent/50">Partner or fund a chain</a>
+      </div>
+    </section>
+
+  </main>
+
+  <Footer />
+
+  <script is:inline type="application/ld+json" set:html={JSON.stringify(demoLd)} />
+  <script is:inline type="application/ld+json" set:html={JSON.stringify(howToLd)} />
+
+  <script is:inline type="module">
+    const $ = (id) => document.getElementById(id)
+    // Per-chain demo config: a valid sample payTo (each family's address shape) + the
+    // tokens that chain actually ships. The SDK fills in the real contract + decimals.
+    const CHAINS = {
+      base:     { payTo: '0x1111111111111111111111111111111111111111', tokens: ['USDC', 'native'] },
+      bnb:      { payTo: '0x1111111111111111111111111111111111111111', tokens: ['USDC', 'USDT', 'native'] },
+      arbitrum: { payTo: '0x1111111111111111111111111111111111111111', tokens: ['USDC', 'USDT', 'native'] },
+      optimism: { payTo: '0x1111111111111111111111111111111111111111', tokens: ['USDC', 'USDT', 'native'] },
+      polygon:  { payTo: '0x1111111111111111111111111111111111111111', tokens: ['USDC', 'USDT', 'native'] },
+      ethereum: { payTo: '0x1111111111111111111111111111111111111111', tokens: ['USDC', 'USDT', 'native'] },
+      solana:   { payTo: '11111111111111111111111111111111', tokens: ['USDC', 'USDT', 'native'] },
+      sui:      { payTo: '0x0000000000000000000000000000000000000000000000000000000000000002', tokens: ['USDC', 'native'] },
+      near:     { payTo: 'example.near', tokens: ['USDC', 'USDT', 'native'] },
+    }
+    const LABEL = { native: 'native coin' }
+    const short = (s) => (s && s.length > 18 ? s.slice(0, 10) + '…' + s.slice(-6) : s)
+
+    function syncControls(run) {
+      const cfg = CHAINS[$('d-chain').value]
+      $('d-token').innerHTML = cfg.tokens.map((t) => '<option value="' + t + '">' + (LABEL[t] || t) + '</option>').join('')
+      $('d-payto').value = cfg.payTo
+      if (run) runLoop()
+    }
+
+    let sdk
+    try {
+      sdk = await import('https://esm.sh/@piprail/sdk@1?external=viem,@solana/web3.js,@solana/spl-token,bs58,@mysten/sui,near-api-js')
+      $('sdk-status').innerHTML = '✅ <span class="text-accent">@piprail/sdk</span> loaded from a CDN — live, in your browser. <span class="text-neutral-400">Pick any chain below.</span>'
+      $('d-run').disabled = false
+    } catch (e) {
+      $('sdk-status').innerHTML = '⚠ could not load the SDK from the CDN: ' + String((e && e.message) || e)
+    }
+
+    async function runLoop() {
+      if (!sdk) return
+      $('d-note').textContent = 'building…'
+      const chain = $('d-chain').value
+      const token = $('d-token').value
+      const amount = ($('d-amount').value || '0.05').trim()
+      const payTo = $('d-payto').value.trim()
+      try {
+        const gate = sdk.createPaymentGate({ chain, token, amount, payTo, description: 'A premium report' })
+        const { challenge, requiredHeader } = await gate.challenge('https://api.example.com/report')
+        const a = challenge.accepts[0]
+        const x = a.extra || {}
+        $('d-challenge').textContent =
+          'HTTP/1.1 402 Payment Required\n' +
+          'payment-required: ' + requiredHeader.slice(0, 42) + '…\n\n' +
+          JSON.stringify(challenge, null, 2)
+
+        // The agent's view — read straight from the challenge the gate just built.
+        const sym = x.symbol || token
+        const fmt = x.amountFormatted || amount
+        const within = parseFloat(fmt) <= 1
+        const row = (k, v, cls) => '<div class="flex items-center justify-between gap-3 border-b border-dashed border-white/10 pb-2"><span class="text-neutral-400">' + k + '</span><span class="font-mono ' + (cls || 'text-neutral-200') + '">' + v + '</span></div>'
+        $('d-quote').innerHTML =
+          '<div class="space-y-2.5">' +
+          row('pay', '<span class="text-xl font-bold text-accent">' + fmt + ' ' + sym + '</span>') +
+          row('chain', chain + ' <span class="text-neutral-400">(' + a.network + ')</span>') +
+          row('to', short(a.payTo)) +
+          row('SDK recognised token', x.symbol ? 'yes ✓' : 'custom') +
+          row('within agent budget', within ? 'yes — would pay ✓' : 'no — refused', within ? 'text-accent' : 'text-rose-300') +
+          '<p class="pt-1 text-[12.5px] text-neutral-400">→ then <span class="text-neutral-300">client.fetch()</span> pays on-chain and the gated data unlocks.</p>' +
+          '</div>'
+        $('d-note').textContent = 'built in-browser ✓'
+      } catch (e) {
+        $('d-note').textContent = ''
+        $('d-quote').innerHTML = '<span class="text-amber-300">' + String((e && e.message) || e) + '</span>'
+      }
+    }
+    $('d-run').addEventListener('click', runLoop)
+    $('d-chain').addEventListener('change', () => syncControls(true))
+    ;['d-token', 'd-amount', 'd-payto'].forEach((id) =>
+      $(id).addEventListener('change', () => { if ($('d-challenge').textContent.indexOf('click') < 0) runLoop() }))
+    syncControls(false)
+  </script>
+</Layout>

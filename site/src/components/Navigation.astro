@@ -1,0 +1,48 @@
+---
+// Shared top navigation — sticky, translucent, used on every page for consistency.
+// `path` highlights the active link (e.g. the Demo pill on /demo).
+import { ArrowRight, Play } from 'lucide-astro'
+
+interface Props {
+  path?: string
+}
+const { path = '' } = Astro.props
+const onDemo = path === '/demo' || path === '/demo/'
+---
+
+<header class="sticky top-0 z-50 border-b border-white/5 bg-bg/70 backdrop-blur-md">
+  <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
+    <a href="/" class="flex items-center gap-2.5 font-semibold tracking-tight" aria-label="PipRail — home">
+      <img src="/logo.png" alt="" width="28" height="28" class="h-7 w-7 rounded-lg ring-1 ring-white/10" />
+      <span>PipRail</span>
+    </a>
+
+    <nav class="flex items-center gap-1.5 sm:gap-2" aria-label="Primary">
+      <!-- Demo — always visible, with a live dot so it draws the eye -->
+      <a
+        href="/demo"
+        aria-current={onDemo ? 'page' : undefined}
+        class:list={[
+          'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition',
+          onDemo
+            ? 'border-accent/40 bg-accent/15 text-accent'
+            : 'border-accent/20 bg-accent/8 text-accent hover:border-accent/40 hover:bg-accent/15',
+        ]}
+      >
+        <Play size={13} aria-hidden="true" fill="currentColor" /> Demo
+      </a>
+
+      <!-- secondary links — hidden on the smallest screens -->
+      <a href="https://github.com/piprail/piprail/blob/main/sdk/README.md" class="hidden rounded-lg px-3 py-1.5 text-sm text-muted transition hover:text-neutral-100 sm:inline-flex">Docs</a>
+      <a href="https://github.com/piprail/piprail" class="hidden rounded-lg px-3 py-1.5 text-sm text-muted transition hover:text-neutral-100 sm:inline-flex">GitHub</a>
+
+      <!-- primary CTA -->
+      <a
+        href="https://www.npmjs.com/package/@piprail/sdk"
+        class="ml-1 inline-flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:px-4"
+      >
+        Get started <ArrowRight size={15} aria-hidden="true" class="hidden sm:inline" />
+      </a>
+    </nav>
+  </div>
+</header>

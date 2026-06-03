@@ -4,6 +4,23 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.1.1] — 2026-06-03
+
+Docs + examples only — **no code change**; the API and every chain behave exactly as 1.1.0.
+
+### Docs
+- **"In the browser — no build, no npm" guide** in the README. `@piprail/sdk` is browser-clean
+  and runs from any npm-mirroring CDN (`esm.sh` / `jsDelivr`), so a plain HTML page can take or
+  make payments with no bundler — the CDN resolves `viem` and any lazily-imported chain lib.
+  Verified end-to-end (gate + client, Node + browser, plus a real on-chain payment made **from a
+  browser**). Includes the injected-wallet pattern and a loud "never ship a raw key in client-side
+  HTML" warning.
+
+### Examples
+- **New `examples/browser/`** — a single self-contained HTML file that loads the SDK from a CDN and
+  runs a live in-browser x402 demo (build a real `402` challenge, quote it), no build step. A hosted,
+  interactive version of the same demo is live at https://piprail.com/demo.
+
 ## [1.1.0] — 2026-06-03
 
 Found by the live-test campaign: **native NEAR + native TRX are now payment assets** (native
