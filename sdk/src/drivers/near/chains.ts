@@ -10,10 +10,11 @@
  *     `…factory.bridge.near` (USDC.e, Rainbow-Bridge, not Circle-issued).
  *   - USDT = Tether's native `usdt.tether-token.near` (on-chain symbol "USDt").
  *
- * **FT-only — native NEAR is not a payment asset.** Our binding rides in the
- * NEP-141 `ft_transfer` `memo`; a bare native-NEAR transfer carries no memo, and
- * NEAR is a volatile gas coin, so `token: 'native'` is rejected (pay in USDC/USDT
- * or a custom NEP-141).
+ * **Native NEAR IS supported** (`token: 'native'`) via **digest-binding** — a plain
+ * `Transfer`, verified by tx hash + recency + the gate's single-use set (the NEP-141
+ * path stays memo-bound). Native needs **no `storage_deposit`** and even creates a
+ * fresh implicit recipient — the zero-setup NEAR path. (NEAR is a volatile gas coin,
+ * so for stable pricing pay in USDC/USDT; for no-setup flows, native is ideal.)
  *
  * CAIP-2 `near:mainnet` is an internal id (NEAR isn't in the official x402
  * registry); zero interop impact since PipRail self-verifies.
@@ -33,8 +34,8 @@ export interface NearPreset {
   tokens: Record<string, NearFtInfo>
 }
 
-/** Native NEAR is 24 decimals (yoctoNEAR) — referenced for gas estimates only;
- *  NEAR is not a built-in payment asset (FT-only — see the section note). */
+/** Native NEAR is 24 decimals (yoctoNEAR) — used both for gas estimates and, now, as a
+ *  payment asset via `token: 'native'` (digest-bound; see the section note). */
 export const NEAR_DECIMALS = 24
 
 export const NEAR_MAINNET: NearPreset = {

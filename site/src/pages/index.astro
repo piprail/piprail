@@ -5,11 +5,11 @@ import SectionHeading from '../components/SectionHeading.astro'
 import FeatureGrid from '../components/FeatureGrid.astro'
 import { chains } from '../data/chains'
 import {
-  acceptCode, payCode, oneParamCode, exoticCode, solanaCode, agentSafeCode, multiAcceptCode,
+  acceptCode, payCode, oneParamCode, exoticCode, solanaCode, agentSafeCode, multiAcceptCode, tonCode,
 } from '../data/snippets'
 import {
   Zap, Coins, ShieldCheck, PackageCheck,
-  Boxes, Percent, Code2, Scale, ArrowRight, Globe,
+  Boxes, Percent, Code2, Scale, ArrowRight, Globe, ChevronDown,
 } from 'lucide-astro'
 
 const stats = [
@@ -61,6 +61,19 @@ const why = [
   },
 ]
 
+// The eight chain families — one representative logo each — for the "one protocol,
+// every chain" strip. EVM stands for all 17 EVM mainnets behind a single driver.
+const familyLogos = [
+  { slug: 'ethereum', label: 'EVM ×17' },
+  { slug: 'solana', label: 'Solana' },
+  { slug: 'ton', label: 'TON' },
+  { slug: 'tron', label: 'Tron' },
+  { slug: 'near', label: 'NEAR' },
+  { slug: 'sui', label: 'Sui' },
+  { slug: 'stellar', label: 'Stellar' },
+  { slug: 'xrpl', label: 'XRPL' },
+]
+
 // How to support the project (sponsor / fund / partner).
 const backWays = ['Fund development', 'Sponsor a chain', 'Integrate & partner']
 
@@ -82,6 +95,10 @@ const faqs = [
   {
     q: `Which chains and tokens does PipRail support?`,
     a: `24 chains across 8 families: 17 EVM mainnets (Ethereum, Base, Arbitrum, Optimism, Polygon, BNB Chain, Avalanche, Mantle, Sonic, Linea, Scroll, Celo, zkSync, Unichain, World Chain, Sei, Injective) plus Solana, TON, Tron, NEAR, Sui, Stellar, and the XRP Ledger. USDC almost everywhere, USDT on most chains, EURC on Stellar, RLUSD on XRPL, or any other token by address. One parameter — chain — picks everything.`,
+  },
+  {
+    q: `Do any chains need extra setup before they work?`,
+    a: `Most don't — on EVM, Solana, and Sui you install, add a wallet, and pay or get paid with no extra steps, in the native coin or a stablecoin. A few chains have one-time caveats worth knowing. TON ships USD₮ (there is no native USDC on TON) and needs an API-keyed RPC — add one parameter, rpcUrl with a free toncenter API key in the URL, because the free public endpoint is rate-limited and will stall confirmation. Tron pays in USD₮ or native TRX — USD₮ is the default since TRX is volatile gas, and gas is paid in real TRX (no native USDC exists on Tron). On NEAR, native NEAR is the zero-setup path (no registration needed — a transfer even creates a fresh recipient), while paying in a NEP-141 token like USDC/USDT requires a one-time storage_deposit registration on the recipient. Stellar and the XRP Ledger require the recipient to hold a one-time trustline for the asset and to be an activated, reserve-funded account before it can receive — native XLM/XRP need no trustline. Native coin is a valid payment asset on every chain — all eight families, no exceptions. Full per-chain setup, wallet formats, and caveats are documented in CHAINS.md.`,
   },
   {
     q: `Is there a fee to use PipRail?`,
@@ -139,9 +156,9 @@ const faqLd = {
         <span class="text-accent">agent economy</span>.
       </h1>
       <p class="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-neutral-400 sm:text-lg md:text-xl">
-        Accept x402 crypto payments on any EVM chain, Solana, TON, Tron, NEAR, Sui, Stellar, and XRPL — in one line.
-        USDC, USDT, or the chain's native coin settles <span class="text-neutral-200">straight into your wallet</span>.
-        No middleman, no account, no fee.
+        One <span class="text-neutral-200">universal payment rail</span> for every chain — accept x402 crypto payments
+        on any EVM chain, Solana, TON, Tron, NEAR, Sui, Stellar, and XRPL in one line.
+        USDC, USDT, or the chain's native coin settles straight into your wallet. No middleman, no account, no fee.
       </p>
 
       <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -295,13 +312,34 @@ const faqLd = {
       </div>
     </section>
 
-    <!-- Why PipRail — differentiation -->
+    <!-- The compatibility problem PipRail solves — one protocol, every chain -->
     <section class="border-t border-white/10 py-20 sm:py-24">
-      <SectionHeading title="No other x402 SDK reaches this far.">
-        PipRail ships native, self-custodial drivers for more chains than any other x402 SDK —
-        and it's the only package that reaches TON, Tron, NEAR, Sui, and the XRP Ledger
-        together. Backendless, no fee, no one in the middle.
+      <SectionHeading title="One protocol. Every chain.">
+        Every blockchain settles value its own way — EVM calldata, Solana SPL tokens, TON
+        jettons, XRPL trustlines, NEAR storage. That fragmentation is why agent payments
+        usually stall at one or two networks. PipRail collapses it behind a single x402 line
+        and one self-custodial driver per family — so the same integration pays and gets paid
+        across all eight, native coin or stablecoin. Backendless, no fee, no one in the middle.
+        No other x402 SDK reaches this far.
       </SectionHeading>
+
+      {/* Eight families, one interface — a quiet visual of the breadth (EVM = all 17 EVM chains). */}
+      <div class="mb-4 flex flex-wrap items-center justify-center gap-x-7 gap-y-4 rounded-2xl border border-white/10 bg-neutral-950 px-6 py-7 sm:gap-x-10">
+        {familyLogos.map((f) => (
+          <span class="flex items-center gap-2" title={f.label}>
+            <img
+              src={`/chains/${f.slug}.svg`}
+              alt={`${f.label} logo`}
+              width="28"
+              height="28"
+              loading="lazy"
+              class="h-7 w-7 rounded-full ring-1 ring-white/10"
+            />
+            <span class="text-sm font-medium text-neutral-300">{f.label}</span>
+          </span>
+        ))}
+      </div>
+
       <div class="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 md:grid-cols-3">
         {why.map((w) => {
           const Icon = w.icon
@@ -376,6 +414,59 @@ const faqLd = {
           <CodeWindow code={solanaCode} />
         </div>
       </div>
+
+      <p class="mt-6 text-sm leading-relaxed text-neutral-500">
+        Most chains need nothing beyond a wallet — pay in the native coin or a stablecoin, on every family.
+        A few have one-time setup:
+        on <span class="text-neutral-300">NEAR</span> the NEP-141 token path needs a one-time
+        <code class="rounded bg-white/5 px-1 text-neutral-300">storage_deposit</code> (native NEAR needs none);
+        <span class="text-neutral-300">Stellar</span> &amp; <span class="text-neutral-300">XRPL</span> recipients need a
+        one-time trustline; and <span class="text-neutral-300">TON</span> needs an API-keyed RPC.
+        Full per-chain setup &amp; caveats:
+        <a href="https://github.com/piprail/piprail/blob/main/sdk/CHAINS.md" class="text-accent underline-offset-4 hover:underline">CHAINS.md →</a>
+      </p>
+    </section>
+
+    <!-- Using TON — one free API key -->
+    <section class="border-t border-white/10 py-20 sm:py-24">
+      <div class="grid gap-8 lg:grid-cols-2 lg:items-center">
+        <div class="min-w-0">
+          <img
+            src="/chains/ton.svg"
+            alt="TON logo"
+            width="48"
+            height="48"
+            class="mb-5 h-12 w-12 rounded-full ring-1 ring-white/10"
+          />
+          <p class="mb-3 text-xs font-medium uppercase tracking-wider text-muted">Config step · TON RPC key</p>
+          <h2 class="text-3xl font-semibold tracking-tight md:text-4xl">Using TON? Grab one free API key.</h2>
+          <p class="mt-4 leading-relaxed text-neutral-400">
+            TON is the only chain that needs a <span class="text-neutral-200">config</span> step — and it takes
+            about 30 seconds. Its free public RPC is rate-limited, so without your own key, payment confirmation
+            stalls. The fix is exactly <span class="text-neutral-200">one parameter</span>: an
+            <code class="rounded bg-white/5 px-1 text-neutral-300">rpcUrl</code> with a free key in the URL.
+            (On NEAR/Stellar/XRPL any one-time setup is recipient-side — a trustline or storage_deposit — covered above.)
+          </p>
+          <ol class="mt-5 space-y-2.5 text-neutral-400">
+            <li class="flex gap-2.5">
+              <span class="font-mono text-accent">1.</span>
+              <span>Message <a href="https://t.me/tonapibot" class="text-neutral-200 underline-offset-4 hover:underline">@tonapibot</a> on Telegram for a free key — no card, no KYC.</span>
+            </li>
+            <li class="flex gap-2.5">
+              <span class="font-mono text-accent">2.</span>
+              <span>Drop it into <code class="rounded bg-white/5 px-1 text-neutral-300">rpcUrl</code> on the gate (and the client). Done.</span>
+            </li>
+          </ol>
+          <p class="mt-5 text-sm leading-relaxed text-neutral-500">
+            Everything else is automatic — USD₮ is built in (native USDC doesn't exist on TON),
+            native TON works too, and the merchant needs no setup. Full per-chain notes:
+            <a href="https://github.com/piprail/piprail/blob/main/sdk/CHAINS.md" class="text-accent underline-offset-4 hover:underline">CHAINS.md →</a>
+          </p>
+        </div>
+        <div class="min-w-0">
+          <CodeWindow code={tonCode} />
+        </div>
+      </div>
     </section>
 
     <!-- How it works -->
@@ -412,13 +503,18 @@ const faqLd = {
       <SectionHeading title="FAQ.">
         Quick answers for the developers — and agents — sizing PipRail up.
       </SectionHeading>
-      <div class="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 md:grid-cols-2">
+      <div class="mx-auto max-w-3xl divide-y divide-white/10 overflow-hidden rounded-2xl border border-white/10 bg-neutral-950">
         {
-          faqs.map((f) => (
-            <div class="bg-neutral-950 p-6 sm:p-8">
-              <h3 class="text-base font-medium text-neutral-100">{f.q}</h3>
-              <p class="mt-3 text-sm leading-relaxed text-neutral-400">{f.a}</p>
-            </div>
+          faqs.map((f, i) => (
+            <details class="group" open={i === 0}>
+              <summary class="flex cursor-pointer list-none items-center justify-between gap-5 px-6 py-5 text-[15px] font-medium text-neutral-100 transition hover:bg-white/3 [&::-webkit-details-marker]:hidden sm:px-7">
+                <span>{f.q}</span>
+                <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 text-neutral-400 transition group-open:border-accent/40 group-open:text-accent">
+                  <ChevronDown size={16} class="transition-transform duration-300 group-open:rotate-180" aria-hidden="true" />
+                </span>
+              </summary>
+              <p class="-mt-1 px-6 pb-6 pr-14 text-sm leading-relaxed text-neutral-400 sm:px-7 sm:pr-20">{f.a}</p>
+            </details>
           ))
         }
       </div>
@@ -449,7 +545,7 @@ const faqLd = {
     <!-- Back the project -->
     <section class="border-t border-white/10 py-20 text-center sm:py-24">
       <h2 class="mx-auto max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl">
-        Back the open payment layer.
+        Back the universal payment rail.
       </h2>
       <p class="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-neutral-400 sm:text-lg">
         PipRail is MIT-licensed and takes <span class="text-neutral-200">zero protocol fee</span> —

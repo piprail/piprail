@@ -34,6 +34,14 @@ export type PipRailEvent =
   | { kind: 'payment-required'; challenge: X402Challenge; accept: X402AcceptEntry }
   | { kind: 'payment-broadcast'; ref: string }
   | { kind: 'payment-confirmed'; ref: string; blockNumber: bigint }
+  /**
+   * Broadcast succeeded (we hold `ref`) but LOCAL confirmation timed out — the
+   * RPC was likely lagging/throttled while the tx is in fact on-chain. The proof
+   * is NOT discarded: the client submits it to the server (whose own on-chain
+   * verify is the authority) instead of throwing, so a real payment is never
+   * orphaned into a double-pay. `reason` is the confirm error's message.
+   */
+  | { kind: 'payment-unconfirmed'; ref: string; reason: string }
   | { kind: 'payment-settled'; receipt: X402Receipt | null }
   | { kind: 'payment-failed'; reason: string }
 
@@ -137,7 +145,13 @@ export interface PipRailClientOptions {
    * giving up. Default 3, with a short backoff between attempts — this
    * absorbs RPC propagation lag (the server's node briefly trailing the
    * client's, so it hasn't seen the confirmation yet). If the server still
-   * returns 402 on the last attempt the SDK throws `MaxRetriesExceededError`.
+   * returns 402 on the last attempt the SDK throws `MaxRetriesExceededError`
+   * (which carries `.ref` — re-verify, never re-pay).
+   *
+   * If the broadcast succeeded but the client's OWN confirmation timed out
+   * (a throttled RPC), the proof is NOT discarded: the client submits it
+   * anyway and automatically uses MORE patient retries (a floor of 6, longer
+   * backoff), since the on-chain tx may still be settling.
    */
   maxPaymentRetries?: number
   /** Timeout (ms) for the retry leg after broadcast. Default 30_000. */
@@ -304,8 +318,8 @@ export class PipRailClient {
     // Budget + approval gate — both refuse BEFORE any on-chain send.
     await this.authorize(quote)
 
-    const ref = await this.payAndConfirm(net, wallet, accept)
-    const response = await this.retryWithProof(url, init, accept, ref)
+    const { ref, confirmed } = await this.payAndConfirm(net, wallet, accept)
+    const response = await this.retryWithProof(url, init, accept, ref, confirmed)
     this.recordSpend(quote, ref)
     return response
   }
@@ -474,7 +488,7 @@ export class PipRailClient {
     net: ResolvedNetwork,
     wallet: WalletHandle,
     accept: X402AcceptEntry
-  ): Promise<string> {
+  ): Promise<{ ref: string; confirmed: boolean }> {
     if (!net.supports(accept.network)) {
       throw new WrongChainError(
         `Challenge expects ${accept.network} but client is on ${net.network}.`
@@ -482,27 +496,45 @@ export class PipRailClient {
     }
 
     // The driver maps chain-specific failures (e.g. insufficient funds) to
-    // the SDK's typed errors before they reach us.
+    // the SDK's typed errors before they reach us. Once send() returns, the
+    // transaction is BROADCAST and funds may already have moved.
     const ref = await net.send(wallet, accept)
 
     this.safeEmit({ kind: 'payment-broadcast', ref })
 
-    const { height } = await net.confirm(ref, accept.extra.minConfirmations ?? 1)
-
-    this.safeEmit({
-      kind: 'payment-confirmed',
-      ref,
-      blockNumber: BigInt(height),
-    })
-
-    return ref
+    try {
+      const { height } = await net.confirm(ref, accept.extra.minConfirmations ?? 1)
+      this.safeEmit({
+        kind: 'payment-confirmed',
+        ref,
+        blockNumber: BigInt(height),
+      })
+      return { ref, confirmed: true }
+    } catch (err) {
+      // Confirmation timed out — but the broadcast SUCCEEDED, so we hold `ref`
+      // and the payment may well be on-chain (a free/throttled RPC that 429s its
+      // status polls past the validity window is the classic case: the tx lands,
+      // the read-back fails). Discarding the proof here would orphan a real
+      // payment, and a naive caller retry would DOUBLE-PAY. So we DON'T re-throw
+      // and we NEVER re-broadcast: we hand the proof to retryWithProof, deferring
+      // to the server's own on-chain verify (the authority). If it truly never
+      // settled, the server rejects and we surface `ref` so the caller can
+      // re-verify — never blindly re-pay.
+      this.safeEmit({
+        kind: 'payment-unconfirmed',
+        ref,
+        reason: err instanceof Error ? err.message : String(err),
+      })
+      return { ref, confirmed: false }
+    }
   }
 
   private async retryWithProof(
     url: string,
     originalInit: RequestInit | undefined,
     accept: X402AcceptEntry,
-    ref: string
+    ref: string,
+    confirmed: boolean
   ): Promise<Response> {
     const signature: X402PaymentSignature = {
       x402Version: 2,
@@ -516,12 +548,19 @@ export class PipRailClient {
     let lastResponse: Response | null = null
     let lastReason: { error: string; detail: string } | null = null
 
-    for (let attempt = 0; attempt < this.maxRetries; attempt += 1) {
+    // When the payment was NOT locally confirmed (the RPC timed out post-broadcast),
+    // be more patient: the tx may still be settling and the server's node needs time
+    // to see it. Spread more attempts over a longer window before giving up — this
+    // is the difference between absorbing the lag and a false "it failed".
+    const attempts = confirmed ? this.maxRetries : Math.max(this.maxRetries, 6)
+    const backoffCap = confirmed ? 2000 : 5000
+
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
       // Short backoff before re-trying, so a server whose RPC node is a beat
       // behind the client's gets time to see the confirmation. None on the
       // first attempt — the client already waited for minConfirmations.
       if (attempt > 0) {
-        await new Promise((r) => setTimeout(r, Math.min(2000, 400 * 2 ** (attempt - 1))))
+        await new Promise((r) => setTimeout(r, Math.min(backoffCap, 400 * 2 ** (attempt - 1))))
       }
 
       const timeoutController = new AbortController()
@@ -544,8 +583,8 @@ export class PipRailClient {
         if (timeoutController.signal.aborted) {
           throw new PaymentTimeoutError(
             `Server did not respond within ${this.retryTimeoutMs}ms ` +
-              `after on-chain payment ${ref} confirmed.`,
-            { cause: err }
+              `after broadcasting payment ${ref}. Re-verify or re-submit ref=${ref} — do NOT re-pay.`,
+            { cause: err, ref }
           )
         }
         throw err
@@ -568,13 +607,18 @@ export class PipRailClient {
     const why = lastReason
       ? `${lastReason.error}${lastReason.detail ? ` — ${lastReason.detail}` : ''}`
       : 'server gave no reason'
+    const unconfirmedNote = confirmed
+      ? ''
+      : ' (broadcast but NOT locally confirmed — it may still have settled on-chain)'
     this.safeEmit({
       kind: 'payment-failed',
-      reason: `server returned 402 after on-chain payment ${ref} confirmed (${why})`,
+      reason: `server returned 402 after broadcasting payment ${ref}${unconfirmedNote} (${why})`,
     })
     throw new MaxRetriesExceededError(
-      `Server still returned 402 after ${this.maxRetries} retry attempt(s) ` +
-        `with on-chain proof ref=${ref}. Last server rejection: ${why}.`
+      `Server still returned 402 after ${attempts} attempt(s) with on-chain proof ` +
+        `ref=${ref}${unconfirmedNote}. Last server rejection: ${why}. ` +
+        `Re-verify or re-submit ref=${ref} before retrying — never re-pay (it would double-spend).`,
+      { ref }
     )
   }
 }

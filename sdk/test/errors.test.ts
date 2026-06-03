@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   PipRailError,
   InsufficientFundsError,
+  RecipientNotReadyError,
   UnknownTokenError,
   WrongFamilyError,
   WrongChainError,
@@ -23,6 +24,7 @@ describe('typed error vocabulary — stable codes + PipRailError lineage', () =>
     [new WrongFamilyError('x'), 'WRONG_FAMILY'],
     [new UnknownTokenError('x'), 'UNKNOWN_TOKEN'],
     [new InsufficientFundsError('x'), 'INSUFFICIENT_FUNDS'],
+    [new RecipientNotReadyError('x'), 'RECIPIENT_NOT_READY'],
     [new WrongChainError('x'), 'WRONG_CHAIN'],
     [new ConfirmationTimeoutError('x'), 'CONFIRMATION_TIMEOUT'],
     [new PaymentTimeoutError('x'), 'PAYMENT_TIMEOUT'],

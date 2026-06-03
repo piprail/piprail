@@ -15,10 +15,14 @@
  * The signer is injected behind a narrow client so this is unit-testable; the
  * near-api-js Account wiring lives in index.ts.
  */
-import { InsufficientFundsError, toInsufficientFundsError } from '../../errors.js'
+import {
+  InsufficientFundsError,
+  RecipientNotReadyError,
+  toInsufficientFundsError,
+} from '../../errors.js'
 import type { X402AcceptEntry } from '../../x402.js'
 
-/** The one call the pay path needs — adapted from a near-api-js Account in index.ts. */
+/** The calls the pay path needs — adapted from a near-api-js Account in index.ts. */
 export interface NearSendClient {
   ftTransfer(input: {
     contractId: string
@@ -28,6 +32,9 @@ export interface NearSendClient {
     gas: bigint
     deposit: bigint
   }): Promise<{ hash: string }>
+  /** A plain native-NEAR `Transfer` to `receiverId` (yoctoNEAR). No memo, no
+   *  storage_deposit — a native transfer even creates a fresh implicit recipient. */
+  nativeTransfer(input: { receiverId: string; amount: string }): Promise<{ hash: string }>
 }
 
 export interface PayNearParams {
@@ -55,16 +62,42 @@ export async function payNear(params: PayNearParams): Promise<string> {
     })
     return res.hash
   } catch (err) {
-    // A merchant that isn't NEP-145-registered makes ft_transfer panic — surface a
-    // clear, actionable reason (NOT an affordability error).
+    // A merchant that isn't NEP-145-registered makes ft_transfer panic — that's a
+    // RECIPIENT setup problem (not the payer's balance), so surface the typed,
+    // actionable RecipientNotReadyError.
     if (isNearRegistrationError(err)) {
-      throw new Error(
-        `NEAR ft_transfer failed: recipient ${accept.payTo} isn't registered on token ${accept.asset} ` +
-          `(NEP-145 storage_deposit). Register it once (≈0.00125 NEAR) before it can receive.`,
+      throw new RecipientNotReadyError(
+        `NEAR recipient ${accept.payTo} isn't registered on token ${accept.asset} ` +
+          `(NEP-145 storage_deposit) — register it once (≈0.00125 NEAR) before it can receive. (NEAR: not registered)`,
         { cause: err }
       )
     }
     // Map NEAR's affordability phrasings to the SAME typed error as every chain.
+    if (isNearAffordability(err)) {
+      throw new InsufficientFundsError(
+        err instanceof Error ? err.message : 'Insufficient NEAR balance for the payment.',
+        { cause: err }
+      )
+    }
+    throw toInsufficientFundsError(err) ?? err
+  }
+}
+
+/**
+ * Pay in NATIVE NEAR — a single `Transfer` action (digest-bound, like EVM/Solana/Sui).
+ * No memo, no 1-yoctoNEAR deposit, and no NEP-145 `storage_deposit`: a native transfer
+ * credits any account and even creates a fresh implicit recipient. The proof is the tx
+ * hash; the gate's single-use set + the verifier's recency window are what bind it.
+ */
+export async function payNearNative(params: {
+  client: NearSendClient
+  accept: X402AcceptEntry
+}): Promise<string> {
+  const { client, accept } = params
+  try {
+    const res = await client.nativeTransfer({ receiverId: accept.payTo, amount: accept.amount })
+    return res.hash
+  } catch (err) {
     if (isNearAffordability(err)) {
       throw new InsufficientFundsError(
         err instanceof Error ? err.message : 'Insufficient NEAR balance for the payment.',

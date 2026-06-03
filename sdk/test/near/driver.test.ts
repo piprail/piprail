@@ -27,12 +27,20 @@ describe('auto-mount — naming "near" is enough (no setup call)', () => {
   })
 })
 
-describe('NEAR tokens — NEP-141 only (USDC + USDT yes, native NEAR no)', () => {
-  it('rejects native NEAR with a clear UnknownTokenError (FT-only)', async () => {
-    const gate = createPaymentGate({ chain: 'near', token: 'native', amount: '1', payTo: PAY_TO })
+describe('NEAR tokens — USDC + USDT + native NEAR', () => {
+  it('accepts native NEAR (digest-bound) — builds a NEAR challenge', async () => {
+    const gate = createPaymentGate({ chain: 'near', token: 'native', amount: '0.01', payTo: PAY_TO })
+    const accept = (await gate.challenge()).challenge.accepts[0]!
+    expect(accept.asset).toBe('native')
+    expect(accept.extra.decimals).toBe(24)
+    expect(accept.extra.symbol).toBe('NEAR')
+    expect(accept.amount).toBe('10000000000000000000000') // 0.01 × 10^24 yoctoNEAR
+  })
+
+  it('rejects an unknown token symbol with a clear UnknownTokenError', async () => {
+    const gate = createPaymentGate({ chain: 'near', token: 'USDX', amount: '1', payTo: PAY_TO })
     const err = await gate.challenge().catch((e) => e)
     expect(err).toBeInstanceOf(UnknownTokenError)
-    expect(err.message).toMatch(/NEP-141 token only/)
   })
 
   it('accepts any NEP-141 by { contractId, decimals }', async () => {

@@ -175,13 +175,26 @@ Any other EVM chain works by passing a viem `Chain` or `{ id, rpcUrl }` plus `to
 - EVM (17 mainnets): Ethereum, Base, Arbitrum, Optimism, Polygon, BNB Chain, Avalanche, Mantle, Sonic, Linea, Scroll, Celo, zkSync, Unichain, World Chain, Sei, Injective. USDC on all; USDT on all except Base, World Chain, and Sei.
 - Solana: USDC, USDT.
 - TON: USD₮ only (native USDC doesn't exist on TON).
-- Tron: USD₮ only (TRC-20). The largest USDT rail; a transfer burns real TRX, so gas estimates matter most here.
+- Tron: USD₮ (TRC-20) + native TRX. The largest USDT rail; a transfer burns real TRX, so gas estimates matter most here. (No native USDC on Tron — Circle discontinued it.)
 - NEAR: USDC, USDT (both native NEP-141).
 - Sui: USDC.
 - Stellar: USDC, EURC (7-decimal assets, memo-bound).
 - XRP Ledger (XRPL): USDC, RLUSD (receiving needs a one-time trustline).
 
 Every token address was verified on-chain before shipping. USDC is the common denominator across families.
+
+## Per-chain setup & caveats (read before shipping NEAR, TON, Stellar, XRPL, Tron)
+
+Most chains need nothing beyond a wallet. `token: 'native'` (paying in the chain's own coin) is accepted on EVERY family — EVM, Solana, Sui, Stellar, XRPL, TON, NEAR, and Tron (native TRX, digest-bound). No exceptions. Custom tokens work everywhere with no allowlist.
+
+- EVM / Solana / Sui: no receiver setup — any valid address receives native or token immediately (on Solana the payer's tx creates the recipient's token account and pays its ~0.00204 SOL rent; pass the recipient's WALLET address as payTo). Sui ships USDC only (no built-in USDT). On BNB Chain, USDC/USDT are 18 decimals (the SDK handles it).
+- NEAR — native is zero-setup; tokens need storage_deposit. `token:'native'` pays in NEAR (24dp) via digest-binding — NO `storage_deposit`, and a transfer even creates a fresh implicit recipient (the easy path; NEAR is the volatile gas coin, so for stable pricing pay in a token). For USDC/USDT (or a custom NEP-141 `{ contractId, decimals }`): the recipient AND the payer must each be NEP-145 `storage_deposit`-registered on that exact token contract once (~0.00125 NEAR) before they can receive/hold it. Wallet: `{ accountId, privateKey }` (an `ed25519:…` secret). Built-in USDC is Circle's native contract, not the bridged `…factory.bridge.near`. Do not route through NEAR Intents/solvers.
+- TON — USD₮ (no USDC) + API-keyed RPC (the ONE extra step for TON). Native USDC doesn't exist on TON; pay in `'USDT'`, `'native'` (Toncoin), or a custom jetton `{ master, decimals }`. The keyless public toncenter RPC is rate-limited and stalls confirm/verify, so you MUST pass an API-keyed, archival endpoint as `rpcUrl` (on both the gate and the client): `rpcUrl: 'https://toncenter.com/api/v2/jsonRPC?api_key=YOUR_KEY'`. Get a free key in ~30s from @tonapibot on Telegram (or toncenter.com) — no card, no KYC — and embed it in the URL. That single parameter is the entire TON setup. No receiver setup (the payer's gas auto-deploys the jetton wallet on first receipt). Wallet: a 24-word `{ mnemonic }` (version v4 default, or v5r1).
+- Tron — USD₮ (or native TRX) + real gas. Pay in `'USDT'`, `'native'` (TRX, digest-bound), or a custom TRC-20 `{ address, decimals }`. USD₮ is the default since TRX is volatile gas, but native TRX works too (a plain TransferContract, verified on the solidity node). No native USDC (Circle discontinued it). Gas is paid in TRX and a USD₮ transfer burns real Energy (~30k unstaked) — budget TRX with `client.estimateCost(url)`; a first native send to a brand-new recipient also pays Tron's ~1 TRX account-creation fee. No receiver setup. Wallet: `{ privateKey }` (hex). Finality waits ~19 blocks (~57s).
+- Stellar — trustline + funded account. Pay in native XLM, `'USDC'`, `'EURC'`, or `{ issuer, code, decimals }`. Receiving an issued asset needs the recipient to EXIST (funded above the ~1 XLM base reserve) AND hold a one-time trustline for that code+issuer (+0.5 XLM reserve each); the payer needs its own trustline too. Reserves are locked, not spent. Wallet: `{ secret }` (`S…`).
+- XRPL — activation + trustline. Pay in native XRP, `'USDC'`, `'RLUSD'`, or `{ issuer, currencyHex, decimals }`. Receiving an IOU needs the recipient to be an activated account (~1 XRP base reserve) AND hold a one-time trustline to the issuer's currency; native XRP needs neither. Reserves locked, not spent. RLUSD's issuer requires a DestinationTag — the SDK sets a nonce-derived one automatically. Wallet: `{ seed }` (`s…`).
+
+Universal: every public default RPC is rate-limited — pass your own `rpcUrl` in production (there's no separate API-key field; fold any key into the URL). Full reference: https://github.com/piprail/piprail/blob/main/sdk/CHAINS.md
 
 ## Error model
 
@@ -198,6 +211,7 @@ The rule of thumb for agents: a thrown `PaymentDeclinedError` means your own bud
 - npm: https://www.npmjs.com/package/@piprail/sdk
 - GitHub (MIT): https://github.com/piprail/piprail
 - SDK README: https://github.com/piprail/piprail/blob/main/sdk/README.md
+- Per-chain setup & caveats: https://github.com/piprail/piprail/blob/main/sdk/CHAINS.md
 - Concepts: https://github.com/piprail/piprail/blob/main/examples/CONCEPTS.md
 - Error codes: https://github.com/piprail/piprail/blob/main/sdk/ERRORS.md
 - Agent guidelines: https://github.com/piprail/piprail/blob/main/AGENTS.md

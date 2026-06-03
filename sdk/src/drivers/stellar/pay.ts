@@ -26,7 +26,11 @@ import {
   type Horizon,
 } from '@stellar/stellar-sdk'
 import { STELLAR_PASSPHRASE, parseStellarAssetId } from './chains.js'
-import { InsufficientFundsError, toInsufficientFundsError } from '../../errors.js'
+import {
+  InsufficientFundsError,
+  RecipientNotReadyError,
+  toInsufficientFundsError,
+} from '../../errors.js'
 import type { X402AcceptEntry } from '../../x402.js'
 
 export interface PayStellarParams {
@@ -81,17 +85,37 @@ export function assetForAccept(accept: X402AcceptEntry): Asset {
 /** Map common Horizon failures to the SDK's typed errors (see ERRORS.md). */
 function mapSubmitError(err: unknown): unknown {
   const codes = extractResultCodes(err)
-  if (codes.some((c) => /underfunded|insufficient|low_reserve|no_trust/i.test(c))) {
+  const seen = codes.join(', ')
+  const has = (re: RegExp) => codes.some((c) => re.test(c))
+
+  // Recipient-side setup → RecipientNotReadyError (fix the DESTINATION, not the payer).
+  // `op_no_destination` = the payTo account doesn't exist; `op_no_trust` (PAYMENT_NO_TRUST) =
+  // the destination has no trustline for the asset; `op_line_full`/`op_not_authorized` likewise.
+  // `op_src_no_trust` is the SENDER's missing trustline → that's an affordability/setup case below.
+  if (has(/op_no_destination/i)) {
+    return new RecipientNotReadyError(
+      `Stellar destination account doesn't exist yet — create it with ≥1 XLM (the base reserve) before it can receive. (Stellar: ${seen})`,
+      { cause: err }
+    )
+  }
+  if (has(/op_(no_trust|line_full|not_authorized)/i) && !has(/src_no_trust/i)) {
+    return new RecipientNotReadyError(
+      `Stellar destination can't hold this asset — it needs a trustline for it (and to be authorized) before it can receive. (Stellar: ${seen})`,
+      { cause: err }
+    )
+  }
+  // Sender affordability / setup → InsufficientFundsError.
+  if (has(/underfunded|insufficient|low_reserve|src_no_trust/i)) {
     return new InsufficientFundsError(
-      'Stellar payment failed: insufficient balance/reserve, or the sender has no trustline for this asset.',
+      `Stellar payment failed: the sender can't cover it — balance, base reserve, or no trustline to send this asset. (Stellar: ${seen})`,
       { cause: err }
     )
   }
   // An unfunded source account doesn't exist on-chain — `loadAccount` 404s
-  // before any submit; treat that as an affordability failure too.
+  // before any submit; that's the SENDER not being funded yet.
   if (isAccountNotFound(err)) {
     return new InsufficientFundsError(
-      'Stellar source account not found on-chain — fund it (≥ base reserve) before it can pay.',
+      'Stellar source account not found on-chain — fund the sender (≥ base reserve) before it can pay.',
       { cause: err }
     )
   }

@@ -18,8 +18,14 @@
  */
 import { TronWeb } from 'tronweb'
 import { TRON_MAINNET, TRX_DECIMALS, type TronPreset } from './chains.js'
-import { payTron, type TronPayClient } from './pay.js'
-import { verifyTron, type TronReader, type TronTxInfo } from './verify.js'
+import { payTron, payTronNative, type TronPayClient } from './pay.js'
+import {
+  verifyTron,
+  verifyTronNative,
+  type TronReader,
+  type TronTxInfo,
+  type TronRawTx,
+} from './verify.js'
 import { assertTronWallet, resolveTronPrivateKey, type TronWalletConfig } from './wallet.js'
 import {
   ConfirmationTimeoutError,
@@ -63,6 +69,15 @@ function makeTronNetwork(preset: TronPreset, rpcUrl: string): ResolvedNetwork {
       if (!info || !info.id) return null
       return info
     },
+    // Raw tx (contracts + per-contract ret) for the native-TRX path. getTransaction
+    // throws on an unknown tx, so swallow → null; native verify gates finality on
+    // getTransactionInfo first anyway.
+    async getTransaction(txid) {
+      const tx = await tronWeb.trx.getTransaction(txid).catch(() => null)
+      const raw = tx as unknown as (TronRawTx & { raw_data?: unknown }) | null
+      if (!raw || !raw.raw_data) return null
+      return raw
+    },
   }
 
   return {
@@ -72,10 +87,9 @@ function makeTronNetwork(preset: TronPreset, rpcUrl: string): ResolvedNetwork {
 
     resolveToken(token: TokenInput): ResolvedToken {
       if (token === 'native') {
-        throw new UnknownTokenError(
-          `Tron payments are TRC-20 only — native TRX isn't a built-in asset. ` +
-            `Use 'USDT' or a custom { address, decimals }.`
-        )
+        // Native TRX IS a payment asset (digest-bound, like EVM/Solana/Sui): a plain
+        // TransferContract, verified by txid + recency + single-use. 6dp (sun).
+        return { asset: 'native', decimals: TRX_DECIMALS, symbol: 'TRX' }
       }
       if (typeof token === 'string') {
         const info = preset.tokens[token.toUpperCase()]
@@ -110,8 +124,7 @@ function makeTronNetwork(preset: TronPreset, rpcUrl: string): ResolvedNetwork {
     },
 
     describeAsset(asset: string) {
-      // Native TRX is not a payment asset on Tron → not described.
-      if (asset === 'native') return null
+      if (asset === 'native') return { symbol: 'TRX', decimals: TRX_DECIMALS }
       for (const info of Object.values(preset.tokens)) {
         if (info.address === asset) return { symbol: info.symbol, decimals: info.decimals }
       }
@@ -141,6 +154,9 @@ function makeTronNetwork(preset: TronPreset, rpcUrl: string): ResolvedNetwork {
       if (!from) {
         throw new WrongFamilyError('Tron wallet { privateKey } could not derive an address.')
       }
+      if (accept.asset === 'native') {
+        return payTronNative({ client: tronWeb as unknown as TronPayClient, from, privateKey, accept })
+      }
       return payTron({
         client: tronWeb as unknown as TronPayClient,
         from,
@@ -167,6 +183,17 @@ function makeTronNetwork(preset: TronPreset, rpcUrl: string): ResolvedNetwork {
     },
 
     async estimateCost(accept, opts) {
+      // Native TRX: a plain TransferContract is just bandwidth (~268 bytes ≈ 0.27 TRX
+      // when unstaked), plus a ~1 TRX account-creation fee if the recipient is new.
+      if (accept.asset === 'native') {
+        return nativeCost({
+          symbol: 'TRX',
+          decimals: TRX_DECIMALS,
+          fee: 1_300_000n,
+          basis: 'heuristic',
+          detail: '≈0.27 TRX bandwidth (sender unstaked) + up to ~1 TRX if the recipient account is new',
+        })
+      }
       // A TRC-20 transfer burns Energy + Bandwidth, paid in TRX when the sender
       // isn't staked — the one chain here where gas is materially expensive, so
       // the estimate is genuinely useful. Energy price is a governance param
@@ -213,8 +240,19 @@ function makeTronNetwork(preset: TronPreset, rpcUrl: string): ResolvedNetwork {
 
     async verify(ref, accept) {
       const txid = stripTronPrefix(ref)
-      // Re-derive the watched token + recipient from the TRUSTED accept, in the
-      // 20-byte hex form Tron logs carry — never the client ref.
+      // Native TRX: the value/recipient live in the tx's TransferContract (no event
+      // log), addressed in 0x41-prefixed hex — re-derived from the trusted accept.
+      if (accept.asset === 'native') {
+        return verifyTronNative({
+          reader,
+          accept,
+          txid,
+          payToHex41: tronWeb.address.toHex(accept.payTo).toLowerCase(),
+          toBase58: (h) => tronWeb.address.fromHex(h),
+        })
+      }
+      // TRC-20: re-derive the watched token + recipient from the TRUSTED accept, in
+      // the 20-byte hex form Tron logs carry — never the client ref.
       return verifyTron({
         reader,
         accept,

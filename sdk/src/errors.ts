@@ -45,6 +45,27 @@ export class InsufficientFundsError extends PipRailError {
 }
 
 /**
+ * The payment can't be delivered because the RECIPIENT (`payTo`) isn't set up to
+ * receive on this chain yet — a chain-level *state* requirement, NOT the payer's
+ * balance. It's deliberately distinct from {@link InsufficientFundsError} so a
+ * caller (especially an AI agent) can tell the two fixes apart:
+ *
+ *   - `INSUFFICIENT_FUNDS`  → fund the **payer** (more token, native gas, or reserve).
+ *   - `RECIPIENT_NOT_READY` → set up the **recipient**, e.g.
+ *       · XRPL    — activate the account (it must hold ≥1 XRP base reserve to exist);
+ *       · Stellar — the account must exist (≥1 XLM reserve) and hold a trustline for the asset;
+ *       · NEAR    — `storage_deposit`-register the recipient on the NEP-141 token (~0.00125 NEAR).
+ *
+ * The message states the requirement and the fix in plain language **and echoes
+ * the raw chain code** (e.g. `(XRPL: tecNO_DST_INSUF_XRP)`), while the untouched
+ * chain error is preserved on `.cause` for deeper debugging. Chains with no
+ * receive prerequisite (EVM, Solana, Sui, Tron, and native TON/NEAR) never throw it.
+ */
+export class RecipientNotReadyError extends PipRailError {
+  readonly code = 'RECIPIENT_NOT_READY'
+}
+
+/**
  * Best-effort: turn a chain library's "wallet can't afford it" error into the
  * SDK's typed {@link InsufficientFundsError}, by matching its message. Drivers
  * WITHOUT structured error data (Solana, TON) call this in their `send()` catch
@@ -82,16 +103,42 @@ export class WrongChainError extends PipRailError {
 
 /**
  * Broadcast confirmed on-chain but server didn't return 200 within timeout.
- * The user got their tokens debited but the gated content is unreachable —
- * retry manually with the receipt nonce.
+ * The user got their tokens debited but the gated content is unreachable.
+ *
+ * `.ref` is the on-chain proof (tx hash / signature / locator) that was already
+ * broadcast. **Re-verify or re-submit `ref` — never re-pay** (a fresh payment
+ * would double-spend). The same proof stays valid until the server's
+ * `maxTimeoutSeconds` recency window elapses (default 600s).
  */
 export class PaymentTimeoutError extends PipRailError {
   readonly code = 'PAYMENT_TIMEOUT'
+  /** The already-broadcast proof ref — recover with it, don't re-pay. */
+  readonly ref?: string
+  constructor(message: string, options?: ErrorOptions & { ref?: string }) {
+    super(message, options)
+    this.ref = options?.ref
+  }
 }
 
-/** Paid, retried, still got 402. Means the server rejected our proof. */
+/**
+ * Paid, retried, still got 402 — the server rejected our proof on every attempt.
+ *
+ * `.ref` is the on-chain proof that was broadcast. The rejection may be transient
+ * (the server's RPC node lagging/throttled and not yet seeing the tx) — so
+ * **re-verify or re-submit `ref` before doing anything else; never re-pay**, or
+ * you risk a double payment. The proof stays redeemable until the server's
+ * `maxTimeoutSeconds` recency window elapses (default 600s). A persistent
+ * rejection with a definitive code (`amount_too_low`, `wrong_recipient`, …)
+ * means the proof genuinely doesn't satisfy the challenge.
+ */
 export class MaxRetriesExceededError extends PipRailError {
   readonly code = 'MAX_RETRIES_EXCEEDED'
+  /** The already-broadcast proof ref — recover with it, don't re-pay. */
+  readonly ref?: string
+  constructor(message: string, options?: ErrorOptions & { ref?: string }) {
+    super(message, options)
+    this.ref = options?.ref
+  }
 }
 
 /**

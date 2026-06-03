@@ -5,15 +5,19 @@
  * the lazy loader in ../index.ts) the first time a NEAR chain is used, so
  * `near-api-js` loads on demand — other installs never pull it in.
  *
- * USDC + USDT are built in (both native, verified on-chain). NEAR is FT-only —
- * native NEAR isn't a payment asset (its transfer carries no memo to bind), so
- * `token: 'native'` is rejected; pass a custom NEP-141 via `{ contractId, decimals }`.
+ * Two payment modes:
+ *   - **NEP-141 tokens** (USDC + USDT built in, both native, verified on-chain; or a
+ *     custom `{ contractId, decimals }`): **Template A (memo-bound)**, verified BY HASH —
+ *     the nonce rides in the `ft_transfer` memo and is re-checked in verify(). Needs a
+ *     one-time NEP-145 `storage_deposit` on the recipient (gotcha below).
+ *   - **Native NEAR** (`token: 'native'`, 24dp): **digest-bound** (like EVM/Solana/Sui) —
+ *     a plain `Transfer`, verified by tx hash + a recency window + the gate's single-use set
+ *     (no memo). Needs **no `storage_deposit`** and even creates a fresh implicit recipient —
+ *     the zero-setup NEAR path. (NEAR is the volatile gas coin; pay in a token for stable pricing.)
  *
- * Template A (memo-bound) verified BY HASH: the nonce rides in the `ft_transfer`
- * memo and is re-checked in verify(); the proof ref is `<senderAccountId>:<txHash>`
- * (NEAR's tx status read needs the sender to locate the tx — the sender is only a
- * LOCATOR; every verified field comes from the trusted `accept` + the on-chain
- * receipt). Freshness comes from the nonce binding + the gate's single-use set.
+ * The proof ref is `<senderAccountId>:<txHash>` either way (NEAR's tx-status read needs the
+ * sender to locate the tx — the sender is only a LOCATOR; every verified field comes from the
+ * trusted `accept` + the on-chain receipt).
  *
  * **storage_deposit gotcha:** a NEP-141 recipient must be NEP-145-registered on the
  * token before it can receive, or `ft_transfer` panics (~0.00125 NEAR, one-time
@@ -23,7 +27,7 @@
  */
 import { JsonRpcProvider, Account, actions } from 'near-api-js'
 import { NEAR_MAINNET, NEAR_DECIMALS, type NearPreset } from './chains.js'
-import { payNear, type NearSendClient } from './pay.js'
+import { payNear, payNearNative, type NearSendClient } from './pay.js'
 import { verifyNear, type NearReader, type NearReceiptView } from './verify.js'
 import { assertNearWallet, resolveNearWallet, type NearWalletConfig } from './wallet.js'
 import {
@@ -80,7 +84,28 @@ function makeNearNetwork(preset: NearPreset, rpcUrl: string): ResolvedNetwork {
         executorId: r.outcome.executor_id,
         logs: r.outcome.logs ?? [],
       }))
-      return { success, receipts }
+
+      // Native-path fields (digest-bound NEAR): the tx's single receiver + summed Transfer
+      // deposits, and the block timestamp for recency (native verify fails closed without it).
+      const txn = (outcome as { transaction?: { receiver_id?: string; actions?: unknown[] } }).transaction
+      const receiverId = txn?.receiver_id
+      const nativeDeposit = sumTransferDeposits(txn?.actions).toString()
+      let timestampMs: number | undefined
+      try {
+        const blockHash = (outcome as { transaction_outcome?: { block_hash?: string } }).transaction_outcome
+          ?.block_hash
+        if (blockHash) {
+          const block = await provider.viewBlock({ blockId: blockHash })
+          const header = (block as { header?: { timestamp_nanosec?: string; timestamp?: number } }).header
+          // timestamp_nanosec is a string (the ns value exceeds JS safe-integer range).
+          const ns = header?.timestamp_nanosec ?? (header?.timestamp != null ? String(header.timestamp) : undefined)
+          if (ns != null) timestampMs = Number(BigInt(ns) / 1_000_000n) // ns → ms
+        }
+      } catch {
+        /* block-time is best-effort (extra read); native verify fails closed if it's absent */
+      }
+
+      return { success, receipts, receiverId, nativeDeposit, timestampMs }
     },
   }
 
@@ -91,11 +116,9 @@ function makeNearNetwork(preset: NearPreset, rpcUrl: string): ResolvedNetwork {
 
     resolveToken(token: TokenInput): ResolvedToken {
       if (token === 'native') {
-        throw new UnknownTokenError(
-          `NEAR payments are NEP-141 token only — native NEAR isn't a built-in payment ` +
-            `asset (a native transfer carries no memo to bind the payment). Use 'USDC' / ` +
-            `'USDT' or a custom { contractId, decimals }.`
-        )
+        // Native NEAR IS a payment asset (digest-bound, like EVM/Solana/Sui): a plain
+        // Transfer, verified by tx hash + recency + single-use. No memo, no storage_deposit.
+        return { asset: 'native', decimals: NEAR_DECIMALS, symbol: 'NEAR' }
       }
       if (typeof token === 'string') {
         const info = preset.tokens[token.toUpperCase()]
@@ -123,8 +146,7 @@ function makeNearNetwork(preset: NearPreset, rpcUrl: string): ResolvedNetwork {
     },
 
     describeAsset(asset: string) {
-      // Native NEAR is not a payment asset on this driver → not described.
-      if (asset === 'native') return null
+      if (asset === 'native') return { symbol: 'NEAR', decimals: NEAR_DECIMALS }
       for (const info of Object.values(preset.tokens)) {
         if (info.contractId === asset) return { symbol: info.symbol, decimals: info.decimals }
       }
@@ -151,6 +173,11 @@ function makeNearNetwork(preset: NearPreset, rpcUrl: string): ResolvedNetwork {
     async send(wallet, accept) {
       const { accountId, signer } = resolveNearWallet(wallet._native as NearWalletConfig)
       const account = new Account(accountId, provider, signer)
+      const hashOf = (outcome: unknown): string => {
+        const hash = (outcome as { transaction?: { hash?: string } }).transaction?.hash
+        if (!hash) throw new Error('NEAR: signAndSendTransaction returned no tx hash.')
+        return hash
+      }
       const client: NearSendClient = {
         async ftTransfer({ contractId, receiverId, amount, memo, gas, deposit }) {
           const outcome = await account.signAndSendTransaction({
@@ -159,12 +186,21 @@ function makeNearNetwork(preset: NearPreset, rpcUrl: string): ResolvedNetwork {
               actions.functionCall('ft_transfer', { receiver_id: receiverId, amount, memo }, gas, deposit),
             ],
           })
-          const hash = (outcome as { transaction?: { hash?: string } }).transaction?.hash
-          if (!hash) throw new Error('NEAR: signAndSendTransaction returned no tx hash.')
-          return { hash }
+          return { hash: hashOf(outcome) }
+        },
+        async nativeTransfer({ receiverId, amount }) {
+          // A plain Transfer action — no memo, no storage_deposit; creates a fresh implicit recipient.
+          const outcome = await account.signAndSendTransaction({
+            receiverId,
+            actions: [actions.transfer(BigInt(amount))],
+          })
+          return { hash: hashOf(outcome) }
         },
       }
-      const hash = await payNear({ client, accept })
+      const hash =
+        accept.asset === 'native'
+          ? await payNearNative({ client, accept })
+          : await payNear({ client, accept })
       // The proof ref carries the sender so verify() can locate the tx.
       return encodeRef(accountId, hash)
     },
@@ -209,4 +245,24 @@ function decodeRef(ref: string): { senderId: string; hash: string } {
   const i = ref.indexOf(':')
   if (i < 0) return { senderId: '', hash: ref }
   return { senderId: ref.slice(0, i), hash: ref.slice(i + 1) }
+}
+
+/** Sum the yoctoNEAR `deposit` of every Transfer action in a tx's action list (RPC JSON form
+ *  `{ Transfer: { deposit } }`; tolerant of a lowercase `transfer` variant). For the native path. */
+function sumTransferDeposits(actions: unknown[] | undefined): bigint {
+  if (!Array.isArray(actions)) return 0n
+  let sum = 0n
+  for (const a of actions) {
+    const t =
+      (a as { Transfer?: { deposit?: string | number } }).Transfer ??
+      (a as { transfer?: { deposit?: string | number } }).transfer
+    if (t && t.deposit != null) {
+      try {
+        sum += BigInt(t.deposit)
+      } catch {
+        /* skip a malformed deposit */
+      }
+    }
+  }
+  return sum
 }

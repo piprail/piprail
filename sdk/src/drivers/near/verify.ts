@@ -29,8 +29,12 @@ export interface NearReceiptView {
 export interface NearTxView {
   success: boolean
   receipts: NearReceiptView[]
-  /** Optional block time (ms) — recency is checked only if present. */
+  /** Optional block time (ms) — recency is checked only if present (REQUIRED for native). */
   timestampMs?: number
+  /** The transaction's single receiver account id — used by the native (digest-bound) path. */
+  receiverId?: string
+  /** Summed `Transfer` action deposits in yoctoNEAR (native path) — base-unit string. */
+  nativeDeposit?: string
 }
 
 export interface NearReader {
@@ -88,6 +92,36 @@ export async function verifyNear(params: VerifyNearParams): Promise<VerifyResult
 
   if (!tx.success) {
     return { ok: false, error: 'tx_reverted', detail: `NEAR tx ${hash} failed on-chain.` }
+  }
+
+  // Native NEAR (digest-bound, like EVM/Solana/Sui): there's no on-chain nonce, so prove the
+  // tx moved >= amount native NEAR to payTo AND is RECENT. Recency is load-bearing here
+  // (a memo can't bind a bare Transfer); the gate's single-use set covers reuse. We fail
+  // CLOSED if the block time is unavailable rather than accept an un-bounded-age payment.
+  if (accept.asset === 'native') {
+    if (typeof tx.timestampMs !== 'number') {
+      return { ok: false, error: 'payment_expired', detail: `Cannot bound the age of native NEAR tx ${hash} (no block time) — failing closed.` }
+    }
+    const ageSeconds = Math.floor(Date.now() / 1000) - Math.floor(tx.timestampMs / 1000)
+    if (ageSeconds > accept.maxTimeoutSeconds) {
+      return { ok: false, error: 'payment_expired', detail: `Payment is ${ageSeconds}s old; max allowed is ${accept.maxTimeoutSeconds}s.` }
+    }
+    if (tx.receiverId !== accept.payTo) {
+      return { ok: false, error: 'transfer_not_found', detail: `Native NEAR tx ${hash} did not pay ${accept.payTo} (receiver ${tx.receiverId ?? 'unknown'}).` }
+    }
+    let paid: bigint
+    try { paid = BigInt(tx.nativeDeposit ?? '0') } catch { paid = 0n }
+    if (paid < required) {
+      return { ok: false, error: 'amount_too_low', detail: `Native NEAR transfer to ${accept.payTo} was ${paid} yocto, required ${required}.` }
+    }
+    return {
+      ok: true,
+      receipt: {
+        scheme: 'onchain-proof', success: true, network: accept.network,
+        transaction: hash, asset: 'native', amount: accept.amount,
+        payer: senderId, payTo: accept.payTo, verifiedAt: new Date().toISOString(),
+      },
+    }
   }
 
   if (typeof tx.timestampMs === 'number') {

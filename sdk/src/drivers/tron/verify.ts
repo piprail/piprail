@@ -40,10 +40,24 @@ export interface TronTxInfo {
   log?: TronLog[]
 }
 
-/** The single read the verifier needs — adapted from a live tronweb in index.ts. */
+/** A raw transaction (`gettransactionbyid`) — the native path reads its TransferContract. */
+export interface TronRawTx {
+  /** Per-contract result; 'SUCCESS' on a good transfer. */
+  ret?: { contractRet?: string }[]
+  raw_data?: {
+    contract?: {
+      type?: string
+      parameter?: { value?: { amount?: number; to_address?: string; owner_address?: string } }
+    }[]
+  }
+}
+
+/** The reads the verifier needs — adapted from a live tronweb in index.ts. */
 export interface TronReader {
   /** Confirmed receipt + logs (SOLIDITY node). null if not yet confirmed/unknown. */
   getTransactionInfo(txid: string): Promise<TronTxInfo | null>
+  /** Raw tx (contracts + per-contract ret) — for the native-TRX path. */
+  getTransaction(txid: string): Promise<TronRawTx | null>
 }
 
 export interface VerifyTronParams {
@@ -107,6 +121,100 @@ export async function verifyTron(params: VerifyTronParams): Promise<VerifyResult
       network: accept.network,
       transaction: txid,
       asset: accept.asset,
+      amount: accept.amount,
+      payer: from ? toBase58(from) : '',
+      payTo: accept.payTo,
+      verifiedAt: new Date().toISOString(),
+    },
+  }
+}
+
+export interface VerifyTronNativeParams {
+  reader: TronReader
+  accept: X402AcceptEntry
+  /** The proof txid (bare hex). */
+  txid: string
+  /** payTo as 0x41-prefixed hex (the form Tron TransferContract carries), lowercase. */
+  payToHex41: string
+  /** 0x41-prefixed hex → Base58 T… — for the receipt's payer field. */
+  toBase58: (hex41: string) => string
+}
+
+/**
+ * Verify a NATIVE-TRX payment (digest-bound). Finality + recency come from the
+ * SOLIDITY node (`getTransactionInfo` — present ⇒ solidified); the value/recipient
+ * come from the raw tx's `TransferContract` (native transfers emit no event log).
+ */
+export async function verifyTronNative(params: VerifyTronNativeParams): Promise<VerifyResult> {
+  const { reader, accept, txid, payToHex41, toBase58 } = params
+  const required = BigInt(accept.amount)
+
+  // 1) Finality gate: a confirmed tx exists on the solidity node (else transient).
+  let info: TronTxInfo | null
+  try {
+    info = await reader.getTransactionInfo(txid)
+  } catch {
+    return txNotFound(txid)
+  }
+  if (!info || !info.id) return txNotFound(txid)
+
+  // Replay window (blockTimeStamp is ms).
+  const ageSeconds = Math.floor(Date.now() / 1000) - Math.floor(info.blockTimeStamp / 1000)
+  if (Number.isFinite(ageSeconds) && ageSeconds > accept.maxTimeoutSeconds) {
+    return {
+      ok: false,
+      error: 'payment_expired',
+      detail: `Payment is ${ageSeconds}s old; max allowed is ${accept.maxTimeoutSeconds}s.`,
+    }
+  }
+
+  // 2) The transfer itself: read the raw tx's TransferContract.
+  let tx: TronRawTx | null
+  try {
+    tx = await reader.getTransaction(txid)
+  } catch {
+    return txNotFound(txid)
+  }
+  if (!tx) return txNotFound(txid)
+
+  const ret = tx.ret?.[0]?.contractRet
+  if (ret && ret !== 'SUCCESS') {
+    return { ok: false, error: 'tx_reverted', detail: `Tron tx ${txid} did not succeed (contractRet=${ret}).` }
+  }
+
+  const contract = (tx.raw_data?.contract ?? [])[0]
+  if (!contract || contract.type !== 'TransferContract') {
+    return {
+      ok: false,
+      error: 'transfer_not_found',
+      detail: `Tron tx ${txid} is not a native TRX transfer (TransferContract).`,
+    }
+  }
+  const value = contract.parameter?.value ?? {}
+  const to = String(value.to_address ?? '').toLowerCase().replace(/^0x/, '')
+  if (to !== payToHex41) {
+    return { ok: false, error: 'wrong_recipient', detail: `Native TRX in ${txid} was not sent to ${accept.payTo}.` }
+  }
+  const amount = (() => {
+    try {
+      return BigInt(value.amount ?? 0)
+    } catch {
+      return 0n
+    }
+  })()
+  if (amount < required) {
+    return { ok: false, error: 'amount_too_low', detail: `Sent ${amount} sun, required ${required}.` }
+  }
+
+  const from = String(value.owner_address ?? '').toLowerCase().replace(/^0x/, '')
+  return {
+    ok: true,
+    receipt: {
+      scheme: 'onchain-proof',
+      success: true,
+      network: accept.network,
+      transaction: txid,
+      asset: 'native',
       amount: accept.amount,
       payer: from ? toBase58(from) : '',
       payTo: accept.payTo,

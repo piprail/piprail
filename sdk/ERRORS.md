@@ -2,7 +2,8 @@
 
 This is the **single source of truth** for how `@piprail/sdk` reports errors. It is
 deliberately small and uniform: every module — the client, the server gate, the registry,
-and every chain driver (EVM, Solana, TON, Stellar, and any future family) — follows it
+and every chain driver (all eight families: EVM, Solana, TON, Tron, NEAR, Sui, Stellar, XRPL,
+and any future one) — follows it
 *exactly*, so a human developer, a merchant server, or an AI agent always gets a **typed,
 understandable** reason, never an opaque chain-library blob.
 
@@ -43,11 +44,12 @@ Base class [`PipRailError`](src/errors.ts) (abstract; `.name` = the subclass nam
 |---|---|---|---|
 | `WRONG_FAMILY` | `WrongFamilyError` | wallet / `payTo` / token given in another family's shape (or a malformed same-family shape) | every driver (`bindWallet`, `assertValidPayTo`, `resolveToken`) |
 | `UNKNOWN_TOKEN` | `UnknownTokenError` | a built-in token symbol the chain doesn't ship (e.g. `token: 'DOGE'`) | every driver (`resolveToken`) |
-| `INSUFFICIENT_FUNDS` | `InsufficientFundsError` | wallet can't cover the transfer (+ fees/reserve/trustline) | every driver (`send`) — see §6 |
+| `INSUFFICIENT_FUNDS` | `InsufficientFundsError` | the **payer** can't cover the transfer (+ fees / reserve / its own trustline) | every driver (`send`) — see §6 |
+| `RECIPIENT_NOT_READY` | `RecipientNotReadyError` | the **recipient** (`payTo`) isn't set up to receive on this chain — XRPL not activated (needs ≥1 XRP base reserve); Stellar account missing / no trustline; NEAR not `storage_deposit`-registered | Stellar / XRPL / NEAR drivers (`send`) — see §6.1 |
 | `WRONG_CHAIN` | `WrongChainError` | a bring-your-own `walletClient` is on a different chain than configured | EVM wallet adapter; client pre-send guard |
 | `CONFIRMATION_TIMEOUT` | `ConfirmationTimeoutError` | broadcast OK but the tx didn't confirm within the driver's window (re-check the ref) | every driver (`confirm`) |
-| `PAYMENT_TIMEOUT` | `PaymentTimeoutError` | the **server** didn't respond within `retryTimeoutMs` *after* a confirmed payment | client |
-| `MAX_RETRIES_EXCEEDED` | `MaxRetriesExceededError` | server kept returning 402 after the proof confirmed — **message embeds the last server `error — detail`** | client |
+| `PAYMENT_TIMEOUT` | `PaymentTimeoutError` | the **server** didn't respond within `retryTimeoutMs` *after* broadcast — **carries `.ref`** | client |
+| `MAX_RETRIES_EXCEEDED` | `MaxRetriesExceededError` | server kept returning 402 after broadcast — **message embeds the last server `error — detail`, and carries `.ref`** | client |
 | `PAYMENT_DECLINED` | `PaymentDeclinedError` | the client refused to pay BEFORE any send — over the spend `policy` (amount/total/chain/token/host), or an `onBeforePay` hook returned false / threw | client |
 | `INVALID_ENVELOPE` | `InvalidEnvelopeError` | a 402 had no parseable x402 challenge | client |
 | `NO_COMPATIBLE_ACCEPT` | `NoCompatibleAcceptError` | the challenge offered no `accepts[]` entry for the client's network | client |
@@ -109,6 +111,31 @@ abort a payment.
 
 ---
 
+## 4.1. A broadcast proof is never discarded (no false-positive, no double-pay)
+
+Once `send()` returns, the transaction is **on-chain** and funds may have moved. Two design
+rules make a flaky RPC safe in both directions:
+
+- **Verify fails closed (server).** If the gate's `verify()` RPC read fails, it returns
+  `tx_not_found` → the gate replies **402 (locked)**, *never* `paid`. An RPC outage can never
+  trick a merchant into unlocking without a real, on-chain-confirmed payment. And the gate
+  **releases the replay claim** when verification fails, so the payer can re-submit the *same*
+  proof once the RPC recovers — the proof is not burned.
+- **Confirm-timeout keeps the proof (client).** If the broadcast succeeds but the client's own
+  `confirm()` times out (a throttled RPC that 429s its status polls past the validity window
+  while the tx in fact lands), the client does **not** throw it away. It emits
+  `payment-unconfirmed` and submits the proof to the server anyway — deferring to the server's
+  on-chain verify (the authority) with **more patient retries** — and it **never re-broadcasts**.
+  If the server ultimately can't confirm, the client throws `MaxRetriesExceededError` /
+  `PaymentTimeoutError` carrying **`.ref`** (the broadcast proof).
+
+> **The recovery rule for agents:** on `MAX_RETRIES_EXCEEDED` / `PAYMENT_TIMEOUT`, read `.ref`
+> and **re-verify or re-submit that proof — never re-pay.** A fresh payment would double-spend.
+> The same proof stays redeemable until the server's `maxTimeoutSeconds` recency window elapses
+> (default 600s).
+
+---
+
 ## 5. The driver error contract (follow this verbatim)
 
 Every `PaymentDriver` / `ResolvedNetwork` method has a fixed error behaviour:
@@ -119,7 +146,7 @@ Every `PaymentDriver` / `ResolvedNetwork` method has a fixed error behaviour:
 | `resolveToken(token)` | unknown built-in symbol → `UnknownTokenError`; a foreign-family object token → `WrongFamilyError` (call the shared [`rejectForeignToken(token, family, network)`](src/drivers/shared.ts)); a malformed own-family token → `WrongFamilyError`. |
 | `assertValidPayTo(payTo)` | a non-family address → `WrongFamilyError`. |
 | `bindWallet(wallet)` | a foreign / unusable wallet shape → `WrongFamilyError`. |
-| `send(wallet, accept)` | wrap the broadcast; map affordability → `InsufficientFundsError` (§6); **rethrow everything else unchanged** (never swallow). |
+| `send(wallet, accept)` | wrap the broadcast; map **sender** affordability → `InsufficientFundsError` (§6) and **recipient** setup → `RecipientNotReadyError` (§6.1); **rethrow everything else unchanged** (never swallow). Every mapped throw carries `{ cause }` = the raw chain error. |
 | `verify(ref, accept)` | **return** a `VerifyResult` with a canonical `VerifyErrorCode`. **Guard every RPC read** so a transient failure returns `tx_not_found` — `verify()` must not throw for an RPC hiccup. Re-derive the watched account from the trusted `accept`, never the client ref. |
 | `confirm(ref, n)` | broadcast-but-not-confirmed / timeout → `ConfirmationTimeoutError`. |
 
@@ -139,6 +166,29 @@ is per-chain, because each library exposes a different signal:
   two paths can't drift in vocabulary.
 
 Either way the caller sees one `InsufficientFundsError` with `.code === 'INSUFFICIENT_FUNDS'`.
+
+### 6.1. Sender vs recipient: `INSUFFICIENT_FUNDS` vs `RECIPIENT_NOT_READY`
+
+Many chains require the **recipient** to be provisioned before it can receive — a chain
+*state* rule, not the payer's balance. These must NOT masquerade as affordability, because
+the fix is the opposite (set up the *recipient*, not fund the *payer*). So `send()` maps them
+to **`RecipientNotReadyError`** (`RECIPIENT_NOT_READY`), distinct from `InsufficientFundsError`:
+
+| Chain | Raw signal | → mapped to | Because the recipient needs… |
+|---|---|---|---|
+| **XRPL** | `tecNO_DST*` | `RecipientNotReadyError` | activation — an account must hold ≥1 XRP (base reserve) to exist |
+| **XRPL** | `tecNO_LINE*`, `tecPATH_DRY`, `tecDST_TAG_NEEDED`, `tecNO_AUTH` | `RecipientNotReadyError` | a trustline for the IOU / a DestinationTag / authorization |
+| **XRPL** | `tecUNFUNDED*`, `terINSUF*`, `tecINSUFF*` | `InsufficientFundsError` | (sender side — fund the payer) |
+| **Stellar** | `op_no_destination` | `RecipientNotReadyError` | the account to exist (created with ≥1 XLM reserve) |
+| **Stellar** | `op_no_trust`, `op_line_full`, `op_not_authorized` | `RecipientNotReadyError` | a trustline for the asset (and authorization) |
+| **Stellar** | `op_underfunded`, `op_src_no_trust`, `op_low_reserve` | `InsufficientFundsError` | (sender side) |
+| **NEAR** | `… is not registered` (NEP-141 panic) | `RecipientNotReadyError` | `storage_deposit` (NEP-145, ~0.00125 NEAR) |
+
+**Two rules for these messages:** (1) state the requirement and the fix in plain language so a
+human or an AI agent can act on it, and **echo the raw chain code** in the message (e.g.
+`(XRPL: tecNO_DST_INSUF_XRP)`); (2) preserve the untouched chain error on `.cause`. Clarity for
+the reader, full raw detail for the debugger — both, always. Chains with no receive prerequisite
+(EVM, Solana, Sui, Tron, native TON/NEAR) never throw `RecipientNotReadyError`.
 
 ---
 
@@ -174,6 +224,8 @@ Either way the caller sees one `InsufficientFundsError` with `.code === 'INSUFFI
       as other drivers for the same condition; every RPC read guarded → tx_not_found on failure.
 - [ ] send() wraps the broadcast and maps affordability → InsufficientFundsError
       (toInsufficientFundsError for message-only chains; structured detection + that backstop otherwise).
+- [ ] send() maps any RECIPIENT-side setup requirement (activation / trustline / account / storage)
+      → RecipientNotReadyError, with a plain-language fix + the raw chain code echoed + { cause } (§6.1).
 - [ ] confirm() → ConfirmationTimeoutError on broadcast-but-not-confirmed.
 - [ ] resolveToken(): unknown symbol → UnknownTokenError; foreign token → rejectForeignToken(...).
 - [ ] bindWallet() / assertValidPayTo() → WrongFamilyError for the wrong shape, message names the right one.

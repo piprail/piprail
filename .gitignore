@@ -73,3 +73,6 @@ Screenshot*.png
 
 # Local test harnesses (our Anvil/mainnet rigs) — not for the public repo
 /playground/
+
+# Internal research / design notes — local only, not part of the shipped SDK
+/research/

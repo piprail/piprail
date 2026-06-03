@@ -45,8 +45,8 @@ export const solanaCode = `<span class="tok-com">// Name the chain — pay in it
   amount: <span class="tok-str">'0.05'</span>, payTo,
 })
 <span class="tok-fn">requirePayment</span>({
-  chain: <span class="tok-chain">'ton'</span>, token: <span class="tok-str">'native'</span>,
-  amount: <span class="tok-str">'1'</span>, payTo, <span class="tok-com">// pay in TON</span>
+  chain: <span class="tok-chain">'sui'</span>, token: <span class="tok-str">'native'</span>,
+  amount: <span class="tok-str">'0.5'</span>, payTo, <span class="tok-com">// pay in SUI</span>
 })`
 
 export const agentSafeCode = `<span class="tok-kw">const</span> client = <span class="tok-kw">new</span> <span class="tok-fn">PipRailClient</span>({
@@ -66,6 +66,15 @@ export const agentSafeCode = `<span class="tok-kw">const</span> client = <span c
 
 <span class="tok-com">// Over budget? Refused before any send.</span>
 <span class="tok-kw">await</span> client.<span class="tok-fn">fetch</span>(url)`
+
+// TON's one-time setup: a free toncenter API key in the rpcUrl. The only TON-specific config.
+export const tonCode = `<span class="tok-com">// 1. Free key from @tonapibot on Telegram</span>
+<span class="tok-com">// 2. Drop it into rpcUrl — the whole TON setup</span>
+<span class="tok-fn">requirePayment</span>({
+  chain: <span class="tok-chain">'ton'</span>, token: <span class="tok-str">'USDT'</span>,
+  amount: <span class="tok-str">'0.05'</span>, payTo,
+  rpcUrl: <span class="tok-str">'…/jsonRPC?api_key=YOUR_KEY'</span>,
+})`
 
 // One challenge, several chains — the agent pays with whatever it holds.
 export const multiAcceptCode = `<span class="tok-fn">requirePayment</span>({

@@ -93,6 +93,7 @@ export type {
 export {
   PipRailError,
   InsufficientFundsError,
+  RecipientNotReadyError,
   WrongChainError,
   WrongFamilyError,
   UnknownTokenError,

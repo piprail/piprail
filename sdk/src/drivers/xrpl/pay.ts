@@ -26,7 +26,11 @@
  */
 import type { Wallet } from 'xrpl'
 import { parseXrplAssetId } from './chains.js'
-import { InsufficientFundsError, toInsufficientFundsError } from '../../errors.js'
+import {
+  InsufficientFundsError,
+  RecipientNotReadyError,
+  toInsufficientFundsError,
+} from '../../errors.js'
 import type { X402AcceptEntry } from '../../x402.js'
 
 /** The XRPL JSON-RPC reads/writes pay needs — adapted from a live node in index.ts. */
@@ -100,18 +104,22 @@ export async function payXrpl(params: PayXrplParams): Promise<string> {
     // Provisionally applied (tes*) → return the hash; confirm() awaits validation.
     if (code.startsWith('tes')) return res.tx_json?.hash ?? signed.hash
 
-    // Affordability → the SAME typed error as every other chain.
+    // Recipient-side setup → RecipientNotReadyError (fix the DESTINATION, not the payer).
+    const recipientMsg = recipientNotReadyMessage(code)
+    if (recipientMsg) throw new RecipientNotReadyError(recipientMsg, { cause: makeEngineError(res) })
+
+    // Sender affordability → the SAME typed error as every other chain.
     if (isAffordabilityCode(code)) {
       throw new InsufficientFundsError(
-        `XRPL payment rejected (${code}): insufficient balance/reserve, or no trustline for this asset.`
+        `XRPL payment rejected: the sender can't cover it — balance or the 1 XRP base reserve. (XRPL: ${code})`,
+        { cause: makeEngineError(res) }
       )
     }
     // Any other definitive rejection — surface the engine result (don't swallow).
-    throw new Error(
-      `XRPL payment rejected: ${code}${res.engine_result_message ? ` — ${res.engine_result_message}` : ''}`
-    )
+    throw makeEngineError(res)
   } catch (err) {
-    if (err instanceof InsufficientFundsError) throw err
+    // Typed errors we already raised pass through untouched.
+    if (err instanceof InsufficientFundsError || err instanceof RecipientNotReadyError) throw err
     // Message-level backstop so affordability surfaces uniformly across chains.
     throw toInsufficientFundsError(err) ?? err
   }
@@ -137,9 +145,35 @@ function feeForSubmit(openLedgerFee: string): string {
   return String(Number.isFinite(fee) && fee > 12 ? Math.ceil(fee) : 12)
 }
 
-/** XRPL engine result codes that mean "the wallet can't afford it". */
-function isAffordabilityCode(code: string): boolean {
-  return /^(tecUNFUNDED|tecPATH_DRY|tecPATH_PARTIAL|tecINSUFF|tecNO_LINE_INSUF|terINSUF|tecNO_LINE)/.test(
-    code
+/** Preserve the raw engine result (code + message) as an Error for `.cause`. */
+function makeEngineError(res: { engine_result: string; engine_result_message?: string }): Error {
+  return new Error(
+    `XRPL engine result ${res.engine_result}${res.engine_result_message ? ` — ${res.engine_result_message}` : ''}`
   )
+}
+
+/**
+ * XRPL engine result codes where the DESTINATION isn't set up to receive →
+ * `RecipientNotReadyError`. Returns the actionable message (with the raw code) or
+ * null if `code` isn't recipient-side. `tecNO_DST*` = the payTo account doesn't
+ * exist (an account needs ≥1 XRP base reserve to exist); `tecNO_LINE*`/`tecPATH_DRY`
+ * = the destination has no trustline for this IOU (or can't afford the reserve to
+ * add one); `tecDST_TAG_NEEDED` = it requires a DestinationTag; `tecNO_AUTH`/
+ * `tecNO_PERMISSION` = it isn't authorized to hold the asset.
+ */
+function recipientNotReadyMessage(code: string): string | null {
+  if (/^tecNO_DST/.test(code))
+    return `XRPL destination isn't activated — an account must hold ≥1 XRP (the base reserve) to exist. Fund the destination with ≥1 XRP before it can receive. (XRPL: ${code})`
+  if (/^tecNO_LINE/.test(code) || code === 'tecPATH_DRY')
+    return `XRPL destination can't receive this currency — it needs a trustline for it (and the reserve to hold one). (XRPL: ${code})`
+  if (code === 'tecDST_TAG_NEEDED')
+    return `XRPL destination requires a DestinationTag to receive. (XRPL: ${code})`
+  if (/^(tecNO_AUTH|tecNO_PERMISSION)/.test(code))
+    return `XRPL destination isn't authorized to hold this asset. (XRPL: ${code})`
+  return null
+}
+
+/** XRPL engine result codes that mean "the SENDER can't afford it". */
+function isAffordabilityCode(code: string): boolean {
+  return /^(tecUNFUNDED|tecINSUFF|terINSUF)/.test(code)
 }

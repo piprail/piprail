@@ -11,10 +11,12 @@
  * custom `{ address, decimals }` if you must). Ships USD₮ only, mirroring TON's
  * "USD₮ only" decision.
  *
- * **TRC-20 only — native TRX is intentionally not a payment asset.** TRX is a
- * volatile gas coin; no x402 paywall is denominated in it, and its TransferContract
- * verify path differs from the TRC-20 Transfer-event path for zero real use. Pay
- * in USDT (or a custom TRC-20); `token: 'native'` is rejected with a clear error.
+ * **Native TRX IS supported** (`token: 'native'`, 6dp) via **digest-binding** — a plain
+ * `TransferContract`, verified by txid + a recency window + the gate's single-use set
+ * (exactly like the TRC-20 path, just reading the tx's TransferContract instead of a
+ * Transfer event log). TRX is the volatile gas coin, so for stable pricing pay in USD₮;
+ * native is there for completeness (native coin is now a payment asset on every family).
+ * USD₮ remains the default — native USDC doesn't exist on Tron (pass a custom TRC-20).
  *
  * USDT contract verified live on mainnet before shipping (TronGrid:
  * `decimals() = 6`, `symbol() = "USDT"`). The contract's 20-byte hex (the form

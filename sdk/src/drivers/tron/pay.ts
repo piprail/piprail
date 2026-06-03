@@ -36,6 +36,8 @@ export interface TronPayClient {
       issuerAddress: string
     ): Promise<{ result: { result: boolean; message?: string }; transaction: TronUnsignedTx }>
     addUpdateData(tx: TronUnsignedTx, data: string, encoding?: string): Promise<TronUnsignedTx>
+    /** Build a native-TRX transfer (amount in sun). Used by the native path. */
+    sendTrx(to: string, amount: number, from: string): Promise<TronUnsignedTx>
   }
   trx: {
     sign(tx: TronUnsignedTx, privateKey: string): Promise<{ txID: string }>
@@ -111,6 +113,41 @@ export async function payTron(params: PayTronParams): Promise<string> {
   } catch (err) {
     if (err instanceof InsufficientFundsError) throw err
     // Message-level backstop so affordability surfaces uniformly across chains.
+    throw toInsufficientFundsError(err) ?? err
+  }
+}
+
+/**
+ * Pay in NATIVE TRX — a plain `TransferContract` (digest-bound, like the TRC-20 path
+ * and EVM/Solana/Sui). No event log is emitted, so verify() reads the tx's
+ * TransferContract instead of a Transfer event. The proof is the txid; the gate's
+ * single-use set + the verifier's recency window bind it. Amounts are integer sun
+ * (6dp), so `accept.amount` is the sun value verbatim.
+ */
+export async function payTronNative(params: {
+  client: TronPayClient
+  from: string
+  privateKey: string
+  accept: X402AcceptEntry
+}): Promise<string> {
+  const { client, from, privateKey, accept } = params
+  try {
+    const unsigned = await client.transactionBuilder.sendTrx(accept.payTo, Number(accept.amount), from)
+    const signed = await client.trx.sign(unsigned, privateKey)
+    const broadcast = await client.trx.sendRawTransaction(signed)
+    if (broadcast.result === true || broadcast.txid || broadcast.transaction?.txID) {
+      return broadcast.txid ?? broadcast.transaction?.txID ?? signed.txID
+    }
+    if (isTronAffordability(broadcast.code, broadcast.message)) {
+      throw new InsufficientFundsError(
+        `Tron TRX payment rejected (${broadcast.code ?? 'broadcast'}): not enough TRX for the amount plus bandwidth (and the ~1 TRX account-creation fee if the recipient is new).`
+      )
+    }
+    throw new Error(
+      `Tron TRX broadcast failed: ${broadcast.code ?? ''} ${decodeMaybeHex(broadcast.message)}`.trim()
+    )
+  } catch (err) {
+    if (err instanceof InsufficientFundsError) throw err
     throw toInsufficientFundsError(err) ?? err
   }
 }

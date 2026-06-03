@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { payTron, type TronPayClient, type TronUnsignedTx } from '../../src/drivers/tron/pay.js'
+import { payTron, payTronNative, type TronPayClient, type TronUnsignedTx } from '../../src/drivers/tron/pay.js'
 import { InsufficientFundsError } from '../../src/errors.js'
 import type { X402AcceptEntry } from '../../src/x402.js'
 
@@ -12,6 +12,7 @@ interface Captured {
   args?: { contract: string; selector: string; options: unknown; params: { type: string; value: unknown }[]; issuer: string }
   memoData?: string
   signedWith?: string
+  native?: { to: string; amount: number; from: string }
 }
 
 function mockClient(broadcast?: { result?: boolean; code?: string; message?: string; txid?: string }) {
@@ -25,6 +26,10 @@ function mockClient(broadcast?: { result?: boolean; code?: string; message?: str
       addUpdateData: async (tx, data) => {
         captured.memoData = data
         return { ...tx, txID: 'MEMOTX' }
+      },
+      sendTrx: async (to, amount, from) => {
+        captured.native = { to, amount, from }
+        return { txID: 'TRXTX' } as TronUnsignedTx
       },
     },
     trx: {
@@ -83,6 +88,37 @@ describe('payTron — memo-binding opt-in', () => {
     })
     expect(captured.memoData).toBe('nonce-xyz')
     expect(ref).toBe('MEMOTX') // addUpdateData recomputed the txID
+  })
+})
+
+function nativeAccept(): X402AcceptEntry {
+  return {
+    scheme: 'onchain-proof',
+    network: 'tron:mainnet',
+    amount: '1000000', // 1 TRX (sun)
+    asset: 'native',
+    payTo: PAY_TO,
+    maxTimeoutSeconds: 600,
+    extra: { nonce: 'n', decimals: 6, minConfirmations: 1, amountFormatted: '1', symbol: 'TRX' },
+  }
+}
+
+describe('payTronNative — plain TransferContract (digest-bound; no contract call, no memo)', () => {
+  it('builds a sendTrx to payTo (amount in sun), signs, broadcasts, returns the txid', async () => {
+    const { client, captured } = mockClient()
+    const ref = await payTronNative({ client, from: FROM, privateKey: PK, accept: nativeAccept() })
+    expect(ref).toBe('TRXTX')
+    expect(captured.native).toEqual({ to: PAY_TO, amount: 1_000_000, from: FROM })
+    expect(captured.signedWith).toBe(PK)
+    expect(captured.memoData).toBeUndefined() // no memo on the digest path
+    expect(captured.args).toBeUndefined() // not a smart-contract call
+  })
+
+  it('maps an insufficient-TRX broadcast failure → InsufficientFundsError', async () => {
+    const { client } = mockClient({ result: false, code: 'CONTRACT_VALIDATE_ERROR', message: 'balance is not sufficient' })
+    await expect(
+      payTronNative({ client, from: FROM, privateKey: PK, accept: nativeAccept() })
+    ).rejects.toBeInstanceOf(InsufficientFundsError)
   })
 })
 

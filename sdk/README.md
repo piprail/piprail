@@ -95,17 +95,19 @@ See [`examples/agent-tools.mjs`](../examples/agent-tools.mjs) for MCP / AI-SDK w
 ```ts
 requirePayment({
   accept: [
-    { chain: 'base',   token: 'USDC', amount: '0.05', payTo: '0xYourEvmWallet…' },
-    { chain: 'tron',   token: 'USDT', amount: '0.05', payTo: 'TYourTronWallet…' },
+    { chain: 'base',   token: 'USDC', amount: '0.05', payTo: '0xYourEvmWallet…', rpcUrl: BASE_RPC },
+    { chain: 'tron',   token: 'USDT', amount: '0.05', payTo: 'TYourTronWallet…', rpcUrl: TRON_RPC },
     { chain: 'xrpl',   token: 'USDC', amount: '0.05', payTo: 'rYourXrplWallet…' },
-    { chain: 'solana', token: 'USDC', amount: '0.05', payTo: 'YourSolWallet…' },
+    { chain: 'solana', token: 'USDC', amount: '0.05', payTo: 'YourSolWallet…',   rpcUrl: SOL_RPC },
   ],
 })
 ```
 
+Each option takes its **own optional `rpcUrl`** (falling back to the top-level `rpcUrl` when omitted), so a multi-chain merchant pins a reliable endpoint **per chain** — one throttled public RPC can't take down verification for the others. (The `rpcUrl` is used server-side only; it's never leaked into the challenge.) **In production, set it on every chain** — public RPCs are rate-limited.
+
 How the multi-chain case is handled, end-to-end:
 
-- **Gate:** each option resolves through its own driver (its `payTo` is validated and its token resolved) and is listed in the challenge's `accepts[]`, sharing one nonce. `payTo` falls back to the top-level `payTo` when omitted — but address shapes differ per family, so give a per-option `payTo` for each non-EVM chain.
+- **Gate:** each option resolves through its own driver with its own `rpcUrl` (its `payTo` is validated and its token resolved) and is listed in the challenge's `accepts[]`, sharing one nonce. `payTo` falls back to the top-level `payTo` when omitted — but address shapes differ per family, so give a per-option `payTo` for each non-EVM chain.
 - **Payer:** a `PipRailClient` is bound to **one** chain (its `chain` + wallet). It picks the offered accept whose network it supports **and** its `policy` allows, pays that one, and ignores the rest. `quote(url)` and `estimateCost(url)` price/estimate **that** chosen chain — so to compare cost across chains, point one client per chain at the same URL and compare their `estimateCost` results.
 - **Verify:** the gate selects the matching requirement by **network + asset** and re-derives every checked field from **its own** trusted spec — a forged `accepted` echo can't redirect it (a wrong asset/network simply doesn't match). The same proof can't be redeemed twice.
 
@@ -131,7 +133,7 @@ requirePayment({ chain: 'ton',      token: 'native', amount: '1',     payTo }) /
 requirePayment({ chain: 'xrpl',     token: 'native', amount: '1',     payTo }) // XRP
 ```
 
-**Native or stablecoin — your choice, on most chains.** Every gate accepts the chain's native coin (ETH, BNB, POL, AVAX, SOL, TON, XLM, XRP, SUI, …) just as readily as a stablecoin — set `token: 'native'` and the SDK fills in the right decimals (18 on EVM, 9 on Solana/TON/Sui, 7 on Stellar, 6 on XRPL). Verification, replay protection, and self-custody are identical to the stablecoin path. (**Two exceptions — token-only chains:** **Tron** is TRC-20-only and **NEAR** is NEP-141-only; both ship USDC/USDT but their native coin isn't a payment asset — a Tron/NEAR token transfer is what binds + verifies.)
+**Native or stablecoin — your choice, on every chain.** Every gate accepts the chain's native coin (ETH, BNB, POL, AVAX, SOL, TON, XLM, XRP, SUI, NEAR, **TRX**, …) just as readily as a stablecoin — set `token: 'native'` and the SDK fills in the right decimals (18 on EVM, 9 on Solana/TON/Sui, 7 on Stellar, 6 on XRPL/Tron, 24 on NEAR). Verification, replay protection, and self-custody are identical to the stablecoin path — across **all eight families, no exceptions**. (On **NEAR**, native is the zero-setup path — no `storage_deposit` — while the NEP-141 token path needs registration; see the NEAR note. On **Tron**, USD₮ is the default since TRX is volatile gas, but native TRX works too.)
 
 `token` is **required** — every gate states exactly what it accepts, so there's never any doubt whether a route takes USDC, USDT, or the native coin. Name a built-in symbol (`'USDC'`, `'USDT'`), use `'native'` for the chain's own coin (ETH, BNB, SOL, TON, XLM, …), or pass a custom token by address. The symbol is all you write — the SDK fills in the contract + decimals.
 
@@ -168,11 +170,43 @@ Every token address below was verified on-chain (symbol + decimals) before shipp
 
 **TON note:** native **USDC does not exist on TON** (Circle doesn't issue it there) — so it's intentionally absent. USD₮ (Tether) is native and built in; for USDe / bridged tokens pass a custom jetton (below).
 
-**Tron note:** native **USDC doesn't exist on Tron either** (Circle discontinued it; the only USDC there is a third-party bridge) — so it's intentionally absent. USD₮ (TRC-20) is native and built in. Tron is **TRC-20 only**: native TRX isn't a payment asset (pass USDT or a custom TRC-20).
+**Tron note:** native **USDC doesn't exist on Tron** (Circle discontinued it; the only USDC there is a third-party bridge) — so it's intentionally absent. USD₮ (TRC-20) is native and built in, and is the default since TRX is volatile gas. **Native TRX is also supported** (`token: 'native'`, digest-bound) for completeness — or pass a custom TRC-20.
 
-**NEAR note:** ships **both native USDC + USDT** (Circle's native USDC `17208628…`, NOT the bridged `…factory.bridge.near`; Tether's native `usdt.tether-token.near`). NEAR is **NEP-141 only** — native NEAR isn't a payment asset (its transfer carries no memo to bind). A recipient must be **`storage_deposit`-registered** on the token once before it can receive (see the NEAR section).
+**NEAR note:** **native NEAR works** (`token: 'native'`, 24dp) and is the **zero-setup** path — no `storage_deposit`, and a transfer even *creates* a fresh implicit recipient. Or pay in a token: ships **both native USDC + USDT** (Circle's native USDC `17208628…`, NOT the bridged `…factory.bridge.near`; Tether's native `usdt.tether-token.near`) — but a NEP-141 recipient (and the payer) must be **`storage_deposit`-registered** on that token once before it can receive (see CHAINS.md). NEAR is the volatile gas coin, so for stable pricing pay in USDC/USDT; for no-setup flows, native NEAR is ideal.
 
 **Sui note:** **USDC only** — no native USDT on Sui (Wormhole-bridged only). Native SUI works with `token: 'native'`.
+
+**Stellar / XRPL note:** to **receive** an issued asset (USDC/EURC on Stellar; USDC/RLUSD on XRPL) the recipient needs a one-time **trustline** for that asset, and the account must already exist / be activated (a small native reserve — **locked, not spent**). Native XLM/XRP need no trustline. The payer needs its own trustline too.
+
+### Using TON? Grab one free API key (≈30 seconds)
+
+TON is the only chain with a one-time setup step — and it's tiny. TON's free public RPC
+(toncenter) is **rate-limited**, so without your own key, payment confirmation stalls or
+times out. The fix is exactly **one parameter**: a `rpcUrl` with a free key in the URL.
+
+1. **Get a free key** — message **[@tonapibot](https://t.me/tonapibot)** on Telegram (or sign
+   up at [toncenter.com](https://toncenter.com/)). ~30 seconds, no card, no KYC.
+2. **Drop it into `rpcUrl`** on the gate (and the client) — that's it:
+
+```ts
+const TON_RPC = 'https://toncenter.com/api/v2/jsonRPC?api_key=YOUR_KEY' // ← your free key in the URL
+
+// Take a TON payment — one extra field vs any other chain:
+app.get('/report',
+  requirePayment({ chain: 'ton', token: 'USDT', amount: '0.05', payTo: 'UQ…', rpcUrl: TON_RPC }),
+  (_req, res) => res.json({ report: 'TOP SECRET' }),
+)
+
+// Pay on TON — same one extra field:
+const client = new PipRailClient({ chain: 'ton', wallet: { mnemonic }, rpcUrl: TON_RPC })
+```
+
+That's the **whole** TON setup. Everything else is automatic: USD₮ is built in (native USDC
+doesn't exist on TON), native TON works too (`token: 'native'`), and the merchant needs no
+setup — the payer's gas deploys its jetton wallet on first receipt. **Skip the key → rate
+limits; add it → TON is as seamless as every other chain.**
+
+> 📖 **Per-chain setup, caveats & wallet formats → [CHAINS.md](CHAINS.md).** Exactly what each chain needs *before* it can pay or receive — the NEAR `storage_deposit`, Stellar/XRPL trustlines, TON API key, Tron gas, which chains accept `native`, and the wallet shape per family. **Most chains need nothing; NEAR, TON, Stellar, XRPL and Tron have caveats — read them before shipping those.**
 
 If a chain you need doesn't ship the token you want, pass it by address (below). `token` is required on every gate — no silent default.
 
@@ -262,7 +296,7 @@ requirePayment({ chain: 'tron', token: 'USDT', amount: '1', payTo: 'T…' })
 new PipRailClient({ wallet: { privateKey: process.env.TRON_KEY }, chain: 'tron' })
 ```
 
-Tron wallets are `{ privateKey }` (a 32-byte hex key — Tron uses secp256k1, like EVM). `payTo` is a Base58 `T…` address (an `0x…` address throws `WrongFamilyError`). **USD₮ (TRC-20) is built in; Tron is TRC-20 only** — native USDC doesn't exist there, and native TRX isn't a payment asset (pass USDT or a custom `{ address, decimals }`). Verification is **digest-bound** (the proof is the txid): the merchant verifies the confirmed transfer on the **solidity node** (the finality gate) and the proof is single-use — so for multi-instance deployments use a persistent `isUsed`/`markUsed` store and keep `maxTimeoutSeconds` tight. The payer needs a little **TRX for energy/bandwidth** to send; receiving USDT needs no account setup.
+Tron wallets are `{ privateKey }` (a 32-byte hex key — Tron uses secp256k1, like EVM). `payTo` is a Base58 `T…` address (an `0x…` address throws `WrongFamilyError`). **USD₮ (TRC-20) is built in, and native TRX is also supported** (`token: 'native'`, digest-bound) — native USDC doesn't exist on Tron (pass a custom `{ address, decimals }` for other TRC-20s). Verification is **digest-bound** (the proof is the txid): the merchant verifies the confirmed transfer on the **solidity node** (the finality gate) and the proof is single-use — so for multi-instance deployments use a persistent `isUsed`/`markUsed` store and keep `maxTimeoutSeconds` tight. The payer needs a little **TRX for energy/bandwidth** to send; receiving USDT needs no account setup.
 
 ## Stellar
 
@@ -313,7 +347,7 @@ requirePayment({ chain: 'near', token: 'USDC', amount: '0.05', payTo: 'merchant.
 new PipRailClient({ wallet: { accountId: 'agent.near', privateKey: process.env.NEAR_KEY }, chain: 'near' })
 ```
 
-NEAR wallets are `{ accountId, privateKey }` (privateKey = an `ed25519:…` secret); `payTo` is a NEAR account id (`name.near` or a 64-hex implicit account). **Both USDC + USDT are native and built in** (Circle's `17208628…`, Tether's `usdt.tether-token.near`); NEAR is **NEP-141 only** — native NEAR isn't a payment asset. The challenge nonce rides in the NEP-141 `ft_transfer` **`memo`** (Template A binding) and is verified by tx hash (NEAR has no account-history RPC): the proof is `<accountId>:<txHash>`, and verify only trusts an `ft_transfer` event emitted by the real token contract (provenance). **`storage_deposit` (real):** a recipient must be NEP-145-registered on the token once (~0.00125 NEAR) before it can receive, or `ft_transfer` panics — register `payTo` out of band. The payer needs a little **NEAR for gas** + the mandatory 1 yoctoNEAR per transfer. (Never route through NEAR Intents/solvers — that re-adds a facilitator; a plain `ft_transfer` is what we do.)
+NEAR wallets are `{ accountId, privateKey }` (privateKey = an `ed25519:…` secret); `payTo` is a NEAR account id (`name.near` or a 64-hex implicit account). **Native NEAR is supported** (`token: 'native'`, 24dp) and is the **zero-setup** path — digest-bound (proof `<accountId>:<txHash>`, verified by tx hash + recency + single-use), needing **no `storage_deposit`**; a native transfer even *creates* a fresh implicit recipient. **Or pay in a token:** both USDC + USDT are native and built in (Circle's `17208628…`, Tether's `usdt.tether-token.near`) — the NEP-141 path is memo-bound (the nonce rides in the `ft_transfer` **`memo`**, verified by tx hash; verify only trusts an `ft_transfer` event from the real token contract), but **`storage_deposit` is required:** a recipient (and the payer) must be NEP-145-registered on that token once (~0.00125 NEAR) before it can receive/hold it, or `ft_transfer` panics. The payer needs a little **NEAR for gas** either way. (Never route through NEAR Intents/solvers — that re-adds a facilitator; plain transfers are what we do.)
 
 ## Sui
 
@@ -427,8 +461,36 @@ Two layers, one contract. Worth knowing if you're extending the SDK or auditing 
 
 Every failure is **typed and understandable** — never a raw chain-library blob. Two channels:
 
-- **Thrown** — a `PipRailError` subclass with a stable `.code` (`INSUFFICIENT_FUNDS`, `WRONG_FAMILY`, `UNKNOWN_TOKEN`, `CONFIRMATION_TIMEOUT`, `MAX_RETRIES_EXCEEDED`, `PAYMENT_DECLINED`, …). Catch with `err instanceof PipRailError` or branch on `err.code`. Affordability always surfaces as one `InsufficientFundsError`, on every chain. A `policy`/`onBeforePay` refusal is `PaymentDeclinedError`, thrown before any send.
+- **Thrown** — a `PipRailError` subclass with a stable `.code` (`INSUFFICIENT_FUNDS`, `RECIPIENT_NOT_READY`, `WRONG_FAMILY`, `UNKNOWN_TOKEN`, `CONFIRMATION_TIMEOUT`, `MAX_RETRIES_EXCEEDED`, `PAYMENT_DECLINED`, …). Catch with `err instanceof PipRailError` or branch on `err.code`. Affordability always surfaces as one `InsufficientFundsError`, on every chain. A `policy`/`onBeforePay` refusal is `PaymentDeclinedError`, thrown before any send.
 - **Returned** — server-side `verify()` rejects a proof with a `VerifyErrorCode` (`amount_too_low`, `transfer_not_found`, `payment_expired`, `tx_reverted`, …). The gate emits a 402 body `{ x402Version: 2, status: 'invalid', error, detail }` (build it with `toInvalidBody`), and the client relays the reason — so a rejected agent learns *why* (`MaxRetriesExceededError: … amount_too_low — Paid 40000, required 500000`).
+
+### "Why did my payment fail?" — payer vs. recipient
+
+A failed payment is almost always one of two things, and PipRail tells them apart so a human **or an AI agent** knows exactly what to fix — never an opaque `tecNO_DST_INSUF_XRP`:
+
+- **`INSUFFICIENT_FUNDS`** → the **payer** can't cover it. Fund the payer (more token, native gas, or the chain's reserve).
+- **`RECIPIENT_NOT_READY`** → the **recipient** isn't set up to receive *on this chain yet*. This is a **chain requirement, not an SDK bug** — most chains gate receiving behind some one-time state. Every such message says what's needed and the fix, **echoes the raw chain code** (e.g. `(XRPL: tecNO_DST_INSUF_XRP)`), and keeps the untouched chain error on `err.cause` for debugging.
+
+**What each chain needs to *receive* (and who sets it up):**
+
+| Chain | The recipient must… | Sender also needs |
+|---|---|---|
+| **EVM · Solana · Sui · Tron** | nothing (just be a valid address; Solana's token account is auto-created by the SDK) | native gas |
+| **TON** | nothing for native; a jetton wallet auto-deploys on first receipt (sender pays the gas) | TON for gas |
+| **NEAR** | nothing for native; for a token, be `storage_deposit`-registered on it (NEP-145, ~0.00125 NEAR, one-time) | NEAR for gas |
+| **Stellar** | exist (created with ≥1 XLM base reserve); for USDC/EURC, hold a **trustline** (+0.5 XLM each) | base + trustline reserves |
+| **XRP Ledger** | be **activated** — hold ≥1 XRP base reserve to exist; for USDC/RLUSD, a **trustline** | keep its own 1 XRP reserve |
+
+> These are anti-spam "state rent" rules built into each ledger — e.g. an XRPL account can't receive a sub-1-XRP first payment because that payment must create the account at its ≥1 XRP base reserve. PipRail surfaces them as `RECIPIENT_NOT_READY` with the fix, so a payment that "can't go through" is self-explanatory. Per-chain specifics live in **[CHAINS.md](./CHAINS.md)**.
+
+### Flaky RPC? No false unlocks, no double-pays
+
+Public RPCs are rate-limited, so reads sometimes fail *after* a transaction is already on-chain. PipRail is built so that never costs you money or a leaked unlock:
+
+- **The merchant never unlocks without a real payment.** If the gate's verification read fails, it returns `tx_not_found` → **402 (locked)**, never `paid`. Verification *fails closed* — an RPC outage can't be exploited to get free access. And the gate **releases the replay claim** on failure, so the payer can re-submit the *same* proof once the RPC recovers (the proof isn't burned).
+- **The payer never loses a broadcast payment.** If the transfer broadcasts but the client's own confirmation times out (a throttled RPC that lands the tx but 429s the status read), the client does **not** throw the proof away — it emits a `payment-unconfirmed` event, submits the proof to the server (the on-chain authority) with more patient retries, and **never re-broadcasts**. If it still can't confirm, it throws `MaxRetriesExceededError` / `PaymentTimeoutError` carrying **`.ref`**.
+
+> **Agent recovery rule:** on `MAX_RETRIES_EXCEEDED` / `PAYMENT_TIMEOUT`, read `err.ref` and **re-verify or re-submit that proof — never re-pay** (a fresh payment double-spends). The proof stays redeemable until the gate's `maxTimeoutSeconds` window (default 600s). The real fix for repeated lag is a dedicated `rpcUrl` (per chain in multi-accept) instead of the public default.
 
 The full standard every module follows is **[ERRORS.md](./ERRORS.md)**.
 
@@ -464,7 +526,7 @@ Provide **either** `chain` + `token` + `amount` (single) **or** a non-empty `acc
 | `onBeforePay` | — | `(quote) => boolean \| Promise<boolean>` — final approval per payment; `false`/throw declines |
 | `maxPaymentRetries` | `3` | Re-sends with proof after paying (absorbs RPC propagation lag) |
 | `retryTimeoutMs` | `30000` | Timeout for the retry leg after broadcast |
-| `onEvent` | — | `(event) => void` observability: `payment-required` · `payment-broadcast` · `payment-confirmed` · `payment-settled` · `payment-failed` |
+| `onEvent` | — | `(event) => void` observability: `payment-required` · `payment-broadcast` · `payment-confirmed` · `payment-unconfirmed` (broadcast OK, local confirm timed out → deferring to server) · `payment-settled` · `payment-failed` |
 
 Methods: `fetch` · `get` · `post` (return the gated `Response` after settlement) · **`quote(url)`** (price without paying → `PipRailQuote \| null`) · **`estimateCost(url)`** (price **+** native-coin gas estimate → `PipRailCostQuote \| null`) · **`spent()`** (per-asset ledger snapshot).
 

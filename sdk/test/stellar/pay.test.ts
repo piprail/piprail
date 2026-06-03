@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { Account, Keypair, hash } from '@stellar/stellar-sdk'
 import { payStellar } from '../../src/drivers/stellar/pay.js'
-import { InsufficientFundsError } from '../../src/errors.js'
+import { InsufficientFundsError, RecipientNotReadyError } from '../../src/errors.js'
 import type { X402AcceptEntry } from '../../src/x402.js'
 
 const USDC_ISSUER = 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN'
@@ -113,5 +113,49 @@ describe('payStellar — affordability maps to one typed error (ERRORS.md §6)',
     await expect(
       payStellar({ server: server as never, keypair: payer, accept: usdcAccept(merchant) })
     ).rejects.toBeInstanceOf(InsufficientFundsError)
+  })
+
+  // A submit failure carrying the given Horizon operation result codes.
+  const failWith = (operations: string[]) => ({
+    loadAccount: async (pk: string) => new Account(pk, '100'),
+    submitTransaction: async () => {
+      const e = new Error('tx_failed') as Error & { response?: unknown }
+      e.response = { data: { extras: { result_codes: { transaction: 'tx_failed', operations } } } }
+      throw e
+    },
+  })
+
+  it('op_src_no_trust (the SENDER lacks a trustline) → InsufficientFundsError', async () => {
+    const err = await payStellar({ server: failWith(['op_src_no_trust']) as never, keypair: Keypair.random(), accept: usdcAccept(Keypair.random().publicKey()) }).catch((e) => e)
+    expect(err).toBeInstanceOf(InsufficientFundsError)
+  })
+})
+
+describe('payStellar — recipient-side setup → RecipientNotReadyError (not the payer)', () => {
+  const failWith = (operations: string[]) => ({
+    loadAccount: async (pk: string) => new Account(pk, '100'),
+    submitTransaction: async () => {
+      const e = new Error('tx_failed') as Error & { response?: unknown }
+      e.response = { data: { extras: { result_codes: { transaction: 'tx_failed', operations } } } }
+      throw e
+    },
+  })
+
+  it('op_no_destination (payTo account doesn’t exist) → RecipientNotReadyError', async () => {
+    const err = await payStellar({ server: failWith(['op_no_destination']) as never, keypair: Keypair.random(), accept: usdcAccept(Keypair.random().publicKey()) }).catch((e) => e)
+    expect(err).toBeInstanceOf(RecipientNotReadyError)
+    expect(err).not.toBeInstanceOf(InsufficientFundsError)
+    expect(err.code).toBe('RECIPIENT_NOT_READY')
+    expect(err.message).toMatch(/doesn.t exist|base reserve|create it/i)
+    expect(err.message).toContain('op_no_destination') // raw code visible
+    expect(err.cause).toBeInstanceOf(Error) // raw Horizon error preserved
+  })
+
+  it('op_no_trust (the DESTINATION lacks a trustline) → RecipientNotReadyError', async () => {
+    const err = await payStellar({ server: failWith(['op_no_trust']) as never, keypair: Keypair.random(), accept: usdcAccept(Keypair.random().publicKey()) }).catch((e) => e)
+    expect(err).toBeInstanceOf(RecipientNotReadyError)
+    expect(err).not.toBeInstanceOf(InsufficientFundsError)
+    expect(err.message).toMatch(/trustline/i)
+    expect(err.message).toContain('op_no_trust')
   })
 })

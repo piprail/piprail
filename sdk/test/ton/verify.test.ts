@@ -64,7 +64,13 @@ function jettonTx(opts: {
   } as unknown as Transaction
 }
 
-function nativeTx(opts: { coins: bigint; note: string; now?: number }): Transaction {
+function nativeTx(opts: {
+  coins: bigint
+  note: string
+  now?: number
+  aborted?: boolean
+  computeSkipped?: boolean
+}): Transaction {
   return {
     lt: 100n,
     now: opts.now ?? NOW(),
@@ -73,7 +79,15 @@ function nativeTx(opts: { coins: bigint; note: string; now?: number }): Transact
       info: { type: 'internal', src: PAYER, dest: WATCH, bounced: false, value: { coins: opts.coins } },
       body: comment(opts.note),
     },
-    description: { type: 'generic', aborted: false, computePhase: { type: 'vm', success: true, exitCode: 0 } },
+    description: {
+      type: 'generic',
+      aborted: opts.aborted ?? false,
+      // A brand-new (uninitialized) recipient has no code, so its receiving tx's
+      // compute phase is 'skipped' (cskip_no_state) — model that explicitly.
+      computePhase: opts.computeSkipped
+        ? { type: 'skipped', reason: 'noState' }
+        : { type: 'vm', success: true, exitCode: 0 },
+    },
   } as unknown as Transaction
 }
 
@@ -150,5 +164,20 @@ describe('verifyTon — native TON', () => {
   it('rejects native amount too low', async () => {
     const res = await verifyTon({ client: client(nativeTx({ coins: 9n, note: 'nonce-1' })), watch: WATCH, accept: nativeAccept('100000000') })
     expect(res).toMatchObject({ ok: false, error: 'amount_too_low' })
+  })
+
+  // Regression: a native transfer to a BRAND-NEW (uninitialized) recipient. TON marks the
+  // recipient's receiving tx aborted / compute-skipped (no contract code to run the comment),
+  // yet the non-bounced value IS credited. verify() must accept it — the value arrived.
+  // (Mirrors a real mainnet send: merchant received the TON, but the gate previously said
+  // tx_reverted.) The success bar applies to jetton credits only.
+  it('accepts a native transfer to an uninitialized recipient (aborted/compute-skipped, value still credited)', async () => {
+    const res = await verifyTon({
+      client: client(nativeTx({ coins: 100000000n, note: 'nonce-1', aborted: true, computeSkipped: true })),
+      watch: WATCH,
+      accept: nativeAccept('100000000'),
+    })
+    expect(res.ok).toBe(true)
+    if (res.ok) expect(res.receipt.payer).toBe(PAYER.toString())
   })
 })

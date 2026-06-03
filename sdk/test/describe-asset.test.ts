@@ -65,10 +65,9 @@ describe('describeAsset — trusted decimals/symbol per family (pure, no RPC)', 
     expect(net.describeAsset('FFFF:rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE')).toBeNull()
   })
 
-  it('Tron: TRC-20 USD₮ built-in (6dp), native TRX NOT described (TRC-20 only), unknown', () => {
+  it('Tron: native TRX (6dp), TRC-20 USD₮ built-in (6dp), unknown', () => {
     const net = tronDriver.resolve({ chain: 'tron' })!
-    // Tron is TRC-20 only — native TRX is not a payment asset, so it isn't described.
-    expect(net.describeAsset('native')).toBeNull()
+    expect(net.describeAsset('native')).toEqual({ symbol: 'TRX', decimals: 6 })
     expect(net.describeAsset('TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t')).toEqual({ symbol: 'USDT', decimals: 6 })
     expect(net.describeAsset('TJRyWwFs9wTFGZg3JbrVriFbNfCug5tDeC')).toBeNull()
   })
@@ -82,10 +81,10 @@ describe('describeAsset — trusted decimals/symbol per family (pure, no RPC)', 
     expect(net.describeAsset('0xabc::foo::FOO')).toBeNull()
   })
 
-  it('NEAR: built-in USDC + USDT (6dp), native NEAR NOT described (FT-only), unknown', () => {
+  it('NEAR: built-in USDC + USDT (6dp), native NEAR (24dp), unknown', () => {
     const net = nearDriver.resolve({ chain: 'near' })!
-    // NEAR is NEP-141 only — native NEAR is not a payment asset, so it isn't described.
-    expect(net.describeAsset('native')).toBeNull()
+    // Native NEAR is now a payment asset (digest-bound) — described as NEAR/24dp.
+    expect(net.describeAsset('native')).toEqual({ symbol: 'NEAR', decimals: 24 })
     expect(
       net.describeAsset('17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1')
     ).toEqual({ symbol: 'USDC', decimals: 6 })

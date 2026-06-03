@@ -57,7 +57,17 @@ export async function verifyTon(params: VerifyTonParams): Promise<VerifyResult> 
 
     // Found the payment bound to this challenge. Hold it to the same bar as the
     // EVM/Solana verifiers: succeeded, enough value, recent.
-    if (!txSucceeded(tx)) {
+    //
+    // The success check is JETTON-ONLY. A jetton credit lands on the merchant's
+    // jetton-wallet contract, which must EXECUTE the `internal_transfer` to credit the
+    // balance — so an aborted/failed compute means the tokens didn't move. But a NATIVE
+    // TON transfer credits value by message delivery itself: a non-bounced internal
+    // message (we already exclude bounced ones in extractIncoming) adds its value to the
+    // recipient regardless of the recipient's compute phase — which is in fact
+    // skipped/aborted when the recipient wallet isn't deployed yet (a brand-new payTo).
+    // Gating native on txSucceeded wrongly rejects a payment the merchant actually
+    // received. So only jetton credits are held to the compute-success bar.
+    if (accept.asset !== 'native' && !txSucceeded(tx)) {
       return { ok: false, error: 'tx_reverted', detail: `TON payment for nonce ${nonce} failed on-chain.` }
     }
     if (incoming.amount < required) {

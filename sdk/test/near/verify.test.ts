@@ -107,6 +107,62 @@ describe('verifyNear — NEP-141 ft_transfer (memo-bound, verify-by-hash)', () =
   })
 })
 
+function nativeAccept(amount: string, nonce = 'nonce-1'): X402AcceptEntry {
+  return {
+    scheme: 'onchain-proof', network: 'near:mainnet', amount, asset: 'native', payTo: PAY_TO,
+    maxTimeoutSeconds: 600,
+    extra: { nonce, decimals: 24, minConfirmations: 1, amountFormatted: '0.01', symbol: 'NEAR' },
+  }
+}
+function nativeTxView(opts: { receiverId?: string; deposit: string; success?: boolean; ts?: number | null }): NearTxView {
+  return {
+    success: opts.success ?? true,
+    receipts: [],
+    receiverId: opts.receiverId ?? PAY_TO,
+    nativeDeposit: opts.deposit,
+    ...(opts.ts === null ? {} : { timestampMs: opts.ts ?? Date.now() }),
+  }
+}
+
+describe('verifyNear — native NEAR (digest-bound)', () => {
+  const AMT = '10000000000000000000000' // 0.01 NEAR in yoctoNEAR
+
+  it('accepts a recent native transfer of >= amount to payTo', async () => {
+    const res = await verifyNear({ ...ARGS, reader: reader(nativeTxView({ deposit: AMT })), accept: nativeAccept(AMT) })
+    expect(res.ok).toBe(true)
+    if (res.ok) {
+      expect(res.receipt.asset).toBe('native')
+      expect(res.receipt.payer).toBe(PAYER)
+      expect(res.receipt.transaction).toBe('H1')
+    }
+  })
+
+  it('rejects when the native amount is too low', async () => {
+    const res = await verifyNear({ ...ARGS, reader: reader(nativeTxView({ deposit: '9000000000000000000000' })), accept: nativeAccept(AMT) })
+    expect(res).toMatchObject({ ok: false, error: 'amount_too_low' })
+  })
+
+  it('rejects a native transfer to a different recipient', async () => {
+    const res = await verifyNear({ ...ARGS, reader: reader(nativeTxView({ receiverId: 'someone.near', deposit: AMT })), accept: nativeAccept(AMT) })
+    expect(res).toMatchObject({ ok: false, error: 'transfer_not_found' })
+  })
+
+  it('FAILS CLOSED when the block time is unavailable (no recency ⇒ no accept)', async () => {
+    const res = await verifyNear({ ...ARGS, reader: reader(nativeTxView({ deposit: AMT, ts: null })), accept: nativeAccept(AMT) })
+    expect(res).toMatchObject({ ok: false, error: 'payment_expired' })
+  })
+
+  it('rejects a native payment older than maxTimeoutSeconds', async () => {
+    const res = await verifyNear({ ...ARGS, reader: reader(nativeTxView({ deposit: AMT, ts: Date.now() - 5000 * 1000 })), accept: nativeAccept(AMT) })
+    expect(res).toMatchObject({ ok: false, error: 'payment_expired' })
+  })
+
+  it('rejects a failed native transaction', async () => {
+    const res = await verifyNear({ ...ARGS, reader: reader(nativeTxView({ deposit: AMT, success: false })), accept: nativeAccept(AMT) })
+    expect(res).toMatchObject({ ok: false, error: 'tx_reverted' })
+  })
+})
+
 describe('parseFtTransferEvent', () => {
   it('parses a valid NEP-297 ft_transfer line', () => {
     const data = parseFtTransferEvent(ftLog({ to: PAY_TO, amount: '7', memo: 'n' }))

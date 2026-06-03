@@ -6,7 +6,7 @@ import {
   nonceToDestinationTag,
   type XrplPayClient,
 } from '../../src/drivers/xrpl/pay.js'
-import { InsufficientFundsError } from '../../src/errors.js'
+import { InsufficientFundsError, RecipientNotReadyError } from '../../src/errors.js'
 import type { X402AcceptEntry } from '../../src/x402.js'
 
 const USDC_ISSUER = 'rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE'
@@ -95,18 +95,35 @@ describe('payXrpl — affordability maps to one typed error (ERRORS.md §6)', ()
     ).rejects.toBeInstanceOf(InsufficientFundsError)
   })
 
-  it('a tecPATH_DRY engine result (no trustline path) → InsufficientFundsError', async () => {
-    const { wallet } = mockWallet()
-    await expect(
-      payXrpl({ client: mockClient('tecPATH_DRY'), wallet, accept: usdcAccept(Wallet.generate().classicAddress) })
-    ).rejects.toBeInstanceOf(InsufficientFundsError)
-  })
-
   it('a non-affordability rejection (temMALFORMED) throws a plain error, not InsufficientFunds', async () => {
     const { wallet } = mockWallet()
     const err = await payXrpl({ client: mockClient('temMALFORMED'), wallet, accept: usdcAccept(Wallet.generate().classicAddress) }).catch((e) => e)
     expect(err).toBeInstanceOf(Error)
     expect(err).not.toBeInstanceOf(InsufficientFundsError)
+    expect(err).not.toBeInstanceOf(RecipientNotReadyError)
     expect(err.message).toMatch(/temMALFORMED/)
+  })
+})
+
+describe('payXrpl — recipient-side setup → RecipientNotReadyError (not the payer)', () => {
+  // The DESTINATION isn't set up to receive — a chain requirement, not the sender's
+  // balance. These must NOT be InsufficientFundsError, must echo the raw tec code, and
+  // must preserve the engine result on .cause.
+  const recipientCases: ReadonlyArray<readonly [string, RegExp]> = [
+    ['tecNO_DST_INSUF_XRP', /not activated|base reserve|≥1 XRP/i],
+    ['tecNO_DST', /not activated|base reserve/i],
+    ['tecNO_LINE', /trustline/i],
+    ['tecPATH_DRY', /trustline/i],
+    ['tecDST_TAG_NEEDED', /DestinationTag/i],
+  ]
+  it.each(recipientCases)('%s → RecipientNotReadyError (echoes the code)', async (code, msgRe) => {
+    const { wallet } = mockWallet()
+    const err = await payXrpl({ client: mockClient(code), wallet, accept: usdcAccept(Wallet.generate().classicAddress) }).catch((e) => e)
+    expect(err).toBeInstanceOf(RecipientNotReadyError)
+    expect(err).not.toBeInstanceOf(InsufficientFundsError)
+    expect(err.code).toBe('RECIPIENT_NOT_READY')
+    expect(err.message).toMatch(msgRe)
+    expect(err.message).toContain(code) // raw chain code stays visible
+    expect(err.cause).toBeInstanceOf(Error) // raw engine result preserved
   })
 })

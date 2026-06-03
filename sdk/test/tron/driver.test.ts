@@ -19,17 +19,22 @@ describe('auto-mount — naming "tron" is enough (no setup call)', () => {
   })
 })
 
-describe('Tron tokens — TRC-20 only (USDT yes, USDC no, native TRX no)', () => {
-  it('rejects native TRX with a clear UnknownTokenError (TRC-20 only)', async () => {
+describe('Tron tokens — TRC-20 USD₮ + native TRX (USDC absent)', () => {
+  it('accepts native TRX (digest-bound) and builds a TRX challenge', async () => {
     const gate = createPaymentGate({ chain: 'tron', token: 'native', amount: '1', payTo: PAY_TO })
-    const err = await gate.challenge().catch((e) => e)
-    expect(err).toBeInstanceOf(UnknownTokenError)
-    expect(err.message).toMatch(/TRC-20 only/)
+    const accept = (await gate.challenge()).challenge.accepts[0]!
+    expect(accept.network).toBe('tron:mainnet')
+    expect(accept.asset).toBe('native')
+    expect(accept.amount).toBe('1000000') // 1 TRX × 10^6 (sun)
+    expect(accept.extra.symbol).toBe('TRX')
+    expect(accept.extra.decimals).toBe(6)
   })
 
-  it('rejects USDC with a message explaining it does not exist on Tron', async () => {
+  it('rejects USDC with a clear UnknownTokenError (does not exist on Tron)', async () => {
     const gate = createPaymentGate({ chain: 'tron', token: 'USDC', amount: '0.05', payTo: PAY_TO })
-    await expect(gate.challenge()).rejects.toThrow(/native USDC doesn't exist on Tron/)
+    const err = await gate.challenge().catch((e) => e)
+    expect(err).toBeInstanceOf(UnknownTokenError)
+    expect(err.message).toMatch(/native USDC doesn't exist on Tron/)
   })
 
   it('accepts any TRC-20 by { address, decimals } (no preset needed)', async () => {

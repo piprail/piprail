@@ -4,6 +4,86 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] — 2026-06-03
+
+Found by the live-test campaign: **native NEAR + native TRX are now payment assets** (native
+coin now works on all eight families), a native-TON verify fix, **double-pay-safe handling of a
+flaky RPC after broadcast**, **per-chain `rpcUrl` in multi-chain accepts**, and a new per-chain
+setup reference. Fully backward-compatible — the public API and every existing chain/token behave
+exactly as before; the only behaviour change is that a post-broadcast confirmation timeout now
+recovers (submits the proof) instead of throwing the proof away.
+
+### Added
+- **Native NEAR (`token: 'native'`) is now supported.** Previously NEAR was NEP-141-only
+  (`token: 'native'` threw). Native NEAR now works via **digest-binding** — exactly like
+  EVM/Solana/Sui: a plain `Transfer`, verified by tx hash + a recency window + the gate's
+  single-use set (the NEP-141 path stays memo-bound, unchanged). The big win: native NEAR
+  needs **no `storage_deposit`** and a transfer even **creates a fresh implicit recipient** —
+  the zero-setup NEAR path. (NEAR is the volatile gas coin, so for stable pricing pay in
+  USDC/USDT; native is ideal for no-setup flows.) `decimals: 24`. Live-mainnet validated;
+  pay + verify unit tests added.
+- **Native TRX (`token: 'native'`) is now supported.** Previously Tron was TRC-20-only
+  (`token: 'native'` threw). Native TRX now works via **digest-binding** — a plain
+  `TransferContract`, verified by txid + a recency window + the gate's single-use set
+  (the verifier reads the tx's TransferContract instead of a Transfer event log, and gates
+  finality on the solidity node). USD₮ stays the default (TRX is volatile gas); native is
+  there for completeness. A first native payment to a brand-new recipient also pays Tron's
+  ~1 TRX account-creation fee (sender side). `decimals: 6`. Live-mainnet validated; pay +
+  verify unit tests added. **With this, native coin is a valid payment asset on every one
+  of the eight families — no exceptions.** (Tron still has no native USDC — Circle
+  discontinued it — so USD₮ remains its only built-in stablecoin.)
+- **New typed error `RecipientNotReadyError` (`code: 'RECIPIENT_NOT_READY'`)** — surfaced when a
+  payment can't be delivered because the **recipient** isn't set up to receive on that chain (a
+  chain *state* requirement, not the payer's balance), so it's never mistaken for an SDK bug or
+  for affordability. `send()` now maps the recipient-side chain signals to it with a plain-language
+  fix that **echoes the raw chain code** and preserves the original error on `.cause`:
+  XRPL `tecNO_DST*` (account not activated — needs ≥1 XRP base reserve) / `tecNO_LINE*` ·
+  `tecPATH_DRY` · `tecDST_TAG_NEEDED` (no trustline / tag); Stellar `op_no_destination` (account
+  doesn't exist) / `op_no_trust` (no trustline); NEAR `… is not registered` (needs `storage_deposit`).
+  Sender affordability still converges on `InsufficientFundsError` everywhere — the two are now
+  cleanly separable by `.code` (fund the payer vs. set up the recipient). Pay-path unit tests added
+  for Stellar/XRPL/NEAR; exported from the package root.
+- **Per-chain `rpcUrl` in multi-chain `accept[]`.** Each accept option already resolved with its
+  own `rpcUrl` (falling back to the top-level) — now **documented and unit-tested**, so a
+  multi-chain merchant can pin a reliable endpoint per chain and one throttled public RPC can't
+  take down verification for the others. The `rpcUrl` stays server-side (never leaked into the challenge).
+
+### Hardened
+- **A broadcast payment is never silently lost to a flaky RPC (double-pay prevention).** If the
+  transfer broadcasts but the client's own `confirm()` times out — the classic free-RPC failure
+  where the tx *lands* but the status poll 429s past the validity window — the client no longer
+  throws the proof away (which would orphan a real payment and invite a re-pay). It now emits a new
+  **`payment-unconfirmed`** event, submits the proof to the server (the on-chain authority) with
+  **more patient retries** (a floor of 6), and **never re-broadcasts**. If the server still can't
+  confirm, `MaxRetriesExceededError` / `PaymentTimeoutError` now carry **`.ref`** (the broadcast proof)
+  so a caller re-verifies instead of re-paying. The server side was already safe — a failed
+  verification read returns `tx_not_found` → 402 (locked), never a false `paid`, and releases the
+  replay claim so the same proof can be re-submitted once the RPC recovers. Found by the live-test
+  campaign (a Solana tx that finalized while the public RPC 429'd the read-back). Unit tests added
+  (`test/client-confirm-timeout.test.ts`); documented in README + `ERRORS.md` §4.1.
+
+### Fixed
+- **Native TON (Toncoin) payments to a brand-new recipient now verify.** A native TON
+  transfer to an *uninitialized* `payTo` (a fresh wallet that has never deployed its
+  contract) credits the recipient, but TON marks that recipient's receiving transaction
+  `aborted` — there's no contract code to run the comment message. `verifyTon`'s
+  `txSucceeded()` compute-phase check read that as a revert and returned `tx_reverted`,
+  rejecting a payment the merchant had **actually received**. The check is now applied to
+  **jetton** credits only (a jetton credit must execute the recipient's jetton-wallet
+  contract); a **native** receipt is valid by message delivery itself — a non-bounced
+  internal message always credits its value, regardless of the recipient's compute phase.
+  USD₮ (jetton) verification is unchanged. Regression test added in `test/ton/verify.test.ts`.
+
+### Docs
+- Added **[`CHAINS.md`](CHAINS.md)** — a per-chain setup & caveats reference: native-vs-token
+  support per chain, NEAR `storage_deposit`, TON's API-keyed RPC requirement, Stellar/XRPL
+  trustlines + reserves, Tron gas, the wallet shape per family, and how each proof binds.
+  Linked from the README, with the headline caveats also called out there and on piprail.com.
+- **"Why did my payment fail?" docs** — README and `CHAINS.md` now spell out, per chain, what the
+  *recipient* must have to receive (activation / trustline / account / `storage_deposit`) and which
+  error (`INSUFFICIENT_FUNDS` vs `RECIPIENT_NOT_READY`) maps to which raw chain code + fix; `ERRORS.md`
+  documents the new code (§2) and the sender-vs-recipient split (§6.1).
+
 ## [1.0.0] — 2026-06-02
 
 The multi-chain rewrite and first stable release. **24 chains across 8 families**
@@ -156,5 +236,6 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[1.1.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.0.0]: https://www.npmjs.com/package/@piprail/sdk
 [0.1.0]: https://www.npmjs.com/package/@piprail/sdk
