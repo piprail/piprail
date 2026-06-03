@@ -16,7 +16,7 @@ import {
 } from 'lucide-astro'
 
 const stats = [
-  { icon: Boxes, v: '24', l: 'chains built in' },
+  { icon: Boxes, v: '26', l: 'chains built in' },
   { icon: Percent, v: '0', l: 'protocol fee' },
   { icon: Code2, v: '1', l: 'line to integrate' },
   { icon: Scale, v: 'MIT', l: 'open source' },
@@ -50,7 +50,7 @@ const why = [
   {
     icon: Globe,
     t: 'Widest coverage in x402',
-    d: '24 chains across 8 families, with native, self-custodial drivers — the only package that reaches TON, Tron, NEAR, Sui, and the XRP Ledger together. No other x402 SDK ships this many.',
+    d: '26 chains across 8 families, with native, self-custodial drivers — the only package that reaches TON, Tron, NEAR, Sui, and the XRP Ledger together. No other x402 SDK ships this many.',
   },
   {
     icon: ShieldCheck,
@@ -65,9 +65,9 @@ const why = [
 ]
 
 // The eight chain families — one representative logo each — for the "one protocol,
-// every chain" strip. EVM stands for all 17 EVM mainnets behind a single driver.
+// every chain" strip. EVM stands for all 19 EVM mainnets behind a single driver.
 const familyLogos = [
-  { slug: 'ethereum', label: 'EVM ×17' },
+  { slug: 'ethereum', label: 'EVM ×19' },
   { slug: 'solana', label: 'Solana' },
   { slug: 'ton', label: 'TON' },
   { slug: 'tron', label: 'Tron' },
@@ -95,7 +95,7 @@ const faqs = [
   },
   {
     q: `Which chains and tokens does PipRail support?`,
-    a: `24 chains across 8 families: 17 EVM mainnets (Ethereum, Base, Arbitrum, Optimism, Polygon, BNB Chain, Avalanche, Mantle, Sonic, Linea, Scroll, Celo, zkSync, Unichain, World Chain, Sei, Injective) plus Solana, TON, Tron, NEAR, Sui, Stellar, and the XRP Ledger. USDC almost everywhere, USDT on most chains, EURC on Stellar, RLUSD on XRPL, or any other token by address. One parameter — chain — picks everything.`,
+    a: `26 chains across 8 families: 19 EVM mainnets (Ethereum, Base, Arbitrum, Optimism, Polygon, BNB Chain, Avalanche, HyperEVM, Monad, Mantle, Sonic, Linea, Scroll, Celo, zkSync, Unichain, World Chain, Sei, Injective) plus Solana, TON, Tron, NEAR, Sui, Stellar, and the XRP Ledger. USDC almost everywhere, USDT on most chains, EURC on Stellar, RLUSD on XRPL, or any other token by address. One parameter — chain — picks everything.`,
   },
   {
     q: `Do any chains need extra setup before they work?`,
@@ -201,11 +201,11 @@ const faqLd = {
           </h2>
           <p class="mt-4 max-w-xl text-base leading-relaxed text-neutral-400 sm:text-lg">
             Build a real <span class="font-mono text-neutral-200">402</span> payment challenge and watch an agent
-            price it — live, client-side, across 24 chains. No install, no backend; the SDK loads from a CDN right on the page.
+            price it — live, client-side, across 26 chains. No install, no backend; the SDK loads from a CDN right on the page.
           </p>
           <ul class="mt-6 flex flex-wrap gap-x-6 gap-y-2.5 text-sm font-medium text-neutral-300">
             <li class="inline-flex items-center gap-2"><Globe size={16} class="text-accent" aria-hidden="true" /> Runs in your browser</li>
-            <li class="inline-flex items-center gap-2"><Boxes size={16} class="text-accent" aria-hidden="true" /> 24 chains</li>
+            <li class="inline-flex items-center gap-2"><Boxes size={16} class="text-accent" aria-hidden="true" /> 26 chains</li>
             <li class="inline-flex items-center gap-2"><Zap size={16} class="text-accent" aria-hidden="true" /> Zero install</li>
           </ul>
           <div class="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -374,7 +374,7 @@ const faqLd = {
         No other x402 SDK reaches this far.
       </SectionHeading>
 
-      {/* Eight families, one interface — a quiet visual of the breadth (EVM = all 17 EVM chains). */}
+      {/* Eight families, one interface — a quiet visual of the breadth (EVM = all 19 EVM chains). */}
       <div class="mb-4 flex flex-wrap items-center justify-center gap-x-7 gap-y-4 rounded-2xl border border-white/10 bg-neutral-950 px-6 py-7 sm:gap-x-10">
         {familyLogos.map((f) => (
           <span class="flex items-center gap-2" title={f.label}>
@@ -410,7 +410,7 @@ const faqLd = {
     <!-- Chains grid -->
     <section id="chains" class="scroll-mt-20 border-t border-white/10 py-20 sm:py-24">
       <SectionHeading title="Built-in chains.">
-        Seventeen EVM mainnets, plus Solana, TON, Tron, NEAR, Sui, Stellar, and
+        Nineteen EVM mainnets, plus Solana, TON, Tron, NEAR, Sui, Stellar, and
         the XRP Ledger — each with its canonical stablecoins or native coin, ready
         to go. Any other chain works via one config object.
       </SectionHeading>

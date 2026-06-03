@@ -1,6 +1,6 @@
 # PipRail — full reference for agents
 
-> Accept and make x402 "402 Payment Required" crypto payments from any HTTP request, across 24 chains in 8 families, with no backend, no database, no account, and no fee. Payments settle straight into your own wallet, verified locally against your own RPC. `@piprail/sdk` is an open-source (MIT) TypeScript SDK that runs headless or in the browser. This file is the everything-in-one-fetch version: the pitch, real code, the chain list, and the error model.
+> Accept and make x402 "402 Payment Required" crypto payments from any HTTP request, across 26 chains in 8 families, with no backend, no database, no account, and no fee. Payments settle straight into your own wallet, verified locally against your own RPC. `@piprail/sdk` is an open-source (MIT) TypeScript SDK that runs headless or in the browser. This file is the everything-in-one-fetch version: the pitch, real code, the chain list, and the error model.
 
 ## What it is
 
@@ -186,9 +186,9 @@ requirePayment({ chain: 'tron',     token: 'USDT', amount: '1',    payTo }) // U
 
 Any other EVM chain works by passing a viem `Chain` or `{ id, rpcUrl }` plus `token: { address, decimals }`. Custom tokens are supported per family: SPL `{ mint, decimals }`, TON jetton `{ master, decimals }`, Stellar `{ issuer, code, decimals }`, XRPL `{ issuer, currencyHex, decimals }`, TRC-20 `{ address, decimals }`, NEP-141 `{ contractId, decimals }`, Sui `{ coinType, decimals }`.
 
-## The 24 chains, by family
+## The 26 chains, by family
 
-- EVM (17 mainnets): Ethereum, Base, Arbitrum, Optimism, Polygon, BNB Chain, Avalanche, Mantle, Sonic, Linea, Scroll, Celo, zkSync, Unichain, World Chain, Sei, Injective. USDC on all; USDT on all except Base, World Chain, and Sei.
+- EVM (19 mainnets): Ethereum, Base, Arbitrum, Optimism, Polygon, BNB Chain, Avalanche, HyperEVM, Monad, Mantle, Sonic, Linea, Scroll, Celo, zkSync, Unichain, World Chain, Sei, Injective. USDC on all; USDT on all except Base, World Chain, Sei, HyperEVM, and Monad (their "USDT" is USDT0/LayerZero, not Tether-native).
 - Solana: USDC, USDT.
 - TON: USD₮ only (native USDC doesn't exist on TON).
 - Tron: USD₮ (TRC-20) + native TRX. The largest USDT rail; a transfer burns real TRX, so gas estimates matter most here. (No native USDC on Tron — Circle discontinued it.)

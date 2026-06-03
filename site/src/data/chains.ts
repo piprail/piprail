@@ -2,7 +2,7 @@
 // (Ethereum, then the marquee non-EVM L1s Solana/TON/Tron/NEAR/Sui, then the
 // payment-native Stellar/XRPL), then the major EVM chains, then the rest.
 // `tokens` drives the stablecoin badges on each chain card.
-// Mirrors the SDK's built-in registry (17 EVM mainnets + Solana + TON + Tron +
+// Mirrors the SDK's built-in registry (19 EVM mainnets + Solana + TON + Tron +
 // NEAR + Sui + Stellar + XRPL).
 export interface ChainEntry {
   name: string
@@ -25,6 +25,8 @@ export const chains: ChainEntry[] = [
   { name: 'Polygon', slug: 'polygon', tokens: ['usdc', 'usdt'] },
   { name: 'Optimism', slug: 'optimism', tokens: ['usdc', 'usdt'] },
   { name: 'Avalanche', slug: 'avalanche', tokens: ['usdc', 'usdt'] },
+  { name: 'HyperEVM', slug: 'hyperevm', tokens: ['usdc'] },
+  { name: 'Monad', slug: 'monad', tokens: ['usdc'] },
   { name: 'Mantle', slug: 'mantle', tokens: ['usdc', 'usdt'] },
   { name: 'Linea', slug: 'linea', tokens: ['usdc', 'usdt'] },
   { name: 'Scroll', slug: 'scroll', tokens: ['usdc', 'usdt'] },

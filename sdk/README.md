@@ -160,6 +160,8 @@ Every token address below was verified on-chain (symbol + decimals) before shipp
 | `'worldchain'` | World Chain | USDC |
 | `'sei'` | Sei | USDC |
 | `'injective'` | Injective | USDC, USDT |
+| `'hyperevm'` | HyperEVM (Hyperliquid) | USDC |
+| `'monad'` | Monad | USDC |
 | `'solana'` | Solana | USDC, USDT |
 | `'ton'` | TON | USDT |
 | `'tron'` | Tron | USDT |

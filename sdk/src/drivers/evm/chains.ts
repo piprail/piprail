@@ -1,6 +1,6 @@
 import { defineChain, type Chain } from 'viem'
 import {
-  arbitrum, avalanche, base, bsc, celo, injective, linea, mainnet, mantle,
+  arbitrum, avalanche, base, bsc, celo, hyperEvm, injective, linea, mainnet, mantle, monad,
   optimism, polygon, scroll, sei, sonic, unichain, worldchain, zksync,
 } from 'viem/chains'
 
@@ -170,6 +170,28 @@ export const CHAINS = {
     tokens: {
       USDC: { address: '0xa00C59fF5a080D2b954d0c75e46E22a0c371235a', decimals: 6, symbol: 'USDC' },
       USDT: { address: '0x88f7F2b685F9692caf8c478f5BADF09eE9B1Cc13', decimals: 6, symbol: 'USDT' },
+    },
+  },
+  // HyperEVM (Hyperliquid, chainId 999) — native Circle USDC, verified on-chain
+  // 2026-06-04 (eth_chainId 0x3e7; USDC symbol "USDC", decimals 6). HyperEVM's
+  // "USDT" is USDT0 (LayerZero/omnichain), not Circle/Tether-native, so it's
+  // intentionally omitted; pass it as a custom { address, decimals } if needed.
+  // The highest-activity EVM venue of 2025–26 (perps DEX + on-chain agent vaults).
+  hyperevm: {
+    chain: hyperEvm,
+    tokens: {
+      USDC: { address: '0xb88339CB7199b77E23DB6E890353E22632Ba630f', decimals: 6, symbol: 'USDC' },
+    },
+  },
+  // Monad (chainId 143) — native Circle USDC, verified on-chain 2026-06-04
+  // (eth_chainId 0x8f; USDC symbol "USDC", decimals 6; CCTP V2). Monad's "USDT"
+  // is USDT0 (LayerZero/omnichain), not Circle/Tether-native, so it's
+  // intentionally omitted; pass it as a custom { address, decimals } if needed.
+  // The biggest new EVM L1 of 2025 (parallel EVM, ~10k TPS).
+  monad: {
+    chain: monad,
+    tokens: {
+      USDC: { address: '0x754704Bc059F8C67012fEd69BC8A327a5aafb603', decimals: 6, symbol: 'USDC' },
     },
   },
 } satisfies Record<string, ChainPreset>

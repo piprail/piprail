@@ -52,6 +52,22 @@ describe('resolveChain — built-in mainnets', () => {
     expect(inj.tokens.USDT).toMatchObject({ decimals: 6, symbol: 'USDT' })
   })
 
+  it('resolves HyperEVM (Hyperliquid, 999) — native USDC, USDT0 omitted', () => {
+    // HyperEVM: native Circle USDC; its "USDT" is USDT0 (LayerZero), not built in.
+    const h = resolveChain('hyperevm')
+    expect(h.chainId).toBe(999)
+    expect(h.tokens.USDC).toMatchObject({ decimals: 6, symbol: 'USDC' })
+    expect(h.tokens.USDT).toBeUndefined()
+  })
+
+  it('resolves Monad (143) — native USDC, USDT0 omitted', () => {
+    // Monad: native Circle USDC; its "USDT" is USDT0 (LayerZero), not built in.
+    const m = resolveChain('monad')
+    expect(m.chainId).toBe(143)
+    expect(m.tokens.USDC).toMatchObject({ decimals: 6, symbol: 'USDC' })
+    expect(m.tokens.USDT).toBeUndefined()
+  })
+
   it('USDT is now built in on the major chains', () => {
     for (const name of ['ethereum', 'arbitrum', 'optimism', 'polygon', 'avalanche'] as const) {
       expect(resolveChain(name).tokens.USDT).toMatchObject({ decimals: 6, symbol: 'USDT' })
@@ -76,7 +92,7 @@ describe('resolveChain — built-in mainnets', () => {
     expect(keys).toEqual([
       'ethereum', 'base', 'arbitrum', 'optimism', 'polygon', 'bnb', 'avalanche',
       'mantle', 'sonic', 'linea', 'scroll', 'celo', 'zksync', 'unichain', 'worldchain',
-      'sei', 'injective',
+      'sei', 'injective', 'hyperevm', 'monad',
     ])
     expect(keys.some((k) => /test|sepolia|devnet/i.test(k))).toBe(false)
   })

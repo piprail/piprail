@@ -4,6 +4,24 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] — 2026-06-04
+
+Two new EVM presets — **HyperEVM (Hyperliquid)** and **Monad** — bringing the built-in count to
+**26 chains across 8 families (19 EVM)**. Both reuse the existing EVM driver: one row of
+on-chain-verified data each, no new code path and no new peer dep. Fully backward-compatible.
+
+### Added
+- **HyperEVM (Hyperliquid), `chain: 'hyperevm'`, chainId 999** — native Circle USDC
+  (`0xb88339CB7199b77E23DB6E890353E22632Ba630f`, 6 dp; CCTP V2). The highest-activity EVM venue
+  of 2025–26 (perps DEX + on-chain agent vaults). Pay in USDC or native HYPE. HyperEVM's USDT is
+  USDT0 (LayerZero), not Tether-native, so it's omitted (pass it as a custom `{ address, decimals }`).
+- **Monad, `chain: 'monad'`, chainId 143** — native Circle USDC
+  (`0x754704Bc059F8C67012fEd69BC8A327a5aafb603`, 6 dp; CCTP V2). The biggest new EVM L1 of 2025
+  (parallel EVM, ~10k TPS). Pay in USDC or native MON. USDT0 omitted, as above.
+
+Both addresses were verified on-chain (live `eth_chainId` + `symbol()`/`decimals()`) before
+shipping; `chain: 'hyperevm'` / `chain: 'monad'` work with no setup call.
+
 ## [1.1.1] — 2026-06-03
 
 Docs + examples only — **no code change**; the API and every chain behave exactly as 1.1.0.

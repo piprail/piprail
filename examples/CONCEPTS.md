@@ -109,6 +109,6 @@ const { quote, cost } = await client.estimateCost(url)
 
 ## More
 
-- [SDK README](../sdk/README.md) — full API, all 24 chains, wallet formats, custom tokens.
+- [SDK README](../sdk/README.md) — full API, all 26 chains, wallet formats, custom tokens.
 - [ERRORS.md](../sdk/ERRORS.md) — every error code and how to handle it.
 - [examples/README.md](./README.md) — pick a framework and run it.
