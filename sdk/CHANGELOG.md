@@ -4,6 +4,42 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.5.0] — 2026-06-04
+
+**The killer agent feature — `client.planPayment(url)`.** A read-only call that surveys a 402
+across every rail it offers *on your chain* against your wallet's OWN holdings — **token balance +
+native gas + recipient-readiness** (trustline / ATA / storage_deposit / ASA opt-in / activation) —
+and tells you, crystal-clear, whether it's settleable, on which rail, and if not, exactly what to
+top up. It completes the trio the SDK already ships: **`quote()` (what it costs) → `estimateCost()`
+(the gas) → `planPayment()` (can I actually settle, and where).** Fully backward-compatible and
+opt-in; defaults are unchanged. The official x402 client picks `accepts[0]` blind; PipRail is the
+only backendless SDK that can answer "can I actually pay this?" across 28 chains with pure RPC
+reads, no oracle/facilitator/bridge. Live-proven on Algorand mainnet (ready / recipient-not-ready /
+insufficient / multi-rail-rank, 4/4).
+
+### Added
+- **`client.planPayment(url, init?)` → `PaymentPlan | null`.** Never throws for a read problem (a
+  transient/RPC failure surfaces as a rail in `state: 'unknown'` + a warning, never a false
+  "unaffordable"); returns `null` when the URL isn't 402-gated; and when the 402 offers no rail on
+  your chain it EXPLAINS that (status `blocked` + a hint) instead of throwing. The plan carries:
+  `payable` + `best` (the cheapest settleable rail), `options[]` (every rail with typed `blockers`
+  — `INSUFFICIENT_TOKEN`/`INSUFFICIENT_GAS`/`RECIPIENT_NOT_READY`/`OUTSIDE_POLICY` — plus soft
+  `warnings`, a `shortfall`, live `balance`, and `recipient.fix`), and a one-sentence `fundingHint`.
+- **`client.canAfford(url)` → `boolean`** — convenience over the above.
+- **`fetch(url, { autoRoute: true })` / `new PipRailClient({ autoRoute: true })`** — opt-in:
+  `fetch` pays the cheapest rail the wallet can ACTUALLY settle (not the first policy-passing one),
+  or throws `PaymentDeclinedError` carrying the funding hint before any send. **Default off** —
+  the zero-config path is byte-identical.
+- **`planAcross(clients, url)`** — the cross-chain brain: give it one client per chain you fund and
+  it merges their plans, payable-first (no oracle, so the cross-coin tiebreak is your client order).
+- **`piprail_plan_payment`** agent tool (budget-bound; `paymentTools(client)` now returns 3 tools).
+- **Driver contract:** `balanceOf(wallet, asset)` + `recipientReady(payTo, asset)` on every family
+  (10/10), RPC-read-only and NEVER-throw (transient ⇒ `null`/`'unknown'`, per ERRORS.md §5). Real
+  receive-prerequisite probes on NEAR (`storage_balance_of`), Stellar/XRPL (trustline presence),
+  Algorand (ASA opt-in); truthful `'n/a'` on EVM/Solana/TON/Tron/Sui/Aptos (no prerequisite).
+- New exported types: `PaymentPlan`, `PayOption`, `PayBlocker`, `PayWarning`, `RecipientReason`,
+  `WalletBalance` (and the previously-missing `AptosToken`/`AlgorandToken`).
+
 ## [1.4.0] — 2026-06-04
 
 A new chain **family** — **Algorand** — the **10th driver family**, bringing the built-in count to

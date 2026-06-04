@@ -23,6 +23,8 @@ function fakeNet(network: string): ResolvedNetwork {
     send: async () => 'ref',
     confirm: async () => ({ height: '1' }),
     estimateCost: async () => ({ feeSymbol: 'ETH', feeDecimals: 18, fee: '0', feeFormatted: '0', basis: 'heuristic' }),
+    balanceOf: async () => ({ token: 0n, native: 0n }),
+    recipientReady: async () => ({ ready: "n/a" as const }),
     verify: async () => ({ ok: false, error: 'transfer_not_found', detail: 'unused' }),
   }
 }

@@ -37,6 +37,7 @@ import type {
   ResolveOptions,
   ResolvedToken,
   TokenInput,
+  WalletBalance,
   WalletHandle,
 } from '../types.js'
 
@@ -209,6 +210,40 @@ function makeAptosNetwork(preset: AptosPreset, rpcUrl: string): ResolvedNetwork 
         basis: 'heuristic',
         detail: '≈0.001 APT (a simple Fungible-Asset transfer; Aptos gas is sub-cent)',
       })
+    },
+
+    async balanceOf(wallet: WalletHandle, asset: string): Promise<WalletBalance> {
+      let owner: string
+      try {
+        owner = resolveAptosAccount(wallet._native as AptosWalletConfig).accountAddress.toString()
+      } catch {
+        return { token: null, native: null }
+      }
+      const native = await aptos
+        .getAccountAPTAmount({ accountAddress: owner })
+        .then((n) => BigInt(n))
+        .catch(() => null)
+      if (asset === 'native') return { token: native, native }
+      let token: bigint | null = null
+      try {
+        // FA balance: 0x1::primary_fungible_store::balance(account, metadata).
+        const [bal] = await aptos.view<[string | number]>({
+          payload: {
+            function: '0x1::primary_fungible_store::balance',
+            typeArguments: ['0x1::fungible_asset::Metadata'],
+            functionArguments: [owner, asset],
+          },
+        })
+        token = BigInt(String(bal))
+      } catch {
+        token = null
+      }
+      return { token, native }
+    },
+
+    // No receive prerequisite — the recipient's primary FA store auto-creates on receipt.
+    async recipientReady() {
+      return { ready: 'n/a' as const }
     },
 
     async verify(ref, accept) {

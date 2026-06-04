@@ -67,6 +67,19 @@ export const agentSafeCode = `<span class="tok-kw">const</span> client = <span c
 <span class="tok-com">// Over budget? Refused before any send.</span>
 <span class="tok-kw">await</span> client.<span class="tok-fn">fetch</span>(url)`
 
+// The killer agent move: check you can ACTUALLY pay — before paying.
+export const planCode = `<span class="tok-com">// Will this 402 go through — and on which rail?</span>
+<span class="tok-kw">const</span> plan = <span class="tok-kw">await</span> client.<span class="tok-fn">planPayment</span>(url)
+
+<span class="tok-kw">if</span> (plan.payable) {
+  <span class="tok-com">// pays plan.best — cheapest rail you can settle</span>
+  <span class="tok-kw">await</span> client.<span class="tok-fn">fetch</span>(url, { autoRoute: <span class="tok-kw">true</span> })
+} <span class="tok-kw">else</span> {
+  <span class="tok-fn">console</span>.<span class="tok-fn">log</span>(plan.fundingHint)
+  <span class="tok-com">// "Have the USDC, need ~0.00002 ETH for gas."</span>
+  <span class="tok-com">// "Recipient must opt into the USDC ASA first."</span>
+}`
+
 // TON's one-time setup: a free toncenter API key in the rpcUrl. The only TON-specific config.
 export const tonCode = `<span class="tok-com">// 1. Free key from @tonapibot on Telegram</span>
 <span class="tok-com">// 2. Drop it into rpcUrl — the whole TON setup</span>

@@ -7,7 +7,7 @@ import SectionHeading from '../components/SectionHeading.astro'
 import FeatureGrid from '../components/FeatureGrid.astro'
 import { chains } from '../data/chains'
 import {
-  acceptCode, payCode, oneParamCode, exoticCode, solanaCode, agentSafeCode, multiAcceptCode, tonCode,
+  acceptCode, payCode, oneParamCode, exoticCode, solanaCode, agentSafeCode, multiAcceptCode, tonCode, planCode,
 } from '../data/snippets'
 import {
   Zap, Coins, ShieldCheck, PackageCheck,
@@ -36,6 +36,14 @@ const agentGuards = [
   { label: 'Approve each pay', desc: 'a final yes/no hook before any funds move' },
   { label: 'Spend ledger', desc: 'read back exactly what was spent, per token' },
   { label: 'One wallet, an LLM tool', desc: 'drop into MCP or the AI SDK — budget rides along' },
+]
+
+// planPayment — the four things it checks against your own wallet, before any send.
+const planChecks = [
+  { label: 'Enough token?', desc: 'your live balance of the exact payment token, per rail' },
+  { label: 'Enough gas?', desc: 'the native coin to send it — you can hold USDC but no ETH' },
+  { label: 'Can they receive?', desc: 'trustline / ATA / storage_deposit / ASA opt-in — before you broadcast' },
+  { label: 'Within budget?', desc: 'your spend policy, all checked in one read-only call' },
 ]
 
 const steps = [
@@ -94,6 +102,10 @@ const faqs = [
   {
     q: `How do AI agents pay for APIs with PipRail?`,
     a: `Wrap the agent's HTTP calls with PipRailClient. Give it a wallet and a chain, then call client.fetch(url): on a 402 it reads the challenge, sends the payment on-chain, waits for confirmation, and retries with proof — automatically. Use client.quote(url) to learn a price without paying, client.estimateCost(url) to budget gas, and an opt-in spend policy (maxAmount, maxTotal, chains, tokens, hosts) that refuses out-of-bounds calls before any send. paymentTools(client) hands the same to an LLM via MCP, the Vercel AI SDK, or function-calling — budget-bound so it can't overspend.`,
+  },
+  {
+    q: `How does an agent know if it can actually pay before paying?`,
+    a: `Call client.planPayment(url). It's a read-only call that surveys the 402 across every rail it offers on your chain and checks each against your own wallet: token balance, native-coin gas, and whether the recipient can even receive (trustline / associated token account / storage_deposit / ASA opt-in / account activation). It returns payable plus the best rail to use, per-rail blockers (INSUFFICIENT_TOKEN, INSUFFICIENT_GAS, RECIPIENT_NOT_READY, OUTSIDE_POLICY), and a one-sentence fundingHint telling you exactly what to top up — for example, "Have the USDC, but need ~0.00002 ETH for gas" or "Recipient must opt into the USDC ASA before it can receive." It never throws for a transient RPC failure (that rail comes back as state: 'unknown', never a false "broke"), and returns null when the URL isn't payment-gated. This completes the trio quote() → estimateCost() → planPayment(): price, gas, and whether you can actually settle it. Turn on autoRoute and client.fetch pays the cheapest settleable rail automatically; planAcross(clients, url) plans across several chains at once. No other x402 SDK does this — it's only possible because PipRail is backendless and self-custodial: it reads your balances and the chain's receive-rules directly from your own RPC, across all 28 chains, with no facilitator or oracle.`,
   },
   {
     q: `Which chains and tokens does PipRail support?`,
@@ -346,6 +358,29 @@ const faqLd = {
         <CodeWindow file="agent.ts" code={agentSafeCode} class="min-w-0" />
         <FeatureGrid items={agentGuards} />
       </div>
+    </section>
+
+    <!-- Plan before you pay (the killer agent feature) -->
+    <section class="border-t border-white/10 py-20 sm:py-24">
+      <SectionHeading title="Plan before you pay.">
+        Every other x402 client picks a rail blind and finds out it can't pay when the transfer
+        <span class="text-neutral-200">reverts</span> — out of gas, or the recipient isn't even set up to
+        receive. <span class="text-neutral-200">One read-only call</span> checks a 402 against your own
+        wallet — balance, native gas, and whether the recipient can receive — and tells you the rail to
+        use, or exactly what to top up. Then <span class="text-accent">one line</span> pays it.
+      </SectionHeading>
+      <div class="grid gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:items-center">
+        <CodeWindow file="agent.ts" code={planCode} class="min-w-0" />
+        <FeatureGrid items={planChecks} />
+      </div>
+      <p class="mx-auto mt-8 max-w-3xl text-center text-sm text-neutral-400">
+        <code class="text-neutral-200">quote()</code> tells you the price,
+        <code class="text-neutral-200">estimateCost()</code> the gas, and
+        <code class="text-accent">planPayment()</code> whether you can actually settle it — across all 28
+        chains, on your own RPC, with no facilitator, oracle, or bridge. Turn on
+        <code class="text-neutral-200">autoRoute</code> and <code class="text-neutral-200">fetch</code>
+        pays the cheapest rail you can afford automatically; nothing settleable → it refuses before any send.
+      </p>
     </section>
 
     <!-- A tool, not a platform -->

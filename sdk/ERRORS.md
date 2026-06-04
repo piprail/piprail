@@ -149,6 +149,17 @@ Every `PaymentDriver` / `ResolvedNetwork` method has a fixed error behaviour:
 | `send(wallet, accept)` | wrap the broadcast; map **sender** affordability → `InsufficientFundsError` (§6) and **recipient** setup → `RecipientNotReadyError` (§6.1); **rethrow everything else unchanged** (never swallow). Every mapped throw carries `{ cause }` = the raw chain error. |
 | `verify(ref, accept)` | **return** a `VerifyResult` with a canonical `VerifyErrorCode`. **Guard every RPC read** so a transient failure returns `tx_not_found` — `verify()` must not throw for an RPC hiccup. Re-derive the watched account from the trusted `accept`, never the client ref. |
 | `confirm(ref, n)` | broadcast-but-not-confirmed / timeout → `ConfirmationTimeoutError`. |
+| `estimateCost(accept, opts?)` | **never throw** — guard the RPC read and fall back to a `'heuristic'` constant; always return a valid `CostEstimate`. |
+| `balanceOf(wallet, asset)` | **never throw** — RPC-read-only. A field whose read was unavailable (transient/rate-limit) returns `null`, NOT `0` (a false 0 reads as "broke"). For `asset==='native'`, `token === native`. |
+| `recipientReady(payTo, asset)` | **never throw** — report the receive prerequisite: `{ ready:'n/a' }` (no prerequisite on this family/native), `{ ready:true }`, `{ ready:false, reason }` (a `RecipientReason`), or `{ ready:'unknown' }` on a transient read. `'n/a'` must be TRUTHFUL — never a stand-in for "didn't check". |
+
+> **`planPayment` is a RETURN-channel feature.** The client's `planPayment`/`canAfford` compose
+> `balanceOf` + `recipientReady` + `estimateCost` + the policy verdict into a `PaymentPlan` — and,
+> like `verify()`, they **return** the outcome rather than throwing: a transient read becomes a rail
+> in `state:'unknown'` (+ a warning), an unsettleable rail carries typed `blockers`, and a 402 with
+> no rail on the client's chain is *explained* in the plan. The only throw is `InvalidEnvelopeError`
+> on an unparseable challenge. (`fetch({ autoRoute:true })` is the one place a plan turns into a
+> THROWN `PaymentDeclinedError` — refusing before any send when nothing is settleable.)
 
 ### 6. Affordability converges on one error, by two mechanisms
 

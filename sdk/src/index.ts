@@ -12,13 +12,17 @@
 
 /* ----------------------------- pay (agent side) ----------------------------- */
 
-export { PipRailClient } from './client.js'
+export { PipRailClient, planAcross } from './client.js'
 export type {
   PipRailClientOptions,
   PipRailEvent,
   PipRailQuote,
   PipRailCostQuote,
   WalletInput,
+  PaymentPlan,
+  PayOption,
+  PayBlocker,
+  PayWarning,
 } from './client.js'
 
 /* ---------------------- agent spend controls (Tier 1) ---------------------- */
@@ -86,6 +90,10 @@ export type {
   TronToken,
   SuiToken,
   NearToken,
+  AptosToken,
+  AlgorandToken,
+  RecipientReason,
+  WalletBalance,
 } from './drivers/types.js'
 
 /* ----------------------------- errors ----------------------------- */

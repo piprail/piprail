@@ -34,6 +34,7 @@ import {
 } from '../../errors.js'
 import { rejectForeignToken } from '../shared.js'
 import { nativeCost } from '../../util/cost.js'
+import { parseUnits } from '../../util/units.js'
 import { delay } from '../../util/async.js'
 import type {
   PaymentDriver,
@@ -41,8 +42,14 @@ import type {
   ResolveOptions,
   ResolvedToken,
   TokenInput,
+  WalletBalance,
   WalletHandle,
 } from '../types.js'
+
+/** XRPL RPC reports a non-existent (unactivated) account as `actNotFound`. */
+function isXrplActNotFound(e: unknown): boolean {
+  return /actNotFound/i.test(String((e as Error)?.message ?? e))
+}
 
 export const xrplDriver: PaymentDriver = {
   family: 'xrpl',
@@ -224,6 +231,66 @@ function makeXrplNetwork(preset: XrplPreset, rpcUrl: string): ResolvedNetwork {
           basis: 'heuristic',
           detail: '~12 drops (open-ledger fee unavailable)',
         })
+      }
+    },
+
+    async balanceOf(wallet: WalletHandle, asset: string): Promise<WalletBalance> {
+      let owner: string
+      try {
+        owner = resolveXrplWallet(wallet._native as XrplWalletConfig).classicAddress
+      } catch {
+        return { token: null, native: null }
+      }
+      let native: bigint | null = null
+      try {
+        const r = await rpc<{ account_data: { Balance: string } }>('account_info', {
+          account: owner,
+          ledger_index: 'validated',
+        })
+        native = BigInt(r.account_data.Balance) // drops = 6dp base units
+      } catch (e) {
+        native = isXrplActNotFound(e) ? 0n : null
+      }
+      if (asset === 'native') return { token: native, native }
+      let token: bigint | null = null
+      try {
+        const [currencyHex, issuer] = asset.split(':')
+        const r = await rpc<{ lines: { currency: string; account: string; balance: string }[] }>(
+          'account_lines',
+          { account: owner, ledger_index: 'validated' }
+        )
+        const line = r.lines.find(
+          (l) => l.currency.toUpperCase() === (currencyHex ?? '').toUpperCase() && l.account === issuer
+        )
+        // IOU amounts use the driver's 6-dp scaling convention (USDC/RLUSD are 6dp).
+        token = line ? parseUnits(line.balance, XRP_DECIMALS) : 0n
+      } catch (e) {
+        token = isXrplActNotFound(e) ? 0n : null
+      }
+      return { token, native }
+    },
+
+    async recipientReady(payTo: string, asset: string) {
+      try {
+        await rpc('account_info', { account: payTo, ledger_index: 'validated' })
+      } catch (e) {
+        // Unactivated account → must hold ≥1 XRP base reserve before it can receive anything.
+        if (isXrplActNotFound(e)) return { ready: false as const, reason: 'INACTIVE' as const }
+        return { ready: 'unknown' as const }
+      }
+      if (asset === 'native') return { ready: true as const } // activated → can receive XRP
+      try {
+        const [currencyHex, issuer] = asset.split(':')
+        const r = await rpc<{ lines: { currency: string; account: string }[] }>('account_lines', {
+          account: payTo,
+          ledger_index: 'validated',
+        })
+        const has = r.lines.some(
+          (l) => l.currency.toUpperCase() === (currencyHex ?? '').toUpperCase() && l.account === issuer
+        )
+        return has ? { ready: true as const } : { ready: false as const, reason: 'NO_TRUSTLINE' as const }
+      } catch {
+        return { ready: 'unknown' as const }
       }
     },
 

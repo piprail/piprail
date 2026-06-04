@@ -41,6 +41,7 @@ import type {
   ResolveOptions,
   ResolvedToken,
   TokenInput,
+  WalletBalance,
   WalletHandle,
 } from '../types.js'
 
@@ -236,6 +237,39 @@ function makeTronNetwork(preset: TronPreset, rpcUrl: string): ResolvedNetwork {
         basis: 'heuristic',
         detail: '~30k energy + bandwidth (sender not staked; pass { from } for a precise estimate)',
       })
+    },
+
+    async balanceOf(wallet: WalletHandle, asset: string): Promise<WalletBalance> {
+      const owner = tronWeb.address.fromPrivateKey(
+        resolveTronPrivateKey(wallet._native as TronWalletConfig)
+      )
+      if (!owner) return { token: null, native: null }
+      const native = await tronWeb.trx
+        .getBalance(owner)
+        .then((n) => BigInt(n))
+        .catch(() => null)
+      if (asset === 'native') return { token: native, native }
+      let token: bigint | null = null
+      try {
+        tronWeb.setAddress(owner)
+        const res = (await tronWeb.transactionBuilder.triggerConstantContract(
+          asset,
+          'balanceOf(address)',
+          {},
+          [{ type: 'address', value: owner }],
+          owner
+        )) as { constant_result?: string[] }
+        const hex = res?.constant_result?.[0]
+        token = hex == null ? null : BigInt('0x' + hex)
+      } catch {
+        token = null
+      }
+      return { token, native }
+    },
+
+    // No receive prerequisite — any Tron account receives TRX/TRC-20 immediately.
+    async recipientReady() {
+      return { ready: 'n/a' as const }
     },
 
     async verify(ref, accept) {

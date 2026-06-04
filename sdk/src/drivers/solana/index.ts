@@ -6,6 +6,11 @@
  * loaded on demand — pure-EVM consumers never pull it in.
  */
 import { Connection, Keypair, PublicKey } from '@solana/web3.js'
+import {
+  getAccount,
+  getAssociatedTokenAddressSync,
+  TokenAccountNotFoundError,
+} from '@solana/spl-token'
 import { SOLANA_MAINNET, SOL_DECIMALS, type SolanaPreset } from './chains.js'
 import { paySolana } from './pay.js'
 import { verifySolana } from './verify.js'
@@ -24,6 +29,7 @@ import type {
   ResolveOptions,
   ResolvedToken,
   TokenInput,
+  WalletBalance,
   WalletHandle,
 } from '../types.js'
 
@@ -160,6 +166,29 @@ function makeSolanaNetwork(preset: SolanaPreset, rpcUrl: string): ResolvedNetwor
         basis: 'heuristic',
         detail: '1 signature + recipient token-account rent (~0.00204 SOL, if not already created)',
       })
+    },
+
+    async balanceOf(wallet: WalletHandle, asset: string): Promise<WalletBalance> {
+      const owner = (wallet._native as Keypair).publicKey
+      const native = await connection
+        .getBalance(owner)
+        .then((n) => BigInt(n))
+        .catch(() => null)
+      if (asset === 'native') return { token: native, native }
+      let token: bigint | null
+      try {
+        const ata = getAssociatedTokenAddressSync(new PublicKey(asset), owner)
+        token = (await getAccount(connection, ata, 'confirmed')).amount
+      } catch (e) {
+        // No token account yet = a genuine 0; any other read failure = unknown.
+        token = e instanceof TokenAccountNotFoundError ? 0n : null
+      }
+      return { token, native }
+    },
+
+    // No receive prerequisite — the payer's tx idempotently creates the recipient's ATA (pay.ts).
+    async recipientReady() {
+      return { ready: 'n/a' as const }
     },
 
     async verify(ref, accept) {

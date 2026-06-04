@@ -36,6 +36,7 @@ import type {
   ResolveOptions,
   ResolvedToken,
   TokenInput,
+  WalletBalance,
   WalletHandle,
 } from '../types.js'
 
@@ -181,6 +182,35 @@ function makeTonNetwork(preset: TonPreset, rpcUrl: string): ResolvedNetwork {
           ? '~0.01 TON network fee'
           : '~0.05 TON attached for the jetton transfer (leftover refunded)'
       return nativeCost({ symbol: 'TON', decimals: TON_DECIMALS, fee, basis: 'heuristic', detail })
+    },
+
+    async balanceOf(wallet: WalletHandle, asset: string): Promise<WalletBalance> {
+      let owner: string
+      try {
+        owner = (await resolveTonWallet(wallet._native as TonWalletConfig)).contract.address.toString()
+      } catch {
+        return { token: null, native: null }
+      }
+      const native = await client
+        .getBalance(Address.parse(owner))
+        .then((b) => BigInt(b))
+        .catch(() => null)
+      if (asset === 'native') return { token: native, native }
+      let token: bigint | null
+      try {
+        const jw = await jettonWalletFor(asset, owner)
+        const { stack } = await client.runMethod(jw, 'get_wallet_data')
+        token = stack.readBigNumber()
+      } catch {
+        // Jetton wallet not deployed / read unavailable → unknown (never a false "broke").
+        token = null
+      }
+      return { token, native }
+    },
+
+    // No receive prerequisite — the payer's gas auto-deploys the recipient's jetton wallet.
+    async recipientReady() {
+      return { ready: 'n/a' as const }
     },
 
     async verify(_ref, accept) {

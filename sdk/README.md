@@ -77,13 +77,41 @@ client.spent() // → { count, byAsset: [{ symbol:'USDC', totalFormatted:'0.05',
 
 **Know the gas before you pay.** `client.estimateCost(url)` returns the quote **and** a `CostEstimate` — the network fee in the chain's **native coin** (you pay in USDC but burn ETH / SOL / TON / XLM / XRP / TRX on gas, a separate balance the agent must keep topped up). It's best-effort and labelled (`cost.basis`): a live-RPC read where cheap (`'estimated'` — EVM gas price, XRPL fee), a typical-cost constant otherwise (`'heuristic'`), and it never throws. Most valuable on **Tron**, where a USD₮ transfer can cost real TRX. So an agent can budget the *total* — payment **+** gas — before any funds move. Every driver implements it; the math is extracted per-chain and shaped uniformly by one shared `nativeCost()` helper.
 
+### Plan before you pay — `planPayment()` (never fumble a payment)
+
+`quote()` tells you the price and `estimateCost()` the gas — **`planPayment(url)`** closes the loop: **one read-only call** that checks, against your wallet's *own* holdings, whether a 402 will actually go through — and if not, exactly what to fix. No funds move.
+
+```ts
+const plan = await client.planPayment(url)
+
+if (plan?.payable) {
+  await client.fetch(url, { autoRoute: true })   // pays plan.best — the cheapest rail you can settle
+} else {
+  console.log(plan?.fundingHint)
+  // "Have the USDC, but need ~0.000021 ETH for gas on base (have 0)."
+  // "Recipient 2OT6…GC5E4 can't receive on algorand yet — must opt into the USDC ASA."
+  // "Top up 0.04 USDC on base (have 0.01)."
+}
+```
+
+For **every rail the 402 offers on your chain**, the plan reads **token balance + native-coin gas + recipient-readiness** (trustline / ATA / `storage_deposit` / ASA opt-in / activation) and returns:
+- **`payable`** + **`best`** — the cheapest rail you can actually settle (recipient confirmed able to receive);
+- **`options[]`** — each rail with typed **`blockers`** (`INSUFFICIENT_TOKEN` · `INSUFFICIENT_GAS` · `RECIPIENT_NOT_READY` · `OUTSIDE_POLICY`), soft **`warnings`** (`SYMBOL_MISMATCH`, `THIN_GAS_MARGIN`, `BALANCE_UNREADABLE`, …), a **`shortfall`**, the live **`balance`**, and **`recipient.fix`**;
+- **`fundingHint`** — one human sentence on exactly what to top up.
+
+**Why it's the agent unlock.** The official x402 client picks `accepts[0]` blind and learns it can't pay only when the broadcast reverts (no token, no gas) or the transfer silently strands (recipient not set up to receive). `planPayment` turns those runtime failures into a pre-checked decision — and on the no-facilitator path *you* pay your own gas, so "I hold USDC but no ETH" is a first-class answer, not a crash. It **never throws for a read hiccup** (a throttled RPC surfaces as `state: 'unknown'` + a warning, never a false "broke"), returns `null` when the URL isn't gated, and *explains* "this is offered on solana, base — you're on xrpl" instead of erroring. `client.canAfford(url)` is the one-boolean convenience.
+
+**Auto-route (opt-in).** `new PipRailClient({ autoRoute: true })` (or `fetch(url, { autoRoute: true })`) makes `fetch` pay the cheapest *settleable* rail instead of the first policy-passing one — refusing with `PaymentDeclinedError` + the funding hint before any send. **Default off; the zero-config path is unchanged.**
+
+**Across chains.** A client is bound to one chain; **`planAcross([baseClient, solanaClient, …], url)`** runs each plan in parallel and merges them payable-first, so an agent holding funds on several chains learns which to use. (No price oracle — cross-coin ties break on the order you list the clients.)
+
 ### Hand an LLM a budget-bound wallet
 
 `paymentTools(client)` returns framework-agnostic tool descriptors (name + description + JSON Schema + `invoke`) — drop them into MCP, the Vercel AI SDK, OpenAI/Anthropic function-calling, or LangChain in a couple of lines. The budget rides on the client, so the model can't overspend.
 
 ```ts
 import { paymentTools } from '@piprail/sdk'
-const tools = paymentTools(client) // → [piprail_quote_payment, piprail_pay_request]
+const tools = paymentTools(client) // → [piprail_quote_payment, piprail_plan_payment, piprail_pay_request]
 ```
 
 See [`examples/agent-tools.mjs`](../examples/agent-tools.mjs) for MCP / AI-SDK wiring.
@@ -477,7 +505,7 @@ The SDK is browser-clean (no Node-only globals in the protocol layer), so a plai
 Two layers, one contract. Worth knowing if you're extending the SDK or auditing it.
 
 - **The protocol layer is chain-agnostic.** `server.ts` (`requirePayment`/`createPaymentGate`), `client.ts` (`PipRailClient`), `x402.ts` (wire envelopes), `policy.ts`, `ledger.ts`, and `agent.ts` depend **only** on the `PaymentDriver` contract in `drivers/types.ts` — zero `viem`, zero `@solana/web3.js`, zero chain SDK. The chain is data the caller passes, not an allowlist the SDK ships.
-- **The `PaymentDriver` contract.** `resolve(chain)` → a bound `ResolvedNetwork` exposing `resolveToken` · `describeAsset` · `assertValidPayTo` · `bindWallet` · `send` · `confirm` · `estimateCost` · `verify`. That's the entire boundary every family implements and the protocol layer ever sees.
+- **The `PaymentDriver` contract.** `resolve(chain)` → a bound `ResolvedNetwork` exposing `resolveToken` · `describeAsset` · `assertValidPayTo` · `bindWallet` · `send` · `confirm` · `estimateCost` · `balanceOf` · `recipientReady` · `verify`. That's the entire boundary every family implements and the protocol layer ever sees.
 - **Families mirror each other file-for-file.** Each lives in `drivers/<family>/` as `chains` · `wallet` · `pay` · `verify` · `index`, with family-suffixed functions (`payEvm`/`paySui`/…, `verifyEvm`/`verifyNear`/…). Ten today: `evm`, `solana`, `ton`, `stellar`, `xrpl`, `tron`, `near`, `sui`, `aptos`, `algorand`. Adding one = copy the five files, implement the contract, `registerDriver` — the protocol layer never changes.
 - **Routing + lazy auto-mount.** `registry.ts` maps a `chain` value to its family synchronously (`familyForChain`). EVM is always present (viem is a hard peer); every non-EVM family **loads itself on first use** via one dynamic `import()`, so a pure-EVM install never downloads `@solana`/`@ton`/`@stellar`/`xrpl`/`tronweb`/`near-api-js`/`@mysten/sui`/`@aptos-labs/ts-sdk`/`algosdk`. A build-time invariant asserts the main bundle has **zero** static imports of those libs — only per-family lazy chunks.
 - **Two verification templates.** *Template A (memo-bound)* — Stellar, XRPL, TON, NEAR, Algorand — carries the challenge nonce inside the transfer (memo / tag / comment / note), so the proof is cryptographically bound to its challenge. *Template B (digest-bound)* — EVM, Solana, Tron, Sui, Aptos — binds via a single-use proof set + recipient + amount + a tight recency window (use a persistent `isUsed`/`markUsed` store in production).
@@ -556,7 +584,7 @@ Provide **either** `chain` + `token` + `amount` (single) **or** a non-empty `acc
 | `retryTimeoutMs` | `30000` | Timeout for the retry leg after broadcast |
 | `onEvent` | — | `(event) => void` observability: `payment-required` · `payment-broadcast` · `payment-confirmed` · `payment-unconfirmed` (broadcast OK, local confirm timed out → deferring to server) · `payment-settled` · `payment-failed` |
 
-Methods: `fetch` · `get` · `post` (return the gated `Response` after settlement) · **`quote(url)`** (price without paying → `PipRailQuote \| null`) · **`estimateCost(url)`** (price **+** native-coin gas estimate → `PipRailCostQuote \| null`) · **`spent()`** (per-asset ledger snapshot).
+Methods: `fetch` · `get` · `post` (return the gated `Response` after settlement) · **`quote(url)`** (price without paying → `PipRailQuote \| null`) · **`estimateCost(url)`** (price **+** native-coin gas estimate → `PipRailCostQuote \| null`) · **`planPayment(url)`** (affordability + recipient-readiness across the offered rails → `PaymentPlan \| null`) · **`canAfford(url)`** (→ `boolean`) · **`spent()`** (per-asset ledger snapshot). Pass `{ autoRoute: true }` to `fetch` (or set it on the client) to pay the cheapest *settleable* rail. Module-level **`planAcross(clients, url)`** plans across chains.
 
 **Wallets by family** — the `chain` selector routes; each driver validates its own key format (a mismatch throws `WrongFamilyError`):
 

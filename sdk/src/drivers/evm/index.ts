@@ -5,7 +5,7 @@
  * — chains.ts / wallet.ts / pay.ts / verify.ts — with NO behavior
  * change. This adapter is the only file the registry imports.
  */
-import { BaseError, createPublicClient, getAddress, http, isAddress, type PublicClient } from 'viem'
+import { BaseError, createPublicClient, erc20Abi, getAddress, http, isAddress, type PublicClient } from 'viem'
 import { resolveChain, type ChainInput, type ResolvedChain } from './chains.js'
 import {
   createWalletAdapter,
@@ -30,6 +30,7 @@ import type {
   ResolveOptions,
   ResolvedToken,
   TokenInput,
+  WalletBalance,
   WalletHandle,
 } from '../types.js'
 
@@ -199,6 +200,29 @@ function makeEvmNetwork(resolved: ResolvedChain): ResolvedNetwork {
           detail: `~${gasLimit} gas @ assumed 5 gwei (live gas price unavailable)`,
         })
       }
+    },
+
+    async balanceOf(wallet: WalletHandle, asset: string): Promise<WalletBalance> {
+      const owner = (wallet._native as WalletAdapter).account.address
+      const native = await publicClient.getBalance({ address: owner }).catch(() => null)
+      if (asset === 'native') return { token: native, native }
+      let token: bigint | null = null
+      try {
+        token = (await publicClient.readContract({
+          address: getAddress(asset),
+          abi: erc20Abi,
+          functionName: 'balanceOf',
+          args: [owner],
+        })) as bigint
+      } catch {
+        token = null
+      }
+      return { token, native }
+    },
+
+    // EVM has no receive prerequisite — any 0x address receives native or ERC-20 immediately.
+    async recipientReady() {
+      return { ready: 'n/a' as const }
     },
 
     async verify(ref, accept) {

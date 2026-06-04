@@ -38,6 +38,7 @@ import type {
   ResolveOptions,
   ResolvedToken,
   TokenInput,
+  WalletBalance,
   WalletHandle,
 } from '../types.js'
 
@@ -165,6 +166,31 @@ function makeSuiNetwork(preset: SuiPreset, rpcUrl: string): ResolvedNetwork {
         basis: 'heuristic',
         detail: '≈0.003 SUI (computation + storage; storage is largely rebated on success)',
       })
+    },
+
+    async balanceOf(wallet: WalletHandle, asset: string): Promise<WalletBalance> {
+      let owner: string
+      try {
+        owner = resolveSuiKeypair(wallet._native as SuiWalletConfig).toSuiAddress()
+      } catch {
+        return { token: null, native: null }
+      }
+      const readBal = async (coinType: string): Promise<bigint | null> => {
+        try {
+          return BigInt((await client.getBalance({ owner, coinType })).totalBalance)
+        } catch {
+          return null
+        }
+      }
+      const native = await readBal('0x2::sui::SUI')
+      if (asset === 'native') return { token: native, native }
+      const token = await readBal(asset)
+      return { token, native }
+    },
+
+    // No receive prerequisite — any Sui address receives SUI/coins immediately.
+    async recipientReady() {
+      return { ready: 'n/a' as const }
     },
 
     async verify(ref, accept) {

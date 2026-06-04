@@ -34,6 +34,8 @@ const fakeEvm: PaymentDriver = {
       send: async () => `0x${'1'.repeat(64)}`,
       confirm: async () => ({ height: '1' }),
       estimateCost: async () => ({ feeSymbol: 'ETH', feeDecimals: 18, fee: '0', feeFormatted: '0', basis: 'heuristic' as const }),
+      balanceOf: async () => ({ token: 0n, native: 0n }),
+      recipientReady: async () => ({ ready: "n/a" as const }),
       // Echo the accept verbatim into the receipt — the test inspects it.
       verify: async (ref, accept) => ({
         ok: true,

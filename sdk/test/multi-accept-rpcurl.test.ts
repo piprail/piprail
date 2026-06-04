@@ -34,6 +34,8 @@ const fakeEvm: PaymentDriver = {
       send: async () => `0x${'1'.repeat(64)}`,
       confirm: async () => ({ height: '1' }),
       estimateCost: async () => ({ feeSymbol: 'ETH', feeDecimals: 18, fee: '0', feeFormatted: '0', basis: 'heuristic' as const }),
+      balanceOf: async () => ({ token: 0n, native: 0n }),
+      recipientReady: async () => ({ ready: "n/a" as const }),
       verify: async () => ({ ok: false, error: 'transfer_not_found', detail: 'x' }),
     }
   },

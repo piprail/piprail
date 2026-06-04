@@ -43,7 +43,7 @@ Paying for things?
  └─ PipRailClient({ chain, wallet, policy? })  →  client.fetch(url)   // auto-pays a 402
 
 Exposing payment to a model?
- └─ paymentTools(client)  →  [piprail_quote_payment, piprail_pay_request]
+ └─ paymentTools(client)  →  [piprail_quote_payment, piprail_plan_payment, piprail_pay_request]
 ```
 
 `token` is **always required** — there is no default. A gate states exactly what it accepts (`'USDC'`, `'USDT'`, `'native'`, or a custom `{ address, decimals }`).
@@ -101,6 +101,18 @@ const { quote, cost } = await client.estimateCost(url)
 ```
 
 `quote(url)` prices without paying; `estimateCost(url)` adds the gas estimate.
+
+## Plan before you pay — `planPayment(url)`
+
+The read-only completion of `quote()` → `estimateCost()` → **`planPayment()`**. One call checks a 402 against your wallet's own holdings — token balance, native gas, and whether the recipient can even receive (trustline / ATA / `storage_deposit` / ASA opt-in) — across every rail it offers on your chain:
+
+```ts
+const plan = await client.planPayment(url)
+if (plan?.payable) await client.fetch(url, { autoRoute: true }) // pays plan.best
+else console.log(plan?.fundingHint) // "Top up 0.04 USDC on base" / "recipient must opt into the USDC ASA"
+```
+
+`payable` + `best` (the cheapest settleable rail), `options[]` with typed `blockers`/`warnings`, and a human `fundingHint`. It never throws for a read hiccup (→ `state: 'unknown'`), returns `null` when not gated, and `autoRoute` makes `fetch` pay the affordable rail automatically. `planAcross(clients, url)` plans across chains. This is what turns "the broadcast reverted" into a pre-checked "here's the rail, or here's what to top up."
 
 ## Errors — two channels
 

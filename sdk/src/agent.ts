@@ -66,6 +66,51 @@ export function paymentTools(client: PipRailClient): AgentTool[] {
       },
     },
     {
+      name: 'piprail_plan_payment',
+      description:
+        'Check whether you CAN pay an x402-gated URL before paying. Reads your wallet balance, native ' +
+        'gas, and whether the recipient can receive — across every rail the URL offers on your chain — ' +
+        'and returns { gated, payable, best, options, fundingHint }. payable:false means do NOT attempt ' +
+        'the payment; fundingHint says exactly what to top up. Call this before piprail_pay_request so ' +
+        'you never commit to a payment you cannot finish. Returns { gated: false } when no payment is needed.',
+      parameters: {
+        type: 'object',
+        properties: {
+          url: { type: 'string', description: 'Full URL of the gated resource.' },
+        },
+        required: ['url'],
+        additionalProperties: false,
+      },
+      invoke: async (args) => {
+        const plan = await client.planPayment(String(args.url))
+        if (plan == null) return { gated: false, url: String(args.url) }
+        return {
+          gated: true,
+          payable: plan.payable,
+          status: plan.status,
+          fundingHint: plan.fundingHint,
+          best: plan.best
+            ? {
+                network: plan.best.accept.network,
+                symbol: plan.best.quote.symbol,
+                amount: plan.best.quote.amountFormatted,
+                gasCoin: plan.best.cost.feeSymbol,
+                gas: plan.best.cost.feeFormatted,
+              }
+            : null,
+          options: plan.options.map((o) => ({
+            network: o.accept.network,
+            symbol: o.quote.symbol,
+            amount: o.quote.amountFormatted,
+            state: o.state,
+            blockers: o.blockers,
+            warnings: o.warnings,
+            recipientReady: o.recipient.ready,
+          })),
+        }
+      },
+    },
+    {
       name: 'piprail_pay_request',
       description:
         'Fetch an x402 payment-gated URL, automatically paying the required on-chain ' +

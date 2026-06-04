@@ -180,6 +180,28 @@ export interface WalletHandle {
   readonly _native: unknown
 }
 
+/**
+ * Why a recipient can't receive an asset yet — the chain's one-time receive
+ * prerequisite, when it has one. Surfaced by {@link ResolvedNetwork.recipientReady}
+ * and relayed by the client's planner so an agent fixes the RECIPIENT (not its own
+ * balance). Families with no prerequisite report `ready: 'n/a'` and no reason.
+ */
+export type RecipientReason =
+  | 'NO_TRUSTLINE' // Stellar / XRPL: the account holds no trustline for this asset
+  | 'NOT_REGISTERED' // NEAR: payTo isn't storage_deposit-registered on the NEP-141 token
+  | 'NOT_OPTED_IN' // Algorand: payTo hasn't opted into the ASA
+  | 'INACTIVE' // Stellar / XRPL: the account doesn't exist / isn't reserve-funded yet
+
+/** What {@link ResolvedNetwork.balanceOf} returns — base-unit balances, or null per
+ *  field when that read was unavailable (transient/RPC), never a false 0. */
+export interface WalletBalance {
+  /** The payment token's balance in base units, or null if the read was unavailable. */
+  token: bigint | null
+  /** The native gas coin's balance in base units, or null if unavailable. For
+   *  `asset === 'native'`, this equals `token`. */
+  native: bigint | null
+}
+
 export interface ConfirmInfo {
   /** Block number (EVM) or slot (Solana) as a string — numeric-agnostic. */
   height: string
@@ -240,6 +262,33 @@ export interface ResolvedNetwork {
     accept: X402AcceptEntry,
     opts?: { from?: string }
   ): Promise<CostEstimate>
+
+  /**
+   * Read the BOUND WALLET's own balance of the payment `asset` AND of the native
+   * gas coin, in base units — what the client's `planPayment` checks affordability
+   * against. RPC-read-only and NEVER throws: a field whose read was unavailable
+   * (rate-limited / transient) comes back `null` (unknown), never `0` (which would
+   * falsely read "broke"). For `asset === 'native'`, `token === native`.
+   * Payer-side + informational — the gate never calls this. See {@link WalletBalance}.
+   */
+  balanceOf(wallet: WalletHandle, asset: string): Promise<WalletBalance>
+
+  /**
+   * Can `payTo` RECEIVE `asset` on this network right now? Reports the chain's
+   * one-time receive prerequisite (trustline / storage_deposit / ASA opt-in /
+   * activation):
+   *   - `{ ready: 'n/a' }`         the family has NO prerequisite (EVM, Solana, TON,
+   *                                Tron, Sui, Aptos — and every native coin)
+   *   - `{ ready: true }`          the prerequisite is satisfied
+   *   - `{ ready: false, reason }` it's missing (see {@link RecipientReason}) — fix the recipient
+   *   - `{ ready: 'unknown' }`     the probe read failed (transient) — NEVER throws
+   * Re-derives nothing from a client ref; reads only the given `payTo`. Payer-side
+   * pre-flight — the gate never calls this.
+   */
+  recipientReady(
+    payTo: string,
+    asset: string
+  ): Promise<{ ready: boolean | 'n/a' | 'unknown'; reason?: RecipientReason }>
 
   /* -------- server side -------- */
   /** Verify `ref` satisfies `accept`, RPC-only, in-process. */

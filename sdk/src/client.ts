@@ -4,6 +4,8 @@ import type {
   WalletHandle,
   ChainSelector,
   CostEstimate,
+  RecipientReason,
+  WalletBalance,
 } from './drivers/types.js'
 import {
   HEADER_SIGNATURE,
@@ -118,6 +120,72 @@ export interface PipRailCostQuote {
   cost: CostEstimate
 }
 
+/* ----------------------- planPayment (affordability + readiness) ----------------------- */
+
+/** A hard reason a rail can't be settled right now — each maps to a concrete fix. */
+export type PayBlocker =
+  | 'INSUFFICIENT_TOKEN' // wallet holds < the payment amount of the token (or, for native, amount+gas)
+  | 'INSUFFICIENT_GAS' // wallet holds < the native-coin gas to send a token payment
+  | 'RECIPIENT_NOT_READY' // payTo can't receive yet (no trustline/registration/opt-in/activation)
+  | 'OUTSIDE_POLICY' // the client's spend policy refuses it (amount/total/chain/token/host/unknown)
+
+/** A soft flag — never blocks, always worth surfacing to the agent. */
+export type PayWarning =
+  | 'SYMBOL_MISMATCH' // the challenge's stated symbol disagrees with the SDK's true one (scam smell)
+  | 'BALANCE_UNREADABLE' // a balance read failed (transient) — payability is uncertain, not "broke"
+  | 'RECIPIENT_READINESS_UNKNOWN' // the readiness probe failed (transient) — the payment may still bounce
+  | 'GAS_HEURISTIC' // gas is a typical-cost constant, not a live RPC estimate (cost.basis)
+  | 'THIN_GAS_MARGIN' // has gas, but < 1.5× the estimate — a fee spike could fail the send
+
+/** One offered rail, fully analysed against the bound wallet's own holdings. */
+export interface PayOption {
+  /** The rail this analyses (one entry from the 402's accepts[]). */
+  accept: X402AcceptEntry
+  /** The priced requirement — TRUE decimals/symbol + the policy verdict. */
+  quote: PipRailQuote
+  /** Estimated native-coin gas to send it (cost.basis surfaced). */
+  cost: CostEstimate
+  /** The verdict for THIS rail. 'unknown' = a read failed, so payability can't be confirmed. */
+  state: 'payable' | 'blocked' | 'unknown'
+  /** Hard reasons it's blocked (empty when payable). */
+  blockers: PayBlocker[]
+  /** Soft flags (may be present even when payable). */
+  warnings: PayWarning[]
+  /** Live wallet holdings, human units; null = the read was unavailable (NOT zero). */
+  balance: { token: string | null; native: string | null }
+  /** What this rail needs: the payment amount + the estimated gas, human units. */
+  need: { token: string; native: string }
+  /** How much MORE is needed to clear a funds blocker, human units (omitted when funded). */
+  shortfall?: { token?: string; native?: string }
+  /** Can payTo receive this asset right now, and if not, what fixes it. */
+  recipient: { ready: boolean | 'n/a' | 'unknown'; reason?: RecipientReason; fix?: string }
+}
+
+/** The plan for ONE 402 across every rail this client can pay (its bound network). */
+export interface PaymentPlan {
+  url: string
+  /** The network this client is bound to (the rails it can settle). */
+  network: Caip2
+  /** Top-level verdict for instant branching. */
+  status: 'ready' | 'blocked' | 'unknown'
+  /** True iff at least one rail is payable now (best !== null). */
+  payable: boolean
+  /** The rail to use: the cheapest (within native coin) payable option, or null. */
+  best: PayOption | null
+  /** Every offered+supported rail, ranked: payable → unknown → blocked. */
+  options: PayOption[]
+  /** When NOT payable: one human, actionable sentence on exactly what to do. */
+  fundingHint: string | null
+}
+
+/** Plain-language fix per receive-prerequisite, surfaced in PayOption.recipient.fix. */
+const RECIPIENT_FIX: Record<RecipientReason, string> = {
+  NO_TRUSTLINE: 'the recipient needs a one-time trustline for this asset before it can receive',
+  NOT_REGISTERED: 'the recipient must be storage_deposit-registered on this token (NEP-145, one-time)',
+  NOT_OPTED_IN: 'the recipient must opt into this asset once (a 0-amount self-transfer)',
+  INACTIVE: "the recipient account doesn't exist yet — fund it with the chain's base reserve to activate it",
+}
+
 export interface PipRailClientOptions {
   /** Wallet for the chosen chain family. */
   wallet: WalletInput
@@ -156,6 +224,16 @@ export interface PipRailClientOptions {
   maxPaymentRetries?: number
   /** Timeout (ms) for the retry leg after broadcast. Default 30_000. */
   retryTimeoutMs?: number
+  /**
+   * Balance-aware routing: when true, `fetch()` runs `planPayment` on a 402 and
+   * pays the cheapest rail the wallet can ACTUALLY settle (token + native gas +
+   * recipient-ready), instead of the first policy-passing accept. If none is
+   * settleable it throws {@link PaymentDeclinedError} carrying the funding hint —
+   * before any send. Default **false** (defaults never change): the zero-config
+   * path keeps its existing selection. Recommended for multi-rail 402s. Override
+   * per call with `fetch(url, { autoRoute: true })`.
+   */
+  autoRoute?: boolean
   /** Logger hook. Default no-op. */
   onEvent?: (event: PipRailEvent) => void
 }
@@ -290,6 +368,46 @@ export class PipRailClient {
   }
 
   /**
+   * Plan a payment for a gated URL — WITHOUT paying. The read-only completion of
+   * the `quote()` → `estimateCost()` → **`planPayment()`** trio: it surveys every
+   * rail the 402 offers on this client's chain against the wallet's OWN holdings —
+   * token balance, native-coin gas, and recipient-readiness (trustline / ATA /
+   * storage_deposit / ASA opt-in) — and returns, crystal-clear:
+   *   - `payable` + `best`   — the cheapest rail the wallet can actually settle
+   *   - `options[]`          — every rail with typed `blockers` + soft `warnings`
+   *   - `fundingHint`        — one human sentence on exactly what to top up
+   *
+   * NEVER throws for a read problem (a transient/RPC failure surfaces as a rail in
+   * `state: 'unknown'` + a warning, never a false "unaffordable"); returns `null`
+   * when the URL isn't payment-gated (no 402); and when the 402 offers no rail on
+   * this client's chain it EXPLAINS that (status `blocked` + a hint), rather than
+   * throwing. Throws `InvalidEnvelopeError` only on an unparseable challenge.
+   *
+   * Then pay the chosen rail with `fetch(url, { autoRoute: true })`, or branch on
+   * the plan yourself. No funds move.
+   */
+  async planPayment(url: string, init?: RequestInit): Promise<PaymentPlan | null> {
+    const res = await fetch(url, { ...(init ?? {}), method: init?.method ?? 'GET' })
+    if (res.status !== 402) return null
+    const challenge = await parseChallenge(res)
+    if (!challenge) {
+      throw new InvalidEnvelopeError('402 response did not include a parseable x402 challenge.')
+    }
+    const { net, wallet } = await this.ensure()
+    return this.planFromChallenge(net, wallet, challenge, url)
+  }
+
+  /**
+   * Convenience over {@link planPayment}: can the wallet settle this URL right now?
+   * `true` when at least one rail is payable — or when the URL isn't gated (a free
+   * resource is trivially "affordable"). No funds move.
+   */
+  async canAfford(url: string, init?: RequestInit): Promise<boolean> {
+    const plan = await this.planPayment(url, init)
+    return plan == null ? true : plan.payable
+  }
+
+  /**
    * Lower-level: drive any HTTP method through the 402 flow.
    *
    * `init.body` (if any) must be replayable — the SDK may send the request
@@ -308,10 +426,24 @@ export class PipRailClient {
     const firstResponse = await fetch(url, init)
     if (firstResponse.status !== 402) return firstResponse
 
-    const { net, wallet, accept, challenge, quote } = await this.resolveChallenge(
-      url,
-      firstResponse
-    )
+    const resolved = await this.resolveChallenge(url, firstResponse)
+    const { net, wallet, challenge } = resolved
+    let accept = resolved.accept
+    let quote = resolved.quote
+
+    // Balance-aware routing (opt-in): pay the cheapest rail the wallet can ACTUALLY
+    // settle, not just the first policy-passing one. Refuses (before any send) with the
+    // funding hint if nothing is settleable.
+    const autoRoute =
+      (init as { autoRoute?: boolean } | undefined)?.autoRoute ?? this.opts.autoRoute ?? false
+    if (autoRoute) {
+      const plan = await this.planFromChallenge(net, wallet, challenge, url)
+      if (!plan.best) {
+        throw new PaymentDeclinedError(plan.fundingHint ?? 'No rail is settleable for this payment.')
+      }
+      accept = plan.best.accept
+      quote = plan.best.quote
+    }
 
     this.safeEmit({ kind: 'payment-required', challenge, accept })
 
@@ -353,9 +485,7 @@ export class PipRailClient {
     // Every accept this client could pay: our scheme, on the bound network. A
     // multi-chain challenge may offer several — including the same network more
     // than once (e.g. USDC and native) — so gather them all, then let policy choose.
-    const candidates = challenge.accepts.filter(
-      (a) => a.scheme === 'onchain-proof' && net.supports(a.network)
-    )
+    const candidates = this.gatherCandidates(net, challenge)
     if (candidates.length === 0) {
       const networks = challenge.accepts.map((a) => a.network).join(', ')
       throw new NoCompatibleAcceptError(
@@ -372,6 +502,152 @@ export class PipRailClient {
     }))
     const chosen = priced.find((p) => p.quote.withinPolicy) ?? priced[0]!
     return { net, wallet, accept: chosen.accept, challenge, quote: chosen.quote }
+  }
+
+  /** The candidate accepts this client could pay: our scheme, on the bound network. */
+  private gatherCandidates(
+    net: ResolvedNetwork,
+    challenge: X402Challenge
+  ): X402AcceptEntry[] {
+    return challenge.accepts.filter(
+      (a) => a.scheme === 'onchain-proof' && net.supports(a.network)
+    )
+  }
+
+  /** Build the full {@link PaymentPlan} from an already-parsed challenge + bound
+   *  net/wallet. Shared by `planPayment` (read-only) and `fetch`'s autoRoute. */
+  private async planFromChallenge(
+    net: ResolvedNetwork,
+    wallet: WalletHandle,
+    challenge: X402Challenge,
+    url: string
+  ): Promise<PaymentPlan> {
+    const chainLabel = typeof this.opts.chain === 'string' ? this.opts.chain : net.network
+    const candidates = this.gatherCandidates(net, challenge)
+    if (candidates.length === 0) {
+      const offered = [...new Set(challenge.accepts.map((a) => a.network))].join(', ') || 'none'
+      return {
+        url,
+        network: net.network,
+        status: 'blocked',
+        payable: false,
+        best: null,
+        options: [],
+        fundingHint: `This 402 isn't offered on your chain (${chainLabel}); it's payable on: ${offered}.`,
+      }
+    }
+    // Analyse every rail in parallel; one rail's read failure never sinks the others
+    // (analyzeRail catches its own reads → 'unknown', never throws for an RPC hiccup).
+    const analysed = await Promise.all(
+      candidates.map((accept) =>
+        this.analyzeRail(net, wallet, accept, url, challenge.resource.description)
+      )
+    )
+    const options = rankOptions(analysed)
+    const best = options.find((o) => o.state === 'payable') ?? null
+    const status: PaymentPlan['status'] = best
+      ? 'ready'
+      : options.some((o) => o.state === 'unknown')
+        ? 'unknown'
+        : 'blocked'
+    return {
+      url,
+      network: net.network,
+      status,
+      payable: best !== null,
+      best,
+      options,
+      fundingHint: best ? null : buildFundingHint(options, chainLabel),
+    }
+  }
+
+  /** Analyse ONE rail against the wallet's holdings — quote (existing) + gas
+   *  (estimateCost, existing) + balanceOf + recipientReady → a {@link PayOption}. */
+  private async analyzeRail(
+    net: ResolvedNetwork,
+    wallet: WalletHandle,
+    accept: X402AcceptEntry,
+    url: string,
+    description?: string
+  ): Promise<PayOption> {
+    const quote = this.buildQuote(net, accept, url, description)
+    const cost = await net.estimateCost(accept)
+    const bal: WalletBalance = await net
+      .balanceOf(wallet, accept.asset)
+      .catch(() => ({ token: null, native: null }))
+    const rr = await net
+      .recipientReady(accept.payTo, accept.asset)
+      .catch(() => ({ ready: 'unknown' as const }))
+
+    const amount = BigInt(accept.amount)
+    const fee = safeBig(cost.fee)
+    const isNative = accept.asset === 'native'
+    const blockers: PayBlocker[] = []
+    const warnings: PayWarning[] = []
+    const shortfall: { token?: string; native?: string } = {}
+
+    if (!quote.withinPolicy) blockers.push('OUTSIDE_POLICY')
+    if (quote.symbolMismatch) warnings.push('SYMBOL_MISMATCH')
+    if (cost.basis === 'heuristic') warnings.push('GAS_HEURISTIC')
+
+    const tokenKnown = bal.token != null
+    const nativeKnown = bal.native != null
+    if (!tokenKnown || !nativeKnown) warnings.push('BALANCE_UNREADABLE')
+
+    if (isNative) {
+      // The native coin is BOTH the payment and the gas — need amount + gas.
+      if (nativeKnown && bal.native! < amount + fee) {
+        blockers.push('INSUFFICIENT_TOKEN')
+        shortfall.token = formatUnits(amount + fee - bal.native!, quote.decimals)
+      }
+    } else {
+      if (tokenKnown && bal.token! < amount) {
+        blockers.push('INSUFFICIENT_TOKEN')
+        shortfall.token = formatUnits(amount - bal.token!, quote.decimals)
+      }
+      if (nativeKnown && bal.native! < fee) {
+        blockers.push('INSUFFICIENT_GAS')
+        shortfall.native = formatUnits(fee - bal.native!, cost.feeDecimals)
+      } else if (nativeKnown && fee > 0n && bal.native! < (fee * 3n) / 2n) {
+        warnings.push('THIN_GAS_MARGIN')
+      }
+    }
+
+    let recipient: PayOption['recipient']
+    if (rr.ready === false) {
+      blockers.push('RECIPIENT_NOT_READY')
+      recipient = rr.reason
+        ? { ready: false, reason: rr.reason, fix: RECIPIENT_FIX[rr.reason] }
+        : { ready: false }
+    } else if (rr.ready === 'unknown') {
+      warnings.push('RECIPIENT_READINESS_UNKNOWN')
+      recipient = { ready: 'unknown' }
+    } else {
+      recipient = { ready: rr.ready } // true | 'n/a'
+    }
+
+    const unreadable = isNative ? !nativeKnown : !tokenKnown || !nativeKnown
+    const state: PayOption['state'] = blockers.length
+      ? 'blocked'
+      : unreadable || rr.ready === 'unknown'
+        ? 'unknown'
+        : 'payable'
+
+    return {
+      accept,
+      quote,
+      cost,
+      state,
+      blockers,
+      warnings,
+      balance: {
+        token: bal.token != null ? formatUnits(bal.token, quote.decimals) : null,
+        native: bal.native != null ? formatUnits(bal.native, cost.feeDecimals) : null,
+      },
+      need: { token: quote.amountFormatted, native: cost.feeFormatted },
+      ...(shortfall.token || shortfall.native ? { shortfall } : {}),
+      recipient,
+    }
   }
 
   /** Build the agent-facing quote for an accept: TRUE decimals/symbol (via the
@@ -624,6 +900,101 @@ export class PipRailClient {
 }
 
 /* ----------------------------- helpers ----------------------------- */
+
+/** Parse a base-unit string to bigint, tolerating a malformed value (→ 0n). */
+function safeBig(s: string): bigint {
+  try {
+    return BigInt(s)
+  } catch {
+    return 0n
+  }
+}
+
+/** Shorten an address for a human hint: `0x1234…cdef`. */
+function shortAddr(a: string): string {
+  return a.length > 14 ? `${a.slice(0, 8)}…${a.slice(-4)}` : a
+}
+
+/** Rank rails: payable → unknown → blocked; within payable, cheapest gas first
+ *  (valid — one client is one network, so all rails share one native coin; never
+ *  compared across coins, which would need a price oracle). Stable otherwise. */
+function rankOptions(options: PayOption[]): PayOption[] {
+  const rank = { payable: 0, unknown: 1, blocked: 2 } as const
+  return [...options].sort((a, b) => {
+    if (rank[a.state] !== rank[b.state]) return rank[a.state] - rank[b.state]
+    if (a.state === 'payable') {
+      const fa = safeBig(a.cost.fee)
+      const fb = safeBig(b.cost.fee)
+      if (fa !== fb) return fa < fb ? -1 : 1
+    }
+    return 0
+  })
+}
+
+/** One actionable, human sentence on exactly what to do when no rail is payable —
+ *  built from the least-blocked option (the closest to settleable). */
+function buildFundingHint(options: PayOption[], chainLabel: string): string | null {
+  if (options.length === 0) return null
+  const target = [...options].sort((a, b) => a.blockers.length - b.blockers.length)[0]!
+  const sym = target.quote.symbol ?? 'the token'
+  if (target.blockers.includes('RECIPIENT_NOT_READY')) {
+    return `Recipient ${shortAddr(target.accept.payTo)} can't receive on ${chainLabel} yet — ${target.recipient.fix ?? 'recipient not ready'}.`
+  }
+  if (target.blockers.includes('OUTSIDE_POLICY')) {
+    return `Refused by spend policy: ${target.quote.policyReason ?? 'not allowed'}.`
+  }
+  if (target.state === 'unknown') {
+    return `Couldn't fully read your wallet on ${chainLabel} (RPC throttled) — retry; you may already be able to pay ${target.quote.amountFormatted} ${sym}.`
+  }
+  const parts: string[] = []
+  if (target.blockers.includes('INSUFFICIENT_TOKEN') && target.shortfall?.token) {
+    parts.push(`top up ${target.shortfall.token} ${sym}`)
+  }
+  if (target.blockers.includes('INSUFFICIENT_GAS') && target.shortfall?.native) {
+    parts.push(`add ~${target.shortfall.native} ${target.cost.feeSymbol} for gas`)
+  }
+  return parts.length
+    ? `Can't settle on ${chainLabel}: ${parts.join(' and ')} (to pay ${target.quote.amountFormatted} ${sym}).`
+    : `Can't settle on ${chainLabel} for ${target.quote.amountFormatted} ${sym}.`
+}
+
+/**
+ * Plan a payment ACROSS several single-chain clients — the cross-chain brain.
+ * A {@link PipRailClient} is bound to one chain (its wallet); give this one client
+ * per chain the agent funds and it runs each client's {@link PipRailClient.planPayment}
+ * in parallel and merges the rails into one plan, ranked payable-first. `best` is a
+ * payable rail; across different native coins there's no oracle to pick the
+ * fiat-cheapest, so the tiebreak is the order `clients` were given (the agent's own
+ * chain preference). Returns `null` only if the URL isn't gated for any client.
+ */
+export async function planAcross(
+  clients: PipRailClient[],
+  url: string,
+  init?: RequestInit
+): Promise<PaymentPlan | null> {
+  const plans = await Promise.all(clients.map((c) => c.planPayment(url, init).catch(() => null)))
+  const live = plans.filter((p): p is PaymentPlan => p != null)
+  if (live.length === 0) return null
+  // Concatenate options in client order, then re-rank payable-first (stable keeps
+  // the agent's client preference as the cross-coin tiebreak).
+  const options = rankOptions(live.flatMap((p) => p.options))
+  const best = options.find((o) => o.state === 'payable') ?? null
+  const status: PaymentPlan['status'] = best
+    ? 'ready'
+    : options.some((o) => o.state === 'unknown')
+      ? 'unknown'
+      : 'blocked'
+  return {
+    url,
+    network: best?.accept.network ?? live[0]!.network,
+    status,
+    payable: best !== null,
+    best,
+    options,
+    // First non-null hint across clients — each already names its chain.
+    fundingHint: best ? null : (live.map((p) => p.fundingHint).find(Boolean) ?? null),
+  }
+}
 
 /** Hostname of a URL for the policy host-allowlist + ledger — no port, so an
  *  allowlist entry (`api.example.com`, `127.0.0.1`) matches regardless of port.

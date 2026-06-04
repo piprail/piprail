@@ -29,6 +29,7 @@ import {
   ALGO_DECIMALS,
   ALGO_SYMBOL,
   algorandAssetId,
+  parseAlgorandAssetId,
   type AlgorandPreset,
 } from './chains.js'
 import { payAlgorand, type AlgorandPayClient } from './pay.js'
@@ -51,6 +52,7 @@ import type {
   ResolveOptions,
   ResolvedToken,
   TokenInput,
+  WalletBalance,
   WalletHandle,
 } from '../types.js'
 
@@ -198,6 +200,48 @@ function makeAlgorandNetwork(preset: AlgorandPreset, algodUrl: string): Resolved
         basis: 'heuristic',
         detail: 'min fee 1000 µAlgos (1 transaction)',
       })
+    },
+
+    async balanceOf(wallet: WalletHandle, asset: string): Promise<WalletBalance> {
+      let owner: string
+      try {
+        owner = resolveAlgorandWallet(wallet._native as AlgorandWalletConfig).addr
+      } catch {
+        return { token: null, native: null }
+      }
+      let info: { amount?: bigint | number; assets?: { assetId: bigint | number; amount: bigint | number }[] }
+      try {
+        info = (await algod.accountInformation(owner).do()) as typeof info
+      } catch {
+        return { token: null, native: null }
+      }
+      const native = info.amount != null ? BigInt(info.amount) : null
+      if (asset === 'native') return { token: native, native }
+      const assetId = parseAlgorandAssetId(asset)
+      const holding = (info.assets ?? []).find((a) => Number(a.assetId) === assetId)
+      // Not opted in → a genuine 0 (the payer can't hold the ASA without opting in).
+      return { token: holding ? BigInt(holding.amount) : 0n, native }
+    },
+
+    async recipientReady(payTo: string, asset: string) {
+      if (asset === 'native') return { ready: 'n/a' as const } // ALGO needs no opt-in
+      const assetId = parseAlgorandAssetId(asset)
+      if (assetId == null) return { ready: 'unknown' as const }
+      try {
+        const info = (await algod.accountInformation(payTo).do()) as {
+          assets?: { assetId: bigint | number }[]
+        }
+        const optedIn = (info.assets ?? []).some((a) => Number(a.assetId) === assetId)
+        return optedIn
+          ? { ready: true as const }
+          : { ready: false as const, reason: 'NOT_OPTED_IN' as const }
+      } catch (e) {
+        // A non-existent account hasn't opted into anything → must opt in to receive the ASA.
+        if (/does not exist|no accounts found|404|account not found/i.test(String((e as Error)?.message ?? e))) {
+          return { ready: false as const, reason: 'NOT_OPTED_IN' as const }
+        }
+        return { ready: 'unknown' as const }
+      }
     },
 
     async verify(_ref, accept) {

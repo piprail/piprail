@@ -18,8 +18,10 @@ import {
   STELLAR_DECIMALS,
   XLM_SYMBOL,
   stellarAssetId,
+  parseStellarAssetId,
   type StellarPreset,
 } from './chains.js'
+import { parseUnits } from '../../util/units.js'
 import { payStellar } from './pay.js'
 import {
   verifyStellar,
@@ -46,8 +48,22 @@ import type {
   ResolveOptions,
   ResolvedToken,
   TokenInput,
+  WalletBalance,
   WalletHandle,
 } from '../types.js'
+
+/** A Horizon balance line, loosely typed (the union differs per asset_type). */
+type StellarBalanceLine = {
+  asset_type: string
+  balance?: string
+  asset_code?: string
+  asset_issuer?: string
+}
+/** Horizon 404s (account not created yet) vs a transient read failure. */
+function isStellarNotFound(e: unknown): boolean {
+  const x = e as { response?: { status?: number }; name?: string }
+  return x?.response?.status === 404 || x?.name === 'NotFoundError'
+}
 
 export const stellarDriver: PaymentDriver = {
   family: 'stellar',
@@ -200,6 +216,64 @@ function makeStellarNetwork(preset: StellarPreset, rpcUrl: string): ResolvedNetw
         basis: 'heuristic',
         detail: 'base fee 100 stroops (1 operation)',
       })
+    },
+
+    async balanceOf(wallet: WalletHandle, asset: string): Promise<WalletBalance> {
+      let owner: string
+      try {
+        owner = resolveStellarWallet(wallet._native as StellarWalletConfig).publicKey()
+      } catch {
+        return { token: null, native: null }
+      }
+      let lines: StellarBalanceLine[]
+      try {
+        const account = await server.loadAccount(owner)
+        lines = account.balances as unknown as StellarBalanceLine[]
+      } catch (e) {
+        // 404 = the account doesn't exist yet → genuine zeroes; other error → unknown.
+        return isStellarNotFound(e) ? { token: 0n, native: 0n } : { token: null, native: null }
+      }
+      const toBase = (s?: string): bigint => {
+        try {
+          return s != null ? parseUnits(s, STELLAR_DECIMALS) : 0n
+        } catch {
+          return 0n
+        }
+      }
+      const native = toBase(lines.find((b) => b.asset_type === 'native')?.balance)
+      if (asset === 'native') return { token: native, native }
+      const parts = parseStellarAssetId(asset)
+      const line = parts
+        ? lines.find(
+            (b) =>
+              (b.asset_type === 'credit_alphanum4' || b.asset_type === 'credit_alphanum12') &&
+              b.asset_code === parts.code &&
+              b.asset_issuer === parts.issuer
+          )
+        : undefined
+      return { token: toBase(line?.balance), native }
+    },
+
+    async recipientReady(payTo: string, asset: string) {
+      let lines: StellarBalanceLine[]
+      try {
+        const account = await server.loadAccount(payTo)
+        lines = account.balances as unknown as StellarBalanceLine[]
+      } catch (e) {
+        // Account doesn't exist → must be created (≥1 XLM reserve) before it can receive anything.
+        if (isStellarNotFound(e)) return { ready: false as const, reason: 'INACTIVE' as const }
+        return { ready: 'unknown' as const }
+      }
+      if (asset === 'native') return { ready: true as const } // account exists → can receive XLM
+      const parts = parseStellarAssetId(asset)
+      if (!parts) return { ready: 'unknown' as const }
+      const hasTrustline = lines.some(
+        (b) =>
+          (b.asset_type === 'credit_alphanum4' || b.asset_type === 'credit_alphanum12') &&
+          b.asset_code === parts.code &&
+          b.asset_issuer === parts.issuer
+      )
+      return hasTrustline ? { ready: true as const } : { ready: false as const, reason: 'NO_TRUSTLINE' as const }
     },
 
     async verify(_ref, accept) {

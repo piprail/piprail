@@ -43,6 +43,7 @@ import type {
   ResolveOptions,
   ResolvedToken,
   TokenInput,
+  WalletBalance,
   WalletHandle,
 } from '../types.js'
 
@@ -227,6 +228,65 @@ function makeNearNetwork(preset: NearPreset, rpcUrl: string): ResolvedNetwork {
         basis: 'heuristic',
         detail: '~14 TGas for ft_transfer (≈0.0015 NEAR) + 1 yoctoNEAR deposit',
       })
+    },
+
+    async balanceOf(wallet: WalletHandle, asset: string): Promise<WalletBalance> {
+      let accountId: string
+      try {
+        accountId = resolveNearWallet(wallet._native as NearWalletConfig).accountId
+      } catch {
+        return { token: null, native: null }
+      }
+      let native: bigint | null = null
+      try {
+        const r = (await provider.query({
+          request_type: 'view_account',
+          finality: 'final',
+          account_id: accountId,
+        })) as unknown as { amount?: string }
+        native = r.amount != null ? BigInt(r.amount) : null
+      } catch (e) {
+        native = /does not exist|UNKNOWN_ACCOUNT/i.test(String((e as Error)?.message ?? e)) ? 0n : null
+      }
+      if (asset === 'native') return { token: native, native }
+      let token: bigint | null = null
+      try {
+        const r = (await provider.query({
+          request_type: 'call_function',
+          finality: 'final',
+          account_id: asset,
+          method_name: 'ft_balance_of',
+          args_base64: Buffer.from(JSON.stringify({ account_id: accountId })).toString('base64'),
+        })) as unknown as { result?: number[] }
+        token = r.result ? BigInt(JSON.parse(Buffer.from(r.result).toString())) : null
+      } catch (e) {
+        token = /does not exist|not registered|UNKNOWN_ACCOUNT/i.test(String((e as Error)?.message ?? e))
+          ? 0n
+          : null
+      }
+      return { token, native }
+    },
+
+    async recipientReady(payTo: string, asset: string) {
+      // Native NEAR has no prerequisite (a Transfer even creates a fresh implicit account).
+      if (asset === 'native') return { ready: 'n/a' as const }
+      // NEP-141: payTo must be storage_deposit-registered (NEP-145) on the token. storage_balance_of
+      // returns null when unregistered — distinct from a 0 balance (which ft_balance_of can't tell apart).
+      try {
+        const r = (await provider.query({
+          request_type: 'call_function',
+          finality: 'final',
+          account_id: asset,
+          method_name: 'storage_balance_of',
+          args_base64: Buffer.from(JSON.stringify({ account_id: payTo })).toString('base64'),
+        })) as unknown as { result?: number[] }
+        const parsed = r.result ? JSON.parse(Buffer.from(r.result).toString()) : null
+        return parsed == null
+          ? { ready: false as const, reason: 'NOT_REGISTERED' as const }
+          : { ready: true as const }
+      } catch {
+        return { ready: 'unknown' as const }
+      }
     },
 
     async verify(ref, accept) {

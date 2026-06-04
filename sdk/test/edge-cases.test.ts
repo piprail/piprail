@@ -38,6 +38,8 @@ const fakeNet: ResolvedNetwork = {
   send: async () => `ref-${++sends}`,
   confirm: async () => ({ height: '1' }),
   estimateCost: async () => ({ feeSymbol: 'XLM', feeDecimals: 7, fee: '100', feeFormatted: '0.00001', basis: 'heuristic' }),
+  balanceOf: async () => ({ token: 0n, native: 0n }),
+  recipientReady: async () => ({ ready: "n/a" as const }),
   verify: async () => ({ ok: false, error: 'transfer_not_found', detail: 'unused' }),
 }
 registerDriver({ family: 'stellar', resolve: () => fakeNet })

@@ -38,8 +38,8 @@ site/       piprail.com — Astro 5 + Tailwind v4 (deploys to Netlify)
 - **Accept, Express/Connect only:** `requirePayment({ chain, token, amount, payTo })` → middleware. `token` is **required**; there is no default.
 - **Accept, every other framework:** `createPaymentGate({ chain, token, amount, payTo })` → `gate.verify(headerValue)` returns `{ kind: 'paid' | 'challenge' | 'invalid', … }`. Use `toInvalidBody(result)` for the invalid 402 body.
 - **Multi-chain:** `{ accept: [{ chain, token, amount, payTo? }, …] }` instead of the single-chain fields.
-- **Pay:** `new PipRailClient({ chain, wallet, policy? })` → `client.fetch(url)` auto-pays a 402; `quote(url)`, `estimateCost(url)`, `spent()`.
-- **Agents:** `paymentTools(client)` → tool descriptors whose `parameters` are **JSON Schema** (use the low-level MCP `Server`, not Zod-based `McpServer`).
+- **Pay:** `new PipRailClient({ chain, wallet, policy? })` → `client.fetch(url)` auto-pays a 402; `quote(url)`, `estimateCost(url)`, **`planPayment(url)`** (affordability + recipient-readiness preflight → `PaymentPlan`; `canAfford(url)`; `fetch(url, { autoRoute: true })` pays the cheapest settleable rail), `spent()`. Module-level `planAcross(clients, url)` plans across chains.
+- **Agents:** `paymentTools(client)` → tool descriptors (`piprail_quote_payment` · `piprail_plan_payment` · `piprail_pay_request`) whose `parameters` are **JSON Schema** (use the low-level MCP `Server`, not Zod-based `McpServer`).
 - Chains by name (`'base'`, `'bnb'`, `'solana'`, `'ton'`, …) or a viem `Chain` / `{ id, rpcUrl }`. Tokens: `'USDC'`, `'USDT'`, `'native'`, or custom by address/mint/issuer/contractId/coinType.
 
 Confirm any signature against `sdk/src/index.ts` before using it.

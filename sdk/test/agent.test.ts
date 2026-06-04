@@ -36,6 +36,8 @@ const fakeNet: ResolvedNetwork = {
   send: async () => 'ref',
   confirm: async () => ({ height: '1' }),
   estimateCost: async () => ({ feeSymbol: 'XLM', feeDecimals: 7, fee: '100', feeFormatted: '0.00001', basis: 'heuristic' }),
+  balanceOf: async () => ({ token: 100000000n, native: 100000000n }),
+  recipientReady: async () => ({ ready: 'n/a' as const }),
   verify: async () => ({ ok: false, error: 'transfer_not_found', detail: 'x' }),
 }
 registerDriver({ family: 'stellar', resolve: () => fakeNet })
@@ -73,14 +75,33 @@ function stubFetch(onProof: () => Response) {
 const client = (over = {}) => new PipRailClient({ chain: 'stellar', wallet: { secret: 'x' }, ...over })
 
 describe('paymentTools — framework-agnostic descriptors', () => {
-  it('exposes a quote tool and a pay tool, each well-formed', () => {
+  it('exposes quote, plan, and pay tools, each well-formed', () => {
     const tools = paymentTools(client())
-    expect(tools.map((t) => t.name)).toEqual(['piprail_quote_payment', 'piprail_pay_request'])
+    expect(tools.map((t) => t.name)).toEqual([
+      'piprail_quote_payment',
+      'piprail_plan_payment',
+      'piprail_pay_request',
+    ])
     for (const t of tools) {
       expect(typeof t.description).toBe('string')
       expect(t.parameters).toMatchObject({ type: 'object' })
       expect(typeof t.invoke).toBe('function')
     }
+  })
+
+  it('plan tool reports payable + the best rail (reads balance + recipient-readiness)', async () => {
+    stubFetch(() => new Response('{}', { status: 200 }))
+    const planTool = paymentTools(client()).find((t) => t.name === 'piprail_plan_payment')!
+    const out = (await planTool.invoke({ url: RESOURCE })) as Record<string, unknown>
+    expect(out.gated).toBe(true)
+    expect(out.payable).toBe(true)
+    expect(out.best).toMatchObject({ symbol: 'XLM', amount: '0.05' })
+  })
+
+  it('plan tool reports { gated: false } for an open URL', async () => {
+    globalThis.fetch = (async () => new Response('hi', { status: 200 })) as typeof fetch
+    const planTool = paymentTools(client()).find((t) => t.name === 'piprail_plan_payment')!
+    expect(await planTool.invoke({ url: RESOURCE })).toEqual({ gated: false, url: RESOURCE })
   })
 
   it('quote tool prices a gated URL without paying', async () => {
@@ -98,7 +119,7 @@ describe('paymentTools — framework-agnostic descriptors', () => {
 
   it('pay tool returns status + body + receipt on success', async () => {
     stubFetch(() => new Response(JSON.stringify({ secret: 42 }), { status: 200, headers: { 'payment-response': receiptHeader() } }))
-    const [, payTool] = paymentTools(client())
+    const payTool = paymentTools(client()).find((t) => t.name === 'piprail_pay_request')!
     const out = (await payTool!.invoke({ url: RESOURCE })) as Record<string, unknown>
     expect(out.status).toBe(200)
     expect(out.body).toEqual({ secret: 42 })
@@ -107,7 +128,7 @@ describe('paymentTools — framework-agnostic descriptors', () => {
 
   it('pay tool returns { declined } instead of throwing when policy refuses', async () => {
     stubFetch(() => new Response('{}', { status: 200 }))
-    const [, payTool] = paymentTools(client({ policy: { maxAmount: '0.01' } }))
+    const payTool = paymentTools(client({ policy: { maxAmount: '0.01' } })).find((t) => t.name === 'piprail_pay_request')!
     const out = (await payTool!.invoke({ url: RESOURCE })) as Record<string, unknown>
     expect(out.declined).toBe(true)
     expect(String(out.reason)).toMatch(/maxAmount/)
@@ -126,7 +147,7 @@ describe('paymentTools — framework-agnostic descriptors', () => {
       seenBody = (init?.body as string) ?? null
       return new Response(JSON.stringify({ ok: true }), { status: 200 })
     }) as typeof fetch
-    const [, payTool] = paymentTools(client())
+    const payTool = paymentTools(client()).find((t) => t.name === 'piprail_pay_request')!
     const out = (await payTool!.invoke({ url: RESOURCE, method: 'PUT', body: { q: 1 } })) as Record<string, unknown>
     expect(out.status).toBe(200)
     expect(seenMethod).toBe('PUT')
@@ -135,7 +156,7 @@ describe('paymentTools — framework-agnostic descriptors', () => {
 
   it('pay tool rethrows a non-declined error (e.g. a malformed 402)', async () => {
     globalThis.fetch = (async () => new Response('garbage', { status: 402 })) as typeof fetch
-    const [, payTool] = paymentTools(client())
+    const payTool = paymentTools(client()).find((t) => t.name === 'piprail_pay_request')!
     await expect(payTool!.invoke({ url: RESOURCE })).rejects.toThrow(/x402 challenge/)
   })
 })
