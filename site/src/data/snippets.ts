@@ -6,7 +6,7 @@ export const acceptCode = `<span class="tok-kw">import</span> { requirePayment }
 
 app.<span class="tok-fn">get</span>(<span class="tok-str">'/report'</span>,
   <span class="tok-fn">requirePayment</span>({
-    chain: <span class="tok-chain">'base'</span>,
+    chain: <span class="tok-chain">'solana'</span>,
     token: <span class="tok-str">'USDC'</span>,
     amount: <span class="tok-str">'0.05'</span>,
     payTo,
@@ -17,7 +17,7 @@ app.<span class="tok-fn">get</span>(<span class="tok-str">'/report'</span>,
 export const payCode = `<span class="tok-kw">import</span> { PipRailClient } <span class="tok-kw">from</span> <span class="tok-str">'@piprail/sdk'</span>
 
 <span class="tok-kw">const</span> client = <span class="tok-kw">new</span> <span class="tok-fn">PipRailClient</span>({
-  chain: <span class="tok-chain">'base'</span>,
+  chain: <span class="tok-chain">'arbitrum'</span>,
   wallet: { privateKey: process.env.KEY },
 })
 
@@ -25,7 +25,7 @@ export const payCode = `<span class="tok-kw">import</span> { PipRailClient } <sp
 <span class="tok-kw">const</span> res = <span class="tok-kw">await</span> client.<span class="tok-fn">fetch</span>(url)`
 
 export const oneParamCode = `<span class="tok-fn">requirePayment</span>({
-  chain: <span class="tok-chain">'base'</span>,    <span class="tok-com">// ← one word</span>
+  chain: <span class="tok-chain">'hyperevm'</span>,  <span class="tok-com">// ← any of 26 chains</span>
   token: <span class="tok-str">'USDC'</span>,
   amount: <span class="tok-str">'0.05'</span>,
   payTo,
@@ -50,7 +50,7 @@ export const solanaCode = `<span class="tok-com">// Name the chain — pay in it
 })`
 
 export const agentSafeCode = `<span class="tok-kw">const</span> client = <span class="tok-kw">new</span> <span class="tok-fn">PipRailClient</span>({
-  chain: <span class="tok-chain">'base'</span>, wallet,
+  chain: <span class="tok-chain">'monad'</span>, wallet,
   policy: {
     maxAmount: <span class="tok-str">'0.10'</span>,  <span class="tok-com">// per call</span>
     maxTotal: <span class="tok-str">'5.00'</span>,   <span class="tok-com">// lifetime</span>
@@ -79,7 +79,7 @@ export const tonCode = `<span class="tok-com">// 1. Free key from @tonapibot on 
 // One challenge, several chains — the agent pays with whatever it holds.
 export const multiAcceptCode = `<span class="tok-fn">requirePayment</span>({
   accept: [
-    { chain: <span class="tok-chain">'base'</span>,   token: <span class="tok-str">'USDC'</span>, amount: <span class="tok-str">'0.05'</span>, payTo: evm },
+    { chain: <span class="tok-chain">'arbitrum'</span>, token: <span class="tok-str">'USDC'</span>, amount: <span class="tok-str">'0.05'</span>, payTo: evm },
     { chain: <span class="tok-chain">'solana'</span>, token: <span class="tok-str">'USDC'</span>, amount: <span class="tok-str">'0.05'</span>, payTo: sol },
   ],
 })`
