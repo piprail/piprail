@@ -9,9 +9,9 @@
 [![types](https://img.shields.io/npm/types/@piprail/sdk.svg?logo=typescript&logoColor=white&color=3178c6)](https://www.npmjs.com/package/@piprail/sdk)
 [![license](https://img.shields.io/github/license/piprail/piprail.svg?color=2ee6a6)](LICENSE)
 [![x402 v2](https://img.shields.io/badge/x402-v2-6e56cf.svg)](https://x402.org)
-[![chains](https://img.shields.io/badge/chains-26%20across%208%20families-2ee6a6.svg)](#-supported-chains)
+[![chains](https://img.shields.io/badge/chains-27%20across%209%20families-2ee6a6.svg)](#-supported-chains)
 
-**Let any HTTP endpoint charge for itself, and any agent pay for itself — across 26 chains, in a couple of lines.**
+**Let any HTTP endpoint charge for itself, and any agent pay for itself — across 27 chains, in a couple of lines.**
 
 [Website](https://piprail.com) · [npm](https://www.npmjs.com/package/@piprail/sdk) · [Full docs →](sdk/README.md)
 
@@ -53,7 +53,7 @@ The same app can **take** payments and **make** them. Built for autonomous agent
 
 ## 🌐 Supported chains
 
-**26 chains across 8 families** — name one with a single `chain:` parameter. Non-EVM families lazy-load on first use, so a pure-EVM install never downloads their libraries.
+**27 chains across 9 families** — name one with a single `chain:` parameter. Non-EVM families lazy-load on first use, so a pure-EVM install never downloads their libraries.
 
 | Family | Built-in chains | Tokens |
 |---|---|---|

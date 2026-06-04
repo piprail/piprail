@@ -25,7 +25,7 @@ export const payCode = `<span class="tok-kw">import</span> { PipRailClient } <sp
 <span class="tok-kw">const</span> res = <span class="tok-kw">await</span> client.<span class="tok-fn">fetch</span>(url)`
 
 export const oneParamCode = `<span class="tok-fn">requirePayment</span>({
-  chain: <span class="tok-chain">'hyperevm'</span>,  <span class="tok-com">// ← any of 26 chains</span>
+  chain: <span class="tok-chain">'hyperevm'</span>,  <span class="tok-com">// ← any of 27 chains</span>
   token: <span class="tok-str">'USDC'</span>,
   amount: <span class="tok-str">'0.05'</span>,
   payTo,

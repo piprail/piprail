@@ -7,6 +7,7 @@ import { xrplDriver } from '../src/drivers/xrpl/index.js'
 import { tronDriver } from '../src/drivers/tron/index.js'
 import { suiDriver } from '../src/drivers/sui/index.js'
 import { nearDriver } from '../src/drivers/near/index.js'
+import { aptosDriver } from '../src/drivers/aptos/index.js'
 
 /**
  * describeAsset is the TRUSTED reverse-lookup (built-in token map + native) the
@@ -90,5 +91,17 @@ describe('describeAsset — trusted decimals/symbol per family (pure, no RPC)', 
     ).toEqual({ symbol: 'USDC', decimals: 6 })
     expect(net.describeAsset('usdt.tether-token.near')).toEqual({ symbol: 'USDT', decimals: 6 })
     expect(net.describeAsset('unknown.near')).toBeNull()
+  })
+
+  it('Aptos: native APT (8dp), built-in USDC + USDT FA metadata (6dp), unknown', () => {
+    const net = aptosDriver.resolve({ chain: 'aptos' })!
+    expect(net.describeAsset('native')).toEqual({ symbol: 'APT', decimals: 8 })
+    expect(
+      net.describeAsset('0xbae207659db88bea0cbead6da0ed00aac12edcdda169e591cd41c94180b46f3b')
+    ).toEqual({ symbol: 'USDC', decimals: 6 })
+    expect(
+      net.describeAsset('0x357b0b74bc833e95a115ad22604854d6b0fca151cecd94111770e5d6ffc9dc2b')
+    ).toEqual({ symbol: 'USDT', decimals: 6 })
+    expect(net.describeAsset('0xdeadbeef')).toBeNull()
   })
 })

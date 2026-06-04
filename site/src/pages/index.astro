@@ -16,7 +16,7 @@ import {
 } from 'lucide-astro'
 
 const stats = [
-  { icon: Boxes, v: '26', l: 'chains built in' },
+  { icon: Boxes, v: '27', l: 'chains built in' },
   { icon: Percent, v: '0', l: 'protocol fee' },
   { icon: Code2, v: '1', l: 'line to integrate' },
   { icon: Scale, v: 'MIT', l: 'open source' },
@@ -50,7 +50,7 @@ const why = [
   {
     icon: Globe,
     t: 'Widest coverage in x402',
-    d: '26 chains across 8 families, with native, self-custodial drivers — the only package that reaches TON, Tron, NEAR, Sui, and the XRP Ledger together. No other x402 SDK ships this many.',
+    d: '27 chains across 9 families, with native, self-custodial drivers — the only package that reaches TON, Tron, NEAR, Sui, Aptos, and the XRP Ledger together. No other x402 SDK ships this many.',
   },
   {
     icon: ShieldCheck,
@@ -64,7 +64,7 @@ const why = [
   },
 ]
 
-// The eight chain families — one representative logo each — for the "one protocol,
+// The nine chain families — one representative logo each — for the "one protocol,
 // every chain" strip. EVM stands for all 19 EVM mainnets behind a single driver.
 const familyLogos = [
   { slug: 'ethereum', label: 'EVM ×19' },
@@ -73,6 +73,7 @@ const familyLogos = [
   { slug: 'tron', label: 'Tron' },
   { slug: 'near', label: 'NEAR' },
   { slug: 'sui', label: 'Sui' },
+  { slug: 'aptos', label: 'Aptos' },
   { slug: 'stellar', label: 'Stellar' },
   { slug: 'xrpl', label: 'XRPL' },
 ]
@@ -95,11 +96,11 @@ const faqs = [
   },
   {
     q: `Which chains and tokens does PipRail support?`,
-    a: `26 chains across 8 families: 19 EVM mainnets (Ethereum, Base, Arbitrum, Optimism, Polygon, BNB Chain, Avalanche, HyperEVM, Monad, Mantle, Sonic, Linea, Scroll, Celo, zkSync, Unichain, World Chain, Sei, Injective) plus Solana, TON, Tron, NEAR, Sui, Stellar, and the XRP Ledger. USDC almost everywhere, USDT on most chains, EURC on Stellar, RLUSD on XRPL, or any other token by address. One parameter — chain — picks everything.`,
+    a: `27 chains across 9 families: 19 EVM mainnets (Ethereum, Base, Arbitrum, Optimism, Polygon, BNB Chain, Avalanche, HyperEVM, Monad, Mantle, Sonic, Linea, Scroll, Celo, zkSync, Unichain, World Chain, Sei, Injective) plus Solana, TON, Tron, NEAR, Sui, Aptos, Stellar, and the XRP Ledger. USDC almost everywhere, USDT on most chains, EURC on Stellar, RLUSD on XRPL, or any other token by address. One parameter — chain — picks everything.`,
   },
   {
     q: `Do any chains need extra setup before they work?`,
-    a: `Most don't — on EVM, Solana, and Sui you install, add a wallet, and pay or get paid with no extra steps, in the native coin or a stablecoin. A few chains have one-time caveats worth knowing. TON ships USD₮ (there is no native USDC on TON) and needs an API-keyed RPC — add one parameter, rpcUrl with a free toncenter API key in the URL, because the free public endpoint is rate-limited and will stall confirmation. Tron pays in USD₮ or native TRX — USD₮ is the default since TRX is volatile gas, and gas is paid in real TRX (no native USDC exists on Tron). On NEAR, native NEAR is the zero-setup path (no registration needed — a transfer even creates a fresh recipient), while paying in a NEP-141 token like USDC/USDT requires a one-time storage_deposit registration on the recipient. Stellar and the XRP Ledger require the recipient to hold a one-time trustline for the asset and to be an activated, reserve-funded account before it can receive — native XLM/XRP need no trustline. Native coin is a valid payment asset on every chain — all eight families, no exceptions. Full per-chain setup, wallet formats, and caveats are documented in CHAINS.md.`,
+    a: `Most don't — on EVM, Solana, Sui, and Aptos you install, add a wallet, and pay or get paid with no extra steps, in the native coin or a stablecoin. A few chains have one-time caveats worth knowing. TON ships USD₮ (there is no native USDC on TON) and needs an API-keyed RPC — add one parameter, rpcUrl with a free toncenter API key in the URL, because the free public endpoint is rate-limited and will stall confirmation. Tron pays in USD₮ or native TRX — USD₮ is the default since TRX is volatile gas, and gas is paid in real TRX (no native USDC exists on Tron). On NEAR, native NEAR is the zero-setup path (no registration needed — a transfer even creates a fresh recipient), while paying in a NEP-141 token like USDC/USDT requires a one-time storage_deposit registration on the recipient. Stellar and the XRP Ledger require the recipient to hold a one-time trustline for the asset and to be an activated, reserve-funded account before it can receive — native XLM/XRP need no trustline. Native coin is a valid payment asset on every chain — all nine families, no exceptions. Full per-chain setup, wallet formats, and caveats are documented in CHAINS.md.`,
   },
   {
     q: `Is there a fee to use PipRail?`,
@@ -201,11 +202,11 @@ const faqLd = {
           </h2>
           <p class="mt-4 max-w-xl text-base leading-relaxed text-neutral-400 sm:text-lg">
             Build a real <span class="font-mono text-neutral-200">402</span> payment challenge and watch an agent
-            price it — live, client-side, across 26 chains. No install, no backend; the SDK loads from a CDN right on the page.
+            price it — live, client-side, across 27 chains. No install, no backend; the SDK loads from a CDN right on the page.
           </p>
           <ul class="mt-6 flex flex-wrap gap-x-6 gap-y-2.5 text-sm font-medium text-neutral-300">
             <li class="inline-flex items-center gap-2"><Globe size={16} class="text-accent" aria-hidden="true" /> Runs in your browser</li>
-            <li class="inline-flex items-center gap-2"><Boxes size={16} class="text-accent" aria-hidden="true" /> 26 chains</li>
+            <li class="inline-flex items-center gap-2"><Boxes size={16} class="text-accent" aria-hidden="true" /> 27 chains</li>
             <li class="inline-flex items-center gap-2"><Zap size={16} class="text-accent" aria-hidden="true" /> Zero install</li>
           </ul>
           <div class="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -262,7 +263,7 @@ const faqLd = {
       <SectionHeading title="Two sides, one SDK." class="mb-10 max-w-2xl sm:mb-12">
         The same package lets a server <span class="text-neutral-200">charge</span> for a
         route and an agent <span class="text-neutral-200">pay</span> for one. Both in a
-        couple of lines — on any of <span class="text-neutral-200">26 chains</span>, swap the one word.
+        couple of lines — on any of <span class="text-neutral-200">27 chains</span>, swap the one word.
       </SectionHeading>
 
       <div class="grid gap-6 lg:grid-cols-2">
@@ -374,7 +375,7 @@ const faqLd = {
         No other x402 SDK reaches this far.
       </SectionHeading>
 
-      {/* Eight families, one interface — a quiet visual of the breadth (EVM = all 19 EVM chains). */}
+      {/* Nine families, one interface — a quiet visual of the breadth (EVM = all 19 EVM chains). */}
       <div class="mb-4 flex flex-wrap items-center justify-center gap-x-7 gap-y-4 rounded-2xl border border-white/10 bg-neutral-950 px-6 py-7 sm:gap-x-10">
         {familyLogos.map((f) => (
           <span class="flex items-center gap-2" title={f.label}>
@@ -410,7 +411,7 @@ const faqLd = {
     <!-- Chains grid -->
     <section id="chains" class="scroll-mt-20 border-t border-white/10 py-20 sm:py-24">
       <SectionHeading title="Built-in chains.">
-        Nineteen EVM mainnets, plus Solana, TON, Tron, NEAR, Sui, Stellar, and
+        Nineteen EVM mainnets, plus Solana, TON, Tron, NEAR, Sui, Aptos, Stellar, and
         the XRP Ledger — each with its canonical stablecoins or native coin, ready
         to go. Any other chain works via one config object.
       </SectionHeading>

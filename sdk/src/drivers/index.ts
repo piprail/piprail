@@ -117,6 +117,18 @@ const loaders: Partial<Record<ChainFamily, () => Promise<void>>> = {
     }
     registerDriver(mod.nearDriver)
   },
+  aptos: async () => {
+    let mod: typeof import('./aptos/index.js')
+    try {
+      mod = await import('./aptos/index.js')
+    } catch (cause) {
+      throw new MissingDriverError(
+        `Aptos selected, but its package isn't installed. Run: ` + `npm install @aptos-labs/ts-sdk`,
+        { cause }
+      )
+    }
+    registerDriver(mod.aptosDriver)
+  },
 }
 
 const inFlight = new Map<ChainFamily, Promise<void>>()

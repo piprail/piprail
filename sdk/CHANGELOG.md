@@ -4,6 +4,32 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.3.0] — 2026-06-04
+
+A new chain **family** — **Aptos** — the **9th driver family** and the only Move L1 with BOTH
+canonical native stablecoins. Brings the built-in count to **27 chains across 9 families (19 EVM)**.
+Aptos has an official `exact` scheme merged into the canonical `coinbase/x402` repo and is a
+first-class x402 / agent-payments network. Fully backward-compatible; `@aptos-labs/ts-sdk` is a
+lazy-loaded optional peer, so pure-EVM (and other) installs never download it.
+
+### Added
+- **Aptos (`chain: 'aptos'`, CAIP-2 `aptos:1`)** — native Circle **USDC**
+  (`0xbae207659db88bea0cbead6da0ed00aac12edcdda169e591cd41c94180b46f3b`) + native Tether **USD₮**
+  (`0x357b0b74bc833e95a115ad22604854d6b0fca151cecd94111770e5d6ffc9dc2b`), both 6 dp, plus native
+  **APT** (8 dp). Both Fungible-Asset metadata addresses were verified on-chain
+  (`0x1::fungible_asset::Metadata` → matching symbol + decimals) before shipping.
+- **Template B (digest-bound, like Sui/Tron):** the proof ref is the tx hash; `verify()` re-derives
+  payTo's primary store for the required FA metadata from the **trusted accept** (never the client
+  ref) and matches `0x1::fungible_asset::Deposit` events to it (+ recency window + single-use proof
+  set). Every asset — native APT and both stablecoins — transfers via
+  `0x1::primary_fungible_store::transfer` (native = the APT FA at `0xa`), which auto-creates the
+  recipient's primary store, so there's **no opt-in / coin-store registration to receive** — even a
+  fresh recipient works. `@aptos-labs/ts-sdk` is an **optional peer (`>=2 <8`)**, lazy-loaded on
+  first use; the built EVM bundle stays free of any static `@aptos-labs/ts-sdk` import (its own chunk).
+
+Live mainnet smoke (a real APT + USDC/USDT round-trip) is the separate ship-gate, pending wallet
+funding; the driver is verified against the test contract (typecheck + 416 tests + build).
+
 ## [1.2.0] — 2026-06-04
 
 Two new EVM presets — **HyperEVM (Hyperliquid)** and **Monad** — bringing the built-in count to

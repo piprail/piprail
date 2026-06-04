@@ -3,7 +3,7 @@
 // payment-native Stellar/XRPL), then the major EVM chains, then the rest.
 // `tokens` drives the stablecoin badges on each chain card.
 // Mirrors the SDK's built-in registry (19 EVM mainnets + Solana + TON + Tron +
-// NEAR + Sui + Stellar + XRPL).
+// NEAR + Sui + Aptos + Stellar + XRPL).
 export interface ChainEntry {
   name: string
   slug: string
@@ -17,6 +17,7 @@ export const chains: ChainEntry[] = [
   { name: 'Tron', slug: 'tron', tokens: ['usdt'] },
   { name: 'NEAR', slug: 'near', tokens: ['usdc', 'usdt'] },
   { name: 'Sui', slug: 'sui', tokens: ['usdc'] },
+  { name: 'Aptos', slug: 'aptos', tokens: ['usdc', 'usdt'] },
   { name: 'Stellar', slug: 'stellar', tokens: ['usdc', 'eurc'] },
   { name: 'XRP Ledger', slug: 'xrpl', tokens: ['usdc', 'rlusd'] },
   { name: 'Base', slug: 'base', tokens: ['usdc'] },

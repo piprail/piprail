@@ -32,6 +32,7 @@ export function familyForChain(chain: unknown): ChainFamily {
     if (chain.startsWith('tron')) return 'tron'
     if (chain.startsWith('sui')) return 'sui'
     if (chain.startsWith('near')) return 'near'
+    if (chain.startsWith('aptos')) return 'aptos'
     return 'evm'
   }
   return 'evm' // viem Chain, { id, rpcUrl }, or an EVM preset name

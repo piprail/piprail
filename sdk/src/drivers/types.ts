@@ -24,6 +24,7 @@ export type ChainFamily =
   | 'tron'
   | 'sui'
   | 'near'
+  | 'aptos'
 
 /** What chain to use: an EVM name/Chain/{id,rpcUrl}, or a non-EVM family name. */
 export type ChainSelector =
@@ -35,6 +36,7 @@ export type ChainSelector =
   | 'tron'
   | 'sui'
   | 'near'
+  | 'aptos'
 
 /** An EVM ERC-20 token, by contract address. */
 export interface EvmToken {
@@ -95,6 +97,13 @@ export interface NearToken {
   symbol?: string
 }
 
+/** An Aptos Fungible Asset, by its metadata object address. */
+export interface AptosToken {
+  metadata: string
+  decimals: number
+  symbol?: string
+}
+
 /**
  * What to be paid in. Each driver validates the forms it accepts:
  *   - 'native'        the chain's native coin (ETH, BNB, SOL, TON, XLM, XRP)
@@ -107,6 +116,7 @@ export interface NearToken {
  *   - TronToken       any TRC-20         (Tron)
  *   - SuiToken        any coin           (Sui)
  *   - NearToken       any NEP-141        (NEAR)
+ *   - AptosToken      any Fungible Asset (Aptos)
  */
 export type TokenInput =
   // eslint-disable-next-line @typescript-eslint/ban-types
@@ -121,6 +131,7 @@ export type TokenInput =
   | TronToken
   | SuiToken
   | NearToken
+  | AptosToken
 
 /** What a driver resolves a TokenInput into. `asset`: 0x | base58 mint | 'native'. */
 export interface ResolvedToken {

@@ -17,6 +17,7 @@ export default defineConfig({
   // if the packages are absent).
   external: [
     'viem',
+    '@aptos-labs/ts-sdk',
     '@solana/web3.js',
     '@solana/spl-token',
     'bs58',

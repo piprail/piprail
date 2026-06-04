@@ -17,6 +17,7 @@ const FAMILY_LABEL: Record<ChainFamily, string> = {
   tron: 'Tron',
   sui: 'Sui',
   near: 'NEAR',
+  aptos: 'Aptos',
 }
 
 /**
@@ -36,6 +37,7 @@ const FAMILY_TOKEN: Record<ChainFamily, { key: string; shape: string; hint: stri
   tron: { key: 'address', shape: '{ address }', hint: '{ address, decimals }' },
   sui: { key: 'coinType', shape: '{ coinType }', hint: '{ coinType, decimals }' },
   near: { key: 'contractId', shape: '{ contractId }', hint: '{ contractId, decimals }' },
+  aptos: { key: 'metadata', shape: '{ metadata }', hint: '{ metadata, decimals }' },
 }
 
 /**

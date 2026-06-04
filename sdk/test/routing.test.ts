@@ -18,6 +18,7 @@ describe('familyForChain — one parameter picks the family', () => {
     expect(familyForChain('tron')).toBe('tron')
     expect(familyForChain('sui')).toBe('sui')
     expect(familyForChain('near')).toBe('near')
+    expect(familyForChain('aptos')).toBe('aptos')
   })
 })
 

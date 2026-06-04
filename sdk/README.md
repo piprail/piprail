@@ -90,7 +90,7 @@ See [`examples/agent-tools.mjs`](../examples/agent-tools.mjs) for MCP / AI-SDK w
 
 ### Accept several chains at once
 
-`requirePayment` (and `createPaymentGate`) take an **`accept: [...]`** array — one challenge that's payable on **any** of several chains/tokens, across **all eight families** (EVM, Solana, TON, Tron, Stellar, XRPL, NEAR, Sui). The agent pays with whatever it holds:
+`requirePayment` (and `createPaymentGate`) take an **`accept: [...]`** array — one challenge that's payable on **any** of several chains/tokens, across **all nine families** (EVM, Solana, TON, Tron, Stellar, XRPL, NEAR, Sui, Aptos). The agent pays with whatever it holds:
 
 ```ts
 requirePayment({
@@ -133,7 +133,7 @@ requirePayment({ chain: 'ton',      token: 'native', amount: '1',     payTo }) /
 requirePayment({ chain: 'xrpl',     token: 'native', amount: '1',     payTo }) // XRP
 ```
 
-**Native or stablecoin — your choice, on every chain.** Every gate accepts the chain's native coin (ETH, BNB, POL, AVAX, SOL, TON, XLM, XRP, SUI, NEAR, **TRX**, …) just as readily as a stablecoin — set `token: 'native'` and the SDK fills in the right decimals (18 on EVM, 9 on Solana/TON/Sui, 7 on Stellar, 6 on XRPL/Tron, 24 on NEAR). Verification, replay protection, and self-custody are identical to the stablecoin path — across **all eight families, no exceptions**. (On **NEAR**, native is the zero-setup path — no `storage_deposit` — while the NEP-141 token path needs registration; see the NEAR note. On **Tron**, USD₮ is the default since TRX is volatile gas, but native TRX works too.)
+**Native or stablecoin — your choice, on every chain.** Every gate accepts the chain's native coin (ETH, BNB, POL, AVAX, SOL, TON, XLM, XRP, SUI, NEAR, **TRX**, …) just as readily as a stablecoin — set `token: 'native'` and the SDK fills in the right decimals (18 on EVM, 9 on Solana/TON/Sui, 7 on Stellar, 6 on XRPL/Tron, 24 on NEAR). Verification, replay protection, and self-custody are identical to the stablecoin path — across **all nine families, no exceptions**. (On **NEAR**, native is the zero-setup path — no `storage_deposit` — while the NEP-141 token path needs registration; see the NEAR note. On **Tron**, USD₮ is the default since TRX is volatile gas, but native TRX works too.)
 
 `token` is **required** — every gate states exactly what it accepts, so there's never any doubt whether a route takes USDC, USDT, or the native coin. Name a built-in symbol (`'USDC'`, `'USDT'`), use `'native'` for the chain's own coin (ETH, BNB, SOL, TON, XLM, …), or pass a custom token by address. The symbol is all you write — the SDK fills in the contract + decimals.
 
@@ -167,6 +167,7 @@ Every token address below was verified on-chain (symbol + decimals) before shipp
 | `'tron'` | Tron | USDT |
 | `'near'` | NEAR | USDC, USDT |
 | `'sui'` | Sui | USDC |
+| `'aptos'` | Aptos | USDC, USDT |
 | `'stellar'` | Stellar | USDC, EURC |
 | `'xrpl'` | XRP Ledger | USDC, RLUSD |
 

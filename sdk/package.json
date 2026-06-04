@@ -1,7 +1,7 @@
 {
   "name": "@piprail/sdk",
-  "version": "1.2.0",
-  "description": "Accept x402 crypto payments across 26 chains — every major EVM chain plus Solana, TON, Tron, NEAR, Sui, Stellar & XRPL — in a couple of lines. No backend, no database, no fee; payments settle straight to your wallet.",
+  "version": "1.3.0",
+  "description": "Accept x402 crypto payments across 27 chains — every major EVM chain plus Solana, TON, Tron, NEAR, Sui, Aptos, Stellar & XRPL — in a couple of lines. No backend, no database, no fee; payments settle straight to your wallet.",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -78,6 +78,7 @@
     "node": ">=20"
   },
   "peerDependencies": {
+    "@aptos-labs/ts-sdk": ">=2 <8",
     "@mysten/sui": ">=2 <3",
     "@solana/spl-token": "^0.4.0",
     "@solana/web3.js": "^1.95.0",
@@ -92,6 +93,9 @@
     "xrpl": ">=4 <5"
   },
   "peerDependenciesMeta": {
+    "@aptos-labs/ts-sdk": {
+      "optional": true
+    },
     "@solana/web3.js": {
       "optional": true
     },
@@ -127,6 +131,7 @@
     }
   },
   "devDependencies": {
+    "@aptos-labs/ts-sdk": "^7.1.0",
     "@mysten/sui": "^2.17.0",
     "@solana/spl-token": "^0.4.14",
     "@solana/web3.js": "^1.98.4",

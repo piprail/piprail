@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Guidance for AI coding agents (and humans) working in this repo. PipRail is an **open, backendless, no-fee** SDK for x402 "402 Payment Required" crypto payments across 26 chains, plus a static marketing site.
+Guidance for AI coding agents (and humans) working in this repo. PipRail is an **open, backendless, no-fee** SDK for x402 "402 Payment Required" crypto payments across 27 chains, plus a static marketing site.
 
 ## Commands
 
@@ -69,7 +69,7 @@ Confirm any signature against `sdk/src/index.ts` before using it.
 
 ## Key files
 
-- [`sdk/README.md`](sdk/README.md) — full API, all 26 chains, wallet formats, custom tokens.
+- [`sdk/README.md`](sdk/README.md) — full API, all 27 chains, wallet formats, custom tokens.
 - [`sdk/ERRORS.md`](sdk/ERRORS.md) — the error standard (thrown vs. returned codes).
 - [`sdk/STANDARDS.md`](sdk/STANDARDS.md) — how anything in the SDK is built + the verification gate.
 - [`examples/CONCEPTS.md`](examples/CONCEPTS.md) — the 402 loop, decision tree, replay model.
