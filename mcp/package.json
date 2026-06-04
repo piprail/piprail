@@ -1,0 +1,87 @@
+{
+  "name": "@piprail/mcp",
+  "version": "0.1.0",
+  "description": "PipRail MCP server — hand any MCP client a budget-bound x402 payment wallet. Local-only, no backend, no custody; the spend policy is enforced before any on-chain send, so the model literally cannot overspend.",
+  "type": "module",
+  "bin": {
+    "piprail-mcp": "dist/bin.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "mcpName": "io.github.piprail/mcp",
+  "files": [
+    "dist",
+    "server.json",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    ".env.example"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "typecheck:test": "tsc -p tsconfig.test.json",
+    "start": "node dist/bin.js",
+    "prepublishOnly": "npm run build && npm run typecheck && npm test"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "modelcontextprotocol",
+    "mcp-server",
+    "x402",
+    "402",
+    "payment-required",
+    "agent-payments",
+    "ai-agent",
+    "autonomous-payments",
+    "wallet",
+    "usdc",
+    "usdt",
+    "stablecoin",
+    "crypto-payments",
+    "multichain",
+    "evm",
+    "solana",
+    "base",
+    "piprail",
+    "claude",
+    "cursor"
+  ],
+  "author": "PipRail",
+  "license": "MIT",
+  "homepage": "https://piprail.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/piprail/piprail.git",
+    "directory": "mcp"
+  },
+  "bugs": "https://github.com/piprail/piprail/issues",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@piprail/sdk": "^1.5.1",
+    "viem": "^2.21.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsup": "^8.3.5",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8"
+  }
+}

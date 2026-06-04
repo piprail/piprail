@@ -1,0 +1,51 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.piprail/mcp",
+  "description": "Hand any MCP client a budget-bound x402 payment wallet. Pays HTTP 402 payment-gated URLs autonomously, capped by a local spend policy the model cannot exceed. Runs on your machine with your wallet key — no backend, no custody, no facilitator. Defaults to USDC on Base; supports any PipRail chain.",
+  "repository": {
+    "url": "https://github.com/piprail/piprail",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@piprail/mcp",
+      "version": "0.1.0",
+      "transport": { "type": "stdio" },
+      "environmentVariables": [
+        {
+          "name": "PIPRAIL_PRIVATE_KEY",
+          "description": "Your wallet's private key/seed for the chosen chain. Stays on your machine; the spend policy caps every payment.",
+          "isRequired": true,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "PIPRAIL_CHAIN",
+          "description": "Chain to pay on (default: base).",
+          "isRequired": false,
+          "format": "string"
+        },
+        {
+          "name": "PIPRAIL_MAX_AMOUNT",
+          "description": "Max spend per single payment, in token units (default: 0.10).",
+          "isRequired": false,
+          "format": "string"
+        },
+        {
+          "name": "PIPRAIL_MAX_TOTAL",
+          "description": "Lifetime spend cap per token, in token units (default: 10.00).",
+          "isRequired": false,
+          "format": "string"
+        },
+        {
+          "name": "PIPRAIL_TOKENS",
+          "description": "Comma-separated allowed token symbols (default: USDC).",
+          "isRequired": false,
+          "format": "string"
+        }
+      ]
+    }
+  ]
+}

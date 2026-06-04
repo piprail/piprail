@@ -1,0 +1,33 @@
+name: mcp-release
+
+# Publishes @piprail/mcp to npm when a tag matching mcp-v* is pushed
+# (e.g. `git tag mcp-v0.1.0 && git push origin mcp-v0.1.0`).
+# Triggered by tag only, and gated by the package's own prepublishOnly
+# (build + typecheck + test) which runs inside the workspace on publish.
+#
+# After npm publish, the MCP Registry entry is listed/refreshed MANUALLY with the
+# `mcp-publisher` CLI (it needs interactive GitHub device auth) — see mcp/server.json.
+on:
+  push:
+    tags:
+      - 'mcp-v*'
+
+jobs:
+  publish:
+    name: publish @piprail/mcp to npm
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: 'https://registry.npmjs.org'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm run build -w @piprail/mcp
+      - run: npm publish -w @piprail/mcp --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

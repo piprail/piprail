@@ -26,11 +26,11 @@ const client = new PipRailClient({
   },
 })
 
-const tools = paymentTools(client) // → piprail_quote_payment, piprail_pay_request
+const tools = paymentTools(client) // → piprail_quote_payment, piprail_plan_payment, piprail_pay_request
 
 const server = new Server({ name: 'piprail', version: '1.0.0' }, { capabilities: { tools: {} } })
 
-// Advertise the two tools (their parameters are already JSON Schema).
+// Advertise the three tools (their parameters are already JSON Schema).
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: tools.map((t) => ({ name: t.name, description: t.description, inputSchema: t.parameters })),
 }))

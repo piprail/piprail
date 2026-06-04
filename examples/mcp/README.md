@@ -1,9 +1,12 @@
 # PipRail MCP server
 
-Hand a model (Claude, GPT, any MCP client) a **budget-bound payment wallet**. It exposes the two tools from `paymentTools(client)`:
+Hand a model (Claude, GPT, any MCP client) a **budget-bound payment wallet**. It exposes the three tools from `paymentTools(client)`:
 
 - **`piprail_quote_payment(url)`** — price a gated URL *without* paying.
+- **`piprail_plan_payment(url)`** — check you *can* pay (balance + gas + recipient-readiness) *without* paying.
 - **`piprail_pay_request(url, method?, body?)`** — fetch it, paying the `402` automatically.
+
+> Want a published, `npx`-runnable, env-configurable version? See **[`@piprail/mcp`](../../mcp)** — this folder is the minimal teaching example.
 
 The client's `policy` caps spend (here: $0.10/call, $5 total, USDC on Base), checked **before any on-chain send** — so the model can't overspend.
 
@@ -30,7 +33,7 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
 }
 ```
 
-Restart Claude Desktop — the two `piprail_*` tools appear. (Use an **absolute** path.)
+Restart Claude Desktop — the three `piprail_*` tools appear. (Use an **absolute** path.)
 
 ## Why it's safe
 

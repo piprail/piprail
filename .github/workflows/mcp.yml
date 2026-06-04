@@ -1,0 +1,40 @@
+name: mcp
+
+# CI for the @piprail/mcp workspace. Publishing lives in mcp-release.yml (tag-driven),
+# so this file only gates: typecheck + build + test + pack inspection.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mcp/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/mcp.yml'
+  pull_request:
+    paths:
+      - 'mcp/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/mcp.yml'
+
+jobs:
+  test:
+    name: build + test + typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          # Single workspace lockfile at the repo root — npm ci installs all
+          # workspaces (sdk, site, mcp) from it.
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm run typecheck -w @piprail/mcp
+      - run: npm run typecheck:test -w @piprail/mcp
+      # Build before test so the pack inspection sees a fresh dist/.
+      - run: npm run build -w @piprail/mcp
+      - run: npm test -w @piprail/mcp
+      - name: pack inspection
+        run: npm pack --dry-run -w @piprail/mcp
