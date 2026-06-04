@@ -1,3 +1,11 @@
+/**
+ * ── EVM SECTION: wallet ──
+ * Validate + wrap the agent's wallet config into a viem account + `WalletClient`
+ * over the resolved chain. Accepts `{ privateKey }` (a 0x… hex key — the SDK
+ * builds the client) or a ready `{ walletClient }` (bring-your-own, with an
+ * attached account); rejects a chain-mismatched or account-less client with a
+ * clear WrongChainError / WrongFamilyError.
+ */
 import {
   createWalletClient,
   http,

@@ -4,8 +4,9 @@ export default defineConfig({
   entry: ['src/index.ts'],
   format: ['esm', 'cjs'],
   dts: true,
-  // Code-split so each dynamically-imported non-EVM driver (Solana, TON) lands
-  // in its own chunk — pure-EVM consumers never load it (or its libraries).
+  // Code-split so each dynamically-imported non-EVM driver (Solana, TON, Tron,
+  // NEAR, Sui, Aptos, Algorand, Stellar, XRPL) lands in its own chunk — pure-EVM
+  // consumers never load it (or its libraries).
   splitting: true,
   sourcemap: false,
   clean: true,

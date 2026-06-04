@@ -7,7 +7,7 @@
  *
  * USD₮ is built in (verified on-chain). Native USDC does NOT exist on Tron, so
  * it's intentionally absent; pass a custom TRC-20 via `{ address, decimals }`.
- * Native TRX is intentionally not a payment asset (TRC-20 only — see chains.ts).
+ * Native TRX IS a payment asset (`token: 'native'`, 6dp) — a plain TransferContract, digest-bound (see chains.ts).
  *
  * Template B (digest-bound, like EVM/Solana): the proof ref is the txid; binding
  * comes from a single-use proof (the gate's used-set) + recipient + amount +

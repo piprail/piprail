@@ -205,9 +205,10 @@ the reader, full raw detail for the debugger — both, always. Chains with no re
 
 ## 7. Registry / loader pattern
 
-- EVM is registered eagerly (`viem` is the one hard peer dep). Solana / TON / Stellar mount
-  lazily via a single dynamic `import()` in [`drivers/index.ts`](src/drivers/index.ts) the
-  first time their `chain` is named — no setup call.
+- EVM is registered eagerly (`viem` is the one hard peer dep). Every non-EVM family (Solana,
+  TON, Tron, NEAR, Sui, Stellar, XRPL, Aptos, Algorand) mounts lazily via a single dynamic
+  `import()` in [`drivers/index.ts`](src/drivers/index.ts) the first time its `chain` is
+  named — no setup call.
 - A failed lazy `import()` → `MissingDriverError` naming the exact `npm install` + `{ cause }`.
   The in-flight promise isn't cached on failure, so a later call can retry.
 - No driver for the family, or `resolve()` → `null` → `UnsupportedNetworkError`.

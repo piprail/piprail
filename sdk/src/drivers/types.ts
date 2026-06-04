@@ -115,7 +115,7 @@ export interface AlgorandToken {
 
 /**
  * What to be paid in. Each driver validates the forms it accepts:
- *   - 'native'        the chain's native coin (ETH, BNB, SOL, TON, XLM, XRP)
+ *   - 'native'        the chain's native coin (ETH, BNB, SOL, TON, XLM, XRP, TRX, NEAR, SUI, APT, ALGO)
  *   - 'USDC' (string) a symbol resolved against the chosen chain
  *   - EvmToken        any ERC-20         (EVM chains)
  *   - SolanaToken     any SPL token      (Solana)

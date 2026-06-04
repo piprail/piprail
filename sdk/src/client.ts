@@ -58,6 +58,8 @@ export type PipRailEvent =
  *   - Stellar → `{ secret }` (S… seed) or a ready `{ keypair }`
  *   - XRPL    → `{ seed }` (s… seed) or a ready `{ wallet }`
  *   - NEAR    → `{ accountId, privateKey }` (privateKey = ed25519:… secret)
+ *   - Aptos   → `{ privateKey }` (AIP-80 `ed25519-priv-0x…` / raw `0x…` hex) or `{ account }`
+ *   - Algorand→ `{ mnemonic }` (25 words) or a ready `{ account }`
  */
 export type WalletInput =
   | { privateKey: string }
@@ -190,7 +192,7 @@ export interface PipRailClientOptions {
   /** Wallet for the chosen chain family. */
   wallet: WalletInput
   /** Which chain to pay on. EVM ('bnb'|'base'|…), 'solana', 'ton', 'stellar',
-   *  'xrpl', 'tron', 'sui', or 'near'. */
+   *  'xrpl', 'tron', 'sui', 'near', 'aptos', or 'algorand'. */
   chain: ChainSelector
   /** Override the chain's default RPC URL (recommended in production). */
   rpcUrl?: string

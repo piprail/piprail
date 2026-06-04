@@ -220,7 +220,7 @@ function makeEvmNetwork(resolved: ResolvedChain): ResolvedNetwork {
       return { token, native }
     },
 
-    // EVM has no receive prerequisite — any 0x address receives native or ERC-20 immediately.
+    // No receive prerequisite — any 0x address receives native or ERC-20 immediately.
     async recipientReady() {
       return { ready: 'n/a' as const }
     },

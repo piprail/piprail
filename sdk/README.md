@@ -276,6 +276,12 @@ requirePayment({ chain: 'near', token: { contractId: 'token.near', decimals: 6 }
 
 // On Sui, a custom coin is { coinType, decimals }:
 requirePayment({ chain: 'sui', token: { coinType: '0x…::usdc::USDC', decimals: 6 }, amount: '0.05', payTo })
+
+// On Aptos, a custom Fungible Asset is { metadata, decimals }:
+requirePayment({ chain: 'aptos', token: { metadata: '0x…', decimals: 6 }, amount: '0.05', payTo })
+
+// On Algorand, a custom ASA is { assetId, decimals }:
+requirePayment({ chain: 'algorand', token: { assetId: 12345678, decimals: 6 }, amount: '0.05', payTo })
 ```
 
 > **Production:** the built-in chains use public RPCs (rate-limited). Pass your own `rpcUrl` for real traffic.
@@ -603,7 +609,7 @@ Methods: `fetch` · `get` · `post` (return the gated `Response` after settlemen
 
 **Hand an LLM a wallet:** `paymentTools(client)` → framework-agnostic tool descriptors (MCP / AI SDK / function-calling), budget enforced by the client.
 
-**Bring your own chain family:** the SDK is built on a tiny `PaymentDriver` contract — `resolve(chain)` returns a bound network with `resolveToken` / `describeAsset` / `assertValidPayTo` / `bindWallet` / `send` / `confirm` / `estimateCost` / `verify`. Register your own with `registerDriver(...)`; the protocol layer never changes (see [Architecture](#architecture-under-the-hood)).
+**Bring your own chain family:** the SDK is built on a tiny `PaymentDriver` contract — `resolve(chain)` returns a bound network with `resolveToken` / `describeAsset` / `assertValidPayTo` / `bindWallet` / `send` / `confirm` / `estimateCost` / `balanceOf` / `recipientReady` / `verify`. Register your own with `registerDriver(...)`; the protocol layer never changes (see [Architecture](#architecture-under-the-hood)).
 
 **Universal x402 (experimental):** building blocks to pay servers on the mainstream x402 `exact` scheme (EIP-3009 + facilitator) — `parseExactRequirements`, `buildExactAuthorization`, `encodeXPaymentHeader`. EVM-only; validate against your target facilitator before production.
 

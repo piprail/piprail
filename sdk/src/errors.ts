@@ -59,7 +59,7 @@ export class InsufficientFundsError extends PipRailError {
  * The message states the requirement and the fix in plain language **and echoes
  * the raw chain code** (e.g. `(XRPL: tecNO_DST_INSUF_XRP)`), while the untouched
  * chain error is preserved on `.cause` for deeper debugging. Chains with no
- * receive prerequisite (EVM, Solana, Sui, Tron, and native TON/NEAR) never throw it.
+ * receive prerequisite (EVM, Solana, Sui, Aptos, Tron, and native TON/NEAR) never throw it.
  */
 export class RecipientNotReadyError extends PipRailError {
   readonly code = 'RECIPIENT_NOT_READY'
@@ -183,7 +183,7 @@ export class NonReplayableBodyError extends PipRailError {
 
 /**
  * The chosen chain belongs to one family (EVM, Solana, TON, Stellar, XRPL, Tron,
- * Sui, NEAR) but the wallet, payTo, or token was given in another family's form
+ * Sui, NEAR, Aptos, Algorand) but the wallet, payTo, or token was given in another family's form
  * (e.g. an `0x…` payTo on Solana, or a `{ mint }` token on a Stellar chain).
  */
 export class WrongFamilyError extends PipRailError {
@@ -196,7 +196,8 @@ export class WrongFamilyError extends PipRailError {
  * token by full descriptor ({ address, decimals } EVM/Tron · { mint, decimals }
  * Solana · { master, decimals } TON · { issuer, code, decimals } Stellar ·
  * { issuer, currencyHex, decimals } XRPL · { coinType, decimals } Sui ·
- * { contractId, decimals } NEAR).
+ * { contractId, decimals } NEAR · { metadata, decimals } Aptos ·
+ * { assetId, decimals } Algorand).
  */
 export class UnknownTokenError extends PipRailError {
   readonly code = 'UNKNOWN_TOKEN'
@@ -209,7 +210,8 @@ export class UnknownTokenError extends PipRailError {
  * `npm install @ton/ton @ton/core @ton/crypto`; Stellar:
  * `npm install @stellar/stellar-sdk`; XRPL: `npm install xrpl`; Tron:
  * `npm install tronweb`; Sui: `npm install @mysten/sui`; NEAR:
- * `npm install near-api-js`.
+ * `npm install near-api-js`; Aptos: `npm install @aptos-labs/ts-sdk`;
+ * Algorand: `npm install algosdk`.
  */
 export class MissingDriverError extends PipRailError {
   readonly code = 'MISSING_DRIVER'

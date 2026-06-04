@@ -40,8 +40,8 @@ export interface TronPreset {
   tokens: Record<string, TrcTokenInfo>
 }
 
-/** Native TRX is 6 decimals (1 sun = 1e-6 TRX) — referenced for completeness only;
- *  TRX is not a built-in payment asset (see the section note). */
+/** Native TRX is 6 decimals (1 sun = 1e-6 TRX) — a built-in payment asset via
+ *  `token: 'native'` (digest-bound; see the section note). */
 export const TRX_DECIMALS = 6
 
 export const TRON_MAINNET: TronPreset = {

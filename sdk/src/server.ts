@@ -44,7 +44,7 @@ export type { TokenInput, ChainSelector }
  */
 export interface AcceptOption {
   /** Which chain. EVM ('bnb'|'base'|…), 'solana', 'ton', 'stellar', 'xrpl',
-   *  'tron', 'near', or 'sui'. */
+   *  'tron', 'near', 'sui', 'aptos', or 'algorand'. */
   chain: ChainSelector
   /** Token to be paid in (symbol / 'native' / custom descriptor). */
   token: TokenInput
@@ -59,8 +59,9 @@ export interface AcceptOption {
 export interface RequirePaymentOptions {
   /**
    * Single-chain form: which chain to accept payment on. EVM ('bnb'|'base'|…),
-   * 'solana', 'ton', 'stellar', 'xrpl', 'tron', 'near', or 'sui'. Provide
-   * `chain` + `token` + `amount`, OR use the multi-chain `accept` array below.
+   * 'solana', 'ton', 'stellar', 'xrpl', 'tron', 'near', 'sui', 'aptos', or
+   * 'algorand'. Provide `chain` + `token` + `amount`, OR use the multi-chain
+   * `accept` array below.
    */
   chain?: ChainSelector
   /** Override the chain's default RPC URL (recommended in production). */
@@ -71,9 +72,10 @@ export interface RequirePaymentOptions {
    * `{ address, decimals }` on EVM/Tron, `{ mint, decimals }` on Solana,
    * `{ master, decimals }` on TON, `{ issuer, code, decimals }` on Stellar,
    * `{ issuer, currencyHex, decimals }` on XRPL, `{ contractId, decimals }` on
-   * NEAR, `{ coinType, decimals }` on Sui. You name the token; the SDK fills in
+   * NEAR, `{ coinType, decimals }` on Sui, `{ metadata, decimals }` on Aptos, or
+   * `{ assetId, decimals }` on Algorand. You name the token; the SDK fills in
    * the contract + decimals for built-in symbols. (Note: native USDC doesn't
-   * exist on TON/Tron — USDT does; NEAR is FT-only, so `'native'` is rejected.)
+   * exist on TON/Tron — USDT does; native NEAR is supported via `'native'`.)
    */
   token?: TokenInput
   /** Human-readable amount, e.g. "0.05" (single-chain form). */
@@ -85,8 +87,8 @@ export interface RequirePaymentOptions {
    */
   accept?: AcceptOption[]
   /** Address that receives the payment (0x… EVM/Sui, base58 Solana, EQ…/UQ… TON,
-   *  G… Stellar, r… XRPL, T… Tron, account id on NEAR). Required for the single
-   *  form; the per-option fallback for the multi form. */
+   *  G… Stellar, r… XRPL, T… Tron, account id on NEAR, 0x… Aptos, base32 Algorand).
+   *  Required for the single form; the per-option fallback for the multi form. */
   payTo?: AddressId
   /** Shown to the agent in the challenge. */
   description?: string

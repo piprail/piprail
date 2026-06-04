@@ -36,8 +36,10 @@ async function readBody(res: Response): Promise<unknown> {
 }
 
 /**
- * Two tools wrapping a configured {@link PipRailClient}:
+ * Three tools wrapping a configured {@link PipRailClient}:
  *   - `piprail_quote_payment(url)` — price a gated URL WITHOUT paying.
+ *   - `piprail_plan_payment(url)` — check you CAN pay (balance + gas + recipient
+ *     readiness) across every rail the URL offers, WITHOUT paying.
  *   - `piprail_pay_request(url, method?, body?)` — pay if needed and return the result.
  *
  * A policy/approval refusal comes back as a structured `{ declined: true, reason }`

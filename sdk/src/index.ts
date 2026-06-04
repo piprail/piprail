@@ -1,14 +1,15 @@
-// @piprail/sdk — accept x402 crypto payments on any EVM chain and Solana,
-// in a couple of lines. No backend, no database, no fee — payments go
-// straight to your wallet, verified locally against your own RPC.
+// @piprail/sdk — accept x402 crypto payments on any EVM chain plus Solana,
+// TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar & XRPL, in a couple of
+// lines. No backend, no database, no fee — payments go straight to your
+// wallet, verified locally against your own RPC.
 //
 //   ACCEPT  → requirePayment / createPaymentGate   (server side)
 //   PAY     → PipRailClient                        (agent side)
 //
-// One parameter picks the chain: 'base' | 'bnb' | … (EVM), 'solana', or 'ton'.
-// Non-EVM drivers auto-mount on first use — no setup call. (Solana needs
-// `@solana/web3.js @solana/spl-token bs58`; TON needs `@ton/ton @ton/core
-// @ton/crypto`.)
+// One parameter picks the chain: 'base' | 'bnb' | … (EVM), or a non-EVM
+// family name ('solana', 'ton', 'tron', 'near', 'sui', 'aptos', 'algorand',
+// 'stellar', 'xrpl'). Non-EVM drivers auto-mount on first use — no setup
+// call — lazily importing only that family's peer libraries.
 
 /* ----------------------------- pay (agent side) ----------------------------- */
 

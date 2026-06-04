@@ -78,8 +78,8 @@ function hostMatches(host: string, pattern: string): boolean {
 /** Does `intent.chain`/`network` match an allowed selector? */
 function chainMatches(intent: PaymentIntent, allowed: ChainSelector): boolean {
   if (typeof allowed === 'string') {
-    // String selectors: a non-EVM family ('solana'|'ton'|'stellar') or an EVM
-    // preset name. Match the configured selector directly when both are strings.
+    // String selectors: a non-EVM family name or an EVM preset name. Match the
+    // configured selector directly when both are strings.
     if (typeof intent.chain === 'string' && intent.chain === allowed) return true
     return false
   }

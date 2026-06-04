@@ -25,7 +25,7 @@ sdk/        @piprail/sdk — the product (the only npm-published package)
   src/agent.ts          paymentTools (agent side)
   src/x402.ts           wire protocol (challenges, receipts) — chain-agnostic
   src/policy.ts ledger.ts errors.ts util/
-  src/drivers/          one folder per chain family: evm solana ton stellar xrpl tron near sui
+  src/drivers/          one folder per chain family: evm solana ton stellar xrpl tron near sui aptos algorand
     types.ts            the PaymentDriver contract (the only thing the protocol layer sees)
   test/                 Vitest — the contract
   README.md ERRORS.md STANDARDS.md

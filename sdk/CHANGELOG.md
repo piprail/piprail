@@ -4,6 +4,28 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.5.1] — 2026-06-04
+
+**Cosmetic polish — docs & comments only, zero behavior change.** A repo-wide tidy pass so the
+in-code docs match the SDK as it actually ships (10 families / 28 chains). No runtime, API, type,
+or wire change — every existing program behaves identically.
+
+- **JSDoc parity across the public surface.** The `chain` / `token` / `payTo` / wallet docs on
+  `RequirePaymentOptions`, `AcceptOption`, and `PipRailClientOptions` now enumerate all 10 families
+  (Aptos + Algorand were missing); the typed error JSDoc (`WrongFamilyError`, `UnknownTokenError`,
+  `MissingDriverError`, `RecipientNotReadyError`) lists every family + install command + custom-token form.
+- **Stale comments corrected.** Native TRX and native NEAR are documented as the payment assets they've
+  been since 1.1.0 (the old "not a payment asset" / "`'native'` is rejected" notes were removed); the
+  `'native'` coin list, the barrel header, the tsup code-split note, and the lazy-mount docs now name all
+  9 non-EVM families; the `paymentTools` doc says "three tools" (quote · plan · pay).
+- **Driver-family symmetry.** `evm/wallet.ts` gained the `── EVM SECTION: wallet ──` banner the other 9
+  families carry, and `evm/index.ts`'s `recipientReady()` comment now uses the shared "No receive
+  prerequisite —" lead-in.
+- **Docs:** README contract-method list adds `balanceOf` / `recipientReady`; README custom-token examples
+  add Aptos + Algorand; CHAINS.md lists HyperEVM + Monad (and their USDT gap); ERRORS.md + AGENTS.md list
+  all 10 families; CHANGELOG version footer links restored.
+- **Packaging:** `algosdk` moved to its alphabetical slot in `peerDependencies` (no dependency change).
+
 ## [1.5.0] — 2026-06-04
 
 **The killer agent feature — `client.planPayment(url)`.** A read-only call that surveys a 402
@@ -384,6 +406,13 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[1.5.1]: https://www.npmjs.com/package/@piprail/sdk
+[1.5.0]: https://www.npmjs.com/package/@piprail/sdk
+[1.4.0]: https://www.npmjs.com/package/@piprail/sdk
+[1.3.1]: https://www.npmjs.com/package/@piprail/sdk
+[1.3.0]: https://www.npmjs.com/package/@piprail/sdk
+[1.2.0]: https://www.npmjs.com/package/@piprail/sdk
+[1.1.1]: https://www.npmjs.com/package/@piprail/sdk
 [1.1.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.0.0]: https://www.npmjs.com/package/@piprail/sdk
 [0.1.0]: https://www.npmjs.com/package/@piprail/sdk
