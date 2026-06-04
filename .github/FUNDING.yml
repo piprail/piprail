@@ -5,12 +5,11 @@
 # + research/contacts.md §10). Keep every handle VALID — a wrong/unenrolled handle breaks
 # the Sponsor button, so the others below stay commented until their account exists.
 
-# --- Active now: routes interested sponsors to the project ---
-custom: ['https://piprail.com']
+# --- Active now ---
+# site + Drips. Drips ✅ claimed via FUNDING.json at the repo root (it has no native
+# FUNDING.yml key, so its project URL rides under `custom`).
+custom: ['https://piprail.com', 'https://www.drips.network/app/projects/github/piprail/piprail']
 
-# --- Uncomment each once set up (one human step each — needs your login/Stripe/wallet) ---
+# --- Uncomment each once set up (one human step each — needs your login/Stripe) ---
 # github: [piprail]            # after enabling GitHub Sponsors (github.com/sponsors) on this account
 # open_collective: piprail     # your Open Collective slug, after opencollective.com/opensource/apply
-#
-# Drips has NO native key — after you claim the repo on Drips, add its URL to `custom` above:
-#   custom: ['https://piprail.com', 'https://www.drips.network/app/projects/github/piprail/piprail']
