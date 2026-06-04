@@ -24,7 +24,7 @@ Full pitch + all code inline: [llms-full.txt](https://piprail.com/llms-full.txt)
 - Three tools: `piprail_quote_payment` (price a gated URL without paying), `piprail_plan_payment` (check balance + gas + recipient-readiness + policy across every rail, read-only), `piprail_pay_request` (fetch with payment on the cheapest affordable rail).
 - Config is all env vars: `PIPRAIL_PRIVATE_KEY` (required), `PIPRAIL_CHAIN` (default base), `PIPRAIL_MAX_AMOUNT` (per-call cap, default 0.10), `PIPRAIL_MAX_TOTAL` (lifetime per-token cap, default 10.00), `PIPRAIL_TOKENS` (default USDC; USDT on Tron/TON), `PIPRAIL_HOSTS`, `PIPRAIL_RPC_URL`, `PIPRAIL_NEAR_ACCOUNT_ID`. Caps are enforced before any on-chain send and checked against the token's true decimals — the model cannot overspend.
 - Works in Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, and Cline. EVM works out of the box; non-EVM chains pull their SDK peer on demand. One wallet per chain per instance.
-- Page: [MCP setup guide](https://piprail.com/mcp) · npm: [@piprail/mcp](https://www.npmjs.com/package/@piprail/mcp) · [README](https://github.com/piprail/piprail/blob/main/mcp/README.md)
+- Page: [MCP setup guide](https://piprail.com/mcp) · npm: [@piprail/mcp](https://www.npmjs.com/package/@piprail/mcp) · [README](https://github.com/piprail/piprail/blob/main/mcp/README.md) — install, add one env block, and your agent pays x402 URLs on its own across 28 chains. A worked 60-second walkthrough (install → config → a sample agent paying a gated URL) and a cite-ready fact list live in [llms-full.txt](https://piprail.com/llms-full.txt).
 
 ## Examples
 

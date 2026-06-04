@@ -5,7 +5,7 @@ import Footer from '../components/Footer.astro'
 import CodeWindow from '../components/CodeWindow.astro'
 import SectionHeading from '../components/SectionHeading.astro'
 import { mcpConfigCode } from '../data/snippets'
-import { Bot, Plug, Wallet, ShieldCheck, Terminal, ArrowRight, ChevronDown, Boxes, Code2, Sparkles } from 'lucide-astro'
+import { Bot, Plug, Wallet, ShieldCheck, Terminal, ArrowRight, ChevronDown, Code2, Sparkles } from 'lucide-astro'
 
 const title = '@piprail/mcp — budget-bound x402 payment wallet for AI agents (Claude, Cursor, Code)'
 const description =
@@ -73,6 +73,7 @@ const faqLd = {
 const breadcrumbLd = {
   '@context': 'https://schema.org',
   '@type': 'BreadcrumbList',
+  '@id': 'https://piprail.com/mcp#breadcrumbs',
   itemListElement: [
     { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://piprail.com/' },
     { '@type': 'ListItem', position: 2, name: 'MCP', item: 'https://piprail.com/mcp' },
@@ -177,7 +178,7 @@ const breadcrumbLd = {
         {clients.map((c) => (
           <li class="bg-neutral-950 p-5">
             <p class="text-[15px] font-medium text-neutral-100">{c.name}</p>
-            <p class="mt-1.5 break-words font-mono text-xs text-neutral-500">{c.file}</p>
+            <p class="mt-1.5 wrap-break-word font-mono text-xs text-neutral-500">{c.file}</p>
             <p class="mt-2 text-sm leading-snug text-neutral-400">{c.note}</p>
           </li>
         ))}
@@ -191,7 +192,7 @@ const breadcrumbLd = {
         Canonical names below; the wallet key also accepts the <code class="text-neutral-300">AGENT_KEY</code> alias.
       </SectionHeading>
       <div class="overflow-x-auto rounded-2xl border border-white/10">
-        <table class="w-full min-w-[640px] border-collapse text-left text-sm">
+        <table class="w-full min-w-160 border-collapse text-left text-sm">
           <thead>
             <tr class="border-b border-white/10 bg-white/3 text-xs uppercase tracking-wider text-muted">
               <th class="px-4 py-3 font-medium">Variable</th>
@@ -215,7 +216,7 @@ const breadcrumbLd = {
 
       <h3 class="mt-10 mb-3 text-sm font-medium uppercase tracking-wider text-muted">Wallet key format, per chain</h3>
       <div class="overflow-x-auto rounded-2xl border border-white/10">
-        <table class="w-full min-w-[480px] border-collapse text-left text-sm">
+        <table class="w-full min-w-120 border-collapse text-left text-sm">
           <tbody>
             {walletFormats.map((w) => (
               <tr class="border-b border-white/5 last:border-0">
