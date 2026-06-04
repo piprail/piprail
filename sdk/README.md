@@ -1,6 +1,6 @@
 # @piprail/sdk
 
-**Accept crypto payments from any HTTP request — on any EVM chain, Solana, TON, Tron, NEAR, Sui, Stellar, and the XRP Ledger — in a couple of lines.**
+**Accept crypto payments from any HTTP request — on any EVM chain, Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger — in a couple of lines.**
 
 No middleman. No database. No fee. No account. Payments settle **straight into your wallet**, verified locally against your own RPC. Drop one middleware in front of a route and it's paid-only; point an agent at a paid URL and it pays itself.
 
@@ -90,7 +90,7 @@ See [`examples/agent-tools.mjs`](../examples/agent-tools.mjs) for MCP / AI-SDK w
 
 ### Accept several chains at once
 
-`requirePayment` (and `createPaymentGate`) take an **`accept: [...]`** array — one challenge that's payable on **any** of several chains/tokens, across **all nine families** (EVM, Solana, TON, Tron, Stellar, XRPL, NEAR, Sui, Aptos). The agent pays with whatever it holds:
+`requirePayment` (and `createPaymentGate`) take an **`accept: [...]`** array — one challenge that's payable on **any** of several chains/tokens, across **all ten families** (EVM, Solana, TON, Tron, Stellar, XRPL, NEAR, Sui, Aptos, Algorand). The agent pays with whatever it holds:
 
 ```ts
 requirePayment({
@@ -133,7 +133,7 @@ requirePayment({ chain: 'ton',      token: 'native', amount: '1',     payTo }) /
 requirePayment({ chain: 'xrpl',     token: 'native', amount: '1',     payTo }) // XRP
 ```
 
-**Native or stablecoin — your choice, on every chain.** Every gate accepts the chain's native coin (ETH, BNB, POL, AVAX, SOL, TON, XLM, XRP, SUI, NEAR, **TRX**, …) just as readily as a stablecoin — set `token: 'native'` and the SDK fills in the right decimals (18 on EVM, 9 on Solana/TON/Sui, 7 on Stellar, 6 on XRPL/Tron, 24 on NEAR). Verification, replay protection, and self-custody are identical to the stablecoin path — across **all nine families, no exceptions**. (On **NEAR**, native is the zero-setup path — no `storage_deposit` — while the NEP-141 token path needs registration; see the NEAR note. On **Tron**, USD₮ is the default since TRX is volatile gas, but native TRX works too.)
+**Native or stablecoin — your choice, on every chain.** Every gate accepts the chain's native coin (ETH, BNB, POL, AVAX, SOL, TON, XLM, XRP, SUI, NEAR, **TRX**, …) just as readily as a stablecoin — set `token: 'native'` and the SDK fills in the right decimals (18 on EVM, 9 on Solana/TON/Sui, 8 on Aptos, 7 on Stellar, 6 on XRPL/Tron/Algorand, 24 on NEAR). Verification, replay protection, and self-custody are identical to the stablecoin path — across **all ten families, no exceptions**. (On **NEAR**, native is the zero-setup path — no `storage_deposit` — while the NEP-141 token path needs registration; see the NEAR note. On **Tron**, USD₮ is the default since TRX is volatile gas, but native TRX works too.)
 
 `token` is **required** — every gate states exactly what it accepts, so there's never any doubt whether a route takes USDC, USDT, or the native coin. Name a built-in symbol (`'USDC'`, `'USDT'`), use `'native'` for the chain's own coin (ETH, BNB, SOL, TON, XLM, …), or pass a custom token by address. The symbol is all you write — the SDK fills in the contract + decimals.
 
@@ -168,6 +168,7 @@ Every token address below was verified on-chain (symbol + decimals) before shipp
 | `'near'` | NEAR | USDC, USDT |
 | `'sui'` | Sui | USDC |
 | `'aptos'` | Aptos | USDC, USDT |
+| `'algorand'` | Algorand | USDC |
 | `'stellar'` | Stellar | USDC, EURC |
 | `'xrpl'` | XRP Ledger | USDC, RLUSD |
 
@@ -178,6 +179,8 @@ Every token address below was verified on-chain (symbol + decimals) before shipp
 **NEAR note:** **native NEAR works** (`token: 'native'`, 24dp) and is the **zero-setup** path — no `storage_deposit`, and a transfer even *creates* a fresh implicit recipient. Or pay in a token: ships **both native USDC + USDT** (Circle's native USDC `17208628…`, NOT the bridged `…factory.bridge.near`; Tether's native `usdt.tether-token.near`) — but a NEP-141 recipient (and the payer) must be **`storage_deposit`-registered** on that token once before it can receive (see CHAINS.md). NEAR is the volatile gas coin, so for stable pricing pay in USDC/USDT; for no-setup flows, native NEAR is ideal.
 
 **Sui note:** **USDC only** — no native USDT on Sui (Wormhole-bridged only). Native SUI works with `token: 'native'`.
+
+**Algorand note:** **USDC only** — Tether deprecated USDT on Algorand (frozen 2025-09-01), so it's intentionally absent (pass it as a custom `{ assetId, decimals }`). Native ALGO works with `token: 'native'` (the zero-setup path). To **receive** USDC the recipient must **opt into the ASA** once (a 0-amount self-transfer — like a trustline); a not-opted-in recipient surfaces `RECIPIENT_NOT_READY`. The challenge nonce binds inside the transaction's note field (Template A). Algorand's `exact` scheme is part of the official x402 standard; the incumbent on-chain path there uses a hosted facilitator, so PipRail is the backendless, no-facilitator option.
 
 **Stellar / XRPL note:** to **receive** an issued asset (USDC/EURC on Stellar; USDC/RLUSD on XRPL) the recipient needs a one-time **trustline** for that asset, and the account must already exist / be activated (a small native reserve — **locked, not spent**). Native XLM/XRP need no trustline. The payer needs its own trustline too.
 
@@ -475,9 +478,9 @@ Two layers, one contract. Worth knowing if you're extending the SDK or auditing 
 
 - **The protocol layer is chain-agnostic.** `server.ts` (`requirePayment`/`createPaymentGate`), `client.ts` (`PipRailClient`), `x402.ts` (wire envelopes), `policy.ts`, `ledger.ts`, and `agent.ts` depend **only** on the `PaymentDriver` contract in `drivers/types.ts` — zero `viem`, zero `@solana/web3.js`, zero chain SDK. The chain is data the caller passes, not an allowlist the SDK ships.
 - **The `PaymentDriver` contract.** `resolve(chain)` → a bound `ResolvedNetwork` exposing `resolveToken` · `describeAsset` · `assertValidPayTo` · `bindWallet` · `send` · `confirm` · `estimateCost` · `verify`. That's the entire boundary every family implements and the protocol layer ever sees.
-- **Families mirror each other file-for-file.** Each lives in `drivers/<family>/` as `chains` · `wallet` · `pay` · `verify` · `index`, with family-suffixed functions (`payEvm`/`paySui`/…, `verifyEvm`/`verifyNear`/…). Eight today: `evm`, `solana`, `ton`, `stellar`, `xrpl`, `tron`, `near`, `sui`. Adding one = copy the five files, implement the contract, `registerDriver` — the protocol layer never changes.
-- **Routing + lazy auto-mount.** `registry.ts` maps a `chain` value to its family synchronously (`familyForChain`). EVM is always present (viem is a hard peer); every non-EVM family **loads itself on first use** via one dynamic `import()`, so a pure-EVM install never downloads `@solana`/`@ton`/`@stellar`/`xrpl`/`tronweb`/`near-api-js`/`@mysten/sui`. A build-time invariant asserts the main bundle has **zero** static imports of those libs — only per-family lazy chunks.
-- **Two verification templates.** *Template A (memo-bound)* — Stellar, XRPL, TON, NEAR — carries the challenge nonce inside the transfer (memo / tag / comment), so the proof is cryptographically bound to its challenge. *Template B (digest-bound)* — EVM, Solana, Tron, Sui — binds via a single-use proof set + recipient + amount + a tight recency window (use a persistent `isUsed`/`markUsed` store in production).
+- **Families mirror each other file-for-file.** Each lives in `drivers/<family>/` as `chains` · `wallet` · `pay` · `verify` · `index`, with family-suffixed functions (`payEvm`/`paySui`/…, `verifyEvm`/`verifyNear`/…). Ten today: `evm`, `solana`, `ton`, `stellar`, `xrpl`, `tron`, `near`, `sui`, `aptos`, `algorand`. Adding one = copy the five files, implement the contract, `registerDriver` — the protocol layer never changes.
+- **Routing + lazy auto-mount.** `registry.ts` maps a `chain` value to its family synchronously (`familyForChain`). EVM is always present (viem is a hard peer); every non-EVM family **loads itself on first use** via one dynamic `import()`, so a pure-EVM install never downloads `@solana`/`@ton`/`@stellar`/`xrpl`/`tronweb`/`near-api-js`/`@mysten/sui`/`@aptos-labs/ts-sdk`/`algosdk`. A build-time invariant asserts the main bundle has **zero** static imports of those libs — only per-family lazy chunks.
+- **Two verification templates.** *Template A (memo-bound)* — Stellar, XRPL, TON, NEAR, Algorand — carries the challenge nonce inside the transfer (memo / tag / comment / note), so the proof is cryptographically bound to its challenge. *Template B (digest-bound)* — EVM, Solana, Tron, Sui, Aptos — binds via a single-use proof set + recipient + amount + a tight recency window (use a persistent `isUsed`/`markUsed` store in production).
 - **Gas estimation.** Every driver's `estimateCost` extracts its own per-chain fee math, shaped into one uniform `CostEstimate` by the shared `nativeCost()` helper (`util/cost.ts`).
 - **The tests are the contract** (`test/`, Vitest), and two living standards govern any change: **[ERRORS.md](./ERRORS.md)** (how every module reports errors) and **STANDARDS.md** (how anything in the SDK is built + the verification gate). Runnable examples — including a local Anvil end-to-end — live in [`examples/`](../examples).
 
@@ -499,11 +502,12 @@ A failed payment is almost always one of two things, and PipRail tells them apar
 
 | Chain | The recipient must… | Sender also needs |
 |---|---|---|
-| **EVM · Solana · Sui · Tron** | nothing (just be a valid address; Solana's token account is auto-created by the SDK) | native gas |
+| **EVM · Solana · Sui · Aptos · Tron** | nothing (just be a valid address; Solana's token account is auto-created by the SDK; Aptos's primary FA store auto-creates) | native gas |
 | **TON** | nothing for native; a jetton wallet auto-deploys on first receipt (sender pays the gas) | TON for gas |
 | **NEAR** | nothing for native; for a token, be `storage_deposit`-registered on it (NEP-145, ~0.00125 NEAR, one-time) | NEAR for gas |
 | **Stellar** | exist (created with ≥1 XLM base reserve); for USDC/EURC, hold a **trustline** (+0.5 XLM each) | base + trustline reserves |
 | **XRP Ledger** | be **activated** — hold ≥1 XRP base reserve to exist; for USDC/RLUSD, a **trustline** | keep its own 1 XRP reserve |
+| **Algorand** | nothing for native ALGO; for USDC, **opt into the ASA** once (a 0-amount self-transfer, ~0.1 ALGO min-balance bump) | ALGO for fees + its own opt-in |
 
 > These are anti-spam "state rent" rules built into each ledger — e.g. an XRPL account can't receive a sub-1-XRP first payment because that payment must create the account at its ≥1 XRP base reserve. PipRail surfaces them as `RECIPIENT_NOT_READY` with the fix, so a payment that "can't go through" is self-explanatory. Per-chain specifics live in **[CHAINS.md](./CHAINS.md)**.
 
@@ -526,7 +530,7 @@ The full standard every module follows is **[ERRORS.md](./ERRORS.md)**.
 |---|---|---|
 | `chain` | — | `'base'` / `'bnb'` / `'solana'` / `'ton'` / …, a viem `Chain`, or `{ id, rpcUrl }` (single-chain form) |
 | `amount` | — | Human-readable, e.g. `'0.05'` (single-chain form) |
-| `token` | — | `'USDC'` / `'USDT'`, `'native'`, or a custom `{ address, decimals }` (EVM/Tron) / `{ mint, decimals }` (Solana) / `{ master, decimals }` (TON) / `{ issuer, code, decimals }` (Stellar) / `{ issuer, currencyHex, decimals }` (XRPL) / `{ contractId, decimals }` (NEAR) / `{ coinType, decimals }` (Sui) — required for the single form |
+| `token` | — | `'USDC'` / `'USDT'`, `'native'`, or a custom `{ address, decimals }` (EVM/Tron) / `{ mint, decimals }` (Solana) / `{ master, decimals }` (TON) / `{ issuer, code, decimals }` (Stellar) / `{ issuer, currencyHex, decimals }` (XRPL) / `{ contractId, decimals }` (NEAR) / `{ coinType, decimals }` (Sui) / `{ metadata, decimals }` (Aptos) / `{ assetId, decimals }` (Algorand) — required for the single form |
 | `accept` | — | Multi-chain form: `[{ chain, token, amount, payTo?, rpcUrl? }, …]` — offer several chains in one challenge |
 | `payTo` | — | Wallet that receives the payment (per-option fallback in the multi form) |
 | `description` | — | Optional text shown to the agent in the challenge (what the payment is for) |
@@ -566,6 +570,8 @@ Methods: `fetch` · `get` · `post` (return the gated `Response` after settlemen
 | Tron | `{ privateKey }` (32-byte hex — secp256k1) |
 | NEAR | `{ accountId, privateKey }` (privateKey = ed25519:… secret) |
 | Sui | `{ privateKey }` (suiprivkey1… bech32) or `{ keypair }` |
+| Aptos | `{ privateKey }` (ed25519-priv-0x… AIP-80) or `{ account }` |
+| Algorand | `{ mnemonic }` (25 words) or `{ account }` (algosdk `{ addr, sk }`) |
 
 **Hand an LLM a wallet:** `paymentTools(client)` → framework-agnostic tool descriptors (MCP / AI SDK / function-calling), budget enforced by the client.
 
@@ -576,7 +582,7 @@ Methods: `fetch` · `get` · `post` (return the gated `Response` after settlemen
 ## Requirements
 
 - Node 20+ or a modern browser.
-- `viem ^2.21` (peer dep). Solana: `@solana/web3.js`, `@solana/spl-token`, `bs58` (optional peers). TON: `@ton/ton`, `@ton/core`, `@ton/crypto` (optional peers). Stellar: `@stellar/stellar-sdk` (optional peer). XRPL: `xrpl` (optional peer). Tron: `tronweb` (optional peer). NEAR: `near-api-js` (optional peer). Sui: `@mysten/sui` (optional peer).
+- `viem ^2.21` (peer dep). Solana: `@solana/web3.js`, `@solana/spl-token`, `bs58` (optional peers). TON: `@ton/ton`, `@ton/core`, `@ton/crypto` (optional peers). Stellar: `@stellar/stellar-sdk` (optional peer). XRPL: `xrpl` (optional peer). Tron: `tronweb` (optional peer). NEAR: `near-api-js` (optional peer). Sui: `@mysten/sui` (optional peer). Aptos: `@aptos-labs/ts-sdk` (optional peer). Algorand: `algosdk` (optional peer).
 
 ## License & trademark
 

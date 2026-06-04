@@ -25,6 +25,7 @@ export type ChainFamily =
   | 'sui'
   | 'near'
   | 'aptos'
+  | 'algorand'
 
 /** What chain to use: an EVM name/Chain/{id,rpcUrl}, or a non-EVM family name. */
 export type ChainSelector =
@@ -37,6 +38,7 @@ export type ChainSelector =
   | 'sui'
   | 'near'
   | 'aptos'
+  | 'algorand'
 
 /** An EVM ERC-20 token, by contract address. */
 export interface EvmToken {
@@ -104,6 +106,13 @@ export interface AptosToken {
   symbol?: string
 }
 
+/** An Algorand Standard Asset (ASA), by its numeric asset id. */
+export interface AlgorandToken {
+  assetId: number
+  decimals: number
+  symbol?: string
+}
+
 /**
  * What to be paid in. Each driver validates the forms it accepts:
  *   - 'native'        the chain's native coin (ETH, BNB, SOL, TON, XLM, XRP)
@@ -117,6 +126,7 @@ export interface AptosToken {
  *   - SuiToken        any coin           (Sui)
  *   - NearToken       any NEP-141        (NEAR)
  *   - AptosToken      any Fungible Asset (Aptos)
+ *   - AlgorandToken   any ASA            (Algorand)
  */
 export type TokenInput =
   // eslint-disable-next-line @typescript-eslint/ban-types
@@ -132,6 +142,7 @@ export type TokenInput =
   | SuiToken
   | NearToken
   | AptosToken
+  | AlgorandToken
 
 /** What a driver resolves a TokenInput into. `asset`: 0x | base58 mint | 'native'. */
 export interface ResolvedToken {

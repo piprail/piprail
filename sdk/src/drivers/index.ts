@@ -129,6 +129,18 @@ const loaders: Partial<Record<ChainFamily, () => Promise<void>>> = {
     }
     registerDriver(mod.aptosDriver)
   },
+  algorand: async () => {
+    let mod: typeof import('./algorand/index.js')
+    try {
+      mod = await import('./algorand/index.js')
+    } catch (cause) {
+      throw new MissingDriverError(
+        `Algorand selected, but its package isn't installed. Run: ` + `npm install algosdk`,
+        { cause }
+      )
+    }
+    registerDriver(mod.algorandDriver)
+  },
 }
 
 const inFlight = new Map<ChainFamily, Promise<void>>()

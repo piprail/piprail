@@ -7,9 +7,9 @@ interface Props {
 }
 
 const {
-  title = 'PipRail — x402 crypto payment SDK for every chain (EVM, Solana, TON, Tron, NEAR, Sui, Stellar, XRPL)',
+  title = 'PipRail — x402 crypto payment SDK for every chain (EVM, Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, XRPL)',
   description =
-    'Accept and make x402 crypto payments on any EVM chain, Solana, TON, Tron, NEAR, Sui, Stellar, and the XRP Ledger — in one line. No middleman, no account, no fee: USDC/USDT settles straight to your wallet, verified locally against your own RPC. Agent-safe spend budgets, one-line multi-chain, pre-pay gas estimates, MCP-ready. The drop-in payment SDK for AI agents.',
+    'Accept and make x402 crypto payments on any EVM chain, Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger — in one line. No middleman, no account, no fee: USDC/USDT settles straight to your wallet, verified locally against your own RPC. Agent-safe spend budgets, one-line multi-chain, pre-pay gas estimates, MCP-ready. The drop-in payment SDK for AI agents.',
 } = Astro.props
 
 const site = Astro.site?.href.replace(/\/$/, '') ?? 'https://piprail.com'
@@ -20,8 +20,8 @@ const ogImage = `${site}/og.png`
 // AI agents scraping the page. Mirrors the SDK's actual feature set.
 const featureList = [
   'One-line x402 (HTTP 402 Payment Required) payments — gate a server route, or auto-pay as a client',
-  'Widest native, self-custodial chain coverage of any x402 SDK — the only package that reaches TON, Tron, NEAR, Sui, and the XRP Ledger together, with the payer broadcasting their own transfer (no facilitator settling in the middle)',
-  '27 chains built in: 19 EVM mainnets, Solana, TON, Tron, NEAR, Sui, Stellar, and the XRP Ledger — one parameter picks the chain',
+  'Widest native, self-custodial chain coverage of any x402 SDK — the only package that reaches TON, Tron, NEAR, Sui, Aptos, Algorand, and the XRP Ledger together, with the payer broadcasting their own transfer (no facilitator settling in the middle)',
+  '28 chains built in: 19 EVM mainnets, Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger — one parameter picks the chain',
   'Pay in USDC, USDT, EURC, or the chain native coin; any other token by address',
   'No hosted backend, no database, no account, no fee, no hosted facilitator — self-custody, verified locally against your own RPC',
   'Agent spend controls: per-call and lifetime budgets with chain/token/host allowlists, refused before any on-chain send',
@@ -49,7 +49,7 @@ const jsonLd = {
   author: { '@type': 'Person', name: 'John Weeks' },
   featureList,
   keywords:
-    'x402, crypto payments, agent payments, agentic commerce, machine payments, EVM, Solana, TON, Tron, NEAR, Sui, Stellar, XRPL, XRP, USDC, USDT, EURC, RLUSD, stablecoin, 402 Payment Required, AI agents, MCP, multi-chain, spend budget, web3 SDK',
+    'x402, crypto payments, agent payments, agentic commerce, machine payments, EVM, Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, XRPL, XRP, USDC, USDT, EURC, RLUSD, ALGO, stablecoin, 402 Payment Required, AI agents, MCP, multi-chain, spend budget, web3 SDK',
 }
 
 // Entity + repository structured data — complements the SoftwareApplication above
@@ -63,7 +63,7 @@ const orgLd = {
   logo: 'https://piprail.com/logo.png',
   image: 'https://piprail.com/og.png',
   description:
-    'Open-source, backendless, no-fee x402 crypto-payment SDK for AI agents across 27 blockchains in 9 families.',
+    'Open-source, backendless, no-fee x402 crypto-payment SDK for AI agents across 28 blockchains in 10 families.',
   founder: { '@type': 'Person', name: 'John Weeks' },
   sameAs: [
     'https://github.com/piprail/piprail',
@@ -79,7 +79,7 @@ const websiteLd = {
   name: 'PipRail',
   url: 'https://piprail.com',
   description:
-    'The payment layer for the agent economy — x402 crypto payments on 27 chains, no backend, no fee.',
+    'The payment layer for the agent economy — x402 crypto payments on 28 chains, no backend, no fee.',
   publisher: { '@id': 'https://piprail.com/#organization' },
   inLanguage: 'en',
 }
@@ -90,7 +90,7 @@ const sourceLd = {
   '@id': 'https://piprail.com/#sourcecode',
   name: '@piprail/sdk',
   description:
-    'TypeScript SDK for x402 (HTTP 402 Payment Required) agent payments across 27 chains in 9 families — EVM, Solana, TON, Tron, NEAR, Sui, Aptos, Stellar, and the XRP Ledger. Backendless and self-custodial: payments settle straight to your wallet, verified locally against your own RPC.',
+    'TypeScript SDK for x402 (HTTP 402 Payment Required) agent payments across 28 chains in 10 families — EVM, Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger. Backendless and self-custodial: payments settle straight to your wallet, verified locally against your own RPC.',
   url: 'https://github.com/piprail/piprail',
   codeRepository: 'https://github.com/piprail/piprail',
   programmingLanguage: 'TypeScript',
@@ -115,7 +115,7 @@ const sourceLd = {
     <meta name="theme-color" content="#0a0b0c" />
     <meta
       name="keywords"
-      content="x402, crypto payment SDK, agent payments, agentic commerce, EVM, Solana, TON, Tron, NEAR, Sui, Stellar, XRPL, XRP, USDC, USDT, EURC, RLUSD, stablecoin, 402 Payment Required, AI agents, MCP, multi-chain, spend budget, web3, machine payments"
+      content="x402, crypto payment SDK, agent payments, agentic commerce, EVM, Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, XRPL, XRP, USDC, USDT, EURC, RLUSD, ALGO, stablecoin, 402 Payment Required, AI agents, MCP, multi-chain, spend budget, web3, machine payments"
     />
 
     <!-- Open Graph -->
@@ -131,7 +131,7 @@ const sourceLd = {
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={ogImage} />
-    <meta name="twitter:image:alt" content="PipRail — the open-source x402 crypto-payment SDK for AI agents across 27 chains" />
+    <meta name="twitter:image:alt" content="PipRail — the open-source x402 crypto-payment SDK for AI agents across 28 chains" />
     <meta name="twitter:site" content="@johnweeksdev" />
     <meta name="twitter:creator" content="@johnweeksdev" />
 
@@ -141,7 +141,7 @@ const sourceLd = {
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:type" content="image/png" />
-    <meta property="og:image:alt" content="PipRail — the open-source x402 crypto-payment SDK for AI agents across 27 chains" />
+    <meta property="og:image:alt" content="PipRail — the open-source x402 crypto-payment SDK for AI agents across 28 chains" />
 
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />

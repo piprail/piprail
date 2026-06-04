@@ -9,9 +9,9 @@
 [![types](https://img.shields.io/npm/types/@piprail/sdk.svg?logo=typescript&logoColor=white&color=3178c6)](https://www.npmjs.com/package/@piprail/sdk)
 [![license](https://img.shields.io/github/license/piprail/piprail.svg?color=2ee6a6)](LICENSE)
 [![x402 v2](https://img.shields.io/badge/x402-v2-6e56cf.svg)](https://x402.org)
-[![chains](https://img.shields.io/badge/chains-27%20across%209%20families-2ee6a6.svg)](#-supported-chains)
+[![chains](https://img.shields.io/badge/chains-28%20across%2010%20families-2ee6a6.svg)](#-supported-chains)
 
-**Let any HTTP endpoint charge for itself, and any agent pay for itself — across 27 chains, in a couple of lines.**
+**Let any HTTP endpoint charge for itself, and any agent pay for itself — across 28 chains, in a couple of lines.**
 
 [Website](https://piprail.com) · [npm](https://www.npmjs.com/package/@piprail/sdk) · [Full docs →](sdk/README.md)
 
@@ -19,7 +19,7 @@
 
 ---
 
-`@piprail/sdk` implements the open [x402](https://x402.org) **"402 Payment Required"** standard with **no backend, no database, no account, and no fee**. Payments settle **straight into your wallet**, verified locally against your own RPC — across every major EVM chain plus **Solana, TON, Tron, NEAR, Sui, Stellar & the XRP Ledger**.
+`@piprail/sdk` implements the open [x402](https://x402.org) **"402 Payment Required"** standard with **no backend, no database, no account, and no fee**. Payments settle **straight into your wallet**, verified locally against your own RPC — across every major EVM chain plus **Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar & the XRP Ledger**.
 
 ```bash
 npm install @piprail/sdk viem
@@ -53,20 +53,22 @@ The same app can **take** payments and **make** them. Built for autonomous agent
 
 ## 🌐 Supported chains
 
-**27 chains across 9 families** — name one with a single `chain:` parameter. Non-EVM families lazy-load on first use, so a pure-EVM install never downloads their libraries.
+**28 chains across 10 families** — name one with a single `chain:` parameter. Non-EVM families lazy-load on first use, so a pure-EVM install never downloads their libraries.
 
 | Family | Built-in chains | Tokens |
 |---|---|---|
-| **EVM** (17) | Ethereum · Base · Arbitrum · Optimism · Polygon · BNB · Avalanche · Mantle · Sonic · Linea · Scroll · Celo · zkSync · Unichain · World Chain · Sei · Injective | USDC + USDT* |
+| **EVM** (19) | Ethereum · Base · Arbitrum · Optimism · Polygon · BNB · Avalanche · Mantle · Sonic · Linea · Scroll · Celo · zkSync · Unichain · World Chain · Sei · Injective · HyperEVM · Monad | USDC + USDT* |
 | **Solana** | Solana | USDC · USDT |
 | **TON** | The Open Network | USD₮ |
 | **Tron** | Tron | USD₮ |
 | **NEAR** | NEAR | USDC · USDT |
 | **Sui** | Sui | USDC |
+| **Aptos** | Aptos | USDC · USDT |
+| **Algorand** | Algorand | USDC |
 | **Stellar** | Stellar | USDC · EURC |
 | **XRP Ledger** | XRPL | USDC · RLUSD |
 
-<sub>\*USDC on every EVM chain; USDT on all of them except Base, World Chain, and Sei. Any other EVM chain works via a viem `Chain` or `{ id, rpcUrl }` — no allowlist. Every token address was verified on-chain before shipping.</sub>
+<sub>\*USDC on every EVM chain; USDT on all of them except Base, World Chain, Sei, HyperEVM, and Monad (their "USDT" is USDT0/LayerZero, not Tether-native — omitted). Any other EVM chain works via a viem `Chain` or `{ id, rpcUrl }` — no allowlist. Every token address was verified on-chain before shipping.</sub>
 
 ## ✨ Why PipRail
 

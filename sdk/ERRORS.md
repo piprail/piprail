@@ -2,8 +2,8 @@
 
 This is the **single source of truth** for how `@piprail/sdk` reports errors. It is
 deliberately small and uniform: every module — the client, the server gate, the registry,
-and every chain driver (all nine families: EVM, Solana, TON, Tron, NEAR, Sui, Stellar, XRPL, Aptos,
-and any future one) — follows it
+and every chain driver (all ten families: EVM, Solana, TON, Tron, NEAR, Sui, Stellar, XRPL, Aptos,
+Algorand, and any future one) — follows it
 *exactly*, so a human developer, a merchant server, or an AI agent always gets a **typed,
 understandable** reason, never an opaque chain-library blob.
 

@@ -18,6 +18,7 @@ const FAMILY_LABEL: Record<ChainFamily, string> = {
   sui: 'Sui',
   near: 'NEAR',
   aptos: 'Aptos',
+  algorand: 'Algorand',
 }
 
 /**
@@ -38,6 +39,7 @@ const FAMILY_TOKEN: Record<ChainFamily, { key: string; shape: string; hint: stri
   sui: { key: 'coinType', shape: '{ coinType }', hint: '{ coinType, decimals }' },
   near: { key: 'contractId', shape: '{ contractId }', hint: '{ contractId, decimals }' },
   aptos: { key: 'metadata', shape: '{ metadata }', hint: '{ metadata, decimals }' },
+  algorand: { key: 'assetId', shape: '{ assetId }', hint: '{ assetId, decimals }' },
 }
 
 /**

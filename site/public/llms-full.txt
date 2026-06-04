@@ -1,12 +1,12 @@
 # PipRail — full reference for agents
 
-> Accept and make x402 "402 Payment Required" crypto payments from any HTTP request, across 27 chains in 9 families, with no backend, no database, no account, and no fee. Payments settle straight into your own wallet, verified locally against your own RPC. `@piprail/sdk` is an open-source (MIT) TypeScript SDK that runs headless or in the browser. This file is the everything-in-one-fetch version: the pitch, real code, the chain list, and the error model.
+> Accept and make x402 "402 Payment Required" crypto payments from any HTTP request, across 28 chains in 10 families, with no backend, no database, no account, and no fee. Payments settle straight into your own wallet, verified locally against your own RPC. `@piprail/sdk` is an open-source (MIT) TypeScript SDK that runs headless or in the browser. This file is the everything-in-one-fetch version: the pitch, real code, the chain list, and the error model.
 
 ## What it is
 
 PipRail is two things, no server:
 
-1. `@piprail/sdk` — a TypeScript SDK for x402 agent payments that works on any EVM chain plus Solana, TON, Tron, NEAR, Sui, Stellar, and the XRP Ledger. `npm install`, name your chain, add your wallet, done. One parameter (`chain`) picks everything.
+1. `@piprail/sdk` — a TypeScript SDK for x402 agent payments that works on any EVM chain plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger. `npm install`, name your chain, add your wallet, done. One parameter (`chain`) picks everything.
 2. A static landing page at piprail.com.
 
 There is no hosted backend, no facilitator, and no fee. Payments go straight to the developer's wallet and are verified locally against their own RPC, with an in-memory replay guard (pluggable for multi-instance). The x402 v2 spec explicitly allows resource servers to host verification themselves, so this backendless shape is spec-supported.
@@ -156,7 +156,7 @@ const tools = paymentTools(client) // → [piprail_quote_payment, piprail_pay_re
 
 ## Accept several chains at once
 
-`requirePayment` (and `createPaymentGate`) take an `accept: [...]` array — one challenge payable on any of several chains/tokens across all nine families. The agent pays with whatever it holds.
+`requirePayment` (and `createPaymentGate`) take an `accept: [...]` array — one challenge payable on any of several chains/tokens across all ten families. The agent pays with whatever it holds.
 
 ```ts
 requirePayment({
@@ -186,7 +186,7 @@ requirePayment({ chain: 'tron',     token: 'USDT', amount: '1',    payTo }) // U
 
 Any other EVM chain works by passing a viem `Chain` or `{ id, rpcUrl }` plus `token: { address, decimals }`. Custom tokens are supported per family: SPL `{ mint, decimals }`, TON jetton `{ master, decimals }`, Stellar `{ issuer, code, decimals }`, XRPL `{ issuer, currencyHex, decimals }`, TRC-20 `{ address, decimals }`, NEP-141 `{ contractId, decimals }`, Sui `{ coinType, decimals }`.
 
-## The 27 chains, by family
+## The 28 chains, by family
 
 - EVM (19 mainnets): Ethereum, Base, Arbitrum, Optimism, Polygon, BNB Chain, Avalanche, HyperEVM, Monad, Mantle, Sonic, Linea, Scroll, Celo, zkSync, Unichain, World Chain, Sei, Injective. USDC on all; USDT on all except Base, World Chain, Sei, HyperEVM, and Monad (their "USDT" is USDT0/LayerZero, not Tether-native).
 - Solana: USDC, USDT.
@@ -195,14 +195,15 @@ Any other EVM chain works by passing a viem `Chain` or `{ id, rpcUrl }` plus `to
 - NEAR: USDC, USDT (both native NEP-141).
 - Sui: USDC.
 - Aptos: USDC + USD₮ (both native Fungible Assets) + native APT (digest-bound, Template B like Sui).
+- Algorand: USDC (native Circle ASA) + native ALGO. Memo-bound (Template A) — the nonce rides in the 1KB transaction note; USDC-only (Tether deprecated USDT on Algorand). Part of the official x402 standard; PipRail is the backendless, no-facilitator option.
 - Stellar: USDC, EURC (7-decimal assets, memo-bound).
 - XRP Ledger (XRPL): USDC, RLUSD (receiving needs a one-time trustline).
 
 Every token address was verified on-chain before shipping. USDC is the common denominator across families.
 
-## Per-chain setup & caveats (read before shipping NEAR, TON, Stellar, XRPL, Tron)
+## Per-chain setup & caveats (read before shipping NEAR, TON, Stellar, XRPL, Tron, Algorand)
 
-Most chains need nothing beyond a wallet. `token: 'native'` (paying in the chain's own coin) is accepted on EVERY family — EVM, Solana, Sui, Stellar, XRPL, TON, NEAR, and Tron (native TRX, digest-bound). No exceptions. Custom tokens work everywhere with no allowlist.
+Most chains need nothing beyond a wallet. `token: 'native'` (paying in the chain's own coin) is accepted on EVERY family — EVM, Solana, Sui, Aptos, Algorand, Stellar, XRPL, TON, NEAR, and Tron (native TRX, digest-bound). No exceptions. Custom tokens work everywhere with no allowlist.
 
 - EVM / Solana / Sui: no receiver setup — any valid address receives native or token immediately (on Solana the payer's tx creates the recipient's token account and pays its ~0.00204 SOL rent; pass the recipient's WALLET address as payTo). Sui ships USDC only (no built-in USDT). On BNB Chain, USDC/USDT are 18 decimals (the SDK handles it).
 - NEAR — native is zero-setup; tokens need storage_deposit. `token:'native'` pays in NEAR (24dp) via digest-binding — NO `storage_deposit`, and a transfer even creates a fresh implicit recipient (the easy path; NEAR is the volatile gas coin, so for stable pricing pay in a token). For USDC/USDT (or a custom NEP-141 `{ contractId, decimals }`): the recipient AND the payer must each be NEP-145 `storage_deposit`-registered on that exact token contract once (~0.00125 NEAR) before they can receive/hold it. Wallet: `{ accountId, privateKey }` (an `ed25519:…` secret). Built-in USDC is Circle's native contract, not the bridged `…factory.bridge.near`. Do not route through NEAR Intents/solvers.
@@ -210,6 +211,7 @@ Most chains need nothing beyond a wallet. `token: 'native'` (paying in the chain
 - Tron — USD₮ (or native TRX) + real gas. Pay in `'USDT'`, `'native'` (TRX, digest-bound), or a custom TRC-20 `{ address, decimals }`. USD₮ is the default since TRX is volatile gas, but native TRX works too (a plain TransferContract, verified on the solidity node). No native USDC (Circle discontinued it). Gas is paid in TRX and a USD₮ transfer burns real Energy (~30k unstaked) — budget TRX with `client.estimateCost(url)`; a first native send to a brand-new recipient also pays Tron's ~1 TRX account-creation fee. No receiver setup. Wallet: `{ privateKey }` (hex). Finality waits ~19 blocks (~57s).
 - Stellar — trustline + funded account. Pay in native XLM, `'USDC'`, `'EURC'`, or `{ issuer, code, decimals }`. Receiving an issued asset needs the recipient to EXIST (funded above the ~1 XLM base reserve) AND hold a one-time trustline for that code+issuer (+0.5 XLM reserve each); the payer needs its own trustline too. Reserves are locked, not spent. Wallet: `{ secret }` (`S…`).
 - XRPL — activation + trustline. Pay in native XRP, `'USDC'`, `'RLUSD'`, or `{ issuer, currencyHex, decimals }`. Receiving an IOU needs the recipient to be an activated account (~1 XRP base reserve) AND hold a one-time trustline to the issuer's currency; native XRP needs neither. Reserves locked, not spent. RLUSD's issuer requires a DestinationTag — the SDK sets a nonce-derived one automatically. Wallet: `{ seed }` (`s…`).
+- Algorand — USDC needs a one-time ASA opt-in; native ALGO is zero-setup. Pay in native ALGO, `'USDC'`, or a custom ASA `{ assetId, decimals }`. To receive USDC the recipient must opt into the USDC ASA once (a 0-amount self-transfer, +0.1 ALGO min balance, recoverable) — a not-opted-in recipient surfaces RECIPIENT_NOT_READY; native ALGO needs no opt-in. ~3s finality, flat 0.001 ALGO fee; the nonce binds inside the transaction note (Template A). USDC-only (Tether deprecated USDT on Algorand). Algorand's `exact` scheme is part of the official x402 standard, but the incumbent path uses a hosted facilitator — PipRail is the backendless, no-facilitator alternative. Wallet: `{ mnemonic }` (25 words) or `{ account }`.
 
 Universal: every public default RPC is rate-limited — pass your own `rpcUrl` in production (there's no separate API-key field; fold any key into the URL). Full reference: https://github.com/piprail/piprail/blob/main/sdk/CHAINS.md
 

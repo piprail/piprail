@@ -32,5 +32,6 @@ export default defineConfig({
     '@mysten/sui',
     '@mysten/sui/*',
     'near-api-js',
+    'algosdk',
   ],
 })

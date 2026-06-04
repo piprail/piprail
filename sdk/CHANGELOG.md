@@ -4,6 +4,44 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.4.0] — 2026-06-04
+
+A new chain **family** — **Algorand** — the **10th driver family**, bringing the built-in count to
+**28 chains across 10 families (19 EVM)**. Algorand is genuinely part of the **official x402
+standard** (its `exact` scheme is merged into the canonical x402 repo and the `@x402/avm` package),
+and one of the loudest agentic-commerce chains of 2026 — but the incumbent x402 path there is
+**facilitator-mediated**, so PipRail is the **first facilitator-free, backendless, verify-locally
+x402 SDK on Algorand**. Fully backward-compatible; `algosdk` is a lazy-loaded optional peer, so
+pure-EVM (and other) installs never download it.
+
+### Added
+- **Algorand (`chain: 'algorand'`, CAIP-2 `algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k`)** — native
+  Circle **USDC** (ASA `31566704`, 6 dp) + native **ALGO** (6 dp). The USDC ASA was verified live on
+  mainnet (algod `/v2/assets/31566704` → unit-name `USDC`, decimals 6, creator = Circle's `2UEQ…`
+  account, url `centre.io/usdc`) before shipping. **USDC-only:** Tether deprecated USDT on Algorand
+  (frozen 2025-09-01), so it's intentionally omitted — pass it as a custom `{ assetId, decimals }`.
+- **Template A (memo-bound, like Stellar/XRPL/NEAR):** every Algorand transaction carries an
+  arbitrary **note field (≤1KB)**, so the challenge nonce rides in it verbatim (no hashing needed —
+  a UUID dwarfs nothing of the 1KB cap). `verify()` re-derives the watched account from the
+  **trusted `accept.payTo`** (never the client ref), reads its recent inbound transfers via the
+  indexer, and matches `note === nonce` + recipient + asset + amount + recency — a proof is
+  cryptographically bound to its challenge. Native ALGO is a `pay` txn; USDC/ASAs are `axfer`; both
+  carry the note. Amounts are integer base units (like EVM). `algosdk` is an **optional peer
+  (`>=3 <4`)**, lazy-loaded on first use; the built EVM bundle stays free of any static `algosdk`
+  import (its own chunk).
+- **Receive prerequisite:** to receive a USDC/ASA, the recipient must **opt into the ASA** (a
+  one-time 0-amount self-transfer) — conceptually identical to an XRPL/Stellar trustline. A submit
+  failure for a not-opted-in recipient maps to the typed `RecipientNotReadyError`; native ALGO needs
+  no opt-in.
+
+**Live-proven on Algorand mainnet — both assets, 12/12.** Real 402 → pay → confirm → verify → 200
+round-trips, each with balance moved + replay rejected (`tx_already_used`) + all agent surfaces
+green: **native ALGO** 6/6 (tx `AXXJVYAP7BLK6C76AWCJ3XA5HTECIRSCNRQ2WLFRNSZ6CD5GH32Q`) and
+**USDC** 6/6 (tx `INWCUUBAMIBYOPPUOBWXEHZQAQL6KSV7DPEEVGKAI64Z46TRQKOA`, merchant +0.05 USDC).
+Also verified against the test contract (typecheck + 441 tests + build + the lazy-chunk invariant).
+Funding follow-up: file an Algorand **xGov retroactive** grant for the shipped open-source SDK
+(SDKs/libraries are a named eligible category).
+
 ## [1.3.1] — 2026-06-04
 
 Aptos pay-path fix surfaced by the live mainnet test — no API change, fully compatible with 1.3.0.

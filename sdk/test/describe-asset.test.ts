@@ -8,6 +8,7 @@ import { tronDriver } from '../src/drivers/tron/index.js'
 import { suiDriver } from '../src/drivers/sui/index.js'
 import { nearDriver } from '../src/drivers/near/index.js'
 import { aptosDriver } from '../src/drivers/aptos/index.js'
+import { algorandDriver } from '../src/drivers/algorand/index.js'
 
 /**
  * describeAsset is the TRUSTED reverse-lookup (built-in token map + native) the
@@ -103,5 +104,12 @@ describe('describeAsset — trusted decimals/symbol per family (pure, no RPC)', 
       net.describeAsset('0x357b0b74bc833e95a115ad22604854d6b0fca151cecd94111770e5d6ffc9dc2b')
     ).toEqual({ symbol: 'USDT', decimals: 6 })
     expect(net.describeAsset('0xdeadbeef')).toBeNull()
+  })
+
+  it('Algorand: native ALGO (6dp), built-in USDC ASA id (6dp), unknown asset', () => {
+    const net = algorandDriver.resolve({ chain: 'algorand' })!
+    expect(net.describeAsset('native')).toEqual({ symbol: 'ALGO', decimals: 6 })
+    expect(net.describeAsset('31566704')).toEqual({ symbol: 'USDC', decimals: 6 })
+    expect(net.describeAsset('999999')).toBeNull()
   })
 })

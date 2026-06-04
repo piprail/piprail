@@ -6,7 +6,8 @@ themselves differ, and a few have **setup steps you must do before a wallet can 
 receive**. This page is the exact list.
 
 **Most chains need nothing special.** The ones with caveats are **NEAR**, **TON**,
-**Stellar**, **XRPL**, and **Tron** — read those sections before you ship them.
+**Stellar**, **XRPL**, **Tron**, and **Algorand** (USDC needs a one-time ASA opt-in) —
+read those sections before you ship them.
 
 ## At a glance
 
@@ -15,6 +16,8 @@ receive**. This page is the exact list.
 | **EVM** (Ethereum, Base, Arbitrum, Optimism, Polygon, BNB, Avalanche, Mantle, Sonic, Linea, Scroll, Celo, zkSync, Unichain, World Chain, Sei, Injective, + any EVM chain) | ✅ ETH/BNB/POL/… | USDC (all) · USDT (all **except Base, World Chain, Sei**) | No | `{ privateKey }` |
 | **Solana** | ✅ SOL | USDC · USDT | No (payer creates the recipient's token account) | `{ secretKey }` |
 | **Sui** | ✅ SUI | USDC (no USDT) | No | `{ privateKey }` (`suiprivkey1…`) |
+| **Aptos** | ✅ APT | USDC · USDT | No (primary FA store auto-creates) | `{ privateKey }` (`ed25519-priv-0x…`) |
+| **Algorand** | ✅ ALGO | **USDC only** (Tether deprecated USDT) | USDC: ⚠️ **ASA opt-in** · **native ALGO: none** | `{ mnemonic }` (25 words) |
 | **Stellar** | ✅ XLM | USDC · EURC | ⚠️ **Yes — trustline + funded account** | `{ secret }` (`S…`) |
 | **XRP Ledger** | ✅ XRP | USDC · RLUSD (no USDT) | ⚠️ **Yes — trustline + activated account** | `{ seed }` (`s…`) |
 | **TON** | ✅ TON | **USD₮ only** (no USDC) | No (payer's gas auto-deploys the jetton wallet) | `{ mnemonic }` (24 words) |
@@ -22,12 +25,14 @@ receive**. This page is the exact list.
 | **NEAR** | ✅ NEAR | USDC · USDT | tokens: ⚠️ `storage_deposit` · **native NEAR: none** | `{ accountId, privateKey }` |
 
 > **`token: 'native'`** (paying in the chain's own coin) is accepted on **every family** —
-> EVM, Solana, Sui, Stellar, XRPL, TON, NEAR, **and Tron** (native TRX, digest-bound). No
-> exceptions. On NEAR, native is the **zero-setup** path: no `storage_deposit`, and a transfer
-> even creates a fresh recipient (the NEP-141 token path still needs `storage_deposit`).
+> EVM, Solana, Sui, Aptos, Algorand, Stellar, XRPL, TON, NEAR, **and Tron** (native TRX,
+> digest-bound). No exceptions. On NEAR, native is the **zero-setup** path: no `storage_deposit`,
+> and a transfer even creates a fresh recipient (the NEP-141 token path still needs
+> `storage_deposit`).
 >
 > **Custom tokens** work everywhere with no allowlist: EVM `{ address, decimals }` ·
-> Solana `{ mint, decimals }` · Sui `{ coinType, decimals }` · TON `{ master, decimals }` ·
+> Solana `{ mint, decimals }` · Sui `{ coinType, decimals }` · Aptos `{ metadata, decimals }` ·
+> Algorand `{ assetId, decimals }` · TON `{ master, decimals }` ·
 > Tron `{ address, decimals }` · NEAR `{ contractId, decimals }` · Stellar
 > `{ issuer, code, decimals }` · XRPL `{ issuer, currencyHex, decimals }`.
 
@@ -93,6 +98,23 @@ receive**. This page is the exact list.
 - **Finality is slow-ish:** verification waits for the tx to solidify (~19 blocks, ~57s); until then it reads as `tx_not_found` and is retried.
 - **Wallet:** `{ privateKey }` (32-byte hex, same format as EVM); addresses are Base58 `T…`.
 
+### Algorand — USDC needs a one-time ASA opt-in (native ALGO doesn't)
+- **Pay in:** `'native'` (ALGO, the zero-setup path), `'USDC'`, or a custom ASA `{ assetId, decimals }`. **USDC only for the stablecoin** — Tether deprecated/froze USDT on Algorand (2025-09-01), so it's not built in (pass it as a custom ASA if you must).
+- **Receiving USDC needs an ASA opt-in.** Before an account can *receive* USDC (ASA `31566704`) — or any ASA — it must **opt into that asset** once: a 0-amount asset-transfer to itself, which raises its minimum balance by 0.1 ALGO (locked, recoverable). No opt-in → the payment fails and PipRail returns `RECIPIENT_NOT_READY`. **Native ALGO needs no opt-in.** The payer is implicitly opted-in if it already holds USDC. The one-time opt-in is plain `algosdk` (PipRail stays a payments SDK, not a wallet manager):
+  ```ts
+  import algosdk from 'algosdk'
+  const algod = new algosdk.Algodv2('', 'https://mainnet-api.algonode.cloud', '')
+  const sp = await algod.getTransactionParams().do()
+  const optIn = algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
+    sender: account.addr, receiver: account.addr, amount: 0, assetIndex: 31566704, suggestedParams: sp,
+  })
+  await algod.sendRawTransaction(optIn.signTxn(account.sk)).do() // one-time, per account per ASA
+  ```
+- **Fast + cheap:** ~3s single-step finality, flat 0.001 ALGO min fee. The challenge nonce rides in the transaction's **note field** (Template A), so the proof is bound to its challenge; verify reads the merchant account's inbound transfers via the indexer.
+- **x402:** Algorand's `exact` scheme is part of the official x402 standard, but the incumbent on-chain path uses a hosted **facilitator** — PipRail is the **backendless, no-facilitator** option (payer broadcasts, merchant verifies locally).
+- **Wallet:** `{ mnemonic }` (a 25-word Algorand recovery phrase) or `{ account }` (an algosdk `{ addr, sk }`).
+- **Endpoints:** `rpcUrl` overrides the **algod** endpoint (submit/params); the verify-side **indexer** uses the public AlgoNode default (override needs are rare; the public indexer is production-grade for the inbound-transfer read).
+
 ### Stellar — the receiver needs a trustline + a funded account
 - **Pay in:** `'native'` (XLM), `'USDC'`, `'EURC'`, or a custom `{ issuer, code, decimals }`.
 - **Receiving an issued asset needs a one-time TRUSTLINE.** The merchant (`payTo`) must (1) **exist** on-chain (funded above the ~1 XLM base reserve) and (2) hold a **trustline** (`changeTrust`) for that exact `code+issuer` *before* it can receive. No trustline → the payment fails. Each trustline locks **+0.5 XLM** of reserve. The **payer** likewise needs its own trustline to hold/send the asset.
@@ -130,6 +152,7 @@ Fix the *recipient*, not the payer:
 | `op_no_destination` | Stellar | the `payTo` account doesn't exist | create it with ≥1 XLM (base reserve) |
 | `op_no_trust` | Stellar | recipient has no trustline for the asset | add the trustline (+0.5 XLM reserve) |
 | `… is not registered` | NEAR | recipient isn't `storage_deposit`-registered on the token | call `storage_deposit` once (~0.00125 NEAR) |
+| `must optin` / `asset … missing from <payTo>` | Algorand | recipient hasn't opted into the USDC ASA | opt the recipient into the ASA once (0-amount self-transfer, +0.1 ALGO min balance) |
 
 Everything else (EVM, Solana, Sui, Tron, native TON/NEAR) needs no recipient setup, so you'll
 only ever see `INSUFFICIENT_FUNDS` there if the payer is short. Full taxonomy: **[ERRORS.md](./ERRORS.md)**.
@@ -143,9 +166,10 @@ right asset to `payTo`), but binds the proof to your challenge differently:
 
 - **Memo-bound** (the challenge nonce is written on-chain): **NEAR tokens** (ft_transfer
   memo), **TON** (transfer comment), **Stellar** (`MEMO_HASH = sha256(nonce)`), **XRPL**
-  (Memo + a derived DestinationTag).
+  (Memo + a derived DestinationTag), **Algorand** (the transaction's note field — native ALGO
+  and USDC alike).
 - **Digest-bound** (no on-chain nonce; the proof is the tx id, made single-use by the gate
-  + a recency window): **EVM**, **Solana**, **Sui**, **Tron**, and **native NEAR**. For
+  + a recency window): **EVM**, **Solana**, **Sui**, **Aptos**, **Tron**, and **native NEAR**. For
   these, a persistent `isUsed`/`markUsed` store + a tight `maxTimeoutSeconds` are
   load-bearing in multi-instance deployments (the default used-set is single-process).
 
