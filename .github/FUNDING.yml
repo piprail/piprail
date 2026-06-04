@@ -1,8 +1,8 @@
 # PipRail funding rails — surfaces the "Sponsor" button on the GitHub repo.
 # GitHub reads this file ONLY from the default branch (main), so it lives here.
 #
-# Activate each line as you create the account (see research/outreach-runbook.md Phase 0
-# + research/contacts.md §10). Keep every handle VALID — a wrong/unenrolled handle breaks
+# Activate each line as you create the account (see .claude/research/outreach-runbook.md Phase 0
+# + .claude/research/contacts.md §10). Keep every handle VALID — a wrong/unenrolled handle breaks
 # the Sponsor button, so the others below stay commented until their account exists.
 
 # --- Active now ---

@@ -1,9 +1,9 @@
 name: site
 
-# CI build check only. Deployment is handled by DigitalOcean App Platform,
-# which auto-builds and deploys the site (root build command `npm run build`,
-# output `site/dist`) on every push to main. This workflow just catches a
-# broken site build early on PRs/pushes — no deploy, no secrets.
+# CI build check only. Deployment is handled by Netlify (see netlify.toml),
+# which auto-builds and publishes the site (build `npm run build`, publish
+# `site/dist`) on every push to main. This workflow just catches a broken
+# site build early on PRs/pushes — no deploy, no secrets.
 on:
   push:
     branches: [main]

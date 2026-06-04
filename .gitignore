@@ -63,8 +63,8 @@ mcp/*.local.mjs
 /out/
 /cache/
 
-# Design working files + asset backups — kept local, not shipped in the repo
-/design/
+# Design asset backups — kept local. (Design masters now live with the skill at
+# /.claude/skills/site-design/design/, already covered by /.claude/ below.)
 /site/asset-backups/
 
 # Local agent tooling / planning notes (not part of the product)
@@ -75,8 +75,4 @@ mcp/*.local.mjs
 screencapture-*.png
 Screenshot*.png
 
-# Local test harnesses (our Anvil/mainnet rigs) — not for the public repo
-/playground/
-
-# Internal research / design notes — local only, not part of the shipped SDK
-/research/
+# Research & design notes now live under /.claude/ (already ignored above) — local only.
