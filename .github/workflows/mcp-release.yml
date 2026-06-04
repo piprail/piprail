@@ -27,6 +27,10 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
       - run: npm ci
+      # @piprail/mcp's type-declaration build (and its prepublishOnly typecheck +
+      # tests) resolve @piprail/sdk's built types/dist, which aren't committed —
+      # build the SDK first so they exist in the clean CI checkout.
+      - run: npm run build -w @piprail/sdk
       - run: npm run build -w @piprail/mcp
       - run: npm publish -w @piprail/mcp --access public
         env:

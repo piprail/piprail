@@ -31,6 +31,9 @@ jobs:
           # workspaces (sdk, site, mcp) from it.
           cache-dependency-path: package-lock.json
       - run: npm ci
+      # @piprail/mcp resolves @piprail/sdk's built types/dist (not committed) —
+      # build the SDK first so typecheck/build/test work in the clean CI checkout.
+      - run: npm run build -w @piprail/sdk
       - run: npm run typecheck -w @piprail/mcp
       - run: npm run typecheck:test -w @piprail/mcp
       # Build before test so the pack inspection sees a fresh dist/.
