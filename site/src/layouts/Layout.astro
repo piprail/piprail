@@ -9,7 +9,7 @@ interface Props {
 const {
   title = 'PipRail — x402 crypto payment SDK for every chain (EVM, Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, XRPL)',
   description =
-    'Accept and make x402 crypto payments on any EVM chain, Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger — in one line. No middleman, no account, no fee: USDC/USDT settles straight to your wallet, verified locally against your own RPC. Agent-safe spend budgets, one-line multi-chain, pre-pay gas estimates, MCP-ready. The drop-in payment SDK for AI agents.',
+    'Accept and make x402 crypto payments on any EVM chain, Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger — in one line. No middleman, no account, no fee: USDC/USDT settles straight to your wallet, verified locally against your own RPC. Agent-safe spend budgets, one-line multi-chain, pre-pay gas estimates, plus an MCP server so Claude, Cursor, and any agent pay autonomously. The drop-in payment SDK for AI agents.',
 } = Astro.props
 
 const site = Astro.site?.href.replace(/\/$/, '') ?? 'https://piprail.com'
@@ -35,6 +35,7 @@ const featureList = [
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
+  '@id': 'https://piprail.com/#sdk',
   name: 'PipRail',
   alternateName: '@piprail/sdk',
   applicationCategory: 'DeveloperApplication',
@@ -100,6 +101,30 @@ const sourceLd = {
   maintainer: { '@id': 'https://piprail.com/#organization' },
   targetProduct: { '@id': 'https://piprail.com/#organization' },
 }
+
+// @piprail/mcp — its own SoftwareApplication entity so search + AI answer engines
+// index "PipRail MCP server" as a distinct, installable product alongside the SDK.
+const mcpLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  '@id': 'https://piprail.com/#mcp',
+  name: '@piprail/mcp',
+  alternateName: 'PipRail MCP server',
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'Node.js',
+  description:
+    'A Model Context Protocol (MCP) server that hands any AI agent — Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, Cline — a budget-bound wallet to pay x402 payment-gated URLs autonomously across 28 chains. Runs locally with your own wallet and spend caps; no backend, no custody. Install with: npx -y @piprail/mcp.',
+  url: 'https://piprail.com/mcp',
+  downloadUrl: 'https://www.npmjs.com/package/@piprail/mcp',
+  codeRepository: 'https://github.com/piprail/piprail',
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+  programmingLanguage: 'TypeScript',
+  license: 'https://opensource.org/licenses/MIT',
+  author: { '@type': 'Person', name: 'John Weeks' },
+  isPartOf: { '@id': 'https://piprail.com/#organization' },
+  keywords:
+    'mcp, model context protocol, mcp server, x402, agent payments, ai agents, claude desktop, cursor, crypto payments, usdc, autonomous payments, agentic commerce, wallet',
+}
 ---
 
 <!doctype html>
@@ -112,10 +137,12 @@ const sourceLd = {
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
+    <link rel="alternate" hreflang="en" href={canonical} />
+    <link rel="alternate" hreflang="x-default" href={site} />
     <meta name="theme-color" content="#0a0b0c" />
     <meta
       name="keywords"
-      content="x402, crypto payment SDK, agent payments, agentic commerce, EVM, Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, XRPL, XRP, USDC, USDT, EURC, RLUSD, ALGO, stablecoin, 402 Payment Required, AI agents, MCP, multi-chain, spend budget, web3, machine payments"
+      content="x402, crypto payment SDK, agent payments, agentic commerce, EVM, Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, XRPL, XRP, USDC, USDT, EURC, RLUSD, ALGO, stablecoin, 402 Payment Required, AI agents, MCP, MCP server, Model Context Protocol, Claude Desktop, Cursor, autonomous payments, multi-chain, spend budget, web3, machine payments"
     />
 
     <!-- Open Graph -->
@@ -157,8 +184,25 @@ const sourceLd = {
     <script is:inline type="application/ld+json" set:html={JSON.stringify(orgLd)} />
     <script is:inline type="application/ld+json" set:html={JSON.stringify(websiteLd)} />
     <script is:inline type="application/ld+json" set:html={JSON.stringify(sourceLd)} />
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(mcpLd)} />
   </head>
   <body class="min-h-screen antialiased">
     <slot />
+
+    <!-- Open every EXTERNAL link in a new tab by default, with a safe rel.
+         One place, so it covers every page + any link added later. Internal
+         links and in-page anchors are left untouched; degrades gracefully
+         (links still work without JS, just same-tab). -->
+    <script is:inline>
+      for (const a of document.querySelectorAll('a[href]')) {
+        try {
+          const u = new URL(a.href, location.href)
+          if (u.origin !== location.origin && (u.protocol === 'http:' || u.protocol === 'https:')) {
+            a.target = '_blank'
+            a.rel = 'noopener noreferrer'
+          }
+        } catch {}
+      }
+    </script>
   </body>
 </html>

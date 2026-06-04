@@ -1,6 +1,8 @@
 # PipRail
 
-> Accept and make x402 "402 Payment Required" crypto payments from any HTTP request — across 28 chains in 10 families (every major EVM chain plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar & the XRP Ledger). No backend, no database, no account, no fee: payments settle straight to your wallet, verified locally against your own RPC. Built for AI agents.
+> Last-Updated: 2026-06-05 · SDK-Version: 1.5.1 · MCP-Version: 0.1.0 · Type: APIService · License: MIT · Repository: https://github.com/piprail/piprail
+
+> Accept and make x402 "402 Payment Required" crypto payments from any HTTP request — across 28 chains in 10 families (every major EVM chain plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar & the XRP Ledger). No backend, no database, no account, no fee: payments settle straight to your wallet, verified locally against your own RPC. Built for AI agents. Now also `@piprail/mcp` — an MCP (Model Context Protocol) server that lets any MCP client (Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, Cline) pay x402 URLs autonomously, capped by a local spend policy the model cannot exceed.
 
 PipRail is `@piprail/sdk`, an open-source (MIT) TypeScript SDK. Gate any route so it charges for itself, or point an agent at a paid URL and it pays itself. `requirePayment` is the Express one-liner; `createPaymentGate` is the framework-agnostic core for everything else (Next.js, Hono, Fastify, Workers, Bun, Deno); `PipRailClient` pays; `paymentTools` hands payment to a model with a spend budget.
 
@@ -15,6 +17,14 @@ Full pitch + all code inline: [llms-full.txt](https://piprail.com/llms-full.txt)
 - [Concepts](https://github.com/piprail/piprail/blob/main/examples/CONCEPTS.md): the 402 loop, who owns what, which primitive to use when, replay protection, local verification.
 - [Error codes](https://github.com/piprail/piprail/blob/main/sdk/ERRORS.md): the two-channel error model — thrown `PipRailError` codes and returned `VerifyErrorCode`s — and how to handle each.
 - [Agent guidelines](https://github.com/piprail/piprail/blob/main/AGENTS.md): commands, project structure, API ground truth, and the Always/Ask-first/Never rules.
+
+## MCP — @piprail/mcp
+
+- `@piprail/mcp` wraps the SDK as an MCP server so any MCP client pays x402 URLs autonomously, budget-bound. Run: `npx -y @piprail/mcp` (speaks MCP over stdio). Local-only, zero custody — your key, your RPC, your limits.
+- Three tools: `piprail_quote_payment` (price a gated URL without paying), `piprail_plan_payment` (check balance + gas + recipient-readiness + policy across every rail, read-only), `piprail_pay_request` (fetch with payment on the cheapest affordable rail).
+- Config is all env vars: `PIPRAIL_PRIVATE_KEY` (required), `PIPRAIL_CHAIN` (default base), `PIPRAIL_MAX_AMOUNT` (per-call cap, default 0.10), `PIPRAIL_MAX_TOTAL` (lifetime per-token cap, default 10.00), `PIPRAIL_TOKENS` (default USDC; USDT on Tron/TON), `PIPRAIL_HOSTS`, `PIPRAIL_RPC_URL`, `PIPRAIL_NEAR_ACCOUNT_ID`. Caps are enforced before any on-chain send and checked against the token's true decimals — the model cannot overspend.
+- Works in Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, and Cline. EVM works out of the box; non-EVM chains pull their SDK peer on demand. One wallet per chain per instance.
+- Page: [MCP setup guide](https://piprail.com/mcp) · npm: [@piprail/mcp](https://www.npmjs.com/package/@piprail/mcp) · [README](https://github.com/piprail/piprail/blob/main/mcp/README.md)
 
 ## Examples
 
@@ -31,4 +41,6 @@ Full pitch + all code inline: [llms-full.txt](https://piprail.com/llms-full.txt)
 - [Website](https://piprail.com)
 - [Live demo](https://piprail.com/demo) — try x402 in your browser, no install
 - [npm: @piprail/sdk](https://www.npmjs.com/package/@piprail/sdk)
+- [npm: @piprail/mcp](https://www.npmjs.com/package/@piprail/mcp) — MCP server for budget-bound agent payments
+- [MCP setup guide](https://piprail.com/mcp)
 - [GitHub](https://github.com/piprail/piprail)

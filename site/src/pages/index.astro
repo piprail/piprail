@@ -12,8 +12,18 @@ import {
 import {
   Zap, Coins, ShieldCheck, PackageCheck,
   Boxes, Percent, Code2, Scale, ArrowRight, Globe, ChevronDown, Play,
-  Handshake, Puzzle, Landmark, Mail,
+  Handshake, Puzzle, Landmark, Mail, Bot, Plug, Wallet, Sparkles,
 } from 'lucide-astro'
+
+import { mcpConfigCode } from '../data/snippets'
+
+// @piprail/mcp — the three tools an MCP client gets, and the clients it drops into.
+const mcpTools = [
+  { name: 'piprail_quote_payment', desc: 'price a gated URL — without paying' },
+  { name: 'piprail_plan_payment', desc: 'check it can afford it: balance, gas, recipient-readiness' },
+  { name: 'piprail_pay_request', desc: 'fetch it, paying the 402 automatically' },
+]
+const mcpClients = ['Claude Desktop', 'Cursor', 'Claude Code', 'Windsurf', 'VS Code', 'Cline']
 
 const stats = [
   { icon: Boxes, v: '28', l: 'chains built in' },
@@ -102,6 +112,14 @@ const faqs = [
   {
     q: `How do AI agents pay for APIs with PipRail?`,
     a: `Wrap the agent's HTTP calls with PipRailClient. Give it a wallet and a chain, then call client.fetch(url): on a 402 it reads the challenge, sends the payment on-chain, waits for confirmation, and retries with proof — automatically. Use client.quote(url) to learn a price without paying, client.estimateCost(url) to budget gas, and an opt-in spend policy (maxAmount, maxTotal, chains, tokens, hosts) that refuses out-of-bounds calls before any send. paymentTools(client) hands the same to an LLM via MCP, the Vercel AI SDK, or function-calling — budget-bound so it can't overspend.`,
+  },
+  {
+    q: `How do I let Claude or Cursor pay for things autonomously?`,
+    a: `Install the PipRail MCP server. Add a small config block to your MCP client (Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, or Cline) that runs "npx -y @piprail/mcp" with your wallet key, chain, and spend caps. The agent gains three tools — piprail_quote_payment (price a gated URL), piprail_plan_payment (check it can afford it: balance, gas, recipient-readiness), and piprail_pay_request (pay the 402 and fetch the result) — so it can pay x402-gated APIs on its own across 28 chains. It runs locally with your own wallet, and the spend policy is enforced before any on-chain send, so the model literally cannot overspend. PipRail holds nothing and runs no backend or facilitator.`,
+  },
+  {
+    q: `What is the PipRail MCP server (@piprail/mcp)?`,
+    a: `@piprail/mcp is a Model Context Protocol (MCP) server that wraps @piprail/sdk so any MCP client can pay x402 payment-gated URLs autonomously. Run it with "npx -y @piprail/mcp" plus a wallet and a budget; it exposes piprail_quote_payment, piprail_plan_payment, and piprail_pay_request to the agent, across 28 chains. It's local-only, self-custodial, and budget-bound — no backend, no custody, no facilitator. It's how you give Claude, Cursor, or any AI agent a wallet without letting it overspend, in a couple of lines of config.`,
   },
   {
     q: `How does an agent know if it can actually pay before paying?`,
@@ -381,6 +399,75 @@ const faqLd = {
         <code class="text-neutral-200">autoRoute</code> and <code class="text-neutral-200">fetch</code>
         pays the cheapest rail you can afford automatically; nothing settleable → it refuses before any send.
       </p>
+    </section>
+
+    <!-- MCP — give any AI agent a wallet -->
+    <section id="mcp" class="scroll-mt-20 border-t border-white/10 py-20 sm:py-24">
+      <div class="relative overflow-hidden rounded-3xl border border-accent/20 bg-linear-to-br from-accent/8 via-white/2 to-transparent p-8 sm:p-10 lg:p-14">
+        <div class="pointer-events-none absolute -left-24 -top-28 h-80 w-80 rounded-full bg-accent/10 blur-3xl"></div>
+        <div class="relative grid items-center gap-10 lg:grid-cols-[1fr_1.05fr] lg:gap-14">
+          <!-- copy -->
+          <div>
+            <span class="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/8 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+              <Sparkles size={13} aria-hidden="true" /> New · @piprail/mcp
+            </span>
+            <h2 class="mt-5 text-3xl font-semibold leading-[1.1] tracking-tight sm:text-4xl md:text-5xl">
+              Give your AI agent <span class="text-accent">a wallet</span>.
+            </h2>
+            <p class="mt-5 max-w-xl text-base leading-relaxed text-neutral-400 sm:text-lg">
+              The PipRail <span class="text-neutral-200">MCP server</span> hands any agent a budget-bound wallet.
+              Paste one config block and <span class="text-neutral-200">Claude Desktop, Cursor,</span> or any MCP
+              client can pay x402-gated APIs <span class="text-neutral-200">on its own</span> — across 28 chains,
+              capped by a spend policy it <span class="text-neutral-200">cannot exceed</span>.
+            </p>
+
+            <!-- the three tools -->
+            <ul class="mt-7 space-y-2.5">
+              {mcpTools.map((t) => (
+                <li class="flex items-start gap-3">
+                  <span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-accent/30 bg-accent/10 text-accent"><Plug size={12} aria-hidden="true" /></span>
+                  <span class="text-sm leading-snug text-neutral-300"><code class="text-neutral-100">{t.name}</code> — {t.desc}</span>
+                </li>
+              ))}
+            </ul>
+
+            <!-- trust line -->
+            <p class="mt-7 flex items-start gap-2.5 rounded-xl border border-white/10 bg-white/2 px-4 py-3 text-sm leading-snug text-neutral-400">
+              <ShieldCheck size={16} class="mt-0.5 shrink-0 text-accent" aria-hidden="true" />
+              <span>Runs on <span class="text-neutral-200">your</span> machine with <span class="text-neutral-200">your</span> wallet and limits. The budget is enforced before any on-chain send — <span class="text-neutral-200">the model can't overspend</span>. No backend, no custody.</span>
+            </p>
+
+            <div class="mt-8 flex flex-col gap-3 sm:flex-row">
+              <a href="/mcp" class="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110">
+                <Bot size={16} aria-hidden="true" /> Set it up
+              </a>
+              <a href="https://www.npmjs.com/package/@piprail/mcp" class="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20">
+                @piprail/mcp on npm
+              </a>
+            </div>
+          </div>
+
+          <!-- config + clients -->
+          <div class="min-w-0">
+            <CodeWindow file="claude_desktop_config.json" code={mcpConfigCode} />
+            <div class="mt-4 flex items-center gap-3 rounded-xl border border-white/10 bg-white/2 px-4 py-3">
+              <Wallet size={16} class="shrink-0 text-accent" aria-hidden="true" />
+              <p class="text-sm leading-snug text-neutral-400">
+                <span class="font-mono text-neutral-200">npx -y @piprail/mcp</span> — nothing to install. Then say
+                <span class="text-neutral-300">“pay for and summarize that report”</span> and the agent does the rest.
+              </p>
+            </div>
+            <div class="mt-4">
+              <p class="mb-2.5 text-[11px] uppercase tracking-[0.18em] text-neutral-600">Works in</p>
+              <div class="flex flex-wrap gap-2">
+                {mcpClients.map((c) => (
+                  <span class="inline-flex items-center rounded-full border border-white/10 bg-white/3 px-3 py-1.5 text-xs font-medium text-neutral-300">{c}</span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- A tool, not a platform -->

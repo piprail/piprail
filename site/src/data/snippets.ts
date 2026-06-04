@@ -96,3 +96,20 @@ export const multiAcceptCode = `<span class="tok-fn">requirePayment</span>({
     { chain: <span class="tok-chain">'solana'</span>, token: <span class="tok-str">'USDC'</span>, amount: <span class="tok-str">'0.05'</span>, payTo: sol },
   ],
 })`
+
+// @piprail/mcp — drop this into any MCP client (Claude Desktop, Cursor, …) and the
+// agent gets a budget-bound wallet. npx fetches the server; no install step.
+export const mcpConfigCode = `<span class="tok-com">// claude_desktop_config.json — paste, restart, done</span>
+{
+  <span class="tok-str">"mcpServers"</span>: {
+    <span class="tok-str">"piprail"</span>: {
+      <span class="tok-str">"command"</span>: <span class="tok-str">"npx"</span>,
+      <span class="tok-str">"args"</span>: [<span class="tok-str">"-y"</span>, <span class="tok-str">"@piprail/mcp"</span>],
+      <span class="tok-str">"env"</span>: {
+        <span class="tok-str">"PIPRAIL_PRIVATE_KEY"</span>: <span class="tok-str">"0x…"</span>,
+        <span class="tok-str">"PIPRAIL_CHAIN"</span>: <span class="tok-chain">"base"</span>,
+        <span class="tok-str">"PIPRAIL_MAX_AMOUNT"</span>: <span class="tok-str">"0.10"</span>
+      }
+    }
+  }
+}`

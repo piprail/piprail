@@ -1,13 +1,16 @@
 # PipRail — full reference for agents
 
+> Last-Updated: 2026-06-05 · SDK-Version: 1.5.1 · MCP-Version: 0.1.0 · Type: APIService · License: MIT
+
 > Accept and make x402 "402 Payment Required" crypto payments from any HTTP request, across 28 chains in 10 families, with no backend, no database, no account, and no fee. Payments settle straight into your own wallet, verified locally against your own RPC. `@piprail/sdk` is an open-source (MIT) TypeScript SDK that runs headless or in the browser. This file is the everything-in-one-fetch version: the pitch, real code, the chain list, and the error model.
 
 ## What it is
 
-PipRail is two things, no server:
+PipRail is three things, no server:
 
 1. `@piprail/sdk` — a TypeScript SDK for x402 agent payments that works on any EVM chain plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger. `npm install`, name your chain, add your wallet, done. One parameter (`chain`) picks everything.
-2. A static landing page at piprail.com.
+2. `@piprail/mcp` — an MCP (Model Context Protocol) server that wraps the SDK so any MCP client (Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, Cline) pays x402 URLs autonomously, capped by a local spend policy. No code, just an env block.
+3. A static landing page at piprail.com.
 
 There is no hosted backend, no facilitator, and no fee. Payments go straight to the developer's wallet and are verified locally against their own RPC, with an in-memory replay guard (pluggable for multi-instance). The x402 v2 spec explicitly allows resource servers to host verification themselves, so this backendless shape is spec-supported.
 
@@ -168,8 +171,25 @@ For every rail the 402 offers on your chain, the plan reads **token balance + na
 
 ```ts
 import { paymentTools } from '@piprail/sdk'
-const tools = paymentTools(client) // → [piprail_quote_payment, piprail_pay_request]
+const tools = paymentTools(client) // → [piprail_quote_payment, piprail_plan_payment, piprail_pay_request]
 ```
+
+## Pay via MCP (@piprail/mcp)
+
+Where `paymentTools()` is for code, `@piprail/mcp` is the zero-code path: an MCP server wrapping the SDK so an agent in any MCP client pays x402 URLs on its own, budget-bound, with nothing to integrate. Run it over stdio:
+
+```bash
+npx -y @piprail/mcp
+```
+
+Add it to your client with your wallet key and (optionally) a budget — defaults are small and safe (0.10 per payment, 10.00 lifetime per token, USDC on Base). Claude Desktop example:
+
+```json
+{ "mcpServers": { "piprail": { "command": "npx", "args": ["-y", "@piprail/mcp"],
+    "env": { "PIPRAIL_PRIVATE_KEY": "0x…", "PIPRAIL_CHAIN": "base", "PIPRAIL_MAX_AMOUNT": "0.10", "PIPRAIL_MAX_TOTAL": "10.00" } } } }
+```
+
+Three tools appear: `piprail_quote_payment` (price without paying), `piprail_plan_payment` (balance + gas + recipient-readiness + policy, read-only, across every rail), `piprail_pay_request` (fetch + pay on the cheapest affordable rail). Config is ENV-ONLY (never CLI args — a key in argv leaks): `PIPRAIL_PRIVATE_KEY` (required), `PIPRAIL_CHAIN` (default base), `PIPRAIL_MAX_AMOUNT`, `PIPRAIL_MAX_TOTAL`, `PIPRAIL_TOKENS` (default USDC; USDT on Tron/TON), `PIPRAIL_HOSTS`, `PIPRAIL_RPC_URL`, `PIPRAIL_ALLOW_UNKNOWN_TOKENS` (keep false), `PIPRAIL_NEAR_ACCOUNT_ID` (NEAR only). The wallet key is the chain's native form (EVM/Tron hex `0x…`, Sui `suiprivkey1…`, Aptos `ed25519-priv-0x…` or hex, Solana base58, TON 24-word mnemonic, Algorand 25-word mnemonic, Stellar `S…` seed, XRPL `s…` seed, NEAR `ed25519:…` + account id). Clients: Claude Desktop, Cursor, Claude Code, Windsurf, VS Code (top-level key is `servers`), Cline. EVM works out of the box; non-EVM pulls its SDK peer on demand; one wallet per chain per instance — register the server once per chain for multi-rail. Why it's safe: the spend policy is enforced before any on-chain send and checked against the token's TRUE decimals, so a malicious server can't understate a price to slip past a cap; an over-budget request returns `{ declined: true, reason }` and nothing moves. No custody, no backend — runs locally with your key against your own RPC. MIT. Page: https://piprail.com/mcp · npm: https://www.npmjs.com/package/@piprail/mcp · README: https://github.com/piprail/piprail/blob/main/mcp/README.md
 
 ## Accept several chains at once
 
@@ -246,6 +266,9 @@ The rule of thumb for agents: a thrown `PaymentDeclinedError` means your own bud
 - Website: https://piprail.com
 - Live demo (try x402 in your browser, no install): https://piprail.com/demo
 - npm: https://www.npmjs.com/package/@piprail/sdk
+- npm: @piprail/mcp (MCP server): https://www.npmjs.com/package/@piprail/mcp
+- MCP setup guide: https://piprail.com/mcp
+- MCP README: https://github.com/piprail/piprail/blob/main/mcp/README.md
 - GitHub (MIT): https://github.com/piprail/piprail
 - SDK README: https://github.com/piprail/piprail/blob/main/sdk/README.md
 - Per-chain setup & caveats: https://github.com/piprail/piprail/blob/main/sdk/CHAINS.md
