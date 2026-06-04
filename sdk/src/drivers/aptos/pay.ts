@@ -21,6 +21,17 @@ import { InsufficientFundsError, toInsufficientFundsError } from '../../errors.j
 import { APT_FA_METADATA } from './chains.js'
 import type { X402AcceptEntry } from '../../x402.js'
 
+/**
+ * Cap the transaction's max gas. Aptos validates `max_gas_amount × gas_unit_price`
+ * against the sender's balance UP FRONT (before execution), so the SDK default
+ * (200_000 units) makes a tiny transfer demand ~0.5 APT held just to be admitted —
+ * a wallet with a modest APT balance is rejected with INSUFFICIENT_BALANCE_FOR_
+ * TRANSACTION_FEE. A primary_fungible_store::transfer (even one that creates the
+ * recipient's store) uses well under this, so a 50k cap keeps ample headroom while
+ * the upfront fee requirement stays small. (Found by the live mainnet test.)
+ */
+const MAX_GAS_AMOUNT = 50_000
+
 /** A Move entry-function call (pure data — no SDK types). */
 export interface AptosEntryData {
   function: `${string}::${string}::${string}`
@@ -31,7 +42,7 @@ export interface AptosEntryData {
 /** The slice of the Aptos client the pay path needs — adapted from a real client in index.ts. */
 export interface AptosPayClient {
   /** Build a simple (single-signer) transaction from an entry-function payload. */
-  build(input: { sender: string; data: AptosEntryData }): Promise<unknown>
+  build(input: { sender: string; data: AptosEntryData; options?: { maxGasAmount?: number } }): Promise<unknown>
   /** Sign + submit the built transaction, returning the pending tx hash. */
   signSubmit(input: { signer: unknown; transaction: unknown }): Promise<{ hash: string }>
 }
@@ -57,6 +68,7 @@ export async function payAptos(params: PayAptosParams): Promise<string> {
         // u64 amount goes as a base-unit string; the FA metadata object + recipient are addresses.
         functionArguments: [metadata, accept.payTo, accept.amount],
       },
+      options: { maxGasAmount: MAX_GAS_AMOUNT },
     })
     const res = await client.signSubmit({ signer, transaction })
     return res.hash

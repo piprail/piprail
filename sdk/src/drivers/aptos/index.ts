@@ -104,6 +104,7 @@ function makeAptosNetwork(preset: AptosPreset, rpcUrl: string): ResolvedNetwork 
         sender: input.sender,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         data: input.data as any,
+        ...(input.options ? { options: input.options } : {}),
       }),
     signSubmit: (input) =>
       aptos.signAndSubmitTransaction({

@@ -9,6 +9,7 @@ const PAY_TO = Account.generate().accountAddress.toString()
 
 interface Captured {
   data?: AptosEntryData
+  options?: { maxGasAmount?: number }
   submitted?: boolean
 }
 
@@ -17,6 +18,7 @@ function mockClient(opts?: { submitThrows?: Error }) {
   const client: AptosPayClient = {
     async build(input) {
       captured.data = input.data
+      captured.options = input.options
       return { __raw: true }
     },
     async signSubmit() {
@@ -49,6 +51,8 @@ describe('payAptos — builds + submits a primary_fungible_store transfer (diges
     expect(captured.data?.function).toBe('0x1::primary_fungible_store::transfer')
     expect(captured.data?.typeArguments).toEqual(['0x1::fungible_asset::Metadata'])
     expect(captured.data?.functionArguments).toEqual([USDC_META, PAY_TO, '50000'])
+    // caps max gas so a modest-APT wallet isn't rejected upfront (INSUFFICIENT_BALANCE_FOR_TRANSACTION_FEE)
+    expect(captured.options?.maxGasAmount).toBe(50000)
   })
 
   it('native APT transfers the APT FA metadata (0xa)', async () => {

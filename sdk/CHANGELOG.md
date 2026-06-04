@@ -4,6 +4,19 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.3.1] — 2026-06-04
+
+Aptos pay-path fix surfaced by the live mainnet test — no API change, fully compatible with 1.3.0.
+
+### Fixed
+- **Aptos: cap `maxGasAmount` (50k) on the Fungible-Asset transfer.** Aptos validates
+  `max_gas_amount × gas_unit_price` against the sender's balance *before* execution, so the SDK
+  default (200k units) made a tiny transfer demand ~0.5 APT held just to be admitted — a wallet
+  with a modest APT balance was rejected with `INSUFFICIENT_BALANCE_FOR_TRANSACTION_FEE` even
+  though the transfer itself uses a fraction of that. A `primary_fungible_store::transfer` (even
+  one that creates the recipient's primary store) stays well under 50k gas units, so the cap keeps
+  ample gas headroom while the upfront fee requirement stays small. Live-validated on Aptos mainnet.
+
 ## [1.3.0] — 2026-06-04
 
 A new chain **family** — **Aptos** — the **9th driver family** and the only Move L1 with BOTH
