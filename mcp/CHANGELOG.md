@@ -1,6 +1,12 @@
 # @piprail/mcp changelog
 
-## 0.1.0 — unreleased
+## [Unreleased]
+
+- **Docs:** `PIPRAIL_TOKENS` now documents the chain-agnostic `native` alias (allow the chain's
+  coin on any family without naming its ticker) across the README, `.env.example`, `server.json`,
+  and the `Config` JSDoc — it's a passthrough to `@piprail/sdk`'s `policy.tokens` (SDK ≥ 1.6.0).
+
+## 0.1.0 — 2026-06-05
 
 Initial release. A Model Context Protocol server wrapping [`@piprail/sdk`](https://www.npmjs.com/package/@piprail/sdk).
 

@@ -64,6 +64,20 @@ describe('evaluatePolicy — tokens allowlist (TRUE symbol)', () => {
     expect(ok(intent(), { tokens: ['USDT'] })).toBe(false)
     expect(ok(intent({ recognized: false, symbol: 'USDC' }), { tokens: ['USDC'], allowUnknownTokens: true })).toBe(false)
   })
+
+  it("'native' is a chain-agnostic alias for the chain's coin — matched by asset, on any family", () => {
+    // mirrors the merchant side (`token: 'native'`): you allow the native coin by
+    // the word `native`, not by guessing the ticker. Matched on asset, not symbol.
+    const ethPay = intent({ asset: 'native', symbol: 'ETH' })
+    const tronPay = intent({ chain: 'tron', network: 'tron:mainnet', asset: 'native', symbol: 'TRX' })
+    expect(ok(ethPay, { tokens: ['native'] })).toBe(true) // the alias (case-insensitive)
+    expect(ok(ethPay, { tokens: ['NATIVE'] })).toBe(true)
+    expect(ok(tronPay, { tokens: ['native'] })).toBe(true) // works on every family
+    expect(ok(ethPay, { tokens: ['ETH'] })).toBe(true) // the real ticker still works
+    expect(ok(ethPay, { tokens: ['USDC'] })).toBe(false) // unrelated token still refused
+    // 'native' must NOT loosen anything for a non-native asset:
+    expect(ok(intent(/* USDC ERC-20 */), { tokens: ['native'] })).toBe(false)
+  })
 })
 
 describe('evaluatePolicy — unknown tokens are refused by default', () => {
