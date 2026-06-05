@@ -244,10 +244,17 @@ plus tests plus docs plus the site** — zero new driver code.
      key(s) to that array. This is intentional (it stops accidental drift) — update it.
    - Add a dedicated assertion for the new chain (chainId, USDC decimals/symbol, and any
      token you deliberately omitted asserted `toBeUndefined()`).
-5. **Docs:** add a row to the built-in chains table in `sdk/README.md`, and bump the
-   "Chains built in (N EVM + …)" count + chain list in `CLAUDE.md`.
-6. **Site (mandatory):** §6 — add the chain to the `chains` array, grab its SVG, bump
-   the "N chains built in" stat and the "Seventeen EVM mainnets…" grid heading.
+5. **Docs:** add a row to the built-in chains table in `sdk/README.md` (and `sdk/CHAINS.md` if
+   the chain has setup caveats), and update its prose counts — e.g. the spelled-out
+   "all N families" phrasing only changes when a NEW FAMILY is added (an EVM preset doesn't
+   touch it). **Do NOT edit a count in `CLAUDE.md`** — it intentionally carries none
+   ("don't duplicate counts here") and defers to `sdk/README.md` + `sdk/CHAINS.md`. Add the
+   chain to CLAUDE.md's "Key facts" list only if it isn't already covered by "every major EVM
+   chain plus …".
+6. **Site (mandatory):** §6 — add the chain to the `chains` array, grab its SVG, bump the
+   "chains built in" stat tile to the new grand total, and re-spell the EVM-only count in the
+   `#chains` grid heading (and every echoed copy). Don't trust any number quoted here — read the
+   live values per §6a steps 2–3.
 
 ---
 
@@ -255,17 +262,20 @@ plus tests plus docs plus the site** — zero new driver code.
 
 Mirror the existing driver of your **binding template** (see below) — for Template A, Stellar
 is the freshest reference (memo-bound via MEMO_HASH, string-amount, reader-injected verify);
-TON is the clean async-settlement example; Algorand was the most recent family added (the
-10th). Pick your binding model first — it's the only real design decision:
+TON is the clean async-settlement example; Algorand is the newest family added, so its folder is
+the freshest end-to-end reference for the current contract. Pick your binding model first — it's
+the only real design decision:
 
 - **Template A — memo-bound** (mirrors `drivers/ton/`): the chain has a native
   memo/tag/comment field. Client puts the challenge `nonce` in it; `verify()` re-derives
   the watched account from the **trusted `accept`** (never the client's ref), finds the
   inbound transfer carrying that nonce, checks success + amount ≥ required + recency.
-  Cryptographically bound. Use for: Stellar, XRPL, Tron, NEAR, Cosmos.
+  Cryptographically bound. Use for: Stellar, XRPL, NEAR's NEP-141 token path, Algorand, Cosmos.
 - **Template B — digest-bound** (mirrors `drivers/evm/` + `drivers/solana/`): no memo.
   The proof ref *is* the tx hash/digest; binding = single-use proof + recipient + amount
-  + asset + recency. Use for: Sui, Aptos. **On digest-bound chains, persistent
+  + asset + recency. Use for: Tron, Sui, Aptos, and every native-coin path. (NEAR is a hybrid:
+  its native path is digest-bound, its NEP-141 token path is memo-bound but still verified by
+  tx hash — see near/verify.ts and §9.) **On digest-bound chains, persistent
   `isUsed`/`markUsed` is required for any multi-instance/restart deployment** and keep
   `maxTimeoutSeconds` tight (see the "Five Attacks on x402" note in the plan README §3a).
 
@@ -310,8 +320,8 @@ TON is the clean async-settlement example; Algorand was the most recent family a
        `triggerConstantContract`); otherwise a conservative heuristic. The client's
        `estimateCost(url)` surfaces it; the gate never calls it. Mirror `tron/index.ts` (the
        only chain where gas is materially expensive) or `evm/index.ts`.
-     - **`balanceOf(wallet, asset)`** (required since **1.5.0** — the affordability half
-       of `client.planPayment`) returns a {@link WalletBalance} `{ token, native }` in base units:
+     - **`balanceOf(wallet, asset)`** (a required `ResolvedNetwork` method — the affordability half
+       of `client.planPayment`; confirm it's still in the `types.ts` contract before relying on this) returns a {@link WalletBalance} `{ token, native }` in base units:
        the bound `wallet`'s own balance of the payment `asset` **and** of the native gas coin.
        **RPC-read-only and NEVER throws** — a field whose read was unavailable (rate-limited /
        transient) comes back `null` (= "unknown"), **never `0`** (which would falsely read
@@ -319,7 +329,7 @@ TON is the clean async-settlement example; Algorand was the most recent family a
        gate never calls it. Mirror `evm/index.ts` (ERC-20 `balanceOf` + `getBalance`) or
        `solana/index.ts` (ATA `getAccount`, where `TokenAccountNotFoundError` → a real `0n`
        because a missing ATA genuinely means zero — distinct from an unreadable `null`).
-     - **`recipientReady(payTo, asset)`** (required since **1.5.0** — the recipient-readiness half
+     - **`recipientReady(payTo, asset)`** (a required `ResolvedNetwork` method — the recipient-readiness half
        of `planPayment`) answers "can `payTo` RECEIVE `asset` right now?" by probing the chain's
        **one-time receive prerequisite**, returning `{ ready, reason? }`:
        - `{ ready: 'n/a' }` — the family has **NO** prerequisite (EVM, Solana, TON, Tron, Sui,
@@ -364,11 +374,11 @@ TON is the clean async-settlement example; Algorand was the most recent family a
    ```ts
    if (chain.startsWith('stellar')) return 'stellar'
    ```
-4. **`drivers/index.ts` → `loaders`:** there are **10 families** today — EVM is registered
-   **eagerly** at module load (`registerDriver(evmDriver)`, because viem is the one hard peer
-   dep that's always present), so it is **not** in the loader map; the other **9**
-   (solana · ton · stellar · xrpl · tron · sui · near · aptos · algorand) each have one lazy
-   entry. Add yours: an `async () =>` that does `await import('./<family>/index.js')` then
+4. **`drivers/index.ts` → `loaders`:** EVM is registered **eagerly** at module load
+   (`registerDriver(evmDriver)`, because viem is the one hard peer dep that's always present), so
+   it is **not** in the loader map; **every other family** has exactly one lazy entry there
+   (`ls sdk/src/drivers/` to see the current set, and the loader map is the source of truth for
+   which are lazy). Add yours: an `async () =>` that does `await import('./<family>/index.js')` then
    `registerDriver(mod.<family>Driver)`, wrapped in a `try/catch` that throws a
    `MissingDriverError` naming the exact `npm install …` for that family's optional peer
    dep(s). The async `resolveNetwork` the gate/client use awaits `ensureDriver(familyForChain(chain))`
@@ -390,8 +400,9 @@ TON is the clean async-settlement example; Algorand was the most recent family a
    the pay test injects a mock client to assert the built tx (memo binds to the nonce,
    right destination/asset/amount). **Lazy-load check** is a `dist/` grep after build (see
    the runbook), not a unit test.
-7. **Docs + Site:** README `chain` union + table, `CLAUDE.md` "Chains built in" line, and
-   the full site update (§6).
+7. **Docs + Site:** README `chain` union + table (+ `CHAINS.md` for caveats); `CLAUDE.md` has
+   **no count to bump** (it defers to README/CHAINS.md) — add the chain to its "Key facts" list
+   only if not already covered; and the full site update (§6).
 
 ### Two patterns the templates bake in (get these right)
 
@@ -436,7 +447,7 @@ npm run typecheck && npm run typecheck:test && npm test   # typecheck:test type-
 npm run build
 grep -nE "(from ?['\"]@scope/chain-sdk|require\(['\"]@scope/chain-sdk)" dist/index.js dist/index.cjs   # → NOTHING
 grep -rl "@scope/chain-sdk" dist/ | grep -vE "index\.(js|cjs|mjs)"   # → only the <family>-*.{js,cjs} chunk
-# 8. Docs: README chains table + custom-token example; CLAUDE.md "Chains built in" line.
+# 8. Docs: README chains table + custom-token example (CLAUDE.md has no count to bump).
 # 9. Site (§6): SVG in the CORRECT order slot, chains array, stats count, grid heading.
 cd ../site && npm run build      # 0 errors
 ```
@@ -503,19 +514,25 @@ in sync (see steps 2–3).
    chain at the slot its importance warrants — a new non-EVM family joins the front group, a
    niche EVM L2 goes at the tail. Don't just append. The grid auto-pads to a clean rectangle,
    so any count works.
-2. **`stats` count** — the `{ icon: Boxes, v: '28', l: 'chains built in' }` tile (an entry in
+2. **`stats` count** — the `{ icon: Boxes, v: '<N>', l: 'chains built in' }` tile (an entry in
    the `stats` array in `index.astro`'s frontmatter — each tile carries an `icon`) is the
-   **grand total** of built-in chains (19 EVM + Solana + TON + Tron + NEAR + Sui + Aptos +
-   Algorand + Stellar + XRPL = 28). Bump it when the total changes. ⚠️ This is a DIFFERENT
-   number from the spelled-out heading below (which is the EVM-only count) — both must be kept
-   in sync. The same total also appears in `Layout.astro` (the JSON-LD / SEO copy) and in
-   `mcp.astro` — grep for `chains built in` / `28 chains` and update every occurrence.
-3. **Grid heading copy** — the `#chains` section (via the `SectionHeading` component) says
-   *"Nineteen EVM mainnets, plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and
-   the XRP Ledger…"*. The spelled-out number is the **EVM-only** count (19); update it when an
-   EVM preset is added (a non-EVM family bumps only the stat tile, not this number), and add
-   the new family's name to the non-EVM list. The same EVM count / family list is echoed in
-   the FAQ answers (`index.astro`'s `faqs`, `mcp.astro`) — keep them in sync.
+   **grand total** of built-in chains (all EVM presets + every non-EVM family). Bump it to the
+   NEW grand total whenever the set changes. ⚠️ This is a DIFFERENT number from the spelled-out
+   EVM-only heading below — both must be kept in sync. The total is repeated across the whole
+   site (at least `index.astro`, `Layout.astro`'s JSON-LD/SEO copy, `mcp.astro`, `demo.astro`,
+   and `src/data/snippets.ts`), so don't hand-count: `grep -rn "chains built in" site/src` and
+   `grep -rnE "[0-9]+ chains" site/src`, then update EVERY occurrence to the new total. To get
+   the authoritative number, count the EVM presets in `sdk/src/drivers/evm/chains.ts` and add
+   one per non-EVM family folder under `sdk/src/drivers/`.
+3. **Grid heading copy** — the `#chains` section (via the `SectionHeading` component) carries a
+   *spelled-out EVM-only count* (e.g. "…EVM mainnets, plus Solana, TON, Tron, NEAR, Sui, Aptos,
+   Algorand, Stellar, and the XRP Ledger…"). When you add an EVM preset, re-spell this number to
+   the new EVM-preset total (count the rows in `sdk/src/drivers/evm/chains.ts`); a non-EVM family
+   bumps only the stat tile, not this number — but it DOES join the non-EVM list here. The same
+   spelled-out EVM count / family list is echoed in the FAQ answers (`index.astro`'s `faqs`,
+   `mcp.astro`) and the `19 EVM mainnets` style copy in `Layout.astro` / `mcp.astro` — grep them
+   all (`grep -rnE "EVM mainnet" site/src`) and keep every occurrence in sync. Spell out the same
+   number you put in numeric form elsewhere.
 4. **Hero / token copy** — only if the integration changes the token story (e.g. adding a
    new stablecoin or native-coin support). Keep "USDC, USDT, or the native coin" accurate.
 
@@ -651,7 +668,7 @@ SDK
       (pure synchronous true-decimals/symbol lookup; null for unknown) + the describe-asset.test case
 - [ ] (Path C) estimateCost(accept, opts?) implemented via the shared nativeCost() helper — native-coin
       fee, never throws (heuristic fallback) + a cost.test case (deterministic heuristic/fallback)
-- [ ] (Path C) balanceOf(wallet, asset) + recipientReady(payTo, asset) implemented (since 1.5.0) — both
+- [ ] (Path C) balanceOf(wallet, asset) + recipientReady(payTo, asset) implemented (both are required ResolvedNetwork methods) — both
       RPC-read-only and NEVER throw: balanceOf → { token, native } base units, null-not-zero on a failed
       read; recipientReady → the chain's receive prerequisite ({ ready:false, reason } / true / 'unknown')
       or { ready:'n/a' } if none (and always 'n/a' for native). These power client.planPayment(); the gate
@@ -668,8 +685,9 @@ SDK
       npm run build ✓ (lazy chunks intact via dist grep)
 
 Docs
-- [ ] sdk/README.md chains table / token coverage updated
-- [ ] CLAUDE.md "Chains built in" count + list updated
+- [ ] sdk/README.md chains table / token coverage updated (+ sdk/CHAINS.md if the chain has caveats); re-spell any prose count (e.g. "all N families") only when a NEW FAMILY is added
+- [ ] CLAUDE.md: NO count to edit (it defers to README/CHAINS.md) — add the chain to the "Key facts" list only if not already covered
+- [ ] (run the docs-sync skill to catch every surface a count/chain touches, incl. the separate piprail/.github org-profile repo)
 
 Site (NOT optional)
 - [ ] site/public/chains/<slug>.svg (and tokens/<sym>.svg if new token) — official current mark, house style, recoloured for the dark bg if monochrome
@@ -681,6 +699,12 @@ MCP (no work — just confirm)
       supports — a new chain needs ZERO MCP changes. EVM presets work out of the box (the
       server ships viem); a new non-EVM family is reachable the moment its optional peer lib
       is installed alongside the MCP, same as the SDK. Nothing to edit here.
+
+Propagation (don't let a count rot in a surface you forgot)
+- [ ] Run the **docs-sync** skill — it's the map of EVERY place the chain set / count lives,
+      including the SEPARATE piprail/.github org-profile repo (its profile/README.md mirrors the
+      chain list + count) and any external directory listings. Update those too; the SDK/site
+      changes here do NOT reach the org repo automatically.
 
 Ship gate (separate, explicit)
 - [ ] A test wallet for this chain exists in .secrets/wallets/ (generate one if missing:
@@ -704,8 +728,9 @@ Ship gate (separate, explicit)
   Note `typecheck:test` exists because tests are excluded from the build, so plain `typecheck`
   won't catch a type error in your new `test/<family>/` files.
 - **The contract:** [`sdk/src/drivers/types.ts`](../../../sdk/src/drivers/types.ts) — the only
-  thing the protocol layer depends on (incl. `describeAsset`, `estimateCost`, and the 1.5.0
-  `balanceOf` + `recipientReady`, plus the `WalletBalance` / `RecipientReason` types). The
+  thing the protocol layer depends on (incl. `describeAsset`, `estimateCost`, `balanceOf`,
+  `recipientReady`, plus the `WalletBalance` / `RecipientReason` types — the live `types.ts` is
+  the source of truth for the current method set). The
   protocol layer also carries chain-agnostic agent features (`policy.ts`, `ledger.ts`, `agent.ts`
   toolkit, and the read-only trio `client.quote()` → `client.estimateCost()` →
   `client.planPayment()` / `canAfford()`) — none need per-driver work, but they RELY on your

@@ -10,8 +10,8 @@ description: >-
 
 # The verification gate
 
-Nothing is "done" until this is green. It's the same gate `prepublishOnly` runs in
-CI, so a red gate also fails a release. Run it from the **repo root**:
+Nothing is "done" until this is green. It's a superset of the gate `prepublishOnly` runs (plus the lazy-chunk grep below),
+and CI runs the same steps, so a red gate also fails CI and a release. Run it from the **repo root**:
 
 ```bash
 npm run typecheck                       # SDK + MCP src type-check (tsc --noEmit)
@@ -22,8 +22,15 @@ npm run build:sdk                       # tsup build succeeds
 grep -E "from ?['\"]@(solana|ton|stellar)" sdk/dist/index.js   # → expect NO matches
 ```
 
-If you touched the **MCP**, also: `npm run test:mcp` and `npm run build:mcp`
-(and remember the MCP needs the SDK built first — `build:sdk` before `build:mcp`).
+If you touched the **MCP**, also run its own type-check-with-tests, suite, and build —
+the root `typecheck` only covers MCP *src*, not its tests:
+```bash
+npm run typecheck:test -w @piprail/mcp   # MCP src + tests (CI runs this; root typecheck does NOT)
+npm run test:mcp
+npm run build:mcp
+```
+The MCP resolves `@piprail/sdk`'s built `dist`, so build (and even type-check) the SDK first:
+`build:sdk` before `build:mcp`.
 
 ## Why each step
 - **`typecheck`** — the public API + internals type-check. The protocol layer must

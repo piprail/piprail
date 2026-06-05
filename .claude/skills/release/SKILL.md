@@ -26,8 +26,10 @@ to `main` — no tag, no action needed.
 1. **Never `npm publish` by hand.** Only a pushed `sdk-v*` / `mcp-v*` tag publishes
    (workflows `release.yml` / `mcp-release.yml`). Hand-publishing bypasses the gate
    and the lockstep build order.
-2. **The gate must be green first.** `prepublishOnly` re-runs it in CI, so a red
-   gate *fails the release* — but catch it locally first (see the `verify` skill).
+2. **The gate must be green first.** `prepublishOnly` re-runs build + test + typecheck
+   (SDK also `typecheck:test`) in CI, so a red gate *fails the release*. Note it does
+   **not** re-run the lazy-chunk grep — that tripwire only runs in your local gate, so
+   never skip it. Catch everything locally first (see the `verify-gate` skill).
 3. **SemVer + Keep a Changelog.** Patch = fixes, minor = additive/opt-in (defaults
    never change), major = a breaking change. Every release gets a `CHANGELOG.md` entry.
 4. **Build the SDK before the MCP.** `@piprail/mcp` imports the SDK's built `dist`.
@@ -75,7 +77,7 @@ git push origin sdk-vX.Y.Z
 The matching workflow runs the gate (`prepublishOnly`) and publishes to npm.
 
 ### 5. Confirm it published
-Watch the Action (`gh run watch` / the Actions tab). Then verify npm shows the new
+Watch the Action (`gh run watch` / the Actions tab — it shows as **sdk-release** / **mcp-release**, the workflow `name:`). Then verify npm shows the new
 version: `npm view @piprail/sdk version`. If the Action failed at the build step for
 the MCP, it's almost always the **SDK-not-built-first** gotcha (rule 4).
 
