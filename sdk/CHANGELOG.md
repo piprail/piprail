@@ -4,7 +4,7 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.6.0] — 2026-06-05
 
 ### Added
 - **`policy.tokens` accepts `'native'`** — a chain-agnostic alias that allows the chain's native coin
@@ -417,6 +417,7 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[1.6.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.5.1]: https://www.npmjs.com/package/@piprail/sdk
 [1.5.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.4.0]: https://www.npmjs.com/package/@piprail/sdk
