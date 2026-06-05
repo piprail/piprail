@@ -32,7 +32,7 @@ export interface Config {
   maxAmount: string
   /** Lifetime ceiling per distinct token (human units). */
   maxTotal: string
-  /** Allowed token symbols. */
+  /** Allowed token symbols, plus the alias `native` for the chain's coin. */
   tokens: string[]
   /** Optional host allowlist (exact or `*.example.com`). */
   hosts?: string[]

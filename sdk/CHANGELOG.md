@@ -4,6 +4,17 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **`policy.tokens` accepts `'native'`** — a chain-agnostic alias that allows the chain's native coin
+  (ETH/BNB/TRX/XLM/…) by the same word the accept side already uses (`token: 'native'`), without naming
+  the per-chain ticker. It's matched on the asset (not the symbol), so it works on every family; symbol
+  matching is unchanged (the real ticker still works), and `'native'` only ever matches a genuinely
+  native asset — it never loosens a stablecoin allowlist. Closes a terminology gap where allowing native
+  payments previously required knowing the coin's symbol. `@piprail/mcp`'s `PIPRAIL_TOKENS` inherits this.
+  Additive + non-breaking (next release is a minor).
+
 ## [1.5.1] — 2026-06-04
 
 **Cosmetic polish — docs & comments only, zero behavior change.** A repo-wide tidy pass so the

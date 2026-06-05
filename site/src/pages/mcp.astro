@@ -36,7 +36,7 @@ const envVars = [
   { k: 'PIPRAIL_CHAIN', req: 'no', def: 'base', d: 'Chain to pay on — any of the 28 PipRail supports.' },
   { k: 'PIPRAIL_MAX_AMOUNT', req: 'no', def: '0.10', d: 'Max spend per single payment (token units).' },
   { k: 'PIPRAIL_MAX_TOTAL', req: 'no', def: '10.00', d: 'Lifetime spend cap per token (token units).' },
-  { k: 'PIPRAIL_TOKENS', req: 'no', def: 'USDC*', d: 'Allowed token symbols (CSV). *Defaults to USDT on Tron & TON.' },
+  { k: 'PIPRAIL_TOKENS', req: 'no', def: 'USDC*', d: 'Allowed token symbols + "native" for the chain coin (CSV). *Defaults to USDT on Tron & TON.' },
   { k: 'PIPRAIL_HOSTS', req: 'no', def: 'any', d: 'Host allowlist (CSV; supports *.example.com).' },
   { k: 'PIPRAIL_RPC_URL', req: 'no', def: 'chain default', d: 'Override the RPC — fold any API key into this URL.' },
   { k: 'PIPRAIL_NEAR_ACCOUNT_ID', req: 'NEAR only', def: '—', d: 'Your NEAR account id (e.g. you.near).' },

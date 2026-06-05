@@ -41,7 +41,7 @@
         },
         {
           "name": "PIPRAIL_TOKENS",
-          "description": "Comma-separated allowed token symbols (default: USDC).",
+          "description": "Comma-separated allowed token symbols, plus the alias 'native' for the chain's coin (default: USDC).",
           "isRequired": false,
           "format": "string"
         }

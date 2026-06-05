@@ -28,8 +28,11 @@ export interface PaymentPolicy {
   /** Allowlist of chains the agent may pay on. A 402 on any other chain is
    *  declined. Strings match the configured selector; objects match by id. */
   chains?: ChainSelector[]
-  /** Allowlist of token symbols (matched against the TRUE symbol). An asset the
-   *  SDK can't recognise never satisfies this list. */
+  /** Allowlist of token symbols (matched against the TRUE symbol). The special
+   *  value `'native'` is a chain-agnostic alias for the chain's native coin — it
+   *  matches the native asset on ANY family (ETH/BNB/TRX/XLM/…) without naming
+   *  the ticker, mirroring the merchant-side `token: 'native'`. An asset the SDK
+   *  can't recognise never satisfies this list. */
   tokens?: string[]
   /** Allowlist of hosts. Exact (`api.example.com`) or wildcard (`*.example.com`). */
   hosts?: string[]
@@ -121,7 +124,14 @@ export function evaluatePolicy(
 
   if (policy.tokens) {
     const sym = intent.recognized ? intent.symbol : undefined
-    if (!sym || !policy.tokens.some((t) => t.toUpperCase() === sym.toUpperCase())) {
+    const isNative = intent.asset === 'native'
+    const matches = policy.tokens.some((t) => {
+      // `'native'` matches the chain's coin by ASSET id (works on every family),
+      // a chain-agnostic alias for its ticker; otherwise match the TRUE symbol.
+      if (isNative && t.toUpperCase() === 'NATIVE') return true
+      return sym ? t.toUpperCase() === sym.toUpperCase() : false
+    })
+    if (!matches) {
       return deny(
         `token ${intent.symbol ?? intent.asset} is not in the allowed set (policy.tokens).`
       )

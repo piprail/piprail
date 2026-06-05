@@ -129,7 +129,7 @@ All configuration is via environment variables — **never CLI arguments** (a ke
 | `PIPRAIL_CHAIN` | `CHAIN` | no | `base` | Chain to pay on (any PipRail chain). |
 | `PIPRAIL_MAX_AMOUNT` | `MAX_AMOUNT` | no | `0.10` | Max spend **per payment** (token units). |
 | `PIPRAIL_MAX_TOTAL` | `MAX_TOTAL` | no | `10.00` | Lifetime cap **per token** (token units). |
-| `PIPRAIL_TOKENS` | `TOKENS` | no | `USDC` *(USDT on Tron/TON)* | Comma-separated allowed token symbols. |
+| `PIPRAIL_TOKENS` | `TOKENS` | no | `USDC` *(USDT on Tron/TON)* | Comma-separated allowed token symbols, plus `native` for the chain's coin. |
 | `PIPRAIL_HOSTS` | `HOSTS` | no | (any) | Comma-separated host allowlist (`api.x.com`, `*.y.com`). |
 | `PIPRAIL_RPC_URL` | `RPC_URL` | no | chain default | Override the RPC endpoint. |
 | `PIPRAIL_ALLOW_UNKNOWN_TOKENS` | — | no | `false` | Pay tokens the SDK can't price? Keep `false`. |
@@ -167,7 +167,7 @@ npx -y -p @piprail/mcp -p @solana/web3.js -p @solana/spl-token -p bs58 piprail-m
 
 ### The default token is chain-aware
 
-`PIPRAIL_TOKENS` defaults to the canonical stablecoin that actually **exists** on the chain: **USDC** everywhere, but **USDT** on **Tron** and **TON** (native USDC doesn't exist there, so a USDC-only policy would silently block every payment). Override it anytime, e.g. `PIPRAIL_TOKENS=USDT,native`.
+`PIPRAIL_TOKENS` defaults to the canonical stablecoin that actually **exists** on the chain: **USDC** everywhere, but **USDT** on **Tron** and **TON** (native USDC doesn't exist there, so a USDC-only policy would silently block every payment). Override it anytime, e.g. `PIPRAIL_TOKENS=USDC,native` to also allow the chain's coin. The allowlist takes token **symbols** (`USDC`, `USDT`, `EURC`, …) plus the chain-agnostic alias **`native`** — the same word the accept side uses (`token: 'native'`) — which allows the chain's own coin (ETH on Base, TRX on Tron, XLM on Stellar, …) without naming the ticker. (Its real ticker works too.)
 
 ### Per-chain caveats
 

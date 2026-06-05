@@ -52,7 +52,7 @@ const client = new PipRailClient({
     maxAmount: '0.10',        // never pay more than $0.10 for one call
     maxTotal: '5.00',         // never spend more than $5 total (per token)
     chains: ['base'],         // only on Base
-    tokens: ['USDC'],         // only in USDC
+    tokens: ['USDC'],         // only in USDC (use 'native' to also allow the chain's coin)
     hosts: ['*.example.com'], // only these hosts
   },
   onBeforePay: (q) => Number(q.amountFormatted) <= 0.05, // final say on each payment
@@ -74,6 +74,8 @@ client.spent() // → { count, byAsset: [{ symbol:'USDC', totalFormatted:'0.05',
 ```
 
 **The budget can't be fooled.** `maxAmount`/`maxTotal` are enforced against the token's **true** decimals (the SDK's own, via the driver) — a server can't slip past a cap by understating the price, and an asset the SDK can't recognise is refused unless you set `allowUnknownTokens`. `quote()` even flags a `symbolMismatch` when a challenge's stated symbol disagrees with the real token.
+
+**`policy.tokens` takes symbols *or* `'native'`.** List stablecoin symbols (`'USDC'`, `'USDT'`, …) and/or the chain-agnostic alias **`'native'`** to allow the chain's own coin (ETH/BNB/TRX/XLM/…) on any family — the same word the accept side uses (`token: 'native'`), so you never name per-chain tickers (the real ticker works too). It only ever matches a genuinely native asset, so it never loosens a stablecoin-only list. The MCP server's `PIPRAIL_TOKENS` is the same allowlist.
 
 **Know the gas before you pay.** `client.estimateCost(url)` returns the quote **and** a `CostEstimate` — the network fee in the chain's **native coin** (you pay in USDC but burn ETH / SOL / TON / XLM / XRP / TRX on gas, a separate balance the agent must keep topped up). It's best-effort and labelled (`cost.basis`): a live-RPC read where cheap (`'estimated'` — EVM gas price, XRPL fee), a typical-cost constant otherwise (`'heuristic'`), and it never throws. Most valuable on **Tron**, where a USD₮ transfer can cost real TRX. So an agent can budget the *total* — payment **+** gas — before any funds move. Every driver implements it; the math is extracted per-chain and shaped uniformly by one shared `nativeCost()` helper.
 
