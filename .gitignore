@@ -67,9 +67,12 @@ mcp/*.local.mjs
 # /.claude/skills/site-design/design/, already covered by /.claude/ below.)
 /site/asset-backups/
 
-# Local agent tooling / planning notes (not part of the product)
+# Local agent tooling / planning notes (not part of the product).
+# .claude/ stays local on purpose — it holds wallet-audit outputs (test-wallet
+# addresses + balances), third-party outreach contacts, internal strategy/plans,
+# and ~294MB of node_modules. None of that belongs in a public repo.
+# CLAUDE.md IS committed (a cleaned, public project guide); AGENTS.md is the agent-facing one.
 /.claude/
-/CLAUDE.md
 
 # Stray local screenshots
 screencapture-*.png
