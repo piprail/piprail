@@ -23,5 +23,6 @@ Add a `policy` (`maxAmount`, `maxTotal`, `tokens`, `hosts`) and an `onBeforePay`
 
 ## Next
 
-- [`../mcp`](../mcp) — expose these as tools to Claude / GPT / any MCP client
+- **Zero code:** [`@piprail/mcp`](../../mcp) — give Claude / Cursor / any MCP client this same budget-capped wallet via `npx`, no glue code
+- [`../mcp`](../mcp) — or build that MCP server yourself (the minimal version)
 - [`../CONCEPTS.md`](../CONCEPTS.md) · [SDK docs](../../sdk/README.md)

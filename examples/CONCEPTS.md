@@ -46,6 +46,8 @@ Exposing payment to a model?
  └─ paymentTools(client)  →  [piprail_quote_payment, piprail_plan_payment, piprail_pay_request]
 ```
 
+> **Don't want to write code?** `npx -y @piprail/mcp` gives any MCP client (Claude, Cursor, Claude Code, …) those exact three tools, budget-capped — your key + chain go in the client's `env` block. See [`@piprail/mcp`](../mcp).
+
 `token` is **always required** — there is no default. A gate states exactly what it accepts (`'USDC'`, `'USDT'`, `'native'`, or a custom `{ address, decimals }`).
 
 ## Local verification — trust your own RPC
