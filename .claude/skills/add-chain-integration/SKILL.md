@@ -253,8 +253,10 @@ plus tests plus docs plus the site** — zero new driver code.
 
 ## 5. Path C — add a new non-EVM family (the big one)
 
-Mirror the **TON driver** (the cleanest, most recent template). Pick your binding model
-first — it's the only real design decision:
+Mirror the existing driver of your **binding template** (see below) — for Template A, Stellar
+is the freshest reference (memo-bound via MEMO_HASH, string-amount, reader-injected verify);
+TON is the clean async-settlement example; Algorand was the most recent family added (the
+10th). Pick your binding model first — it's the only real design decision:
 
 - **Template A — memo-bound** (mirrors `drivers/ton/`): the chain has a native
   memo/tag/comment field. Client puts the challenge `nonce` in it; `verify()` re-derives
@@ -288,7 +290,7 @@ first — it's the only real design decision:
      `bindWallet` · `send` · `confirm` · `estimateCost` · `balanceOf` · `recipientReady` · `verify`.
      `resolveToken` must reject foreign-family token shapes with `WrongFamilyError` (an EVM
      `{address}` on a TON chain, etc.).
-     - **`describeAsset(asset)`** (required since the agent-readiness release) returns the
+     - **`describeAsset(asset)`** (required — part of the `ResolvedNetwork` contract) returns the
        SDK's OWN `{ decimals, symbol }` for a recognised built-in token or the native coin —
        a **pure, synchronous** reverse-lookup of your `chains.ts` token map + native, **never
        an RPC call** — and `null` for any asset it can't price. It's the trusted inverse of
@@ -362,11 +364,20 @@ first — it's the only real design decision:
    ```ts
    if (chain.startsWith('stellar')) return 'stellar'
    ```
-4. **`drivers/index.ts` → `loaders`:** add one lazy entry that does
-   `await import('./<family>/index.js')` then `registerDriver(mod.<family>Driver)`,
-   wrapped in a `try/catch` that throws a `MissingDriverError` naming the exact
-   `npm install …` for that family's optional peer dep(s). This is what makes
-   `chain: '<name>'` "just work" with no setup call.
+4. **`drivers/index.ts` → `loaders`:** there are **10 families** today — EVM is registered
+   **eagerly** at module load (`registerDriver(evmDriver)`, because viem is the one hard peer
+   dep that's always present), so it is **not** in the loader map; the other **9**
+   (solana · ton · stellar · xrpl · tron · sui · near · aptos · algorand) each have one lazy
+   entry. Add yours: an `async () =>` that does `await import('./<family>/index.js')` then
+   `registerDriver(mod.<family>Driver)`, wrapped in a `try/catch` that throws a
+   `MissingDriverError` naming the exact `npm install …` for that family's optional peer
+   dep(s). The async `resolveNetwork` the gate/client use awaits `ensureDriver(familyForChain(chain))`
+   first (it de-dupes concurrent imports via one in-flight promise per family, and does NOT
+   cache a failed import so a later call can retry), then delegates to the synchronous
+   resolve. This is what makes `chain: '<name>'` "just work" with no setup call.
+   ⚠️ Keep the split straight: **deps-not-installed → `MissingDriverError`** (thrown by the
+   loader), **chain-not-supported / `resolve()`→null → `UnsupportedNetworkError`** — never
+   reuse one for the other.
 5. **`package.json`:** add the libs as **optional peer deps** (and `peerDependenciesMeta:
    { …: { optional: true } }`), never as hard deps. Update `tsup.config.ts` externals and
    `vitest.config.ts` if a new entry/extern is needed. Keep the EVM bundle clean.
@@ -447,11 +458,16 @@ this. If you find yourself editing `server.ts`/`client.ts`/`x402.ts` to add a ch
 ## 6. The front-end is part of "done" — update the site + get the SVG
 
 **This is a hard requirement, not a nice-to-have.** A chain that works in the SDK but
-isn't on piprail.com with its real logo is *not shipped.* The page is
-[`site/src/pages/index.astro`](../../../site/src/pages/index.astro), but the chain data now
-lives in [`site/src/data/chains.ts`](../../../site/src/data/chains.ts) (and the code snippets
-in `site/src/data/snippets.ts`), rendered through small components (`CodeWindow`,
+isn't on piprail.com with its real logo is *not shipped.* The site is **Astro 5 + Tailwind v4,
+static-first, deployed to Netlify** (no SSR adapter) and has three pages —
+`index.astro` (`/`), `mcp.astro` (`/mcp`), `demo.astro` (`/demo`). The chain you're adding
+lands on the home page [`site/src/pages/index.astro`](../../../site/src/pages/index.astro),
+but the chain data now lives in
+[`site/src/data/chains.ts`](../../../site/src/data/chains.ts) (and the code snippets in
+`site/src/data/snippets.ts`), rendered through small components (`CodeWindow`,
 `SectionHeading`, `FeatureGrid`). Edit the **data file** for a chain; the page picks it up.
+The chain-count totals also live in `Layout.astro` (SEO/JSON-LD) and `mcp.astro` — keep those
+in sync (see steps 2–3).
 
 ### 6a. Wire the chain into the page
 
@@ -460,7 +476,7 @@ in `site/src/data/snippets.ts`), rendered through small components (`CodeWindow`
    **must** equal the SVG filename (`/chains/<slug>.svg`), and `tokens` are the stablecoin
    badges shown. **List
    EVERY built-in stablecoin the chain ships** (don't undersell it) — and a badge needs its
-   own `site/public/tokens/<sym>.svg`. Badges that exist today: `usdc`, `usdt`, `eurc`. If a
+   own `site/public/tokens/<sym>.svg`. Badges that exist today: `usdc`, `usdt`, `eurc`, `rlusd`. If a
    chain ships a stablecoin with no badge SVG yet (e.g. Stellar's EURC), **grab it from
    web3icons `tokens/branded/<SYM>.svg` (a filled brand-colour circle + white glyph) and add
    it** — this is an easy step to forget. ⚠️ The token `branded` variant often **insets** its
@@ -477,23 +493,29 @@ in `site/src/data/snippets.ts`), rendered through small components (`CodeWindow`
    decides how prominently it shows. The canonical order:
 
    1. **Ethereum** — the reference chain, always first.
-   2. **Solana**, then **TON** — the marquee non-EVM L1s.
-   3. **Stellar** (and future payment-native non-EVM chains, e.g. XRPL) — grouped right
-      after the marquee non-EVM set, ahead of the long EVM tail.
-   4. **The EVM chains by prominence** — Base, BNB, Arbitrum, Polygon, Optimism, Avalanche,
+   2. **The non-EVM families, grouped together up front**, in roughly current importance:
+      Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, XRPL (the live order in
+      `chains.ts` today). A new non-EVM family joins this group by prominence.
+   3. **The EVM chains by prominence** — Base, BNB, Arbitrum, Polygon, Optimism, Avalanche,
       then the rest; **newest / smallest last** (Sei, Injective sit at the tail).
 
-   So the lead is **Ethereum · Solana · TON · Stellar · _EVM by prominence_**. Insert a new
-   chain at the slot its importance warrants — a major payment chain joins the non-EVM
-   group near the front; a niche EVM L2 goes at the tail. Don't just append. The grid
-   auto-pads to a clean rectangle, so any count works.
-2. **`stats` count** — the `{ v: '20', l: 'chains built in' }` tile (in `index.astro`'s
-   frontmatter) is the **grand total** of built-in chains (17 EVM + Solana + TON + Stellar =
-   20). Bump it when the total changes. ⚠️ This is a DIFFERENT number from the spelled-out
-   heading below (which is the EVM-only count) — both must be kept in sync.
-3. **Grid heading copy** — the `#chains` section says *"Seventeen EVM mainnets, Solana, TON,
-   and Stellar…"*. The spelled-out number is the **EVM-only** count (17); update it when an
-   EVM preset is added (a non-EVM family bumps only the stat tile, not this number).
+   So the lead is **Ethereum · _the non-EVM families_ · _EVM by prominence_**. Insert a new
+   chain at the slot its importance warrants — a new non-EVM family joins the front group, a
+   niche EVM L2 goes at the tail. Don't just append. The grid auto-pads to a clean rectangle,
+   so any count works.
+2. **`stats` count** — the `{ icon: Boxes, v: '28', l: 'chains built in' }` tile (an entry in
+   the `stats` array in `index.astro`'s frontmatter — each tile carries an `icon`) is the
+   **grand total** of built-in chains (19 EVM + Solana + TON + Tron + NEAR + Sui + Aptos +
+   Algorand + Stellar + XRPL = 28). Bump it when the total changes. ⚠️ This is a DIFFERENT
+   number from the spelled-out heading below (which is the EVM-only count) — both must be kept
+   in sync. The same total also appears in `Layout.astro` (the JSON-LD / SEO copy) and in
+   `mcp.astro` — grep for `chains built in` / `28 chains` and update every occurrence.
+3. **Grid heading copy** — the `#chains` section (via the `SectionHeading` component) says
+   *"Nineteen EVM mainnets, plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and
+   the XRP Ledger…"*. The spelled-out number is the **EVM-only** count (19); update it when an
+   EVM preset is added (a non-EVM family bumps only the stat tile, not this number), and add
+   the new family's name to the non-EVM list. The same EVM count / family list is echoed in
+   the FAQ answers (`index.astro`'s `faqs`, `mcp.astro`) — keep them in sync.
 4. **Hero / token copy** — only if the integration changes the token story (e.g. adding a
    new stablecoin or native-coin support). Keep "USDC, USDT, or the native coin" accurate.
 
@@ -653,6 +675,12 @@ Site (NOT optional)
 - [ ] site/public/chains/<slug>.svg (and tokens/<sym>.svg if new token) — official current mark, house style, recoloured for the dark bg if monochrome
 - [ ] index.astro: chains array entry AT THE RIGHT ORDER SLOT (Ethereum · Solana · TON · Stellar · EVM-by-prominence — not appended blindly), stats count, grid heading copy, hero/token copy if changed
 - [ ] cd site && npm run build ✓ (0 errors), grid renders clean
+
+MCP (no work — just confirm)
+- [ ] @piprail/mcp (the separate, published mcp/ workspace) auto-exposes ANY chain the SDK
+      supports — a new chain needs ZERO MCP changes. EVM presets work out of the box (the
+      server ships viem); a new non-EVM family is reachable the moment its optional peer lib
+      is installed alongside the MCP, same as the SDK. Nothing to edit here.
 
 Ship gate (separate, explicit)
 - [ ] A test wallet for this chain exists in .secrets/wallets/ (generate one if missing:
