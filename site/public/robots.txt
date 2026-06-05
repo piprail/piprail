@@ -49,4 +49,32 @@ Allow: /
 User-agent: Google-Extended
 Allow: /
 
+# Common Crawl — feeds many LLM training corpora.
+User-agent: CCBot
+Allow: /
+
+User-agent: Amazonbot
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+
+User-agent: Meta-ExternalAgent
+Allow: /
+
+User-agent: FacebookBot
+Allow: /
+
+User-agent: cohere-ai
+Allow: /
+
+User-agent: YouBot
+Allow: /
+
+User-agent: Diffbot
+Allow: /
+
+User-agent: MistralAI-User
+Allow: /
+
 Sitemap: https://piprail.com/sitemap-index.xml

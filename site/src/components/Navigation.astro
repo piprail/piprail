@@ -1,13 +1,22 @@
 ---
 // Shared top navigation — sticky, translucent, used on every page for consistency.
-// `path` highlights the active link (e.g. the Demo pill on /demo).
-import { ArrowRight, Play } from 'lucide-astro'
+// `path` highlights the active link (e.g. the Demo pill on /demo). Below `sm`,
+// the secondary links collapse into a no-JS <details> hamburger so every page
+// stays reachable from the header on mobile.
+import { ArrowRight, Play, Menu, X } from 'lucide-astro'
 
 interface Props {
   path?: string
 }
 const { path = '' } = Astro.props
 const onDemo = path === '/demo' || path === '/demo/'
+
+// Active-state helper for the secondary on-site links.
+const isActive = (p: string) => path === p || path === `${p}/`
+const linkCls = (p: string) =>
+  isActive(p)
+    ? 'hidden rounded-lg px-3 py-1.5 text-sm font-medium text-neutral-100 md:inline-flex'
+    : 'hidden rounded-lg px-3 py-1.5 text-sm text-muted transition hover:text-neutral-100 md:inline-flex'
 ---
 
 <header class="sticky top-0 z-50 border-b border-white/5 bg-bg/70 backdrop-blur-md">
@@ -18,12 +27,12 @@ const onDemo = path === '/demo' || path === '/demo/'
     </a>
 
     <nav class="flex items-center gap-1.5 sm:gap-2" aria-label="Primary">
-      <!-- Demo — always visible, with a live dot so it draws the eye -->
+      <!-- Desktop inline nav — md and up -->
       <a
         href="/demo"
         aria-current={onDemo ? 'page' : undefined}
         class:list={[
-          'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition',
+          'hidden items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition md:inline-flex',
           onDemo
             ? 'border-accent/40 bg-accent/15 text-accent'
             : 'border-accent/20 bg-accent/8 text-accent hover:border-accent/40 hover:bg-accent/15',
@@ -31,13 +40,31 @@ const onDemo = path === '/demo' || path === '/demo/'
       >
         <Play size={13} aria-hidden="true" fill="currentColor" /> Demo
       </a>
+      <a href="/sdk" class={linkCls('/sdk')}>SDK</a>
+      <a href="/mcp" class={linkCls('/mcp')}>MCP</a>
+      <a href="/chains" class={linkCls('/chains')}>Chains</a>
+      <a href="https://github.com/piprail/piprail" class="hidden rounded-lg px-3 py-1.5 text-sm text-muted transition hover:text-neutral-100 md:inline-flex">GitHub</a>
 
-      <!-- secondary links — hidden on the smallest screens -->
-      <a href="/mcp" class="hidden rounded-lg px-3 py-1.5 text-sm text-muted transition hover:text-neutral-100 sm:inline-flex">MCP</a>
-      <a href="https://github.com/piprail/piprail/blob/main/sdk/README.md" class="hidden rounded-lg px-3 py-1.5 text-sm text-muted transition hover:text-neutral-100 sm:inline-flex">Docs</a>
-      <a href="https://github.com/piprail/piprail" class="hidden rounded-lg px-3 py-1.5 text-sm text-muted transition hover:text-neutral-100 sm:inline-flex">GitHub</a>
+      <!-- Mobile menu — below md, ONE tidy dropdown so the header stays minimal: logo · menu · CTA -->
+      <details class="group relative md:hidden">
+        <summary
+          class="flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-lg border border-white/10 text-neutral-300 transition hover:text-neutral-100 [&::-webkit-details-marker]:hidden"
+          aria-label="Open menu"
+        >
+          <Menu size={18} class="group-open:hidden" aria-hidden="true" />
+          <X size={18} class="hidden group-open:block" aria-hidden="true" />
+        </summary>
+        <div class="absolute right-0 top-full mt-2 flex w-44 flex-col overflow-hidden rounded-xl border border-white/10 bg-neutral-900 p-1.5 shadow-2xl shadow-black/50">
+          <a href="/demo" aria-current={onDemo ? 'page' : undefined} class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-accent transition hover:bg-white/5"><Play size={13} fill="currentColor" aria-hidden="true" /> Demo</a>
+          <a href="/sdk" aria-current={isActive('/sdk') ? 'page' : undefined} class:list={['rounded-lg px-3 py-2 text-sm transition hover:bg-white/5', isActive('/sdk') ? 'text-neutral-100' : 'text-neutral-300']}>SDK</a>
+          <a href="/mcp" aria-current={isActive('/mcp') ? 'page' : undefined} class:list={['rounded-lg px-3 py-2 text-sm transition hover:bg-white/5', isActive('/mcp') ? 'text-neutral-100' : 'text-neutral-300']}>MCP</a>
+          <a href="/chains" aria-current={isActive('/chains') ? 'page' : undefined} class:list={['rounded-lg px-3 py-2 text-sm transition hover:bg-white/5', isActive('/chains') ? 'text-neutral-100' : 'text-neutral-300']}>Chains</a>
+          <a href="/partners" class="rounded-lg px-3 py-2 text-sm text-neutral-300 transition hover:bg-white/5">Partners</a>
+          <a href="https://github.com/piprail/piprail" class="rounded-lg px-3 py-2 text-sm text-neutral-300 transition hover:bg-white/5">GitHub</a>
+        </div>
+      </details>
 
-      <!-- primary CTA -->
+      <!-- primary CTA — always visible -->
       <a
         href="https://www.npmjs.com/package/@piprail/sdk"
         class="ml-1 inline-flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:px-4"
@@ -47,3 +74,12 @@ const onDemo = path === '/demo' || path === '/demo/'
     </nav>
   </div>
 </header>
+
+<!-- Close the mobile menu when tapping/clicking outside it (progressive enhancement). -->
+<script is:inline>
+  document.addEventListener('click', (e) => {
+    for (const d of document.querySelectorAll('header details[open]')) {
+      if (!d.contains(e.target)) d.removeAttribute('open')
+    }
+  })
+</script>

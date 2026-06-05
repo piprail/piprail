@@ -1,0 +1,225 @@
+---
+import Layout from '../layouts/Layout.astro'
+import Navigation from '../components/Navigation.astro'
+import Footer from '../components/Footer.astro'
+import Breadcrumbs from '../components/Breadcrumbs.astro'
+import CodeWindow from '../components/CodeWindow.astro'
+import SectionHeading from '../components/SectionHeading.astro'
+import { chains } from '../data/chains'
+import { exoticCode, solanaCode } from '../data/snippets'
+import { ChevronDown, Settings2, ArrowRight } from 'lucide-astro'
+
+// Counts are DERIVED from the data — never hardcoded, so they can't drift.
+const total = chains.length
+const families = [...new Set(chains.map((c) => c.family))]
+const familyCount = families.length
+const evmCount = chains.filter((c) => c.family === 'EVM').length
+const withSetup = chains.filter((c) => c.setup)
+
+const title = `x402 on ${total} chains — accept USDC, USDT & native coins | PipRail`
+const description = `Every chain PipRail supports for x402 payments: ${evmCount} EVM mainnets plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger — ${total} chains across ${familyCount} families. USDC almost everywhere, USDT on most, native coin on every chain, any other token by address. One parameter picks everything.`
+
+// ItemList — every supported chain as a structured, citable entity.
+const itemListLd = {
+  '@context': 'https://schema.org',
+  '@type': 'ItemList',
+  '@id': 'https://piprail.com/chains#list',
+  name: 'Blockchains supported by PipRail for x402 payments',
+  numberOfItems: total,
+  itemListOrder: 'https://schema.org/ItemListOrderAscending',
+  itemListElement: chains.map((c, i) => ({
+    '@type': 'ListItem',
+    position: i + 1,
+    name: c.name,
+    item: `https://piprail.com/chains#${c.slug}`,
+  })),
+}
+
+// Chain-focused FAQ — mirrors the visible Q&A below (schema must match the page).
+const faqs = [
+  {
+    q: `Which chains and tokens does PipRail support?`,
+    a: `${total} chains across ${familyCount} families: ${evmCount} EVM mainnets (Ethereum, Base, Arbitrum, Optimism, Polygon, BNB Chain, Avalanche, HyperEVM, Monad, Mantle, Sonic, Linea, Scroll, Celo, zkSync, Unichain, World Chain, Sei, Injective) plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger. USDC almost everywhere, USDT on most chains, EURC on Stellar, RLUSD on XRPL, the native coin on every chain, or any other token by address. One parameter — chain — picks everything.`,
+  },
+  {
+    q: `Do any chains need extra setup before they work?`,
+    a: `Most don't — on EVM, Solana, Sui, and Aptos you install, add a wallet, and pay or get paid with no extra steps, in the native coin or a stablecoin. A few have one-time caveats. On Algorand, native ALGO is the zero-setup path, while receiving USDC needs a one-time ASA opt-in on the recipient. TON ships USD₮ (no native USDC) and needs an API-keyed RPC — one parameter, rpcUrl with a free toncenter key in the URL. Tron pays in USD₮ or native TRX, and gas is real TRX. On NEAR, native NEAR is zero-setup while a NEP-141 token like USDC needs a one-time storage_deposit on the recipient. Stellar and the XRP Ledger require the recipient to hold a one-time trustline and to be an activated, reserve-funded account; native XLM/XRP need no trustline. Native coin is a valid payment asset on every chain. Full per-chain setup and wallet formats are in CHAINS.md.`,
+  },
+  {
+    q: `Can I use a chain PipRail doesn't ship a preset for?`,
+    a: `Yes — there is no allowlist. Any other EVM chain works by passing a viem Chain or a plain { id, rpcUrl }, with the token as { address, decimals }. Built-in presets (with canonical USDC pre-filled) are a convenience, not a gate. Non-EVM families auto-mount: name a non-EVM chain and the SDK lazily imports just that family's libraries on first use, so pure-EVM installs stay lean.`,
+  },
+  {
+    q: `How do I accept several chains in one request?`,
+    a: `Pass an accept array to requirePayment or createPaymentGate — one challenge that offers several chains/tokens under a shared nonce, and the paying agent picks whatever it holds. Verification matches by network + asset and re-derives every field from its own trusted spec, so a forged echo can't redirect it and a proof can't be redeemed twice.`,
+  },
+]
+const faqLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  '@id': 'https://piprail.com/chains#faq',
+  mainEntity: faqs.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
+}
+---
+
+<Layout title={title} description={description}>
+  <Navigation path="/chains" />
+
+  <main class="mx-auto max-w-6xl px-4 sm:px-6">
+    <div class="pt-6"><Breadcrumbs items={[{ name: 'Chains' }]} /></div>
+
+    <!-- Hero -->
+    <section class="fade-up py-12 text-center sm:py-16 md:py-20">
+      <p class="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3.5 py-1.5 text-xs text-muted">
+        <span class="h-1.5 w-1.5 rounded-full bg-accent"></span>
+        {total} chains · {familyCount} families · one parameter
+      </p>
+      <h1 class="mx-auto max-w-4xl text-[2.5rem] font-semibold leading-[1.05] tracking-tight sm:text-6xl">
+        Every chain that <span class="text-accent">matters</span>, one line.
+      </h1>
+      <p class="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-neutral-400 sm:text-lg">
+        PipRail accepts and makes x402 payments on <span class="text-neutral-200">{evmCount} EVM mainnets</span> plus
+        Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger — <span class="text-neutral-200">{total} chains</span> in all.
+        USDC almost everywhere, USDT on most, the native coin on every one, any other token by address.
+        Switch by changing a single string.
+      </p>
+      <div class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        <a href="/sdk" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto">
+          How to accept on any chain <ArrowRight size={16} aria-hidden="true" />
+        </a>
+        <a href="https://github.com/piprail/piprail/blob/main/sdk/CHAINS.md" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto">
+          CHAINS.md — per-chain reference
+        </a>
+      </div>
+    </section>
+
+    <!-- The catalog -->
+    <section aria-label="Supported chains" class="pb-4">
+      <ul class="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 sm:grid-cols-2">
+        {chains.map((c) => (
+          <li id={c.slug} class="group scroll-mt-24 bg-neutral-950 px-4 py-4 transition hover:bg-neutral-900 sm:px-5">
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-2.5">
+              <img
+                src={`/chains/${c.slug}.svg`}
+                alt={`${c.name} logo`}
+                width="36"
+                height="36"
+                loading="lazy"
+                class="h-9 w-9 shrink-0 rounded-full ring-1 ring-white/10 transition group-hover:scale-105"
+              />
+              <span class="mr-auto">
+                <span class="block text-[15px] font-medium text-neutral-100">{c.name}</span>
+                <span class="text-[11px] uppercase tracking-wider text-neutral-600">{c.family === 'EVM' ? 'EVM' : c.family}</span>
+              </span>
+              <span class="flex flex-wrap items-center gap-1.5">
+                {c.tokens.map((t) => (
+                  <span class="inline-flex items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-1 text-xs font-medium text-neutral-300 ring-1 ring-white/10">
+                    <img src={`/tokens/${t}.svg`} alt="" width="16" height="16" loading="lazy" class="h-4 w-4 rounded-full" />
+                    {t.toUpperCase()}
+                  </span>
+                ))}
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-1 text-xs font-medium text-neutral-400 ring-1 ring-white/10">native</span>
+              </span>
+            </div>
+            {c.setup && (
+              <p class="mt-2.5 flex items-start gap-2 text-[12.5px] leading-snug text-neutral-500">
+                <Settings2 size={13} class="mt-0.5 shrink-0 text-accent/70" aria-hidden="true" />
+                <span>{c.setup}</span>
+              </p>
+            )}
+          </li>
+        ))}
+        {chains.length % 2 === 1 && <li class="hidden bg-neutral-950 sm:block" aria-hidden="true"></li>}
+      </ul>
+    </section>
+
+    <!-- Any other chain -->
+    <section class="border-t border-white/10 py-16 sm:py-20">
+      <SectionHeading title="Not on the list? Still works.">
+        Built-in presets are a convenience, not an allowlist. Any other EVM chain works by passing
+        a <code class="text-neutral-300">{'{ id, rpcUrl }'}</code> and the token by address; the non-EVM families
+        auto-mount the moment you name one.
+      </SectionHeading>
+      <div class="grid gap-6 lg:grid-cols-2">
+        <div class="min-w-0">
+          <p class="mb-3 text-xs font-medium uppercase tracking-wider text-muted">Any other EVM chain</p>
+          <CodeWindow code={exoticCode} />
+        </div>
+        <div class="min-w-0">
+          <p class="mb-3 text-xs font-medium uppercase tracking-wider text-muted">Beyond EVM — auto-mounts on first use</p>
+          <CodeWindow code={solanaCode} />
+        </div>
+      </div>
+    </section>
+
+    <!-- Per-chain setup -->
+    <section class="border-t border-white/10 py-16 sm:py-20">
+      <SectionHeading title="One-time setup, where it applies.">
+        Most chains need nothing beyond a wallet — pay in the native coin or a stablecoin, anywhere.
+        These are the only chains with a one-time, recipient-side step. The native coin is always zero-setup.
+      </SectionHeading>
+      <ul class="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10">
+        {withSetup.map((c) => (
+          <li class="flex flex-wrap items-start gap-x-4 gap-y-2 bg-neutral-950 px-5 py-4">
+            <a href={`#${c.slug}`} class="flex shrink-0 items-center gap-2.5 sm:w-44">
+              <img src={`/chains/${c.slug}.svg`} alt="" width="24" height="24" loading="lazy" class="h-6 w-6 rounded-full ring-1 ring-white/10" />
+              <span class="text-[15px] font-medium text-neutral-100">{c.name}</span>
+            </a>
+            <span class="flex-1 text-sm leading-relaxed text-neutral-400">{c.setup}</span>
+          </li>
+        ))}
+      </ul>
+      <p class="mt-6 text-sm leading-relaxed text-neutral-500">
+        Full per-chain setup, wallet formats, and proof-binding notes:
+        <a href="https://github.com/piprail/piprail/blob/main/sdk/CHAINS.md" class="text-accent underline-offset-4 hover:underline">CHAINS.md →</a>
+      </p>
+    </section>
+
+    <!-- FAQ -->
+    <section class="border-t border-white/10 py-16 sm:py-20">
+      <div class="grid gap-8 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:gap-16">
+        <div class="lg:sticky lg:top-24 lg:self-start">
+          <SectionHeading title="Chains FAQ." class="max-w-sm">
+            Coverage, tokens, and the handful of one-time setup steps.
+          </SectionHeading>
+        </div>
+        <div class="divide-y divide-white/10 overflow-hidden rounded-2xl border border-white/10 bg-neutral-950">
+          {faqs.map((f, i) => (
+            <details class="group" open={i === 0}>
+              <summary class="flex cursor-pointer list-none items-center justify-between gap-5 px-6 py-5 text-[15px] font-medium text-neutral-100 transition hover:bg-white/3 [&::-webkit-details-marker]:hidden sm:px-7">
+                <span>{f.q}</span>
+                <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 text-neutral-400 transition group-open:border-accent/40 group-open:text-accent">
+                  <ChevronDown size={16} class="transition-transform duration-300 group-open:rotate-180" aria-hidden="true" />
+                </span>
+              </summary>
+              <p class="-mt-1 px-6 pb-6 text-sm leading-relaxed text-neutral-400 sm:px-7">{f.a}</p>
+            </details>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="border-t border-white/10 py-20 text-center sm:py-24">
+      <h2 class="mx-auto max-w-2xl text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
+        Pick a chain. Ship in one line.
+      </h2>
+      <p class="mx-auto mt-5 max-w-xl text-base text-neutral-400 sm:text-lg">
+        The same integration pays and gets paid across all {total} — swap one word.
+      </p>
+      <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        <a href="/sdk" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto">
+          Read the SDK guide <ArrowRight size={16} aria-hidden="true" />
+        </a>
+        <a href="/mcp" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto">
+          Give an agent a wallet
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <Footer />
+
+  <script is:inline type="application/ld+json" set:html={JSON.stringify(itemListLd)} />
+  <script is:inline type="application/ld+json" set:html={JSON.stringify(faqLd)} />
+</Layout>

@@ -1,0 +1,55 @@
+---
+// Breadcrumb trail — renders the visible path (Home › SDK) AND the matching
+// BreadcrumbList JSON-LD, from one source so the two can never drift. Home is
+// always the first crumb; the last item is the current page (rendered plain,
+// not linked). Used on every sub-page for UX + crawler hierarchy.
+import { ChevronRight } from 'lucide-astro'
+
+interface Crumb {
+  name: string
+  /** Absolute path, e.g. '/sdk'. Omit on the final (current-page) crumb. */
+  href?: string
+}
+interface Props {
+  items: Crumb[]
+  class?: string
+}
+
+const { items, class: cls = '' } = Astro.props
+const site = 'https://piprail.com'
+
+// Home is implicit crumb #1; the passed items follow.
+const trail: Crumb[] = [{ name: 'Home', href: '/' }, ...items]
+
+const breadcrumbLd = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: trail.map((c, i) => ({
+    '@type': 'ListItem',
+    position: i + 1,
+    name: c.name,
+    ...(c.href ? { item: `${site}${c.href === '/' ? '' : c.href}` } : {}),
+  })),
+}
+---
+
+<nav aria-label="Breadcrumb" class:list={['flex items-center', cls]}>
+  <ol class="flex flex-wrap items-center gap-1.5 text-xs text-neutral-500">
+    {
+      trail.map((c, i) => (
+        <li class="flex items-center gap-1.5">
+          {c.href && i < trail.length - 1 ? (
+            <a href={c.href} class="transition hover:text-neutral-300">{c.name}</a>
+          ) : (
+            <span class="text-neutral-300" aria-current="page">{c.name}</span>
+          )}
+          {i < trail.length - 1 && (
+            <ChevronRight size={12} class="text-neutral-600" aria-hidden="true" />
+          )}
+        </li>
+      ))
+    }
+  </ol>
+</nav>
+
+<script is:inline type="application/ld+json" set:html={JSON.stringify(breadcrumbLd)} />

@@ -12,6 +12,7 @@ Full pitch + all code inline: [llms-full.txt](https://piprail.com/llms-full.txt)
 
 ## Docs
 
+- [SDK guide](https://piprail.com/sdk): the on-site developer page — accept (`requirePayment` / `createPaymentGate`) and pay (`PipRailClient`), one-line multi-chain, the agent spend policy, `planPayment`, the four-step 402 loop, a backendless-vs-facilitator comparison, and a glossary. Funnels to the full README below.
 - [SDK README](https://github.com/piprail/piprail/blob/main/sdk/README.md): full API — take & make payments, all 28 chains, per-family wallet formats, custom tokens, multi-chain accepts, spend policy, gas estimation, and `planPayment()` (affordability + recipient-readiness preflight).
 - **planPayment (the agent unlock):** `client.planPayment(url)` is a read-only call that checks a 402 against your wallet's OWN holdings — token balance, native-coin gas, and whether the recipient can receive (trustline / ATA / storage_deposit / ASA opt-in / activation) — across every rail it offers on your chain. Returns `payable` + the best rail, per-rail `blockers` (INSUFFICIENT_TOKEN / INSUFFICIENT_GAS / RECIPIENT_NOT_READY / OUTSIDE_POLICY), and a one-line `fundingHint`. Completes the trio `quote()` (price) → `estimateCost()` (gas) → `planPayment()` (can I settle, and where). `canAfford(url)` is the boolean; `fetch(url, { autoRoute: true })` pays the cheapest settleable rail; `planAcross(clients, url)` plans across chains. Never throws for a read; returns null when not gated. Backendless + self-custodial: reads balances and receive-rules from your own RPC across all 28 chains, no facilitator/oracle.
 - [Concepts](https://github.com/piprail/piprail/blob/main/examples/CONCEPTS.md): the 402 loop, who owns what, which primitive to use when, replay protection, local verification.
@@ -33,14 +34,17 @@ Full pitch + all code inline: [llms-full.txt](https://piprail.com/llms-full.txt)
 
 ## Chains
 
+- [Chains catalog](https://piprail.com/chains): the full on-site list — every supported chain with its tokens, grouped by family, plus the handful of one-time setup caveats, each chain deep-linkable by anchor (e.g. `/chains#solana`).
 - 28 chains, 10 families: 19 EVM mainnets + Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger. USDC almost everywhere, USDT on most, EURC on Stellar, RLUSD on XRPL — or any token by address. One `chain` parameter picks everything. Covered in the [SDK README](https://github.com/piprail/piprail/blob/main/sdk/README.md).
 - [Per-chain setup & caveats](https://github.com/piprail/piprail/blob/main/sdk/CHAINS.md): what each chain needs before it can pay or receive. Most need nothing. Native coin is a valid payment asset on every chain — all ten families, no exceptions (Tron's native TRX included, digest-bound). On NEAR, native is the zero-setup path while the NEP-141 token path needs a one-time `storage_deposit`; Stellar & XRPL need a one-time trustline + funded/activated account; and TON needs an API-keyed `rpcUrl` (free toncenter key in the URL). On Algorand, receiving USDC needs a one-time ASA opt-in (native ALGO is zero-setup).
 
 ## Links
 
 - [Website](https://piprail.com)
+- [SDK guide](https://piprail.com/sdk) — accept & make x402 payments in code
+- [MCP setup guide](https://piprail.com/mcp) — give any agent a budget-bound wallet
+- [Chains catalog](https://piprail.com/chains) — every supported chain + per-chain setup
 - [Live demo](https://piprail.com/demo) — try x402 in your browser, no install
 - [npm: @piprail/sdk](https://www.npmjs.com/package/@piprail/sdk)
 - [npm: @piprail/mcp](https://www.npmjs.com/package/@piprail/mcp) — MCP server for budget-bound agent payments
-- [MCP setup guide](https://piprail.com/mcp)
 - [GitHub](https://github.com/piprail/piprail)

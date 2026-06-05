@@ -4,17 +4,20 @@ import '../styles/global.css'
 interface Props {
   title?: string
   description?: string
+  /** Per-page social card under /public (e.g. '/og-sdk.png'); defaults to the site card. */
+  ogImage?: string
 }
 
 const {
   title = 'PipRail — x402 crypto payment SDK for every chain (EVM, Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, XRPL)',
   description =
     'Accept and make x402 crypto payments on any EVM chain, Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger — in one line. No middleman, no account, no fee: USDC/USDT settles straight to your wallet, verified locally against your own RPC. Agent-safe spend budgets, one-line multi-chain, pre-pay gas estimates, plus an MCP server so Claude, Cursor, and any agent pay autonomously. The drop-in payment SDK for AI agents.',
+  ogImage: ogImageProp,
 } = Astro.props
 
 const site = Astro.site?.href.replace(/\/$/, '') ?? 'https://piprail.com'
 const canonical = new URL(Astro.url.pathname, site).href
-const ogImage = `${site}/og.png`
+const ogImage = `${site}${ogImageProp ?? '/og.png'}`
 
 // What PipRail can do — a machine-readable capability list for search engines and
 // AI agents scraping the page. Mirrors the SDK's actual feature set.

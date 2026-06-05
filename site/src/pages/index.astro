@@ -4,170 +4,102 @@ import Navigation from '../components/Navigation.astro'
 import Footer from '../components/Footer.astro'
 import CodeWindow from '../components/CodeWindow.astro'
 import SectionHeading from '../components/SectionHeading.astro'
-import FeatureGrid from '../components/FeatureGrid.astro'
 import { chains } from '../data/chains'
+import { acceptCode, payCode, mcpConfigCode } from '../data/snippets'
 import {
-  acceptCode, payCode, oneParamCode, exoticCode, solanaCode, agentSafeCode, multiAcceptCode, tonCode, planCode,
-} from '../data/snippets'
-import {
-  Zap, Coins, ShieldCheck, PackageCheck,
-  Boxes, Percent, Code2, Scale, ArrowRight, Globe, ChevronDown, Play,
-  Handshake, Puzzle, Landmark, Mail, Bot, Plug, Wallet, Sparkles,
+  Zap, Coins, ShieldCheck, PackageCheck, Boxes, Percent, Code2, Scale,
+  ArrowRight, Globe, ChevronDown, Play, Bot, Plug, Wallet, Sparkles, Handshake,
 } from 'lucide-astro'
 
-import { mcpConfigCode } from '../data/snippets'
+// Counts are DERIVED from the chain data — never hardcoded, so nothing can drift.
+const total = chains.length
+const familyCount = [...new Set(chains.map((c) => c.family))].length
+const evmCount = chains.filter((c) => c.family === 'EVM').length
 
-// @piprail/mcp — the three tools an MCP client gets, and the clients it drops into.
-const mcpTools = [
-  { name: 'piprail_quote_payment', desc: 'price a gated URL — without paying' },
-  { name: 'piprail_plan_payment', desc: 'check it can afford it: balance, gas, recipient-readiness' },
-  { name: 'piprail_pay_request', desc: 'fetch it, paying the 402 automatically' },
-]
-const mcpClients = ['Claude Desktop', 'Cursor', 'Claude Code', 'Windsurf', 'VS Code', 'Cline']
+// Concise, front-loaded, count-derived meta — the homepage is the brand anchor.
+const title = 'PipRail — x402 crypto payments for AI agents, every chain'
+const description = `Accept x402 crypto payments on ${total} chains — or hand your AI agent a wallet to pay on its own. One line, USDC/USDT/native straight to your wallet. No backend, no fee, MIT.`
 
 const stats = [
-  { icon: Boxes, v: '28', l: 'chains built in' },
+  { icon: Boxes, v: String(total), l: 'chains built in' },
   { icon: Percent, v: '0', l: 'protocol fee' },
   { icon: Code2, v: '1', l: 'line to integrate' },
   { icon: Scale, v: 'MIT', l: 'open source' },
 ]
 
-// "A tool, not a platform" — what you DON'T need.
-const noNeed = [
-  { label: 'No lock-in' }, { label: 'No database' }, { label: 'No account or API key' },
-  { label: 'No monthly fee' }, { label: 'No contract to deploy' }, { label: 'No hosted facilitator' },
-]
-
-// Agent spend controls — the client-side guardrails.
-const agentGuards = [
-  { label: 'Spend limits', desc: 'per-call + lifetime caps, enforced on the token’s true decimals' },
-  { label: 'Quote first', desc: 'learn the exact price without paying it' },
-  { label: 'Estimate the gas', desc: 'native-coin network fee before you pay — on every chain' },
-  { label: 'Approve each pay', desc: 'a final yes/no hook before any funds move' },
-  { label: 'Spend ledger', desc: 'read back exactly what was spent, per token' },
-  { label: 'One wallet, an LLM tool', desc: 'drop into MCP or the AI SDK — budget rides along' },
-]
-
-// planPayment — the four things it checks against your own wallet, before any send.
-const planChecks = [
-  { label: 'Enough token?', desc: 'your live balance of the exact payment token, per rail' },
-  { label: 'Enough gas?', desc: 'the native coin to send it — you can hold USDC but no ETH' },
-  { label: 'Can they receive?', desc: 'trustline / ATA / storage_deposit / ASA opt-in — before you broadcast' },
-  { label: 'Within budget?', desc: 'your spend policy, all checked in one read-only call' },
+const why = [
+  { icon: Globe, t: 'Widest coverage in x402', d: `${total} chains across ${familyCount} families, with native, self-custodial drivers — the only package that reaches TON, Tron, NEAR, Sui, Aptos, Algorand, and the XRP Ledger together.` },
+  { icon: ShieldCheck, t: 'Backendless by default', d: 'No facilitator, no relayer, no protocol fee. The payer broadcasts their own transfer, and you verify it against your own RPC — where most x402 stacks settle through a third party.' },
+  { icon: Zap, t: 'One line, zero infra', d: 'npm install, name a chain, add a wallet. Nothing to sign up for, deploy, or host — you’re charging agents in minutes.' },
 ]
 
 const steps = [
-  { icon: Zap, n: '01', t: 'Agent calls your route', d: 'It gets back a 402 quote — price, token, payTo, and chain.' },
+  { icon: Zap, n: '01', t: 'Agent calls your route', d: 'It gets back a 402 quote — price, token, payTo, chain.' },
   { icon: Coins, n: '02', t: 'Agent pays on-chain', d: 'One transfer, straight to your wallet. PipRail never touches the funds.' },
-  { icon: ShieldCheck, n: '03', t: 'You verify locally', d: 'Your server checks the tx against your own RPC: succeeded, recent, right amount and recipient.' },
-  { icon: PackageCheck, n: '04', t: 'You return the data', d: '200 OK, the gated content flows, and the same proof can never be spent twice.' },
+  { icon: ShieldCheck, n: '03', t: 'You verify locally', d: 'Your server checks the tx against your own RPC: succeeded, recent, right amount + recipient.' },
+  { icon: PackageCheck, n: '04', t: 'You return the data', d: '200 OK — and the same proof can never be spent twice.' },
 ]
 
-// Why PipRail — the honest, defensible differentiators vs the x402 field.
-const why = [
-  {
-    icon: Globe,
-    t: 'Widest coverage in x402',
-    d: '28 chains across 10 families, with native, self-custodial drivers — the only package that reaches TON, Tron, NEAR, Sui, Aptos, Algorand, and the XRP Ledger together. No other x402 SDK ships this many.',
-  },
-  {
-    icon: ShieldCheck,
-    t: 'Backendless by default',
-    d: 'No facilitator, no relayer, no protocol fee. The payer broadcasts their own transfer, and you verify it against your own RPC — where most x402 stacks settle through a third-party facilitator in the middle.',
-  },
-  {
-    icon: Zap,
-    t: 'One line, zero infra',
-    d: 'npm install, name a chain, add a wallet. Nothing to sign up for, deploy, or host — you’re charging agents in minutes.',
-  },
-]
-
-// The ten chain families — one representative logo each — for the "one protocol,
-// every chain" strip. EVM stands for all 19 EVM mainnets behind a single driver.
+// Representative logo per family — EVM stands for all its mainnets behind one driver.
 const familyLogos = [
-  { slug: 'ethereum', label: 'EVM ×19' },
-  { slug: 'solana', label: 'Solana' },
-  { slug: 'ton', label: 'TON' },
-  { slug: 'tron', label: 'Tron' },
-  { slug: 'near', label: 'NEAR' },
-  { slug: 'sui', label: 'Sui' },
-  { slug: 'aptos', label: 'Aptos' },
-  { slug: 'algorand', label: 'Algorand' },
-  { slug: 'stellar', label: 'Stellar' },
-  { slug: 'xrpl', label: 'XRPL' },
+  { slug: 'ethereum', label: `EVM ×${evmCount}` },
+  { slug: 'solana', label: 'Solana' }, { slug: 'ton', label: 'TON' }, { slug: 'tron', label: 'Tron' },
+  { slug: 'near', label: 'NEAR' }, { slug: 'sui', label: 'Sui' }, { slug: 'aptos', label: 'Aptos' },
+  { slug: 'algorand', label: 'Algorand' }, { slug: 'stellar', label: 'Stellar' }, { slug: 'xrpl', label: 'XRPL' },
 ]
 
+const mcpTools = [
+  { name: 'piprail_quote_payment', desc: 'price a gated URL — without paying' },
+  { name: 'piprail_plan_payment', desc: 'check it can afford it: balance, gas, recipient-readiness' },
+  { name: 'piprail_pay_request', desc: 'fetch it, paying the 402 automatically' },
+]
 
-// FAQ — a visible Q&A that also powers the FAQPage structured data below.
-// The two MUST match (search + AI engines expect schema to mirror the page).
+// Top 5 questions only — the rest live on /sdk, /mcp, /chains (each with its own schema).
 const faqs = [
   {
     q: `What is x402?`,
     a: `x402 revives the dormant HTTP 402 "Payment Required" status code as a real payment protocol. A server answers a request with 402 plus a machine-readable challenge (price, token, chain, pay-to address); the caller pays on-chain and retries with proof, and the request goes through. It lets an HTTP endpoint charge for itself — no API keys, accounts, or invoices — which is exactly what AI agents need to pay for data and compute autonomously.`,
   },
   {
-    q: `How do I accept crypto payments in Next.js?`,
-    a: `Install @piprail/sdk and viem, then in a Route Handler build a gate once with createPaymentGate({ chain: 'base', token: 'USDC', amount: '0.05', payTo }) and call gate.verify(req.headers.get('payment-signature')) inside GET. If the result is 'paid', return the resource + receipt header; if 'challenge', return it with status 402; otherwise return toInvalidBody(result) with 402. No backend or database — verification runs locally against your own RPC. The same createPaymentGate pattern covers Hono, Fastify, Workers, Bun, and Deno; Express gets the requirePayment one-liner.`,
-  },
-  {
     q: `How do AI agents pay for APIs with PipRail?`,
-    a: `Wrap the agent's HTTP calls with PipRailClient. Give it a wallet and a chain, then call client.fetch(url): on a 402 it reads the challenge, sends the payment on-chain, waits for confirmation, and retries with proof — automatically. Use client.quote(url) to learn a price without paying, client.estimateCost(url) to budget gas, and an opt-in spend policy (maxAmount, maxTotal, chains, tokens, hosts) that refuses out-of-bounds calls before any send. paymentTools(client) hands the same to an LLM via MCP, the Vercel AI SDK, or function-calling — budget-bound so it can't overspend.`,
+    a: `Wrap the agent's HTTP calls with PipRailClient. Give it a wallet and a chain, then call client.fetch(url): on a 402 it reads the challenge, sends the payment on-chain, waits for confirmation, and retries with proof — automatically. An opt-in spend policy (maxAmount, maxTotal, chains, tokens, hosts) refuses out-of-bounds calls before any send, and paymentTools(client) hands the same to an LLM via MCP or function-calling — budget-bound so it can't overspend.`,
   },
   {
     q: `How do I let Claude or Cursor pay for things autonomously?`,
-    a: `Install the PipRail MCP server. Add a small config block to your MCP client (Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, or Cline) that runs "npx -y @piprail/mcp" with your wallet key, chain, and spend caps. The agent gains three tools — piprail_quote_payment (price a gated URL), piprail_plan_payment (check it can afford it: balance, gas, recipient-readiness), and piprail_pay_request (pay the 402 and fetch the result) — so it can pay x402-gated APIs on its own across 28 chains. It runs locally with your own wallet, and the spend policy is enforced before any on-chain send, so the model literally cannot overspend. PipRail holds nothing and runs no backend or facilitator.`,
-  },
-  {
-    q: `What is the PipRail MCP server (@piprail/mcp)?`,
-    a: `@piprail/mcp is a Model Context Protocol (MCP) server that wraps @piprail/sdk so any MCP client can pay x402 payment-gated URLs autonomously. Run it with "npx -y @piprail/mcp" plus a wallet and a budget; it exposes piprail_quote_payment, piprail_plan_payment, and piprail_pay_request to the agent, across 28 chains. It's local-only, self-custodial, and budget-bound — no backend, no custody, no facilitator. It's how you give Claude, Cursor, or any AI agent a wallet without letting it overspend, in a couple of lines of config.`,
-  },
-  {
-    q: `How does an agent know if it can actually pay before paying?`,
-    a: `Call client.planPayment(url). It's a read-only call that surveys the 402 across every rail it offers on your chain and checks each against your own wallet: token balance, native-coin gas, and whether the recipient can even receive (trustline / associated token account / storage_deposit / ASA opt-in / account activation). It returns payable plus the best rail to use, per-rail blockers (INSUFFICIENT_TOKEN, INSUFFICIENT_GAS, RECIPIENT_NOT_READY, OUTSIDE_POLICY), and a one-sentence fundingHint telling you exactly what to top up — for example, "Have the USDC, but need ~0.00002 ETH for gas" or "Recipient must opt into the USDC ASA before it can receive." It never throws for a transient RPC failure (that rail comes back as state: 'unknown', never a false "broke"), and returns null when the URL isn't payment-gated. This completes the trio quote() → estimateCost() → planPayment(): price, gas, and whether you can actually settle it. Turn on autoRoute and client.fetch pays the cheapest settleable rail automatically; planAcross(clients, url) plans across several chains at once. No other x402 SDK does this — it's only possible because PipRail is backendless and self-custodial: it reads your balances and the chain's receive-rules directly from your own RPC, across all 28 chains, with no facilitator or oracle.`,
+    a: `Install the PipRail MCP server: add a small config block to your MCP client (Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, or Cline) that runs "npx -y @piprail/mcp" with your wallet key, chain, and spend caps. The agent gains three tools — piprail_quote_payment, piprail_plan_payment, and piprail_pay_request — so it pays x402-gated APIs on its own across ${total} chains. It runs locally with your own wallet, and the spend policy is enforced before any on-chain send, so the model literally cannot overspend.`,
   },
   {
     q: `Which chains and tokens does PipRail support?`,
-    a: `28 chains across 10 families: 19 EVM mainnets (Ethereum, Base, Arbitrum, Optimism, Polygon, BNB Chain, Avalanche, HyperEVM, Monad, Mantle, Sonic, Linea, Scroll, Celo, zkSync, Unichain, World Chain, Sei, Injective) plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger. USDC almost everywhere, USDT on most chains, EURC on Stellar, RLUSD on XRPL, or any other token by address. One parameter — chain — picks everything.`,
-  },
-  {
-    q: `Do any chains need extra setup before they work?`,
-    a: `Most don't — on EVM, Solana, Sui, and Aptos you install, add a wallet, and pay or get paid with no extra steps, in the native coin or a stablecoin. A few chains have one-time caveats worth knowing. On Algorand, native ALGO is the zero-setup path, while receiving USDC needs a one-time ASA opt-in on the recipient (a 0-amount self-transfer, like a trustline). TON ships USD₮ (there is no native USDC on TON) and needs an API-keyed RPC — add one parameter, rpcUrl with a free toncenter API key in the URL, because the free public endpoint is rate-limited and will stall confirmation. Tron pays in USD₮ or native TRX — USD₮ is the default since TRX is volatile gas, and gas is paid in real TRX (no native USDC exists on Tron). On NEAR, native NEAR is the zero-setup path (no registration needed — a transfer even creates a fresh recipient), while paying in a NEP-141 token like USDC/USDT requires a one-time storage_deposit registration on the recipient. Stellar and the XRP Ledger require the recipient to hold a one-time trustline for the asset and to be an activated, reserve-funded account before it can receive — native XLM/XRP need no trustline. Native coin is a valid payment asset on every chain — all ten families, no exceptions. Full per-chain setup, wallet formats, and caveats are documented in CHAINS.md.`,
+    a: `${total} chains across ${familyCount} families: ${evmCount} EVM mainnets (Ethereum, Base, Arbitrum, Optimism, Polygon, BNB Chain, Avalanche, HyperEVM, Monad, Mantle, Sonic, Linea, Scroll, Celo, zkSync, Unichain, World Chain, Sei, Injective) plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger. USDC almost everywhere, USDT on most chains, EURC on Stellar, RLUSD on XRPL, the native coin on every chain, or any other token by address. One parameter — chain — picks everything.`,
   },
   {
     q: `Is there a fee to use PipRail?`,
     a: `No. PipRail charges no fee and takes no cut. It's an open-source (MIT) npm package, not a platform or hosted service. Payments settle straight into your own wallet — there's no PipRail backend, facilitator, or middleman in the path. You pay only normal network gas on whichever chain you choose.`,
   },
-  {
-    q: `Does PipRail need a backend, database, or account?`,
-    a: `None. PipRail is backendless and self-custodial: no server to run, no database, no auth, no sign-up. Payment proofs are verified locally on-chain against your own RPC, with an in-memory replay guard (pluggable to Redis for multi-instance). The x402 v2 spec explicitly lets resource servers host verification themselves, so this shape is spec-supported, not a workaround.`,
-  },
-  {
-    q: `How do I accept several chains in one request?`,
-    a: `Pass an accept array to requirePayment or createPaymentGate — one challenge that offers several chains/tokens under a shared nonce, and the agent pays with whatever it holds. Verification picks the match by network + asset and re-derives every field from its own trusted spec, so a forged echo can't redirect it and a proof can't be redeemed twice.`,
-  },
-  {
-    q: `Can the same app both take and make payments?`,
-    a: `Yes — that's the design. Use requirePayment (Express) or createPaymentGate (everything else) to charge for a route, and PipRailClient to pay for calls the same app makes outbound. Install the one package, add a wallet, and you can monetize and pay in the same process. It's pure TypeScript and runs headless or in the browser.`,
-  },
 ]
-
 const faqLd = {
   '@context': 'https://schema.org',
   '@type': 'FAQPage',
   '@id': 'https://piprail.com/#faq',
-  mainEntity: faqs.map((f) => ({
-    '@type': 'Question',
-    name: f.q,
-    acceptedAnswer: { '@type': 'Answer', text: f.a },
-  })),
+  mainEntity: faqs.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
+}
+
+// Compact 402-loop HowTo (the canonical full version lives on /sdk).
+const howToLd = {
+  '@context': 'https://schema.org',
+  '@type': 'HowTo',
+  '@id': 'https://piprail.com/#howto',
+  name: 'How an x402 payment works with PipRail',
+  description: 'The four-step 402 loop: request, 402 challenge, pay on-chain, verify locally and serve.',
+  step: steps.map((s) => ({ '@type': 'HowToStep', name: s.t, text: s.d })),
 }
 ---
 
-<Layout>
+<Layout title={title} description={description}>
   <Navigation path="/" />
 
   <main class="mx-auto max-w-6xl px-4 sm:px-6">
-    <!-- Hero -->
+    <!-- 1 · Hero -->
     <section class="fade-up py-16 text-center sm:py-20 md:py-28">
       <p class="mb-7 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3.5 py-1.5 text-xs text-muted">
         <span class="h-1.5 w-1.5 rounded-full bg-accent animate-pulse"></span>
@@ -178,47 +110,81 @@ const faqLd = {
         <span class="text-accent">agent economy</span>.
       </h1>
       <p class="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-neutral-400 sm:text-lg md:text-xl">
-        One <span class="text-neutral-200">universal payment rail</span> for every chain — accept x402 crypto payments
-        on any EVM chain, Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and XRPL in one line.
-        USDC, USDT, or the chain's native coin settles straight into your wallet. No middleman, no account, no fee.
+        Accept x402 crypto payments on every chain — or hand your AI agent a wallet to pay on its own.
+        One line, <span class="text-neutral-200">{total} chains</span>, USDC/USDT/native straight to your wallet.
+        No middleman, no account, no fee.
       </p>
 
+      <!-- dual CTA — route the two audiences -->
       <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-        <div class="flex w-full max-w-xs items-center gap-3 rounded-xl border border-white/10 bg-neutral-900/80 px-5 py-3.5 font-mono text-sm sm:w-auto">
-          <span class="select-none text-neutral-600">$</span>
-          <span class="truncate">npm install @piprail/sdk viem</span>
-        </div>
-        <a
-          href="https://www.npmjs.com/package/@piprail/sdk"
-          class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto"
-        >
-          Get started <ArrowRight size={16} aria-hidden="true" />
+        <a href="/sdk" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto">
+          <Code2 size={16} aria-hidden="true" /> Get paid — the SDK
+        </a>
+        <a href="/mcp" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto">
+          <Bot size={16} class="text-accent" aria-hidden="true" /> Give your agent a wallet
         </a>
       </div>
+      <div class="mt-4 inline-flex items-center gap-3 rounded-xl border border-white/10 bg-neutral-900/80 px-5 py-3 font-mono text-sm">
+        <span class="select-none text-neutral-600">$</span>
+        <span class="truncate">npm install @piprail/sdk viem</span>
+      </div>
 
-      <!-- Chain strip -->
+      <!-- chain strip -->
       <div class="mt-14 sm:mt-16">
         <p class="mb-6 text-[11px] uppercase tracking-[0.2em] text-neutral-600">Live on every major chain</p>
         <div class="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-x-7 gap-y-5 sm:gap-x-9">
           {chains.map((c) => (
-            <img
-              src={`/chains/${c.slug}.svg`}
-              alt={`${c.name} logo`}
-              width="28"
-              height="28"
-              loading="lazy"
-              class="h-7 w-7 rounded-full ring-1 ring-white/10 opacity-90 transition hover:scale-110 hover:opacity-100"
-            />
+            <img src={`/chains/${c.slug}.svg`} alt={`${c.name} logo`} width="28" height="28" loading="lazy"
+              class="h-7 w-7 rounded-full ring-1 ring-white/10 opacity-90 transition hover:scale-110 hover:opacity-100" />
           ))}
         </div>
       </div>
     </section>
 
-    <!-- Try the live demo -->
+    <!-- 2 · Stats bar -->
+    <section aria-label="At a glance" class="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 md:grid-cols-4">
+      {stats.map((s) => {
+        const Icon = s.icon
+        return (
+          <div class="bg-neutral-950 px-5 py-7 text-center transition-colors hover:bg-neutral-900/60">
+            <Icon size={18} class="mx-auto mb-3 text-accent/70" aria-hidden="true" />
+            <p class="text-3xl font-semibold tracking-tight text-neutral-100 md:text-4xl">{s.v}</p>
+            <p class="mt-1.5 text-sm text-neutral-400">{s.l}</p>
+          </div>
+        )
+      })}
+    </section>
+
+    <!-- 3 · The fork — two audiences, two doors -->
+    <section class="py-20 sm:py-24">
+      <SectionHeading title="Two sides, one SDK." class="mb-10 max-w-2xl sm:mb-12">
+        The same package lets a server <span class="text-neutral-200">charge</span> for a route and an agent
+        <span class="text-neutral-200">pay</span> for one. Pick your side — both are a couple of lines.
+      </SectionHeading>
+      <div class="grid gap-6 lg:grid-cols-2">
+        <div class="flex min-w-0 flex-col rounded-2xl border border-white/10 bg-white/2 p-6 sm:p-7">
+          <h3 class="flex items-center gap-2 text-sm font-medium uppercase tracking-wider text-muted">
+            <span class="h-1.5 w-1.5 rounded-full bg-accent"></span> Accept — your server gets paid
+          </h3>
+          <p class="mt-2 mb-4 text-sm leading-relaxed text-neutral-400">Gate any route so it charges for itself. Express, Next.js, or any edge runtime — no backend, no database.</p>
+          <CodeWindow file="server.ts" code={acceptCode} class="min-w-0" />
+          <a href="/sdk" class="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-accent transition hover:gap-2.5">Build a paid API <ArrowRight size={15} aria-hidden="true" /></a>
+        </div>
+        <div class="flex min-w-0 flex-col rounded-2xl border border-white/10 bg-white/2 p-6 sm:p-7">
+          <h3 class="flex items-center gap-2 text-sm font-medium uppercase tracking-wider text-muted">
+            <span class="h-1.5 w-1.5 rounded-full bg-accent"></span> Pay — your agent pays for itself
+          </h3>
+          <p class="mt-2 mb-4 text-sm leading-relaxed text-neutral-400">Point an agent at a paid URL and it pays the 402 on its own — inside a budget it can’t exceed.</p>
+          <CodeWindow file="agent.ts" code={payCode} class="min-w-0" />
+          <a href="/mcp" class="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-accent transition hover:gap-2.5">Give your agent a wallet <ArrowRight size={15} aria-hidden="true" /></a>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4 · Live demo teaser -->
     <section aria-label="Live demo" class="relative overflow-hidden rounded-3xl border border-accent/20 bg-linear-to-br from-accent/8 via-white/2 to-transparent p-8 sm:p-10 lg:p-14">
       <div class="pointer-events-none absolute -right-24 -top-28 h-80 w-80 rounded-full bg-accent/10 blur-3xl"></div>
       <div class="relative grid items-center gap-10 lg:grid-cols-[1.05fr_1fr] lg:gap-14">
-        <!-- copy -->
         <div>
           <span class="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-accent">
             <span class="relative flex h-2 w-2">
@@ -232,24 +198,15 @@ const faqLd = {
             <span class="text-accent">Run it in your browser.</span>
           </h2>
           <p class="mt-4 max-w-xl text-base leading-relaxed text-neutral-400 sm:text-lg">
-            Build a real <span class="font-mono text-neutral-200">402</span> payment challenge and watch an agent
-            price it — live, client-side, across 28 chains. No install, no backend; the SDK loads from a CDN right on the page.
+            Build a real <span class="font-mono text-neutral-200">402</span> challenge and watch an agent price it —
+            live, client-side, no install. The SDK loads from a CDN right on the page.
           </p>
-          <ul class="mt-6 flex flex-wrap gap-x-6 gap-y-2.5 text-sm font-medium text-neutral-300">
-            <li class="inline-flex items-center gap-2"><Globe size={16} class="text-accent" aria-hidden="true" /> Runs in your browser</li>
-            <li class="inline-flex items-center gap-2"><Boxes size={16} class="text-accent" aria-hidden="true" /> 28 chains</li>
-            <li class="inline-flex items-center gap-2"><Zap size={16} class="text-accent" aria-hidden="true" /> Zero install</li>
-          </ul>
-          <div class="mt-8 flex flex-col gap-3 sm:flex-row">
+          <div class="mt-8">
             <a href="/demo" class="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110">
               <Play size={15} fill="currentColor" aria-hidden="true" /> Try the live demo
             </a>
-            <a href="https://github.com/piprail/piprail/tree/main/examples/browser" class="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20">
-              Copy the HTML
-            </a>
           </div>
         </div>
-        <!-- faux-browser preview teasing the real demo -->
         <div class="relative">
           <div class="overflow-hidden rounded-xl border border-white/10 bg-neutral-900/80 shadow-2xl shadow-black/40">
             <div class="flex items-center gap-1.5 border-b border-white/5 px-4 py-2.5">
@@ -275,241 +232,18 @@ const faqLd = {
       </div>
     </section>
 
-    <!-- Stats -->
-    <section aria-label="At a glance" class="mt-16 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 sm:mt-24 md:grid-cols-4">
-      {stats.map((s) => {
-        const Icon = s.icon
-        return (
-          <div class="bg-neutral-950 px-5 py-8 text-center transition-colors hover:bg-neutral-900/60 sm:py-9">
-            <Icon size={18} class="mx-auto mb-3 text-accent/70" aria-hidden="true" />
-            <p class="text-3xl font-semibold tracking-tight text-neutral-100 md:text-4xl">{s.v}</p>
-            <p class="mt-1.5 text-sm text-neutral-400">{s.l}</p>
-          </div>
-        )
-      })}
-    </section>
-
-    <!-- Accept / Pay -->
-    <section class="py-20 sm:py-24">
-      <SectionHeading title="Two sides, one SDK." class="mb-10 max-w-2xl sm:mb-12">
-        The same package lets a server <span class="text-neutral-200">charge</span> for a
-        route and an agent <span class="text-neutral-200">pay</span> for one. Both in a
-        couple of lines — on any of <span class="text-neutral-200">28 chains</span>, swap the one word.
-      </SectionHeading>
-
-      <div class="grid gap-6 lg:grid-cols-2">
-        <div class="min-w-0">
-          <h3 class="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted">
-            <span class="h-1.5 w-1.5 rounded-full bg-accent"></span> Accept — charge for any endpoint
-          </h3>
-          <CodeWindow file="server.ts" code={acceptCode} />
-          <p class="mt-3 text-sm leading-relaxed text-neutral-500">
-            Drop it into Express, Hono, Next.js, or a Cloudflare/Vercel edge function. No
-            always-on backend, no database.
-          </p>
-        </div>
-        <div class="min-w-0">
-          <h3 class="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted">
-            <span class="h-1.5 w-1.5 rounded-full bg-accent"></span> Pay — let an agent pay for itself
-          </h3>
-          <CodeWindow file="agent.ts" code={payCode} />
-          <p class="mt-3 text-sm leading-relaxed text-neutral-500">
-            Runs anywhere JavaScript does: Node, edge, or the browser. In-browser agents and
-            dapps pay client-side.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <!-- One parameter, every chain -->
-    <section class="border-t border-white/10 py-20 sm:py-24">
-      <SectionHeading title="One word picks the chain.">
-        Switch networks by changing a single string — from Ethereum to Solana
-        to TON. Same one line, same wallet, every chain that matters.
-      </SectionHeading>
-      <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:items-center">
-        <CodeWindow code={oneParamCode} preClass="overflow-x-auto p-5 font-mono text-[12px] leading-[1.7] sm:text-sm" />
-        <div class="space-y-5">
-          <div class="flex flex-wrap gap-2">
-            {chains.slice(0, 8).map((c) => (
-              <span class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/3 px-3 py-1.5 text-sm text-neutral-300">
-                <img src={`/chains/${c.slug}.svg`} alt="" width="16" height="16" loading="lazy" class="h-4 w-4 rounded-full ring-1 ring-white/10" />
-                {c.name}
-              </span>
-            ))}
-            <a href="#chains" class="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/3 px-3 py-1.5 text-sm text-neutral-400 transition hover:border-white/20 hover:text-neutral-200">
-              +{chains.length - 8} more
-            </a>
-          </div>
-          <div class="flex items-center gap-3 rounded-xl border border-white/10 bg-white/2 px-4 py-3">
-            <span class="flex shrink-0 items-center">
-              <img src="/tokens/usdc.svg" alt="USDC" width="24" height="24" class="h-6 w-6 rounded-full ring-1 ring-neutral-950" />
-              <img src="/tokens/usdt.svg" alt="USDT" width="24" height="24" class="-ml-2 h-6 w-6 rounded-full ring-1 ring-neutral-950" />
-            </span>
-            <p class="text-sm leading-snug text-neutral-400">
-              <span class="text-neutral-200">USDC, USDT, or the native coin</span> on every chain —
-              name the token, the SDK fills in the rest.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <!-- …or accept several at once -->
-      <div class="mt-6">
-        <p class="mb-3 text-xs font-medium uppercase tracking-wider text-muted">Or take several chains in one challenge</p>
-        <CodeWindow code={multiAcceptCode} />
-        <p class="mt-3 max-w-3xl text-sm leading-relaxed text-neutral-500">
-          Offer many chains at once, and the paying agent picks the one it holds funds on — no
-          per-chain routes to wire up.
-        </p>
-      </div>
-    </section>
-
-    <!-- Agent-safe -->
-    <section class="border-t border-white/10 py-20 sm:py-24">
-      <SectionHeading title="Agent-safe by default.">
-        Hand an autonomous agent a wallet without losing sleep. Set a budget, and PipRail
-        refuses anything outside it <span class="text-neutral-200">before a single token moves</span> —
-        learn a price before paying, approve each spend, and read back exactly what went out.
-      </SectionHeading>
-      <div class="grid gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:items-center">
-        <CodeWindow file="agent.ts" code={agentSafeCode} class="min-w-0" />
-        <FeatureGrid items={agentGuards} />
-      </div>
-    </section>
-
-    <!-- Plan before you pay (the killer agent feature) -->
-    <section class="border-t border-white/10 py-20 sm:py-24">
-      <SectionHeading title="Plan before you pay.">
-        Every other x402 client picks a rail blind and finds out it can't pay when the transfer
-        <span class="text-neutral-200">reverts</span> — out of gas, or the recipient isn't even set up to
-        receive. <span class="text-neutral-200">One read-only call</span> checks a 402 against your own
-        wallet — balance, native gas, and whether the recipient can receive — and tells you the rail to
-        use, or exactly what to top up. Then <span class="text-accent">one line</span> pays it.
-      </SectionHeading>
-      <div class="grid gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:items-center">
-        <CodeWindow file="agent.ts" code={planCode} class="min-w-0" />
-        <FeatureGrid items={planChecks} />
-      </div>
-      <p class="mx-auto mt-8 max-w-3xl text-center text-sm text-neutral-400">
-        <code class="text-neutral-200">quote()</code> tells you the price,
-        <code class="text-neutral-200">estimateCost()</code> the gas, and
-        <code class="text-accent">planPayment()</code> whether you can actually settle it — across all 28
-        chains, on your own RPC, with no facilitator, oracle, or bridge. Turn on
-        <code class="text-neutral-200">autoRoute</code> and <code class="text-neutral-200">fetch</code>
-        pays the cheapest rail you can afford automatically; nothing settleable → it refuses before any send.
-      </p>
-    </section>
-
-    <!-- MCP — give any AI agent a wallet -->
-    <section id="mcp" class="scroll-mt-20 border-t border-white/10 py-20 sm:py-24">
-      <div class="relative overflow-hidden rounded-3xl border border-accent/20 bg-linear-to-br from-accent/8 via-white/2 to-transparent p-8 sm:p-10 lg:p-14">
-        <div class="pointer-events-none absolute -left-24 -top-28 h-80 w-80 rounded-full bg-accent/10 blur-3xl"></div>
-        <div class="relative grid items-center gap-10 lg:grid-cols-[1fr_1.05fr] lg:gap-14">
-          <!-- copy -->
-          <div>
-            <span class="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/8 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
-              <Sparkles size={13} aria-hidden="true" /> New · @piprail/mcp
-            </span>
-            <h2 class="mt-5 text-3xl font-semibold leading-[1.1] tracking-tight sm:text-4xl md:text-5xl">
-              Give your AI agent <span class="text-accent">a wallet</span>.
-            </h2>
-            <p class="mt-5 max-w-xl text-base leading-relaxed text-neutral-400 sm:text-lg">
-              The PipRail <span class="text-neutral-200">MCP server</span> hands any agent a budget-bound wallet.
-              Paste one config block and <span class="text-neutral-200">Claude Desktop, Cursor,</span> or any MCP
-              client can pay x402-gated APIs <span class="text-neutral-200">on its own</span> — across 28 chains,
-              capped by a spend policy it <span class="text-neutral-200">cannot exceed</span>.
-            </p>
-
-            <!-- the three tools -->
-            <ul class="mt-7 space-y-2.5">
-              {mcpTools.map((t) => (
-                <li class="flex items-start gap-3">
-                  <span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-accent/30 bg-accent/10 text-accent"><Plug size={12} aria-hidden="true" /></span>
-                  <span class="text-sm leading-snug text-neutral-300"><code class="text-neutral-100">{t.name}</code> — {t.desc}</span>
-                </li>
-              ))}
-            </ul>
-
-            <!-- trust line -->
-            <p class="mt-7 flex items-start gap-2.5 rounded-xl border border-white/10 bg-white/2 px-4 py-3 text-sm leading-snug text-neutral-400">
-              <ShieldCheck size={16} class="mt-0.5 shrink-0 text-accent" aria-hidden="true" />
-              <span>Runs on <span class="text-neutral-200">your</span> machine with <span class="text-neutral-200">your</span> wallet and limits. The budget is enforced before any on-chain send — <span class="text-neutral-200">the model can't overspend</span>. No backend, no custody.</span>
-            </p>
-
-            <div class="mt-8 flex flex-col gap-3 sm:flex-row">
-              <a href="/mcp" class="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110">
-                <Bot size={16} aria-hidden="true" /> Set it up
-              </a>
-              <a href="https://www.npmjs.com/package/@piprail/mcp" class="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20">
-                @piprail/mcp on npm
-              </a>
-            </div>
-          </div>
-
-          <!-- config + clients -->
-          <div class="min-w-0">
-            <CodeWindow file="claude_desktop_config.json" code={mcpConfigCode} />
-            <div class="mt-4 flex items-center gap-3 rounded-xl border border-white/10 bg-white/2 px-4 py-3">
-              <Wallet size={16} class="shrink-0 text-accent" aria-hidden="true" />
-              <p class="text-sm leading-snug text-neutral-400">
-                <span class="font-mono text-neutral-200">npx -y @piprail/mcp</span> — nothing to install. Then say
-                <span class="text-neutral-300">“pay for and summarize that report”</span> and the agent does the rest.
-              </p>
-            </div>
-            <div class="mt-4">
-              <p class="mb-2.5 text-[11px] uppercase tracking-[0.18em] text-neutral-600">Works in</p>
-              <div class="flex flex-wrap gap-2">
-                {mcpClients.map((c) => (
-                  <span class="inline-flex items-center rounded-full border border-white/10 bg-white/3 px-3 py-1.5 text-xs font-medium text-neutral-300">{c}</span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- A tool, not a platform -->
-    <section class="border-t border-white/10 py-20 sm:py-24">
-      <div class="grid gap-10 xl:grid-cols-2 xl:items-center xl:gap-14">
-        <div>
-          <h2 class="text-3xl font-semibold tracking-tight md:text-4xl">A tool, not a platform.</h2>
-          <p class="mt-4 max-w-md text-base leading-relaxed text-neutral-400 sm:text-lg">
-            PipRail is an SDK you <code class="rounded bg-white/5 px-1.5 py-0.5 font-mono text-[0.9em] text-neutral-300">npm&nbsp;install</code> —
-            not a service you sign up for. Verification runs in your own process,
-            against your own RPC. Nothing sits between the payer and your wallet, and
-            PipRail never takes a cut of a payment. The open SDK is free and
-            standalone, and always will be.
-          </p>
-        </div>
-        <FeatureGrid items={noNeed} cols={2} />
-      </div>
-    </section>
-
-    <!-- The compatibility problem PipRail solves — one protocol, every chain -->
+    <!-- 5 · Why PipRail -->
     <section class="border-t border-white/10 py-20 sm:py-24">
       <SectionHeading title="One protocol. Every chain.">
-        Every blockchain settles value its own way — EVM calldata, Solana SPL tokens, TON
-        jettons, XRPL trustlines, NEAR storage. That fragmentation is why agent payments
-        usually stall at one or two networks. PipRail collapses it behind a single x402 line
-        and one self-custodial driver per family — so the same integration pays and gets paid
-        across all ten, native coin or stablecoin. Backendless, no fee, no one in the middle.
-        No other x402 SDK reaches this far.
+        Every blockchain settles value its own way. PipRail collapses that behind a single x402 line and one
+        self-custodial driver per family — so the same integration pays and gets paid across all {familyCount},
+        native coin or stablecoin. Backendless, no fee, no one in the middle. No other x402 SDK reaches this far.
       </SectionHeading>
 
-      {/* Ten families, one interface — a quiet visual of the breadth (EVM = all 19 EVM chains). */}
       <div class="mb-4 flex flex-wrap items-center justify-center gap-x-7 gap-y-4 rounded-2xl border border-white/10 bg-neutral-950 px-6 py-7 sm:gap-x-10">
         {familyLogos.map((f) => (
           <span class="flex items-center gap-2" title={f.label}>
-            <img
-              src={`/chains/${f.slug}.svg`}
-              alt={`${f.label} logo`}
-              width="28"
-              height="28"
-              loading="lazy"
-              class="h-7 w-7 rounded-full ring-1 ring-white/10"
-            />
+            <img src={`/chains/${f.slug}.svg`} alt={`${f.label} logo`} width="28" height="28" loading="lazy" class="h-7 w-7 rounded-full ring-1 ring-white/10" />
             <span class="text-sm font-medium text-neutral-300">{f.label}</span>
           </span>
         ))}
@@ -531,176 +265,125 @@ const faqLd = {
       </div>
     </section>
 
-    <!-- Chains grid -->
-    <section id="chains" class="scroll-mt-20 border-t border-white/10 py-20 sm:py-24">
-      <SectionHeading title="Built-in chains.">
-        Nineteen EVM mainnets, plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and
-        the XRP Ledger — each with its canonical stablecoins or native coin, ready
-        to go. Any other chain works via one config object.
-      </SectionHeading>
-
-      {/* A structured, named list — chain on the left, its built-in stablecoins
-          named (icon + label) on the right. Clear to humans who don't read the
-          icons, and machine-readable for agents/scrapers. flex-wrap keeps it
-          pristine on every width: one line on wide rows, chain-then-tokens when
-          narrow. Two columns from tablet up so it never gets long or squashed. */}
-      <ul class="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 sm:grid-cols-2">
-        {chains.map((c) => (
-          <li class="group flex flex-wrap items-center gap-x-3 gap-y-2.5 bg-neutral-950 px-4 py-4 transition hover:bg-neutral-900 sm:px-5">
-            <img
-              src={`/chains/${c.slug}.svg`}
-              alt={`${c.name} logo`}
-              width="36"
-              height="36"
-              loading="lazy"
-              class="h-9 w-9 shrink-0 rounded-full ring-1 ring-white/10 transition group-hover:scale-105"
-            />
-            <span class="mr-auto text-[15px] font-medium text-neutral-100">{c.name}</span>
-            <span class="flex flex-wrap items-center gap-1.5">
-              {c.tokens.map((t) => (
-                <span class="inline-flex items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-1 text-xs font-medium text-neutral-300 ring-1 ring-white/10">
-                  <img
-                    src={`/tokens/${t}.svg`}
-                    alt=""
-                    width="16"
-                    height="16"
-                    loading="lazy"
-                    class="h-4 w-4 rounded-full"
-                  />
-                  {t.toUpperCase()}
-                </span>
-              ))}
-            </span>
-          </li>
-        ))}
-        {/* Keep the 2-col grid a clean rectangle when the chain count is odd. */}
-        {chains.length % 2 === 1 && (
-          <li class="hidden bg-neutral-950 sm:block" aria-hidden="true"></li>
-        )}
-      </ul>
-
-      <div class="mt-6 grid gap-6 lg:grid-cols-2">
-        <div class="min-w-0">
-          <p class="mb-3 text-xs font-medium uppercase tracking-wider text-muted">Any other EVM chain</p>
-          <CodeWindow code={exoticCode} />
-        </div>
-        <div class="min-w-0">
-          <p class="mb-3 text-xs font-medium uppercase tracking-wider text-muted">Beyond EVM — Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar &amp; XRPL auto-mount</p>
-          <CodeWindow code={solanaCode} />
-        </div>
-      </div>
-
-      <p class="mt-6 text-sm leading-relaxed text-neutral-500">
-        Most chains need nothing beyond a wallet — pay in the native coin or a stablecoin, on every family.
-        A few have one-time setup:
-        on <span class="text-neutral-300">NEAR</span> the NEP-141 token path needs a one-time
-        <code class="rounded bg-white/5 px-1 text-neutral-300">storage_deposit</code> (native NEAR needs none);
-        <span class="text-neutral-300">Stellar</span> &amp; <span class="text-neutral-300">XRPL</span> recipients need a
-        one-time trustline; and <span class="text-neutral-300">TON</span> needs an API-keyed RPC.
-        Full per-chain setup &amp; caveats:
-        <a href="https://github.com/piprail/piprail/blob/main/sdk/CHAINS.md" class="text-accent underline-offset-4 hover:underline">CHAINS.md →</a>
-      </p>
-    </section>
-
-    <!-- Using TON — one free API key -->
+    <!-- 6 · How it works (compact) -->
     <section class="border-t border-white/10 py-20 sm:py-24">
-      <div class="grid gap-8 lg:grid-cols-2 lg:items-center">
-        <div class="min-w-0">
-          <img
-            src="/chains/ton.svg"
-            alt="TON logo"
-            width="48"
-            height="48"
-            class="mb-5 h-12 w-12 rounded-full ring-1 ring-white/10"
-          />
-          <p class="mb-3 text-xs font-medium uppercase tracking-wider text-muted">Config step · TON RPC key</p>
-          <h2 class="text-3xl font-semibold tracking-tight md:text-4xl">Using TON? Grab one free API key.</h2>
-          <p class="mt-4 leading-relaxed text-neutral-400">
-            TON is the only chain that needs a <span class="text-neutral-200">config</span> step — and it takes
-            about 30 seconds. Its free public RPC is rate-limited, so without your own key, payment confirmation
-            stalls. The fix is exactly <span class="text-neutral-200">one parameter</span>: an
-            <code class="rounded bg-white/5 px-1 text-neutral-300">rpcUrl</code> with a free key in the URL.
-            (On NEAR/Stellar/XRPL any one-time setup is recipient-side — a trustline or storage_deposit — covered above.)
-          </p>
-          <ol class="mt-5 space-y-2.5 text-neutral-400">
-            <li class="flex gap-2.5">
-              <span class="font-mono text-accent">1.</span>
-              <span>Message <a href="https://t.me/tonapibot" class="text-neutral-200 underline-offset-4 hover:underline">@tonapibot</a> on Telegram for a free key — no card, no KYC.</span>
-            </li>
-            <li class="flex gap-2.5">
-              <span class="font-mono text-accent">2.</span>
-              <span>Drop it into <code class="rounded bg-white/5 px-1 text-neutral-300">rpcUrl</code> on the gate (and the client). Done.</span>
-            </li>
-          </ol>
-          <p class="mt-5 text-sm leading-relaxed text-neutral-500">
-            Everything else is automatic — USD₮ is built in (native USDC doesn't exist on TON),
-            native TON works too, and the merchant needs no setup. Full per-chain notes:
-            <a href="https://github.com/piprail/piprail/blob/main/sdk/CHAINS.md" class="text-accent underline-offset-4 hover:underline">CHAINS.md →</a>
-          </p>
-        </div>
-        <div class="min-w-0">
-          <CodeWindow code={tonCode} />
-        </div>
-      </div>
-    </section>
-
-    <!-- How it works -->
-    <section class="border-t border-white/10 py-20 sm:py-24">
-      <SectionHeading title="How it works." class="mb-10 max-w-2xl sm:mb-12">
+      <SectionHeading title="How it works." class="mb-10 max-w-2xl">
         A four-step round trip over plain HTTP. No facilitator, no custody.
+        <a href="/sdk" class="text-accent underline-offset-4 hover:underline">See the full flow →</a>
       </SectionHeading>
-      <div class="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 md:grid-cols-2">
+      <ol class="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 sm:grid-cols-2 lg:grid-cols-4">
         {steps.map((s) => {
           const Icon = s.icon
           return (
-            <div class="bg-neutral-950 p-6 sm:p-8">
+            <li class="bg-neutral-950 p-6">
               <div class="flex items-center gap-3">
-                <span class="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5">
-                  <Icon size={18} class="text-accent" aria-hidden="true" />
-                </span>
-                <span class="font-mono text-sm font-medium text-neutral-500">{s.n}</span>
+                <span class="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5"><Icon size={16} class="text-accent" aria-hidden="true" /></span>
+                <span class="font-mono text-sm text-neutral-500">{s.n}</span>
               </div>
-              <p class="mt-4 text-lg font-medium text-neutral-100">{s.t}</p>
-              <p class="mt-2 leading-relaxed text-neutral-500">{s.d}</p>
-            </div>
+              <p class="mt-3.5 font-medium text-neutral-100">{s.t}</p>
+              <p class="mt-1.5 text-sm leading-relaxed text-neutral-500">{s.d}</p>
+            </li>
           )
         })}
-      </div>
-      <p class="mt-6 max-w-3xl text-sm leading-relaxed text-neutral-500">
-        x402 v2 (§7) explicitly endorses merchant-local verification — no
-        facilitator required. Self-custody throughout: the payer signs and
-        broadcasts their own transfer; PipRail never holds funds.
-      </p>
+      </ol>
     </section>
 
-    <!-- FAQ -->
+    <!-- 7 · MCP teaser -->
+    <section class="border-t border-white/10 py-20 sm:py-24">
+      <div class="relative overflow-hidden rounded-3xl border border-accent/20 bg-linear-to-br from-accent/8 via-white/2 to-transparent p-8 sm:p-10 lg:p-14">
+        <div class="pointer-events-none absolute -left-24 -top-28 h-80 w-80 rounded-full bg-accent/10 blur-3xl"></div>
+        <div class="relative grid items-center gap-10 lg:grid-cols-[1fr_1.05fr] lg:gap-14">
+          <div>
+            <span class="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/8 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+              <Sparkles size={13} aria-hidden="true" /> @piprail/mcp
+            </span>
+            <h2 class="mt-5 text-3xl font-semibold leading-[1.1] tracking-tight sm:text-4xl">
+              Give your AI agent <span class="text-accent">a wallet</span>.
+            </h2>
+            <p class="mt-5 max-w-xl text-base leading-relaxed text-neutral-400 sm:text-lg">
+              Paste one config block and Claude Desktop, Cursor, or any MCP client pays x402-gated APIs
+              <span class="text-neutral-200">on its own</span> — across {total} chains, capped by a spend policy it
+              <span class="text-neutral-200">cannot exceed</span>. No code, no backend, no custody.
+            </p>
+            <ul class="mt-7 space-y-2.5">
+              {mcpTools.map((t) => (
+                <li class="flex items-start gap-3">
+                  <span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-accent/30 bg-accent/10 text-accent"><Plug size={12} aria-hidden="true" /></span>
+                  <span class="text-sm leading-snug text-neutral-300"><code class="text-neutral-100">{t.name}</code> — {t.desc}</span>
+                </li>
+              ))}
+            </ul>
+            <div class="mt-8 flex flex-col gap-3 sm:flex-row">
+              <a href="/mcp" class="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110">
+                <Bot size={16} aria-hidden="true" /> Set it up
+              </a>
+              <a href="https://www.npmjs.com/package/@piprail/mcp" class="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20">
+                @piprail/mcp on npm
+              </a>
+            </div>
+          </div>
+          <div class="min-w-0">
+            <CodeWindow file="claude_desktop_config.json" code={mcpConfigCode} />
+            <div class="mt-4 flex items-center gap-3 rounded-xl border border-white/10 bg-white/2 px-4 py-3">
+              <Wallet size={16} class="shrink-0 text-accent" aria-hidden="true" />
+              <p class="text-sm leading-snug text-neutral-400">
+                <span class="font-mono text-neutral-200">npx -y @piprail/mcp</span> — nothing to install. Then say
+                <span class="text-neutral-300">“pay for and summarize that report.”</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8 · Chains teaser -->
+    <section class="border-t border-white/10 py-20 sm:py-24">
+      <div class="grid items-center gap-8 lg:grid-cols-[1fr_auto]">
+        <div>
+          <h2 class="text-3xl font-semibold tracking-tight md:text-4xl">{total} chains, {familyCount} families.</h2>
+          <p class="mt-4 max-w-xl text-base leading-relaxed text-neutral-400 sm:text-lg">
+            {evmCount} EVM mainnets plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar &amp; the XRP Ledger —
+            each with its canonical stablecoins and native coin, ready to go. Any other chain works via one config object.
+          </p>
+          <a href="/chains" class="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-accent transition hover:gap-2.5">Browse every chain <ArrowRight size={15} aria-hidden="true" /></a>
+        </div>
+        <div class="flex max-w-xs flex-wrap items-center justify-center gap-3 rounded-2xl border border-white/10 bg-neutral-950 p-6 lg:max-w-sm">
+          {chains.slice(0, 12).map((c) => (
+            <img src={`/chains/${c.slug}.svg`} alt={`${c.name} logo`} width="32" height="32" loading="lazy" class="h-8 w-8 rounded-full ring-1 ring-white/10" />
+          ))}
+          <a href="/chains" class="flex h-8 items-center rounded-full bg-white/5 px-3 text-xs font-medium text-neutral-300 ring-1 ring-white/10 transition hover:bg-white/10">+{total - 12}</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9 · FAQ (top 5) -->
     <section id="faq" class="scroll-mt-20 border-t border-white/10 py-20 sm:py-24">
       <div class="grid gap-8 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:gap-16">
         <div class="lg:sticky lg:top-24 lg:self-start">
           <SectionHeading title="FAQ." class="max-w-sm">
-            Quick answers for the developers — and agents — sizing PipRail up.
+            The essentials. More on the <a href="/sdk" class="text-accent underline-offset-4 hover:underline">SDK</a>,
+            <a href="/mcp" class="text-accent underline-offset-4 hover:underline">MCP</a>, and
+            <a href="/chains" class="text-accent underline-offset-4 hover:underline">Chains</a> pages.
           </SectionHeading>
         </div>
         <div class="divide-y divide-white/10 overflow-hidden rounded-2xl border border-white/10 bg-neutral-950">
-          {
-            faqs.map((f, i) => (
-              <details class="group" open={i === 0}>
-                <summary class="flex cursor-pointer list-none items-center justify-between gap-5 px-6 py-5 text-[15px] font-medium text-neutral-100 transition hover:bg-white/3 [&::-webkit-details-marker]:hidden sm:px-7">
-                  <span>{f.q}</span>
-                  <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 text-neutral-400 transition group-open:border-accent/40 group-open:text-accent">
-                    <ChevronDown size={16} class="transition-transform duration-300 group-open:rotate-180" aria-hidden="true" />
-                  </span>
-                </summary>
-                <p class="-mt-1 px-6 pb-6 text-sm leading-relaxed text-neutral-400 sm:px-7">{f.a}</p>
-              </details>
-            ))
-          }
+          {faqs.map((f, i) => (
+            <details class="group" open={i === 0}>
+              <summary class="flex cursor-pointer list-none items-center justify-between gap-5 px-6 py-5 text-[15px] font-medium text-neutral-100 transition hover:bg-white/3 [&::-webkit-details-marker]:hidden sm:px-7">
+                <span>{f.q}</span>
+                <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 text-neutral-400 transition group-open:border-accent/40 group-open:text-accent">
+                  <ChevronDown size={16} class="transition-transform duration-300 group-open:rotate-180" aria-hidden="true" />
+                </span>
+              </summary>
+              <p class="-mt-1 px-6 pb-6 text-sm leading-relaxed text-neutral-400 sm:px-7">{f.a}</p>
+            </details>
+          ))}
         </div>
       </div>
       <script is:inline type="application/ld+json" set:html={JSON.stringify(faqLd)} />
     </section>
 
-    <!-- CTA -->
+    <!-- 10 · CTA -->
     <section class="border-t border-white/10 py-24 text-center sm:py-28">
       <h2 class="mx-auto max-w-2xl text-3xl font-semibold leading-tight tracking-tight sm:text-4xl md:text-5xl">
         Get paid by agents in the next five minutes.
@@ -709,83 +392,28 @@ const faqLd = {
         One install. One line. Straight to your wallet, on every chain that matters.
       </p>
       <div class="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-        <div class="flex w-full max-w-xs items-center gap-3 rounded-xl border border-white/10 bg-neutral-900/80 px-5 py-3.5 font-mono text-sm sm:w-auto">
-          <span class="select-none text-neutral-600">$</span>
-          <span class="truncate">npm install @piprail/sdk viem</span>
-        </div>
-        <a
-          href="https://www.npmjs.com/package/@piprail/sdk"
-          class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto"
-        >
-          Read the docs <ArrowRight size={16} aria-hidden="true" />
+        <a href="/sdk" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto">
+          Read the SDK guide <ArrowRight size={16} aria-hidden="true" />
+        </a>
+        <a href="https://github.com/piprail/piprail" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto">
+          Star on GitHub
         </a>
       </div>
     </section>
-    <!-- Partnerships & opportunities -->
-    <section id="support" class="scroll-mt-20 border-t border-white/10 py-20 sm:py-28">
-      <div class="mx-auto max-w-2xl text-center">
-        <span class="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/8 px-3.5 py-1.5 text-xs font-medium text-accent">
-          <Handshake size={14} aria-hidden="true" /> Open for partnership
+
+    <!-- 11 · Partners strip -->
+    <section class="border-t border-white/10 py-10">
+      <a href="/partners" class="flex flex-col items-start justify-between gap-3 rounded-2xl border border-white/10 bg-white/2 px-6 py-5 transition hover:border-accent/30 hover:bg-white/5 sm:flex-row sm:items-center">
+        <span class="flex items-center gap-3 text-sm text-neutral-300">
+          <Handshake size={18} class="shrink-0 text-accent" aria-hidden="true" />
+          <span><span class="font-medium text-neutral-100">Building on the agent economy?</span> PipRail is open to grants, chain integrations, sponsorships &amp; strategic opportunities.</span>
         </span>
-        <h2 class="mt-5 text-3xl font-semibold leading-[1.1] tracking-tight sm:text-4xl md:text-5xl">
-          Let’s build the universal payment rail, <span class="text-accent">together</span>.
-        </h2>
-        <p class="mx-auto mt-5 max-w-xl text-base leading-relaxed text-neutral-400 sm:text-lg">
-          PipRail is MIT-licensed, takes <span class="text-neutral-200">zero protocol fee</span>, and is built to be
-          neutral infrastructure the whole agent economy can settle on. We’re actively open to
-          <span class="text-neutral-200">grants, sponsorships, integrations, and strategic opportunities</span> — and ready to move fast.
-        </p>
-      </div>
-
-      <div class="mx-auto mt-12 grid max-w-5xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div class="rounded-2xl border border-white/10 bg-white/2.5 p-6 transition hover:border-accent/30 hover:bg-white/5">
-          <div class="flex h-10 w-10 items-center justify-center rounded-xl border border-accent/20 bg-accent/10 text-accent"><Landmark size={18} aria-hidden="true" /></div>
-          <h3 class="mt-4 text-base font-semibold">Foundations &amp; grants</h3>
-          <p class="mt-1.5 text-sm leading-relaxed text-neutral-400">Funding ecosystem development and native support for your chain — RetroPGF, builder programs, grants. We deploy them well.</p>
-        </div>
-        <div class="rounded-2xl border border-white/10 bg-white/2.5 p-6 transition hover:border-accent/30 hover:bg-white/5">
-          <div class="flex h-10 w-10 items-center justify-center rounded-xl border border-accent/20 bg-accent/10 text-accent"><Boxes size={18} aria-hidden="true" /></div>
-          <h3 class="mt-4 text-base font-semibold">Chains &amp; ecosystems</h3>
-          <p class="mt-1.5 text-sm leading-relaxed text-neutral-400">Want PipRail native on your chain? Sponsor an integration and hand your developers a one-line, self-custodial rail.</p>
-        </div>
-        <div class="rounded-2xl border border-white/10 bg-white/2.5 p-6 transition hover:border-accent/30 hover:bg-white/5">
-          <div class="flex h-10 w-10 items-center justify-center rounded-xl border border-accent/20 bg-accent/10 text-accent"><Puzzle size={18} aria-hidden="true" /></div>
-          <h3 class="mt-4 text-base font-semibold">Integrate &amp; partner</h3>
-          <p class="mt-1.5 text-sm leading-relaxed text-neutral-400">Building a wallet, an agent framework, or a marketplace? We’ll wire PipRail in and co-launch with you.</p>
-        </div>
-        <div class="rounded-2xl border border-white/10 bg-white/2.5 p-6 transition hover:border-accent/30 hover:bg-white/5">
-          <div class="flex h-10 w-10 items-center justify-center rounded-xl border border-accent/20 bg-accent/10 text-accent"><Handshake size={18} aria-hidden="true" /></div>
-          <h3 class="mt-4 text-base font-semibold">Mergers &amp; opportunities</h3>
-          <p class="mt-1.5 text-sm leading-relaxed text-neutral-400">Open to acquisitions, strategic deals, and joining forces. Serious inquiries get a fast, professional reply.</p>
-        </div>
-      </div>
-
-      <div class="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-        <a
-          href="mailto:john.weeks.dev@gmail.com?subject=PipRail%20partnership%20%2F%20opportunity"
-          class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto"
-        >
-          <Mail size={16} aria-hidden="true" /> Start a conversation
-        </a>
-        <a
-          href="https://x.com/johnweeksdev"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto"
-        >
-          DM on X
-        </a>
-        <a
-          href="https://github.com/piprail"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto"
-        >
-          GitHub
-        </a>
-      </div>
+        <span class="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-accent">Partner with us <ArrowRight size={15} aria-hidden="true" /></span>
+      </a>
     </section>
   </main>
 
   <Footer />
+
+  <script is:inline type="application/ld+json" set:html={JSON.stringify(howToLd)} />
 </Layout>

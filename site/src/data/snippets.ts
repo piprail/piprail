@@ -97,6 +97,21 @@ export const multiAcceptCode = `<span class="tok-fn">requirePayment</span>({
   ],
 })`
 
+// createPaymentGate — the framework-agnostic core (Next.js, Hono, Fastify, Workers,
+// Bun, Deno). Build once, switch on what verify() returns.
+export const gateCode = `<span class="tok-kw">import</span> { createPaymentGate, toInvalidBody } <span class="tok-kw">from</span> <span class="tok-str">'@piprail/sdk'</span>
+
+<span class="tok-kw">const</span> gate = <span class="tok-fn">createPaymentGate</span>({
+  chain: <span class="tok-chain">'base'</span>, token: <span class="tok-str">'USDC'</span>,
+  amount: <span class="tok-str">'0.05'</span>, payTo,
+})
+
+<span class="tok-com">// in your handler — the proof rides in a header</span>
+<span class="tok-kw">const</span> r = <span class="tok-kw">await</span> gate.<span class="tok-fn">verify</span>(sig)
+<span class="tok-kw">if</span> (r.kind === <span class="tok-str">'paid'</span>)      <span class="tok-kw">return</span> <span class="tok-fn">ok</span>(data, r.receiptHeader)
+<span class="tok-kw">if</span> (r.kind === <span class="tok-str">'challenge'</span>) <span class="tok-kw">return</span> <span class="tok-fn">res402</span>(r.challenge)
+<span class="tok-kw">return</span> <span class="tok-fn">res402</span>(<span class="tok-fn">toInvalidBody</span>(r)) <span class="tok-com">// wrong amount / expired / replayed</span>`
+
 // @piprail/mcp — drop this into any MCP client (Claude Desktop, Cursor, …) and the
 // agent gets a budget-bound wallet. npx fetches the server; no install step.
 export const mcpConfigCode = `<span class="tok-com">// claude_desktop_config.json — paste, restart, done</span>

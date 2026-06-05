@@ -2,6 +2,7 @@
 import Layout from '../layouts/Layout.astro'
 import Navigation from '../components/Navigation.astro'
 import Footer from '../components/Footer.astro'
+import Breadcrumbs from '../components/Breadcrumbs.astro'
 import { ArrowRight, Server, Globe, ShieldCheck, Boxes, Zap } from 'lucide-astro'
 
 const title = 'Live demo — try x402 crypto payments in your browser | PipRail'
@@ -72,6 +73,7 @@ const matrix = [
   <Navigation path="/demo" />
 
   <main class="mx-auto max-w-6xl px-4 sm:px-6">
+    <div class="pt-6"><Breadcrumbs items={[{ name: 'Demo' }]} /></div>
 
     <!-- hero -->
     <section class="pt-10 pb-8 text-center sm:pt-16">
@@ -246,7 +248,7 @@ const matrix = [
       <div class="mt-8 flex flex-wrap gap-3">
         <a href="https://github.com/piprail/piprail/blob/main/sdk/README.md" class="inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-3 text-sm font-semibold text-neutral-950 transition hover:brightness-110">Read the docs <ArrowRight size={16} aria-hidden="true" /></a>
         <a href="https://github.com/piprail/piprail/tree/main/examples/browser" class="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/3 px-5 py-3 text-sm font-semibold text-neutral-100 transition hover:border-accent/50">Copy the HTML example</a>
-        <a href="/#support" class="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/3 px-5 py-3 text-sm font-semibold text-neutral-100 transition hover:border-accent/50">Partner or fund a chain</a>
+        <a href="/partners" class="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/3 px-5 py-3 text-sm font-semibold text-neutral-100 transition hover:border-accent/50">Partner or fund a chain</a>
       </div>
     </section>
 

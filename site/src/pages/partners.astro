@@ -1,0 +1,79 @@
+---
+import Layout from '../layouts/Layout.astro'
+import Navigation from '../components/Navigation.astro'
+import Footer from '../components/Footer.astro'
+import Breadcrumbs from '../components/Breadcrumbs.astro'
+import { Handshake, Boxes, Puzzle, Landmark, Mail } from 'lucide-astro'
+
+const title = 'Partner with PipRail — grants, integrations & ecosystem support'
+const description =
+  'PipRail is MIT-licensed, takes zero protocol fee, and is built as neutral infrastructure for the whole agent economy. Open to grants, sponsorships, chain integrations, and strategic opportunities — neutral x402 payment rail, ready to move fast.'
+
+const tiles = [
+  { icon: Landmark, t: 'Foundations & grants', d: 'Funding ecosystem development and native support for your chain — RetroPGF, builder programs, grants. We deploy them well.' },
+  { icon: Boxes, t: 'Chains & ecosystems', d: 'Want PipRail native on your chain? Sponsor an integration and hand your developers a one-line, self-custodial rail.' },
+  { icon: Puzzle, t: 'Integrate & partner', d: 'Building a wallet, an agent framework, or a marketplace? We’ll wire PipRail in and co-launch with you.' },
+  { icon: Handshake, t: 'Mergers & opportunities', d: 'Open to acquisitions, strategic deals, and joining forces. Serious inquiries get a fast, professional reply.' },
+]
+---
+
+<Layout title={title} description={description}>
+  <Navigation path="/partners" />
+
+  <main class="mx-auto max-w-6xl px-4 sm:px-6">
+    <div class="pt-6"><Breadcrumbs items={[{ name: 'Partners' }]} /></div>
+
+    <!-- Hero -->
+    <section class="fade-up py-12 text-center sm:py-16 md:py-20">
+      <span class="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/8 px-3.5 py-1.5 text-xs font-medium text-accent">
+        <Handshake size={14} aria-hidden="true" /> Open for partnership
+      </span>
+      <h1 class="mx-auto mt-5 max-w-3xl text-[2.5rem] font-semibold leading-[1.05] tracking-tight sm:text-6xl">
+        Let’s build the universal payment rail, <span class="text-accent">together</span>.
+      </h1>
+      <p class="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-neutral-400 sm:text-lg">
+        PipRail is MIT-licensed, takes <span class="text-neutral-200">zero protocol fee</span>, and is built to be
+        neutral infrastructure the whole agent economy can settle on. We’re actively open to
+        <span class="text-neutral-200">grants, sponsorships, integrations, and strategic opportunities</span> — and ready to move fast.
+      </p>
+    </section>
+
+    <!-- Tiles -->
+    <section class="pb-4">
+      <div class="mx-auto grid max-w-5xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {tiles.map((t) => {
+          const Icon = t.icon
+          return (
+            <div class="rounded-2xl border border-white/10 bg-white/2.5 p-6 transition hover:border-accent/30 hover:bg-white/5">
+              <div class="flex h-10 w-10 items-center justify-center rounded-xl border border-accent/20 bg-accent/10 text-accent"><Icon size={18} aria-hidden="true" /></div>
+              <h2 class="mt-4 text-base font-semibold">{t.t}</h2>
+              <p class="mt-1.5 text-sm leading-relaxed text-neutral-400">{t.d}</p>
+            </div>
+          )
+        })}
+      </div>
+    </section>
+
+    <!-- Contact -->
+    <section class="py-16 text-center sm:py-20">
+      <h2 class="text-2xl font-semibold tracking-tight sm:text-3xl">Start a conversation.</h2>
+      <p class="mx-auto mt-3 max-w-xl text-neutral-400">Tell us what you’re building or proposing — we reply fast.</p>
+      <div class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        <a
+          href="mailto:john.weeks.dev@gmail.com?subject=PipRail%20partnership%20%2F%20opportunity"
+          class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto"
+        >
+          <Mail size={16} aria-hidden="true" /> Email us
+        </a>
+        <a href="https://x.com/johnweeksdev" target="_blank" rel="noopener noreferrer" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto">
+          DM on X
+        </a>
+        <a href="https://github.com/piprail" target="_blank" rel="noopener noreferrer" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto">
+          GitHub
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <Footer />
+</Layout>

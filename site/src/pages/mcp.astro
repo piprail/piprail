@@ -4,6 +4,7 @@ import Navigation from '../components/Navigation.astro'
 import Footer from '../components/Footer.astro'
 import CodeWindow from '../components/CodeWindow.astro'
 import SectionHeading from '../components/SectionHeading.astro'
+import Breadcrumbs from '../components/Breadcrumbs.astro'
 import { mcpConfigCode } from '../data/snippets'
 import { Bot, Plug, Wallet, ShieldCheck, Terminal, ArrowRight, ChevronDown, Code2, Sparkles } from 'lucide-astro'
 
@@ -70,21 +71,14 @@ const faqLd = {
   '@id': 'https://piprail.com/mcp#faq',
   mainEntity: faqs.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
 }
-const breadcrumbLd = {
-  '@context': 'https://schema.org',
-  '@type': 'BreadcrumbList',
-  '@id': 'https://piprail.com/mcp#breadcrumbs',
-  itemListElement: [
-    { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://piprail.com/' },
-    { '@type': 'ListItem', position: 2, name: 'MCP', item: 'https://piprail.com/mcp' },
-  ],
-}
 ---
 
 <Layout title={title} description={description}>
   <Navigation path="/mcp" />
 
   <main class="mx-auto max-w-6xl px-4 sm:px-6">
+    <div class="pt-6"><Breadcrumbs items={[{ name: 'MCP' }]} /></div>
+
     <!-- Hero -->
     <section class="fade-up py-16 text-center sm:py-20 md:py-24">
       <p class="mb-7 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/8 px-3.5 py-1.5 text-xs font-medium text-accent">
@@ -254,7 +248,7 @@ const breadcrumbLd = {
       <p class="mt-6 text-sm leading-relaxed text-neutral-500">
         Pay across all 28 chains — 19 EVM mainnets plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and
         the XRP Ledger. EVM works out of the box; non-EVM chains pull their SDK peer on demand.
-        <a href="/#chains" class="text-accent underline-offset-4 hover:underline">See every chain →</a>
+        <a href="/chains" class="text-accent underline-offset-4 hover:underline">See every chain →</a>
       </p>
     </section>
 
@@ -307,5 +301,4 @@ const breadcrumbLd = {
   <Footer />
 
   <script is:inline type="application/ld+json" set:html={JSON.stringify(faqLd)} />
-  <script is:inline type="application/ld+json" set:html={JSON.stringify(breadcrumbLd)} />
 </Layout>
