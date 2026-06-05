@@ -79,6 +79,8 @@ mcp/*.local.mjs
 /.claude/skills/*
 !/.claude/skills/add-chain-integration/
 !/.claude/skills/site-design/
+!/.claude/skills/release/
+!/.claude/skills/verify-gate/
 
 # Stray local screenshots
 screencapture-*.png
