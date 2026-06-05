@@ -10,8 +10,8 @@ For the agent-facing command/rule summary, see also [`AGENTS.md`](AGENTS.md).
 PipRail is **three things, no server:**
 
 1. **`@piprail/sdk`** — a TypeScript SDK for x402 "402 Payment Required" agent payments across
-   any EVM chain, Solana, and eight more non-EVM families. `npm install`, name a chain, add a
-   wallet, done. One parameter (`chain: 'base' | 'bnb' | 'solana' | …`) picks everything.
+   any EVM chain, Solana, and a range of other non-EVM families. `npm install`, name a chain,
+   add a wallet, done. One parameter (`chain: 'base' | 'bnb' | 'solana' | …`) picks everything.
 2. **`@piprail/mcp`** — a Model Context Protocol server that wraps the SDK, handing any MCP
    client (Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, Cline) a budget-bound wallet
    to pay x402 URLs autonomously, capped by a spend policy the model cannot exceed.
@@ -41,11 +41,12 @@ It's built on a **PaymentDriver abstraction** — a Laravel-clean, plug-in desig
   **mirror each other** file-for-file (`chains · wallet · pay · verify · index`):
 
   ```
-  drivers/evm/  solana/  ton/  stellar/  xrpl/  tron/  near/  sui/  aptos/  algorand/
+  drivers/evm/  solana/  ton/  stellar/  xrpl/  tron/  near/  sui/  aptos/  algorand/  …
   ```
 
-  Adding a family = implement the same contract + `registerDriver`. `registry.ts` is the only
-  place families meet; `familyForChain` routes a `chain` value to its driver synchronously.
+  (one folder per family — `drivers/` is the source of truth for the current set.) Adding a
+  family = implement the same contract + `registerDriver`. `registry.ts` is the only place
+  families meet; `familyForChain` routes a `chain` value to its driver synchronously.
 - **Non-EVM families auto-mount.** Naming a non-EVM `chain` lazily imports that family's
   libraries on first use — no setup call — so pure-EVM installs never download them (verified:
   the built EVM bundle has zero static non-EVM imports, only lazy chunks). Drivers self-register
@@ -54,10 +55,11 @@ It's built on a **PaymentDriver abstraction** — a Laravel-clean, plug-in desig
 **Proof binding — two templates.** A payment proof must be cryptographically bound to its
 challenge so it can't be replayed or forged:
 
-- **Template A — memo/nonce-bound** (Stellar, XRPL, NEAR NEP-141, Algorand, TON): the challenge
-  nonce rides in a memo/note/comment, and `verify()` matches it on the merchant's own account.
-- **Template B — digest-bound** (EVM, Solana, Tron, Sui, Aptos, and every native coin): the
-  proof is the tx hash/digest, verified by reading the transaction + a recency window + a
+- **Template A — memo/nonce-bound** (e.g. Stellar, XRPL, NEAR NEP-141, Algorand, TON): the
+  challenge nonce rides in a memo/note/comment, and `verify()` matches it on the merchant's own
+  account.
+- **Template B — digest-bound** (e.g. EVM, Solana, Tron, Sui, Aptos, and every native coin):
+  the proof is the tx hash/digest, verified by reading the transaction + a recency window + a
   single-use proof set.
 
 `verify()` always re-derives every checked field from the **trusted `accept`**, never the
@@ -122,9 +124,9 @@ piprail/
   (chmod 600) and fund it for a live smoke test; **update the tests first**; and finish on the
   site (`site/src/pages/index.astro` + the logo SVG in `site/public/chains/`). A chain isn't
   done until it's on piprail.com. Mainnets only — no testnet presets.
-- **Drivers mirror each other.** All ten family folders are file-for-file symmetric
-  (`chains`/`wallet`/`pay`/`verify`/`index`); functions are family-suffixed (`payEvm` … `payAlgorand`,
-  `verifyEvm` … `verifyAlgorand`). A new driver copies the pattern.
+- **Drivers mirror each other.** Every family folder is file-for-file symmetric
+  (`chains`/`wallet`/`pay`/`verify`/`index`); functions are family-suffixed (`payEvm`,
+  `paySolana`, …; `verifyEvm`, `verifySolana`, …). A new driver copies the pattern.
 - **Protocol layer stays chain-agnostic.** `server.ts`/`client.ts`/`x402.ts`/`policy.ts`/`ledger.ts`/`agent.ts`
   touch only `drivers/types.ts` — never import `viem`, `@solana`, `@ton`, `@stellar`, `xrpl`,
   `tronweb`, `near-api-js`, `@mysten/sui`, `@aptos-labs/ts-sdk`, or `algosdk` there.
@@ -151,13 +153,14 @@ piprail/
 - **Packages:** `@piprail/sdk` (the product) and `@piprail/mcp` (the MCP server). Publishing is
   via signed git tags (`sdk-v*` / `mcp-v*`) that trigger CI — never `npm publish` by hand. CI
   gotcha: build `@piprail/sdk` **before** `@piprail/mcp` (the MCP depends on the SDK's built `dist`).
-- **Chains: 28 across 10 families** — 19 EVM mainnets + Solana, TON, Tron, NEAR, Sui, Aptos,
-  Algorand, Stellar, and the XRP Ledger. Token coverage rule: **USDC almost everywhere**; USDT
-  on most (omitted where the chain's "USDT" is a bridged LayerZero/USDT0 token rather than
-  Tether-native); EURC on Stellar; RLUSD on XRPL; **native coin is a valid payment asset on
-  every family**. Any other token works by address. The exhaustive per-chain list and the
-  receive-prerequisite caveats live in [`sdk/README.md`](sdk/README.md) and
-  [`sdk/CHAINS.md`](sdk/CHAINS.md). Every token address is verified on-chain before shipping.
+- **Chains:** every major EVM chain plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand,
+  Stellar, and the XRP Ledger — many families, one `chain:` parameter. Token coverage rule:
+  **USDC almost everywhere**; USDT on most (omitted where the chain's "USDT" is a bridged
+  LayerZero/USDT0 token rather than Tether-native); EURC on Stellar; RLUSD on XRPL; **native
+  coin is a valid payment asset on every family**. Any other token works by address. The
+  authoritative, always-current chain list (and the receive-prerequisite caveats) lives in
+  [`sdk/README.md`](sdk/README.md) and [`sdk/CHAINS.md`](sdk/CHAINS.md) — don't duplicate counts
+  here. Every token address is verified on-chain before shipping.
 - **Test wallets:** `.secrets/wallets/<family>-wallet.json` (gitignored, chmod 600), one per
   family, holding a payer + a recoverable `merchantAddress` as the test `payTo`; funded manually
   for live mainnet smoke tests with tiny amounts. The `.secrets/` directory is never committed.
