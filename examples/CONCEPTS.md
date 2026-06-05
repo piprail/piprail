@@ -54,8 +54,8 @@ The server checks the transaction against **its own RPC**, not a third party: th
 
 ## Replay protection
 
-- **Memo-bound chains** (Stellar, XRPL, TON, NEAR): the challenge nonce rides *inside* the transfer, so a proof is cryptographically bound to its challenge.
-- **Digest-bound chains** (EVM, Solana, Tron, Sui): a single-use proof set + a tight recency window.
+- **Memo-bound chains** (Stellar, XRPL, TON, NEAR, Algorand): the challenge nonce rides *inside* the transfer, so a proof is cryptographically bound to its challenge.
+- **Digest-bound chains** (EVM, Solana, Tron, Sui, Aptos, and every native coin): a single-use proof set + a tight recency window.
 
 Single-process uses an in-memory set; for multiple instances, plug in your own store:
 
@@ -121,6 +121,6 @@ else console.log(plan?.fundingHint) // "Top up 0.04 USDC on base" / "recipient m
 
 ## More
 
-- [SDK README](../sdk/README.md) — full API, all 28 chains, wallet formats, custom tokens.
+- [SDK README](../sdk/README.md) — full API, every chain, wallet formats, custom tokens.
 - [ERRORS.md](../sdk/ERRORS.md) — every error code and how to handle it.
 - [examples/README.md](./README.md) — pick a framework and run it.

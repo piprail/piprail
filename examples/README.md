@@ -24,11 +24,11 @@ Dead-simple, copy-paste examples — for humans **and** agents. Each folder is a
 | What | Folder |
 |---|---|
 | An agent that auto-pays a `402` (+ a spend policy) | [`agent/`](./agent) |
-| Expose payment as tools to a model (MCP) | [`mcp/`](./mcp) |
+| Expose payment as tools to a model (MCP) — roll your own, or just run the published [`@piprail/mcp`](../mcp) | [`mcp/`](./mcp) |
 
 ## Start here
 
 - **New to PipRail?** Read [`CONCEPTS.md`](./CONCEPTS.md) — the 402 loop, who owns what, and which primitive to use when.
-- **Full API:** [`../sdk/README.md`](../sdk/README.md) — all 28 chains, custom tokens, policy controls, gas estimation.
+- **Full API:** [`../sdk/README.md`](../sdk/README.md) — every chain, custom tokens, policy controls, gas estimation.
 
 Each example targets **Base + USDC** with a placeholder `payTo` — set your own wallet, then `npm install && npm start` in the folder.
