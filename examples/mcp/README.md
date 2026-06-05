@@ -66,5 +66,6 @@ The budget lives in the client's `policy`, enforced locally before any transfer 
 ## Next
 
 - [`@piprail/mcp`](../../mcp) — the published, zero-code server (what most people use)
+- [`../mcp-sandbox`](../mcp-sandbox) — adversarial end-to-end harness that proves the MCP + SDK work and that the spend policy can't be broken
 - [`../agent`](../agent) — the same client without MCP
 - [SDK docs](../../sdk/README.md) · [Model Context Protocol](https://modelcontextprotocol.io/)

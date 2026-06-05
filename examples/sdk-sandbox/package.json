@@ -1,0 +1,24 @@
+{
+  "name": "@piprail/example-sdk-sandbox",
+  "private": true,
+  "type": "module",
+  "version": "0.0.1",
+  "description": "End-to-end test harness for @piprail/sdk — exercises the accept side (createPaymentGate/requirePayment), the pay side (PipRailClient), the spend policy, the wire codecs, the typed errors, and a real on-chain round-trip. Living proof the SDK works.",
+  "scripts": {
+    "test": "node run-all.mjs",
+    "gate": "node suites/01-merchant-gate.mjs",
+    "client": "node suites/02-client-readonly.mjs",
+    "policy": "node suites/03-policy.mjs",
+    "wire": "node suites/04-wire-and-errors.mjs",
+    "live": "node suites/05-live-roundtrip.mjs",
+    "merchant": "node lib/merchant.mjs"
+  },
+  "dependencies": {
+    "@piprail/sdk": "^1.5.1",
+    "express": "^5.0.0",
+    "viem": "^2.21.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
