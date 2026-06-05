@@ -5,7 +5,8 @@
 <br/>
 <br/>
 
-[![npm](https://img.shields.io/npm/v/@piprail/sdk.svg?logo=npm&color=cb3837)](https://www.npmjs.com/package/@piprail/sdk)
+[![@piprail/sdk](https://img.shields.io/npm/v/@piprail/sdk.svg?logo=npm&label=%40piprail%2Fsdk&color=cb3837)](https://www.npmjs.com/package/@piprail/sdk)
+[![@piprail/mcp](https://img.shields.io/npm/v/@piprail/mcp.svg?logo=npm&label=%40piprail%2Fmcp&color=2ee6a6)](https://www.npmjs.com/package/@piprail/mcp)
 [![types](https://img.shields.io/npm/types/@piprail/sdk.svg?logo=typescript&logoColor=white&color=3178c6)](https://www.npmjs.com/package/@piprail/sdk)
 [![license](https://img.shields.io/github/license/piprail/piprail.svg?color=2ee6a6)](LICENSE)
 [![x402 v2](https://img.shields.io/badge/x402-v2-6e56cf.svg)](https://x402.org)

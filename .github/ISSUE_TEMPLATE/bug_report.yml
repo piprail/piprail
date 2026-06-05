@@ -1,0 +1,51 @@
+name: 🐞 Bug report
+description: Something in @piprail/sdk or @piprail/mcp behaves incorrectly.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report! Please reproduce on the **latest** version first.
+        ⚠️ **Never paste a private key, seed phrase, or mnemonic.** Redact secrets.
+  - type: dropdown
+    id: package
+    attributes:
+      label: Package
+      options:
+        - "@piprail/sdk"
+        - "@piprail/mcp"
+        - examples / site
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: "e.g. @piprail/sdk 1.5.1"
+    validations:
+      required: true
+  - type: input
+    id: chain
+    attributes:
+      label: Chain & token
+      placeholder: "e.g. base / USDC, or solana / native"
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: Smallest code snippet + steps that reproduce it (secrets redacted).
+      render: ts
+    validations:
+      required: true
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      placeholder: "Node version, OS, browser (if applicable), RPC provider"

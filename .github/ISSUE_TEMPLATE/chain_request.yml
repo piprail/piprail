@@ -1,0 +1,48 @@
+name: ⛓️ Add a chain
+description: Request support for a new blockchain, EVM preset, or token.
+labels: ["chain-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        PipRail ships **mainnets only** and **issuer-native stablecoins only**. A chain is a
+        strong candidate when it has a canonical, issuer-native USDC (Circle) and/or USDT
+        (Tether) — not a bridged/wrapped synthetic. Any other EVM chain already works today
+        with no code: pass a viem `Chain` or `{ id, rpcUrl }` + `token: { address, decimals }`.
+  - type: input
+    id: chain
+    attributes:
+      label: Chain name
+      placeholder: "e.g. Story, Berachain, …"
+    validations:
+      required: true
+  - type: dropdown
+    id: family
+    attributes:
+      label: Family
+      options:
+        - EVM (existing driver — usually just a preset row)
+        - New non-EVM family (needs a new driver)
+        - "Just a token on a chain we already support"
+    validations:
+      required: true
+  - type: textarea
+    id: stablecoin
+    attributes:
+      label: Issuer-native stablecoin?
+      description: |
+        Which stablecoin is **issued natively** on this chain (not bridged)? Link the issuer's
+        proof — e.g. Circle's multi-chain USDC list or Tether's supported-protocols page, plus
+        the on-chain token address.
+    validations:
+      required: true
+  - type: input
+    id: caip2
+    attributes:
+      label: CAIP-2 chain id (if non-EVM) or EVM chainId
+      placeholder: "e.g. eip155:8453, or solana:mainnet"
+  - type: textarea
+    id: why
+    attributes:
+      label: Why this chain?
+      description: Traction in agent payments / x402 / agentic commerce, ecosystem, demand.

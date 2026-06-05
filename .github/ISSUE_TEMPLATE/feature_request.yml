@@ -1,0 +1,28 @@
+name: 💡 Feature request
+description: Suggest an improvement to the SDK or MCP server.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        PipRail's pitch is immaculate simplicity — install, name a chain, add a wallet, get paid.
+        The best features make it *easier*, not heavier. (Requesting a **new chain**? Use the
+        "Add a chain" template instead.)
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: The use case or pain point, not just the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What would the API / behavior look like? Keep it dead simple.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered

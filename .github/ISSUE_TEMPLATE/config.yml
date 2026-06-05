@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📚 Docs & full API
+    url: https://github.com/piprail/piprail/blob/main/sdk/README.md
+    about: The SDK README covers every chain, wallet format, custom tokens, spend policy, and planPayment.
+  - name: 🌐 Website & live demo
+    url: https://piprail.com
+    about: Project overview, the MCP setup guide, and a no-install in-browser x402 demo.
+  - name: 🔒 Report a security issue
+    url: https://github.com/piprail/piprail/security/policy
+    about: Please do NOT open a public issue for a vulnerability — use private disclosure.

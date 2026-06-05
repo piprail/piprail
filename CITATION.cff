@@ -1,0 +1,33 @@
+cff-version: 1.2.0
+message: "If you use PipRail, please cite it using the metadata below."
+title: "PipRail — universal x402 crypto-payment SDK for the agent economy"
+abstract: >-
+  An open-source, backendless, no-fee TypeScript SDK (and MCP server) implementing
+  the x402 "402 Payment Required" standard across 28 blockchains in 10 families
+  (EVM, Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger).
+  Self-custodial: payments settle straight to your wallet, verified locally against
+  your own RPC — no facilitator, no custody.
+type: software
+authors:
+  - given-names: John
+    family-names: Weeks
+    email: john.weeks.dev@gmail.com
+repository-code: "https://github.com/piprail/piprail"
+url: "https://piprail.com"
+license: MIT
+version: 1.5.1
+date-released: "2026-06-04"
+keywords:
+  - x402
+  - crypto-payments
+  - agent-payments
+  - agentic-commerce
+  - ai-agents
+  - mcp
+  - model-context-protocol
+  - stablecoin
+  - usdc
+  - usdt
+  - evm
+  - solana
+  - typescript
