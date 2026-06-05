@@ -15,8 +15,8 @@ authors:
 repository-code: "https://github.com/piprail/piprail"
 url: "https://piprail.com"
 license: MIT
-version: 1.5.1
-date-released: "2026-06-04"
+version: 1.6.0
+date-released: "2026-06-05"
 keywords:
   - x402
   - crypto-payments
