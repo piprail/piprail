@@ -691,7 +691,7 @@ Docs
 
 Site (NOT optional)
 - [ ] site/public/chains/<slug>.svg (and tokens/<sym>.svg if new token) — official current mark, house style, recoloured for the dark bg if monochrome
-- [ ] index.astro: chains array entry AT THE RIGHT ORDER SLOT (Ethereum · Solana · TON · Stellar · EVM-by-prominence — not appended blindly), stats count, grid heading copy, hero/token copy if changed
+- [ ] data/chains.ts: chains array entry AT THE RIGHT ORDER SLOT (Ethereum · the non-EVM families · EVM-by-prominence — not appended blindly); index.astro: stats count, grid heading copy, hero/token copy if changed
 - [ ] cd site && npm run build ✓ (0 errors), grid renders clean
 
 MCP (no work — just confirm)
