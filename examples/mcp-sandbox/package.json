@@ -1,0 +1,26 @@
+{
+  "name": "@piprail/example-mcp-sandbox",
+  "private": true,
+  "type": "module",
+  "version": "0.0.1",
+  "description": "Adversarial end-to-end test harness for @piprail/mcp — spawns the real bin over stdio and proves an AI cannot break the spend policy. Doubles as living proof the MCP + SDK work together.",
+  "scripts": {
+    "test": "node run-all.mjs",
+    "protocol": "node suites/01-protocol.mjs",
+    "tools": "node suites/02-tools.mjs",
+    "attacks": "node suites/03-policy-attacks.mjs",
+    "config": "node suites/04-config-surface.mjs",
+    "live": "node suites/05-live-settlement.mjs",
+    "merchant": "node lib/merchant.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@piprail/mcp": "^0.1.0",
+    "@piprail/sdk": "^1.5.1",
+    "express": "^5.0.0",
+    "viem": "^2.21.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
