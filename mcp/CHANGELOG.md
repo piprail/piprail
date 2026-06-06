@@ -1,7 +1,14 @@
 # @piprail/mcp changelog
 
-## [Unreleased]
+## 0.2.0 — 2026-06-06
 
+- **Discovery tools (via `@piprail/sdk` ≥ 1.7.0).** The server now exposes **five** tools — the two
+  new ones flow through the SDK's `paymentTools` automatically (zero server code): **`piprail_discover`**
+  (find payable x402 resources on the open indexes — CDP Bazaar + 402 Index, free) and
+  **`piprail_register`** (list a resource the agent runs on 402 Index — no auth, no signature). The
+  startup banner now lists all five (`piprail_discover` · `piprail_quote_payment` ·
+  `piprail_plan_payment` · `piprail_pay_request` · `piprail_register`). The `@piprail/sdk` dependency
+  range is bumped to `^1.7.0` accordingly.
 - **Docs:** `PIPRAIL_TOKENS` now documents the chain-agnostic `native` alias (allow the chain's
   coin on any family without naming its ticker) across the README, `.env.example`, `server.json`,
   and the `Config` JSDoc — it's a passthrough to `@piprail/sdk`'s `policy.tokens` (SDK ≥ 1.6.0).
