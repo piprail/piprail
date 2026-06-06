@@ -1,5 +1,12 @@
 # @piprail/mcp changelog
 
+## 0.2.1 — 2026-06-06
+
+- **Fix:** the `VERSION` constant (`src/version.ts`) was left at `0.1.0` in the 0.2.0 release, so the
+  server self-reported `0.1.0` in its banner and MCP handshake while the package was `0.2.0`. Now
+  synced to `0.2.1` across `version.ts` + `package.json` + `server.json`, with a guard test
+  (`version.test.ts`) so the three can never drift again. No functional change to the 0.2.0 tools.
+
 ## 0.2.0 — 2026-06-06
 
 - **Discovery tools (via `@piprail/sdk` ≥ 1.7.0).** The server now exposes **five** tools — the two

@@ -22,19 +22,25 @@ export async function run() {
 
       const { tools } = await s.client.listTools()
       const names = tools.map((t) => t.name).sort()
-      check('advertises exactly the 3 piprail tools',
-        JSON.stringify(names) === JSON.stringify(['piprail_pay_request', 'piprail_plan_payment', 'piprail_quote_payment']),
+      check('advertises exactly the 5 piprail tools (incl. discover + register)',
+        JSON.stringify(names) === JSON.stringify(['piprail_discover', 'piprail_pay_request', 'piprail_plan_payment', 'piprail_quote_payment', 'piprail_register']),
         names.join(', '))
       check('every tool has a description + object JSON-Schema',
         tools.every((t) => t.description && t.inputSchema?.type === 'object'))
       for (const t of tools) {
-        check(`${t.name}: requires \`url\` + forbids extra args`,
-          t.inputSchema.required?.includes('url') && t.inputSchema.additionalProperties === false)
+        if (t.name === 'piprail_discover') {
+          // discover is a search — no required `url`; all args optional, extras forbidden
+          check('piprail_discover: all-optional args + forbids extra args',
+            !t.inputSchema.required && t.inputSchema.additionalProperties === false)
+        } else {
+          check(`${t.name}: requires \`url\` + forbids extra args`,
+            t.inputSchema.required?.includes('url') && t.inputSchema.additionalProperties === false)
+        }
       }
       const payTool = tools.find((t) => t.name === 'piprail_pay_request')
       check('pay tool exposes optional method + body params',
         Boolean(payTool.inputSchema.properties?.method) && Boolean(payTool.inputSchema.properties?.body))
-      check('handshake + listTools succeeded ⇒ stdout is a clean protocol channel', names.length === 3)
+      check('handshake + listTools succeeded ⇒ stdout is a clean protocol channel', names.length === 5)
     } finally {
       await s.close()
     }
@@ -77,8 +83,9 @@ export async function run() {
     check('banner announces the server', /PipRail MCP server/.test(stderr))
     check('banner shows chain + budget + tokens',
       /base/.test(stderr) && /0\.25/.test(stderr) && /12\.50/.test(stderr) && /USDC, USDT/.test(stderr))
-    check('banner lists all 3 tools',
-      /piprail_quote_payment/.test(stderr) && /piprail_plan_payment/.test(stderr) && /piprail_pay_request/.test(stderr))
+    check('banner lists all 5 tools',
+      /piprail_discover/.test(stderr) && /piprail_quote_payment/.test(stderr) && /piprail_plan_payment/.test(stderr) &&
+        /piprail_pay_request/.test(stderr) && /piprail_register/.test(stderr))
     check('banner reports the key SOURCE, never the value',
       /set via PIPRAIL_PRIVATE_KEY/.test(stderr) && !stderr.includes(KEY))
     check('a custom RPC URL is redacted to "(custom)"', /\(custom\)/.test(stderr) && !stderr.includes(DEAD_RPC))

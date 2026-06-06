@@ -161,6 +161,23 @@ export async function run() {
     }
   }
 
+  group('02 · discovery tools over MCP — discover (live) + register (graceful)')
+  {
+    const ds = await connectServer({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_CHAIN: 'base', PIPRAIL_RPC_URL: DEAD_RPC, PIPRAIL_TOKENS: 'USDC' })
+    try {
+      const d = await callTool(ds.client, 'piprail_discover', { network: 'any', limit: 5 })
+      check('piprail_discover → { count, resources[] }, no error (live open indexes)',
+        !d.isError && typeof d.json?.count === 'number' && Array.isArray(d.json.resources), d.text?.slice(0, 140))
+      note(`discover over MCP (live): ${d.json?.count ?? '?'} resource(s)`)
+      const r = await callTool(ds.client, 'piprail_register', { url: 'https://example.com', name: 'mcp sandbox test' })
+      check('piprail_register → { outcomes[] }, gracefully rejects a non-402 URL (no throw, no junk listed)',
+        !r.isError && r.json?.outcomes?.[0]?.ok === false && /402|verification/i.test(r.json.outcomes[0].detail || ''),
+        JSON.stringify(r.json?.outcomes?.[0] ?? r.text?.slice(0, 140)))
+    } finally {
+      await ds.close()
+    }
+  }
+
   group('02 · A malformed wallet key fails at first use (bind is lazy)')
   {
     const honest2 = await startMerchant()

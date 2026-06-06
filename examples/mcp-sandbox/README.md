@@ -106,14 +106,14 @@ logic without a chain.)
 
 ### 01 · Protocol & transport (real subprocess over stdio)
 The handshake succeeds; the server reports `name: "piprail"` and a version that
-matches the package; it advertises **exactly** the 3 tools
+matches the package; it advertises **exactly** the 5 tools
 (`piprail_quote_payment`, `piprail_plan_payment`, `piprail_pay_request`) with
 correct JSON Schemas; an unknown tool returns an `isError` result instead of
 crashing; every bad config exits non-zero with a helpful message; and the boot
 banner is informative + **secret-free** with a **clean stdout** (a stray stdout
 byte would corrupt MCP framing — proven by a separate boot snapshot).
 
-### 02 · Tool surface — everything the 3 tools expose from the SDK
+### 02 · Tool surface — everything the 5 tools expose from the SDK
 Full `quote` shape (asset, network, base-unit amount, true decimals/symbol,
 `payTo`, description, `recognized`, `symbolMismatch`, `withinPolicy`); the native
 coin is recognized and priced; full `plan` shape with typed `blockers`/`warnings`
@@ -207,7 +207,7 @@ examples/mcp-sandbox/
 
 `PIPRAIL_*` env → `parseConfig` → `configToClientOptions` (your budget becomes a
 `PaymentPolicy`) → `new PipRailClient(opts)` → `paymentTools(client)` exposes the
-3 tools over MCP. Every payment flows through the client's `authorize()`, which
+5 tools over MCP. Every payment flows through the client's `authorize()`, which
 enforces the policy **before** `payAndConfirm` ever touches the chain. The MCP
 package adds **no** chain logic of its own — it's config + wiring; the spend guard
 lives in `@piprail/sdk`'s `policy.ts` / `client.ts`.

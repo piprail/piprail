@@ -61,7 +61,9 @@ grep -E "from ?['\"]@(solana|ton|stellar)" sdk/dist/index.js   # → expect NO m
   dated entry, newest first; add the version-footer link).
 - **MCP release** — `mcp/package.json` (`version`) **and** `mcp/CHANGELOG.md` **and**
   `mcp/server.json` (`version`, and the `packages[0].version` — the MCP registry reads
-  these). All three must match.
+  these) **and** `mcp/src/version.ts` (the `VERSION` constant — reported to clients over MCP
+  and in the startup banner). **All four must match** — the `version.test.ts` guard fails the
+  gate if they drift (0.2.0 shipped a stale `VERSION` because this file was missed; don't repeat it).
 
 ### 3. Commit on `main`
 ```bash

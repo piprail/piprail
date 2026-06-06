@@ -18,7 +18,7 @@ import { group, check, note, summarize } from '../lib/report.mjs'
 const require = createRequire(import.meta.url)
 const KEY = '0x' + '1'.repeat(64)
 const NON_EVM = ['solana', 'ton', 'tron', 'near', 'sui', 'aptos', 'algorand', 'stellar', 'xrpl']
-const TOOLS = ['piprail_pay_request', 'piprail_plan_payment', 'piprail_quote_payment']
+const TOOLS = ['piprail_discover', 'piprail_pay_request', 'piprail_plan_payment', 'piprail_quote_payment', 'piprail_register']
 
 export async function run() {
   group('04 · Defaults, aliases & coercion')
@@ -101,7 +101,7 @@ export async function run() {
     const cfg = parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_MAX_AMOUNT: '0.25', PIPRAIL_MAX_TOTAL: '12.5', PIPRAIL_TOKENS: 'USDC,USDT', PIPRAIL_HOSTS: 'api.x.com', PIPRAIL_RPC_URL: 'https://rpc.example.com/v2/SUPER_SECRET', PIPRAIL_ALLOW_UNKNOWN_TOKENS: 'true' })
     const b = formatBanner(cfg)
     check('shows chain / per-payment / lifetime / tokens', /base/.test(b) && /0\.25/.test(b) && /12\.5/.test(b) && /USDC, USDT/.test(b))
-    check('lists all 3 tools', TOOLS.every((t) => b.includes(t)))
+    check('lists all 5 tools', TOOLS.every((t) => b.includes(t)))
     check('shows hosts row when set', /api\.x\.com/.test(b))
     check('flags allowUnknownTokens when on', /unknown tokens/i.test(b))
     check('NEVER leaks the secret', !b.includes(KEY))
@@ -131,13 +131,13 @@ export async function run() {
     } catch {
       note('server.json not present in this install — skipped (it ships in the published package)')
     }
-    check('TOOL_NAMES is exactly the 3 piprail tools', JSON.stringify([...TOOL_NAMES].sort()) === JSON.stringify([...TOOLS].sort()))
+    check('TOOL_NAMES is exactly the 5 piprail tools', JSON.stringify([...TOOL_NAMES].sort()) === JSON.stringify([...TOOLS].sort()))
 
     // paymentTools() is the SDK export the MCP turns into MCP tools.
     const client = new PipRailClient({ chain: 'base', wallet: { privateKey: KEY }, policy: { tokens: ['USDC'] } })
     const tools = paymentTools(client)
-    check('SDK paymentTools(client) → 3 AgentTools (name/description/object-params/invoke)',
-      tools.length === 3 && tools.every((t) => t.name && t.description && t.parameters?.type === 'object' && typeof t.invoke === 'function'))
+    check('SDK paymentTools(client) → 5 AgentTools (name/description/object-params/invoke)',
+      tools.length === 5 && tools.every((t) => t.name && t.description && t.parameters?.type === 'object' && typeof t.invoke === 'function'))
     check('their names match what the server advertises', JSON.stringify(tools.map((t) => t.name).sort()) === JSON.stringify([...TOOLS].sort()))
 
     // createMcpServer wires client + server in-process (no transport, no network).
