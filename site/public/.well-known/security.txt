@@ -1,0 +1,9 @@
+# PipRail security policy (RFC 9116). PipRail is an MIT, backendless SDK — it holds no
+# funds and runs no server; report vulnerabilities in the SDK/MCP code via GitHub below.
+Contact: https://github.com/piprail/piprail/security/advisories/new
+Contact: https://github.com/piprail/piprail/security
+Expires: 2027-06-06T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://piprail.com/.well-known/security.txt
+Canonical: https://piprail.com/security.txt
+Policy: https://github.com/piprail/piprail/security/policy

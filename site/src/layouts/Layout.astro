@@ -130,6 +130,13 @@ const mcpLd = {
   keywords:
     'mcp, model context protocol, mcp server, mcp registry, x402, x402 discovery, agent payments, ai agents, claude desktop, cursor, crypto payments, usdc, autonomous payments, agentic commerce, wallet',
 }
+
+// Search-console verification (env-gated, build-time). Set as Netlify env vars to verify
+// via the HTML-tag method with zero code change; they render nothing when unset. The
+// recommended GSC "Domain" property uses a DNS TXT record instead and needs neither.
+// See .claude/research/seo-monitoring-setup.md.
+const gscVerification = import.meta.env.PUBLIC_GSC_VERIFICATION
+const bingVerification = import.meta.env.PUBLIC_BING_VERIFICATION
 ---
 
 <!doctype html>
@@ -138,6 +145,8 @@ const mcpLd = {
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="generator" content={Astro.generator} />
+    {gscVerification && <meta name="google-site-verification" content={gscVerification} />}
+    {bingVerification && <meta name="msvalidate.01" content={bingVerification} />}
 
     <title>{title}</title>
     <meta name="description" content={description} />

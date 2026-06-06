@@ -1,0 +1,50 @@
+name: indexnow
+
+# Ping IndexNow when the site changes so Bing + Yandex re-crawl fast (this is what feeds
+# ChatGPT search / Copilot, which use the Bing index — a free AEO win). Google ignores
+# IndexNow and discovers via sitemap.xml on its own schedule, so this complements GSC.
+#
+# Triggered by SITE content pushes only — NOT on a schedule. Re-submitting unchanged URLs
+# on a cron is an IndexNow spam signal (can throttle the key); deploy-correlated is fine.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/src/**'
+      - 'site/public/**'
+      - 'site/astro.config.mjs'
+  workflow_dispatch: {}
+
+jobs:
+  indexnow:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Submit the live sitemap URLs to IndexNow
+        run: |
+          HOST="piprail.com"
+          KEY="1a7e59a4b79dd5cf3b5c74dd6d400c27"
+          SITEMAP="https://$HOST/sitemap-0.xml"
+
+          # Netlify publishes the new build shortly after this push fires — poll the live
+          # sitemap (bounded) so we submit the freshly-deployed URL set, not a stale one.
+          urls=""
+          for i in $(seq 1 6); do
+            sleep 30
+            if xml=$(curl -fsS "$SITEMAP" 2>/dev/null); then
+              urls=$(printf '%s' "$xml" | grep -oE '<loc>[^<]+</loc>' | sed -E 's#</?loc>##g')
+              [ -n "$urls" ] && break
+            fi
+          done
+          if [ -z "$urls" ]; then echo "No sitemap URLs reachable yet — skipping (next deploy will cover it)."; exit 0; fi
+
+          body=$(printf '%s\n' "$urls" | HOST="$HOST" KEY="$KEY" python3 -c '
+import os, sys, json
+urls = [l.strip() for l in sys.stdin if l.strip()]
+host, key = os.environ["HOST"], os.environ["KEY"]
+print(json.dumps({"host": host, "key": key,
+                  "keyLocation": f"https://{host}/{key}.txt", "urlList": urls}))')
+
+          echo "Submitting $(printf '%s\n' "$urls" | grep -c .) URLs to IndexNow…"
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST 'https://api.indexnow.org/indexnow' \
+                 -H 'Content-Type: application/json' -d "$body")
+          echo "IndexNow responded HTTP $code  (200 or 202 = accepted)."
