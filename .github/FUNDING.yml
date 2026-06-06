@@ -10,6 +10,7 @@
 # FUNDING.yml key, so its project URL rides under `custom`).
 custom: ['https://piprail.com', 'https://www.drips.network/app/projects/github/piprail/piprail']
 
-# --- Uncomment each once set up (one human step each — needs your login/Stripe) ---
-# github: [piprail]            # after enabling GitHub Sponsors (github.com/sponsors) on this account
-# open_collective: piprail     # your Open Collective slug, after opencollective.com/opensource/apply
+# --- Both SUBMITTED 2026-06-07, pending approval — uncomment each the moment it goes live ---
+# (a not-yet-approved handle breaks the Sponsor button, so they stay commented until approved)
+# github: [John-Weeks-Dev]     # GitHub Sponsors (personal acct) — Stripe + tax done, awaiting GitHub review
+# open_collective: piprailhq   # Open Collective (Open Source Collective host) — awaiting review
