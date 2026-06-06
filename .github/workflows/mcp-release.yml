@@ -27,6 +27,8 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
       - run: npm ci
+      - name: Docs-sync guard — llms.txt must match the released version
+        run: node site/scripts/check-sync.mjs
       # @piprail/mcp's type-declaration build (and its prepublishOnly typecheck +
       # tests) resolve @piprail/sdk's built types/dist, which aren't committed —
       # build the SDK first so they exist in the clean CI checkout.

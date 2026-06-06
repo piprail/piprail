@@ -25,6 +25,8 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
       - run: npm ci
+      - name: Docs-sync guard — llms.txt must match the released version
+        run: node site/scripts/check-sync.mjs
       - run: npm run build -w @piprail/sdk
       - run: npm publish -w @piprail/sdk --access public
         env:

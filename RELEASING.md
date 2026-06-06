@@ -116,3 +116,36 @@ if `publish` returns 403, make your org membership public
 - [ ] Docs swept (`docs-sync`): `llms.txt` + `llms-full.txt` headers, site JSON-LD, and the
       `piprail/.github` org profile if anything user-facing changed
 - [ ] `CHANGELOG.md` entry is dated and accurate
+
+---
+
+## Keeping the site in sync — the deploy guard
+
+The site states the same facts as the packages (versions, the MCP tool set), and those can drift.
+**You don't have to remember to check — the build does it for you.**
+
+`site/scripts/check-sync.mjs` runs as the site's **`prebuild`** hook, so it executes on *every*
+`npm run build` — locally, in CI (`site.yml`), and on the **Netlify deploy** — and it also runs in the
+SDK/MCP release workflows. It **fails the build** (exit 1) if:
+
+- the `SDK-Version` / `MCP-Version` headers in `site/public/llms.txt` or `llms-full.txt` don't match
+  `sdk/package.json` / `mcp/package.json`, or
+- any of the five MCP tool names is missing from `llms.txt`, `llms-full.txt`, `mcp/README.md`, or `sdk/README.md`.
+
+Run it anytime: `npm run check:sync -w @piprail/site` (or `node site/scripts/check-sync.mjs`).
+
+So the enforcement chain is: a release bumps the package **and** the `llms.txt` headers in the same
+commit → the release workflow's guard passes → Netlify rebuilds the site → its `prebuild` guard passes
+→ the fresh, in-sync files go live. Forget the `llms.txt` bump and the guard stops you before publish.
+
+### Every-deploy checklist (the guard enforces the ★ items; the rest are judgement calls)
+- [ ] ★ `llms.txt` + `llms-full.txt` `SDK-Version` / `MCP-Version` headers match the packages
+- [ ] ★ all five MCP tool names present across the AEO files + READMEs
+- [ ] `Last-Updated` header in `llms.txt` / `llms-full.txt` bumped to today
+- [ ] new user-facing feature? added to `llms-full.txt`, the relevant site page, and the
+      `Layout.astro` JSON-LD `featureList` (what answer engines extract)
+- [ ] chain/token count changed? swept via the `docs-sync` skill (counts live in many places)
+- [ ] org profile (`piprail/.github`) still accurate (separate repo)
+
+> Want to widen the guard (e.g. assert the chain count, or block a stale `Last-Updated`)? Add a check
+> to `site/scripts/check-sync.mjs` — it's plain Node, no deps, and already wired into every build.
