@@ -1,0 +1,15 @@
+{
+  "name": "@piprail/example-discovery",
+  "private": true,
+  "type": "module",
+  "version": "0.0.1",
+  "description": "PipRail discovery — emit a manifest, register your x402 endpoint on the open indexes, and find payable APIs.",
+  "scripts": {
+    "emit": "node emit.mjs",
+    "discover": "node discover.mjs",
+    "register": "node register.mjs"
+  },
+  "dependencies": {
+    "@piprail/sdk": "^1.7.0"
+  }
+}

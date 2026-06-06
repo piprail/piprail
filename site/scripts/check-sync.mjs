@@ -40,11 +40,20 @@ for (const file of AEO_FILES) {
 
 // 2. The five MCP tool names must be present wherever the tool set is enumerated in prose
 //    (guards against a silent revert to the old three-tool wording).
-for (const file of [...AEO_FILES, 'mcp/README.md', 'sdk/README.md']) {
+for (const file of [...AEO_FILES, 'mcp/README.md', 'sdk/README.md', 'README.md']) {
   const txt = read(file)
   const missing = TOOLS.filter((t) => !txt.includes(t))
   check(`${file} · lists all 5 MCP tools`, missing.length === 0, `missing: ${missing.join(', ')}`)
 }
+
+// 3. Structural: the repo's own docs must document BOTH published packages. The root
+//    README silently omitted the MCP once — this makes that impossible to ship.
+const rootReadme = read('README.md')
+check('README.md documents the mcp/ workspace', /\bmcp\//.test(rootReadme), 'the "What\'s in here" tree must list mcp/')
+check('README.md mentions the published @piprail/mcp', rootReadme.includes('@piprail/mcp'), 'name the published MCP package')
+check('README.md mentions discovery', /discovery|DISCOVERY/.test(rootReadme), 'document the discovery feature')
+const examplesReadme = read('examples/README.md')
+check('examples/README.md links the discovery example', examplesReadme.includes('discovery/'), 'reference examples/discovery')
 
 // Report.
 let failed = 0

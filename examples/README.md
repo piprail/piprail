@@ -2,11 +2,12 @@
 
 Copy-paste examples for humans **and** agents. Every folder is a standalone app that installs from npm — `npm install && npm start`, set one wallet, done.
 
-PipRail has **two sides**, plus a **zero-code** path for AI clients:
+PipRail has **two sides**, a **zero-code** path for AI clients, and **discovery**:
 
 - **Accept** — your server returns `402` and gets paid straight to your wallet.
 - **Pay** — your agent auto-pays a `402` on-chain, inside a budget it cannot exceed.
 - **Zero code** — `npx -y @piprail/mcp` hands Claude / Cursor / any MCP client a budget-capped wallet.
+- **Discover** — emit a manifest, register your endpoint on the open x402 indexes, and find payable APIs.
 
 No backend, no database, no fee. Verification is local, against your own RPC.
 
@@ -34,7 +35,15 @@ No backend, no database, no fee. Verification is local, against your own RPC.
 | An agent that auto-pays a `402` (+ a spend policy) | [`agent/`](./agent) |
 | Expose payment as MCP tools — **build your own** server | [`mcp/`](./mcp) |
 
-> **Most agents write no code.** The published [`@piprail/mcp`](../mcp) server gives any MCP client (Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, Cline) the three payment tools, budget-capped — just `npx -y @piprail/mcp` with your key + chain in `env`. The [`mcp/`](./mcp) folder is the minimal from-scratch version, for when you want to embed or customize it.
+> **Most agents write no code.** The published [`@piprail/mcp`](../mcp) server gives any MCP client (Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, Cline) all **five** tools (three for paying, two for discovery), budget-capped — just `npx -y @piprail/mcp` with your key + chain in `env`. The [`mcp/`](./mcp) folder is the minimal from-scratch version, for when you want to embed or customize it.
+
+## Find & be found (discovery)
+
+| What | Folder |
+|---|---|
+| Emit a discovery manifest, register on the open indexes, and find payable APIs — `emit` / `register` / `discover`, live | [`discovery/`](./discovery) |
+
+> Discovery is **$0 and backendless** — built on the open x402 indexes (402 Index, CDP Bazaar); PipRail hosts none of its own. `register()` lists your endpoint (no auth, any chain), `discover()` finds resources to pay, and the pure emitters turn your gate's config into the OpenAPI / `.well-known` / DNS artifacts crawlers read. See [`../sdk/DISCOVERY.md`](../sdk/DISCOVERY.md).
 
 ## Prove it works — the adversarial test harnesses
 
@@ -44,8 +53,8 @@ no real keys; the live settlement tests use a local Anvil fork of Base with fake
 
 | What | Folder | Proves |
 |---|---|---|
-| The **SDK**, both ends — `requirePayment`/`createPaymentGate` (merchant) **and** `PipRailClient` (payer) | [`sdk-sandbox/`](./sdk-sandbox) | the gate, the client, the spend policy, the wire codecs, the typed errors, and a real on-chain round-trip (USDC + native) — **86 checks** |
-| The **MCP server** — spawned over real stdio, attacked as a greedy AI + a lying merchant | [`mcp-sandbox/`](./mcp-sandbox) | an AI **cannot break the spend policy**: caps can't be tricked or drained, proven on a real on-chain settlement — **163 checks** |
+| The **SDK**, both ends — `requirePayment`/`createPaymentGate` (merchant) **and** `PipRailClient` (payer) | [`sdk-sandbox/`](./sdk-sandbox) | the gate, the client, the spend policy, the wire codecs, the typed errors, a real on-chain round-trip (USDC + native), **and live discovery** (emit + register + discover vs. the real indexes) — **117 checks** |
+| The **MCP server** — spawned over real stdio, attacked as a greedy AI + a lying merchant | [`mcp-sandbox/`](./mcp-sandbox) | an AI **cannot break the spend policy**: caps can't be tricked or drained, proven on a real on-chain settlement; plus the discovery tools over MCP — **167 checks** |
 
 > **The headline both prove:** the spend policy is the boundary, and it holds.
 > A merchant that lies about decimals / display amount / symbol can't push a

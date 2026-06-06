@@ -52,6 +52,29 @@ const res = await client.fetch('https://api.example.com/report')
 
 The same app can **take** payments and **make** them. Built for autonomous agents: install, add a wallet, monetize or pay — nothing else to wire up.
 
+### 🔌 …or hand any AI agent a wallet — no code
+
+[`@piprail/mcp`](https://www.npmjs.com/package/@piprail/mcp) is an [MCP](https://modelcontextprotocol.io) server that gives Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, or Cline a budget-bound wallet. Add one block to your client config and the agent pays, discovers, and registers x402 URLs on its own — capped by a spend policy it **cannot exceed**:
+
+```jsonc
+{ "mcpServers": { "piprail": {
+  "command": "npx", "args": ["-y", "@piprail/mcp"],
+  "env": { "PIPRAIL_PRIVATE_KEY": "0x…", "PIPRAIL_CHAIN": "base", "PIPRAIL_MAX_AMOUNT": "0.10" } } } }
+```
+
+Five tools appear — `piprail_discover`, `piprail_quote_payment`, `piprail_plan_payment`, `piprail_pay_request`, `piprail_register`. Runs locally with your key; no backend, no custody. → [MCP guide](mcp/README.md)
+
+### 🧭 Be discoverable — get found, find others
+
+A 402 endpoint is payable, but nobody can *find* it. PipRail closes that gap with **$0, no backend** — built on the open x402 indexes (402 Index, CDP Bazaar), nothing PipRail-hosted:
+
+```ts
+await client.register('https://api.example.com/report', { name: 'Market Report', priceUsd: 0.05 })
+const hits = await client.discover({ query: 'market data' }) // find payable APIs to use
+```
+
+Emit a machine-readable manifest (`buildOpenApi` / `buildWellKnownX402` / `buildX402DnsTxt`), register on the open indexes (no auth, any chain), and discover resources to pay. → [DISCOVERY.md](sdk/DISCOVERY.md)
+
 ## 🌐 Supported chains
 
 **28 chains across 10 families** — name one with a single `chain:` parameter. Non-EVM families lazy-load on first use, so a pure-EVM install never downloads their libraries.
@@ -97,15 +120,20 @@ Verification is local and confirms the transaction **succeeded, is recent, and a
 
 ```
 piprail/
-├── sdk/         # @piprail/sdk — the npm package (the product)
+├── sdk/         # @piprail/sdk — the core SDK (the product)            → published to npm
+├── mcp/         # @piprail/mcp — the MCP server wrapping the SDK        → published to npm
 ├── site/        # piprail.com — the landing site (Astro 5 + Tailwind v4, deploys to Netlify)
 ├── examples/    # runnable merchant + agent demos + a live Anvil end-to-end
-└── .github/     # CI: build/test checks · npm publish on a sdk-v* tag
+└── .github/     # CI: build/test checks · npm publish on sdk-v* / mcp-v* tags
 ```
 
-**`@piprail/sdk`** is the product — and the only thing published to npm. `site/` is the source of [piprail.com](https://piprail.com); `examples/` holds runnable demos. Both live here in the repo but aren't npm packages.
+**Two packages are published to npm:** [`@piprail/sdk`](https://www.npmjs.com/package/@piprail/sdk) (the
+core library) and [`@piprail/mcp`](https://www.npmjs.com/package/@piprail/mcp) (the MCP server, also
+listed in the [MCP registry](https://registry.modelcontextprotocol.io) as `io.github.piprail/mcp`).
+`site/` is the source of [piprail.com](https://piprail.com); `examples/` holds runnable demos — both
+live here in the repo but aren't published.
 
-→ Full API & guides: **[sdk/README.md](sdk/README.md)**
+→ Full API & guides: **[sdk/README.md](sdk/README.md)** · MCP: **[mcp/README.md](mcp/README.md)** · discovery: **[sdk/DISCOVERY.md](sdk/DISCOVERY.md)**
 
 No `contracts/`, no server, no database. PipRail is a tool you install, not a platform you sign up for.
 
@@ -114,13 +142,22 @@ No `contracts/`, no server, no database. PipRail is a tool you install, not a pl
 ```bash
 npm install              # install workspace deps
 
-npm run build:sdk        # build the SDK
+npm run build:sdk        # build the SDK   (build it before the MCP — the MCP imports its dist)
 npm run test:sdk         # run the SDK test suite
-npm run typecheck        # typecheck the SDK
+npm run build:mcp        # build the MCP server
+npm run test:mcp         # run the MCP test suite
+npm run typecheck        # typecheck the SDK + MCP
 
 npm run dev              # run the landing site → http://localhost:4321
-npm run e2e              # live end-to-end against a local Anvil chain
 ```
+
+**Live, end-to-end proofs** (real published packages, no mocks) live in [`examples/`](examples):
+`node run-all.mjs` in [`examples/sdk-sandbox`](examples/sdk-sandbox) (the gate, client, policy, a real
+on-chain round-trip on a local Anvil fork, **and live discovery**) or [`examples/mcp-sandbox`](examples/mcp-sandbox)
+(the MCP server attacked as a greedy AI). A runnable [`examples/discovery`](examples/discovery) calls
+`emit` / `register` / `discover` against the real open indexes.
+
+Releasing a new version? See **[RELEASING.md](RELEASING.md)** — the publish is tag-driven CI, and a build-time guard keeps the site's docs in sync with the packages.
 
 ## 📄 License & trademark
 
