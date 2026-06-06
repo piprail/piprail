@@ -113,7 +113,7 @@ For **every rail the 402 offers on your chain**, the plan reads **token balance 
 
 ```ts
 import { paymentTools } from '@piprail/sdk'
-const tools = paymentTools(client) // → [piprail_quote_payment, piprail_plan_payment, piprail_pay_request]
+const tools = paymentTools(client) // → [piprail_discover, piprail_quote_payment, piprail_plan_payment, piprail_pay_request, piprail_register]
 ```
 
 See [`examples/agent-tools.mjs`](../examples/agent-tools.mjs) for MCP / AI-SDK wiring.
@@ -162,6 +162,11 @@ const hits = await client.discover({ query: 'weather', maxPrice: 0.01 })
 const res = await client.fetch(hits[0].resource) // then quote → plan → pay as usual
 ```
 
+`network` defaults to `'self'` (your chain only); pass `'any'` to search every chain, or a CAIP-2 id
+(`'eip155:8453'`) for a specific one. Chain slugs map to CAIP-2 through the `SLUG_TO_CAIP2` table —
+adding a chain adds one entry there (see [DISCOVERY.md](./DISCOVERY.md) §2.5), and an unresolved
+network is kept, never hidden.
+
 **3) Emit a discovery file** — turn your gate's config into the artifacts a crawler reads (pure, no
 I/O); serve the result as a static file on **your own** origin:
 
@@ -173,11 +178,13 @@ const openapi = buildOpenApi({
   origin: 'https://api.example.com',
   resources: [await gate.describe('https://api.example.com/report')],
 })
-// serve `openapi` at https://api.example.com/openapi.json  (the OpenAPI-first convention indexes parse)
+// serve `openapi` at https://api.example.com/openapi.json — each priced op carries an `x-payment-info`
+// block (the field indexes crawl) plus a default root `x-generator` attribution stamp.
 // buildWellKnownX402(...) emits the legacy /.well-known/x402 file; buildX402DnsTxt(...) the _x402 DNS line
 ```
 
-For an LLM/MCP this is two tools: **`piprail_discover`** (find) and **`piprail_register`** (be found).
+For an LLM/MCP these are two more tools — **`piprail_discover`** (find) and **`piprail_register`**
+(be found) — on top of the three payment tools, so `paymentTools(client)` / `@piprail/mcp` expose **five**.
 
 > **Two honest caveats.** The open indexes assume the mainstream `exact` scheme, so to be *usefully*
 > listed also offer a standard `exact` USDC rail on Base/Solana (`discover()` results are

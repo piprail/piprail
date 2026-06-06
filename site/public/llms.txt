@@ -1,8 +1,8 @@
 # PipRail
 
-> Last-Updated: 2026-06-05 · SDK-Version: 1.6.0 · MCP-Version: 0.1.0 · Type: APIService · License: MIT · Repository: https://github.com/piprail/piprail
+> Last-Updated: 2026-06-06 · SDK-Version: 1.7.0 · MCP-Version: 0.2.1 · Type: APIService · License: MIT · Repository: https://github.com/piprail/piprail
 
-> Accept and make x402 "402 Payment Required" crypto payments from any HTTP request — across 28 chains in 10 families (every major EVM chain plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar & the XRP Ledger). No backend, no database, no account, no fee: payments settle straight to your wallet, verified locally against your own RPC. Built for AI agents. Now also `@piprail/mcp` — an MCP (Model Context Protocol) server that lets any MCP client (Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, Cline) pay x402 URLs autonomously, capped by a local spend policy the model cannot exceed.
+> Accept and make x402 "402 Payment Required" crypto payments from any HTTP request — across 28 chains in 10 families (every major EVM chain plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar & the XRP Ledger). No backend, no database, no account, no fee: payments settle straight to your wallet, verified locally against your own RPC. Built for AI agents. It also does x402 **discovery** — emit a machine-readable manifest, register your endpoint on the open indexes (402 Index, CDP Bazaar), and let agents find payable APIs to use — on every chain. And `@piprail/mcp` — an MCP (Model Context Protocol) server, listed in the official MCP registry (`io.github.piprail/mcp`), that lets any MCP client (Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, Cline) pay, discover, and register x402 URLs autonomously, capped by a local spend policy the model cannot exceed.
 
 PipRail is `@piprail/sdk`, an open-source (MIT) TypeScript SDK. Gate any route so it charges for itself, or point an agent at a paid URL and it pays itself. `requirePayment` is the Express one-liner; `createPaymentGate` is the framework-agnostic core for everything else (Next.js, Hono, Fastify, Workers, Bun, Deno); `PipRailClient` pays; `paymentTools` hands payment to a model with a spend budget.
 
@@ -21,11 +21,20 @@ Full pitch + all code inline: [llms-full.txt](https://piprail.com/llms-full.txt)
 
 ## MCP — @piprail/mcp
 
-- `@piprail/mcp` wraps the SDK as an MCP server so any MCP client pays x402 URLs autonomously, budget-bound. Run: `npx -y @piprail/mcp` (speaks MCP over stdio). Local-only, zero custody — your key, your RPC, your limits.
-- Three tools: `piprail_quote_payment` (price a gated URL without paying), `piprail_plan_payment` (check balance + gas + recipient-readiness + policy across every rail, read-only), `piprail_pay_request` (fetch with payment on the cheapest affordable rail).
+- `@piprail/mcp` wraps the SDK as an MCP server so any MCP client pays, discovers, and registers x402 URLs autonomously, budget-bound. Run: `npx -y @piprail/mcp` (speaks MCP over stdio). Local-only, zero custody — your key, your RPC, your limits. Listed in the official MCP registry as `io.github.piprail/mcp`.
+- Five tools: `piprail_discover` (find payable x402 endpoints on the open indexes), `piprail_quote_payment` (price a gated URL without paying), `piprail_plan_payment` (check balance + gas + recipient-readiness + policy across every rail, read-only), `piprail_pay_request` (fetch with payment on the cheapest affordable rail), and `piprail_register` (list an x402 endpoint so other agents can find it).
 - Config is all env vars: `PIPRAIL_PRIVATE_KEY` (required), `PIPRAIL_CHAIN` (default base), `PIPRAIL_MAX_AMOUNT` (per-call cap, default 0.10), `PIPRAIL_MAX_TOTAL` (lifetime per-token cap, default 10.00), `PIPRAIL_TOKENS` (default USDC; USDT on Tron/TON), `PIPRAIL_HOSTS`, `PIPRAIL_RPC_URL`, `PIPRAIL_NEAR_ACCOUNT_ID`. Caps are enforced before any on-chain send and checked against the token's true decimals — the model cannot overspend.
 - Works in Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, and Cline. EVM works out of the box; non-EVM chains pull their SDK peer on demand. One wallet per chain per instance.
-- Page: [MCP setup guide](https://piprail.com/mcp) · npm: [@piprail/mcp](https://www.npmjs.com/package/@piprail/mcp) · [README](https://github.com/piprail/piprail/blob/main/mcp/README.md) — install, add one env block, and your agent pays x402 URLs on its own across 28 chains. A worked 60-second walkthrough (install → config → a sample agent paying a gated URL) and a cite-ready fact list live in [llms-full.txt](https://piprail.com/llms-full.txt).
+- Page: [MCP setup guide](https://piprail.com/mcp) · npm: [@piprail/mcp](https://www.npmjs.com/package/@piprail/mcp) · registry: [io.github.piprail/mcp](https://registry.modelcontextprotocol.io) · [README](https://github.com/piprail/piprail/blob/main/mcp/README.md) — install, add one env block, and your agent pays, discovers, and registers x402 URLs on its own across 28 chains. A worked 60-second walkthrough (install → config → a sample agent paying a gated URL) and a cite-ready fact list live in [llms-full.txt](https://piprail.com/llms-full.txt).
+
+## Discovery — get found, find others
+
+- PipRail does x402 service **discovery** with no backend and no fee, on top of OPEN third-party indexes (PipRail hosts nothing). Three moves: **EMIT**, **REGISTER**, **DISCOVER**.
+- **EMIT** — turn your payment gate into a machine-readable manifest crawlers and agents can read: `gate.describe()` plus the pure emitters `buildOpenApi()` (OpenAPI 3.1 with an `x-payment-info` block per priced operation, stamped with an `x-generator` attribution by default), `buildWellKnownX402()` (a `/.well-known/x402` document), and `buildX402DnsTxt()` (a `_x402` DNS TXT record).
+- **REGISTER** — `client.register(url)` lists your x402 endpoint on the open indexes. The default target is **402 Index** (no auth, no signature, any chain); **x402scan** is an optional bonus (SIWX sign-in, Base/Solana only). The index probes your URL and only lists real 402 endpoints.
+- **DISCOVER** — `client.discover({ network })` returns payable x402 resources from the open indexes (CDP Bazaar + 402 Index), free and read-only. `network: 'self'` (default) filters to your chain; `'any'` searches all chains; or pass a CAIP-2 id.
+- **Every chain:** EMIT is pure serialization, REGISTER's default (402 Index) has no chain limit, and DISCOVER keeps unresolved networks rather than hiding them — so discovery works on every chain PipRail supports, present and future. Only the optional x402scan target is Base/Solana-only.
+- Page: [Discovery guide](https://piprail.com/discovery) · reference: [DISCOVERY.md](https://github.com/piprail/piprail/blob/main/sdk/DISCOVERY.md) (the three moves, a step-by-step walkthrough, exactly what you need at each step, and honest caveats). Status: discovery is experimental — the pay/accept core is the stable product.
 
 ## Examples
 
@@ -43,8 +52,10 @@ Full pitch + all code inline: [llms-full.txt](https://piprail.com/llms-full.txt)
 - [Website](https://piprail.com)
 - [SDK guide](https://piprail.com/sdk) — accept & make x402 payments in code
 - [MCP setup guide](https://piprail.com/mcp) — give any agent a budget-bound wallet
+- [Discovery guide](https://piprail.com/discovery) — emit, register & find x402 endpoints
 - [Chains catalog](https://piprail.com/chains) — every supported chain + per-chain setup
 - [Live demo](https://piprail.com/demo) — try x402 in your browser, no install
 - [npm: @piprail/sdk](https://www.npmjs.com/package/@piprail/sdk)
 - [npm: @piprail/mcp](https://www.npmjs.com/package/@piprail/mcp) — MCP server for budget-bound agent payments
+- [MCP registry: io.github.piprail/mcp](https://registry.modelcontextprotocol.io) — the official MCP server listing
 - [GitHub](https://github.com/piprail/piprail)

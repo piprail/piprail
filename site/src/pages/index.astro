@@ -57,8 +57,12 @@ const mcpTools = [
   { name: 'piprail_register', desc: 'list an endpoint you run so other agents find it' },
 ]
 
-// Top 5 questions only — the rest live on /sdk, /mcp, /chains (each with its own schema).
+// Top questions only — the rest live on /sdk, /mcp, /chains, /discovery (each with its own schema).
 const faqs = [
+  {
+    q: `What is PipRail?`,
+    a: `PipRail is an open-source (MIT) TypeScript SDK for x402 crypto payments. It lets any HTTP endpoint charge for itself, and lets AI agents pay for APIs on their own — across ${total} chains, with no backend, no database, no account, and no fee. Payments settle straight to your own wallet, verified locally against your own RPC. It ships as two packages: @piprail/sdk (the library) and @piprail/mcp (an MCP server that hands any AI agent a budget-bound wallet). It also does x402 discovery, so endpoints can be registered on open indexes and found by agents.`,
+  },
   {
     q: `What is x402?`,
     a: `x402 revives the dormant HTTP 402 "Payment Required" status code as a real payment protocol. A server answers a request with 402 plus a machine-readable challenge (price, token, chain, pay-to address); the caller pays on-chain and retries with proof, and the request goes through. It lets an HTTP endpoint charge for itself — no API keys, accounts, or invoices — which is exactly what AI agents need to pay for data and compute autonomously.`,

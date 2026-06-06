@@ -37,4 +37,10 @@ That appends `Signed-off-by: Your Name <you@example.com>` (use your real name an
 2. Confirm `npm run test:sdk` and `npm run typecheck` pass.
 3. Open a PR describing **what** changed and **why**.
 
+## Releasing
+
+Publishing is **tag-driven CI** — never `npm publish` by hand. Maintainers: the full step-by-step
+(which version files to bump, the SDK-before-MCP build order, the tag, the GitHub Release, and the
+MCP-registry publish) is in **[RELEASING.md](RELEASING.md)**.
+
 That's it — thank you. 🚂

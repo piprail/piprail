@@ -20,4 +20,11 @@ describe('version single-source-of-truth', () => {
     expect(server.version).toBe(VERSION)
     expect(server.packages[0].version).toBe(VERSION)
   })
+
+  // The MCP registry rejects server.json with a description over 100 chars (HTTP 422).
+  // Caught live in the field; this fails the gate locally so a too-long description can't ship.
+  it('server.json description fits the MCP registry limit (<= 100 chars)', () => {
+    expect(typeof server.description).toBe('string')
+    expect(server.description.length).toBeLessThanOrEqual(100)
+  })
 })

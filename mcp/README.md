@@ -8,7 +8,9 @@ Runs on **your** machine with **your** wallet and **your** limits. No backend, n
 npx -y @piprail/mcp        # speaks MCP over stdio
 ```
 
-It exposes five tools:
+Listed in the official **MCP registry** as [`io.github.piprail/mcp`](https://registry.modelcontextprotocol.io).
+
+It exposes five tools — three for paying, two for discovery:
 
 | Tool | What it does |
 | --- | --- |

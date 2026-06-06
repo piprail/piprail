@@ -439,8 +439,12 @@ cd sdk && npm install -D @scope/chain-sdk
 #    familyForChain; drivers/index.ts loaders; package.json optional-peer + devDep; tsup external;
 #    AND indexes.ts SLUG_TO_CAIP2 — add your family's slug → its exact caip2 (the SAME string the
 #    driver binds) so client.discover({ network:'self' }) filters precisely on the new chain.
-#    (Discovery still WORKS without it — an unmapped slug is kept, never hidden — but the entry
-#    makes self-filtering exact; see sdk/DISCOVERY.md §2.5.)
+#    (Discovery still WORKS without it — an unmapped slug is kept, never hidden — but without the
+#    entry, discover({ network:'self' }) can't recognize the new chain, so add it; see sdk/DISCOVERY.md §2.5.)
+#    OPTIONAL (discovery-only): if the family will support x402scan SIWX registration, implement
+#    discoverySigner(wallet) in drivers/<family>/index.ts (EVM is the reference, evm/index.ts) — it
+#    signs the bare origin string for an ownership proof and NEVER signs a payment. Omit it otherwise
+#    (return null / leave it off); 402 Index, the default register target, needs no signature. (DISCOVERY.md §4.)
 # 6. Write test/<family>/{driver,verify,pay}.test.ts + the routing.test.ts assertion + the new
 #    family's cases in test/describe-asset.test.ts (native, a built-in token, unknown → null),
 #    test/cost.test.ts (deterministic fee + never-throws), and test/recipient-ready.test.ts (the
@@ -678,8 +682,10 @@ SDK
       or { ready:'n/a' } if none (and always 'n/a' for native). These power client.planPayment(); the gate
       never calls them. + a recipient-ready.test case (and a new RecipientReason in types.ts if needed)
 - [ ] (Path C) types.ts / registry.ts / index.ts loader / package.json optional-peer + devDep / tsup external wired
-- [ ] (Path C) indexes.ts SLUG_TO_CAIP2 has the family's slug → exact caip2 (precise discovery self-filtering;
-      discovery still works without it — unmapped slugs are kept, never hidden — but add it for exactness)
+- [ ] (Path C) indexes.ts SLUG_TO_CAIP2 has the family's slug → exact caip2 (so discover({ network:'self' })
+      recognizes the chain; unmapped slugs are kept/never hidden, but without it self-filtering can't see the chain)
+- [ ] (Path C) discoverySigner: implemented in drivers/<family>/index.ts ONLY if supporting x402scan SIWX
+      (signs the origin for an ownership proof, never a payment) — else omitted/null (it's optional; DISCOVERY.md §4)
 - [ ] (Path C) new family added to drivers/shared.ts FAMILY_LABEL + FAMILY_TOKEN maps (covers cross-family
       rejection on EVERY driver); own resolveToken calls rejectForeignToken(token, family, network)
 - [ ] chain: '<name>' works with NO setup call (lazy-mounts; main bundle free of the lib — dist grep)
