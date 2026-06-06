@@ -1,0 +1,49 @@
+# Smithery manifest for @piprail/mcp — a local (stdio) MCP server run via npx.
+# To list it: on smithery.ai → connect the github.com/piprail/piprail repo →
+# set the base directory to "mcp" (this file's folder). No Docker needed for a
+# local stdio server; Smithery reads this manifest to build the install + config UI.
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    required:
+      - piprailPrivateKey
+    properties:
+      piprailPrivateKey:
+        type: string
+        title: Wallet private key
+        description: Your wallet's private key/seed for the chosen chain. Stays on your machine; the spend policy caps every payment.
+      piprailChain:
+        type: string
+        default: base
+        description: "Chain to pay on: base, solana, bnb, polygon, arbitrum, optimism, ton, tron, near, sui, aptos, algorand, stellar, xrpl, …"
+      piprailMaxAmount:
+        type: string
+        default: "0.10"
+        description: Max spend per single payment, in token units.
+      piprailMaxTotal:
+        type: string
+        default: "10.00"
+        description: Lifetime spend cap per token, in token units.
+      piprailTokens:
+        type: string
+        default: USDC
+        description: Comma-separated allowed token symbols, plus the alias "native" for the chain's coin.
+  commandFunction: |
+    (config) => ({
+      command: 'npx',
+      args: ['-y', '@piprail/mcp'],
+      env: {
+        PIPRAIL_PRIVATE_KEY: config.piprailPrivateKey,
+        PIPRAIL_CHAIN: config.piprailChain || 'base',
+        PIPRAIL_MAX_AMOUNT: config.piprailMaxAmount || '0.10',
+        PIPRAIL_MAX_TOTAL: config.piprailMaxTotal || '10.00',
+        PIPRAIL_TOKENS: config.piprailTokens || 'USDC'
+      }
+    })
+  exampleConfig:
+    piprailPrivateKey: "0xYOUR_WALLET_KEY"
+    piprailChain: base
+    piprailMaxAmount: "0.10"
+    piprailMaxTotal: "10.00"
+    piprailTokens: USDC
