@@ -12,6 +12,26 @@ import { parseReceipt } from './x402.js'
 import { PaymentDeclinedError } from './errors.js'
 import type { PipRailClient, DiscoverOptions, RegisterOptions } from './client.js'
 
+/**
+ * MCP-style tool annotations — optional, advisory hints that let an MCP client or
+ * agent reason about a tool's *nature* (is it safe to call freely? does it move
+ * value?). They mirror the MCP spec's `ToolAnnotations`. NOTE: hints only — a
+ * client must never make a security decision solely on these; the spend policy is
+ * the real boundary.
+ */
+export interface ToolAnnotations {
+  /** Human-friendly title for the tool. */
+  title?: string
+  /** True when the tool only READS — no state change, no funds moved. */
+  readOnlyHint?: boolean
+  /** True when the tool may move value or do something not easily undone (only meaningful when not read-only). */
+  destructiveHint?: boolean
+  /** True when calling repeatedly with the same args has no additional effect. */
+  idempotentHint?: boolean
+  /** True when the tool reaches the open world — external indexes, chains, or arbitrary URLs. */
+  openWorldHint?: boolean
+}
+
 /** A framework-agnostic tool definition an agent runtime can register. */
 export interface AgentTool {
   /** Unique tool name (snake_case, namespaced `piprail_…`). */
@@ -20,6 +40,8 @@ export interface AgentTool {
   description: string
   /** JSON Schema (draft-07 object) describing the arguments. */
   parameters: Record<string, unknown>
+  /** Advisory MCP-style hints about the tool's nature (read-only, value-moving, …). */
+  annotations?: ToolAnnotations
   /** Execute the tool. Returns a JSON-serialisable result. */
   invoke: (args: Record<string, unknown>) => Promise<unknown>
 }
@@ -59,6 +81,11 @@ export function paymentTools(client: PipRailClient): AgentTool[] {
         "By default returns only resources payable on your wallet's chain (network='self'); pass 'any' " +
         'for every chain. Results are cross-scheme: ALWAYS call piprail_quote_payment on a chosen ' +
         'resource (it re-checks the live price) before piprail_pay_request.',
+      annotations: {
+        title: 'Discover payable x402 APIs',
+        readOnlyHint: true, // reads the open indexes only; never pays
+        openWorldHint: true, // reaches external indexes (402 Index, CDP Bazaar)
+      },
       parameters: {
         type: 'object',
         properties: {
@@ -99,6 +126,11 @@ export function paymentTools(client: PipRailClient): AgentTool[] {
         'token, chain, recipient, and whether it is within the spend policy. Returns ' +
         '{ gated: false } when the URL needs no payment. Call this first to decide whether ' +
         'a resource is worth buying.',
+      annotations: {
+        title: 'Quote an x402 price',
+        readOnlyHint: true, // reads the 402 challenge; never pays
+        openWorldHint: true, // fetches an arbitrary URL
+      },
       parameters: {
         type: 'object',
         properties: {
@@ -120,6 +152,11 @@ export function paymentTools(client: PipRailClient): AgentTool[] {
         'and returns { gated, payable, best, options, fundingHint }. payable:false means do NOT attempt ' +
         'the payment; fundingHint says exactly what to top up. Call this before piprail_pay_request so ' +
         'you never commit to a payment you cannot finish. Returns { gated: false } when no payment is needed.',
+      annotations: {
+        title: 'Plan an x402 payment',
+        readOnlyHint: true, // reads balances + the challenge; never pays
+        openWorldHint: true, // fetches a URL and reads chain state
+      },
       parameters: {
         type: 'object',
         properties: {
@@ -164,6 +201,13 @@ export function paymentTools(client: PipRailClient): AgentTool[] {
         'payment if needed (subject to the spend policy + approval hook). Returns the HTTP ' +
         'status, the response body, and a payment receipt if one settled. If the payment is ' +
         'refused by policy or the approval hook, returns { declined: true, reason } — no funds moved.',
+      annotations: {
+        title: 'Pay an x402 request',
+        readOnlyHint: false, // this is the one tool that MOVES FUNDS
+        destructiveHint: true, // an on-chain payment is value-moving and not reversible
+        idempotentHint: false, // paying twice = two payments
+        openWorldHint: true, // fetches a URL and settles on-chain
+      },
       parameters: {
         type: 'object',
         properties: {
@@ -219,6 +263,13 @@ export function paymentTools(client: PipRailClient): AgentTool[] {
         'Default target is 402 Index — no auth, no signature, no payment; searchable within seconds. ' +
         'Returns one outcome per index ({ source, ok, detail }); a step the chain can\'t satisfy comes ' +
         'back ok:false with the reason. Moves no funds; nothing is PipRail-hosted.',
+      annotations: {
+        title: 'Register an x402 endpoint',
+        readOnlyHint: false, // writes a listing to an external index
+        destructiveHint: false, // adds a listing; nothing is destroyed and no funds move
+        openWorldHint: true, // posts to external indexes (402 Index)
+        // idempotentHint intentionally omitted — index dedup behaviour isn't guaranteed.
+      },
       parameters: {
         type: 'object',
         properties: {

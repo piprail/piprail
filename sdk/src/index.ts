@@ -39,7 +39,7 @@ export type {
 /* ----------------------- agent toolkit (Tier 2) ----------------------- */
 
 export { paymentTools } from './agent.js'
-export type { AgentTool } from './agent.js'
+export type { AgentTool, ToolAnnotations } from './agent.js'
 
 /* --------------------------- accept (server side) --------------------------- */
 

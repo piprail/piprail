@@ -1,5 +1,14 @@
 # @piprail/mcp changelog
 
+## 0.2.2 — 2026-06-06
+
+- **Tool annotations on the wire.** `ListTools` now advertises each tool's advisory annotations
+  (`title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) straight from the SDK
+  (`@piprail/sdk` ≥ 1.8.0, now the required range), so an MCP client can reason about each tool and
+  render the right consent — the three reads (`piprail_discover` / `quote` / `plan`) are flagged
+  **read-only**, `piprail_pay_request` is flagged **value-moving** (the only tool that spends), and
+  `piprail_register` is non-destructive. Hints only — the spend policy is still the real boundary.
+
 ## 0.2.1 — 2026-06-06
 
 - **Fix:** the `VERSION` constant (`src/version.ts`) was left at `0.1.0` in the 0.2.0 release, so the

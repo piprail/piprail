@@ -20,6 +20,11 @@ It exposes five tools — three for paying, two for discovery:
 | `piprail_pay_request` | Fetch a URL, paying the `402` automatically (within the budget). |
 | `piprail_register` | List a resource you run on the open indexes (402 Index, no signature) so other agents can find it. |
 
+Each tool is advertised with MCP **annotations** so your client can reason about it and show the right
+consent: `piprail_discover` / `piprail_quote_payment` / `piprail_plan_payment` are **read-only**,
+`piprail_pay_request` is flagged **value-moving** (the one tool that spends), and `piprail_register` is
+non-destructive. Hints only — the spend policy is the real boundary, enforced before any on-chain send.
+
 ---
 
 ## Quick start

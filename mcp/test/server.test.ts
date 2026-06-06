@@ -39,6 +39,20 @@ describe('createMcpServer — tool listing', () => {
       expect(t.inputSchema.type).toBe('object') // JSON Schema passthrough, not Zod
     }
   })
+
+  test('advertises the SDK tool annotations so a client can reason about each tool', async () => {
+    const { mcp } = await connect()
+    const { tools } = await mcp.listTools()
+    const ann = Object.fromEntries(tools.map((t) => [t.name, t.annotations]))
+    // every tool carries annotations + a human title
+    for (const t of tools) expect(typeof t.annotations?.title).toBe('string')
+    // the reads are flagged read-only; the pay tool is flagged value-moving (consent UI hook)
+    expect(ann['piprail_discover']).toMatchObject({ readOnlyHint: true })
+    expect(ann['piprail_quote_payment']).toMatchObject({ readOnlyHint: true })
+    expect(ann['piprail_plan_payment']).toMatchObject({ readOnlyHint: true })
+    expect(ann['piprail_pay_request']).toMatchObject({ readOnlyHint: false, destructiveHint: true })
+    expect(ann['piprail_register']).toMatchObject({ readOnlyHint: false, destructiveHint: false })
+  })
 })
 
 describe('createMcpServer — call dispatch', () => {

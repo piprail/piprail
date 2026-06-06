@@ -91,6 +91,28 @@ describe('paymentTools — framework-agnostic descriptors', () => {
     }
   })
 
+  it('each tool carries correct, advisory MCP annotations (read-only vs value-moving)', () => {
+    const ann = Object.fromEntries(paymentTools(client()).map((t) => [t.name, t.annotations]))
+    // the three reads never move funds: read-only + open-world, with a human title.
+    for (const n of ['piprail_discover', 'piprail_quote_payment', 'piprail_plan_payment']) {
+      expect(ann[n]).toMatchObject({ readOnlyHint: true, openWorldHint: true })
+      expect(typeof ann[n]?.title).toBe('string')
+    }
+    // pay is the ONLY value-moving tool: not read-only, destructive, not idempotent.
+    expect(ann['piprail_pay_request']).toMatchObject({
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+      openWorldHint: true,
+    })
+    // register writes a listing to an external index but is not destructive and moves no funds.
+    expect(ann['piprail_register']).toMatchObject({
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: true,
+    })
+  })
+
   it('plan tool reports payable + the best rail (reads balance + recipient-readiness)', async () => {
     stubFetch(() => new Response('{}', { status: 200 }))
     const planTool = paymentTools(client()).find((t) => t.name === 'piprail_plan_payment')!

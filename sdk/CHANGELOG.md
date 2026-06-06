@@ -4,6 +4,19 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.8.0] — 2026-06-06
+
+### Added
+- **Agent tool annotations.** Each of the five `paymentTools(client)` descriptors now carries an
+  advisory `annotations` object (MCP-style `ToolAnnotations`: `title`, `readOnlyHint`,
+  `destructiveHint`, `idempotentHint`, `openWorldHint`), so an MCP client or agent can reason about a
+  tool's nature and render the right consent. The three reads (`piprail_discover` / `quote` / `plan`)
+  are flagged **read-only**; `piprail_pay_request` is flagged **value-moving** (not read-only,
+  destructive, non-idempotent) so a client can surface that it's the one tool that spends;
+  `piprail_register` writes a listing but is non-destructive. New exported type `ToolAnnotations`.
+  Backward-compatible — `annotations` is optional and non-MCP runtimes ignore it. (`@piprail/mcp`
+  ≥ 0.2.2 passes them through on the wire.)
+
 ## [1.7.0] — 2026-06-06
 
 ### Added
@@ -479,6 +492,7 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[1.8.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.7.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.6.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.5.1]: https://www.npmjs.com/package/@piprail/sdk

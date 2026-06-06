@@ -32,12 +32,16 @@ export function createMcpServer(clientOptions: PipRailClientOptions): {
     { capabilities: { tools: {} } }
   )
 
-  // Advertise the tools — JSON Schema passes through untouched.
+  // Advertise the tools — JSON Schema passes through untouched, and the SDK's
+  // advisory annotations (readOnly / destructive / idempotent / openWorld + title)
+  // ride along so a client can render the right consent (e.g. flag that the pay
+  // tool moves funds). Hints only — the spend policy is the real boundary.
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: tools.map((t) => ({
       name: t.name,
       description: t.description,
       inputSchema: t.parameters as { type: 'object'; [key: string]: unknown },
+      ...(t.annotations ? { annotations: t.annotations } : {}),
     })),
   }))
 

@@ -116,6 +116,12 @@ import { paymentTools } from '@piprail/sdk'
 const tools = paymentTools(client) // → [piprail_discover, piprail_quote_payment, piprail_plan_payment, piprail_pay_request, piprail_register]
 ```
 
+Each descriptor also carries advisory **`annotations`** (MCP-style `ToolAnnotations` — `title`,
+`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`): the three reads are flagged
+**read-only**, `piprail_pay_request` is flagged **value-moving** (the one tool that spends), and
+`piprail_register` is non-destructive — so an MCP client can render the right consent. They're hints,
+not the boundary; the spend policy is. `@piprail/mcp` advertises them on the wire.
+
 See [`examples/agent-tools.mjs`](../examples/agent-tools.mjs) for MCP / AI-SDK wiring.
 
 ## Be discoverable — find and be found ($0, no backend)
