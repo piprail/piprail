@@ -1,5 +1,13 @@
 # @piprail/mcp changelog
 
+## 0.2.3 — 2026-06-06
+
+- **Richer registry listing.** `server.json` now sets `title` ("PipRail"), `websiteUrl`
+  (https://piprail.com/mcp), and `repository.subfolder` ("mcp"). Because the MCP directories
+  (PulseMCP, Glama, mcp.so, …) ingest from the Official MCP Registry, these enrich the listing
+  *everywhere* at once — a clean display name, a homepage link, and a precise pointer to the
+  server's path in the monorepo. No code change to the server.
+
 ## 0.2.2 — 2026-06-06
 
 - **Tool annotations on the wire.** `ListTools` now advertises each tool's advisory annotations
