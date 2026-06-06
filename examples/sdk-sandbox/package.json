@@ -11,10 +11,11 @@
     "policy": "node suites/03-policy.mjs",
     "wire": "node suites/04-wire-and-errors.mjs",
     "live": "node suites/05-live-roundtrip.mjs",
+    "discovery": "node suites/06-discovery.mjs",
     "merchant": "node lib/merchant.mjs"
   },
   "dependencies": {
-    "@piprail/sdk": "^1.6.0",
+    "@piprail/sdk": "^1.7.0",
     "express": "^5.0.0",
     "viem": "^2.21.0"
   },
