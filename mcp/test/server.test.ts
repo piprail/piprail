@@ -24,13 +24,15 @@ afterEach(() => {
 })
 
 describe('createMcpServer — tool listing', () => {
-  test('exposes exactly the 3 SDK tools, each with an object JSON-Schema', async () => {
+  test('exposes exactly the 5 SDK tools, each with an object JSON-Schema', async () => {
     const { mcp } = await connect()
     const { tools } = await mcp.listTools()
     expect(tools.map((t) => t.name).sort()).toEqual([
+      'piprail_discover',
       'piprail_pay_request',
       'piprail_plan_payment',
       'piprail_quote_payment',
+      'piprail_register',
     ])
     for (const t of tools) {
       expect(t.description).toBeTruthy()

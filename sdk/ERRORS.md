@@ -161,6 +161,15 @@ Every `PaymentDriver` / `ResolvedNetwork` method has a fixed error behaviour:
 > on an unparseable challenge. (`fetch({ autoRoute:true })` is the one place a plan turns into a
 > THROWN `PaymentDeclinedError` — refusing before any send when nothing is settleable.)
 
+> **Discovery is read-style too — it reports, it doesn't throw.** `client.discover()` /
+> `searchOpenIndexes()` read third-party OPEN indexes: an index that's down, slow, or shape-changed
+> simply contributes nothing (→ `[]`), never an exception — one dead index can't sink the others.
+> `client.register()` / `register402Index()` / `registerX402Scan()` return one `RegisterOutcome` per
+> target — a step the chain can't satisfy (x402scan on a non-Base/Solana client, no `discoverySigner`,
+> or an HTTP error) comes back `{ ok:false, detail }`, surfaced not swallowed. The pure emitters
+> (`buildOpenApi` / `buildWellKnownX402` / `buildX402DnsTxt`) do no I/O and can't fail at runtime. The
+> optional `discoverySigner(wallet)` is discovery-only (ownership proofs / SIWX) — it never signs a payment.
+
 ### 6. Affordability converges on one error, by two mechanisms
 
 "Wallet can't pay" must always surface as **`InsufficientFundsError`** — but the *detection*

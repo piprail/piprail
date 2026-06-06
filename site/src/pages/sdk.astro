@@ -76,6 +76,10 @@ const faqs = [
     a: `Call client.planPayment(url). It's a read-only call that surveys the 402 across every rail it offers on your chain and checks each against your own wallet: token balance, native-coin gas, and whether the recipient can even receive (trustline / associated token account / storage_deposit / ASA opt-in / account activation). It returns payable plus the best rail to use, per-rail blockers (INSUFFICIENT_TOKEN, INSUFFICIENT_GAS, RECIPIENT_NOT_READY, OUTSIDE_POLICY), and a one-sentence fundingHint telling you exactly what to top up. It never throws for a transient RPC failure (that rail comes back as state: 'unknown'), and returns null when the URL isn't payment-gated. Turn on autoRoute and client.fetch pays the cheapest settleable rail automatically; planAcross(clients, url) plans across several chains at once.`,
   },
   {
+    q: `How do agents discover my x402 endpoint, and how do I get listed?`,
+    a: `Discovery is built in and backendless — PipRail builds on the open x402 indexes that already exist (402 Index, the CDP Bazaar read API, x402scan) and hosts none of its own. To be found, call client.register(url): one POST to 402 Index, no auth and no signature, searchable in seconds (optionally also x402scan via one wallet signature, Base/Solana only). To find resources to pay, call client.discover({ query }), which reads those open indexes for free and returns candidates you then quote and pay as usual. You can also emit a static discovery file from your gate's config with buildOpenApi / buildWellKnownX402 / buildX402DnsTxt (fed by gate.describe()) and serve it on your own origin. For an LLM/MCP it's two tools: piprail_discover and piprail_register. No registry, no database, no fee.`,
+  },
+  {
     q: `Is there a fee to use PipRail?`,
     a: `No. PipRail charges no fee and takes no cut. It's an open-source (MIT) npm package, not a platform or hosted service. Payments settle straight into your own wallet — there's no PipRail backend, facilitator, or middleman in the path. You pay only normal network gas on whichever chain you choose.`,
   },

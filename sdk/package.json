@@ -1,6 +1,6 @@
 {
   "name": "@piprail/sdk",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "Accept x402 crypto payments across 28 chains — every major EVM chain plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar & XRPL — in a couple of lines. No backend, no database, no fee; payments settle straight to your wallet.",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -24,6 +24,7 @@
     "CHAINS.md",
     "ERRORS.md",
     "STANDARDS.md",
+    "DISCOVERY.md",
     "CHANGELOG.md",
     "LICENSE"
   ],

@@ -39,7 +39,8 @@ site/       piprail.com — Astro 5 + Tailwind v4 (deploys to Netlify)
 - **Accept, every other framework:** `createPaymentGate({ chain, token, amount, payTo })` → `gate.verify(headerValue)` returns `{ kind: 'paid' | 'challenge' | 'invalid', … }`. Use `toInvalidBody(result)` for the invalid 402 body.
 - **Multi-chain:** `{ accept: [{ chain, token, amount, payTo? }, …] }` instead of the single-chain fields.
 - **Pay:** `new PipRailClient({ chain, wallet, policy? })` → `client.fetch(url)` auto-pays a 402; `quote(url)`, `estimateCost(url)`, **`planPayment(url)`** (affordability + recipient-readiness preflight → `PaymentPlan`; `canAfford(url)`; `fetch(url, { autoRoute: true })` pays the cheapest settleable rail), `spent()`. Module-level `planAcross(clients, url)` plans across chains.
-- **Agents:** `paymentTools(client)` → tool descriptors (`piprail_quote_payment` · `piprail_plan_payment` · `piprail_pay_request`) whose `parameters` are **JSON Schema** (use the low-level MCP `Server`, not Zod-based `McpServer`).
+- **Discovery (opt-in, $0, nothing hosted):** `client.discover(opts?)` reads the OPEN indexes (CDP Bazaar + 402 Index, free) → `DiscoveredResource[]`; `client.register(url, opts?)` lists a resource on them (402 Index no-auth by default; x402scan SIWX optional) → `RegisterOutcome[]`. Emit static artifacts with `buildOpenApi` / `buildWellKnownX402` / `buildX402DnsTxt` (pure), fed by `gate.describe()`. We build on open infra and host nothing — never add our own registry/DB. Caveats: open indexes assume the `exact` scheme; x402scan is Base/Solana-only; no single ratified discovery standard yet.
+- **Agents:** `paymentTools(client)` → tool descriptors (`piprail_discover` · `piprail_quote_payment` · `piprail_plan_payment` · `piprail_pay_request` · `piprail_register`) whose `parameters` are **JSON Schema** (use the low-level MCP `Server`, not Zod-based `McpServer`). They pass through `@piprail/mcp` automatically.
 - Chains by name (`'base'`, `'bnb'`, `'solana'`, `'ton'`, …) or a viem `Chain` / `{ id, rpcUrl }`. Tokens: `'USDC'`, `'USDT'`, `'native'`, or custom by address/mint/issuer/contractId/coinType.
 
 Confirm any signature against `sdk/src/index.ts` before using it.
@@ -70,6 +71,7 @@ Confirm any signature against `sdk/src/index.ts` before using it.
 ## Key files
 
 - [`sdk/README.md`](sdk/README.md) — full API, all 28 chains, wallet formats, custom tokens.
+- [`sdk/DISCOVERY.md`](sdk/DISCOVERY.md) — the complete discovery reference (emit · register · discover; every fn, option, flow, caveat).
 - [`sdk/ERRORS.md`](sdk/ERRORS.md) — the error standard (thrown vs. returned codes).
 - [`sdk/STANDARDS.md`](sdk/STANDARDS.md) — how anything in the SDK is built + the verification gate.
 - [`examples/CONCEPTS.md`](examples/CONCEPTS.md) — the 402 loop, decision tree, replay model.

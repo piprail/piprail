@@ -20,6 +20,7 @@
 import { parseUnits } from './util/units.js'
 import { resolveNetwork } from './drivers/index.js'
 import type { ResolvedNetwork, TokenInput, ChainSelector } from './drivers/types.js'
+import type { ResourceDescription, PaymentRail } from './discovery.js'
 import {
   buildChallengeHeader,
   buildReceiptHeader,
@@ -143,6 +144,15 @@ export interface PaymentGate {
   verify(
     paymentSignature: string | string[] | undefined
   ): Promise<VerifyPaymentResult>
+  /**
+   * Describe this gate's payment options as static, nonce-free discovery
+   * metadata — feed it to the emitters in `discovery.ts` (`buildOpenApi` /
+   * `buildWellKnownX402`) to make the resource findable. Reuses the same
+   * resolved options the challenge is built from (so a `0x…` payTo / decimals
+   * are already correct); unlike `challenge()`, it mints no nonce, because
+   * discovery metadata is long-lived. Read-only — moves nothing on-chain.
+   */
+  describe(resourceUrl?: string): Promise<ResourceDescription>
 }
 
 /** One fully-resolved payment option — its bound network, token, and recipient.
@@ -297,6 +307,26 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     return { kind: 'challenge', challenge: c, requiredHeader, statusCode: 402 }
   }
 
+  async function describe(resourceUrl = ''): Promise<ResourceDescription> {
+    const specs = await ready()
+    const accepts: PaymentRail[] = specs.map((s) => ({
+      scheme: 'onchain-proof',
+      network: s.net.network,
+      asset: s.asset,
+      payTo: s.payTo,
+      amount: s.amountBase.toString(),
+      amountFormatted: s.amountFormatted,
+      decimals: s.decimals,
+      maxTimeoutSeconds,
+      ...(s.symbol ? { symbol: s.symbol } : {}),
+    }))
+    return {
+      url: resourceUrl,
+      ...(options.description ? { description: options.description } : {}),
+      accepts,
+    }
+  }
+
   async function verify(
     paymentSignature: string | string[] | undefined
   ): Promise<VerifyPaymentResult> {
@@ -374,7 +404,7 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     }
   }
 
-  return { challenge, verify }
+  return { challenge, verify, describe }
 }
 
 /* ----------------------------- Express middleware ----------------------------- */

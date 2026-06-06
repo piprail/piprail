@@ -11,9 +11,11 @@ import type { Config } from './config.js'
 
 /** The tool names this server exposes (from the SDK's paymentTools). */
 export const TOOL_NAMES = [
+  'piprail_discover',
   'piprail_quote_payment',
   'piprail_plan_payment',
   'piprail_pay_request',
+  'piprail_register',
 ] as const
 
 const row = (label: string, value: string): string => `  ${label.padEnd(15)}${value}`

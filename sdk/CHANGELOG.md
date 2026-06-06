@@ -4,6 +4,68 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.7.0] — 2026-06-06
+
+### Added
+- **Discovery — find and be found, $0 and backendless.** Closes the one open gap: a 402 endpoint was
+  payable but invisible. PipRail now builds on the **open** x402 indexes that already exist (402 Index,
+  the CDP Bazaar read API, x402scan) — **nothing PipRail-hosted, no registry, no database** (the
+  no-backend/no-marketplace rule is intact). Three opt-in moves, defaults byte-identical:
+  - **Emit** — pure, no-I/O artifact builders `buildOpenApi` / `buildWellKnownX402` / `buildX402DnsTxt`
+    (in a new chain-agnostic `discovery.ts`), fed by a new **`gate.describe()`** accessor that maps a
+    gate's resolved options to nonce-free `PaymentRail`s. Serve the result as a static file on your own
+    origin (the OpenAPI-first `/openapi.json` convention the live indexes parse).
+  - **Register** — **`client.register(url, opts?)`** lists a resource on the open registries: **402 Index**
+    by default (no auth, no signature, no payment) and optionally **x402scan** via SIWX (one wallet
+    signature; Base/Solana only). Returns a `RegisterOutcome[]`; a step the chain can't satisfy comes
+    back `{ ok:false, detail }`, never a throw. Standalone `register402Index` / `registerX402Scan` too.
+  - **Discover** — **`client.discover(opts?)`** reads the open indexes (CDP Bazaar + 402 Index, free),
+    merges + dedupes them, and by default returns only resources payable on the client's chain. Standalone
+    `searchOpenIndexes`. Never throws for a read problem (a dead index contributes nothing).
+  - **Agent tools** — `paymentTools(client)` gains **`piprail_discover`** and **`piprail_register`** (now
+    five tools); they flow through `@piprail/mcp` automatically (the MCP is a pass-through — zero `mcp/` changes).
+  - **One new OPTIONAL driver method** — `ResolvedNetwork.discoverySigner?(wallet)` → `{ address, signMessage }`,
+    for ownership proofs / SIWX **only** (never the payment path). Implemented for EVM (eip191, recoverable
+    with `recoverMessageAddress`); families that omit it simply skip signature-gated registration — the
+    402 Index path needs none. The first optional contract method.
+  - New exports: the three emitters + `searchOpenIndexes` / `register402Index` / `registerX402Scan` /
+    `normalizeNetwork`, and the types `PaymentRail` · `ResourceDescription` · `ManifestInput` ·
+    `OpenApiDocument` · `OpenApiOperation` · `WellKnownX402` · `X402DnsRecord` · `DiscoverySource` ·
+    `DiscoveredResource` · `DiscoveredRail` · `RegisterOutcome` · `RegisterInput` ·
+    `SearchOpenIndexesOptions` · `DiscoverOptions` · `RegisterOptions` · `DiscoverySigner`.
+  - Additive + non-breaking (next release is a minor). Honest caveats documented: the open indexes assume
+    the `exact` scheme (offer an `exact` Base/Solana rail to be *usefully* listed; `discover()` results are
+    cross-scheme, `fetch()` pays only `onchain-proof` rails directly), x402scan is Base/Solana-only, and
+    there is no single ratified discovery standard yet (OpenAPI-first is an emerging multi-vendor convention).
+  - **Every chain, guaranteed.** Discovery works on *any* chain — a built-in preset, a non-EVM family, or a
+    custom `{ id, rpcUrl }` chain: 402 Index registers without a signature or chain allowlist, and `discover()`
+    never silently hides a rail whose network it can't resolve (delegating to the bound driver's `supports()`).
+    The slug→CAIP-2 map now mirrors every family's exact `caip2`. The only chain-limited piece is the optional
+    x402scan target (Base/Solana, its own limit). Documented in DISCOVERY.md §2.5 and proven by
+    `test/discovery-e2e.test.ts`, which parametrizes every family + a custom chain end-to-end.
+  - **Docs:** a new **`DISCOVERY.md`** ships with the package — the complete discovery reference (problem,
+    open infra, the three moves with every function/option, the signing primitive, the agent tools, the
+    end-to-end flows, the every-chain guarantee, and the caveats). README + AGENTS link it; the site gains a
+    dedicated **piprail.com/discovery** page (and the tablet/mobile nav is now a slide-in overlay).
+  - **Tests:** comprehensive coverage across every variation — emitters (paths/query/unicode/limits), the
+    open-index adapters (envelopes, never-throws, price parsing), `discover`/`register`/`discoverySigner`, the
+    agent tools, a real merchant→agent end-to-end loop, every-chain proofs, and stress (hundreds of
+    resources/rails, concurrency, malformed input).
+  - **Experimental + live-verified.** Discovery integrates with third-party open indexes (moving, unratified
+    conventions) so it ships flagged **experimental**. Validated live (2026-06-06) against the real services:
+    the read path normalizes real CDP Bazaar + 402 Index data and the x402 protocol filter drops L402/MPP;
+    `client.discover()` merges both; and `register402Index` POSTs correctly — **402 Index probes the URL and
+    only lists endpoints that truly return a `402`** (a non-402 URL gets HTTP 422, handled without throwing).
+    `RegisterOutcome.detail` now **surfaces the index's own rejection reason** (e.g. "Your endpoint returned
+    HTTP 200 instead of 402") instead of a bare status. x402scan SIWX register is not yet live-tested. Full
+    log in DISCOVERY.md §10.
+  - **Tasteful "built with PipRail" attribution** (three honest channels, no spam): `buildOpenApi` stamps
+    `x-generator: "@piprail/sdk · https://piprail.com"` at the doc root **by default** (opt out with `attribution: false`); every
+    open-index request sends `User-Agent: @piprail/sdk (+https://piprail.com)` (a request header — can't
+    affect validation; live-verified sent); and `register(url, { attribution: true })` adds a best-effort
+    `via: '@piprail/sdk'` listing tag, **off by default** (live-verified that 402 Index tolerates the field —
+    a tagged register behaves identically to an untagged one). New export: `GENERATOR`.
+
 ## [1.6.0] — 2026-06-05
 
 ### Added
@@ -417,6 +479,7 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[1.7.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.6.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.5.1]: https://www.npmjs.com/package/@piprail/sdk
 [1.5.0]: https://www.npmjs.com/package/@piprail/sdk

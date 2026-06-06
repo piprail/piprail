@@ -25,7 +25,7 @@ zero-config path still read in one line? If a feature can't be opt-in, reconside
 ## 1. The layering (never violate)
 
 ```
-protocol layer   index · server · client · x402 · policy · ledger · agent · errors · util/*
+protocol layer   index · server · client · x402 · policy · ledger · agent · discovery · indexes · errors · util/*
    (chain-agnostic — ZERO viem / @solana / @ton / @stellar imports)
         │  depends only on …
         ▼
@@ -36,9 +36,9 @@ chain drivers    drivers/<family>/  chains · wallet · pay · verify · index  
    registry.ts (routes a chain → family)   index.ts (eager EVM + lazy auto-mount of the rest)
 ```
 
-- **The protocol layer is chain-agnostic.** `server`/`client`/`x402`/`policy`/`ledger`/`agent`
-  import only `drivers/types.ts` + pure utils — never a chain library. Verified by the
-  lazy-chunk invariant (below).
+- **The protocol layer is chain-agnostic.** `server`/`client`/`x402`/`policy`/`ledger`/`agent`/
+  `discovery`/`indexes` import only `drivers/types.ts` + pure utils — never a chain library.
+  Verified by the lazy-chunk invariant (below).
 - **Drivers mirror each other** file-for-file (`chains`/`wallet`/`pay`/`verify`/`index`),
   functions family-suffixed (`payEvm`/`verifyStellar`). A new contract method is implemented in
   **all** families.

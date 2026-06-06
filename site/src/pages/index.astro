@@ -9,6 +9,7 @@ import { acceptCode, payCode, mcpConfigCode } from '../data/snippets'
 import {
   Zap, Coins, ShieldCheck, PackageCheck, Boxes, Percent, Code2, Scale,
   ArrowRight, Globe, ChevronDown, Play, Bot, Plug, Wallet, Sparkles, Handshake,
+  Search, Megaphone,
 } from 'lucide-astro'
 
 // Counts are DERIVED from the chain data — never hardcoded, so nothing can drift.
@@ -49,9 +50,11 @@ const familyLogos = [
 ]
 
 const mcpTools = [
+  { name: 'piprail_discover', desc: 'find payable APIs on the open indexes — the phone book' },
   { name: 'piprail_quote_payment', desc: 'price a gated URL — without paying' },
   { name: 'piprail_plan_payment', desc: 'check it can afford it: balance, gas, recipient-readiness' },
   { name: 'piprail_pay_request', desc: 'fetch it, paying the 402 automatically' },
+  { name: 'piprail_register', desc: 'list an endpoint you run so other agents find it' },
 ]
 
 // Top 5 questions only — the rest live on /sdk, /mcp, /chains (each with its own schema).
@@ -66,7 +69,7 @@ const faqs = [
   },
   {
     q: `How do I let Claude or Cursor pay for things autonomously?`,
-    a: `Install the PipRail MCP server: add a small config block to your MCP client (Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, or Cline) that runs "npx -y @piprail/mcp" with your wallet key, chain, and spend caps. The agent gains three tools — piprail_quote_payment, piprail_plan_payment, and piprail_pay_request — so it pays x402-gated APIs on its own across ${total} chains. It runs locally with your own wallet, and the spend policy is enforced before any on-chain send, so the model literally cannot overspend.`,
+    a: `Install the PipRail MCP server: add a small config block to your MCP client (Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, or Cline) that runs "npx -y @piprail/mcp" with your wallet key, chain, and spend caps. The agent gains five tools — piprail_discover (find payable APIs), piprail_quote_payment, piprail_plan_payment, piprail_pay_request, and piprail_register (list its own) — so it finds and pays x402-gated APIs on its own across ${total} chains. It runs locally with your own wallet, and the spend policy is enforced before any on-chain send, so the model literally cannot overspend.`,
   },
   {
     q: `Which chains and tokens does PipRail support?`,
@@ -333,6 +336,36 @@ const howToLd = {
             </div>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- 7.5 · Discoverability teaser -->
+    <section class="border-t border-white/10 py-20 sm:py-24">
+      <SectionHeading title="Payable isn’t the same as findable.">
+        x402 lets your endpoint charge — PipRail makes it <span class="text-neutral-200">discoverable</span>, built on the
+        open x402 indexes that already exist. No registry, no database, no fee — nothing PipRail-hosted. Three opt-in moves:
+      </SectionHeading>
+      <div class="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 md:grid-cols-3">
+        <div class="bg-neutral-950 p-6 sm:p-7">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5"><Code2 size={18} class="text-accent" aria-hidden="true" /></span>
+          <p class="mt-4 text-lg font-medium text-neutral-100">Emit</p>
+          <p class="mt-2 leading-relaxed text-neutral-500">Turn your gate’s config into a crawlable <code class="text-neutral-300">/openapi.json</code> — a static file on your own origin.</p>
+        </div>
+        <div class="bg-neutral-950 p-6 sm:p-7">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5"><Megaphone size={18} class="text-accent" aria-hidden="true" /></span>
+          <p class="mt-4 text-lg font-medium text-neutral-100">Register</p>
+          <p class="mt-2 leading-relaxed text-neutral-500"><code class="text-neutral-300">client.register(url)</code> lists you on 402 Index — no auth, no signature, searchable in seconds.</p>
+        </div>
+        <div class="bg-neutral-950 p-6 sm:p-7">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5"><Search size={18} class="text-accent" aria-hidden="true" /></span>
+          <p class="mt-4 text-lg font-medium text-neutral-100">Discover</p>
+          <p class="mt-2 leading-relaxed text-neutral-500"><code class="text-neutral-300">client.discover(&#123; query &#125;)</code> reads the open indexes so an agent finds what to pay.</p>
+        </div>
+      </div>
+      <div class="mt-8 text-center">
+        <a href="/discovery" class="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20">
+          See exactly how discoverability works <ArrowRight size={16} aria-hidden="true" />
+        </a>
       </div>
     </section>
 

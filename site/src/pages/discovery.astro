@@ -1,0 +1,357 @@
+---
+import Layout from '../layouts/Layout.astro'
+import Navigation from '../components/Navigation.astro'
+import Footer from '../components/Footer.astro'
+import CodeWindow from '../components/CodeWindow.astro'
+import SectionHeading from '../components/SectionHeading.astro'
+import Breadcrumbs from '../components/Breadcrumbs.astro'
+import { discoverEmitCode, discoverRegisterCode, discoverFindCode } from '../data/snippets'
+import {
+  Search, Megaphone, Code2, Globe, ShieldCheck, Zap, ArrowRight, Sparkles, Plug, Bot, ChevronDown,
+} from 'lucide-astro'
+
+const title = 'Discovery — make your x402 endpoint findable | PipRail'
+const description =
+  'How a PipRail merchant or AI agent becomes discoverable, and how an agent finds payable x402 resources — built on the open indexes (402 Index, CDP Bazaar, x402scan). No backend, no registry, no fee.'
+
+// The three open indexes PipRail builds on (it hosts none of them).
+const indexes = [
+  {
+    name: '402 Index',
+    role: 'Primary register · free read',
+    note: 'One POST to list yourself — no auth, no signature, no fee. Searchable in seconds, every chain. A superset (it also re-ingests the CDP Bazaar).',
+  },
+  {
+    name: 'CDP Bazaar',
+    role: 'Free read source',
+    note: 'Coinbase’s catalog. Read it free to find others’ endpoints; listing there is facilitator-settle only, so backendless PipRail merchants get found via 402 Index instead.',
+  },
+  {
+    name: 'x402scan',
+    role: 'Secondary register (SIWX)',
+    note: 'List with one wallet signature — the strongest ownership-proof model, facilitator-free. Base + Solana only; reads are paid (opt-in).',
+  },
+]
+
+// The centerpiece — exactly how it works, three opt-in moves.
+const moves = [
+  {
+    n: '01',
+    tag: 'EMIT',
+    icon: Code2,
+    title: 'Turn your gate into a crawlable file',
+    code: discoverEmitCode,
+    points: [
+      'gate.describe() exposes your price, token, chain and payTo as static, nonce-free metadata.',
+      'buildOpenApi / buildWellKnownX402 / buildX402DnsTxt are pure — no network, no chain library.',
+      'Serve the result as a static file on your own origin (/openapi.json). No backend, ever.',
+    ],
+  },
+  {
+    n: '02',
+    tag: 'REGISTER',
+    icon: Megaphone,
+    title: 'List yourself on the open registries',
+    code: discoverRegisterCode,
+    points: [
+      'client.register(url) POSTs to 402 Index by default — no auth, no signature, no payment.',
+      'Add x402scan via SIWX (one wallet signature; Base/Solana) for an ownership-verified listing.',
+      'Returns one outcome per index — a step a chain can’t satisfy is reported, never thrown.',
+    ],
+  },
+  {
+    n: '03',
+    tag: 'DISCOVER',
+    icon: Search,
+    title: 'Find payable resources to pay',
+    code: discoverFindCode,
+    points: [
+      'client.discover() reads the open indexes (free), filtered to your chain by default.',
+      'Each hit carries its rails; feed a chosen resource into the usual quote → plan → pay.',
+      'Never throws — a down or changed index simply contributes nothing.',
+    ],
+  },
+]
+
+// The two end-to-end flows.
+const merchantFlow = [
+  { n: '01', t: 'Gate the route', d: 'requirePayment() — it’s now payable, but invisible.' },
+  { n: '02', t: 'Describe + emit', d: 'gate.describe() → buildOpenApi() → serve /openapi.json on your origin.' },
+  { n: '03', t: 'Register', d: 'client.register(url) → 402 Index (no auth) [+ x402scan SIWX].' },
+  { n: '04', t: 'Found', d: 'Searchable in seconds. Nothing PipRail-hosted.' },
+]
+const agentFlow = [
+  { n: '01', t: 'Discover', d: 'client.discover({ query }) — candidates from the open indexes.' },
+  { n: '02', t: 'Quote', d: 'client.quote(resource) — the exact live price.' },
+  { n: '03', t: 'Plan', d: 'client.planPayment(resource) — can I actually settle it?' },
+  { n: '04', t: 'Pay', d: 'client.fetch(resource) — merchant-direct, verified locally. No facilitator.' },
+]
+
+const faqs = [
+  {
+    q: 'How does an AI agent discover my x402 endpoint?',
+    a: 'Discovery is built into the SDK and backendless — PipRail builds on the open x402 indexes that already exist (402 Index, the CDP Bazaar read API, x402scan) and hosts none of its own. To be found, call client.register(url): one POST to 402 Index, no auth and no signature, searchable in seconds (optionally x402scan via one wallet signature, Base/Solana only). To find resources to pay, an agent calls client.discover({ query }), which reads those open indexes for free and returns candidates it then quotes and pays. No registry, no database, no fee.',
+  },
+  {
+    q: 'Does PipRail run a registry or database for discovery?',
+    a: 'No. PipRail hosts nothing — no registry, no database, no backend, no fee. Emitting a discovery file produces a static file you serve on your own origin; registering and discovering are runtime calls to third-party open indexes; and payment still settles wallet-to-wallet with local verification. We consume and contribute to open infrastructure rather than running our own directory, which would turn the tool into a platform you sign up for.',
+  },
+  {
+    q: 'Why don’t my PipRail endpoints appear in the Coinbase Bazaar automatically?',
+    a: 'The CDP Bazaar catalogs a resource only when Coinbase’s facilitator settles a payment for it. PipRail is backendless and uses no facilitator — payments settle straight to your wallet, verified against your own RPC — so it never appears in the Bazaar by construction. That’s by design; discoverability for a backendless merchant comes from 402 Index (every chain) and x402scan (Base/Solana). PipRail can still read the Bazaar to help an agent find other people’s endpoints.',
+  },
+  {
+    q: 'Is there a single official x402 discovery standard?',
+    a: 'Not yet. The ratified x402 v2 spec defines discovery only as the read-only facilitator Bazaar. The OpenAPI-first convention PipRail emits (x-payment-info per operation) is an emerging multi-vendor convention — it’s what the live indexes parse today and where an early IETF draft points — but it isn’t ratified, so PipRail emits it while treating it as a moving target, never overselling it as “the standard.”',
+  },
+]
+
+const faqLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  '@id': 'https://piprail.com/discovery#faq',
+  mainEntity: faqs.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
+}
+---
+
+<Layout title={title} description={description}>
+  <Navigation path="/discovery" />
+
+  <main class="mx-auto max-w-6xl px-4 sm:px-6">
+    <div class="pt-6"><Breadcrumbs items={[{ name: 'Discovery' }]} /></div>
+
+    <!-- Hero -->
+    <section class="fade-up py-16 text-center sm:py-20 md:py-24">
+      <p class="mb-7 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/8 px-3.5 py-1.5 text-xs font-medium text-accent">
+        <Sparkles size={13} aria-hidden="true" /> Discovery · build on open infra · $0, nothing hosted · experimental
+      </p>
+      <h1 class="mx-auto max-w-4xl text-[2.5rem] font-semibold leading-[1.05] tracking-tight sm:text-6xl">
+        Be discoverable. <span class="text-accent">Find anything.</span>
+      </h1>
+      <p class="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-neutral-400 sm:text-lg">
+        x402 makes an endpoint <span class="text-neutral-200">payable</span> — but not <span class="text-neutral-200">findable</span>.
+        PipRail closes the gap by building on the <span class="text-neutral-200">open</span> x402 indexes that already exist,
+        so any merchant or AI agent gets discovered the moment they gate a route. No registry, no database, no fee — nothing PipRail-hosted.
+      </p>
+      <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        <a href="#how" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto">
+          See exactly how <ArrowRight size={16} aria-hidden="true" />
+        </a>
+        <a href="https://github.com/piprail/piprail/blob/main/sdk/DISCOVERY.md" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto">
+          Read DISCOVERY.md
+        </a>
+      </div>
+    </section>
+
+    <!-- The problem -->
+    <section class="border-t border-white/10 py-16 sm:py-20">
+      <div class="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
+        <div>
+          <SectionHeading title="Payable, but invisible." class="mb-6 max-w-xl">
+            The x402 protocol answers one question — <span class="text-neutral-200">“how do I pay for THIS url?”</span> It
+            does not answer <span class="text-neutral-200">“what payable URLs exist?”</span> So a fresh endpoint is a shop with
+            no sign, on a street with no name — and an agent has no phone book to look in.
+          </SectionHeading>
+        </div>
+        <div class="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 sm:grid-cols-2">
+          <div class="bg-neutral-950 p-6">
+            <p class="text-sm font-medium text-neutral-300">The seller</p>
+            <p class="mt-2 text-sm leading-relaxed text-neutral-500">adds <code class="text-neutral-300">requirePayment()</code> — now charging, but no one knows the URL exists.</p>
+          </div>
+          <div class="bg-neutral-950 p-6">
+            <p class="text-sm font-medium text-neutral-300">The buyer</p>
+            <p class="mt-2 text-sm leading-relaxed text-neutral-500">an agent with a budget can only pay URLs a human already handed it.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Built on open infra -->
+    <section class="border-t border-white/10 py-16 sm:py-20">
+      <SectionHeading title="Built on open infra. Nothing hosted.">
+        We don’t run a directory — we plug into the open x402 indexes that already exist, and contribute back.
+        A registry of our own would be a backend forever; that’s the one thing PipRail refuses to become.
+      </SectionHeading>
+      <div class="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 md:grid-cols-3">
+        {indexes.map((ix) => (
+          <div class="bg-neutral-950 p-6 sm:p-7">
+            <span class="flex h-9 w-9 items-center justify-center rounded-lg border border-accent/20 bg-accent/10 text-accent"><Globe size={16} aria-hidden="true" /></span>
+            <p class="mt-4 text-lg font-medium text-neutral-100">{ix.name}</p>
+            <p class="mt-1 text-xs font-medium uppercase tracking-wider text-accent">{ix.role}</p>
+            <p class="mt-2.5 text-sm leading-relaxed text-neutral-500">{ix.note}</p>
+          </div>
+        ))}
+      </div>
+      <div class="mt-6 flex items-start gap-3 rounded-2xl border border-accent/20 bg-accent/5 p-5">
+        <Globe size={18} class="mt-0.5 shrink-0 text-accent" aria-hidden="true" />
+        <p class="text-sm leading-relaxed text-neutral-300">
+          <span class="font-medium text-neutral-100">Every chain, guaranteed.</span> 402 Index needs no signature and
+          has no chain allowlist — so a built-in preset, any non-EVM family, or a custom <code class="text-neutral-200">&#123; id, rpcUrl &#125;</code>
+          chain is listed and findable, and <code class="text-neutral-200">discover()</code> never silently hides a chain it can’t resolve.
+          x402scan is the one Base/Solana-only bonus target.
+        </p>
+      </div>
+    </section>
+
+    <!-- The three moves — the centerpiece -->
+    <section id="how" class="scroll-mt-20 border-t border-white/10 py-16 sm:py-20">
+      <SectionHeading title="Exactly how it works — three opt-in moves.">
+        Two moves to <span class="text-neutral-200">be found</span>, one to <span class="text-neutral-200">find</span>.
+        All opt-in; the pay path is byte-identical to before. Each is a couple of lines.
+      </SectionHeading>
+      <div class="space-y-px overflow-hidden rounded-2xl border border-white/10 bg-white/10">
+        {moves.map((m, i) => {
+          const Icon = m.icon
+          return (
+            <div class="grid items-center gap-8 bg-neutral-950 p-6 sm:p-8 lg:grid-cols-2 lg:gap-12">
+              <div class:list={[i % 2 === 1 && 'lg:order-2']}>
+                <div class="flex items-center gap-3">
+                  <span class="flex h-9 w-9 items-center justify-center rounded-lg border border-accent/20 bg-accent/10 text-accent"><Icon size={16} aria-hidden="true" /></span>
+                  <span class="font-mono text-sm text-neutral-500">{m.n}</span>
+                  <span class="rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-neutral-300">{m.tag}</span>
+                </div>
+                <h3 class="mt-4 text-xl font-semibold tracking-tight text-neutral-100 sm:text-2xl">{m.title}</h3>
+                <ul class="mt-4 space-y-2.5">
+                  {m.points.map((p) => (
+                    <li class="flex items-start gap-2.5 text-sm leading-relaxed text-neutral-400">
+                      <span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" aria-hidden="true"></span>
+                      <span>{p}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div class:list={['min-w-0', i % 2 === 1 && 'lg:order-1']}>
+                <CodeWindow file={m.tag === 'DISCOVER' ? 'agent.ts' : 'server.ts'} code={m.code} />
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </section>
+
+    <!-- The two flows -->
+    <section class="border-t border-white/10 py-16 sm:py-20">
+      <SectionHeading title="The round trip, end to end.">
+        The merchant becomes findable; the agent finds and pays. The index is third-party, but the
+        <span class="text-neutral-200"> payment never touches it</span> — value still settles wallet-to-wallet with local verify.
+      </SectionHeading>
+      <div class="grid gap-8 lg:grid-cols-2 lg:gap-10">
+        <div>
+          <p class="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-neutral-300"><Megaphone size={15} class="text-accent" aria-hidden="true" /> Merchant — be found</p>
+          <ol class="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10">
+            {merchantFlow.map((s) => (
+              <li class="bg-neutral-950 p-5">
+                <span class="font-mono text-xs text-neutral-500">{s.n}</span>
+                <p class="mt-1.5 font-medium text-neutral-100">{s.t}</p>
+                <p class="mt-1 text-sm leading-relaxed text-neutral-500">{s.d}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+        <div>
+          <p class="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-neutral-300"><Search size={15} class="text-accent" aria-hidden="true" /> Agent — find &amp; pay</p>
+          <ol class="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10">
+            {agentFlow.map((s) => (
+              <li class="bg-neutral-950 p-5">
+                <span class="font-mono text-xs text-neutral-500">{s.n}</span>
+                <p class="mt-1.5 font-medium text-neutral-100">{s.t}</p>
+                <p class="mt-1 text-sm leading-relaxed text-neutral-500">{s.d}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- For AI agents -->
+    <section class="border-t border-white/10 py-16 sm:py-20">
+      <div class="relative overflow-hidden rounded-3xl border border-accent/20 bg-linear-to-br from-accent/8 via-white/2 to-transparent p-8 sm:p-10 lg:p-14">
+        <div class="pointer-events-none absolute -left-24 -top-28 h-80 w-80 rounded-full bg-accent/10 blur-3xl"></div>
+        <div class="relative">
+          <span class="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/8 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+            <Bot size={13} aria-hidden="true" /> For AI agents
+          </span>
+          <h2 class="mt-5 max-w-2xl text-3xl font-semibold leading-[1.1] tracking-tight sm:text-4xl">
+            Two MCP tools: <span class="text-accent">find</span> and <span class="text-accent">be found</span>.
+          </h2>
+          <p class="mt-4 max-w-2xl leading-relaxed text-neutral-400">
+            The <a href="/mcp" class="text-accent underline-offset-4 hover:underline">PipRail MCP server</a> hands an agent the
+            same discovery the SDK has — budget-bound, local-only.
+          </p>
+          <div class="mt-7 grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 sm:grid-cols-2">
+            <div class="bg-neutral-950 p-6">
+              <span class="flex h-9 w-9 items-center justify-center rounded-lg border border-accent/20 bg-accent/10 text-accent"><Search size={16} aria-hidden="true" /></span>
+              <p class="mt-4 font-mono text-[13px] font-medium text-neutral-100">piprail_discover</p>
+              <p class="mt-2 text-sm leading-relaxed text-neutral-500">Search the open indexes for payable APIs — the phone book. Filtered to the agent’s chain by default.</p>
+            </div>
+            <div class="bg-neutral-950 p-6">
+              <span class="flex h-9 w-9 items-center justify-center rounded-lg border border-accent/20 bg-accent/10 text-accent"><Megaphone size={16} aria-hidden="true" /></span>
+              <p class="mt-4 font-mono text-[13px] font-medium text-neutral-100">piprail_register</p>
+              <p class="mt-2 text-sm leading-relaxed text-neutral-500">List an endpoint the agent runs (402 Index, no signature) so other agents discover it.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Honest caveats -->
+    <section class="border-t border-white/10 py-16 sm:py-20">
+      <SectionHeading title="The honest caveats." class="mb-8 max-w-2xl">
+        We document the rough edges plainly — discovery is a young, moving layer, so we ship it
+        <span class="text-neutral-200">experimental</span>. (The read path + 402 Index register are
+        live-verified; 402 Index only lists endpoints that truly return a <code class="text-neutral-300">402</code>.)
+      </SectionHeading>
+      <div class="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 md:grid-cols-3">
+        <div class="bg-neutral-950 p-6">
+          <p class="flex items-center gap-2 font-medium text-neutral-100"><ShieldCheck size={16} class="text-accent" aria-hidden="true" /> Scheme</p>
+          <p class="mt-2 text-sm leading-relaxed text-neutral-500">The open indexes assume the mainstream <code class="text-neutral-300">exact</code> scheme. To be <em>usefully</em> listed, also offer a standard <code class="text-neutral-300">exact</code> USDC rail on Base/Solana.</p>
+        </div>
+        <div class="bg-neutral-950 p-6">
+          <p class="flex items-center gap-2 font-medium text-neutral-100"><Globe size={16} class="text-accent" aria-hidden="true" /> Coverage</p>
+          <p class="mt-2 text-sm leading-relaxed text-neutral-500">x402scan indexes <span class="text-neutral-300">Base + Solana only</span>. 402 Index has no such limit, so it’s the default register target — every chain.</p>
+        </div>
+        <div class="bg-neutral-950 p-6">
+          <p class="flex items-center gap-2 font-medium text-neutral-100"><Zap size={16} class="text-accent" aria-hidden="true" /> Standard</p>
+          <p class="mt-2 text-sm leading-relaxed text-neutral-500">No single ratified discovery standard yet. OpenAPI-first is an <span class="text-neutral-300">emerging convention</span> — we emit it, never oversell it.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section id="faq" class="scroll-mt-20 border-t border-white/10 py-16 sm:py-20">
+      <SectionHeading title="Discovery FAQ." class="mb-8 max-w-2xl" />
+      <div class="mx-auto max-w-3xl divide-y divide-white/10 overflow-hidden rounded-2xl border border-white/10">
+        {faqs.map((f, i) => (
+          <details class="group bg-neutral-950" open={i === 0}>
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-4 p-5 text-left font-medium text-neutral-100 [&::-webkit-details-marker]:hidden">
+              {f.q}
+              <ChevronDown size={18} class="shrink-0 text-neutral-500 transition group-open:rotate-180" aria-hidden="true" />
+            </summary>
+            <p class="px-5 pb-5 leading-relaxed text-neutral-400">{f.a}</p>
+          </details>
+        ))}
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="border-t border-white/10 py-20 text-center sm:py-24">
+      <h2 class="mx-auto max-w-2xl text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
+        Get found in one line.
+      </h2>
+      <p class="mx-auto mt-5 max-w-xl text-base leading-relaxed text-neutral-400">
+        Gate a route, then <code class="text-neutral-300">client.register(url)</code> — searchable in seconds, on infra you don’t run.
+      </p>
+      <div class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        <a href="/sdk" class="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110">
+          <Plug size={16} aria-hidden="true" /> Explore the SDK
+        </a>
+        <a href="https://github.com/piprail/piprail/blob/main/sdk/DISCOVERY.md" class="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20">
+          Full reference
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <Footer />
+  <script type="application/ld+json" set:html={JSON.stringify(faqLd)} is:inline />
+</Layout>

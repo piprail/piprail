@@ -208,6 +208,19 @@ export interface ConfirmInfo {
 }
 
 /**
+ * A discovery signer — the bound wallet's address + a message signer. Returned
+ * by {@link ResolvedNetwork.discoverySigner} and used ONLY for discovery
+ * (ownership proofs / SIWX registration), never to move funds. Structurally what
+ * the open-index register helpers consume.
+ */
+export interface DiscoverySigner {
+  /** The wallet's own public address (EVM 0x…), declared in a SIWX challenge. */
+  address: string
+  /** Sign an arbitrary UTF-8 message (EVM: eip191) — for proofs/SIWX only. */
+  signMessage(message: string): Promise<string>
+}
+
+/**
  * A driver bound to one concrete network — what the gate and client hold. Each
  * method's error behaviour is fixed by the SDK error standard (see ERRORS.md §5):
  * `resolveToken`/`assertValidPayTo`/`bindWallet` throw `WrongFamilyError` /
@@ -289,6 +302,20 @@ export interface ResolvedNetwork {
     payTo: string,
     asset: string
   ): Promise<{ ready: boolean | 'n/a' | 'unknown'; reason?: RecipientReason }>
+
+  /**
+   * OPTIONAL — a DISCOVERY signer for the bound wallet: its public address plus a
+   * message signer, used only for ownership proofs + SIWX index registration,
+   * NEVER the payment path. `signMessage` returns a chain-native signature string
+   * (EVM: 0x eip191 hex, recoverable with `recoverMessageAddress` — exactly how
+   * x402scan verifies origin ownership). Deliberately optional: a family ships it
+   * only once an open index verifies its signatures — EVM today (the 402 Index
+   * register path needs no signature at all). The client's `register()` skips
+   * signature-gated steps for a family that omits it. The first optional contract
+   * method, so it does NOT trigger the "implement in all families" rule for
+   * REQUIRED methods. Returns `null` if the bound wallet can't sign.
+   */
+  discoverySigner?(wallet: WalletHandle): DiscoverySigner | null
 
   /* -------- server side -------- */
   /** Verify `ref` satisfies `accept`, RPC-only, in-process. */

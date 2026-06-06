@@ -81,6 +81,7 @@ export type {
   ResolvedToken,
   CostEstimate,
   WalletHandle,
+  DiscoverySigner,
   ConfirmInfo,
   ChainFamily,
   EvmToken,
@@ -161,3 +162,38 @@ export {
   EIP3009_TYPES,
 } from './drivers/evm/exact.js'
 export type { ExactAccept, ExactAuthorization, BuildExactParams } from './drivers/evm/exact.js'
+
+/* ------------------- discovery (find + be found, $0, no backend) ------------------- */
+
+// Make a gated resource discoverable on the OPEN x402 indexes — nothing
+// PipRail-hosted. Three moves:
+//   EMIT     buildOpenApi / buildWellKnownX402 / buildX402DnsTxt (pure) +
+//            gate.describe() — the static artifacts a crawler reads.
+//   REGISTER client.register(url) → 402 Index (no auth) [+ x402scan SIWX].
+//   DISCOVER client.discover({ query }) → read CDP Bazaar + 402 Index (free).
+// The piprail_discover / piprail_register agent tools expose this to an LLM/MCP.
+export { buildOpenApi, buildWellKnownX402, buildX402DnsTxt, GENERATOR } from './discovery.js'
+export type {
+  PaymentRail,
+  ResourceDescription,
+  ManifestInput,
+  OpenApiDocument,
+  OpenApiOperation,
+  WellKnownX402,
+  X402DnsRecord,
+} from './discovery.js'
+export {
+  searchOpenIndexes,
+  register402Index,
+  registerX402Scan,
+  normalizeNetwork,
+} from './indexes.js'
+export type {
+  DiscoverySource,
+  DiscoveredRail,
+  DiscoveredResource,
+  RegisterOutcome,
+  RegisterInput,
+  SearchOpenIndexesOptions,
+} from './indexes.js'
+export type { DiscoverOptions, RegisterOptions } from './client.js'

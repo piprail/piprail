@@ -118,6 +118,71 @@ const tools = paymentTools(client) // → [piprail_quote_payment, piprail_plan_p
 
 See [`examples/agent-tools.mjs`](../examples/agent-tools.mjs) for MCP / AI-SDK wiring.
 
+## Be discoverable — find and be found ($0, no backend)
+
+A 402 endpoint is payable, but nobody can *find* it. PipRail closes that gap by building on the
+**open** x402 indexes that already exist (402 Index, the CDP Bazaar read API, x402scan) — **nothing
+PipRail-hosted, no registry, no database.** All opt-in; the pay path is untouched. The complete
+reference (every function, option, flow, and caveat) is **[DISCOVERY.md](./DISCOVERY.md)**.
+
+> **Experimental.** Discovery integrates with third-party open indexes whose conventions are young
+> and moving — treat this layer as experimental. The read path + 402 Index register are live-verified;
+> x402scan SIWX isn't yet. Note **402 Index probes your URL and only lists endpoints that actually
+> return a `402`** — so register a *deployed* gate, not a marketing page. (DISCOVERY.md §10 has the log.)
+
+**1) List a resource you run** — one call, no auth, no signature:
+
+```ts
+const client = new PipRailClient({ wallet: { privateKey: KEY }, chain: 'base' })
+
+await client.register('https://api.example.com/report', { name: 'Market Report', priceUsd: 0.05 })
+// → [{ source: '402index', ok: true, detail: 'Listed on 402 Index (searchable at 402index.io).' }]
+// Add targets: ['402index', 'x402scan'] to also register on x402scan via one wallet signature
+// (SIWX — Base/Solana only). It moves no funds; you're listing on third-party open directories.
+```
+
+**Works on every chain.** 402 Index needs no signature and has no chain allowlist, so *any* chain —
+a preset, a non-EVM family, or a custom `{ id, rpcUrl }` chain — can be listed and found; `discover()`
+never silently hides a resource whose chain it can't resolve. (x402scan is the one Base/Solana-only
+*bonus* target.)
+
+**Built-with attribution (tasteful, honest).** Your emitted `/openapi.json` carries an
+`x-generator: "@piprail/sdk"` stamp by default (opt out with `attribution: false`), and every index
+request sends a `User-Agent: @piprail/sdk` — so the tech spreads through the files indexes crawl and
+the logs operators read, never by spamming listings. An opt-in `register(url, { attribution: true })`
+adds a best-effort `via` tag; it's off by default (it's your listing).
+
+**2) Find resources to pay** — read the open indexes (free), filtered to your chain by default:
+
+```ts
+const hits = await client.discover({ query: 'weather', maxPrice: 0.01 })
+// → [{ resource, name, source, priceUsd, rails: [...] }, …]
+const res = await client.fetch(hits[0].resource) // then quote → plan → pay as usual
+```
+
+**3) Emit a discovery file** — turn your gate's config into the artifacts a crawler reads (pure, no
+I/O); serve the result as a static file on **your own** origin:
+
+```ts
+import { createPaymentGate, buildOpenApi, buildX402DnsTxt } from '@piprail/sdk'
+
+const gate = createPaymentGate({ chain: 'base', token: 'USDC', amount: '0.05', payTo })
+const openapi = buildOpenApi({
+  origin: 'https://api.example.com',
+  resources: [await gate.describe('https://api.example.com/report')],
+})
+// serve `openapi` at https://api.example.com/openapi.json  (the OpenAPI-first convention indexes parse)
+// buildWellKnownX402(...) emits the legacy /.well-known/x402 file; buildX402DnsTxt(...) the _x402 DNS line
+```
+
+For an LLM/MCP this is two tools: **`piprail_discover`** (find) and **`piprail_register`** (be found).
+
+> **Two honest caveats.** The open indexes assume the mainstream `exact` scheme, so to be *usefully*
+> listed also offer a standard `exact` USDC rail on Base/Solana (`discover()` results are
+> cross-scheme; `fetch()` pays only PipRail `onchain-proof` rails directly). And **x402scan indexes
+> Base/Solana only** — 402 Index has no such limit, so it's the default register target. There is no
+> single ratified discovery standard yet; OpenAPI-first is an emerging multi-vendor convention.
+
 ### Accept several chains at once
 
 `requirePayment` (and `createPaymentGate`) take an **`accept: [...]`** array — one challenge that's payable on **any** of several chains/tokens, across **all ten families** (EVM, Solana, TON, Tron, Stellar, XRPL, NEAR, Sui, Aptos, Algorand). The agent pays with whatever it holds:
@@ -560,7 +625,7 @@ The full standard every module follows is **[ERRORS.md](./ERRORS.md)**.
 
 ## API
 
-**`requirePayment(options)`** → Express middleware &nbsp;·&nbsp; **`createPaymentGate(options)`** → `{ challenge, verify }`
+**`requirePayment(options)`** → Express middleware &nbsp;·&nbsp; **`createPaymentGate(options)`** → `{ challenge, verify, describe }` (`describe()` → static discovery metadata for the emitters)
 
 | Option | Default | Notes |
 |---|---|---|
@@ -592,7 +657,9 @@ Provide **either** `chain` + `token` + `amount` (single) **or** a non-empty `acc
 | `retryTimeoutMs` | `30000` | Timeout for the retry leg after broadcast |
 | `onEvent` | — | `(event) => void` observability: `payment-required` · `payment-broadcast` · `payment-confirmed` · `payment-unconfirmed` (broadcast OK, local confirm timed out → deferring to server) · `payment-settled` · `payment-failed` |
 
-Methods: `fetch` · `get` · `post` (return the gated `Response` after settlement) · **`quote(url)`** (price without paying → `PipRailQuote \| null`) · **`estimateCost(url)`** (price **+** native-coin gas estimate → `PipRailCostQuote \| null`) · **`planPayment(url)`** (affordability + recipient-readiness across the offered rails → `PaymentPlan \| null`) · **`canAfford(url)`** (→ `boolean`) · **`spent()`** (per-asset ledger snapshot). Pass `{ autoRoute: true }` to `fetch` (or set it on the client) to pay the cheapest *settleable* rail. Module-level **`planAcross(clients, url)`** plans across chains.
+Methods: `fetch` · `get` · `post` (return the gated `Response` after settlement) · **`quote(url)`** (price without paying → `PipRailQuote \| null`) · **`estimateCost(url)`** (price **+** native-coin gas estimate → `PipRailCostQuote \| null`) · **`planPayment(url)`** (affordability + recipient-readiness across the offered rails → `PaymentPlan \| null`) · **`canAfford(url)`** (→ `boolean`) · **`spent()`** (per-asset ledger snapshot) · **`discover(opts?)`** (find resources on the open indexes → `DiscoveredResource[]`) · **`register(url, opts?)`** (list a resource on the open indexes → `RegisterOutcome[]`) · **`discoverySigner()`** (the wallet's discovery signer, EVM today, or `null`). Pass `{ autoRoute: true }` to `fetch` (or set it on the client) to pay the cheapest *settleable* rail. Module-level **`planAcross(clients, url)`** plans across chains.
+
+**Discovery (opt-in, $0, nothing hosted):** `client.discover()` / `client.register()`, the standalone `searchOpenIndexes` / `register402Index` / `registerX402Scan`, and the pure emitters `buildOpenApi` / `buildWellKnownX402` / `buildX402DnsTxt` (fed by `gate.describe()`). See [Be discoverable](#be-discoverable--find-and-be-found-0-no-backend).
 
 **Wallets by family** — the `chain` selector routes; each driver validates its own key format (a mismatch throws `WrongFamilyError`):
 
@@ -609,7 +676,7 @@ Methods: `fetch` · `get` · `post` (return the gated `Response` after settlemen
 | Aptos | `{ privateKey }` (ed25519-priv-0x… AIP-80) or `{ account }` |
 | Algorand | `{ mnemonic }` (25 words) or `{ account }` (algosdk `{ addr, sk }`) |
 
-**Hand an LLM a wallet:** `paymentTools(client)` → framework-agnostic tool descriptors (MCP / AI SDK / function-calling), budget enforced by the client.
+**Hand an LLM a wallet:** `paymentTools(client)` → five framework-agnostic tool descriptors (`piprail_discover` · `piprail_quote_payment` · `piprail_plan_payment` · `piprail_pay_request` · `piprail_register`) for MCP / AI SDK / function-calling, budget enforced by the client.
 
 **Bring your own chain family:** the SDK is built on a tiny `PaymentDriver` contract — `resolve(chain)` returns a bound network with `resolveToken` / `describeAsset` / `assertValidPayTo` / `bindWallet` / `send` / `confirm` / `estimateCost` / `balanceOf` / `recipientReady` / `verify`. Register your own with `registerDriver(...)`; the protocol layer never changes (see [Architecture](#architecture-under-the-hood)).
 

@@ -25,7 +25,7 @@ export function createMcpServer(clientOptions: PipRailClientOptions): {
   client: PipRailClient
 } {
   const client = new PipRailClient(clientOptions)
-  const tools = paymentTools(client) // 3 tools; .parameters are JSON Schema
+  const tools = paymentTools(client) // 5 tools (discover · quote · plan · pay · register); .parameters are JSON Schema
 
   const server = new Server(
     { name: 'piprail', version: VERSION },

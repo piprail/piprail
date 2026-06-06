@@ -75,12 +75,14 @@ function stubFetch(onProof: () => Response) {
 const client = (over = {}) => new PipRailClient({ chain: 'stellar', wallet: { secret: 'x' }, ...over })
 
 describe('paymentTools — framework-agnostic descriptors', () => {
-  it('exposes quote, plan, and pay tools, each well-formed', () => {
+  it('exposes discover, quote, plan, pay, and register tools, each well-formed', () => {
     const tools = paymentTools(client())
     expect(tools.map((t) => t.name)).toEqual([
+      'piprail_discover',
       'piprail_quote_payment',
       'piprail_plan_payment',
       'piprail_pay_request',
+      'piprail_register',
     ])
     for (const t of tools) {
       expect(typeof t.description).toBe('string')
@@ -106,15 +108,15 @@ describe('paymentTools — framework-agnostic descriptors', () => {
 
   it('quote tool prices a gated URL without paying', async () => {
     stubFetch(() => new Response('{}', { status: 200 }))
-    const [quoteTool] = paymentTools(client())
-    const out = (await quoteTool!.invoke({ url: RESOURCE })) as Record<string, unknown>
+    const quoteTool = paymentTools(client()).find((t) => t.name === 'piprail_quote_payment')!
+    const out = (await quoteTool.invoke({ url: RESOURCE })) as Record<string, unknown>
     expect(out).toMatchObject({ gated: true, amountFormatted: '0.05', symbol: 'XLM' })
   })
 
   it('quote tool reports { gated: false } for an open URL', async () => {
     globalThis.fetch = (async () => new Response('hi', { status: 200 })) as typeof fetch
-    const [quoteTool] = paymentTools(client())
-    expect(await quoteTool!.invoke({ url: RESOURCE })).toEqual({ gated: false, url: RESOURCE })
+    const quoteTool = paymentTools(client()).find((t) => t.name === 'piprail_quote_payment')!
+    expect(await quoteTool.invoke({ url: RESOURCE })).toEqual({ gated: false, url: RESOURCE })
   })
 
   it('pay tool returns status + body + receipt on success', async () => {
@@ -158,5 +160,75 @@ describe('paymentTools — framework-agnostic descriptors', () => {
     globalThis.fetch = (async () => new Response('garbage', { status: 402 })) as typeof fetch
     const payTool = paymentTools(client()).find((t) => t.name === 'piprail_pay_request')!
     await expect(payTool!.invoke({ url: RESOURCE })).rejects.toThrow(/x402 challenge/)
+  })
+
+  it('discover tool returns a compact, model-friendly resource list', async () => {
+    globalThis.fetch = (async (url: unknown) => {
+      if (String(url).includes('402index.io')) {
+        return new Response(
+          JSON.stringify({
+            services: [
+              { url: 'https://news.example.com/h', name: 'Headlines', protocol: 'x402', price_usd: 0.02, payment_network: 'stellar' },
+            ],
+          }),
+          { status: 200 }
+        )
+      }
+      return new Response(JSON.stringify({ items: [] }), { status: 200 }) // bazaar
+    }) as typeof fetch
+    const discoverTool = paymentTools(client()).find((t) => t.name === 'piprail_discover')!
+    const out = (await discoverTool.invoke({ query: 'headlines', network: 'any' })) as Record<string, unknown>
+    expect(out.count).toBe(1)
+    expect((out.resources as Record<string, unknown>[])[0]).toMatchObject({
+      resource: 'https://news.example.com/h',
+      name: 'Headlines',
+      source: '402index',
+      priceUsd: 0.02,
+    })
+  })
+
+  it('discover tool dedupes a multi-rail resource into an ordered networks list', async () => {
+    globalThis.fetch = (async (url: unknown) => {
+      if (String(url).includes('api.cdp.coinbase.com')) {
+        return new Response(
+          JSON.stringify({
+            items: [
+              {
+                resource: 'https://multi.example.com/x',
+                metadata: { name: 'Multi', description: 'multi-rail feed' },
+                accepts: [
+                  { scheme: 'exact', network: 'stellar:pubnet', asset: 'USDC' },
+                  { scheme: 'exact', network: 'stellar:pubnet', asset: 'native' }, // dup network
+                  { scheme: 'exact', network: 'eip155:8453', asset: 'USDC' },
+                ],
+              },
+            ],
+          }),
+          { status: 200 }
+        )
+      }
+      return new Response(JSON.stringify({ services: [] }), { status: 200 }) // 402index
+    }) as typeof fetch
+    const discoverTool = paymentTools(client()).find((t) => t.name === 'piprail_discover')!
+    const out = (await discoverTool.invoke({ network: 'any' })) as Record<string, unknown>
+    const r = (out.resources as Record<string, unknown>[])[0]!
+    expect(r.networks).toEqual(['stellar:pubnet', 'eip155:8453']) // deduped, insertion-ordered
+    expect(r.description).toBe('multi-rail feed') // passthrough
+  })
+
+  it('register tool lists on 402 Index without moving funds', async () => {
+    let payloadUrl: string | undefined
+    let calls = 0
+    globalThis.fetch = (async (_u: unknown, init?: RequestInit) => {
+      calls += 1
+      payloadUrl = JSON.parse(String(init?.body)).url
+      return new Response(JSON.stringify({ ok: true }), { status: 200 })
+    }) as typeof fetch
+    const registerTool = paymentTools(client()).find((t) => t.name === 'piprail_register')!
+    const out = (await registerTool.invoke({ url: 'https://api.example.com/report', name: 'Report' })) as Record<string, unknown>
+    const outcomes = out.outcomes as Record<string, unknown>[]
+    expect(outcomes[0]).toMatchObject({ source: '402index', ok: true })
+    expect(payloadUrl).toBe('https://api.example.com/report')
+    expect(calls).toBe(1) // one register POST, no payment flow
   })
 })

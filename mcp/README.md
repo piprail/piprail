@@ -8,13 +8,15 @@ Runs on **your** machine with **your** wallet and **your** limits. No backend, n
 npx -y @piprail/mcp        # speaks MCP over stdio
 ```
 
-It exposes three tools:
+It exposes five tools:
 
 | Tool | What it does |
 | --- | --- |
+| `piprail_discover` | Find payable resources on the **open** x402 indexes (CDP Bazaar + 402 Index, free) — the phone book. No paying. |
 | `piprail_quote_payment` | Price a gated URL **without** paying. |
 | `piprail_plan_payment` | Check you *can* pay — balance, gas, recipient-readiness — across every rail, without paying. |
 | `piprail_pay_request` | Fetch a URL, paying the `402` automatically (within the budget). |
+| `piprail_register` | List a resource you run on the open indexes (402 Index, no signature) so other agents can find it. |
 
 ---
 

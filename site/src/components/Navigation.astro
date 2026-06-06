@@ -1,8 +1,10 @@
 ---
 // Shared top navigation — sticky, translucent, used on every page for consistency.
-// `path` highlights the active link (e.g. the Demo pill on /demo). Below `sm`,
-// the secondary links collapse into a no-JS <details> hamburger so every page
-// stays reachable from the header on mobile.
+// `path` highlights the active link (e.g. the Demo pill on /demo). At tablet and
+// below (< lg) the secondary links collapse into a hamburger that opens a
+// full-height slide-in overlay (backdrop + right panel). CSS does the slide
+// (keyed on data-open); a tiny progressive script toggles it + locks scroll +
+// closes on backdrop / link / Escape.
 import { ArrowRight, Play, Menu, X } from 'lucide-astro'
 
 interface Props {
@@ -15,8 +17,26 @@ const onDemo = path === '/demo' || path === '/demo/'
 const isActive = (p: string) => path === p || path === `${p}/`
 const linkCls = (p: string) =>
   isActive(p)
-    ? 'hidden rounded-lg px-3 py-1.5 text-sm font-medium text-neutral-100 md:inline-flex'
-    : 'hidden rounded-lg px-3 py-1.5 text-sm text-muted transition hover:text-neutral-100 md:inline-flex'
+    ? 'hidden rounded-lg px-3 py-1.5 text-sm font-medium text-neutral-100 lg:inline-flex'
+    : 'hidden rounded-lg px-3 py-1.5 text-sm text-muted transition hover:text-neutral-100 lg:inline-flex'
+
+// Every secondary link, in one list — rendered in the desktop bar and/or the
+// mobile overlay, so the two can never drift. `mobileOnly` keeps the desktop bar
+// uncrowded (Partners lives in the overlay + footer, not the inline bar).
+const navLinks = [
+  { href: '/sdk', label: 'SDK' },
+  { href: '/mcp', label: 'MCP' },
+  { href: '/discovery', label: 'Discovery' },
+  { href: '/chains', label: 'Chains' },
+  { href: '/partners', label: 'Partners', mobileOnly: true },
+  { href: 'https://github.com/piprail/piprail', label: 'GitHub' },
+]
+const desktopLinks = navLinks.filter((l) => !l.mobileOnly)
+// Mobile-overlay link styling (active vs idle).
+const mobileLinkCls = (href: string) =>
+  isActive(href)
+    ? 'rounded-lg px-3 py-2.5 text-[15px] font-medium text-neutral-100 bg-white/5'
+    : 'rounded-lg px-3 py-2.5 text-[15px] text-neutral-300 transition hover:bg-white/5 hover:text-neutral-100'
 ---
 
 <header class="sticky top-0 z-50 border-b border-white/5 bg-bg/70 backdrop-blur-md">
@@ -32,7 +52,7 @@ const linkCls = (p: string) =>
         href="/demo"
         aria-current={onDemo ? 'page' : undefined}
         class:list={[
-          'hidden items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition md:inline-flex',
+          'hidden shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm font-medium transition lg:inline-flex',
           onDemo
             ? 'border-accent/40 bg-accent/15 text-accent'
             : 'border-accent/20 bg-accent/8 text-accent hover:border-accent/40 hover:bg-accent/15',
@@ -40,34 +60,26 @@ const linkCls = (p: string) =>
       >
         <Play size={13} aria-hidden="true" fill="currentColor" /> Demo
       </a>
-      <a href="/sdk" class={linkCls('/sdk')}>SDK</a>
-      <a href="/mcp" class={linkCls('/mcp')}>MCP</a>
-      <a href="/chains" class={linkCls('/chains')}>Chains</a>
-      <a href="https://github.com/piprail/piprail" class="hidden rounded-lg px-3 py-1.5 text-sm text-muted transition hover:text-neutral-100 md:inline-flex">GitHub</a>
+      {desktopLinks.map((l) => (
+        <a href={l.href} class={linkCls(l.href)} aria-current={isActive(l.href) ? 'page' : undefined}>{l.label}</a>
+      ))}
 
-      <!-- Mobile menu — below md, ONE tidy dropdown so the header stays minimal: logo · menu · CTA -->
-      <details class="group relative md:hidden">
-        <summary
-          class="flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-lg border border-white/10 text-neutral-300 transition hover:text-neutral-100 [&::-webkit-details-marker]:hidden"
-          aria-label="Open menu"
-        >
-          <Menu size={18} class="group-open:hidden" aria-hidden="true" />
-          <X size={18} class="hidden group-open:block" aria-hidden="true" />
-        </summary>
-        <div class="absolute right-0 top-full mt-2 flex w-44 flex-col overflow-hidden rounded-xl border border-white/10 bg-neutral-900 p-1.5 shadow-2xl shadow-black/50">
-          <a href="/demo" aria-current={onDemo ? 'page' : undefined} class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-accent transition hover:bg-white/5"><Play size={13} fill="currentColor" aria-hidden="true" /> Demo</a>
-          <a href="/sdk" aria-current={isActive('/sdk') ? 'page' : undefined} class:list={['rounded-lg px-3 py-2 text-sm transition hover:bg-white/5', isActive('/sdk') ? 'text-neutral-100' : 'text-neutral-300']}>SDK</a>
-          <a href="/mcp" aria-current={isActive('/mcp') ? 'page' : undefined} class:list={['rounded-lg px-3 py-2 text-sm transition hover:bg-white/5', isActive('/mcp') ? 'text-neutral-100' : 'text-neutral-300']}>MCP</a>
-          <a href="/chains" aria-current={isActive('/chains') ? 'page' : undefined} class:list={['rounded-lg px-3 py-2 text-sm transition hover:bg-white/5', isActive('/chains') ? 'text-neutral-100' : 'text-neutral-300']}>Chains</a>
-          <a href="/partners" class="rounded-lg px-3 py-2 text-sm text-neutral-300 transition hover:bg-white/5">Partners</a>
-          <a href="https://github.com/piprail/piprail" class="rounded-lg px-3 py-2 text-sm text-neutral-300 transition hover:bg-white/5">GitHub</a>
-        </div>
-      </details>
+      <!-- Hamburger — tablet & mobile only. Opens the slide-in overlay below. -->
+      <button
+        id="nav-open"
+        type="button"
+        aria-label="Open menu"
+        aria-controls="mobile-nav"
+        aria-expanded="false"
+        class="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 text-neutral-300 transition hover:text-neutral-100 lg:hidden"
+      >
+        <Menu size={18} aria-hidden="true" />
+      </button>
 
       <!-- primary CTA — always visible -->
       <a
         href="https://www.npmjs.com/package/@piprail/sdk"
-        class="ml-1 inline-flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:px-4"
+        class="ml-1 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:px-4"
       >
         Get started <ArrowRight size={15} aria-hidden="true" class="hidden sm:inline" />
       </a>
@@ -75,11 +87,98 @@ const linkCls = (p: string) =>
   </div>
 </header>
 
-<!-- Close the mobile menu when tapping/clicking outside it (progressive enhancement). -->
+<!-- Tablet/mobile slide-in overlay (< md). Backdrop fades, panel slides from the
+     right; CSS keys off data-open, the script below toggles it. -->
+<div
+  id="mobile-nav"
+  data-open="false"
+  aria-hidden="true"
+  inert
+  class="group/nav fixed inset-0 z-60 opacity-0 pointer-events-none transition-opacity duration-200 data-[open=true]:opacity-100 data-[open=true]:pointer-events-auto lg:hidden"
+>
+  <!-- backdrop (click to close) -->
+  <div data-close class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+
+  <!-- panel -->
+  <div class="absolute right-0 top-0 flex h-full w-4/5 max-w-xs translate-x-full flex-col border-l border-white/10 bg-neutral-950 shadow-2xl shadow-black/50 transition-transform duration-300 ease-out group-data-[open=true]/nav:translate-x-0">
+    <div class="flex items-center justify-between border-b border-white/10 px-5 py-4">
+      <span class="flex items-center gap-2.5 font-semibold tracking-tight">
+        <img src="/logo.png" alt="" width="24" height="24" class="h-6 w-6 rounded-md ring-1 ring-white/10" /> PipRail
+      </span>
+      <button data-close type="button" aria-label="Close menu" class="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 text-neutral-300 transition hover:text-neutral-100">
+        <X size={18} aria-hidden="true" />
+      </button>
+    </div>
+
+    <nav class="flex flex-1 flex-col gap-1 overflow-y-auto p-4" aria-label="Mobile">
+      <a
+        href="/demo"
+        aria-current={onDemo ? 'page' : undefined}
+        class:list={[
+          'flex items-center gap-2 rounded-lg border px-3 py-2.5 text-[15px] font-medium transition',
+          onDemo ? 'border-accent/40 bg-accent/15 text-accent' : 'border-accent/20 bg-accent/8 text-accent hover:bg-accent/15',
+        ]}
+      >
+        <Play size={14} fill="currentColor" aria-hidden="true" /> Demo
+      </a>
+      {navLinks.map((l) => (
+        <a href={l.href} aria-current={isActive(l.href) ? 'page' : undefined} class={mobileLinkCls(l.href)}>{l.label}</a>
+      ))}
+    </nav>
+
+    <div class="border-t border-white/10 p-4">
+      <a
+        href="https://www.npmjs.com/package/@piprail/sdk"
+        class="flex items-center justify-center gap-1.5 rounded-lg bg-accent px-4 py-3 text-sm font-semibold text-neutral-950 transition hover:brightness-110"
+      >
+        Get started <ArrowRight size={15} aria-hidden="true" />
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Progressive enhancement: toggle the overlay (slide + fade via CSS), lock
+     scroll, manage focus, and close on backdrop / link / Escape. Also survives a
+     resize past the lg breakpoint and a bfcache restore — so the scroll lock can
+     never strand a page. -->
 <script is:inline>
-  document.addEventListener('click', (e) => {
-    for (const d of document.querySelectorAll('header details[open]')) {
-      if (!d.contains(e.target)) d.removeAttribute('open')
+  ;(() => {
+    const overlay = document.getElementById('mobile-nav')
+    const openBtn = document.getElementById('nav-open')
+    if (!overlay || !openBtn) return
+
+    const set = (open) => {
+      overlay.dataset.open = String(open)
+      overlay.inert = !open // closed panel leaves the tab order + AX tree (implies aria-hidden)
+      overlay.setAttribute('aria-hidden', String(!open))
+      openBtn.setAttribute('aria-expanded', String(open))
+      document.documentElement.style.overflow = open ? 'hidden' : ''
     }
-  })
+    const open = () => {
+      set(true)
+      overlay.querySelector('button[data-close]')?.focus() // move focus into the panel
+    }
+    const close = () => {
+      const wasOpen = overlay.dataset.open === 'true'
+      set(false)
+      if (wasOpen) openBtn.focus() // restore focus to the trigger
+    }
+
+    openBtn.addEventListener('click', open)
+    overlay.addEventListener('click', (e) => {
+      if (e.target.closest('[data-close]') || e.target.closest('a')) close()
+    })
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && overlay.dataset.open === 'true') close()
+    })
+    // Crossing to desktop (lg) hides the overlay via CSS — clear the lock + state too.
+    window.matchMedia('(min-width: 1024px)').addEventListener('change', (e) => {
+      if (e.matches) set(false)
+    })
+    // A bfcache restore can return with a stale lock — reset on show.
+    window.addEventListener('pageshow', (e) => {
+      if (e.persisted) set(false)
+    })
+    set(false) // assert the closed state at init (authoritative; clears any stale lock)
+  })()
 </script>

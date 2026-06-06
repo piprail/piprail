@@ -225,6 +225,19 @@ function makeEvmNetwork(resolved: ResolvedChain): ResolvedNetwork {
       return { ready: 'n/a' as const }
     },
 
+    // Discovery only (ownership proofs / SIWX) — never the payment path. Signs
+    // through the wallet client so it works for both { privateKey } (local) and
+    // bring-your-own { walletClient } (JSON-RPC) accounts. eip191 → recoverable
+    // with viem's recoverMessageAddress (how x402scan verifies origin ownership).
+    discoverySigner(wallet: WalletHandle) {
+      const a = wallet._native as WalletAdapter
+      return {
+        address: a.account.address,
+        signMessage: (message: string) =>
+          a.walletClient.signMessage({ account: a.account, message }),
+      }
+    },
+
     async verify(ref, accept) {
       return verifyEvm({
         publicClient,

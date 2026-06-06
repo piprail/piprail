@@ -128,3 +128,41 @@ export const mcpConfigCode = `<span class="tok-com">// claude_desktop_config.jso
     }
   }
 }`
+
+// Discovery — be found + find. EMIT a crawlable file from your gate, REGISTER on
+// the open indexes, DISCOVER what's payable. Nothing PipRail-hosted.
+export const discoverEmitCode = `<span class="tok-kw">import</span> { createPaymentGate, buildOpenApi } <span class="tok-kw">from</span> <span class="tok-str">'@piprail/sdk'</span>
+
+<span class="tok-kw">const</span> gate = <span class="tok-fn">createPaymentGate</span>({
+  chain: <span class="tok-chain">'base'</span>, token: <span class="tok-str">'USDC'</span>,
+  amount: <span class="tok-str">'0.05'</span>, payTo,
+})
+
+<span class="tok-com">// gate config → a crawlable discovery file</span>
+<span class="tok-kw">const</span> doc = <span class="tok-fn">buildOpenApi</span>({
+  origin: <span class="tok-str">'https://api.acme.com'</span>,
+  resources: [<span class="tok-kw">await</span> gate.<span class="tok-fn">describe</span>(
+    <span class="tok-str">'https://api.acme.com/report'</span>,
+  )],
+})
+<span class="tok-com">// serve doc at /openapi.json — static, no backend</span>`
+
+export const discoverRegisterCode = `<span class="tok-kw">import</span> { PipRailClient } <span class="tok-kw">from</span> <span class="tok-str">'@piprail/sdk'</span>
+
+<span class="tok-kw">const</span> client = <span class="tok-kw">new</span> <span class="tok-fn">PipRailClient</span>({ chain: <span class="tok-chain">'base'</span>, wallet })
+
+<span class="tok-com">// one POST — no auth, no signature, no fee</span>
+<span class="tok-kw">await</span> client.<span class="tok-fn">register</span>(<span class="tok-str">'https://api.acme.com/report'</span>, {
+  name: <span class="tok-str">'Market Report'</span>,
+  priceUsd: <span class="tok-num">0.05</span>,
+})
+<span class="tok-com">// → listed on 402 Index, searchable in seconds</span>`
+
+export const discoverFindCode = `<span class="tok-com">// find payable APIs on the open indexes</span>
+<span class="tok-kw">const</span> hits = <span class="tok-kw">await</span> client.<span class="tok-fn">discover</span>({
+  query: <span class="tok-str">'weather'</span>,
+  maxPrice: <span class="tok-num">0.01</span>,
+})
+
+<span class="tok-com">// then the usual quote → plan → pay</span>
+<span class="tok-kw">const</span> res = <span class="tok-kw">await</span> client.<span class="tok-fn">fetch</span>(hits[<span class="tok-num">0</span>].resource)`

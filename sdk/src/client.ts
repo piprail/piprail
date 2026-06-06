@@ -6,7 +6,18 @@ import type {
   CostEstimate,
   RecipientReason,
   WalletBalance,
+  DiscoverySigner,
 } from './drivers/types.js'
+import {
+  searchOpenIndexes,
+  register402Index,
+  registerX402Scan,
+  normalizeNetwork,
+  type DiscoveredResource,
+  type DiscoveredRail,
+  type DiscoverySource,
+  type RegisterOutcome,
+} from './indexes.js'
 import {
   HEADER_SIGNATURE,
   buildSignatureHeader,
@@ -240,6 +251,59 @@ export interface PipRailClientOptions {
   onEvent?: (event: PipRailEvent) => void
 }
 
+/** Options for {@link PipRailClient.discover}. */
+export interface DiscoverOptions {
+  /** Free-text query, matched against name/description/resource. */
+  query?: string
+  /**
+   * Which network's resources to return: a CAIP-2 id (or a chain slug like
+   * `'base'` — normalized to CAIP-2 before matching), `'self'` (the client's
+   * bound chain — the default, so results are payable by THIS client), or
+   * `'any'` (every chain — the agent filters later).
+   */
+  // eslint-disable-next-line @typescript-eslint/ban-types
+  network?: Caip2 | 'self' | 'any' | (string & {})
+  /**
+   * Coarse pre-filter: drop results whose advertised USD price exceeds this.
+   * Results with no advertised price pass through — use `quote()` for the exact
+   * figure before paying.
+   */
+  maxPrice?: number
+  /** Which open indexes to read. Default `['bazaar', '402index']` (both free). */
+  sources?: DiscoverySource[]
+  /** Max results per source before merge. Default 20. */
+  limit?: number
+}
+
+/** Options for {@link PipRailClient.register}. */
+export interface RegisterOptions {
+  /** Display name for the listing (defaults to the URL's host). */
+  name?: string
+  description?: string
+  /** Advertised price in USD (metadata only). */
+  priceUsd?: number
+  /** Payment asset symbol, e.g. `'USDC'` (metadata). */
+  asset?: string
+  /** Payment network slug, e.g. `'base'` (defaults to the client's `chain` when it's a slug). */
+  network?: string
+  /** HTTP method the resource answers on. Default 'GET'. */
+  method?: string
+  /**
+   * Which open indexes to list on. Default `['402index']` — no auth, no
+   * signature. Add `'x402scan'` for the SIWX path (needs an EVM `discoverySigner`
+   * and a Base/Solana rail). `'bazaar'` can't be written to (facilitator-only).
+   */
+  targets?: DiscoverySource[]
+  /**
+   * Opt-in (default off): tag the listing as built with PipRail (`via: '@piprail/sdk'`).
+   * It's a third-party listing, so we never tag it by default — and it's best-effort (the
+   * index may ignore the field). The always-on, reliable attribution is the request
+   * `User-Agent` + the `x-generator` stamp in your emitted `/openapi.json` (see
+   * `buildOpenApi`). Leave off unless you specifically want the listing tagged.
+   */
+  attribution?: boolean
+}
+
 export class PipRailClient {
   private readonly opts: PipRailClientOptions
   private readonly maxRetries: number
@@ -407,6 +471,114 @@ export class PipRailClient {
   async canAfford(url: string, init?: RequestInit): Promise<boolean> {
     const plan = await this.planPayment(url, init)
     return plan == null ? true : plan.payable
+  }
+
+  /* ------------------------- discovery (find + list) ------------------------- */
+
+  /**
+   * Find payable resources on the OPEN x402 indexes — WITHOUT paying. Reads the
+   * free indexes (CDP Bazaar + 402 Index by default), merges + dedupes them, and
+   * by default returns only resources payable on THIS client's chain
+   * (`network: 'self'`). Each result carries its advertised `rails[]`; feed a
+   * chosen `resource` straight into `quote()` → `planPayment()` → `fetch()`.
+   *
+   * Nothing PipRail-hosted: these are third-party open directories. Never throws
+   * for a read problem — an index that's down or changed simply contributes
+   * nothing. Honest caveat: index results are cross-scheme (mostly the
+   * mainstream `exact` scheme); `fetch()` pays only `onchain-proof` rails
+   * directly (pay `exact` resources with the experimental `drivers/evm/exact.ts`).
+   */
+  async discover(opts: DiscoverOptions = {}): Promise<DiscoveredResource[]> {
+    const found = await searchOpenIndexes({
+      ...(opts.query !== undefined ? { query: opts.query } : {}),
+      ...(opts.sources ? { sources: opts.sources } : {}),
+      ...(opts.limit !== undefined ? { limit: opts.limit } : {}),
+    })
+    const scope = opts.network ?? 'self'
+    let out = found
+    if (scope === 'self') {
+      // Match via the bound driver's own `supports()` — robust on EVERY chain family,
+      // including custom chains. `railOnNetwork` keeps any rail whose network we can't
+      // resolve (see below), so discovery is never silently empty on an unmapped chain.
+      const { net } = await this.ensure()
+      out = out.filter((r) => r.rails.some((rail) => railOnNetwork(rail, (n) => net.supports(n))))
+    } else if (scope !== 'any') {
+      // Normalize the scope too, so a slug ('base') matches a rail that resolves to
+      // the same CAIP-2 — honoring the JSDoc and the every-chain "never hide" intent.
+      const target = normalizeNetwork(scope)
+      out = out.filter((r) => r.rails.some((rail) => railOnNetwork(rail, (n) => n === target)))
+    }
+    if (opts.maxPrice !== undefined) {
+      const max = opts.maxPrice
+      out = out.filter((r) => r.priceUsd === undefined || r.priceUsd <= max)
+    }
+    return out
+  }
+
+  /**
+   * List a resource you run on the OPEN x402 registries, so agents can find it.
+   * Default target is **402 Index** — one POST, no auth, no signature, no payment
+   * (searchable within seconds). Add `'x402scan'` to also register via SIWX (one
+   * wallet signature; EVM + a Base/Solana rail). Returns one {@link RegisterOutcome}
+   * per target — a target the chain can't satisfy comes back `{ ok:false, detail }`,
+   * never a throw. An explicit, developer-invoked action; it moves no funds, and
+   * nothing is PipRail-hosted — you're listing on third-party open directories.
+   */
+  async register(url: string, opts: RegisterOptions = {}): Promise<RegisterOutcome[]> {
+    const targets = opts.targets ?? ['402index']
+    const networkSlug =
+      opts.network ?? (typeof this.opts.chain === 'string' ? this.opts.chain : undefined)
+    const outcomes: RegisterOutcome[] = []
+    for (const target of targets) {
+      if (target === '402index') {
+        outcomes.push(
+          await register402Index({
+            url,
+            ...(opts.name ? { name: opts.name } : {}),
+            ...(opts.description ? { description: opts.description } : {}),
+            ...(opts.priceUsd !== undefined ? { priceUsd: opts.priceUsd } : {}),
+            ...(opts.asset ? { asset: opts.asset } : {}),
+            ...(networkSlug ? { network: networkSlug } : {}),
+            ...(opts.method ? { method: opts.method } : {}),
+            ...(opts.attribution ? { attribution: true } : {}),
+          })
+        )
+      } else if (target === 'x402scan') {
+        const signer = await this.discoverySigner()
+        if (!signer) {
+          outcomes.push({
+            source: 'x402scan',
+            ok: false,
+            detail:
+              'x402scan registration needs an EVM signer; this chain family has no discoverySigner. ' +
+              'Use 402 Index (the default), which needs no signature.',
+          })
+          continue
+        }
+        outcomes.push(await registerX402Scan({ url }, signer))
+      } else {
+        outcomes.push({
+          source: 'bazaar',
+          ok: false,
+          detail:
+            'CDP Bazaar has no register endpoint — it catalogs a resource only when its facilitator ' +
+            'settles a payment (PipRail uses no facilitator). List on 402 Index / x402scan instead.',
+        })
+      }
+    }
+    return outcomes
+  }
+
+  /**
+   * The discovery signer for the bound wallet (its address + a message signer),
+   * or `null` if the chain family doesn't support it (EVM does today). For
+   * discovery only — ownership proofs (sign the bare origin string and pass it to
+   * `buildOpenApi({ ownershipProofs })`) and SIWX registration. Never signs a
+   * payment.
+   */
+  async discoverySigner(): Promise<DiscoverySigner | null> {
+    const { net, wallet } = await this.ensure()
+    return net.discoverySigner ? net.discoverySigner(wallet) : null
   }
 
   /**
@@ -996,6 +1168,18 @@ export async function planAcross(
     // First non-null hint across clients — each already names its chain.
     fundingHint: best ? null : (live.map((p) => p.fundingHint).find(Boolean) ?? null),
   }
+}
+
+/**
+ * Does a discovered rail belong to a network the caller wants? Single-sources the
+ * every-chain invariant for `discover()`: a rail whose network we CAN resolve to
+ * CAIP-2 must satisfy `matches`; a rail we CAN'T resolve (an unknown slug) is
+ * KEPT, not silently hidden — the agent re-checks it at quote time. This is why
+ * discovery is never empty on a custom or unmapped chain.
+ */
+function railOnNetwork(rail: DiscoveredRail, matches: (caip2: string) => boolean): boolean {
+  const n = normalizeNetwork(rail.network)
+  return !n.includes(':') || matches(n)
 }
 
 /** Hostname of a URL for the policy host-allowlist + ledger — no port, so an
