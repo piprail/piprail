@@ -87,6 +87,18 @@ const agentFlow = [
   { n: '04', t: 'Pay', d: 'client.fetch(resource) — merchant-direct, verified locally. No facilitator.' },
 ]
 
+// Full transparency: exactly what each step needs. No PipRail account, no x402 sign-up anywhere.
+const requirements = [
+  { step: 'Gate an endpoint', wallet: 'receiving address only', signing: 'No', signup: 'No', cost: 'Free' },
+  { step: 'Emit /openapi.json', wallet: '—', signing: 'No', signup: 'No', cost: 'Free' },
+  { step: 'Register · 402 Index (default)', wallet: '—', signing: 'No', signup: 'No', cost: 'Free', fast: true },
+  { step: 'Register · x402scan (optional)', wallet: 'your own', signing: '1 SIWX signature · no funds move', signup: 'No', cost: 'Free' },
+  { step: 'Ownership badge (optional)', wallet: 'your own', signing: 'sign the origin string', signup: 'No', cost: 'Free' },
+  { step: 'Discover', wallet: '—', signing: 'No', signup: 'No', cost: 'Free' },
+  { step: 'Quote / plan', wallet: '—', signing: 'No', signup: 'No', cost: 'Free' },
+  { step: 'Pay a discovered API', wallet: 'funded wallet', signing: 'the payment tx', signup: 'No', cost: 'price + gas', fast: true },
+]
+
 const faqs = [
   {
     q: 'How does an AI agent discover my x402 endpoint?',
@@ -261,6 +273,45 @@ const faqLd = {
           </ol>
         </div>
       </div>
+    </section>
+
+    <!-- What you need at each step (full transparency) -->
+    <section class="border-t border-white/10 py-16 sm:py-20">
+      <SectionHeading title="What you actually need — no surprises.">
+        Full transparency on wallets, signing, and sign-ups. There's <span class="text-neutral-200">no PipRail
+        account and no x402 sign-up anywhere</span> — the only thing ever registered is a merchant's own URL,
+        by one call. The fastest path to discoverable (highlighted) needs <span class="text-neutral-200">no
+        wallet, no signature, no account</span>.
+      </SectionHeading>
+      <div class="overflow-x-auto rounded-2xl border border-white/10">
+        <table class="w-full min-w-160 border-collapse text-left text-sm">
+          <thead>
+            <tr class="border-b border-white/10 bg-white/5 text-xs uppercase tracking-wider text-neutral-400">
+              <th class="px-4 py-3 font-medium">Step</th>
+              <th class="px-4 py-3 font-medium">Wallet?</th>
+              <th class="px-4 py-3 font-medium">Private key / signing?</th>
+              <th class="px-4 py-3 font-medium">Sign-up?</th>
+              <th class="px-4 py-3 font-medium">Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            {requirements.map((r) => (
+              <tr class:list={['border-b border-white/5 last:border-0', r.fast && 'bg-accent/5']}>
+                <td class="px-4 py-3 font-medium text-neutral-100">{r.step}</td>
+                <td class="px-4 py-3 text-neutral-400">{r.wallet}</td>
+                <td class:list={['px-4 py-3', r.signing === 'No' ? 'font-medium text-accent' : 'text-neutral-400']}>{r.signing}</td>
+                <td class="px-4 py-3 font-medium text-accent">{r.signup}</td>
+                <td class="px-4 py-3 text-neutral-400">{r.cost}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p class="mt-4 text-sm leading-relaxed text-neutral-500">
+        The reliable attribution rides along automatically — your emitted <code class="text-neutral-300">/openapi.json</code>
+        carries a <code class="text-neutral-300">x-generator: "@piprail/sdk"</code> stamp (opt-out), and index
+        requests send a PipRail <code class="text-neutral-300">User-Agent</code>. Nothing is hidden, nothing is forced.
+      </p>
     </section>
 
     <!-- For AI agents -->

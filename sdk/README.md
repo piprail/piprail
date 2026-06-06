@@ -122,8 +122,10 @@ See [`examples/agent-tools.mjs`](../examples/agent-tools.mjs) for MCP / AI-SDK w
 
 A 402 endpoint is payable, but nobody can *find* it. PipRail closes that gap by building on the
 **open** x402 indexes that already exist (402 Index, the CDP Bazaar read API, x402scan) — **nothing
-PipRail-hosted, no registry, no database.** All opt-in; the pay path is untouched. The complete
-reference (every function, option, flow, and caveat) is **[DISCOVERY.md](./DISCOVERY.md)**.
+PipRail-hosted, no registry, no database.** All opt-in; the pay path is untouched. There's **no PipRail
+account and no x402 sign-up anywhere** — the only thing ever registered is a merchant's own URL, by one
+call. The complete reference — including a **step-by-step walkthrough of exactly what each step needs**
+(wallet? signing? sign-up? — spoiler: 402 Index needs none) — is **[DISCOVERY.md](./DISCOVERY.md)** (§7).
 
 > **Experimental.** Discovery integrates with third-party open indexes whose conventions are young
 > and moving — treat this layer as experimental. The read path + 402 Index register are live-verified;

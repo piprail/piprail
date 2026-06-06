@@ -282,29 +282,56 @@ to pick from, then quote → pay. Because index results are cross-scheme, the mo
 
 ---
 
-## 7. End-to-end flows
+## 7. Step-by-step walkthrough (and exactly what you need)
 
-**Merchant — become discoverable the moment you add a gate:**
+Two roles. **A merchant lists their own endpoint so agents can find it; an agent finds and pays.**
+There is **no PipRail account and no x402 sign-up anywhere** — you never "register your SDK" with us
+or with x402. The only thing that's ever "registered" is a *merchant's own URL* on a public index,
+and they do it themselves with one call.
 
-```
-requirePayment()                     → the route is payable (but invisible)
-gate.describe()                      → static, nonce-free metadata
-buildOpenApi(...) → /openapi.json    → serve on your own origin (crawlable)
-client.register(url)                 → POST 402 Index (no auth) [+ x402scan SIWX]
-                                     → searchable in seconds. Nothing PipRail-hosted.
-```
+### 7a. Merchant — be found (each step says what it needs)
 
-**Agent — find and pay:**
+1. **Gate the route.** `requirePayment({ chain, token, amount, payTo })`.
+   *You need:* your **receiving wallet address** (`payTo`) — a public address, **not** a private key.
+   *No signing, no sign-up.* The route now returns `402` (payable) but is invisible.
+2. **(Optional) Emit a discovery file.** `const r = await gate.describe(url)` →
+   `buildOpenApi({ origin, resources: [r] })` → serve the JSON at `https://<origin>/openapi.json`.
+   *You need:* nothing — it's pure, no keys, no network. It's a static file on your own server.
+3. **Register so agents can find you.** `await client.register(url, { name, priceUsd })`.
+   - **402 Index — the default.** **No sign-up, no API key, no signature, no wallet.** One HTTPS POST;
+     402 Index probes your URL (it must return a real `402`) and lists it. Searchable in seconds.
+   - **x402scan — optional.** Add `targets: ['402index', 'x402scan']`. This one signs a **SIWX**
+     challenge with **your own wallet's key** (one signature — *no funds move*). Base/Solana only.
+     This is the **only** signing on the be-found side, and it's optional.
+4. **(Optional) Ownership badge.** Sign your bare origin string with your `payTo` key
+   (`const s = await client.discoverySigner(); await s.signMessage(origin)`) and pass it as
+   `buildOpenApi({ ownershipProofs: [...] })`. A trust badge on indexes that verify it; never required.
+5. **Found.** Agents discover you through the open indexes. Nothing is hosted by PipRail.
 
-```
-client.discover({ query })           → candidates from the open indexes (free)
-client.quote(resource)               → exact live price (re-hits the URL)
-client.planPayment(resource)         → can I actually settle it? (balance/gas/recipient)
-client.fetch(resource)               → pay merchant-direct, verify locally — no facilitator
-```
+### 7b. Agent — find & pay
 
-The index is third-party-hosted, but **the payment never touches it** — value still settles
-wallet-to-wallet with local verification. The no-facilitator guarantee holds for the value step.
+1. **Discover.** `await client.discover({ query })` — reads the open indexes (free). *No key, no sign-up.*
+2. **Quote.** `await client.quote(resource)` — the exact live price. *No funds move.*
+3. **Plan.** `await client.planPayment(resource)` — can this wallet actually settle it? *No funds move.*
+4. **Pay.** `await client.fetch(resource)` — *you need:* a **funded wallet** (it signs + broadcasts the
+   payment, then verifies locally). The payment goes **merchant-direct** — no facilitator, and the
+   index never touches the money.
+
+### 7c. What you need at each step (the whole truth, one table)
+
+| Step | Wallet? | Private key / signing? | Sign-up / account? | Cost |
+|---|---|---|---|---|
+| Gate an endpoint | a receiving **address** only | **no** | **no** | free |
+| Emit `/openapi.json` | — | **no** | **no** | free |
+| **Register · 402 Index** (default) | — | **no** | **no** | free |
+| Register · x402scan (optional) | your own | yes — **1 SIWX signature, no funds move** | **no** | free |
+| Ownership badge (optional) | your own | yes — sign the origin string | **no** | free |
+| Discover | — | **no** | **no** | free |
+| Quote / plan | — | **no** | **no** | free |
+| **Pay** a discovered API | a **funded** wallet | yes — the on-chain payment tx | **no** | the price + gas |
+
+**The fastest path to discoverable** is the bold row pair: gate it, then `client.register(url)` —
+**no wallet, no signature, no account, free.** Everything else is optional polish.
 
 ---
 
