@@ -41,6 +41,19 @@ export async function run() {
       check('pay tool exposes optional method + body params',
         Boolean(payTool.inputSchema.properties?.method) && Boolean(payTool.inputSchema.properties?.body))
       check('handshake + listTools succeeded ⇒ stdout is a clean protocol channel', names.length === 5)
+
+      // Tool annotations reach a real MCP client over stdio (SDK ≥1.8.0 / MCP ≥0.2.2):
+      // the reads are flagged read-only, and pay is flagged value-moving so a client
+      // can render the right consent.
+      const ann = Object.fromEntries(tools.map((t) => [t.name, t.annotations]))
+      check('every tool advertises annotations with a human title',
+        tools.every((t) => typeof t.annotations?.title === 'string'))
+      check('the three reads are flagged readOnlyHint:true',
+        ['piprail_discover', 'piprail_quote_payment', 'piprail_plan_payment'].every((n) => ann[n]?.readOnlyHint === true))
+      check('piprail_pay_request is flagged value-moving (readOnly:false + destructive:true)',
+        ann.piprail_pay_request?.readOnlyHint === false && ann.piprail_pay_request?.destructiveHint === true)
+      check('piprail_register is a non-destructive write (readOnly:false + destructive:false)',
+        ann.piprail_register?.readOnlyHint === false && ann.piprail_register?.destructiveHint === false)
     } finally {
       await s.close()
     }

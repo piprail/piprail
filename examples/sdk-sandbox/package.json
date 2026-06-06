@@ -15,7 +15,7 @@
     "merchant": "node lib/merchant.mjs"
   },
   "dependencies": {
-    "@piprail/sdk": "^1.7.0",
+    "@piprail/sdk": "^1.8.0",
     "express": "^5.0.0",
     "viem": "^2.21.0"
   },

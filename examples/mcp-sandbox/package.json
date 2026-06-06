@@ -15,8 +15,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "@piprail/mcp": "^0.2.1",
-    "@piprail/sdk": "^1.7.0",
+    "@piprail/mcp": "^0.2.2",
+    "@piprail/sdk": "^1.8.0",
     "express": "^5.0.0",
     "viem": "^2.21.0"
   },
