@@ -1,5 +1,11 @@
 # @piprail/mcp changelog
 
+## 0.2.4 — 2026-06-08
+
+- **Kaia support (via `@piprail/sdk` ^1.9.0).** Bumped the SDK dependency so the server can pay on
+  **Kaia** (ex-Klaytn, chainId 8217) — native KAIA or Tether-native USD₮. No server code change; set
+  `PIPRAIL_CHAIN=kaia`. Now 29 chains in total.
+
 ## 0.2.3 — 2026-06-06
 
 - **Richer registry listing.** `server.json` now sets `title` ("PipRail"), `websiteUrl`

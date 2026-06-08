@@ -4,6 +4,22 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.9.0] — 2026-06-08
+
+### Added
+- **Kaia** (ex-Klaytn, chainId 8217) — EVM preset for South Korea's stablecoin-settlement chain
+  (born from Kakao + LINE). Pay **native KAIA** or **Tether-native USD₮**
+  (`0xd077A400968890Eacc75cdc901F0356c943e4fDb`, verified on-chain: symbol `USD₮`, name
+  "Tether USD", 6 dp, no bridge markers). Circle issues no native USDC on Kaia, so USDC is
+  intentionally omitted (pass it as a custom token if you need a bridged one). Brings the built-in
+  set to **29 chains across 10 families** (20 EVM mainnets).
+
+### Changed
+- **CHAINS.md — verified stablecoin provenance.** Now documents, per chain, whether the shipped
+  USDC/USDT is issuer-native, **USDT0** (LayerZero), a **canonical-bridge** token, or **Binance-Peg** —
+  every address re-verified on-chain. Documentation only; no code or behaviour change, all tokens
+  unchanged.
+
 ## [1.8.0] — 2026-06-06
 
 ### Added
@@ -492,6 +508,7 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[1.9.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.8.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.7.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.6.0]: https://www.npmjs.com/package/@piprail/sdk
