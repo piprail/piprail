@@ -91,5 +91,8 @@ Screenshot*.png
 # Scratch build dir for the promo video (frames, node_modules, wav) — local only
 .video-build/
 
-# Large local design renders (promo videos) — keep heavy working files out of git
-.claude/skills/site-design/design/exports/*.mp4
+# Design-skill EXPORTS = local render/staging outputs (social cards, slide masters,
+# promo videos). The skill itself, its design/source/ masters, and the brand assets
+# already committed in here stay tracked; this only keeps NEW local renders out of
+# git so the repo never bloats. Commit a new design asset deliberately via `git add -f`.
+.claude/skills/site-design/design/exports/
