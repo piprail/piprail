@@ -11,6 +11,18 @@ PipRail has **two sides**, a **zero-code** path for AI clients, and **discovery*
 
 No backend, no database, no fee. Verification is local, against your own RPC.
 
+## 🔬 Why 402, not a raw transfer? (with vs without)
+
+If a payer just sends a raw transfer to your wallet, you can't discover the price, can't tell **which request** it paid for, can't stop replays, and you have to run a **payments backend** (a chain listener + correlation + async notify) just to notice it. [`why-402/`](./why-402) proves this with code you can run:
+
+| What | Folder | Run |
+|---|---|---|
+| The three **verification** holes a raw transfer leaves (discovery, replay, collision) | [`why-402/`](./why-402) | `node why-402/without-402.mjs` |
+| The **backend** you'd have to run without 402 (listener, accounts, async grant) | [`why-402/`](./why-402) | `node why-402/without-402-server.mjs` |
+| The same payment with the SDK, commented at each point a hole closes | [`why-402/`](./why-402) | see `why-402/with-402.mjs` |
+
+> The honest verdict (incl. where a raw build **can** match us, and our own limitations) + the side-by-side slides are in [`why-402/README.md`](./why-402/README.md). **This is the thesis: you can't get x402's full behaviour the old way without rebuilding x402.**
+
 ## 🌐 No build — run it in the browser
 
 | What | Folder | How |

@@ -116,6 +116,30 @@ Agent                                  Your server
 
 Verification is local and confirms the transaction **succeeded, is recent, and actually moved the required amount of the right token to `payTo`**. The x402 v2 spec (§7) explicitly endorses merchant-local verification — no facilitator required — so this is a spec-compliant shape, not a workaround. **Self-custody throughout:** the payer signs and broadcasts their own transfer straight to your wallet; PipRail never holds funds and never takes a cut.
 
+## 🔬 Why 402, and not just a raw transfer?
+
+> *"The payer signs and broadcasts their own transfer straight to your wallet — so why do we need x402 at all?"*
+
+Fair question, and we answer it honestly — we even tried to **break our own method**. A bare transfer moves money, but it doesn't make a payment *usable*: the caller can't discover the price at the URL, the server can't tell **which request** a transfer paid for, can't stop replays, and has to run a whole **payments backend** (a chain listener, a correlation/accounts store, an async notify-back — usually leaning on Etherscan/Alchemy) just to notice the payment landed. x402 collapses all of that into one synchronous, in-band `verify()` — the proof is an HTTP header, and *"you're in"* is the same `200`.
+
+<p align="center"><img src="site/public/why-402/compare-1.png" width="900" alt="With the 402 handshake vs just sending the money — the two flows" /></p>
+
+<p align="center"><img src="site/public/why-402/compare-2.png" width="900" alt="Who runs the payments backend? Raw forces a chain listener, correlation and async notify; PipRail is one in-band verify()" /></p>
+
+<p align="center"><img src="site/public/why-402/compare-3.png" width="900" alt="Three holes a raw transfer leaves: discovery, replay, collision" /></p>
+
+<p align="center"><img src="site/public/why-402/compare-4.png" width="900" alt="The honest scorecard: where a raw build can match x402, and the two rows it can't" /></p>
+
+<p align="center"><img src="site/public/why-402/compare-5.png" width="900" alt="To match x402 raw, you'd rebuild every piece of it — non-interoperably" /></p>
+
+<p align="center"><img src="site/public/why-402/compare-6.png" width="900" alt="The verdict: you can skip the 402 status code, but not the handshake" /></p>
+
+**The honest bottom line:** a careful raw build *can* reach most of the on-chain security — *if it rebuilds the handshake itself*. The two things it structurally **cannot** get are **dynamic per-request pricing** and **open-standard interop**. And the moment you rebuild the handshake, a private one is strictly worse than the open standard PipRail already speaks.
+
+→ **Run it yourself:** [`examples/why-402/`](examples/why-402/) — [`without-402.mjs`](examples/why-402/without-402.mjs) prints the holes live, [`without-402-server.mjs`](examples/why-402/without-402-server.mjs) sketches the backend you'd otherwise run, and [`with-402.mjs`](examples/why-402/with-402.mjs) is the SDK. Full write-up + **honest limitations** in the [why-402 README](examples/why-402/README.md).
+
+> 🤝 **Think we're wrong? Please try.** We'd genuinely like to be challenged on this. If you can get x402's full behaviour — discovery, dynamic per-request pricing, and cross-merchant interop — out of a raw transfer **without** rebuilding the handshake, [**open an issue**](https://github.com/piprail/piprail/issues) and show us. We'll happily update the comparison. We even ship our own [honest limitations](examples/why-402/README.md#honest-limitations-read-before-production) — scrutiny only makes the case stronger.
+
 ## 📦 What's in here
 
 ```

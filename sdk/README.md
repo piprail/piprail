@@ -507,6 +507,8 @@ Agent                                  Your server
 
 Verification is local and confirms the transaction **succeeded, is recent, and actually moved the required amount of the right token to `payTo`** — then your handler runs and returns the data. The same proof can't be redeemed twice. **Self-custody throughout:** the payer signs and broadcasts their own transfer straight to your wallet; PipRail never holds funds and never takes a cut of a payment.
 
+It's a **pull** model: the caller hands you the exact tx ref in the `payment-signature` header, so `verify()` does a **targeted lookup on your own RPC** and answers **synchronously, in the same request** — no chain listener, no indexer, no accounts DB, no async notify. Why that matters vs. "just send a raw transfer" — with runnable proof and an honest scorecard — is laid out in [`examples/why-402/`](../examples/why-402/) (and the [root README](../README.md#-why-402-and-not-just-a-raw-transfer)).
+
 ## Receipts — record every payment
 
 Every verified payment produces an `X402Receipt` with exactly what you'd persist — the on-chain tx ref, who paid, the amount, and the token. The SDK stays **database-free**; it hands you the data and you store it however you like.

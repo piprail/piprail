@@ -87,3 +87,9 @@ screencapture-*.png
 Screenshot*.png
 
 # Research & design notes now live under /.claude/ (already ignored above) — local only.
+
+# Scratch build dir for the promo video (frames, node_modules, wav) — local only
+.video-build/
+
+# Large local design renders (promo videos) — keep heavy working files out of git
+.claude/skills/site-design/design/exports/*.mp4
