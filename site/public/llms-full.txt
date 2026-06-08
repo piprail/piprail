@@ -1,8 +1,8 @@
 # PipRail — full reference for agents
 
-> Last-Updated: 2026-06-06 · SDK-Version: 1.8.0 · MCP-Version: 0.2.3 · Type: APIService · License: MIT
+> Last-Updated: 2026-06-08 · SDK-Version: 1.8.0 · MCP-Version: 0.2.3 · Type: APIService · License: MIT
 
-> Accept and make x402 "402 Payment Required" crypto payments from any HTTP request, across 28 chains in 10 families, with no backend, no database, no account, and no fee. Payments settle straight into your own wallet, verified locally against your own RPC. `@piprail/sdk` is an open-source (MIT) TypeScript SDK that runs headless or in the browser. This file is the everything-in-one-fetch version: the pitch, real code, the chain list, and the error model.
+> Accept and make x402 "402 Payment Required" crypto payments from any HTTP request, across 29 chains in 10 families, with no backend, no database, no account, and no fee. Payments settle straight into your own wallet, verified locally against your own RPC. `@piprail/sdk` is an open-source (MIT) TypeScript SDK that runs headless or in the browser. This file is the everything-in-one-fetch version: the pitch, real code, the chain list, and the error model.
 
 ## What it is
 
@@ -247,7 +247,7 @@ If the URL had asked for 0.50 USDC, step 2 returns `{ declined: true, reason: "e
 
 A cite-ready, no-superlative summary of how PipRail differs:
 
-- **Coverage:** 28 chains across 10 families — 19 EVM mainnets plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger. Most x402 SDKs are EVM-only or EVM + Solana; PipRail reaches all ten with native, self-custodial drivers.
+- **Coverage:** 29 chains across 10 families — 20 EVM mainnets plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger. Most x402 SDKs are EVM-only or EVM + Solana; PipRail reaches all ten with native, self-custodial drivers.
 - **Backendless by default:** payments settle wallet-to-wallet, verified against the merchant's own RPC. PipRail runs no service, holds no funds, and charges no protocol fee — where most x402 stacks route through a third-party facilitator.
 - **Budget-bound before any send:** `PIPRAIL_MAX_AMOUNT` (per payment) and `PIPRAIL_MAX_TOTAL` (lifetime per token) are enforced against the token's true on-chain decimals. An over-budget request comes back as `{ declined: true, reason }` and nothing moves — the agent can't overspend even if instructed to.
 - **Self-custodial:** the wallet key never leaves your machine. The MCP server runs locally, reads your RPC, and signs with your key. Zero custody.
@@ -300,9 +300,9 @@ requirePayment({ chain: 'tron',     token: 'USDT', amount: '1',    payTo }) // U
 
 Any other EVM chain works by passing a viem `Chain` or `{ id, rpcUrl }` plus `token: { address, decimals }`. Custom tokens are supported per family: SPL `{ mint, decimals }`, TON jetton `{ master, decimals }`, Stellar `{ issuer, code, decimals }`, XRPL `{ issuer, currencyHex, decimals }`, TRC-20 `{ address, decimals }`, NEP-141 `{ contractId, decimals }`, Sui `{ coinType, decimals }`.
 
-## The 28 chains, by family
+## The 29 chains, by family
 
-- EVM (19 mainnets): Ethereum, Base, Arbitrum, Optimism, Polygon, BNB Chain, Avalanche, HyperEVM, Monad, Mantle, Sonic, Linea, Scroll, Celo, zkSync, Unichain, World Chain, Sei, Injective. USDC on all; USDT on all except Base, World Chain, Sei, HyperEVM, and Monad (their "USDT" is USDT0/LayerZero, not Tether-native).
+- EVM (20 mainnets): Ethereum, Base, Arbitrum, Optimism, Polygon, BNB Chain, Avalanche, HyperEVM, Monad, Mantle, Sonic, Linea, Scroll, Celo, zkSync, Unichain, World Chain, Sei, Injective, Kaia. USDC on all except Kaia; USDT on all except Base, World Chain, Sei, HyperEVM, and Monad (their "USDT" is USDT0/LayerZero, not Tether-native). Kaia is the inverse — Tether-native USD₮ only, no Circle-native USDC; born from Kakao + LINE.
 - Solana: USDC, USDT.
 - TON: USD₮ only (native USDC doesn't exist on TON).
 - Tron: USD₮ (TRC-20) + native TRX. The largest USDT rail; a transfer burns real TRX, so gas estimates matter most here. (No native USDC on Tron — Circle discontinued it.)

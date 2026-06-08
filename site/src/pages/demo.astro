@@ -7,7 +7,7 @@ import { ArrowRight, Server, Globe, ShieldCheck, Boxes, Zap } from 'lucide-astro
 
 const title = 'Live demo — try x402 crypto payments in your browser | PipRail'
 const description =
-  'Interactive x402 demo: build a real "402 Payment Required" challenge and watch an agent price it — live in your browser, across 28 chains. No install, no backend. @piprail/sdk loads from a CDN and runs client-side; the same code runs on any server.'
+  'Interactive x402 demo: build a real "402 Payment Required" challenge and watch an agent price it — live in your browser, across 29 chains. No install, no backend. @piprail/sdk loads from a CDN and runs client-side; the same code runs on any server.'
 
 // Page-specific structured data — a usable web demo + the 402 loop as a HowTo,
 // so search + AI engines surface "try x402 / x402 demo" intent to this page.
@@ -27,7 +27,7 @@ const demoLd = {
     'Builds a real x402 402 Payment Required challenge in the browser from a wallet address',
     'Prices the payment with PipRailClient.quote() — chain, token, amount, recipient, budget verdict',
     'Runs entirely client-side from a CDN — no install, no backend',
-    'Switch across 28 chains by changing one parameter',
+    'Switch across 29 chains by changing one parameter',
   ],
   softwareHelp: { '@type': 'CreativeWork', url: 'https://github.com/piprail/piprail/blob/main/sdk/README.md' },
 }
@@ -160,7 +160,7 @@ const matrix = [
       </div>
       <p class="mt-3 text-center text-[13px] text-neutral-400">
         No keys, no server, no network calls — the gate builds the challenge from your address and the client prices it, both in your browser.
-        EVM, Solana, Sui &amp; NEAR run live here; the full 28 chains run the same one line on a server.
+        EVM, Solana, Sui &amp; NEAR run live here; the full 29 chains run the same one line on a server.
       </p>
     </section>
 
@@ -225,7 +225,7 @@ const matrix = [
       <div class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div class="rounded-xl border border-white/10 bg-white/2.5 p-5">
           <Boxes size={20} class="mb-3 text-accent" aria-hidden="true" />
-          <h3 class="text-base font-semibold">28 chains, one word</h3>
+          <h3 class="text-base font-semibold">29 chains, one word</h3>
           <p class="mt-1 text-sm text-neutral-400">EVM ×19 + Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, XRPL. Native coin or stablecoin, everywhere.</p>
         </div>
         <div class="rounded-xl border border-white/10 bg-white/2.5 p-5">

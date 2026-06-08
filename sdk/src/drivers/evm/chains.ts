@@ -1,6 +1,6 @@
 import { defineChain, type Chain } from 'viem'
 import {
-  arbitrum, avalanche, base, bsc, celo, hyperEvm, injective, linea, mainnet, mantle, monad,
+  arbitrum, avalanche, base, bsc, celo, hyperEvm, injective, kaia, linea, mainnet, mantle, monad,
   optimism, polygon, scroll, sei, sonic, unichain, worldchain, zksync,
 } from 'viem/chains'
 
@@ -192,6 +192,17 @@ export const CHAINS = {
     chain: monad,
     tokens: {
       USDC: { address: '0x754704Bc059F8C67012fEd69BC8A327a5aafb603', decimals: 6, symbol: 'USDC' },
+    },
+  },
+  // Kaia (ex-Klaytn, chainId 8217) — Tether-native USD₮ verified on-chain 2026-06-08
+  // (0xd077…4fDb: symbol "USD₮", name "Tether USD", 6 dp, no bridge markers). Circle issues
+  // NO native USDC on Kaia (absent from Circle's list), so USDC is intentionally omitted —
+  // pay native KAIA or USD₮ (or pass a custom { address, decimals }). Asia's stablecoin-
+  // settlement chain, born from Kakao + LINE.
+  kaia: {
+    chain: kaia,
+    tokens: {
+      USDT: { address: '0xd077A400968890Eacc75cdc901F0356c943e4fDb', decimals: 6, symbol: 'USDT' },
     },
   },
 } satisfies Record<string, ChainPreset>

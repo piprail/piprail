@@ -13,7 +13,7 @@ read those sections before you ship them.
 
 | Chain(s) | Pay in native coin? | Built-in stablecoins | Receiver needs setup? | Wallet input |
 |---|:--:|---|---|---|
-| **EVM** (Ethereum, Base, Arbitrum, Optimism, Polygon, BNB, Avalanche, Mantle, Sonic, Linea, Scroll, Celo, zkSync, Unichain, World Chain, Sei, Injective, HyperEVM, Monad, + any EVM chain) | ✅ ETH/BNB/POL/… | USDC (all) · USDT (all **except Base, World Chain, Sei, HyperEVM, Monad**) | No | `{ privateKey }` |
+| **EVM** (Ethereum, Base, Arbitrum, Optimism, Polygon, BNB, Avalanche, Mantle, Sonic, Linea, Scroll, Celo, zkSync, Unichain, World Chain, Sei, Injective, HyperEVM, Monad, Kaia, + any EVM chain) | ✅ ETH/BNB/POL/… | USDC (all **except Kaia**) · USDT (all **except Base, World Chain, Sei, HyperEVM, Monad**) | No | `{ privateKey }` |
 | **Solana** | ✅ SOL | USDC · USDT | No (payer creates the recipient's token account) | `{ secretKey }` |
 | **Sui** | ✅ SUI | USDC (no USDT) | No | `{ privateKey }` (`suiprivkey1…`) |
 | **Aptos** | ✅ APT | USDC · USDT | No (primary FA store auto-creates) | `{ privateKey }` (`ed25519-priv-0x…`) |
@@ -45,9 +45,11 @@ read those sections before you ship them.
 
 ### EVM — Ethereum, Base, Arbitrum, Optimism, Polygon, BNB, Avalanche, …
 - **Pay in:** native coin (`'native'`), `'USDC'`, `'USDT'`, or a custom `{ address, decimals }`.
-- **USDT gap:** built in on every preset **except Base, World Chain, Sei, HyperEVM, and Monad** (USDC only there).
+- **USDT gap:** built in on every preset **except Base, World Chain, Sei, HyperEVM, and Monad** (USDC only there). **Kaia** is the inverse — **USD₮ only** (no Circle-native USDC on Kaia).
 - **Decimals:** on **BNB Chain**, Binance-Peg USDC/USDT are **18 decimals**, not 6 (the SDK handles it; don't hardcode 6).
-- **USDT branding:** on **Arbitrum, Polygon, and Unichain** the canonical Tether is the omnichain **USD₮0 / USDT0** (LayerZero), and on **Celo** it's native **USD₮** — all genuine, Tether-issued, 6-decimal USDT at the addresses shipped (verified live on-chain by symbol/decimals/supply). You still ask for it as `token: 'USDT'`; only the on-chain `symbol()` string differs from the plain `USDT` your wallet may show elsewhere.
+- **Stablecoin provenance — issuer-native vs bridged (every shipped address verified on-chain 2026-06-08, incl. bridge markers).** Every address is the correct, canonical, 1:1-redeemable dollar token on its chain; what varies is *who issues it*. You request it as `'USDC'` / `'USDT'` either way — provenance matters only if you specifically require issuer-native settlement.
+  - **USDC** is **Circle-native** on every preset **except** **BNB** (Binance-Peg, 18-dp), **Mantle** (OP canonical-bridge), and **Scroll** (Bridged-USDC-Standard) — the last two are backed 1:1 by Circle USDC on Ethereum but are **not** Circle-issued on that chain (absent from Circle's native-USDC list).
+  - **USDT** is **Tether-native** on **Ethereum, Avalanche, Celo, Kaia** (EVM) and **Solana, Tron, TON, NEAR, Aptos** (non-EVM). Everywhere else it's bridged: **USDT0** (LayerZero omnichain, on-chain `symbol()` = `USD₮0`) on **Arbitrum, Polygon, Unichain**; a **canonical-bridge** token (chain-minted, backed by Tether's Ethereum USDT — not Tether-issued) on **Optimism, zkSync, Sonic, Linea, Injective, Mantle, Scroll**; and **Binance-Peg** (18-dp) on **BNB**. The on-chain `symbol()` may read `USDT`, `USD₮`, `USDt`, or `USD₮0`; all resolve via `token: 'USDT'`.
 - **Receiver setup:** none — any `0x…` address receives ERC-20 or native immediately.
 - **Any other EVM chain:** pass a viem `Chain` or `{ id, rpcUrl }` + `token: { address, decimals }`.
 

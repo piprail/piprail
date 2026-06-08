@@ -272,6 +272,7 @@ Every token address below was verified on-chain (symbol + decimals) before shipp
 | `'injective'` | Injective | USDC, USDT |
 | `'hyperevm'` | HyperEVM (Hyperliquid) | USDC |
 | `'monad'` | Monad | USDC |
+| `'kaia'` | Kaia (ex-Klaytn) | USDT |
 | `'solana'` | Solana | USDC, USDT |
 | `'ton'` | TON | USDT |
 | `'tron'` | Tron | USDT |

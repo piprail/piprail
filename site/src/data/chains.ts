@@ -4,7 +4,7 @@
 // `tokens` drives the stablecoin badges on each chain card.
 // `family` groups the catalog (every EVM chain shares one driver); `setup` is the
 // one-time recipient caveat where a chain has one (omitted = zero-setup).
-// Mirrors the SDK's built-in registry (19 EVM mainnets + Solana + TON + Tron +
+// Mirrors the SDK's built-in registry (20 EVM mainnets + Solana + TON + Tron +
 // NEAR + Sui + Aptos + Algorand + Stellar + XRPL).
 export interface ChainEntry {
   name: string
@@ -32,6 +32,7 @@ export const chains: ChainEntry[] = [
   { name: 'Polygon', slug: 'polygon', tokens: ['usdc', 'usdt'], family: 'EVM' },
   { name: 'Optimism', slug: 'optimism', tokens: ['usdc', 'usdt'], family: 'EVM' },
   { name: 'Avalanche', slug: 'avalanche', tokens: ['usdc', 'usdt'], family: 'EVM' },
+  { name: 'Kaia', slug: 'kaia', tokens: ['usdt'], family: 'EVM', setup: 'Ships Tether-native USD₮ (or native KAIA); there is no Circle-native USDC on Kaia.' },
   { name: 'HyperEVM', slug: 'hyperevm', tokens: ['usdc'], family: 'EVM' },
   { name: 'Monad', slug: 'monad', tokens: ['usdc'], family: 'EVM' },
   { name: 'Mantle', slug: 'mantle', tokens: ['usdc', 'usdt'], family: 'EVM' },

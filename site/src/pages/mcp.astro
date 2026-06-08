@@ -10,7 +10,7 @@ import { Bot, Plug, Wallet, ShieldCheck, Terminal, ArrowRight, ChevronDown, Code
 
 const title = '@piprail/mcp — budget-bound x402 payment wallet for AI agents (Claude, Cursor, Code)'
 const description =
-  'Hand any MCP client a local, budget-capped payment wallet. Agents autonomously pay x402 URLs across 28 chains — Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, Cline. No backend, no custody, no integration.'
+  'Hand any MCP client a local, budget-capped payment wallet. Agents autonomously pay x402 URLs across 29 chains — Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, Cline. No backend, no custody, no integration.'
 
 // The core payment workflow — quote → plan → pay.
 const tools = [
@@ -40,7 +40,7 @@ const clients = [
 // Every env var the server reads (canonical names; AGENT_KEY is an alias for the key).
 const envVars = [
   { k: 'PIPRAIL_PRIVATE_KEY', req: 'yes', def: '—', d: 'Wallet key/seed for the chosen chain (alias: AGENT_KEY). Env-only, never a CLI arg.' },
-  { k: 'PIPRAIL_CHAIN', req: 'no', def: 'base', d: 'Chain to pay on — any of the 28 PipRail supports.' },
+  { k: 'PIPRAIL_CHAIN', req: 'no', def: 'base', d: 'Chain to pay on — any of the 29 PipRail supports.' },
   { k: 'PIPRAIL_MAX_AMOUNT', req: 'no', def: '0.10', d: 'Max spend per single payment (token units).' },
   { k: 'PIPRAIL_MAX_TOTAL', req: 'no', def: '10.00', d: 'Lifetime spend cap per token (token units).' },
   { k: 'PIPRAIL_TOKENS', req: 'no', def: 'USDC*', d: 'Allowed token symbols + "native" for the chain coin (CSV). *Defaults to USDT on Tron & TON.' },
@@ -67,9 +67,9 @@ const faqs = [
   { q: 'How do I set up @piprail/mcp?', a: 'Add it to your MCP client’s config with two things: your wallet private key and (optionally) a budget. For Claude Desktop, open Settings → Developer → Edit Config and add an mcpServers entry that runs "npx -y @piprail/mcp" with env PIPRAIL_PRIVATE_KEY, PIPRAIL_CHAIN, PIPRAIL_MAX_AMOUNT, and PIPRAIL_MAX_TOTAL. Restart the client. Cursor, Claude Code, Windsurf, and VS Code support ${env:PIPRAIL_PRIVATE_KEY} interpolation so the key never sits in the config file.' },
   { q: 'How does spend budgeting work — can the agent overspend?', a: 'No. PIPRAIL_MAX_AMOUNT caps each individual payment and PIPRAIL_MAX_TOTAL caps lifetime spend per token. Both are enforced by the SDK before any on-chain send, and checked against the token’s true on-chain decimals — so a malicious server can’t slip past a limit by misstating the price. An over-budget request comes back as { declined: true, reason } and nothing moves. You can also restrict tokens (PIPRAIL_TOKENS) and destination hosts (PIPRAIL_HOSTS).' },
   { q: 'What happens if an agent tries to pay something out of policy?', a: 'The call is declined before any on-chain send and returns { declined: true, reason } — the model never signs and never broadcasts. Because piprail_plan_payment is read-only, the agent can also check affordability and policy compliance up front and avoid the failed attempt entirely.' },
-  { q: 'Which AI clients and chains does the MCP support?', a: 'Clients: Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, and Cline — any MCP client. Chains: all 28 PipRail supports — 19 EVM mainnets plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger. EVM works out of the box (the server ships with viem); non-EVM chains pull their SDK peer library on demand. Each server instance is one wallet on one chain — register it once per chain to give an agent several rails.' },
+  { q: 'Which AI clients and chains does the MCP support?', a: 'Clients: Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, and Cline — any MCP client. Chains: all 29 PipRail supports — 20 EVM mainnets plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger. EVM works out of the box (the server ships with viem); non-EVM chains pull their SDK peer library on demand. Each server instance is one wallet on one chain — register it once per chain to give an agent several rails.' },
   { q: 'Does the MCP take custody of my funds or run a backend?', a: 'No. The server runs locally on your machine with your key, your RPC, and your limits. Payments settle wallet-to-wallet straight to the recipient — PipRail runs no service and holds nothing. There’s no PipRail backend to compromise and no facilitator in the path. The server code is MIT and open; you can audit or run it yourself.' },
-  { q: 'What’s the difference between @piprail/sdk and @piprail/mcp?', a: 'The SDK is for developers who write code — you call requirePayment / createPaymentGate to charge, or PipRailClient to pay, in TypeScript. The MCP flips that: you write no code, you add an env block, and agents in your MCP client pay x402 URLs autonomously, capped by a spend policy. Same engine, same 28 chains, same backendless self-custody — the MCP is the zero-integration path for AI/agent operators.' },
+  { q: 'What’s the difference between @piprail/sdk and @piprail/mcp?', a: 'The SDK is for developers who write code — you call requirePayment / createPaymentGate to charge, or PipRailClient to pay, in TypeScript. The MCP flips that: you write no code, you add an env block, and agents in your MCP client pay x402 URLs autonomously, capped by a spend policy. Same engine, same 29 chains, same backendless self-custody — the MCP is the zero-integration path for AI/agent operators.' },
 ]
 
 const faqLd = {
@@ -89,14 +89,14 @@ const faqLd = {
     <!-- Hero -->
     <section class="fade-up py-16 text-center sm:py-20 md:py-24">
       <p class="mb-7 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/8 px-3.5 py-1.5 text-xs font-medium text-accent">
-        <Sparkles size={13} aria-hidden="true" /> MCP server · agent payments · 28 chains · local-only
+        <Sparkles size={13} aria-hidden="true" /> MCP server · agent payments · 29 chains · local-only
       </p>
       <h1 class="mx-auto max-w-4xl text-[2.5rem] font-semibold leading-[1.05] tracking-tight sm:text-6xl">
         x402 agents, <span class="text-accent">zero integration</span>.
       </h1>
       <p class="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-neutral-400 sm:text-lg">
         Hand any MCP client a <span class="text-neutral-200">budget-bound payment wallet</span>. Claude Desktop,
-        Cursor, Claude Code, Windsurf, VS Code, and Cline can pay x402-gated URLs on their own — across 28 chains,
+        Cursor, Claude Code, Windsurf, VS Code, and Cline can pay x402-gated URLs on their own — across 29 chains,
         capped by a spend policy the model <span class="text-neutral-200">cannot exceed</span>. No backend, no custody, no code.
       </p>
       <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -185,7 +185,7 @@ const faqLd = {
         <div class="rounded-2xl border border-accent/20 bg-accent/5 p-7">
           <span class="flex h-10 w-10 items-center justify-center rounded-xl border border-accent/20 bg-accent/10"><Bot size={18} class="text-accent" aria-hidden="true" /></span>
           <h3 class="mt-4 text-lg font-medium text-neutral-100">@piprail/mcp — you add an env block</h3>
-          <p class="mt-2 leading-relaxed text-neutral-400">For AI/agent operators: no code at all. Add the wallet and the limits, and agents in your MCP client pay autonomously. Same engine, same 28 chains, same self-custody.</p>
+          <p class="mt-2 leading-relaxed text-neutral-400">For AI/agent operators: no code at all. Add the wallet and the limits, and agents in your MCP client pay autonomously. Same engine, same 29 chains, same self-custody.</p>
         </div>
       </div>
     </section>
@@ -273,7 +273,7 @@ const faqLd = {
         </div>
       </div>
       <p class="mt-6 text-sm leading-relaxed text-neutral-500">
-        Pay across all 28 chains — 19 EVM mainnets plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and
+        Pay across all 29 chains — 20 EVM mainnets plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and
         the XRP Ledger. EVM works out of the box; non-EVM chains pull their SDK peer on demand.
         <a href="/chains" class="text-accent underline-offset-4 hover:underline">See every chain →</a>
       </p>

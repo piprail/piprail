@@ -68,6 +68,16 @@ describe('resolveChain — built-in mainnets', () => {
     expect(m.tokens.USDT).toBeUndefined()
   })
 
+  it('resolves Kaia (ex-Klaytn, 8217) — native KAIA + Tether-native USD₮, no native USDC', () => {
+    // Kaia: Tether-native USDT (0xd077…4fDb, verified on-chain). Circle issues no native
+    // USDC on Kaia, so USDC is intentionally omitted (pay native KAIA or USDT).
+    const k = resolveChain('kaia')
+    expect(k.chainId).toBe(8217)
+    expect(k.chain.nativeCurrency.symbol).toBe('KAIA')
+    expect(k.tokens.USDT).toMatchObject({ decimals: 6, symbol: 'USDT' })
+    expect(k.tokens.USDC).toBeUndefined()
+  })
+
   it('USDT is now built in on the major chains', () => {
     for (const name of ['ethereum', 'arbitrum', 'optimism', 'polygon', 'avalanche'] as const) {
       expect(resolveChain(name).tokens.USDT).toMatchObject({ decimals: 6, symbol: 'USDT' })
@@ -92,7 +102,7 @@ describe('resolveChain — built-in mainnets', () => {
     expect(keys).toEqual([
       'ethereum', 'base', 'arbitrum', 'optimism', 'polygon', 'bnb', 'avalanche',
       'mantle', 'sonic', 'linea', 'scroll', 'celo', 'zksync', 'unichain', 'worldchain',
-      'sei', 'injective', 'hyperevm', 'monad',
+      'sei', 'injective', 'hyperevm', 'monad', 'kaia',
     ])
     expect(keys.some((k) => /test|sepolia|devnet/i.test(k))).toBe(false)
   })
