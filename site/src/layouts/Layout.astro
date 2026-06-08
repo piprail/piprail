@@ -1,5 +1,6 @@
 ---
 import '../styles/global.css'
+import Analytics from '../components/Analytics.astro'
 
 interface Props {
   title?: string
@@ -199,6 +200,8 @@ const bingVerification = import.meta.env.PUBLIC_BING_VERIFICATION
     <script is:inline type="application/ld+json" set:html={JSON.stringify(websiteLd)} />
     <script is:inline type="application/ld+json" set:html={JSON.stringify(sourceLd)} />
     <script is:inline type="application/ld+json" set:html={JSON.stringify(mcpLd)} />
+
+    <Analytics />
   </head>
   <body class="min-h-screen antialiased">
     <slot />

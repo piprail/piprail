@@ -1,0 +1,30 @@
+---
+// Cookieless, privacy-first web analytics. BOTH beacons are INERT until their env var is set:
+// with nothing configured this renders zero markup and fires zero network requests, so it's safe
+// to ship now with no signup. Activate later by pasting a token into a Netlify env var — no code
+// change, no redeploy of source needed beyond Netlify's rebuild.
+//
+//   PUBLIC_CF_BEACON_TOKEN  — Cloudflare Web Analytics (recommended: free, unlimited, cookieless,
+//                             no DNS change). dash.cloudflare.com → Web Analytics → add piprail.com
+//                             → copy the token. https://developers.cloudflare.com/web-analytics/
+//   PUBLIC_GOATCOUNTER_URL  — GoatCounter alternative, e.g. https://piprail.goatcounter.com/count
+//                             (lighter, dev-loved; free for non-commercial). goatcounter.com
+//
+// Both are GDPR-friendly (no cookies, no localStorage, no consent banner) — the right fit for a
+// privacy-conscious dev audience. See .claude/research/seo-monitoring-setup.md.
+const cfBeaconToken = import.meta.env.PUBLIC_CF_BEACON_TOKEN
+const goatcounterUrl = import.meta.env.PUBLIC_GOATCOUNTER_URL
+---
+
+{cfBeaconToken && (
+  <script
+    is:inline
+    defer
+    src="https://static.cloudflareinsights.com/beacon.min.js"
+    data-cf-beacon={JSON.stringify({ token: cfBeaconToken })}
+  ></script>
+)}
+
+{goatcounterUrl && (
+  <script is:inline data-goatcounter={goatcounterUrl} async src="//gc.zgo.at/count.js"></script>
+)}
