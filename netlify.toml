@@ -1,11 +1,34 @@
-# PipRail site — static Astro 5, built from the site/ workspace of this monorepo.
-# Netlify installs at the repo root (npm workspace, root lockfile) and builds the
-# site; the static output in site/dist is what gets published.
+# PipRail site — static Astro 5, built from the site/ workspace of this monorepo,
+# plus one Netlify Function (netlify/functions/x402-demo.mjs) that serves a LIVE
+# x402 endpoint at /x402/demo built with @piprail/sdk.
 [build]
-  command = "npm run build"
+  # Build the SDK first (its dist is what the function bundles), then the site.
+  command = "npm run build:sdk && npm run build"
   publish = "site/dist"
-  # Skip a site rebuild when a push didn't touch the site (e.g. SDK-only commits).
-  ignore = "git diff --quiet HEAD^ HEAD -- site/ package.json package-lock.json netlify.toml"
+  # Rebuild when a push touched the site, the function, the SDK, or the build wiring.
+  ignore = "git diff --quiet HEAD^ HEAD -- site/ netlify/ netlify.toml sdk/ package.json package-lock.json"
 
 [build.environment]
   NODE_VERSION = "22"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+  # The SDK lazy-loads each non-EVM family's libs on first use. This endpoint is
+  # Base-only, so those optional peers are never imported at runtime — keep them
+  # external instead of letting esbuild try (and fail) to bundle uninstalled deps.
+  external_node_modules = [
+    "@aptos-labs/ts-sdk",
+    "@mysten/sui",
+    "@solana/spl-token",
+    "@solana/web3.js",
+    "@stellar/stellar-sdk",
+    "@ton/core",
+    "@ton/crypto",
+    "@ton/ton",
+    "algosdk",
+    "bs58",
+    "near-api-js",
+    "tronweb",
+    "xrpl",
+  ]
