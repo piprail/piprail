@@ -168,6 +168,25 @@ describe('client.register() — x402scan SIWX (EVM)', () => {
     expect(recovered.toLowerCase()).toBe((await client.discoverySigner())!.address.toLowerCase())
   })
 
+  it('reads chainId from supportedChains[] when info omits it — signs the right Chain ID', async () => {
+    const info = { domain: 'd', uri: 'https://d', nonce: 'n', issuedAt: '2026-06-06T00:00:00.000Z' } // NO chainId in info
+    let header: string | null = null
+    globalThis.fetch = (async (_u: unknown, init?: RequestInit) => {
+      const h = new Headers(init?.headers ?? {}).get('sign-in-with-x')
+      if (!h)
+        return new Response(
+          JSON.stringify({ extensions: { 'sign-in-with-x': { info, supportedChains: [{ chainId: 'eip155:8453', type: 'eip191' }] } } }),
+          { status: 402 }
+        )
+      header = h
+      return new Response('{}', { status: 200 })
+    }) as typeof fetch
+    const outcomes = await evmClient().register('https://api.example.com/r', { targets: ['x402scan'] })
+    expect(outcomes[0]!.ok).toBe(true)
+    const decoded = JSON.parse(Buffer.from(header!, 'base64').toString('utf8'))
+    expect(decoded.message).toContain('Chain ID: 8453') // from supportedChains, NOT the default 1
+  })
+
   it('accepts an unauthenticated (non-402) register directly, without signing', async () => {
     let calls = 0
     globalThis.fetch = (async () => {
@@ -264,13 +283,14 @@ describe('DIRECTORY_INFO — the queryable lifecycle source of truth', () => {
 })
 
 describe('client.claimDomain() + verifyDomain() — 402 Index domain verification', () => {
-  it('claimDomain extracts the host from a URL, passes the email, returns the hash to serve', async () => {
+  it('claimDomain extracts the host from a URL, passes the email, surfaces the token + the hash to serve', async () => {
     let captured: Record<string, unknown> = {}
     globalThis.fetch = (async (_u: unknown, init?: RequestInit) => {
       captured = JSON.parse(String(init?.body))
       return new Response(
         JSON.stringify({
           domain: 'api.example.com',
+          verification_token: 'tok123',
           verification_hash: 'abc123',
           verification_url: 'https://api.example.com/.well-known/402index-verify.txt',
           instructions: 'Place a text file containing only this hash: abc123',
@@ -281,9 +301,32 @@ describe('client.claimDomain() + verifyDomain() — 402 Index domain verificatio
     const claim = await evmClient().claimDomain('https://api.example.com/report', { contactEmail: 'a@b.co' })
     expect(captured).toEqual({ domain: 'api.example.com', contact_email: 'a@b.co' }) // host extracted from the URL
     expect(claim.ok).toBe(true)
-    expect(claim.verificationHash).toBe('abc123')
+    expect(claim.verificationHash).toBe('abc123') // the bytes to serve (the live public endpoint returns this)
+    expect(claim.verificationToken).toBe('tok123') // also surfaced (the preimage)
     expect(claim.verificationUrl).toContain('/.well-known/402index-verify.txt')
     expect(claim.instructions).toMatch(/hash/i)
+  })
+
+  it('claimDomain computes verificationHash = sha256(token) when the API returns only the token', async () => {
+    // sha256(utf8("the-token")) — the proven derivation 402 Index uses.
+    const token = 'the-token'
+    const { createHash } = await import('node:crypto')
+    const expected = createHash('sha256').update(token, 'utf8').digest('hex')
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ domain: 'example.com', verification_token: token, verification_url: 'u' }), { status: 201 })) as typeof fetch
+    const claim = await evmClient().claimDomain('example.com')
+    expect(claim.verificationToken).toBe(token)
+    expect(claim.verificationHash).toBe(expected) // computed, so the agent always has the exact bytes
+  })
+
+  it('claimDomain handles a bare domain WITH a port (hostOf extracts the host, not "")', async () => {
+    let captured: Record<string, unknown> = {}
+    globalThis.fetch = (async (_u: unknown, init?: RequestInit) => {
+      captured = JSON.parse(String(init?.body))
+      return new Response('{}', { status: 201 })
+    }) as typeof fetch
+    await evmClient().claimDomain('piprail.com:8080')
+    expect(captured).toEqual({ domain: 'piprail.com' }) // NOT '' (the URL-scheme bug)
   })
 
   it('claimDomain omits contact_email when none is given', async () => {

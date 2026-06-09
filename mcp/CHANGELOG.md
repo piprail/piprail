@@ -1,5 +1,11 @@
 # @piprail/mcp changelog
 
+## 0.2.8 — 2026-06-10
+
+- **Rebuilt against `@piprail/sdk` ^1.13.0** — the conformance bug-hunt fixes + the gate `discovery`
+  option. The `piprail_register` tool description now notes that index/agent payers are standard `exact`
+  clients (advertise an `exact` rail to be payable, not just listed). No custody/policy change.
+
 ## 0.2.6 — 2026-06-09
 
 - **Rebuilt against `@piprail/sdk` ^1.11.0** — the agent-friendly discovery lifecycle. The

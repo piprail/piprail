@@ -104,8 +104,6 @@ export interface OpenApiOperation {
   'x-payment-info': {
     x402Version: 2
     accepts: PaymentRail[]
-    /** Bazaar-style input schema marker so a strict index doesn't "skip" the op. */
-    bazaar: { discoverable: true }
   }
 }
 
@@ -114,6 +112,62 @@ export interface WellKnownX402 {
   version: 1
   resources: string[]
   ownershipProofs?: string[]
+}
+
+/**
+ * Describes a resource's INPUT for discovery. The open indexes that REQUIRE an
+ * input schema (x402scan rejects a listing without one) read this from a
+ * `extensions.bazaar` block. Pass it to a gate's `discovery` option (emits the
+ * block in the 402 challenge) or build it directly with {@link buildBazaarExtension}.
+ */
+export interface DiscoveryDescriptor {
+  /** HTTP method the resource answers. Default `'GET'`. */
+  method?: string
+  /** Query params the resource reads, as a JSON-Schema `properties` object
+   *  (name → schema). Default `{}` — a no-input GET. */
+  queryParams?: Record<string, unknown>
+  /** Optional output hint (shape/example) for a richer listing. */
+  output?: { type?: string; example?: unknown }
+}
+
+/** The `extensions.bazaar` discovery block (the x402 "bazaar" convention the open
+ *  indexes parse: `info.input` describes the request, `schema` is its JSON Schema). */
+export interface BazaarExtension {
+  info: { input: { type: 'http'; method: string; queryParams: Record<string, unknown> }; output?: { type?: string; example?: unknown } }
+  schema: Record<string, unknown>
+}
+
+/**
+ * Build the `extensions.bazaar` block that satisfies x402scan's mandatory input-schema
+ * check, from a {@link DiscoveryDescriptor}. Pure. Defaults to a no-input GET — the
+ * minimal shape a live x402scan listing accepts.
+ */
+export function buildBazaarExtension(descriptor: DiscoveryDescriptor = {}): BazaarExtension {
+  const method = (descriptor.method ?? 'GET').toUpperCase()
+  const queryParams = descriptor.queryParams ?? {}
+  return {
+    info: {
+      input: { type: 'http', method, queryParams },
+      output: descriptor.output ?? { type: 'json' },
+    },
+    schema: {
+      $schema: 'https://json-schema.org/draft/2020-12/schema',
+      type: 'object',
+      properties: {
+        input: {
+          type: 'object',
+          properties: {
+            type: { type: 'string', const: 'http' },
+            method: { type: 'string', enum: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'] },
+            queryParams: { type: 'object', properties: queryParams, additionalProperties: false },
+          },
+          required: ['type', 'method'],
+          additionalProperties: false,
+        },
+      },
+      required: ['input'],
+    },
+  }
 }
 
 /** The `_x402` DNS TXT pointer record (experimental draft). */
@@ -160,7 +214,6 @@ export function buildOpenApi(input: ManifestInput): OpenApiDocument {
       'x-payment-info': {
         x402Version: 2,
         accepts: r.accepts,
-        bazaar: { discoverable: true },
       },
     }
     paths[path] = { ...(paths[path] ?? {}), [method]: op }

@@ -4,6 +4,28 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.13.0] — 2026-06-10
+
+### Added — gate `discovery` option (one flag → x402scan-listable)
+- **`createPaymentGate`/`requirePayment` now take an opt-in `discovery` option** that emits an
+  `extensions.bazaar` block **in the 402 challenge itself** — so the gate alone satisfies x402scan's
+  mandatory input-schema check (no separately-served file needed). `discovery: true` for a no-input
+  GET, or a `DiscoveryDescriptor` (`{ method, queryParams, output }`). Omitting it leaves the challenge
+  byte-identical. New export `buildBazaarExtension` + the `DiscoveryDescriptor`/`BazaarExtension` types.
+- `DomainClaim` now also surfaces `verificationToken`, and `verificationHash` is **always** populated —
+  from the API, or computed as `sha256(verificationToken)` — so an agent always has the exact bytes to serve.
+
+### Fixed — conformance bug hunt (20-agent audit, every finding verified against the live API)
+- **`hostOf` returned `''` for a bare `host:port`** (`new URL('x.com:8080')` parses the host as a scheme) —
+  `claimDomain`/`verifyDomain` now extract the host correctly.
+- **`indexes.ts` base64 was Latin1-only** (`btoa`) — now UTF-8-safe, matching `x402.ts` (a non-ASCII SIWX
+  field could have thrown in the browser).
+- **SIWX message** now reads `chainId` from `supportedChains[]` as a fallback (not only `info.chainId`),
+  so it always signs the correct `Chain ID`.
+- Removed an invented `x-payment-info.bazaar:{discoverable:true}` marker from `buildOpenApi` (no index read it).
+- Documented the caveat that the open indexes' agents are standard `exact` clients — advertise an `exact`
+  rail to be *payable*, not just listed (README + the `piprail_register` MCP tool).
+
 ## [1.12.0] — 2026-06-09
 
 ### Added — One-call domain verification (pending-review → searchable)
@@ -593,6 +615,7 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[1.13.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.12.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.11.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.10.0]: https://www.npmjs.com/package/@piprail/sdk

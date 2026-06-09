@@ -20,7 +20,8 @@
 import { parseUnits } from './util/units.js'
 import { resolveNetwork } from './drivers/index.js'
 import type { ResolvedNetwork, TokenInput, ChainSelector, WalletHandle } from './drivers/types.js'
-import type { ResourceDescription, PaymentRail } from './discovery.js'
+import { buildBazaarExtension } from './discovery.js'
+import type { ResourceDescription, PaymentRail, DiscoveryDescriptor } from './discovery.js'
 import { SettlementError } from './errors.js'
 import { settleViaFacilitator } from './facilitator.js'
 import {
@@ -145,6 +146,14 @@ export interface RequirePaymentOptions {
    * Omit to keep the gate exactly as today (`onchain-proof` only).
    */
   exact?: ExactRailOption
+  /**
+   * Make this gate's 402 self-describing for the open indexes — **x402scan REQUIRES
+   * an input schema or it won't list the resource.** Set `true` for a no-input GET,
+   * or pass a {@link DiscoveryDescriptor} to describe the request. Emits an
+   * `extensions.bazaar` block in the 402 challenge. Opt-in; omitting it leaves the
+   * challenge byte-identical to before.
+   */
+  discovery?: boolean | DiscoveryDescriptor
 }
 
 export type VerifyPaymentResult =
@@ -465,6 +474,13 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
   ): Promise<{ challenge: X402Challenge; requiredHeader: string }> {
     const specs = await ready()
     const nonce = genNonce()
+    // Opt-in discovery: emit `extensions.bazaar` so x402scan (which rejects a listing
+    // with no input schema) accepts this resource from its 402 alone. Merged with any
+    // rejection extensions; omitted entirely when neither is present (byte-identical default).
+    const bazaar = options.discovery
+      ? { bazaar: buildBazaarExtension(options.discovery === true ? {} : options.discovery) }
+      : undefined
+    const extensions = { ...bazaar, ...opts?.extensions }
     const challenge: X402Challenge = {
       x402Version: 2,
       resource: {
@@ -473,7 +489,7 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
       },
       accepts: buildAccepts(specs, nonce),
       ...(opts?.error ? { error: opts.error } : {}),
-      ...(opts?.extensions ? { extensions: opts.extensions } : {}),
+      ...(Object.keys(extensions).length > 0 ? { extensions } : {}),
     }
     return { challenge, requiredHeader: buildChallengeHeader(challenge) }
   }

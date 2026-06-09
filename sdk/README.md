@@ -206,21 +206,33 @@ listing won't appear here, so don't read that absence as failure. `network` defa
 chain); pass `'any'` for every chain, or a CAIP-2 id (`'eip155:8453'`). Slugs map to CAIP-2 via
 `SLUG_TO_CAIP2`; an unresolved network is kept, never hidden.
 
-**4) Make your endpoint self-describing** — turn your gate's config into the artifacts a crawler reads
-(pure, no I/O); serve them on **your own** origin. **x402scan REQUIRES** a resolvable input schema (your
-`/openapi.json` or an `extensions.bazaar` block in the 402 body), so this is what makes an x402scan
-listing accepted:
+**4) Make your endpoint self-describing.** **x402scan REQUIRES an input schema or it won't list you.**
+The simplest path: set the gate's `discovery` option — it emits an `extensions.bazaar` block **in the 402
+itself**, so the challenge alone is x402scan-listable (no extra file to serve):
 
 ```ts
-import { createPaymentGate, buildOpenApi, buildWellKnownX402, buildX402DnsTxt } from '@piprail/sdk'
+// `discovery: true` for a no-input GET, or describe the request:
+const gate = createPaymentGate({
+  chain: 'base', token: 'USDC', amount: '0.05', payTo,
+  exact: { settle: { facilitator: 'https://facilitator.payai.network' } }, // be payable by exact clients (see caveat)
+  discovery: { method: 'GET', output: { type: 'json', example: { ok: true } } },
+})
+```
 
-const gate = createPaymentGate({ chain: 'base', token: 'USDC', amount: '0.05', payTo })
+Optionally also serve the static discovery files (richer listings; OpenAPI carries the `x-generator`
+attribution stamp) from your own origin — all pure, no I/O:
+
+```ts
+import { buildOpenApi, buildWellKnownX402, buildX402DnsTxt } from '@piprail/sdk'
 const desc = await gate.describe('https://api.example.com/report')
-const openapi = buildOpenApi({ origin: 'https://api.example.com', resources: [desc] })
-// serve at /openapi.json — each priced op carries an `x-payment-info` block + a root `x-generator` stamp.
-const wellKnown = buildWellKnownX402({ resources: [desc] }) // serve at /.well-known/x402
+const openapi = buildOpenApi({ origin: 'https://api.example.com', resources: [desc] }) // → /openapi.json
+const wellKnown = buildWellKnownX402({ resources: [desc] })                            // → /.well-known/x402
 // buildX402DnsTxt(...) emits the _x402 DNS line too.
 ```
+
+> **Caveat — be *payable*, not just listed.** The open indexes' agents are overwhelmingly standard
+> `exact` clients; a default `onchain-proof`-only gate gets listed but they can't pay it. Advertise an
+> `exact` rail (above) so a discovered resource is actually payable.
 
 **Know each index before you call** — the facts are one import, `DIRECTORY_INFO`, and `register()`
 projects them onto every outcome (`visibility` + `note`), so an agent never has to guess:

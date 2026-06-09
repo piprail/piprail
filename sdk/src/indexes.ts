@@ -548,9 +548,14 @@ export async function registerX402Scan(
 export interface DomainClaim {
   ok: boolean
   domain: string
-  /** Serve THIS string as the entire body of `verificationUrl`. */
+  /** The exact text to serve as the ENTIRE body of `verificationUrl` — this is what
+   *  402 Index fetches and checks (the SHA-256 of the token). Always populated on
+   *  success: read from the response, or computed as `sha256(verificationToken)` if
+   *  the API returns only the token. Serve THIS. */
   verificationHash?: string
-  /** Where to serve it — your `https://<domain>/.well-known/402index-verify.txt`. */
+  /** The raw 64-hex token 402 Index issued (the preimage of `verificationHash`). */
+  verificationToken?: string
+  /** Where to serve `verificationHash` — your `https://<domain>/.well-known/402index-verify.txt`. */
   verificationUrl?: string
   /** 402 Index's own human instructions. */
   instructions?: string
@@ -594,17 +599,35 @@ export async function claim402IndexDomain(
     if (!res.ok) {
       return { ok: false, domain, httpStatus: res.status, detail: pickString(body, 'error', 'detail', 'message') ?? `402 Index claim returned HTTP ${res.status}.` }
     }
+    // The live public endpoint returns BOTH `verification_token` and `verification_hash`
+    // (the file body is the HASH). Surface the token AND always give the merchant the
+    // exact bytes to serve — falling back to sha256(token) if a future response omits
+    // the hash (verified: hash === sha256(utf8(token))).
+    const verificationToken = pickString(body, 'verification_token')
+    const verificationHash =
+      pickString(body, 'verification_hash') ?? (verificationToken ? await sha256Hex(verificationToken) : undefined)
     return {
       ok: true,
       domain,
       httpStatus: res.status,
-      ...optionalString('verificationHash', pickString(body, 'verification_hash')),
+      ...optionalString('verificationHash', verificationHash),
+      ...optionalString('verificationToken', verificationToken),
       ...optionalString('verificationUrl', pickString(body, 'verification_url')),
       ...optionalString('instructions', pickString(body, 'instructions')),
     }
   } catch (err) {
     return { ok: false, domain, detail: errMsg(err) }
   }
+}
+
+/** SHA-256 of a UTF-8 string, lowercase hex — via Web Crypto (Node 18+ + browsers).
+ *  Used to derive 402 Index's verification hash from the token if the API returns
+ *  only the token. */
+async function sha256Hex(input: string): Promise<string> {
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(input))
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
 }
 
 /**
@@ -655,6 +678,15 @@ async function readSiwxInfo(res: Response): Promise<SiwxInfo | null> {
     const ext = body.extensions as Record<string, unknown> | undefined
     const siwx = ext?.['sign-in-with-x'] as Record<string, unknown> | undefined
     const info = (siwx?.info ?? siwx) as SiwxInfo | undefined
+    // x402scan's challenge carries chainId in `info`, but its canonical parser also
+    // reads `supportedChains[].chainId` — fall back to the EVM entry there so we sign
+    // the correct `Chain ID` (e.g. Base 8453) even if a deployment omits it from `info`.
+    if (info && info.chainId == null && Array.isArray(siwx?.supportedChains)) {
+      const evm = (siwx!.supportedChains as Array<{ chainId?: unknown }>).find(
+        (c) => typeof c?.chainId === 'string' && (c.chainId as string).startsWith('eip155:')
+      )
+      if (evm && typeof evm.chainId === 'string') info.chainId = evm.chainId
+    }
     // domain + nonce + uri are needed to build a valid EIP-4361 message; a blank
     // uri would otherwise sign `URI: undefined` (unrecoverable).
     if (
@@ -768,9 +800,14 @@ function firstArray(o: Record<string, unknown>, ...keys: string[]): unknown[] {
   return Array.isArray(o) ? (o as unknown[]) : []
 }
 
+/** Extract the hostname from a URL OR a bare domain (optionally with a port).
+ *  `new URL('host:port')` parses the host as a SCHEME and yields an empty hostname,
+ *  so prefix a scheme when there isn't one. `'piprail.com'`, `'piprail.com:8080'`,
+ *  and `'https://piprail.com/x'` all → `'piprail.com'`. */
 function hostOf(url: string): string {
   try {
-    return new URL(url).hostname
+    const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(url) ? url : `https://${url}`
+    return new URL(withScheme).hostname || url
   } catch {
     return url
   }
@@ -781,7 +818,14 @@ function errMsg(err: unknown): string {
 }
 
 function encodeBase64(str: string): string {
-  if (typeof btoa === 'function') return btoa(str)
+  // UTF-8 SAFE — `btoa` is Latin1-only and throws on any non-ASCII byte (a SIWX
+  // statement/domain could carry one). Prefer Buffer; bridge btoa via TextEncoder.
   if (typeof Buffer !== 'undefined') return Buffer.from(str, 'utf8').toString('base64')
+  if (typeof btoa === 'function' && typeof TextEncoder !== 'undefined') {
+    const bytes = new TextEncoder().encode(str)
+    let binary = ''
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]!)
+    return btoa(binary)
+  }
   throw new Error('No base64 encoder available in this runtime.')
 }

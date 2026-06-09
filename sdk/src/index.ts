@@ -200,7 +200,7 @@ export type { ExactAccept, ExactAuthorization, BuildExactParams } from './driver
 //   REGISTER client.register(url) → 402 Index (no auth) [+ x402scan SIWX].
 //   DISCOVER client.discover({ query }) → read CDP Bazaar + 402 Index (free).
 // The piprail_discover / piprail_register agent tools expose this to an LLM/MCP.
-export { buildOpenApi, buildWellKnownX402, buildX402DnsTxt, GENERATOR } from './discovery.js'
+export { buildOpenApi, buildWellKnownX402, buildX402DnsTxt, buildBazaarExtension, GENERATOR } from './discovery.js'
 export type {
   PaymentRail,
   ResourceDescription,
@@ -209,6 +209,8 @@ export type {
   OpenApiOperation,
   WellKnownX402,
   X402DnsRecord,
+  DiscoveryDescriptor,
+  BazaarExtension,
 } from './discovery.js'
 export {
   searchOpenIndexes,

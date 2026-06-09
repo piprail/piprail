@@ -179,3 +179,34 @@ describe('x402 v2 conformance — a rejected proof is a full PaymentRequired (so
     expect('error' in challenge).toBe(false)
   })
 })
+
+describe('gate discovery option — extensions.bazaar (opt-in, x402scan-listable)', () => {
+  const mkGate = (discovery?: boolean | object) =>
+    createPaymentGate({
+      chain: { id: 8453, rpcUrl: 'https://base.example/rpc' },
+      token: { address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', decimals: 6, symbol: 'USDC' },
+      amount: '0.05',
+      payTo: PAY_TO,
+      ...(discovery !== undefined ? { discovery } : {}),
+    })
+
+  it('omitting discovery → NO extensions.bazaar (byte-identical default)', async () => {
+    const { challenge } = await mkGate().challenge('https://api/x')
+    expect((challenge.extensions as Record<string, unknown> | undefined)?.bazaar).toBeUndefined()
+  })
+
+  it('discovery:true → emits a no-input GET bazaar block in BOTH the body and the decoded header', async () => {
+    const { challenge, requiredHeader } = await mkGate(true).challenge('https://api/x')
+    const bazaar = (challenge.extensions as { bazaar?: { info?: { input?: unknown } } }).bazaar
+    expect(bazaar?.info?.input).toEqual({ type: 'http', method: 'GET', queryParams: {} })
+    const decoded = JSON.parse(Buffer.from(requiredHeader, 'base64').toString('utf8'))
+    expect(decoded.extensions.bazaar.info.input.method).toBe('GET') // x402scan reads the header
+  })
+
+  it('a discovery descriptor is reflected in the bazaar block', async () => {
+    const { challenge } = await mkGate({ method: 'POST', queryParams: { page: { type: 'integer' } } }).challenge('https://api/x')
+    const input = (challenge.extensions as { bazaar: { info: { input: { method: string; queryParams: unknown } } } }).bazaar.info.input
+    expect(input.method).toBe('POST')
+    expect(input.queryParams).toEqual({ page: { type: 'integer' } })
+  })
+})

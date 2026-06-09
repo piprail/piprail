@@ -13,7 +13,6 @@
 
 import {
   createPaymentGate,
-  buildChallengeHeader,
   buildWellKnownX402,
   buildOpenApi,
   HEADER_REQUIRED,
@@ -38,39 +37,13 @@ const gate = createPaymentGate({
   amount: PRICE,
   payTo: PAY_TO,
   rpcUrl: process.env.BASE_RPC_URL, // optional Base RPC override (defaults to a public node)
+  description: 'PipRail live x402 demo — pay $0.01 USDC on Base to unlock.',
   // Opt-in standard rail, settled gaslessly via a facilitator we don't run.
   exact: { settle: { facilitator: 'https://facilitator.payai.network' } },
+  // Self-describe for the open indexes — the SDK emits extensions.bazaar in the 402,
+  // so x402scan (which requires an input schema) lists this from the challenge alone.
+  discovery: { output: { type: 'json', example: { paid: true } } },
 })
-
-// x402 discovery (the "bazaar" extension). Open indexes like x402scan require a
-// v2 challenge to advertise an input schema at extensions.bazaar.info.input —
-// otherwise they reject the listing with "Missing input schema". This endpoint
-// is a plain GET with no input, so the schema is minimal. (The SDK emits the
-// payment envelope; this discovery block is added at the response level here —
-// a natural candidate to fold into the SDK as a first-class `discovery` option.)
-const BAZAAR = {
-  info: {
-    input: { type: 'http', method: 'GET', queryParams: {} },
-    output: { type: 'json', example: { paid: true } },
-  },
-  schema: {
-    $schema: 'https://json-schema.org/draft/2020-12/schema',
-    type: 'object',
-    properties: {
-      input: {
-        type: 'object',
-        properties: {
-          type: { type: 'string', const: 'http' },
-          method: { type: 'string', enum: ['GET', 'HEAD', 'DELETE'] },
-          queryParams: { type: 'object', properties: {}, additionalProperties: false },
-        },
-        required: ['type', 'method'],
-        additionalProperties: false,
-      },
-    },
-    required: ['input'],
-  },
-}
 
 const CORS = {
   'access-control-allow-origin': '*',
@@ -100,20 +73,6 @@ const premium = (receipt) => ({
   },
 })
 
-// Return a 402, enriching the challenge with a self-described resource + discovery
-// metadata, then REBUILDING the payment-required header so the (decoded) header the
-// indexes read carries the same bazaar block as the body.
-const challenge402 = (challenge) => {
-  challenge.resource = {
-    ...challenge.resource,
-    method: 'GET',
-    description: 'PipRail live x402 demo — pay $0.01 USDC on Base to unlock.',
-    mimeType: 'application/json',
-  }
-  challenge.extensions = { ...(challenge.extensions ?? {}), bazaar: BAZAAR }
-  return json(challenge, 402, { [HEADER_REQUIRED]: buildChallengeHeader(challenge) })
-}
-
 export default async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS })
 
@@ -135,10 +94,11 @@ export default async (req) => {
 
   const sig = req.headers.get(HEADER_SIGNATURE) ?? req.headers.get(HEADER_SIGNATURE_V1)
 
-  // No payment yet → 402 with the dual-rail challenge + discovery metadata.
+  // No payment yet → 402 with the dual-rail challenge. The gate's `discovery` option
+  // already put extensions.bazaar in the challenge + the payment-required header.
   if (!sig) {
-    const { challenge } = await gate.challenge(RESOURCE)
-    return challenge402(challenge)
+    const { challenge, requiredHeader } = await gate.challenge(RESOURCE)
+    return json(challenge, 402, { [HEADER_REQUIRED]: requiredHeader })
   }
 
   // Payment present → verify. onchain-proof reads Base; exact forwards to PayAI.
@@ -160,8 +120,8 @@ export default async (req) => {
   }
 
   // Invalid proof → conformant 402 re-challenge (a real PaymentRequired, so a
-  // standard client can simply re-pay).
-  return challenge402(result.challenge)
+  // standard client can simply re-pay; it carries extensions.bazaar too).
+  return json(result.challenge, 402, { [HEADER_REQUIRED]: result.requiredHeader })
 }
 
 // Netlify Functions v2 routing — this one function owns all its paths.

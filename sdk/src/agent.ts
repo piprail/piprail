@@ -263,7 +263,10 @@ export function paymentTools(client: PipRailClient): AgentTool[] {
         'Default target is 402 Index — no auth, no signature, no payment; a self-registered listing is ' +
         'pending review (verify your domain on 402index.io for instant approval). Returns one outcome per ' +
         'index ({ source, ok, detail, visibility, note }); a step the chain can\'t satisfy comes back ' +
-        'ok:false with the reason. Moves no funds; nothing is PipRail-hosted.',
+        'ok:false with the reason. Moves no funds; nothing is PipRail-hosted. NOTE: index/agent payers are ' +
+        'overwhelmingly standard `exact` clients — a default onchain-proof-only gate gets listed but they ' +
+        'cannot pay it, so add an `exact` rail (and set the gate\'s `discovery` option, required for x402scan) ' +
+        'to be usefully discoverable AND payable.',
       annotations: {
         title: 'Register an x402 endpoint',
         readOnlyHint: false, // writes a listing to an external index

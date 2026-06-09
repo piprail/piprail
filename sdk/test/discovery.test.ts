@@ -9,6 +9,7 @@ import {
   buildOpenApi,
   buildWellKnownX402,
   buildX402DnsTxt,
+  buildBazaarExtension,
   createPaymentGate,
   GENERATOR,
   type ResourceDescription,
@@ -43,9 +44,23 @@ describe('discovery emitters (pure)', () => {
     expect(op.summary).toBe('Premium market data')
     expect(op['x-payment-info'].x402Version).toBe(2)
     expect(op['x-payment-info'].accepts[0]!.amount).toBe('50000')
-    expect(op['x-payment-info'].bazaar).toEqual({ discoverable: true })
+    // No invented marker — x-payment-info is exactly { x402Version, accepts }.
+    expect(Object.keys(op['x-payment-info'])).toEqual(['x402Version', 'accepts'])
+    expect('bazaar' in op['x-payment-info']).toBe(false)
     // discovery metadata is long-lived → never carries a single-use nonce
     expect(JSON.stringify(doc)).not.toContain('nonce')
+  })
+
+  it('buildBazaarExtension: defaults to a no-input GET; honours a descriptor', () => {
+    const def = buildBazaarExtension()
+    expect(def.info.input).toEqual({ type: 'http', method: 'GET', queryParams: {} })
+    expect(def.info.output).toEqual({ type: 'json' })
+    expect((def.schema as { required: string[] }).required).toEqual(['input'])
+
+    const described = buildBazaarExtension({ method: 'post', queryParams: { q: { type: 'string' } }, output: { type: 'json', example: { ok: true } } })
+    expect(described.info.input.method).toBe('POST') // upper-cased
+    expect(described.info.input.queryParams).toEqual({ q: { type: 'string' } })
+    expect(described.info.output).toEqual({ type: 'json', example: { ok: true } })
   })
 
   it('buildOpenApi: groups methods under one path; attaches ownership proofs', () => {

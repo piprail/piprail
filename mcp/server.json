@@ -9,12 +9,12 @@
     "source": "github",
     "subfolder": "mcp"
   },
-  "version": "0.2.7",
+  "version": "0.2.8",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@piprail/mcp",
-      "version": "0.2.7",
+      "version": "0.2.8",
       "transport": { "type": "stdio" },
       "environmentVariables": [
         {
