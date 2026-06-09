@@ -164,6 +164,36 @@ const matrix = [
       </p>
     </section>
 
+    <!-- LIVE endpoint — the box above is a simulation; this is a real, payable URL -->
+    <section class="pt-2 pb-4">
+      <div class="rounded-2xl border border-accent/20 bg-accent/5 p-5 sm:p-7">
+        <div class="flex flex-wrap items-center gap-3">
+          <span class="inline-flex items-center gap-2 rounded-full border border-accent/25 bg-accent/10 px-3 py-1 text-xs font-medium text-accent">
+            <span class="relative flex h-2 w-2">
+              <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75"></span>
+              <span class="relative inline-flex h-2 w-2 rounded-full bg-accent"></span>
+            </span>
+            Live on Base mainnet
+          </span>
+          <h2 class="text-xl font-semibold tracking-tight sm:text-2xl">That was a simulation. Here's a real one.</h2>
+        </div>
+        <p class="mt-3 max-w-2xl text-sm leading-relaxed text-neutral-400">
+          <code class="rounded bg-white/5 px-1.5 py-0.5 font-mono text-[0.85em] text-neutral-200">piprail.com/x402/demo</code> is a real
+          <span class="font-mono text-neutral-200">402&nbsp;Payment&nbsp;Required</span> endpoint — pay <span class="text-neutral-200">$0.01 USDC</span> on Base to unlock it.
+          It speaks <span class="text-neutral-200">both</span> rails, so any x402 client can pay: PipRail's backendless
+          <span class="font-mono text-neutral-200">onchain-proof</span>, or the standard <span class="font-mono text-neutral-200">exact</span> scheme
+          (settled gaslessly via a facilitator we don't run). Listed on <span class="text-neutral-200">x402scan</span> and <span class="text-neutral-200">402&nbsp;Index</span>.
+        </p>
+        <div class="mt-4 overflow-hidden rounded-xl border border-white/10 bg-neutral-900/70">
+          <div class="flex items-center gap-2 border-b border-white/5 px-4 py-2.5 text-[11px] uppercase tracking-wider text-neutral-400">
+            <span class="rounded bg-rose-500/15 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-rose-300">402</span>
+            see the live challenge
+          </div>
+          <pre class="overflow-x-auto p-4 font-mono text-[11.5px] leading-[1.6] text-neutral-300">curl -i https://piprail.com/x402/demo</pre>
+        </div>
+      </div>
+    </section>
+
     <!-- MCP cross-link -->
     <a href="/mcp" class="mt-6 flex items-center justify-between gap-4 rounded-2xl border border-accent/20 bg-accent/5 px-5 py-4 text-sm transition hover:border-accent/40 hover:bg-accent/10">
       <span class="text-neutral-300">
