@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { parseUnits } from 'viem'
 import { createPaymentGate } from '../src/server.js'
 import { buildSignatureHeader } from '../src/x402.js'
+import { proofAccepts } from './_dual-rail.js'
 import { registerDriver } from '../src/drivers/index.js'
 import type { PaymentDriver } from '../src/drivers/types.js'
 
@@ -69,7 +70,7 @@ describe('multi-accept verify — routes to the claimed network and trusts only 
   it('verifies the proof against the option for the claimed network', async () => {
     const g = gate()
     const { challenge } = await g.challenge()
-    const onBase = challenge.accepts.find((a) => a.network === 'eip155:8453')!
+    const onBase = proofAccepts(challenge).find((a) => a.network === 'eip155:8453')!
     const res = await g.verify(
       buildSignatureHeader({
         x402Version: 2,
@@ -87,7 +88,7 @@ describe('multi-accept verify — routes to the claimed network and trusts only 
   it('ignores a forged amount in the client-echoed accept — uses the SERVER amount', async () => {
     const g = gate()
     const { challenge } = await g.challenge()
-    const onEth = challenge.accepts.find((a) => a.network === 'eip155:1')!
+    const onEth = proofAccepts(challenge).find((a) => a.network === 'eip155:1')!
     // Tamper the echoed accept: claim a tiny amount. verify must use the server's '1 ETH'.
     const res = await g.verify(
       buildSignatureHeader({
@@ -112,7 +113,7 @@ describe('multi-accept verify — routes to the claimed network and trusts only 
       ],
     })
     const { challenge } = await g.challenge()
-    const usdc = challenge.accepts.find((a) => a.asset !== 'native')!
+    const usdc = proofAccepts(challenge).find((a) => a.asset !== 'native')!
     const res = await g.verify(
       buildSignatureHeader({
         x402Version: 2,

@@ -94,6 +94,25 @@ describe('x402 v2 envelope conformance', () => {
     expect('txHash' in (parsed as unknown as Record<string, unknown>)).toBe(false)
   })
 
+  it('parses a scheme:"exact" SettlementResponse (the standard rail also issues receipts)', () => {
+    const receipt: X402Receipt = {
+      scheme: 'exact',
+      success: true,
+      network: 'eip155:8453',
+      transaction: `0x${'e'.repeat(64)}`,
+      asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+      amount: '50000',
+      payer: '0x2222222222222222222222222222222222222222',
+      payTo: PAY_TO,
+      verifiedAt: '2026-06-09T00:00:00.000Z',
+    }
+    const res = new Response(null, { status: 200, headers: { [HEADER_RESPONSE]: buildReceiptHeader(receipt) } })
+    const parsed = parseReceipt(res)
+    expect(parsed).not.toBeNull()
+    expect(parsed!.scheme).toBe('exact')
+    expect(parsed!.transaction).toBe(`0x${'e'.repeat(64)}`)
+  })
+
   it('rejects a receipt that has neither `transaction` nor legacy `txHash`', () => {
     const bad = {
       scheme: 'onchain-proof',
@@ -105,5 +124,58 @@ describe('x402 v2 envelope conformance', () => {
     }
     const res = new Response(null, { status: 200, headers: { [HEADER_RESPONSE]: buildReceiptHeader(bad as never) } })
     expect(parseReceipt(res)).toBeNull()
+  })
+})
+
+describe('x402 v2 conformance — a rejected proof is a full PaymentRequired (so a standard client can retry)', () => {
+  // Force a rejection with no RPC: a pre-seeded replay store → tx_already_used.
+  const rejectingGate = () =>
+    createPaymentGate({
+      chain: { id: 56, rpcUrl: 'https://bsc.example/rpc' },
+      token: { address: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d', decimals: 18, symbol: 'USDC' },
+      amount: '0.05',
+      payTo: PAY_TO,
+      isUsed: () => true,
+      markUsed: () => {},
+    })
+
+  it('the invalid result carries a conformant re-challenge, not a bare {status:invalid}', async () => {
+    const gate = rejectingGate()
+    const accepted = (await gate.challenge()).challenge.accepts[0]!
+    const header = buildSignatureHeader({
+      x402Version: 2,
+      // accepted is the onchain-proof rail (this gate has no exact rail)
+      accepted: accepted as never,
+      payload: { nonce: 'n', txHash: `0x${'a'.repeat(64)}` },
+    })
+    const res = await gate.verify(header)
+    expect(res.kind).toBe('invalid')
+    if (res.kind !== 'invalid') return
+
+    const body = res.challenge
+    // A standard x402 client receiving this 402 can re-pay: it's a real PaymentRequired.
+    expect(body.x402Version).toBe(2)
+    expect(Array.isArray(body.accepts)).toBe(true)
+    expect(body.accepts.length).toBeGreaterThanOrEqual(1)
+    expect(body.resource).toBeDefined()
+    // Human reason in `error`; machine code in extensions.piprail.
+    expect(typeof body.error).toBe('string')
+    expect(body.error).toContain('tx_already_used')
+    expect(body.extensions).toMatchObject({ piprail: { code: 'tx_already_used' } })
+    // The PAYMENT-REQUIRED header is set (base64 body).
+    expect(typeof res.requiredHeader).toBe('string')
+    // It is NOT the legacy non-conformant shape.
+    expect((body as unknown as Record<string, unknown>).status).toBeUndefined()
+  })
+
+  it('a fresh challenge omits `error` (no JSON null on the wire)', async () => {
+    const gate = createPaymentGate({
+      chain: { id: 56, rpcUrl: 'https://bsc.example/rpc' },
+      token: { address: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d', decimals: 18, symbol: 'USDC' },
+      amount: '0.05',
+      payTo: PAY_TO,
+    })
+    const { challenge } = await gate.challenge('https://api/x')
+    expect('error' in challenge).toBe(false)
   })
 })

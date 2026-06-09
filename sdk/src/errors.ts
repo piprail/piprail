@@ -163,6 +163,23 @@ export class ConfirmationTimeoutError extends PipRailError {
   readonly code = 'CONFIRMATION_TIMEOUT'
 }
 
+/**
+ * A standard `exact` payment was VALID (signature recovered, params checked,
+ * simulation passed) but SETTLEMENT failed for a SERVER-side reason — the
+ * merchant's own relayer couldn't broadcast `transferWithAuthorization` (out of
+ * gas, RPC down, dropped tx), or a Mode-B facilitator returned a transport/auth
+ * error. This is NOT the payer's fault: their signed EIP-3009 authorization is
+ * still valid and its nonce UNUSED, so it can be re-presented once the merchant
+ * fixes their relayer/facilitator. The gate THROWS this (it's an operational
+ * problem to fix, not a proof to reject), so a framework adapter returns 5xx —
+ * never a 402, which would wrongly tell the payer to re-pay. `.cause` carries the
+ * raw chain/HTTP error. (Server-side; the `onchain-proof` rail can't raise it —
+ * there the payer broadcasts, so there's nothing for the merchant to settle.)
+ */
+export class SettlementError extends PipRailError {
+  readonly code = 'SETTLEMENT_FAILED'
+}
+
 /** Server returned 402 but the PAYMENT-REQUIRED envelope was missing or malformed. */
 export class InvalidEnvelopeError extends PipRailError {
   readonly code = 'INVALID_ENVELOPE'

@@ -15,8 +15,11 @@ zero-config path still read in one line? If a feature can't be opt-in, reconside
 
 - **Opt-in, defaults unchanged.** New capability is a new optional field/method. Omitting it
   leaves behaviour byte-identical. (`policy`, `onBeforePay`, `accept[]`, `quote()` all obey this.)
-- **No backend, no database, no auth, no dashboard, no fee, no hosted facilitator.** Ever. If a
-  feature needs one of those, it's the wrong feature for this SDK.
+- **No backend, no database, no auth, no dashboard, no fee, no PipRail-hosted facilitator.** Ever. If
+  a feature needs one of those, it's the wrong feature for this SDK. (The opt-in standard `exact` rail
+  is consistent with this: settlement is either **merchant-self-hosted** — the merchant's own relayer
+  key broadcasts in-process, which x402 v2 §7 explicitly blesses — or **delegated to a third-party
+  facilitator the merchant chooses**. PipRail still hosts nothing.)
 - **One obvious way.** Prefer one clear API over flags. `token` is required so a gate is never
   ambiguous; `chain` is one word. Don't add a second way to do the same thing.
 

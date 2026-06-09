@@ -678,13 +678,16 @@ export class PipRailClient {
     return { net, wallet, accept: chosen.accept, challenge, quote: chosen.quote }
   }
 
-  /** The candidate accepts this client could pay: our scheme, on the bound network. */
+  /** The candidate accepts this client could pay: our scheme, on the bound network.
+   *  A dual-advertised challenge may also carry standard `exact` rails — the PipRail
+   *  client ignores those (it pays the backendless `onchain-proof` rail); the type
+   *  predicate narrows the `X402AnyAccept` union to the rails we settle. */
   private gatherCandidates(
     net: ResolvedNetwork,
     challenge: X402Challenge
   ): X402AcceptEntry[] {
     return challenge.accepts.filter(
-      (a) => a.scheme === 'onchain-proof' && net.supports(a.network)
+      (a): a is X402AcceptEntry => a.scheme === 'onchain-proof' && net.supports(a.network)
     )
   }
 
@@ -1205,17 +1208,28 @@ function isReplayableBodyInit(value: unknown): value is BodyInit {
 }
 
 /**
- * Read a server's 402 rejection reason. The gate returns
- * `{ status: 'invalid', error, detail }` when it refuses a proof; we relay that
- * `error` (a `VerifyErrorCode`) + `detail` to the agent. Returns null when the
- * body isn't that shape (e.g. a re-issued challenge), so the caller keeps the
- * previous reason.
+ * Read a server's 402 rejection reason. PipRail's conformant gate re-issues a full
+ * v2 PaymentRequired challenge on a rejected proof, stamping the machine-readable
+ * `{ code, detail }` under `extensions.piprail` (and a human `error` string). We
+ * prefer that; we also accept the legacy `{ status:'invalid', error, detail }` body
+ * and any standard 402 with a top-level `error` string. Returns null when the body
+ * carries no reason (so the caller keeps the previous one).
  */
 async function readInvalidReason(
   response: Response
 ): Promise<{ error: string; detail: string } | null> {
   try {
     const body = (await response.clone().json()) as Record<string, unknown>
+    // Preferred: PipRail's structured reason in extensions.piprail.{code,detail}.
+    const ext = body?.extensions as Record<string, unknown> | undefined
+    const piprail = ext?.piprail as Record<string, unknown> | undefined
+    if (piprail && typeof piprail.code === 'string') {
+      return {
+        error: piprail.code,
+        detail: typeof piprail.detail === 'string' ? piprail.detail : '',
+      }
+    }
+    // Legacy minimal body, or any 402 carrying a top-level `error` string.
     if (body && (body.status === 'invalid' || typeof body.error === 'string')) {
       return {
         error: typeof body.error === 'string' ? body.error : 'no error code',

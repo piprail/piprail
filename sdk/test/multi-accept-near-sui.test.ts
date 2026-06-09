@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { createPaymentGate } from '../src/server.js'
+import { proofAccepts } from './_dual-rail.js'
 
 // One challenge spanning an EVM chain + the two newest families (NEAR + Sui).
 // Proves both resolve correctly under a multi-chain accept[] gate (the gate is
@@ -26,7 +27,7 @@ describe('multi-chain accepts — EVM + NEAR + Sui in one challenge', () => {
     })
     const { challenge } = await gate.challenge()
     expect(challenge.accepts).toHaveLength(3)
-    const [base, near, sui] = challenge.accepts
+    const [base, near, sui] = proofAccepts(challenge)
 
     expect(base!.network).toBe('eip155:8453')
 

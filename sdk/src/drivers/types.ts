@@ -11,7 +11,13 @@
  * amounts, `0x…`/base58 addresses). `_native` on a WalletHandle is the single
  * intentional `unknown`: each driver stashes its own wallet object there.
  */
-import type { Caip2, X402AcceptEntry, VerifyResult } from '../x402.js'
+import type {
+  Caip2,
+  X402AcceptEntry,
+  X402ExactAcceptEntry,
+  ExactPaymentPayload,
+  VerifyResult,
+} from '../x402.js'
 import type { ChainInput } from './evm/chains.js'
 
 /** The chain families the SDK knows about. */
@@ -320,6 +326,37 @@ export interface ResolvedNetwork {
   /* -------- server side -------- */
   /** Verify `ref` satisfies `accept`, RPC-only, in-process. */
   verify(ref: string, accept: X402AcceptEntry): Promise<VerifyResult>
+
+  /**
+   * OPTIONAL (EVM-only today) — the on-chain EIP-712 domain `{ name, version }` of an
+   * EIP-3009 token `asset`, read from the contract (`name()`/`version()`). Returns
+   * `null` when the asset is NOT an EIP-3009 token (no `transferWithAuthorization` —
+   * e.g. USDT, native coin, or a plain ERC-20), so the gate can refuse to advertise a
+   * standard `exact` rail for it. Never derived from the symbol (USDC's domain name is
+   * "USD Coin", not "USDC"; EURC's is "EURC"). Called once at exact-rail resolution
+   * (cached by the gate). RPC-read; may throw on a transient read (the gate surfaces a
+   * clear config error). The first of two optional server methods for the `exact` rail.
+   */
+  exactDomain?(asset: string): Promise<{ name: string; version: string } | null>
+
+  /**
+   * OPTIONAL (EVM-only today) — verify a standard x402 `exact` (EIP-3009) payment
+   * locally, then SELF-SETTLE it by broadcasting `transferWithAuthorization` from the
+   * merchant's own `relayer` wallet (the merchant pays gas to receive; the signature
+   * binds `to`, so no redirect risk). RETURNS a `VerifyResult`:
+   *   - `{ ok:false, error }` for a CLIENT-fixable fault (bad signature, expired,
+   *     wrong recipient/amount, used nonce, simulation revert) → gate replies 402;
+   *   - `{ ok:true, receipt }` once the settle tx is mined.
+   * THROWS {@link SettlementError} when a VALID + simulated payment fails to BROADCAST
+   * (relayer out of gas / RPC down) → gate replies 5xx (the payer's authorization is
+   * still good and its nonce unused). Re-derives every checked field from the trusted
+   * `accept`, never the client echo.
+   */
+  settleExactSelf?(input: {
+    relayer: WalletHandle
+    payload: ExactPaymentPayload
+    accept: X402ExactAcceptEntry
+  }): Promise<VerifyResult>
 }
 
 export interface ResolveOptions {

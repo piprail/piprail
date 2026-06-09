@@ -36,6 +36,8 @@ export type AddressId = string
 export interface X402ResourceObject {
   url: string
   description?: string
+  /** The resource's response content-type, e.g. 'application/json' (v2 ResourceInfo, optional). */
+  mimeType?: string
 }
 
 export interface X402AcceptEntry {
@@ -61,11 +63,57 @@ export interface X402AcceptEntry {
   }
 }
 
+/**
+ * A standard x402 `exact` rail (EVM / EIP-3009) — the interop rail a PipRail gate
+ * advertises ALONGSIDE its `onchain-proof` rail (dual-advertise) so any standard
+ * x402 client can pay it. Same v2 PaymentRequirements skeleton as
+ * {@link X402AcceptEntry}; only `scheme` and `extra` differ. The `extra` carries
+ * the EIP-712 domain a payer signs over — `name`/`version` are READ from the token
+ * contract by the gate (never assumed), since e.g. USDC's domain name is "USD Coin",
+ * not the "USDC" symbol.
+ */
+export interface X402ExactAcceptEntry {
+  scheme: 'exact'
+  network: Caip2
+  amount: string
+  asset: AssetId
+  payTo: AddressId
+  maxTimeoutSeconds: number
+  extra: {
+    /** The exact-EVM transfer method. PipRail self-settles EIP-3009 today. */
+    assetTransferMethod: 'eip3009'
+    /** EIP-712 domain name of the token (USDC: "USD Coin"; EURC: "EURC"). Read on-chain. */
+    name: string
+    /** EIP-712 domain version of the token (USDC/EURC: "2"). Read on-chain. */
+    version: string
+    /** Confirmations the gate waits for before granting access — mirrors the gate's
+     *  `minConfirmations`, so the exact rail honours the same reorg safety as onchain-proof.
+     *  A PipRail convenience (standard clients ignore unknown keys). */
+    minConfirmations?: number
+    /** Token decimals — a PipRail convenience (standard clients ignore unknown keys). */
+    decimals?: number
+    /** Human-readable amount, e.g. "0.05" — a PipRail convenience. */
+    amountFormatted?: string
+    symbol?: string
+  }
+}
+
+/** A challenge `accepts[]` entry — either PipRail's `onchain-proof` rail or a standard `exact` rail. */
+export type X402AnyAccept = X402AcceptEntry | X402ExactAcceptEntry
+
 export interface X402Challenge {
   x402Version: 2
-  error: string | null
+  /**
+   * Optional human-readable reason (v2 `error?: string`). PipRail EMITS it only on a
+   * rejected-proof re-challenge (omitted on a fresh challenge). Typed to also tolerate
+   * `null` when PARSING a foreign challenge — some deployed servers send `error: null`.
+   */
+  error?: string | null
   resource: X402ResourceObject
-  accepts: X402AcceptEntry[]
+  accepts: X402AnyAccept[]
+  /** v2 optional extensions. PipRail stamps the machine-readable rejection reason here on a
+   *  rejected-proof re-challenge: `{ piprail: { code, detail } }`. Omitted otherwise. */
+  extensions?: Record<string, unknown>
 }
 
 export interface X402PaymentSignature {
@@ -83,8 +131,46 @@ export interface X402PaymentSignature {
   payload: { nonce: string; txHash: string }
 }
 
+/**
+ * The EIP-3009 authorization a payer signs for a standard `exact` rail. All
+ * numeric fields are DECIMAL strings on the wire (value, validAfter, validBefore);
+ * `nonce` is a 0x-prefixed 32-byte hex. Identical shape across x402 v1 and v2.
+ */
+export interface ExactAuthorizationWire {
+  from: string
+  to: string
+  value: string
+  validAfter: string
+  validBefore: string
+  nonce: string
+}
+
+/** The `payload` a client sends for an `exact` rail: an EIP-3009 signature + its authorization. */
+export interface ExactPaymentPayload {
+  signature: string
+  authorization: ExactAuthorizationWire
+}
+
+/**
+ * What {@link parseExactPaymentHeader} extracts from an inbound `exact` payment,
+ * normalised across the v1 (`X-PAYMENT`, flat `{scheme,network,payload}`, network
+ * slug) and v2 (`PAYMENT-SIGNATURE`, `{accepted,payload}`, CAIP-2 network) wire
+ * shapes. `network`/`asset` are the CLIENT's claim — used only to MATCH an offered
+ * rail; the gate re-derives every verified field from its own trusted rail.
+ */
+export interface ParsedExactPayment {
+  x402Version: number
+  /** The client's claimed network (slug or CAIP-2) — for matching, not trust. */
+  network: string
+  /** The client's claimed asset, if present (v2 `accepted.asset`). */
+  asset?: string
+  payload: ExactPaymentPayload
+  /** The full decoded PaymentPayload, for verbatim forwarding to a facilitator (Mode B). */
+  raw: Record<string, unknown>
+}
+
 export interface X402Receipt {
-  scheme: 'onchain-proof'
+  scheme: 'onchain-proof' | 'exact'
   /**
    * x402 v2 SettlementResponse: settlement succeeded. Always `true` here — a
    * failed verification returns a 402, never a receipt.
@@ -130,6 +216,7 @@ export type VerifyErrorCode =
   | 'transfer_not_found' // no matching transfer (asset/amount/nonce) to payTo — definitive
   | 'payment_expired' // older than maxTimeoutSeconds (replay window) — definitive
   | 'tx_already_used' // proof already redeemed (replay) — definitive (gate-enforced)
+  | 'signature_invalid' // exact rail: the EIP-712 authorization signature didn't recover to the payer — definitive (EVM exact)
 
 /** The shape every driver's `verify()` returns. Shared by drivers + protocol. */
 export type VerifyResult =
@@ -140,18 +227,40 @@ export const HEADER_REQUIRED = 'payment-required'
 export const HEADER_SIGNATURE = 'payment-signature'
 export const HEADER_RESPONSE = 'payment-response'
 
-/* ----------------------------- base64 ----------------------------- */
+/** Legacy x402 v1 header names. PipRail EMITS v2 (the constants above) but also
+ *  READS the v1 client header and ECHOES the v1 response header, so a deprecated
+ *  v1 client (still ~half the installed base) interoperates on the `exact` rail. */
+export const HEADER_SIGNATURE_V1 = 'x-payment'
+export const HEADER_RESPONSE_V1 = 'x-payment-response'
 
-function decodeBase64(b64: string): string {
-  if (typeof atob === 'function') return atob(b64)
-  if (typeof Buffer !== 'undefined') return Buffer.from(b64, 'base64').toString('utf8')
-  throw new Error('No base64 decoder available in this runtime.')
-}
+/* ----------------------------- base64 ----------------------------- */
+//
+// UTF-8 SAFE in every runtime. `btoa`/`atob` are Latin1-only — and modern Node
+// defines them globally, so a naive `btoa`-first path silently breaks on any
+// non-ASCII byte (a chain error `detail`, a token symbol, an `…` in a viem
+// message). We prefer `Buffer` (UTF-8 native) and, where only `btoa`/`atob`
+// exist (the browser), bridge through `TextEncoder`/`TextDecoder`.
 
 function encodeBase64(str: string): string {
-  if (typeof btoa === 'function') return btoa(str)
   if (typeof Buffer !== 'undefined') return Buffer.from(str, 'utf8').toString('base64')
+  if (typeof btoa === 'function' && typeof TextEncoder !== 'undefined') {
+    const bytes = new TextEncoder().encode(str)
+    let binary = ''
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]!)
+    return btoa(binary)
+  }
   throw new Error('No base64 encoder available in this runtime.')
+}
+
+function decodeBase64(b64: string): string {
+  if (typeof Buffer !== 'undefined') return Buffer.from(b64, 'base64').toString('utf8')
+  if (typeof atob === 'function' && typeof TextDecoder !== 'undefined') {
+    const binary = atob(b64)
+    const bytes = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+    return new TextDecoder().decode(bytes)
+  }
+  throw new Error('No base64 decoder available in this runtime.')
 }
 
 function fromBase64Json<T>(b64: string): T | null {
@@ -245,6 +354,52 @@ export function parseSignatureHeader(value: string): X402PaymentSignature | null
   return parsed as X402PaymentSignature
 }
 
+/**
+ * Parse an inbound `exact` payment from a base64 header value (`PAYMENT-SIGNATURE`
+ * v2 or `X-PAYMENT` v1). Tolerant of BOTH wire shapes — the inner
+ * `{ signature, authorization }` payload is identical across versions, so we read
+ * `scheme`/`network` from either the v2 `accepted` object or the v1 flat fields.
+ * Returns null when the value isn't a recognisable `exact` payment (e.g. it's an
+ * `onchain-proof` proof, or malformed).
+ */
+export function parseExactPaymentHeader(value: string): ParsedExactPayment | null {
+  const parsed = fromBase64Json<unknown>(value)
+  if (!parsed || typeof parsed !== 'object') return null
+  const v = parsed as Record<string, unknown>
+
+  // v2 carries the chosen rail in `accepted`; v1 is flat (scheme/network at top).
+  const accepted = (v.accepted ?? null) as Record<string, unknown> | null
+  const scheme = (accepted?.scheme ?? v.scheme) as unknown
+  if (scheme !== 'exact') return null
+
+  const network = (accepted?.network ?? v.network) as unknown
+  if (typeof network !== 'string') return null
+
+  const payload = v.payload as Record<string, unknown> | undefined
+  if (!payload || typeof payload !== 'object') return null
+  const signature = payload.signature
+  const authorization = payload.authorization as Record<string, unknown> | undefined
+  if (typeof signature !== 'string' || !authorization || typeof authorization !== 'object') return null
+  for (const k of ['from', 'to', 'value', 'validAfter', 'validBefore', 'nonce'] as const) {
+    if (typeof authorization[k] !== 'string') return null
+  }
+
+  const x402Version =
+    typeof v.x402Version === 'number' ? v.x402Version : 2
+  const asset = accepted && typeof accepted.asset === 'string' ? accepted.asset : undefined
+
+  return {
+    x402Version,
+    network,
+    ...(asset ? { asset } : {}),
+    payload: {
+      signature,
+      authorization: authorization as unknown as ExactAuthorizationWire,
+    },
+    raw: v,
+  }
+}
+
 function isValidChallenge(value: unknown): value is X402Challenge {
   if (!value || typeof value !== 'object') return false
   const v = value as Record<string, unknown>
@@ -257,7 +412,7 @@ function isValidChallenge(value: unknown): value is X402Challenge {
 function isValidReceipt(value: unknown): value is X402Receipt {
   if (!value || typeof value !== 'object') return false
   const v = value as Record<string, unknown>
-  if (v.scheme !== 'onchain-proof') return false
+  if (v.scheme !== 'onchain-proof' && v.scheme !== 'exact') return false
   // v2 SettlementResponse names the proof ref `transaction`; tolerate legacy `txHash`.
   if (typeof v.transaction !== 'string' && typeof v.txHash !== 'string') return false
   if (typeof v.payer !== 'string') return false

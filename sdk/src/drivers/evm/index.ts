@@ -14,6 +14,7 @@ import {
 } from './wallet.js'
 import { payEvm } from './pay.js'
 import { verifyEvm } from './verify.js'
+import { readExactDomain, verifyAndSettleExactEvm } from './exact.js'
 import { networkForChain, chainIdFromNetwork } from '../../x402.js'
 import {
   ConfirmationTimeoutError,
@@ -244,6 +245,23 @@ function makeEvmNetwork(resolved: ResolvedChain): ResolvedNetwork {
         txHash: ref as `0x${string}`,
         accept,
         minConfirmations: accept.extra.minConfirmations,
+      })
+    },
+
+    // Standard x402 `exact` rail (EIP-3009), seller side — EVM only.
+    async exactDomain(asset) {
+      return readExactDomain(publicClient, asset)
+    },
+
+    async settleExactSelf({ relayer, payload, accept }) {
+      const a = relayer._native as WalletAdapter
+      return verifyAndSettleExactEvm({
+        publicClient,
+        walletClient: a.walletClient,
+        account: a.account,
+        chain: resolved.chain,
+        payload,
+        accept,
       })
     },
   }

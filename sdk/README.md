@@ -40,6 +40,25 @@ const data = await res.json()
 
 On a `402`, the client reads the challenge, sends the payment on-chain, waits for confirmation, and retries with proof — all inside `client.fetch`. The same app can **take** payments with `requirePayment` and **make** them with `PipRailClient`. Built for autonomous agents: install, add a wallet, monetize or pay — nothing else to wire up.
 
+## Universal payments — get paid by *any* x402 client
+
+PipRail's envelope is x402 **v2**-conformant, and its default `onchain-proof` scheme is backendless (the payer broadcasts, you verify locally — zero merchant key, zero merchant gas). To **also** be payable by a standard x402 client (Coinbase's `x402-fetch`, `@x402/fetch`, anything speaking the ratified `exact`/EIP-3009 scheme), opt into a standard `exact` rail — advertised **alongside** `onchain-proof` in the same 402:
+
+```ts
+requirePayment({
+  chain: 'base', token: 'USDC', amount: '0.05', payTo: '0xYourWallet…',
+  exact: { settle: 'self', relayer: { privateKey: process.env.RELAYER_KEY } },
+})
+```
+
+Now the gate offers two rails: a standard x402 client picks `exact`; a PipRail client picks `onchain-proof`. The `exact` rail is **self-settled** — your own `relayer` key broadcasts the client's signed EIP-3009 authorization, so the **payer spends no gas** (you do, to receive). The EIP-712 token domain is read from the contract, so it's correct on every chain (USDC's domain name is `"USD Coin"`, not the symbol). Prefer not to run a relayer key? Delegate settlement to a third-party facilitator you choose — PipRail still hosts nothing:
+
+```ts
+exact: { settle: { facilitator: 'https://x402.org/facilitator' } }
+```
+
+EVM + EIP-3009 tokens only (USDC, EURC — not USDT, not native; those stay `onchain-proof`). Omit `exact` and the gate is byte-identical to today. Proven end-to-end: a real `@x402/fetch` reference client settles against a PipRail gate on Base mainnet.
+
 ## Built for agents — spend safely
 
 A funded key loose on the internet needs guardrails. Opt in to a `policy` and the client refuses anything outside it **before any on-chain send** — plus learn a price without paying it, approve each payment, and read back exactly what you spent. All opt-in, all local, no backend; omit it and the client behaves exactly as before.
@@ -659,6 +678,7 @@ The full standard every module follows is **[ERRORS.md](./ERRORS.md)**.
 | `onPaid` | — | `(receipt) => void` on a verified payment (see [Receipts](#receipts--record-every-payment)) |
 | `isUsed` / `markUsed` | in-memory | Replay store hooks — share across instances (e.g. Redis `SET NX`) |
 | `generateNonce` | `crypto.randomUUID()` | Custom per-challenge nonce generator |
+| `exact` | — | Opt in to **also** advertise a standard x402 `exact` rail (EIP-3009) so any standard client can pay: `{ settle: 'self', relayer: { privateKey } }` (your relayer broadcasts) or `{ settle: { facilitator } }` (delegate to a chosen facilitator). EVM + USDC/EURC only — see [Universal payments](#universal-payments--get-paid-by-any-x402-client) |
 
 Provide **either** `chain` + `token` + `amount` (single) **or** a non-empty `accept` array (multi) — not both.
 

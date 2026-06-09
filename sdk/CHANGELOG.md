@@ -4,6 +4,47 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.10.0] — 2026-06-09
+
+### Added — Universal Payments (the standard x402 `exact` rail)
+- **Get paid by ANY standard x402 client.** A gate can now opt into advertising a ratified x402
+  `exact` rail (EIP-3009) **alongside** its backendless `onchain-proof` rail (dual-advertise) —
+  `requirePayment({ …, exact: { settle: 'self', relayer: { privateKey } } })`. A standard client
+  (`x402-fetch`, `@x402/fetch`, …) picks `exact`; a PipRail client picks `onchain-proof`. Opt-in;
+  omitting `exact` leaves the gate byte-identical. EVM + EIP-3009 only (USDC/EURC); USDT, native, and
+  non-EVM chains stay `onchain-proof` (a clear config error if you request `exact` on them).
+- **Two backendless settlement modes.** `settle: 'self'` broadcasts `transferWithAuthorization` from
+  the merchant's own relayer key (payer spends **zero** gas; the merchant pays gas to receive — the
+  signature binds `to`, so no redirect risk). `settle: { facilitator }` delegates verify+settle to a
+  third-party x402 facilitator the merchant chooses (Coinbase CDP, x402.org, …) via the new pure
+  `settleViaFacilitator` — PipRail hosts nothing either way.
+- **EIP-712 domain read from the token.** The exact rail reads `name()`/`version()` from the contract
+  (never assumed from the symbol — USDC's domain name is `"USD Coin"`, EURC's is `"EURC"`, bridged
+  USDC differs), so it's correct across all 18 built-in EVM USDC chains. Proven live: a real
+  `@x402/fetch` reference client settles against a PipRail gate on Base mainnet.
+- New exports: `ExactRailOption`, `SettlementError` (`SETTLEMENT_FAILED`), `signature_invalid`
+  (`VerifyErrorCode`), `settleViaFacilitator` + `FacilitatorConfig`, `parseExactPaymentHeader`,
+  `readExactDomain`, `eip3009Abi`, the `X402ExactAcceptEntry`/`X402AnyAccept`/`ExactPaymentPayload`
+  types, and the v1 header constants `HEADER_SIGNATURE_V1`/`HEADER_RESPONSE_V1`.
+
+### Changed — x402 v2 conformance
+- **A rejected proof is now a conformant 402.** The gate re-issues a full v2 `PaymentRequired`
+  re-challenge on rejection (carries `accepts[]` so a standard client can retry, the human reason in
+  `error`, and the machine code in `extensions.piprail`) instead of the old non-standard
+  `{ status: 'invalid' }` body. The built-in `requirePayment` adapter emits it automatically; the
+  client reads the structured reason. `toInvalidBody` is **deprecated** (kept for back-compat) — prefer
+  the gate's `result.challenge`.
+- **Receive + respond on both header sets.** The gate accepts an inbound payment on `PAYMENT-SIGNATURE`
+  (v2) **or** `X-PAYMENT` (v1), and emits the settlement on both `PAYMENT-RESPONSE` and
+  `X-PAYMENT-RESPONSE`, so deprecated-but-common v1 clients interoperate on the `exact` rail.
+- A fresh challenge now omits `error` (was `error: null`) and may carry `extensions`/`resource.mimeType`.
+
+### Fixed
+- **UTF-8-safe base64 envelope codec.** The wire codec preferred `btoa`/`atob`, which are Latin1-only —
+  and modern Node defines them globally — so a challenge/receipt containing a non-ASCII byte (a chain
+  error `detail`, an `…` in a viem message, a token symbol) threw `InvalidCharacterError`. It now
+  prefers `Buffer` and bridges through `TextEncoder`/`TextDecoder` in the browser.
+
 ## [1.9.0] — 2026-06-08
 
 ### Added
@@ -508,6 +549,7 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[1.10.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.9.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.8.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.7.0]: https://www.npmjs.com/package/@piprail/sdk

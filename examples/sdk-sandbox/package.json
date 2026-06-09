@@ -12,10 +12,17 @@
     "wire": "node suites/04-wire-and-errors.mjs",
     "live": "node suites/05-live-roundtrip.mjs",
     "discovery": "node suites/06-discovery.mjs",
+    "exact": "node suites/07-exact-rail.mjs",
+    "interop": "node suites/08-x402-interop.mjs",
+    "exact-chains": "node suites/exact-chains.mjs",
+    "live-exact": "node suites/live-exact.mjs",
     "merchant": "node lib/merchant.mjs"
   },
+  "comment": "Suites 07/08/exact-chains/live-exact import the LOCAL ../../../sdk/dist (run `npm run build` in sdk/ first), so they test working-tree code. 07 (Anvil) + 08 (@x402 reference client) need Foundry's anvil; live-exact needs ../../../.secrets and spends real Base USDC (tiny).",
   "dependencies": {
     "@piprail/sdk": "^1.8.0",
+    "@x402/evm": "^2.14.0",
+    "@x402/fetch": "^2.14.0",
     "express": "^5.0.0",
     "viem": "^2.21.0"
   },

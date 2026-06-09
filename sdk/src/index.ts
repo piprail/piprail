@@ -47,6 +47,7 @@ export { requirePayment, createPaymentGate, toInvalidBody } from './server.js'
 export type {
   RequirePaymentOptions,
   AcceptOption,
+  ExactRailOption,
   ChainSelector,
   TokenInput,
   PaymentGate,
@@ -57,6 +58,18 @@ export type {
   ExpressLikeNext,
   ExpressLikeMiddleware,
 } from './server.js'
+
+/* --------------- standard `exact` rail: Mode-B facilitator (server side) --------------- */
+
+// Delegate a standard `exact` payment's verify+settle to a THIRD-PARTY facilitator
+// the MERCHANT chooses (Coinbase CDP, x402.org, …). Pure fetch — PipRail hosts
+// nothing. `createPaymentGate({ exact: { settle: { facilitator } } })` uses this.
+export { settleViaFacilitator } from './facilitator.js'
+export type {
+  FacilitatorConfig,
+  FacilitatorPaymentRequirements,
+  SettleViaFacilitatorInput,
+} from './facilitator.js'
 
 /* ------------------------------- chains ------------------------------- */
 
@@ -116,6 +129,7 @@ export {
   InvalidEnvelopeError,
   NoCompatibleAcceptError,
   NonReplayableBodyError,
+  SettlementError,
   toInsufficientFundsError,
 } from './errors.js'
 
@@ -130,9 +144,15 @@ export {
   parseChallenge,
   parseReceipt,
   parseSignatureHeader,
+  parseExactPaymentHeader,
   buildChallengeHeader,
   buildSignatureHeader,
   buildReceiptHeader,
+  HEADER_REQUIRED,
+  HEADER_SIGNATURE,
+  HEADER_RESPONSE,
+  HEADER_SIGNATURE_V1,
+  HEADER_RESPONSE_V1,
 } from './x402.js'
 export type {
   Caip2,
@@ -141,23 +161,31 @@ export type {
   VerifyResult,
   VerifyErrorCode,
   X402AcceptEntry,
+  X402ExactAcceptEntry,
+  X402AnyAccept,
   X402Challenge,
   X402PaymentSignature,
   X402Receipt,
   X402ResourceObject,
+  ExactAuthorizationWire,
+  ExactPaymentPayload,
+  ParsedExactPayment,
 } from './x402.js'
 
-/* ------------- x402 `exact`-scheme interop (EVM, experimental) ------------- */
+/* ------------- x402 `exact`-scheme interop (EVM, EIP-3009) ------------- */
 
-// EXPERIMENTAL building blocks to PAY a server speaking the mainstream x402
-// `exact` scheme (EIP-3009 + facilitator) — making PipRail a universal x402
-// client. Not wired into PipRailClient's default flow; hand-roll with these and
-// validate against your target facilitator. See ERRORS.md / the README.
+// The standard x402 `exact` scheme, BOTH directions:
+//  • BUYER  — building blocks to PAY a server speaking `exact` (EIP-3009 + facilitator),
+//    making PipRail a universal x402 client. Not wired into PipRailClient's default.
+//  • SELLER — get PAID via `exact` with `createPaymentGate({ exact: … })`. `readExactDomain`
+//    reads a token's true EIP-712 domain; `eip3009Abi` is the minimal seller ABI.
 export {
   parseExactRequirements,
   chainIdForExactNetwork,
   buildExactAuthorization,
   encodeXPaymentHeader,
+  readExactDomain,
+  eip3009Abi,
   EXACT_NETWORK_SLUGS,
   EIP3009_TYPES,
 } from './drivers/evm/exact.js'

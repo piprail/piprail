@@ -35,10 +35,30 @@ const accept: X402AcceptEntry = {
 
 const challenge: X402Challenge = {
   x402Version: 2,
-  error: null,
   resource: { url: 'https://api.example.com/report', description: 'A report' },
   accepts: [accept],
 }
+
+describe('base64 envelope codec is UTF-8 safe (no Latin1 btoa breakage)', () => {
+  it('round-trips a challenge whose error/detail contains non-ASCII (chain error, …, symbols)', () => {
+    const c: X402Challenge = {
+      x402Version: 2,
+      error: 'tx_reverted: would revert — gas required exceeds allowance… (€, ✓, 日本語)',
+      resource: { url: 'https://api.example.com/r', description: 'café — premium ✓' },
+      accepts: [accept],
+      extensions: { piprail: { code: 'tx_reverted', detail: 'Out of gas…' } },
+    }
+    const header = buildChallengeHeader(c)
+    const res = new Response(null, { status: 402, headers: { 'payment-required': header } })
+    // parseChallenge reads the header and JSON.parses the UTF-8 body back intact.
+    return parseChallenge(res).then((parsed) => {
+      expect(parsed).not.toBeNull()
+      expect(parsed!.error).toBe(c.error)
+      expect(parsed!.resource.description).toBe('café — premium ✓')
+      expect((parsed!.extensions as { piprail: { detail: string } }).piprail.detail).toBe('Out of gas…')
+    })
+  })
+})
 
 describe('network id helpers', () => {
   it('round-trips chain id ⇄ eip155 network', () => {

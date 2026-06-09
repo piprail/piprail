@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { TronWeb } from 'tronweb'
 import { Wallet } from 'xrpl'
 import { createPaymentGate } from '../src/server.js'
+import { proofAccepts } from './_dual-rail.js'
 
 // One challenge spanning an EVM chain + the two new families. Proves Tron and
 // XRPL resolve correctly under a multi-chain accept[] gate (the gate itself is
@@ -25,7 +26,7 @@ describe('multi-chain accepts — EVM + Tron + XRPL in one challenge', () => {
     })
     const { challenge } = await gate.challenge()
     expect(challenge.accepts).toHaveLength(3)
-    const [base, tron, xrpl] = challenge.accepts
+    const [base, tron, xrpl] = proofAccepts(challenge)
 
     expect(base!.network).toBe('eip155:8453')
 

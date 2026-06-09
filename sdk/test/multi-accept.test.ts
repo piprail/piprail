@@ -3,6 +3,7 @@ import { Keypair } from '@solana/web3.js'
 import { parseUnits } from 'viem'
 import { createPaymentGate } from '../src/server.js'
 import { buildSignatureHeader } from '../src/x402.js'
+import { proofAccepts, firstProof } from './_dual-rail.js'
 
 const EVM_PAY_TO = '0x1111111111111111111111111111111111111111'
 const SOL_PAY_TO = Keypair.generate().publicKey.toBase58()
@@ -25,7 +26,7 @@ describe('multi-chain accepts — challenge issuance', () => {
     const { challenge } = await multiGate().challenge('https://api.example.com/r')
     expect(challenge.accepts).toHaveLength(2)
 
-    const [base, sol] = challenge.accepts
+    const [base, sol] = proofAccepts(challenge)
     expect(base!.network).toBe('eip155:8453')
     expect(base!.asset).toBe(BASE_USDC)
     expect(base!.payTo).toBe(EVM_PAY_TO)
@@ -59,7 +60,7 @@ describe('multi-chain accepts — challenge issuance', () => {
     expect(challenge.accepts[2]!.payTo).toBe(SOL_PAY_TO) // per-option
     expect(challenge.accepts[1]!.amount).toBe(parseUnits('0.06', 6).toString())
     // still one shared nonce across all three
-    expect(new Set(challenge.accepts.map((a) => a.extra.nonce)).size).toBe(1)
+    expect(new Set(proofAccepts(challenge).map((a) => a.extra.nonce)).size).toBe(1)
   })
 
   it('per-option amounts and tokens can differ', async () => {
@@ -102,7 +103,7 @@ describe('multi-chain accepts — config validation', () => {
       accept: [{ chain: 'base', token: 'USDC', amount: '0.05' }],
       payTo: EVM_PAY_TO,
     })
-    const accept = (await gate.challenge()).challenge.accepts[0]!
+    const accept = firstProof((await gate.challenge()).challenge)
     expect(accept.payTo).toBe(EVM_PAY_TO)
   })
 })
@@ -110,7 +111,7 @@ describe('multi-chain accepts — config validation', () => {
 describe('multi-chain accepts — verify routing (no RPC needed)', () => {
   it('rejects a proof claiming a network the gate does not offer', async () => {
     const gate = multiGate()
-    const accept = (await gate.challenge()).challenge.accepts[0]!
+    const accept = firstProof((await gate.challenge()).challenge)
     // Forge a proof claiming an un-offered network.
     const sig = buildSignatureHeader({
       x402Version: 2,
@@ -131,7 +132,7 @@ describe('multi-chain accepts — verify routing (no RPC needed)', () => {
       isUsed: () => true,
       markUsed: () => {},
     })
-    const accept = (await gate.challenge()).challenge.accepts[0]!
+    const accept = firstProof((await gate.challenge()).challenge)
     const sig = buildSignatureHeader({
       x402Version: 2,
       accepted: accept,

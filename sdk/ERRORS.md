@@ -25,9 +25,13 @@ Every failure surfaces through exactly one of two chain-agnostic channels:
   (a stable `SCREAMING_SNAKE` string). They never leak a raw `viem`/`@solana`/`@ton`/
   `@stellar` error for a condition the SDK recognises.
 - **Returned** `VerifyResult` is how a driver's `verify()` reports *why a proof was rejected*
-  without throwing. The gate turns `{ ok: false, error, detail }` into the canonical 402
-  body `{ x402Version: 2, status: 'invalid', error, detail }` (built once by
-  [`toInvalidBody`](src/server.ts)); the client relays it to the agent.
+  without throwing. The gate turns `{ ok: false, error, detail }` into a **conformant v2
+  `PaymentRequired` re-challenge** — a full 402 body with `accepts[]` (so a standard x402 client
+  can retry), the human reason in `error`, and the machine code in `extensions.piprail.{code,detail}`.
+  The built-in `requirePayment` adapter emits it + the `PAYMENT-REQUIRED` header automatically; the
+  client reads the structured reason and relays it to the agent. (The legacy
+  [`toInvalidBody`](src/server.ts) `{ status: 'invalid', … }` helper is **deprecated** — it has no
+  `accepts[]`, so a standard client can't retry; prefer the gate's `result.challenge`.)
 
 Rule of thumb: **config/flow/wallet/registry/affordability → throw; proof-verification
 outcome → return.** Replay (`tx_already_used`) is the one verify-style code emitted by the
@@ -56,6 +60,7 @@ Base class [`PipRailError`](src/errors.ts) (abstract; `.name` = the subclass nam
 | `NON_REPLAYABLE_BODY` | `NonReplayableBodyError` | `init.body` isn't replayable (e.g. a one-shot stream) | client |
 | `MISSING_DRIVER` | `MissingDriverError` | a family's **optional peer deps aren't installed** (the lazy `import()` failed) — message names the exact `npm install` and sets `{ cause }` | registry loaders |
 | `UNSUPPORTED_NETWORK` | `UnsupportedNetworkError` | no driver for the family, or the driver's `resolve()` returned `null` (unrecognised `chain`) | registry |
+| `SETTLEMENT_FAILED` | `SettlementError` | the standard `exact` rail: a payment was VALID (sig recovered, simulated) but **settlement failed server-side** — the merchant's relayer couldn't broadcast, or a Mode-B facilitator returned a transport/auth error. NOT the payer's fault (their authorization stays valid + unused), so the adapter returns **5xx**, never 402 | gate (`exact` rail) |
 
 `MISSING_DRIVER` vs `UNSUPPORTED_NETWORK` is a deliberate split: *deps not installed* vs
 *chain not supported*. Don't reuse one for the other.
@@ -77,8 +82,9 @@ a code, and you must use the same code other drivers use for the same condition.
 | `wrong_recipient` | paid, but not to `payTo` | definitive | EVM / Solana native path |
 | `amount_too_low` | paid to `payTo`, but `< required` | definitive | all |
 | `transfer_not_found` | no matching transfer (asset / amount / nonce) to `payTo` | definitive | all |
-| `payment_expired` | older than `maxTimeoutSeconds` (replay window) | definitive | all |
-| `tx_already_used` | this proof was already redeemed (replay) | definitive | the **gate** (not drivers) |
+| `payment_expired` | older than `maxTimeoutSeconds` (replay window); on `exact`, an expired/not-yet-valid EIP-3009 authorization | definitive | all |
+| `tx_already_used` | this proof was already redeemed (replay); on `exact`, an on-chain-consumed authorization nonce | definitive | the **gate** (+ EVM `exact` via `authorizationState`) |
+| `signature_invalid` | `exact` rail: the EIP-712 authorization signature didn't recover to the payer | definitive | EVM `exact` |
 
 **Family-specificity is structural, not drift.** Account-watch chains (TON, Stellar) scan the
 merchant account and can't tell "wrong recipient" from "no payment", so both collapse to
@@ -95,9 +101,14 @@ the code. A consumer building a custom client may branch on it.
 
 ## 4. What the agent receives
 
-- **Rejected proof →** a `402` with body `{ x402Version: 2, status: 'invalid', error, detail }`.
-  Always build it with [`toInvalidBody(result)`](src/server.ts) so Express, Hono, Fastify,
-  Workers, etc. emit the *identical* envelope.
+- **Rejected proof →** a conformant `402` **re-challenge**: a full v2 `PaymentRequired` body with
+  `accepts[]` (so a standard x402 client can retry), the reason in `error`, and the machine code in
+  `extensions.piprail.{code,detail}`, plus the `PAYMENT-REQUIRED` header. The built-in
+  `requirePayment` adapter emits `result.challenge` automatically; other adapters should do the same
+  (NOT the deprecated bare [`toInvalidBody`](src/server.ts), which omits `accepts[]`).
+- **`exact`-rail settlement failed server-side →** a `5xx` (a thrown `SettlementError`), never a 402:
+  the payer's EIP-3009 authorization is still valid and its nonce unused, so re-presenting it once the
+  merchant fixes their relayer/facilitator settles — re-paying would be wrong.
 - **Client gave up →** `MaxRetriesExceededError` whose message embeds the last server
   `error — detail` (e.g. `… Last server rejection: amount_too_low — Paid 40000, required
   500000.`), and a `payment-failed` event carrying the same reason.
@@ -148,6 +159,8 @@ Every `PaymentDriver` / `ResolvedNetwork` method has a fixed error behaviour:
 | `bindWallet(wallet)` | a foreign / unusable wallet shape → `WrongFamilyError`. |
 | `send(wallet, accept)` | wrap the broadcast; map **sender** affordability → `InsufficientFundsError` (§6) and **recipient** setup → `RecipientNotReadyError` (§6.1); **rethrow everything else unchanged** (never swallow). Every mapped throw carries `{ cause }` = the raw chain error. |
 | `verify(ref, accept)` | **return** a `VerifyResult` with a canonical `VerifyErrorCode`. **Guard every RPC read** so a transient failure returns `tx_not_found` — `verify()` must not throw for an RPC hiccup. Re-derive the watched account from the trusted `accept`, never the client ref. |
+| `exactDomain?(asset)` *(optional, EVM)* | **never throw for a non-EIP-3009 token** — return `null` (the gate raises a clear config error). May throw only on a hard RPC failure at gate setup. |
+| `settleExactSelf?(input)` *(optional, EVM)* | **return** a `VerifyResult` for a CLIENT-fixable fault (`signature_invalid`/`wrong_recipient`/`amount_too_low`/`payment_expired`/`tx_already_used`/`tx_reverted` → 402); **throw `SettlementError`** when a valid+simulated payment fails to BROADCAST (relayer/RPC → 5xx). Re-derive every checked field from the trusted `accept`, never the client echo. |
 | `confirm(ref, n)` | broadcast-but-not-confirmed / timeout → `ConfirmationTimeoutError`. |
 | `estimateCost(accept, opts?)` | **never throw** — guard the RPC read and fall back to a `'heuristic'` constant; always return a valid `CostEstimate`. |
 | `balanceOf(wallet, asset)` | **never throw** — RPC-read-only. A field whose read was unavailable (transient/rate-limit) returns `null`, NOT `0` (a false 0 reads as "broke"). For `asset==='native'`, `token === native`. |

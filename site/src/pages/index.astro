@@ -34,6 +34,13 @@ const why = [
   { icon: Zap, t: 'One line, zero infra', d: 'npm install, name a chain, add a wallet. Nothing to sign up for, deploy, or host — you’re charging agents in minutes.' },
 ]
 
+// The universal-rail story: backendless by default, standard-interoperable on opt-in.
+const interop = [
+  { icon: ShieldCheck, t: 'Backendless by default', d: `The onchain-proof rail: the payer broadcasts their own transfer and you verify it against your own RPC. No relayer, no facilitator, no key to hold — on every one of the ${total} chains.` },
+  { icon: Handshake, t: 'Speaks the standard', d: 'Opt in to a standard exact (EIP-3009) rail and any x402 client — Coinbase’s, the open-source reference client, anyone’s — can pay your gate. Settle with your own relayer key, or a facilitator you choose.' },
+  { icon: Boxes, t: 'One gate, both rails', d: 'A gate advertises both at once: standard clients pick exact, PipRail clients pick onchain-proof. Proven end-to-end against the official x402 reference client on Base mainnet.' },
+]
+
 const steps = [
   { icon: Zap, n: '01', t: 'Agent calls your route', d: 'It gets back a 402 quote — price, token, payTo, chain.' },
   { icon: Coins, n: '02', t: 'Agent pays on-chain', d: 'One transfer, straight to your wallet. PipRail never touches the funds.' },
@@ -82,6 +89,10 @@ const faqs = [
   {
     q: `Is there a fee to use PipRail?`,
     a: `No. PipRail charges no fee and takes no cut. It's an open-source (MIT) npm package, not a platform or hosted service. Payments settle straight into your own wallet — there's no PipRail backend, facilitator, or middleman in the path. You pay only normal network gas on whichever chain you choose.`,
+  },
+  {
+    q: `Can any x402 client pay a PipRail endpoint?`,
+    a: `Yes. PipRail's wire envelope is x402 v2-conformant, and a gate can opt into advertising the ratified "exact" (EIP-3009) scheme alongside its default backendless "onchain-proof" rail. A standard x402 client (Coinbase's, the open-source reference client) picks the exact rail; a PipRail client picks onchain-proof — both offered in the same 402. Settlement stays backendless either way: your own relayer key broadcasts the signed authorization, or you delegate to a third-party facilitator you choose, so the payer spends no gas and PipRail hosts nothing. It's verified end-to-end against the official x402 reference client on Base mainnet. The standard exact rail is EVM + EIP-3009 tokens (USDC/EURC) today; every other chain and token is paid via onchain-proof, which is itself x402.`,
   },
 ]
 const faqLd = {
@@ -293,6 +304,29 @@ const howToLd = {
           )
         })}
       </ol>
+    </section>
+
+    <!-- 6.5 · Universal — speaks the standard, stays backendless -->
+    <section class="border-t border-white/10 py-20 sm:py-24">
+      <SectionHeading title="One standard. Every client.">
+        PipRail’s envelope is x402 <span class="text-neutral-200">v2-conformant</span>, so any x402 client can read your gate.
+        Keep the backendless default — the payer broadcasts, you verify locally — and opt in to the ratified
+        <code class="text-neutral-300">exact</code> rail to get paid by the whole ecosystem. No middleman either way.
+      </SectionHeading>
+      <div class="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 md:grid-cols-3">
+        {interop.map((w) => {
+          const Icon = w.icon
+          return (
+            <div class="bg-neutral-950 p-6 sm:p-8">
+              <span class="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5">
+                <Icon size={18} class="text-accent" aria-hidden="true" />
+              </span>
+              <p class="mt-4 text-lg font-medium text-neutral-100">{w.t}</p>
+              <p class="mt-2 leading-relaxed text-neutral-500">{w.d}</p>
+            </div>
+          )
+        })}
+      </div>
     </section>
 
     <!-- 7 · MCP teaser -->

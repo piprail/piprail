@@ -1,5 +1,11 @@
 # @piprail/mcp changelog
 
+## 0.2.5 — 2026-06-09
+
+- **Rebuilt against `@piprail/sdk` ^1.10.0** — the SDK's new standard x402 `exact` rail + v2
+  conformance fixes (UTF-8-safe envelope codec, conformant rejection bodies). The MCP is the
+  payer side, so there's **no server behaviour change**; this just pins the latest SDK.
+
 ## 0.2.4 — 2026-06-08
 
 - **Kaia support (via `@piprail/sdk` ^1.9.0).** Bumped the SDK dependency so the server can pay on

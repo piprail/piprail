@@ -1,0 +1,180 @@
+/**
+ * Mode-B settlement: delegate a standard `exact` payment to a THIRD-PARTY x402
+ * facilitator the MERCHANT chooses (Coinbase CDP, x402.org, or any). PipRail hosts
+ * nothing — this is two HTTP POSTs to the merchant's configured facilitator URL.
+ *
+ * PROTOCOL LAYER — pure `fetch`, ZERO chain libraries (STANDARDS §1). The other
+ * settlement mode (self-settle with the merchant's own relayer key) lives in the
+ * EVM driver; this one is chain-agnostic because the facilitator does the chain work.
+ *
+ * The wire contract (x402 v2, verified against coinbase/x402 core):
+ *   POST {url}/verify   body { x402Version, paymentPayload, paymentRequirements } → { isValid, invalidReason?, payer? }
+ *   POST {url}/settle   SAME body                                                → { success, transaction, network, payer?, errorReason? }
+ * Both protocol outcomes are HTTP 200 (the boolean flips); a non-200 is a
+ * transport/auth failure. There is no registration and no idempotency key — so a
+ * SELF-settling merchant must guard replay itself (the gate's used-proof set does).
+ */
+import type { VerifyResult, VerifyErrorCode, X402Receipt, Caip2, AssetId, AddressId } from './x402.js'
+import { SettlementError } from './errors.js'
+
+/** Standard x402 `exact` PaymentRequirements, built from the gate's TRUSTED rail. */
+export interface FacilitatorPaymentRequirements {
+  scheme: 'exact'
+  network: string
+  asset: string
+  amount: string
+  payTo: string
+  maxTimeoutSeconds: number
+  extra: { name: string; version: string }
+}
+
+/** A merchant-chosen facilitator: its base URL + optional per-request auth headers. */
+export interface FacilitatorConfig {
+  /** Base URL, e.g. 'https://x402.org/facilitator' (trailing slash stripped). */
+  url: string
+  /** Optional async auth-header provider (e.g. CDP JWT). Omit for the free, no-auth facilitators. */
+  authHeaders?: () => Promise<Record<string, string>>
+}
+
+export interface SettleViaFacilitatorInput extends FacilitatorConfig {
+  x402Version: number
+  /** The decoded PaymentPayload the client sent — forwarded verbatim. */
+  paymentPayload: Record<string, unknown>
+  /** PaymentRequirements built from the gate's trusted rail (never the client echo). */
+  paymentRequirements: FacilitatorPaymentRequirements
+  /** The receipt's network (CAIP-2) + asset/amount/payTo, for building the X402Receipt on success. */
+  receipt: { network: Caip2; asset: AssetId; payTo: AddressId; amount: string }
+  /** authorization.from, for the receipt's `payer`. */
+  payerHint?: string
+}
+
+interface VerifyResponse {
+  isValid: boolean
+  invalidReason?: string
+  invalidMessage?: string
+  payer?: string
+}
+interface SettleResponse {
+  success: boolean
+  errorReason?: string
+  errorMessage?: string
+  payer?: string
+  transaction: string
+  network: string
+}
+
+/** JSON.stringify with a BigInt-safe replacer (mirrors coinbase's facilitator client). */
+function safeStringify(value: unknown): string {
+  return JSON.stringify(value, (_k, v) => (typeof v === 'bigint' ? v.toString() : v))
+}
+
+/** Map a facilitator's `invalidReason`/`errorReason` string to a PipRail VerifyErrorCode. */
+function mapReason(reason: string | undefined): VerifyErrorCode {
+  const r = (reason ?? '').toLowerCase()
+  if (r.includes('signature')) return 'signature_invalid'
+  if (r.includes('recipient')) return 'wrong_recipient'
+  if (r.includes('value') || r.includes('amount')) return 'amount_too_low'
+  if (r.includes('valid_before') || r.includes('valid_after') || r.includes('expired')) return 'payment_expired'
+  if (r.includes('used') || r.includes('replay') || r.includes('nonce') || r.includes('transaction_state')) {
+    return 'tx_already_used'
+  }
+  // insufficient_funds, paused, blacklisted, unknown → the payer can re-try after fixing → tx_reverted.
+  return 'tx_reverted'
+}
+
+async function post(
+  url: string,
+  body: unknown,
+  headers: Record<string, string>
+): Promise<{ status: number; json: unknown }> {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...headers },
+    body: safeStringify(body),
+  })
+  let json: unknown = null
+  try {
+    json = await res.json()
+  } catch {
+    /* non-JSON body */
+  }
+  return { status: res.status, json }
+}
+
+/**
+ * Verify-then-settle a standard `exact` payment through a third-party facilitator.
+ * Returns a {@link VerifyResult}: `{ ok:false, error }` for a client-fixable
+ * facilitator rejection (verify isValid:false, or settle success:false) → 402;
+ * `{ ok:true, receipt }` on a settled payment. THROWS {@link SettlementError} on a
+ * transport/auth failure (non-200) — the gate replies 5xx, never a misleading 402.
+ */
+export async function settleViaFacilitator(input: SettleViaFacilitatorInput): Promise<VerifyResult> {
+  const base = input.url.replace(/\/+$/, '')
+  const body = {
+    x402Version: input.x402Version,
+    paymentPayload: input.paymentPayload,
+    paymentRequirements: input.paymentRequirements,
+  }
+  const auth = input.authHeaders ? await input.authHeaders() : {}
+
+  // 1) /verify — a cheap, early reject before asking the facilitator to settle.
+  let verify: { status: number; json: unknown }
+  try {
+    verify = await post(`${base}/verify`, body, auth)
+  } catch (err) {
+    throw new SettlementError(
+      `exact settle (facilitator ${base}): /verify request failed (${err instanceof Error ? err.message : String(err)}).`,
+      { cause: err }
+    )
+  }
+  if (verify.status !== 200) {
+    throw new SettlementError(
+      `exact settle (facilitator ${base}): /verify returned HTTP ${verify.status} (transport/auth error).`
+    )
+  }
+  const vr = (verify.json ?? {}) as VerifyResponse
+  if (vr.isValid === false) {
+    return {
+      ok: false,
+      error: mapReason(vr.invalidReason),
+      detail: `Facilitator rejected the payment: ${vr.invalidReason ?? 'invalid'}${vr.invalidMessage ? ` — ${vr.invalidMessage}` : ''}.`,
+    }
+  }
+
+  // 2) /settle — the facilitator broadcasts + waits.
+  let settle: { status: number; json: unknown }
+  try {
+    settle = await post(`${base}/settle`, body, auth)
+  } catch (err) {
+    throw new SettlementError(
+      `exact settle (facilitator ${base}): /settle request failed (${err instanceof Error ? err.message : String(err)}).`,
+      { cause: err }
+    )
+  }
+  if (settle.status !== 200) {
+    throw new SettlementError(
+      `exact settle (facilitator ${base}): /settle returned HTTP ${settle.status} (transport/auth error).`
+    )
+  }
+  const sr = (settle.json ?? {}) as SettleResponse
+  if (!sr.success) {
+    return {
+      ok: false,
+      error: mapReason(sr.errorReason),
+      detail: `Facilitator settlement failed: ${sr.errorReason ?? 'unknown'}${sr.errorMessage ? ` — ${sr.errorMessage}` : ''}.`,
+    }
+  }
+
+  const receipt: X402Receipt = {
+    scheme: 'exact',
+    success: true,
+    network: input.receipt.network,
+    transaction: sr.transaction,
+    asset: input.receipt.asset,
+    amount: input.receipt.amount,
+    payer: sr.payer ?? input.payerHint ?? '',
+    payTo: input.receipt.payTo,
+    verifiedAt: new Date().toISOString(),
+  }
+  return { ok: true, receipt }
+}

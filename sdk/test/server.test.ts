@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { parseUnits } from 'viem'
 import { createPaymentGate, type RequirePaymentOptions } from '../src/server.js'
 import { buildSignatureHeader } from '../src/x402.js'
+import { firstProof } from './_dual-rail.js'
 
 const PAY_TO = '0x1111111111111111111111111111111111111111' as const
 const TOKEN = '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d' as const
@@ -34,8 +35,8 @@ describe('createPaymentGate — challenge issuance', () => {
 
   it('mints a fresh nonce per challenge', async () => {
     const gate = createPaymentGate(baseOptions())
-    const a = (await gate.challenge()).challenge.accepts[0]!.extra.nonce
-    const b = (await gate.challenge()).challenge.accepts[0]!.extra.nonce
+    const a = firstProof((await gate.challenge()).challenge).extra.nonce
+    const b = firstProof((await gate.challenge()).challenge).extra.nonce
     expect(a).not.toBe(b)
   })
 
@@ -132,7 +133,7 @@ describe('createPaymentGate — verify branches that need no RPC', () => {
     const gate = createPaymentGate(
       baseOptions({ isUsed: () => true, markUsed: () => {} })
     )
-    const accepted = (await gate.challenge()).challenge.accepts[0]!
+    const accepted = firstProof((await gate.challenge()).challenge)
     const sigHeader = buildSignatureHeader({
       x402Version: 2,
       accepted,
