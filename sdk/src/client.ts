@@ -12,12 +12,16 @@ import {
   searchOpenIndexes,
   register402Index,
   registerX402Scan,
+  claim402IndexDomain,
+  verify402IndexDomain,
   decorateOutcome,
   normalizeNetwork,
   type DiscoveredResource,
   type DiscoveredRail,
   type DiscoverySource,
   type RegisterOutcome,
+  type DomainClaim,
+  type DomainVerification,
 } from './indexes.js'
 import {
   HEADER_SIGNATURE,
@@ -591,6 +595,34 @@ export class PipRailClient {
     // Project each index's lifecycle facts (visibility + note) onto the outcome,
     // so an agent reads the caveat right where it already is.
     return outcomes.map(decorateOutcome)
+  }
+
+  /**
+   * **402 Index domain verification, step 1 of 2.** A self-registered 402 Index
+   * listing is `pending-review` (see {@link register}); verifying your domain flips
+   * it — and every other pending listing on that domain — to APPROVED/searchable.
+   * Pass the resource URL or a bare domain; returns the `verificationHash` to serve
+   * as the entire body of `verificationUrl` (your `/.well-known/402index-verify.txt`).
+   * Then serve it and call {@link verifyDomain}. Moves no funds; never throws.
+   *
+   * ```ts
+   * const claim = await client.claimDomain('https://api.example.com/report')
+   * // serve claim.verificationHash at claim.verificationUrl, then:
+   * const res = await client.verifyDomain('api.example.com')  // → { ok:true, status:'verified' }
+   * ```
+   */
+  async claimDomain(urlOrDomain: string, opts: { contactEmail?: string } = {}): Promise<DomainClaim> {
+    return claim402IndexDomain(urlOrDomain, opts)
+  }
+
+  /**
+   * **402 Index domain verification, step 2 of 2.** After {@link claimDomain} and
+   * serving the hash at your `/.well-known/402index-verify.txt`, this tells 402 Index
+   * to re-fetch + approve. On success the domain's pending listings become searchable
+   * (`{ ok:true, status:'verified', servicesCount }`). Moves no funds; never throws.
+   */
+  async verifyDomain(urlOrDomain: string): Promise<DomainVerification> {
+    return verify402IndexDomain(urlOrDomain)
   }
 
   /**

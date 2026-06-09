@@ -148,24 +148,38 @@ See [`examples/agent-tools.mjs`](../examples/agent-tools.mjs) for MCP / AI-SDK w
 A 402 endpoint is payable, but nobody can *find* it. PipRail closes that gap by building on the
 **open** x402 indexes that already exist (402 Index, the CDP Bazaar read API, x402scan) — **nothing
 PipRail-hosted, no registry, no database.** All opt-in; the pay path is untouched. There's **no PipRail
-account and no x402 sign-up anywhere** — the only thing ever registered is a merchant's own URL, by one
-call. The complete reference — including a **step-by-step walkthrough of exactly what each step needs**
-(wallet? signing? sign-up? — spoiler: 402 Index needs none) — is **[DISCOVERY.md](./DISCOVERY.md)** (§7).
+account and no x402 sign-up anywhere** — the only thing ever registered is a merchant's own URL.
+**The four steps below are the whole playbook** — an agent can follow them top to bottom (every method
+never throws and returns a typed result that says what to do next); [DISCOVERY.md](./DISCOVERY.md) is
+the deep reference.
 
 > **Experimental.** Discovery integrates with third-party open indexes whose conventions are young
 > and moving — treat this layer as experimental. The read path + 402 Index register are live-verified;
 > x402scan SIWX isn't yet. Note **402 Index probes your URL and only lists endpoints that actually
 > return a `402`** — so register a *deployed* gate, not a marketing page. (DISCOVERY.md §10 has the log.)
 
-**1) List a resource you run** — one call, no auth, no signature:
+**1) List a resource you run** — one call, no auth, no signature, no funds:
 
 ```ts
 const client = new PipRailClient({ wallet: { privateKey: KEY }, chain: 'base' })
 
-await client.register('https://api.example.com/report', { name: 'Market Report', priceUsd: 0.05 })
-// → [{ source: '402index', ok: true, detail: 'Listed on 402 Index (searchable at 402index.io).' }]
-// Add targets: ['402index', 'x402scan'] to also register on x402scan via one wallet signature
-// (SIWX — Base/Solana only). It moves no funds; you're listing on third-party open directories.
+const outcomes = await client.register('https://api.example.com/report', {
+  name: 'Market Report', priceUsd: 0.05, asset: 'USDC',
+  targets: ['402index', 'x402scan'], // 402index is the default; x402scan adds SIWX (Base/Solana)
+})
+// Each outcome carries its LIFECYCLE — read `visibility` + `note`. "ok:true" ≠ "searchable now":
+//  • 402index → { ok:true, visibility:'pending-review', note:'… verify your domain for instant approval' }
+//  • x402scan → { ok:true, visibility:'live',           note:"… discover() does NOT read x402scan" }
+```
+
+**2) Flip 402 Index `pending-review` → searchable** — verify the domain you control (no funds, no sign-up):
+
+```ts
+const claim = await client.claimDomain('https://api.example.com/report', { contactEmail: 'you@example.com' })
+// Serve claim.verificationHash as the ENTIRE body of claim.verificationUrl
+//   (https://api.example.com/.well-known/402index-verify.txt) — then:
+await client.verifyDomain('api.example.com') // → { ok:true, status:'verified', servicesCount }
+// Now every pending listing on that domain is approved + searchable.
 ```
 
 **Works on every chain.** 402 Index needs no signature and has no chain allowlist, so *any* chain —
@@ -179,7 +193,7 @@ request sends a `User-Agent: @piprail/sdk` — so the tech spreads through the f
 the logs operators read, never by spamming listings. An opt-in `register(url, { attribution: true })`
 adds a best-effort `via` tag; it's off by default (it's your listing).
 
-**2) Find resources to pay** — read the open indexes (free), filtered to your chain by default:
+**3) Find resources to pay** — read the open indexes (free), filtered to your chain by default:
 
 ```ts
 const hits = await client.discover({ query: 'weather', maxPrice: 0.01 })
@@ -187,25 +201,39 @@ const hits = await client.discover({ query: 'weather', maxPrice: 0.01 })
 const res = await client.fetch(hits[0].resource) // then quote → plan → pay as usual
 ```
 
-`network` defaults to `'self'` (your chain only); pass `'any'` to search every chain, or a CAIP-2 id
-(`'eip155:8453'`) for a specific one. Chain slugs map to CAIP-2 through the `SLUG_TO_CAIP2` table —
-adding a chain adds one entry there (see [DISCOVERY.md](./DISCOVERY.md) §2.5), and an unresolved
-network is kept, never hidden.
+`discover()` reads **402 Index + CDP Bazaar**, **not x402scan** (its reads are paid) — a live x402scan
+listing won't appear here, so don't read that absence as failure. `network` defaults to `'self'` (your
+chain); pass `'any'` for every chain, or a CAIP-2 id (`'eip155:8453'`). Slugs map to CAIP-2 via
+`SLUG_TO_CAIP2`; an unresolved network is kept, never hidden.
 
-**3) Emit a discovery file** — turn your gate's config into the artifacts a crawler reads (pure, no
-I/O); serve the result as a static file on **your own** origin:
+**4) Make your endpoint self-describing** — turn your gate's config into the artifacts a crawler reads
+(pure, no I/O); serve them on **your own** origin. **x402scan REQUIRES** a resolvable input schema (your
+`/openapi.json` or an `extensions.bazaar` block in the 402 body), so this is what makes an x402scan
+listing accepted:
 
 ```ts
-import { createPaymentGate, buildOpenApi, buildX402DnsTxt } from '@piprail/sdk'
+import { createPaymentGate, buildOpenApi, buildWellKnownX402, buildX402DnsTxt } from '@piprail/sdk'
 
 const gate = createPaymentGate({ chain: 'base', token: 'USDC', amount: '0.05', payTo })
-const openapi = buildOpenApi({
-  origin: 'https://api.example.com',
-  resources: [await gate.describe('https://api.example.com/report')],
-})
-// serve `openapi` at https://api.example.com/openapi.json — each priced op carries an `x-payment-info`
-// block (the field indexes crawl) plus a default root `x-generator` attribution stamp.
-// buildWellKnownX402(...) emits the legacy /.well-known/x402 file; buildX402DnsTxt(...) the _x402 DNS line
+const desc = await gate.describe('https://api.example.com/report')
+const openapi = buildOpenApi({ origin: 'https://api.example.com', resources: [desc] })
+// serve at /openapi.json — each priced op carries an `x-payment-info` block + a root `x-generator` stamp.
+const wellKnown = buildWellKnownX402({ resources: [desc] }) // serve at /.well-known/x402
+// buildX402DnsTxt(...) emits the _x402 DNS line too.
+```
+
+**Know each index before you call** — the facts are one import, `DIRECTORY_INFO`, and `register()`
+projects them onto every outcome (`visibility` + `note`), so an agent never has to guess:
+
+| Index | Write auth | Chains | On a successful register | Read by `discover()`? |
+|---|---|---|---|---|
+| **402 Index** (default) | none | any | `pending-review` → `verifyDomain()` for instant approval | ✅ yes |
+| **x402scan** | one wallet sig (SIWX) | Base / Solana | `live` on x402scan.com | ❌ no (paid reads) |
+| **CDP Bazaar** | — (facilitator-only) | — | `not-listable` for PipRail (backendless) | ✅ read-only |
+
+```ts
+import { DIRECTORY_INFO } from '@piprail/sdk'
+DIRECTORY_INFO['x402scan'].readByDiscover // false — branch on this, don't guess
 ```
 
 For an LLM/MCP these are two more tools — **`piprail_discover`** (find) and **`piprail_register`**

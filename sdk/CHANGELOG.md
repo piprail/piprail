@@ -4,6 +4,23 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.12.0] — 2026-06-09
+
+### Added — One-call domain verification (pending-review → searchable)
+- **`client.verifyDomain()` takes a 402 Index listing all the way to searchable.** A self-registered
+  402 Index listing is `pending-review`; verifying the domain you control approves it (and every other
+  pending listing on it). `client.claimDomain(urlOrDomain, { contactEmail? })` returns the
+  `verificationHash` to serve at your `/.well-known/402index-verify.txt`; `client.verifyDomain(urlOrDomain)`
+  then flips it live. Standalone forms `claim402IndexDomain` / `verify402IndexDomain` + the
+  `DomainClaim` / `DomainVerification` types are exported. Never throws; moves no funds.
+
+### Docs — a complete, agent-followable discovery playbook
+- Rewrote the **"Be discoverable"** README section into a top-to-bottom **4-step playbook** an agent can
+  follow (list → verify domain → discover → self-describe), with the corrected lifecycle output
+  (`visibility` + `note`), a `DIRECTORY_INFO` reference table, and the caveats inline (402 Index is
+  pending-review; `discover()` doesn't read x402scan; x402scan needs an input schema). Updated
+  `llms-full.txt` to the same four moves (EMIT · REGISTER · VERIFY · DISCOVER).
+
 ## [1.11.0] — 2026-06-09
 
 ### Added — Agent-friendly discovery lifecycle
@@ -576,6 +593,7 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[1.12.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.11.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.10.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.9.0]: https://www.npmjs.com/package/@piprail/sdk

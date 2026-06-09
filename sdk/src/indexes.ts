@@ -202,6 +202,8 @@ export function decorateOutcome(o: RegisterOutcome): RegisterOutcome {
 const BAZAAR_URL = 'https://api.cdp.coinbase.com/platform/v2/x402/discovery/resources'
 const INDEX402_SEARCH = 'https://402index.io/api/v1/services'
 const INDEX402_REGISTER = 'https://402index.io/api/v1/register'
+const INDEX402_CLAIM = 'https://402index.io/api/v1/claim'
+const INDEX402_VERIFY = 'https://402index.io/api/v1/claim/verify'
 const X402SCAN_REGISTER = 'https://www.x402scan.com/api/x402/registry/register'
 
 /**
@@ -536,6 +538,102 @@ export async function registerX402Scan(
     }
   } catch (err) {
     return { source: 'x402scan', ok: false, detail: errMsg(err) }
+  }
+}
+
+/* ----------------- 402 Index domain verification (pending-review → live) ----------------- */
+
+/** What {@link claim402IndexDomain} returns — the proof to SERVE so 402 Index will
+ *  approve your domain (and flip your `pending-review` listings to searchable). */
+export interface DomainClaim {
+  ok: boolean
+  domain: string
+  /** Serve THIS string as the entire body of `verificationUrl`. */
+  verificationHash?: string
+  /** Where to serve it — your `https://<domain>/.well-known/402index-verify.txt`. */
+  verificationUrl?: string
+  /** 402 Index's own human instructions. */
+  instructions?: string
+  httpStatus?: number
+  /** Failure reason when `ok:false`. */
+  detail?: string
+}
+
+/** What {@link verify402IndexDomain} returns once the proof is in place. */
+export interface DomainVerification {
+  ok: boolean
+  domain: string
+  /** 402 Index's status string, e.g. `'verified'`. */
+  status?: string
+  /** How many of your pending listings were approved by the verification. */
+  servicesCount?: number
+  httpStatus?: number
+  detail?: string
+}
+
+/**
+ * Step 1 of 402 Index domain verification: claim the host of `domainOrUrl`. 402 Index
+ * lists a self-registered resource as PENDING REVIEW; verifying the domain approves it
+ * (and every other pending listing on that domain) so it becomes searchable. Returns the
+ * `verificationHash` to serve as the entire body of `verificationUrl`
+ * (`https://<domain>/.well-known/402index-verify.txt`). Then call {@link verify402IndexDomain}.
+ * No funds move. Never throws.
+ */
+export async function claim402IndexDomain(
+  domainOrUrl: string,
+  opts: { contactEmail?: string } = {}
+): Promise<DomainClaim> {
+  const domain = hostOf(domainOrUrl)
+  try {
+    const res = await fetch(INDEX402_CLAIM, {
+      method: 'POST',
+      headers: clientHeaders({ 'content-type': 'application/json', accept: 'application/json' }),
+      body: JSON.stringify({ domain, ...(opts.contactEmail ? { contact_email: opts.contactEmail } : {}) }),
+    })
+    const body = (await res.json().catch(() => ({}))) as Record<string, unknown>
+    if (!res.ok) {
+      return { ok: false, domain, httpStatus: res.status, detail: pickString(body, 'error', 'detail', 'message') ?? `402 Index claim returned HTTP ${res.status}.` }
+    }
+    return {
+      ok: true,
+      domain,
+      httpStatus: res.status,
+      ...optionalString('verificationHash', pickString(body, 'verification_hash')),
+      ...optionalString('verificationUrl', pickString(body, 'verification_url')),
+      ...optionalString('instructions', pickString(body, 'instructions')),
+    }
+  } catch (err) {
+    return { ok: false, domain, detail: errMsg(err) }
+  }
+}
+
+/**
+ * Step 2 of 402 Index domain verification: after {@link claim402IndexDomain} and serving
+ * the `verificationHash` at `verificationUrl`, tell 402 Index to re-fetch + approve. On
+ * success, the domain's pending listings become searchable (`status:'verified'`,
+ * `servicesCount` approved). No funds move. Never throws.
+ */
+export async function verify402IndexDomain(domainOrUrl: string): Promise<DomainVerification> {
+  const domain = hostOf(domainOrUrl)
+  try {
+    const res = await fetch(INDEX402_VERIFY, {
+      method: 'POST',
+      headers: clientHeaders({ 'content-type': 'application/json', accept: 'application/json' }),
+      body: JSON.stringify({ domain }),
+    })
+    const body = (await res.json().catch(() => ({}))) as Record<string, unknown>
+    if (!res.ok) {
+      return { ok: false, domain, httpStatus: res.status, detail: pickString(body, 'error', 'detail', 'message') ?? `402 Index verify returned HTTP ${res.status}.` }
+    }
+    return {
+      ok: true,
+      domain,
+      httpStatus: res.status,
+      ...optionalString('status', pickString(body, 'status')),
+      ...(typeof body.services_count === 'number' ? { servicesCount: body.services_count } : {}),
+    }
+  } catch (err) {
+    return { ok: false, domain, detail: errMsg(err) }
   }
 }
 

@@ -15,6 +15,7 @@ import {
   createPaymentGate,
   buildChallengeHeader,
   buildWellKnownX402,
+  buildOpenApi,
   HEADER_REQUIRED,
   HEADER_SIGNATURE,
   HEADER_SIGNATURE_V1,
@@ -124,6 +125,14 @@ export default async (req) => {
     return json(buildWellKnownX402({ resources: [desc] }), 200)
   }
 
+  // Free, self-describing OpenAPI 3.1 — carries the x-payment-info block + the
+  // `x-generator: @piprail/sdk` stamp, so any index/agent that crawls it learns the
+  // resource's shape (and the tech that built it).
+  if (pathname === '/openapi.json') {
+    const desc = await gate.describe(RESOURCE)
+    return json(buildOpenApi({ origin: 'https://piprail.com', resources: [desc], title: 'PipRail — live x402 demo' }), 200)
+  }
+
   const sig = req.headers.get(HEADER_SIGNATURE) ?? req.headers.get(HEADER_SIGNATURE_V1)
 
   // No payment yet → 402 with the dual-rail challenge + discovery metadata.
@@ -155,5 +164,5 @@ export default async (req) => {
   return challenge402(result.challenge)
 }
 
-// Netlify Functions v2 routing — this one function owns both paths.
-export const config = { path: ['/x402/demo', '/.well-known/x402'] }
+// Netlify Functions v2 routing — this one function owns all its paths.
+export const config = { path: ['/x402/demo', '/.well-known/x402', '/openapi.json'] }

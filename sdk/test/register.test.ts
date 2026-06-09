@@ -263,6 +263,63 @@ describe('DIRECTORY_INFO — the queryable lifecycle source of truth', () => {
   })
 })
 
+describe('client.claimDomain() + verifyDomain() — 402 Index domain verification', () => {
+  it('claimDomain extracts the host from a URL, passes the email, returns the hash to serve', async () => {
+    let captured: Record<string, unknown> = {}
+    globalThis.fetch = (async (_u: unknown, init?: RequestInit) => {
+      captured = JSON.parse(String(init?.body))
+      return new Response(
+        JSON.stringify({
+          domain: 'api.example.com',
+          verification_hash: 'abc123',
+          verification_url: 'https://api.example.com/.well-known/402index-verify.txt',
+          instructions: 'Place a text file containing only this hash: abc123',
+        }),
+        { status: 201 }
+      )
+    }) as typeof fetch
+    const claim = await evmClient().claimDomain('https://api.example.com/report', { contactEmail: 'a@b.co' })
+    expect(captured).toEqual({ domain: 'api.example.com', contact_email: 'a@b.co' }) // host extracted from the URL
+    expect(claim.ok).toBe(true)
+    expect(claim.verificationHash).toBe('abc123')
+    expect(claim.verificationUrl).toContain('/.well-known/402index-verify.txt')
+    expect(claim.instructions).toMatch(/hash/i)
+  })
+
+  it('claimDomain omits contact_email when none is given', async () => {
+    let captured: Record<string, unknown> = {}
+    globalThis.fetch = (async (_u: unknown, init?: RequestInit) => {
+      captured = JSON.parse(String(init?.body))
+      return new Response('{}', { status: 201 })
+    }) as typeof fetch
+    await evmClient().claimDomain('example.com')
+    expect(captured).toEqual({ domain: 'example.com' })
+  })
+
+  it('claimDomain surfaces a failure reason without throwing', async () => {
+    globalThis.fetch = (async () => new Response(JSON.stringify({ error: 'Invalid domain format' }), { status: 400 })) as typeof fetch
+    const claim = await evmClient().claimDomain('not a domain')
+    expect(claim.ok).toBe(false)
+    expect(claim.detail).toMatch(/invalid domain/i)
+  })
+
+  it('verifyDomain returns the verified status + servicesCount', async () => {
+    globalThis.fetch = (async () => new Response(JSON.stringify({ domain: 'example.com', status: 'verified', services_count: 3 }), { status: 200 })) as typeof fetch
+    const res = await evmClient().verifyDomain('https://example.com/x')
+    expect(res.ok).toBe(true)
+    expect(res.status).toBe('verified')
+    expect(res.servicesCount).toBe(3)
+  })
+
+  it('verifyDomain surfaces a 422 (token mismatch / unreachable) as ok:false, no throw', async () => {
+    globalThis.fetch = (async () => new Response(JSON.stringify({ error: 'Verification failed (token mismatch)' }), { status: 422 })) as typeof fetch
+    const res = await evmClient().verifyDomain('example.com')
+    expect(res.ok).toBe(false)
+    expect(res.httpStatus).toBe(422)
+    expect(res.detail).toMatch(/token mismatch|verification failed/i)
+  })
+})
+
 describe('client.register() — honest refusals (no silent failure)', () => {
   it('x402scan on a family without a discoverySigner → ok:false with a reason', async () => {
     const NETWORK = 'stellar:pubnet'

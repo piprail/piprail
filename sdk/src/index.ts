@@ -214,6 +214,8 @@ export {
   searchOpenIndexes,
   register402Index,
   registerX402Scan,
+  claim402IndexDomain,
+  verify402IndexDomain,
   normalizeNetwork,
   DIRECTORY_INFO,
   getDirectoryInfo,
@@ -228,5 +230,7 @@ export type {
   SearchOpenIndexesOptions,
   DirectoryInfo,
   ListingVisibility,
+  DomainClaim,
+  DomainVerification,
 } from './indexes.js'
 export type { DiscoverOptions, RegisterOptions } from './client.js'
