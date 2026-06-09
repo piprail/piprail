@@ -196,12 +196,21 @@ function base64(str: string): string {
   throw new Error('No base64 encoder available in this runtime.')
 }
 
-/** Encode an x402 `exact` PaymentPayload into an `X-PAYMENT` header value. */
+/**
+ * Encode an x402 `exact` PaymentPayload into an `X-PAYMENT` header value — the
+ * **v1 flat shape** (`{ x402Version, scheme, network, payload }`). This is a
+ * client-side UTILITY (PipRail's own client pays only `onchain-proof`, never this);
+ * the v1 flat shape is what Coinbase's original reference emits and is still accepted
+ * by every x402 gate + facilitator, so `x402Version` defaults to `1` to stay
+ * INTERNALLY CONSISTENT with that shape (emitting `2` here would mislabel a v1 body —
+ * a proper v2 `exact` payload is the nested `accepted`-envelope shape instead). See
+ * the version-posture note in `x402.ts`.
+ */
 export function encodeXPaymentHeader(input: {
   network: string
   authorization: ExactAuthorization
   signature: Hex
-  /** x402 envelope version (Coinbase's reference uses 1). */
+  /** x402 envelope version. Defaults to `1` — consistent with this flat shape. */
   x402Version?: number
 }): string {
   const payload = {

@@ -1,5 +1,12 @@
 # @piprail/mcp changelog
 
+## 0.2.6 — 2026-06-09
+
+- **Rebuilt against `@piprail/sdk` ^1.11.0** — the agent-friendly discovery lifecycle. The
+  `piprail_register` tool now returns `visibility` + `note` per index and its description reflects
+  the corrected 402 Index reality (a self-registered listing is **pending review** — verify your
+  domain for instant approval — not "searchable within seconds"). No custody/policy change.
+
 ## 0.2.5 — 2026-06-09
 
 - **Rebuilt against `@piprail/sdk` ^1.10.0** — the SDK's new standard x402 `exact` rail + v2

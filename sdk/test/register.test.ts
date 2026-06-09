@@ -7,7 +7,15 @@
  */
 import { describe, it, expect, afterEach } from 'vitest'
 import { recoverMessageAddress } from 'viem'
-import { PipRailClient, registerDriver, register402Index, type ResolvedNetwork } from '../src/index.js'
+import {
+  PipRailClient,
+  registerDriver,
+  register402Index,
+  DIRECTORY_INFO,
+  getDirectoryInfo,
+  decorateOutcome,
+  type ResolvedNetwork,
+} from '../src/index.js'
 
 const TEST_KEY = `0x${'1'.repeat(64)}` // valid secp256k1 key; address derived by viem
 
@@ -178,6 +186,80 @@ describe('client.register() — x402scan SIWX (EVM)', () => {
     expect(outcomes[0]!.ok).toBe(false)
     expect(outcomes[0]!.status).toBe(402)
     expect(outcomes[0]!.detail).toMatch(/unparseable/i)
+  })
+})
+
+describe('client.register() — agent-friendly lifecycle caveats (visibility + note)', () => {
+  it("402 Index success → visibility 'pending-review' + a review caveat (NOT 'searchable now')", async () => {
+    globalThis.fetch = (async () => new Response('{}', { status: 201 })) as typeof fetch
+    const [o] = await evmClient().register('https://api.example.com/r')
+    expect(o!.ok).toBe(true)
+    expect(o!.visibility).toBe('pending-review')
+    expect(o!.note).toMatch(/review|propagat|before/i)
+  })
+
+  it("x402scan success → visibility 'live', but the note warns discover() does NOT read it", async () => {
+    globalThis.fetch = (async (_u: unknown, init?: RequestInit) => {
+      const h = new Headers(init?.headers ?? {}).get('sign-in-with-x')
+      if (!h)
+        return new Response(
+          JSON.stringify({ extensions: { 'sign-in-with-x': { info: { domain: 'd', uri: 'https://d', nonce: 'n', chainId: 'eip155:8453' } } } }),
+          { status: 402 }
+        )
+      return new Response('{}', { status: 200 })
+    }) as typeof fetch
+    const [o] = await evmClient().register('https://api.example.com/r', { targets: ['x402scan'] })
+    expect(o!.ok).toBe(true)
+    expect(o!.visibility).toBe('live')
+    expect(o!.note).toMatch(/discover\(\) does NOT read|Base\/Solana/i)
+  })
+
+  it("any failure → visibility 'not-listable' (an agent never reads ok:false as pending)", async () => {
+    globalThis.fetch = (async () => new Response('nope', { status: 429 })) as typeof fetch
+    const [o] = await evmClient().register('https://api.example.com/r')
+    expect(o!.ok).toBe(false)
+    expect(o!.visibility).toBe('not-listable')
+    expect(o!.note).toBeTruthy()
+  })
+
+  it("bazaar target → 'not-listable' with a facilitator-only caveat", async () => {
+    globalThis.fetch = (async () => new Response('{}', { status: 200 })) as typeof fetch
+    const [o] = await evmClient().register('https://x/y', { targets: ['bazaar'] })
+    expect(o!.visibility).toBe('not-listable')
+    expect(o!.note).toMatch(/facilitator|no register endpoint/i)
+  })
+})
+
+describe('DIRECTORY_INFO — the queryable lifecycle source of truth', () => {
+  it('covers every DiscoverySource with coherent facts', () => {
+    for (const src of ['402index', 'x402scan', 'bazaar'] as const) {
+      const info = DIRECTORY_INFO[src]
+      expect(info.source).toBe(src)
+      expect(getDirectoryInfo(src)).toBe(info)
+      expect(typeof info.caveat).toBe('string')
+      expect(info.caveat.length).toBeGreaterThan(0)
+    }
+  })
+
+  it('marks x402scan as NOT read by discover() — the key agent caveat', () => {
+    expect(DIRECTORY_INFO['x402scan'].readByDiscover).toBe(false)
+    expect(DIRECTORY_INFO['402index'].readByDiscover).toBe(true)
+    expect(DIRECTORY_INFO['bazaar'].readByDiscover).toBe(true)
+  })
+
+  it('x402scan is Base/Solana-only; the others list any chain the resource advertises', () => {
+    expect(DIRECTORY_INFO['x402scan'].chains).toContain('eip155:8453')
+    expect(DIRECTORY_INFO['402index'].chains).toBeNull()
+    expect(DIRECTORY_INFO['bazaar'].chains).toBeNull()
+  })
+
+  it('decorateOutcome projects onSuccess on ok, not-listable on failure, and is idempotent', () => {
+    const ok = decorateOutcome({ source: '402index', ok: true })
+    expect(ok.visibility).toBe('pending-review')
+    expect(ok.note).toBe(DIRECTORY_INFO['402index'].caveat)
+    const fail = decorateOutcome({ source: 'x402scan', ok: false })
+    expect(fail.visibility).toBe('not-listable')
+    expect(decorateOutcome(ok)).toEqual(ok) // re-decorating changes nothing
   })
 })
 

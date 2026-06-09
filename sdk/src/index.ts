@@ -215,6 +215,9 @@ export {
   register402Index,
   registerX402Scan,
   normalizeNetwork,
+  DIRECTORY_INFO,
+  getDirectoryInfo,
+  decorateOutcome,
 } from './indexes.js'
 export type {
   DiscoverySource,
@@ -223,5 +226,7 @@ export type {
   RegisterOutcome,
   RegisterInput,
   SearchOpenIndexesOptions,
+  DirectoryInfo,
+  ListingVisibility,
 } from './indexes.js'
 export type { DiscoverOptions, RegisterOptions } from './client.js'

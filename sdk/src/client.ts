@@ -12,6 +12,7 @@ import {
   searchOpenIndexes,
   register402Index,
   registerX402Scan,
+  decorateOutcome,
   normalizeNetwork,
   type DiscoveredResource,
   type DiscoveredRail,
@@ -484,9 +485,15 @@ export class PipRailClient {
    *
    * Nothing PipRail-hosted: these are third-party open directories. Never throws
    * for a read problem — an index that's down or changed simply contributes
-   * nothing. Honest caveat: index results are cross-scheme (mostly the
-   * mainstream `exact` scheme); `fetch()` pays only `onchain-proof` rails
-   * directly (pay `exact` resources with the experimental `drivers/evm/exact.ts`).
+   * nothing. Honest caveats (see {@link DIRECTORY_INFO}):
+   * - Reads **`bazaar` + `402index`** only — **NOT `x402scan`** (its reads are paid). A
+   *   resource you registered on x402scan is live there but will NOT appear here; don't
+   *   read that absence as failure. (Passing `sources:['x402scan']` explicitly yields `[]`.)
+   * - A resource just listed via {@link register} may not appear yet — 402 Index reviews
+   *   before publishing, so retry with a brief backoff if a fresh listing is missing.
+   * - Results are cross-scheme (mostly the mainstream `exact` scheme); `fetch()` pays
+   *   only `onchain-proof` rails directly (pay `exact` resources with the experimental
+   *   `drivers/evm/exact.ts`).
    */
   async discover(opts: DiscoverOptions = {}): Promise<DiscoveredResource[]> {
     const found = await searchOpenIndexes({
@@ -517,12 +524,27 @@ export class PipRailClient {
 
   /**
    * List a resource you run on the OPEN x402 registries, so agents can find it.
-   * Default target is **402 Index** — one POST, no auth, no signature, no payment
-   * (searchable within seconds). Add `'x402scan'` to also register via SIWX (one
-   * wallet signature; EVM + a Base/Solana rail). Returns one {@link RegisterOutcome}
-   * per target — a target the chain can't satisfy comes back `{ ok:false, detail }`,
-   * never a throw. An explicit, developer-invoked action; it moves no funds, and
-   * nothing is PipRail-hosted — you're listing on third-party open directories.
+   * Default target is **402 Index** — one POST, no auth, no signature, no payment.
+   * Add `'x402scan'` to also register via SIWX (one wallet signature; EVM + a
+   * Base/Solana rail). Returns one {@link RegisterOutcome} per target — a target the
+   * chain can't satisfy comes back `{ ok:false, detail }`, never a throw. An explicit,
+   * developer-invoked action; it moves no funds, and nothing is PipRail-hosted —
+   * you're listing on third-party open directories.
+   *
+   * **Listing is asynchronous — each outcome carries a `visibility` + `note` so an
+   * agent knows when/where the resource is findable (don't assume `ok:true` means
+   * "searchable now"):**
+   * - **402 Index** → `visibility:'pending-review'`. It probes your URL on submit, then lists it
+   *   PENDING REVIEW — not searchable until approved (verify your domain on 402index.io for instant
+   *   approval), so `discover()` returns nothing for a fresh listing until then. Retry later.
+   * - **x402scan** → `visibility:'live'`, but **`discover()` does NOT read x402scan** — the
+   *   listing is real on x402scan.com yet won't show up in `discover()`. Base/Solana only;
+   *   needs a resolvable input schema (`/openapi.json` or the `extensions.bazaar` block).
+   * - **Bazaar** → `visibility:'not-listable'` for PipRail (it lists only what its facilitator
+   *   settles; PipRail uses none). You can still READ Bazaar via {@link discover} to find others.
+   *
+   * The per-source facts live in {@link DIRECTORY_INFO} (importable) if you'd rather branch
+   * on them before calling.
    */
   async register(url: string, opts: RegisterOptions = {}): Promise<RegisterOutcome[]> {
     const targets = opts.targets ?? ['402index']
@@ -566,7 +588,9 @@ export class PipRailClient {
         })
       }
     }
-    return outcomes
+    // Project each index's lifecycle facts (visibility + note) onto the outcome,
+    // so an agent reads the caveat right where it already is.
+    return outcomes.map(decorateOutcome)
   }
 
   /**

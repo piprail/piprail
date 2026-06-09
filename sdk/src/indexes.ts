@@ -45,6 +45,15 @@ export interface DiscoveredResource {
   rails: DiscoveredRail[]
 }
 
+/** Where a listing stands after a register attempt — a branchable lifecycle
+ *  state so an agent doesn't have to re-derive each index's behaviour:
+ *  - `'live'`           — findable now (search it immediately).
+ *  - `'pending-review'` — accepted, but the index reviews/propagates before it's
+ *                         publicly findable; allow a short delay before `discover()`.
+ *  - `'not-listable'`   — it didn't list (a failure, or this index structurally
+ *                         can't list a PipRail resource). See `detail` + `note`. */
+export type ListingVisibility = 'live' | 'pending-review' | 'not-listable'
+
 /** The result of trying to list a resource on one open index. */
 export interface RegisterOutcome {
   source: DiscoverySource
@@ -55,6 +64,14 @@ export interface RegisterOutcome {
   detail?: string
   /** A link to the listing, when the index returns one. */
   listingUrl?: string
+  /** The lifecycle state of this listing — `'live'`, `'pending-review'`, or
+   *  `'not-listable'`. Projected from {@link DIRECTORY_INFO}; branch on this
+   *  instead of guessing how soon `discover()` will find the resource. */
+  visibility?: ListingVisibility
+  /** A one-line, agent-readable caveat for this source (from {@link DIRECTORY_INFO})
+   *  — e.g. "402 Index reviews before publishing" or "discover() doesn't read
+   *  x402scan, so a live listing there won't appear in discover() results". */
+  note?: string
 }
 
 export interface SearchOpenIndexesOptions {
@@ -87,6 +104,97 @@ export interface RegisterInput {
    * emitted `/openapi.json`. Off by default keeps your listing clean and can't be seen as spam.
    */
   attribution?: boolean
+}
+
+/* ----------------------- directory lifecycle facts ----------------------- */
+
+/**
+ * Static, agent-readable lifecycle facts about one open index — the SINGLE source
+ * of truth that {@link RegisterOutcome.visibility}/`note` are projected from, and
+ * that an agent can also query directly (via {@link getDirectoryInfo}) to reason
+ * about an index BEFORE calling. Best-effort: an index can change its behaviour,
+ * so treat the timing as guidance, not an SLA.
+ */
+export interface DirectoryInfo {
+  source: DiscoverySource
+  /** How a new listing is gated: a synchronous URL probe (`402index`, `x402scan`),
+   *  or coupled to a facilitator settling a payment (`bazaar`). */
+  review: 'probe-sync' | 'settle-coupled'
+  /** Auth needed to WRITE a listing. */
+  auth: 'none' | 'siwx' | 'facilitator-only'
+  /** Chains (CAIP-2) this index will list. `null` = any chain the resource advertises. */
+  chains: readonly string[] | null
+  /** Visibility a SUCCESSFUL listing reaches here (the steady state a non-failed
+   *  outcome maps to). */
+  onSuccess: ListingVisibility
+  /** Whether THIS SDK's {@link PipRailClient.discover} reads this index. It reads
+   *  `bazaar` + `402index`; it does NOT read `x402scan` — so a live x402scan listing
+   *  won't appear in `discover()` results. Don't read that absence as failure. */
+  readByDiscover: boolean
+  /** One-line caveat: why a register might fail, or what to expect afterwards. */
+  caveat: string
+}
+
+/**
+ * The open directories' lifecycle, as one queryable map. An agent can branch on
+ * this without embedding directory knowledge: `DIRECTORY_INFO[source].readByDiscover`,
+ * `.chains`, `.onSuccess`, etc. {@link PipRailClient.register} projects the relevant
+ * entry onto every {@link RegisterOutcome} (`visibility` + `note`).
+ */
+export const DIRECTORY_INFO: Readonly<Record<DiscoverySource, DirectoryInfo>> = {
+  '402index': {
+    source: '402index',
+    review: 'probe-sync',
+    auth: 'none',
+    chains: null,
+    onSuccess: 'pending-review',
+    readByDiscover: true,
+    caveat:
+      '402 Index probes your URL on submit, then lists it as PENDING REVIEW — a self-registered ' +
+      'resource is NOT in search until approved. Verify your domain on 402index.io for instant ' +
+      'approval; otherwise it appears after manual review, so retry discover() later.',
+  },
+  x402scan: {
+    source: 'x402scan',
+    review: 'probe-sync',
+    auth: 'siwx',
+    chains: ['eip155:8453', 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp'],
+    onSuccess: 'live',
+    readByDiscover: false,
+    caveat:
+      'x402scan lists Base/Solana only, needs one wallet signature (SIWX), and requires a resolvable ' +
+      'input schema (from /openapi.json or the bazaar extension in the 402 body). It goes live on ' +
+      "x402scan.com immediately on success — but discover() does NOT read x402scan, so the listing " +
+      "won't appear in discover() results.",
+  },
+  bazaar: {
+    source: 'bazaar',
+    review: 'settle-coupled',
+    auth: 'facilitator-only',
+    chains: null,
+    onSuccess: 'not-listable',
+    readByDiscover: true,
+    caveat:
+      'CDP Bazaar has no register endpoint — it catalogs a resource only when its own facilitator ' +
+      'settles a payment. PipRail verifies locally with no facilitator, so a PipRail resource cannot be ' +
+      'listed here (you can still READ Bazaar to find others). List on 402 Index or x402scan instead.',
+  },
+}
+
+/** Lifecycle facts for one open index (auth, chains, how soon a listing is
+ *  findable, whether `discover()` reads it). See {@link DIRECTORY_INFO}. The param
+ *  is the closed {@link DiscoverySource} union (TS callers are safe); a string
+ *  outside it returns `undefined` at runtime. */
+export function getDirectoryInfo(source: DiscoverySource): DirectoryInfo {
+  return DIRECTORY_INFO[source]
+}
+
+/** Project the static {@link DIRECTORY_INFO} lifecycle facts onto a register
+ *  outcome, so an agent gets `visibility` + `note` in the result it already holds —
+ *  no second lookup. A failed outcome is always `'not-listable'`. Idempotent. */
+export function decorateOutcome(o: RegisterOutcome): RegisterOutcome {
+  const info = DIRECTORY_INFO[o.source]
+  return { ...o, visibility: o.ok ? info.onSuccess : 'not-listable', note: info.caveat }
 }
 
 /* ----------------------------- endpoints ----------------------------- */
@@ -288,8 +396,11 @@ function railFrom402IndexFields(o: Record<string, unknown>): DiscoveredRail[] {
 
 /**
  * Register a resource on **402 Index** — the primary, friction-free path: a
- * single POST, no auth, no signature, no payment. Searchable within seconds.
- * Returns a structured outcome; never throws for an HTTP/transport problem.
+ * single POST, no auth, no signature, no payment. A self-registered listing is
+ * **pending review** (not searchable until approved — verify your domain on
+ * 402index.io for instant approval). Returns a structured outcome; never throws
+ * for an HTTP/transport problem. NOTE: the outcome is BARE — `visibility`/`note`
+ * are added by {@link PipRailClient.register} (or call {@link decorateOutcome}).
  */
 export async function register402Index(input: RegisterInput): Promise<RegisterOutcome> {
   try {
@@ -310,7 +421,15 @@ export async function register402Index(input: RegisterInput): Promise<RegisterOu
       body: JSON.stringify(payload),
     })
     if (res.ok) {
-      return { source: '402index', ok: true, status: res.status, detail: 'Listed on 402 Index (searchable at 402index.io).' }
+      // Surface 402 Index's OWN message (e.g. "registered and pending review — verify
+      // your domain for instant approval") so `detail` stays accurate if its flow changes.
+      const msg = await readIndexMessage(res)
+      return {
+        source: '402index',
+        ok: true,
+        status: res.status,
+        detail: msg ?? 'Registered on 402 Index — pending review (verify your domain on 402index.io for instant approval).',
+      }
     }
     // Surface the index's own reason so a merchant can act — 402 Index PROBES the URL
     // and rejects (422) any endpoint that doesn't actually return a 402 (verified live).
@@ -323,6 +442,18 @@ export async function register402Index(input: RegisterInput): Promise<RegisterOu
     }
   } catch (err) {
     return { source: '402index', ok: false, detail: errMsg(err) }
+  }
+}
+
+/** Pull the index's own human `message` out of a SUCCESS body (e.g. 402 Index's
+ *  "Service registered and pending review. Verify your domain for instant approval."),
+ *  so the outcome reflects the index's own words. */
+async function readIndexMessage(res: Response): Promise<string | undefined> {
+  try {
+    const body = (await res.json()) as Record<string, unknown>
+    return typeof body.message === 'string' && body.message.length > 0 ? body.message : undefined
+  } catch {
+    return undefined
   }
 }
 
@@ -345,7 +476,9 @@ async function readIndexError(res: Response): Promise<string | undefined> {
  * EIP-4361 challenge with the merchant's own key, resend with the
  * `SIGN-IN-WITH-X` header. Facilitator-free, but **Base/Solana-only** and EVM
  * signing today. EXPERIMENTAL — the open SIWX handshake is a moving convention;
- * validate against x402scan before relying on it. Never throws.
+ * validate against x402scan before relying on it. Never throws. NOTE: returns a
+ * BARE outcome — `visibility`/`note` are added by {@link PipRailClient.register}
+ * (or call {@link decorateOutcome}).
  */
 export async function registerX402Scan(
   input: { url: string },

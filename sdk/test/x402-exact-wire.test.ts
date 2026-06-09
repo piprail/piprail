@@ -5,6 +5,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { parseExactPaymentHeader } from '../src/x402.js'
+import { encodeXPaymentHeader } from '../src/drivers/evm/exact.js'
 
 const AUTH = {
   from: '0x857b06519E91e3A54538791bDbb0E22373e36b66',
@@ -77,5 +78,25 @@ describe('parseExactPaymentHeader — rejects non-exact / malformed', () => {
   it('returns null when network is absent', () => {
     const h = b64({ scheme: 'exact', payload: { signature: SIG, authorization: AUTH } })
     expect(parseExactPaymentHeader(h)).toBeNull()
+  })
+})
+
+describe('encodeXPaymentHeader — emits the v1 flat shape (intentional, not a bug)', () => {
+  const input = { network: 'base', authorization: AUTH, signature: SIG } as Parameters<typeof encodeXPaymentHeader>[0]
+
+  it('defaults x402Version to 1, consistent with the flat {scheme,network,payload} shape', () => {
+    const decoded = JSON.parse(Buffer.from(encodeXPaymentHeader(input), 'base64').toString('utf8'))
+    expect(decoded.x402Version).toBe(1) // NOT 2 — see the version-posture note in x402.ts
+    expect(decoded.scheme).toBe('exact')
+    expect(decoded.network).toBe('base')
+    expect('accepted' in decoded).toBe(false) // flat, not the v2 nested envelope
+  })
+
+  it('round-trips: the inbound parser accepts exactly what it emits', () => {
+    const p = parseExactPaymentHeader(encodeXPaymentHeader(input))
+    expect(p).not.toBeNull()
+    expect(p!.x402Version).toBe(1)
+    expect(p!.payload.signature).toBe(SIG)
+    expect(p!.payload.authorization.value).toBe(AUTH.value)
   })
 })

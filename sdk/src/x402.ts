@@ -227,9 +227,32 @@ export const HEADER_REQUIRED = 'payment-required'
 export const HEADER_SIGNATURE = 'payment-signature'
 export const HEADER_RESPONSE = 'payment-response'
 
-/** Legacy x402 v1 header names. PipRail EMITS v2 (the constants above) but also
- *  READS the v1 client header and ECHOES the v1 response header, so a deprecated
- *  v1 client (still ~half the installed base) interoperates on the `exact` rail. */
+/*
+ * ── x402 protocol version posture (read this before touching anything v1) ──────
+ *
+ * x402 **v2 REPLACED v1** on the wire — it is not a layer over it: the payment
+ * header moved `X-PAYMENT` → `payment-signature`, the 402 challenge moved from a
+ * plain JSON body (`maxAmountRequired`, network *slugs* like `base`) into a base64
+ * `payment-required` header (`amount`, CAIP-2 `eip155:8453`), and `x402Version`
+ * went 1 → 2. The v2 spec is silent on v1; the reference SDKs keep v1 alive only
+ * as backward-compat. There is no announced end-of-life.
+ *
+ * PipRail's stance is **Postel's law — emit strict v2, accept liberal v1 + v2:**
+ *   • EMIT  → only v2. Challenges, receipts, and the primary response header are v2.
+ *   • ACCEPT → v2 AND v1. The gate also reads the v1 `x-payment` header, the v1 flat
+ *              payload shape, `maxAmountRequired`, slug networks, and the v1 `txHash`
+ *              receipt field — and echoes the v1 response header too.
+ *
+ * Why keep v1 *accept* (it is NOT dead weight): the current reference client
+ * `@x402/fetch` is v2, but the still-deployed original `x402-fetch` / `x402-express`
+ * / `x402-next` / umbrella `x402` packages — and agents pinned to v1 — send v1, and
+ * facilitators (e.g. PayAI) still advertise a v1 rail. Dropping v1 *accept* would
+ * silently break those payers for zero benefit. It is a sunsettable compat shim,
+ * not removable today. (PipRail emits no v1 *body* on its own paths — the v1
+ * `x-payment-response` header it sets carries the same v2 receipt body, a header-NAME
+ * echo, not a v1-shaped receipt; the lone emitter of a true v1-shape payload is the
+ * `encodeXPaymentHeader` UTILITY, whose flat shape every gate + facilitator still accepts.)
+ */
 export const HEADER_SIGNATURE_V1 = 'x-payment'
 export const HEADER_RESPONSE_V1 = 'x-payment-response'
 

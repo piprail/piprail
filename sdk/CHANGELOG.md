@@ -4,6 +4,33 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.11.0] — 2026-06-09
+
+### Added — Agent-friendly discovery lifecycle
+- **`register()` outcomes now tell an agent when/where a listing is findable.** Each
+  `RegisterOutcome` carries a `visibility: 'live' | 'pending-review' | 'not-listable'` plus a
+  plain-language `note` — projected from a new exported source-of-truth, **`DIRECTORY_INFO`**
+  (per-index: review mode, auth, chains, `readByDiscover`, caveat). So an agent reads the caveat
+  right where it already is instead of guessing. New exports: `DIRECTORY_INFO`, `getDirectoryInfo`,
+  `decorateOutcome`, and the `DirectoryInfo` / `ListingVisibility` types.
+- **The sharp caveats are now explicit** (in the types, the `note`, and `register()`/`discover()`
+  JSDoc): **402 Index lists a self-registered resource as `pending-review`** (not searchable until
+  approved — verify your domain on 402index.io for instant approval), **`discover()` does NOT read
+  x402scan** (a live x402scan listing won't appear there — don't read its absence as failure), and
+  **CDP Bazaar can't list a backendless PipRail resource at all** (facilitator-coupled).
+
+### Docs — x402 v1/v2 version posture made authoritative
+- A definitive comment in `x402.ts` documents the stance: **emit strict v2, accept liberal v1 + v2**
+  (Postel). v2 *replaced* v1 on the wire; the current reference client `@x402/fetch` is v2, but the
+  original `x402-fetch`/`x402-express`/`x402-next` packages still send v1, so the gate keeps accepting
+  it. PipRail emits no v1 *body* on its own paths; the lone v1 emitter is the `encodeXPaymentHeader`
+  utility (its `x402Version: 1` default is correct — consistent with the v1-flat shape it builds).
+
+### Fixed
+- Corrected stale "searchable within seconds" wording for 402 Index (it added a review queue):
+  `register402Index`'s success `detail` now surfaces the index's own message, and the JSDoc + MCP
+  `piprail_register` tool description reflect the `pending-review` reality.
+
 ## [1.10.0] — 2026-06-09
 
 ### Added — Universal Payments (the standard x402 `exact` rail)
@@ -549,6 +576,7 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[1.11.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.10.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.9.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.8.0]: https://www.npmjs.com/package/@piprail/sdk

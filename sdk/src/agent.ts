@@ -260,9 +260,10 @@ export function paymentTools(client: PipRailClient): AgentTool[] {
       name: 'piprail_register',
       description:
         'List an x402 payment-gated resource YOU run on the open indexes so other agents can discover it. ' +
-        'Default target is 402 Index — no auth, no signature, no payment; searchable within seconds. ' +
-        'Returns one outcome per index ({ source, ok, detail }); a step the chain can\'t satisfy comes ' +
-        'back ok:false with the reason. Moves no funds; nothing is PipRail-hosted.',
+        'Default target is 402 Index — no auth, no signature, no payment; a self-registered listing is ' +
+        'pending review (verify your domain on 402index.io for instant approval). Returns one outcome per ' +
+        'index ({ source, ok, detail, visibility, note }); a step the chain can\'t satisfy comes back ' +
+        'ok:false with the reason. Moves no funds; nothing is PipRail-hosted.',
       annotations: {
         title: 'Register an x402 endpoint',
         readOnlyHint: false, // writes a listing to an external index
