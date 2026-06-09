@@ -217,6 +217,15 @@ describe('client.register() — agent-friendly lifecycle caveats (visibility + n
     expect(o!.note).toMatch(/review|propagat|before/i)
   })
 
+  it("402 Index reports a domain-verified listing (service.status:'active') as visibility 'live'", async () => {
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ message: 'Service registered and live (domain verified).', service: { status: 'active' } }), { status: 201 })) as typeof fetch
+    const [o] = await evmClient().register('https://api.example.com/r')
+    expect(o!.ok).toBe(true)
+    expect(o!.visibility).toBe('live') // not the pending-review default — 402 Index said it's active
+    expect(o!.detail).toMatch(/live|verified/i)
+  })
+
   it("x402scan success → visibility 'live', but the note warns discover() does NOT read it", async () => {
     globalThis.fetch = (async (_u: unknown, init?: RequestInit) => {
       const h = new Headers(init?.headers ?? {}).get('sign-in-with-x')

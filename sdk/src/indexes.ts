@@ -194,7 +194,9 @@ export function getDirectoryInfo(source: DiscoverySource): DirectoryInfo {
  *  no second lookup. A failed outcome is always `'not-listable'`. Idempotent. */
 export function decorateOutcome(o: RegisterOutcome): RegisterOutcome {
   const info = DIRECTORY_INFO[o.source]
-  return { ...o, visibility: o.ok ? info.onSuccess : 'not-listable', note: info.caveat }
+  // Respect a visibility the adapter already set (e.g. 402 Index reports a verified-domain
+  // listing as 'live'); otherwise project the directory's steady-state.
+  return { ...o, visibility: o.visibility ?? (o.ok ? info.onSuccess : 'not-listable'), note: info.caveat }
 }
 
 /* ----------------------------- endpoints ----------------------------- */
@@ -423,14 +425,22 @@ export async function register402Index(input: RegisterInput): Promise<RegisterOu
       body: JSON.stringify(payload),
     })
     if (res.ok) {
-      // Surface 402 Index's OWN message (e.g. "registered and pending review — verify
-      // your domain for instant approval") so `detail` stays accurate if its flow changes.
-      const msg = await readIndexMessage(res)
+      // Read the body once: surface 402 Index's own message AND its structured status —
+      // a register from a VERIFIED domain comes back `service.status:'active'` (live, not
+      // pending-review), so report `visibility:'live'` for it (decorateOutcome honours it).
+      const body = (await res.json().catch(() => ({}))) as { message?: unknown; service?: { status?: unknown } }
+      const msg = typeof body.message === 'string' && body.message.length > 0 ? body.message : undefined
+      const live = body.service?.status === 'active'
       return {
         source: '402index',
         ok: true,
         status: res.status,
-        detail: msg ?? 'Registered on 402 Index — pending review (verify your domain on 402index.io for instant approval).',
+        ...(live ? { visibility: 'live' as const } : {}),
+        detail:
+          msg ??
+          (live
+            ? 'Registered + live on 402 Index (domain verified).'
+            : 'Registered on 402 Index — pending review (verify your domain on 402index.io for instant approval).'),
       }
     }
     // Surface the index's own reason so a merchant can act — 402 Index PROBES the URL
@@ -444,18 +454,6 @@ export async function register402Index(input: RegisterInput): Promise<RegisterOu
     }
   } catch (err) {
     return { source: '402index', ok: false, detail: errMsg(err) }
-  }
-}
-
-/** Pull the index's own human `message` out of a SUCCESS body (e.g. 402 Index's
- *  "Service registered and pending review. Verify your domain for instant approval."),
- *  so the outcome reflects the index's own words. */
-async function readIndexMessage(res: Response): Promise<string | undefined> {
-  try {
-    const body = (await res.json()) as Record<string, unknown>
-    return typeof body.message === 'string' && body.message.length > 0 ? body.message : undefined
-  } catch {
-    return undefined
   }
 }
 

@@ -4,6 +4,15 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.13.1] — 2026-06-10
+
+### Fixed
+- **`register()` visibility is now accurate for a verified domain.** 402 Index returns a structured
+  `service.status` — a register from a domain you've verified comes back `'active'`, so the outcome now
+  reports `visibility:'live'` instead of the conservative `'pending-review'` default (`decorateOutcome`
+  honours a visibility the adapter already set). The `detail` already surfaced 402 Index's own message;
+  now `visibility` and `detail` agree.
+
 ## [1.13.0] — 2026-06-10
 
 ### Added — gate `discovery` option (one flag → x402scan-listable)
@@ -615,6 +624,7 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[1.13.1]: https://www.npmjs.com/package/@piprail/sdk
 [1.13.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.12.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.11.0]: https://www.npmjs.com/package/@piprail/sdk
