@@ -4,6 +4,44 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.14.0] — 2026-06-10
+
+### Added — pay the standard `exact` rail (opt-in, EVM + EIP-3009)
+- **`PipRailClient` can now PAY standard x402 `exact` rails**, not just PipRail's native
+  `onchain-proof` — so an agent can transact with ANY standard v2 x402 server (the dominant
+  `exact`-on-Base-via-CDP web), while PipRail's own gates stay backendless. **Opt-in** via a new
+  `schemes` option (default `['onchain-proof']` — the zero-config path is byte-identical):
+  `new PipRailClient({ chain: 'base', wallet, schemes: ['onchain-proof', 'exact'] })`, with a per-call
+  override `fetch(url, { schemes: ['exact'] })`. EVM + EIP-3009 only (USDC/EURC); silently ignored on
+  non-EVM chains, for USDT/native, or for a token the SDK can't price (those keep `onchain-proof`).
+- The buyer signs an EIP-3009 authorization with **its own** wallet and the server / merchant-chosen
+  facilitator broadcasts it — the buyer pays ~0 gas and PipRail hosts/settles nothing. `quote()`,
+  `planPayment()`, `estimateCost()`, `canAfford()`, `autoRoute`, and `planAcross()` are now truthful
+  across both schemes (an exact rail is priced gasless: `cost.fee === '0'`, never an `INSUFFICIENT_GAS`
+  blocker). The EIP-712 domain is **re-derived on-chain** (`name()`/`version()`), never trusted from
+  the server's `extra`. The same `policy` + `onBeforePay` gate it BEFORE any signature.
+  **Verify against your target facilitator before production.**
+- **EURC is now a built-in EVM preset token** on Ethereum, Base, and Avalanche (on-chain-verified;
+  EIP-3009, 6 decimals) — so the `exact` buyer recognises it and the "USDC/EURC" coverage is real, not
+  aspirational. (Its EIP-712 domain name differs per deployment — `"Euro Coin"` on Ethereum/Avalanche,
+  `"EURC"` on Base — which the buyer re-derives on-chain; the symbol is display-only.)
+- `X402ExactAcceptEntry.extra.name`/`version` are now OPTIONAL (the exact-EVM scheme only requires
+  `assetTransferMethod`) — matching the spec; the buyer ignores them (it re-derives on-chain), the gate
+  still populates them from its own on-chain read. The `payment-settled` event now also carries the
+  conformant `settle?: SettleOutcome` (a third-party facilitator's lean SettleResponse, when there's no
+  rich receipt).
+- New exports: `buildExactSignatureHeader`, `parseSettleResponse` (+ the `SettleOutcome` type), the
+  `PaymentScheme` type, and the `UnsupportedSchemeError` (`code: 'UNSUPPORTED_SCHEME'`). New driver SPI
+  method `payExact?` (optional, EVM-only). `@piprail/mcp` adds the `PIPRAIL_SCHEMES` env (unset ⇒ the
+  SDK default, so the MCP's zero-config posture is unchanged).
+
+### Changed (additive — minor, but type-affecting)
+- `PayOption.accept` and the `payment-required` event's `accept` are now `X402AnyAccept` (was
+  `X402AcceptEntry`). A consumer that reads `accept.extra.nonce`/`minConfirmations` without a `scheme`
+  guard should narrow on `accept.scheme === 'onchain-proof'` first.
+- The buyer emits **v2 only** for `exact` (`PAYMENT-SIGNATURE` + the `accepted`-envelope). v1-only
+  servers (which never parse as a v2 challenge here) are out of scope for this milestone.
+
 ## [1.13.1] — 2026-06-10
 
 ### Fixed
@@ -624,6 +662,7 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[1.14.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.13.1]: https://www.npmjs.com/package/@piprail/sdk
 [1.13.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.12.0]: https://www.npmjs.com/package/@piprail/sdk

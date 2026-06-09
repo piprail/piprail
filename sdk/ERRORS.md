@@ -56,7 +56,8 @@ Base class [`PipRailError`](src/errors.ts) (abstract; `.name` = the subclass nam
 | `MAX_RETRIES_EXCEEDED` | `MaxRetriesExceededError` | server kept returning 402 after broadcast — **message embeds the last server `error — detail`, and carries `.ref`** | client |
 | `PAYMENT_DECLINED` | `PaymentDeclinedError` | the client refused to pay BEFORE any send — over the spend `policy` (amount/total/chain/token/host), or an `onBeforePay` hook returned false / threw | client |
 | `INVALID_ENVELOPE` | `InvalidEnvelopeError` | a 402 had no parseable x402 challenge | client |
-| `NO_COMPATIBLE_ACCEPT` | `NoCompatibleAcceptError` | the challenge offered no `accepts[]` entry for the client's network | client |
+| `NO_COMPATIBLE_ACCEPT` | `NoCompatibleAcceptError` | the challenge offered no `accepts[]` entry the client can pay on its network + enabled `schemes` (message names the enabled schemes) | client |
+| `UNSUPPORTED_SCHEME` | `UnsupportedSchemeError` | asked to pay a scheme the bound family/asset/signer can't settle, with no fallback: `exact` on a non-EVM family, a non-EIP-3009 token (USDT/native/plain ERC-20), or a contract / EIP-1271 / EIP-7702 signer | client / EVM `exact` (`payExact`) |
 | `NON_REPLAYABLE_BODY` | `NonReplayableBodyError` | `init.body` isn't replayable (e.g. a one-shot stream) | client |
 | `MISSING_DRIVER` | `MissingDriverError` | a family's **optional peer deps aren't installed** (the lazy `import()` failed) — message names the exact `npm install` and sets `{ cause }` | registry loaders |
 | `UNSUPPORTED_NETWORK` | `UnsupportedNetworkError` | no driver for the family, or the driver's `resolve()` returned `null` (unrecognised `chain`) | registry |

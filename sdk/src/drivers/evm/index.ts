@@ -14,7 +14,7 @@ import {
 } from './wallet.js'
 import { payEvm } from './pay.js'
 import { verifyEvm } from './verify.js'
-import { readExactDomain, verifyAndSettleExactEvm } from './exact.js'
+import { readExactDomain, verifyAndSettleExactEvm, payExactEvm } from './exact.js'
 import { networkForChain, chainIdFromNetwork } from '../../x402.js'
 import {
   ConfirmationTimeoutError,
@@ -180,6 +180,18 @@ function makeEvmNetwork(resolved: ResolvedChain): ResolvedNetwork {
 
     async estimateCost(accept) {
       const { decimals, symbol } = resolved.chain.nativeCurrency
+      // Standard `exact` rail: the buyer SIGNS an EIP-3009 authorization and the
+      // server / merchant-chosen facilitator broadcasts it — so the BUYER spends ~0
+      // gas. Report a gasless estimate so the planner never blocks it on native funds.
+      if (accept.scheme === 'exact') {
+        return nativeCost({
+          symbol,
+          decimals,
+          fee: 0n,
+          basis: 'estimated',
+          detail: 'gasless — the server/facilitator settles the signed authorization',
+        })
+      }
       // Typical gas for a simple transfer: ~21k native, ~65k ERC-20.
       const gasLimit = accept.asset === 'native' ? 21_000n : 65_000n
       try {
@@ -246,6 +258,22 @@ function makeEvmNetwork(resolved: ResolvedChain): ResolvedNetwork {
         accept,
         minConfirmations: accept.extra.minConfirmations,
       })
+    },
+
+    // Standard x402 `exact` rail (EIP-3009), BUYER side — EVM only. Re-derives the
+    // token's EIP-712 domain on-chain, signs an authorization with the agent's own
+    // key, and returns it for the client to frame into PAYMENT-SIGNATURE. Never
+    // broadcasts. Throws UnsupportedSchemeError for a non-EIP-3009 token / contract signer.
+    async payExact(wallet: WalletHandle, accept) {
+      const a = wallet._native as WalletAdapter
+      const { payload, payerFrom, nonce } = await payExactEvm({
+        publicClient,
+        walletClient: a.walletClient,
+        account: a.account,
+        chainId: resolved.chainId,
+        accept,
+      })
+      return { payload, accepted: accept, payerFrom, nonce }
     },
 
     // Standard x402 `exact` rail (EIP-3009), seller side — EVM only.

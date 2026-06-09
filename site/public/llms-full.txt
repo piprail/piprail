@@ -1,6 +1,6 @@
 # PipRail — full reference for agents
 
-> Last-Updated: 2026-06-09 · SDK-Version: 1.13.1 · MCP-Version: 0.2.8 · Type: APIService · License: MIT
+> Last-Updated: 2026-06-10 · SDK-Version: 1.14.0 · MCP-Version: 0.2.9 · Type: APIService · License: MIT
 
 > Accept and make x402 "402 Payment Required" crypto payments from any HTTP request, across 29 chains in 10 families, with no backend, no database, no account, and no fee. Payments settle straight into your own wallet, verified locally against your own RPC. `@piprail/sdk` is an open-source (MIT) TypeScript SDK that runs headless or in the browser. This file is the everything-in-one-fetch version: the pitch, real code, the chain list, and the error model.
 
@@ -96,6 +96,8 @@ const data = await res.json()
 ```
 
 On a `402`, the client reads the challenge, sends the payment on-chain, waits for confirmation, and retries with proof — all inside `client.fetch`. The same app can take payments with `requirePayment`/`createPaymentGate` and make them with `PipRailClient`.
+
+**Pay any standard x402 server (opt-in).** By default the client pays PipRail's backendless `onchain-proof` rail. Add `schemes: ['onchain-proof', 'exact']` and it ALSO pays the standard, ratified x402 `exact` rail (EIP-3009) — so a PipRail agent can transact with any standard x402 server (the dominant `exact`-on-Base-via-CDP web), not just PipRail's own gates. The agent signs the EIP-3009 authorization with its own wallet (the token's EIP-712 domain re-derived on-chain) and the server/facilitator broadcasts it, so the buyer pays ~0 gas; the same spend `policy` gates it before any signature. EVM + EIP-3009 only (USDC; EURC on Ethereum/Base/Avalanche). Proven on Base mainnet against a real third-party facilitator.
 
 ## In the browser — no build, no npm
 

@@ -19,6 +19,7 @@ export type {
   PipRailEvent,
   PipRailQuote,
   PipRailCostQuote,
+  PaymentScheme,
   WalletInput,
   PaymentPlan,
   PayOption,
@@ -128,6 +129,7 @@ export {
   PaymentDeclinedError,
   InvalidEnvelopeError,
   NoCompatibleAcceptError,
+  UnsupportedSchemeError,
   NonReplayableBodyError,
   SettlementError,
   toInsufficientFundsError,
@@ -143,10 +145,12 @@ export {
   pickAccept,
   parseChallenge,
   parseReceipt,
+  parseSettleResponse,
   parseSignatureHeader,
   parseExactPaymentHeader,
   buildChallengeHeader,
   buildSignatureHeader,
+  buildExactSignatureHeader,
   buildReceiptHeader,
   HEADER_REQUIRED,
   HEADER_SIGNATURE,
@@ -167,6 +171,7 @@ export type {
   X402PaymentSignature,
   X402Receipt,
   X402ResourceObject,
+  SettleOutcome,
   ExactAuthorizationWire,
   ExactPaymentPayload,
   ParsedExactPayment,
@@ -174,11 +179,13 @@ export type {
 
 /* ------------- x402 `exact`-scheme interop (EVM, EIP-3009) ------------- */
 
-// The standard x402 `exact` scheme, BOTH directions:
-//  • BUYER  — building blocks to PAY a server speaking `exact` (EIP-3009 + facilitator),
-//    making PipRail a universal x402 client. Not wired into PipRailClient's default.
-//  • SELLER — get PAID via `exact` with `createPaymentGate({ exact: … })`. `readExactDomain`
-//    reads a token's true EIP-712 domain; `eip3009Abi` is the minimal seller ABI.
+// The standard x402 `exact` scheme, BOTH directions. The HIGH-LEVEL paths are
+// `PipRailClient({ schemes: ['exact'] })` (BUYER — pay any standard x402 server) and
+// `createPaymentGate({ exact: … })` (SELLER — get paid via `exact`). The exports below are
+// the LOW-LEVEL codec tier (hand-rolled clients, v1 servers, custom flows) — not needed for
+// the high-level paths. `readExactDomain` reads a token's true on-chain EIP-712 domain;
+// `eip3009Abi` is the minimal seller ABI. NOTE: `buildExactAuthorization` is @deprecated
+// (trusts the server-supplied domain; local-key only) — the client uses `payExact`/`payExactEvm`.
 export {
   parseExactRequirements,
   chainIdForExactNetwork,

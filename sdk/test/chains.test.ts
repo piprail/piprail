@@ -24,6 +24,16 @@ describe('resolveChain — built-in mainnets', () => {
     expect(resolveChain('avalanche').chainId).toBe(43114)
   })
 
+  it('ships Circle EURC (EIP-3009, 6dp) on the chains Circle issues it — so the exact buyer recognises it', () => {
+    for (const chain of ['ethereum', 'base', 'avalanche'] as const) {
+      const eurc = resolveChain(chain).tokens.EURC
+      expect(eurc, `EURC on ${chain}`).toMatchObject({ decimals: 6, symbol: 'EURC' })
+      expect(eurc!.address).toMatch(/^0x[0-9a-fA-F]{40}$/)
+    }
+    // EURC is NOT shipped where Circle doesn't issue it natively.
+    expect(resolveChain('arbitrum').tokens.EURC).toBeUndefined()
+  })
+
   it('resolves the newer popular chains (verified USDC + USDT)', () => {
     const expected = [
       ['mantle', 5000], ['sonic', 146], ['linea', 59144], ['scroll', 534352],

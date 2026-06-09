@@ -9,12 +9,12 @@
     "source": "github",
     "subfolder": "mcp"
   },
-  "version": "0.2.8",
+  "version": "0.2.9",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@piprail/mcp",
-      "version": "0.2.8",
+      "version": "0.2.9",
       "transport": { "type": "stdio" },
       "environmentVariables": [
         {
@@ -45,6 +45,12 @@
         {
           "name": "PIPRAIL_TOKENS",
           "description": "Comma-separated allowed token symbols, plus the alias 'native' for the chain's coin (default: USDC).",
+          "isRequired": false,
+          "format": "string"
+        },
+        {
+          "name": "PIPRAIL_SCHEMES",
+          "description": "Comma-separated payment schemes to settle (default: onchain-proof). Add 'exact' (onchain-proof,exact) to also pay standard x402 servers — EVM + EIP-3009 (USDC) only.",
           "isRequired": false,
           "format": "string"
         }

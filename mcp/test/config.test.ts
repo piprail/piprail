@@ -152,6 +152,42 @@ describe('configToClientOptions', () => {
     })
     expect(opts.rpcUrl).toBeUndefined()
   })
+
+  test('omits `schemes` when PIPRAIL_SCHEMES is unset (zero-config posture byte-identical)', () => {
+    const opts = configToClientOptions(parseConfig({ PIPRAIL_PRIVATE_KEY: KEY }))
+    expect('schemes' in opts).toBe(false)
+  })
+
+  test('surfaces `schemes` when PIPRAIL_SCHEMES is set', () => {
+    const cfg = parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_SCHEMES: 'onchain-proof,exact' })
+    expect(cfg.schemes).toEqual(['onchain-proof', 'exact'])
+    expect(configToClientOptions(cfg).schemes).toEqual(['onchain-proof', 'exact'])
+  })
+})
+
+describe('parseConfig — PIPRAIL_SCHEMES', () => {
+  test('parses + lowercases + dedupes a comma-separated list', () => {
+    expect(parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_SCHEMES: ' EXACT , exact ,onchain-proof' }).schemes).toEqual([
+      'exact',
+      'onchain-proof',
+    ])
+  })
+
+  test('rejects an unknown scheme with a clear error', () => {
+    expect(() => parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_SCHEMES: 'exact,bogus' })).toThrow(
+      /Invalid PIPRAIL_SCHEMES/
+    )
+  })
+
+  test('rejects an empty value', () => {
+    expect(() => parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_SCHEMES: ' , ' })).toThrow(
+      /Invalid PIPRAIL_SCHEMES/
+    )
+  })
+
+  test('is absent by default (so the SDK default — onchain-proof only — holds)', () => {
+    expect(parseConfig({ PIPRAIL_PRIVATE_KEY: KEY }).schemes).toBeUndefined()
+  })
 })
 
 describe('parseConfig — chain-aware default token', () => {

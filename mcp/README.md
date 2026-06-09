@@ -139,6 +139,7 @@ All configuration is via environment variables — **never CLI arguments** (a ke
 | `PIPRAIL_MAX_AMOUNT` | `MAX_AMOUNT` | no | `0.10` | Max spend **per payment** (token units). |
 | `PIPRAIL_MAX_TOTAL` | `MAX_TOTAL` | no | `10.00` | Lifetime cap **per token** (token units). |
 | `PIPRAIL_TOKENS` | `TOKENS` | no | `USDC` *(USDT on Tron/TON)* | Comma-separated allowed token symbols, plus `native` for the chain's coin. |
+| `PIPRAIL_SCHEMES` | — | no | `onchain-proof` | Comma-separated payment schemes to settle. Add `exact` (`onchain-proof,exact`) to ALSO pay standard x402 servers — EVM + EIP-3009 (USDC) only. Omit to keep PipRail's backendless rail only. |
 | `PIPRAIL_HOSTS` | `HOSTS` | no | (any) | Comma-separated host allowlist (`api.x.com`, `*.y.com`). |
 | `PIPRAIL_RPC_URL` | `RPC_URL` | no | chain default | Override the RPC endpoint. |
 | `PIPRAIL_ALLOW_UNKNOWN_TOKENS` | — | no | `false` | Pay tokens the SDK can't price? Keep `false`. |

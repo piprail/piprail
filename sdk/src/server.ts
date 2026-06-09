@@ -650,7 +650,9 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
             amount: accept.amount,
             payTo: accept.payTo,
             maxTimeoutSeconds: accept.maxTimeoutSeconds,
-            extra: { name: accept.extra.name, version: accept.extra.version },
+            // name/version are OPTIONAL on the wire type (a foreign rail may omit them), but the
+            // gate's OWN exact rail always read them on-chain at resolution — so they're present here.
+            extra: { name: accept.extra.name ?? '', version: accept.extra.version ?? '' },
           },
           receipt: { network: accept.network, asset: accept.asset, payTo: accept.payTo, amount: accept.amount },
           payerHint: exact.payload.authorization.from,

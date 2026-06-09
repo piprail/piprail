@@ -59,6 +59,22 @@ exact: { settle: { facilitator: 'https://x402.org/facilitator' } }
 
 EVM + EIP-3009 tokens only (USDC, EURC — not USDT, not native; those stay `onchain-proof`). Omit `exact` and the gate is byte-identical to today. Proven end-to-end: a real `@x402/fetch` reference client settles against a PipRail gate on Base mainnet.
 
+### Pay *any* x402 server — the `exact` rail, buyer side
+
+The mirror image: let your **`PipRailClient` pay** standard x402 servers (the dominant `exact`-on-Base-via-CDP web), not just PipRail's own gates. Opt in with `schemes` — default `['onchain-proof']`, so the zero-config client is byte-identical:
+
+```ts
+const client = new PipRailClient({
+  chain: 'base',
+  wallet: { privateKey: process.env.AGENT_KEY },
+  schemes: ['onchain-proof', 'exact'],     // also pay standard exact rails
+})
+await client.fetch('https://api.somevendor.com/paid')   // pays whichever rail it offers
+// or per call: client.fetch(url, { schemes: ['exact'] })
+```
+
+On an `exact` rail the client signs an EIP-3009 authorization with **its own** wallet and the server / merchant-chosen facilitator broadcasts it — so the **buyer pays ~0 gas** and PipRail hosts/settles nothing. The EIP-712 token domain is **re-derived on-chain** (never trusted from the challenge), the same `policy` + `onBeforePay` gate it **before any signature**, and `quote()`/`planPayment()`/`estimateCost()` are truthful across both schemes (an exact rail prices gasless). EVM + EIP-3009 only (USDC/EURC); silently ignored on non-EVM chains, for USDT/native, or for a token the SDK can't price — those stay `onchain-proof`. **Verify against your target facilitator before production.**
+
 ## Built for agents — spend safely
 
 A funded key loose on the internet needs guardrails. Opt in to a `policy` and the client refuses anything outside it **before any on-chain send** — plus learn a price without paying it, approve each payment, and read back exactly what you spent. All opt-in, all local, no backend; omit it and the client behaves exactly as before.
@@ -253,7 +269,8 @@ For an LLM/MCP these are two more tools — **`piprail_discover`** (find) and **
 
 > **Two honest caveats.** The open indexes assume the mainstream `exact` scheme, so to be *usefully*
 > listed also offer a standard `exact` USDC rail on Base/Solana (`discover()` results are
-> cross-scheme; `fetch()` pays only PipRail `onchain-proof` rails directly). And **x402scan indexes
+> cross-scheme; `fetch()` pays PipRail `onchain-proof` rails by default, and standard `exact` rails too
+> once you opt in with `schemes: ['onchain-proof', 'exact']` — EVM/EIP-3009). And **x402scan indexes
 > Base/Solana only** — 402 Index has no such limit, so it's the default register target. There is no
 > single ratified discovery standard yet; OpenAPI-first is an emerging multi-vendor convention.
 
@@ -758,7 +775,7 @@ Methods: `fetch` · `get` · `post` (return the gated `Response` after settlemen
 
 **Bring your own chain family:** the SDK is built on a tiny `PaymentDriver` contract — `resolve(chain)` returns a bound network with `resolveToken` / `describeAsset` / `assertValidPayTo` / `bindWallet` / `send` / `confirm` / `estimateCost` / `balanceOf` / `recipientReady` / `verify`. Register your own with `registerDriver(...)`; the protocol layer never changes (see [Architecture](#architecture-under-the-hood)).
 
-**Universal x402 (experimental):** building blocks to pay servers on the mainstream x402 `exact` scheme (EIP-3009 + facilitator) — `parseExactRequirements`, `buildExactAuthorization`, `encodeXPaymentHeader`. EVM-only; validate against your target facilitator before production.
+**Universal x402 (`exact` scheme):** the supported way to pay any standard x402 server is `new PipRailClient({ …, schemes: ['onchain-proof', 'exact'] })` (see [Pay *any* x402 server](#pay-any-x402-server--the-exact-rail-buyer-side)) — the client signs the EIP-3009 authorization on-chain-derived-domain and the server/facilitator settles. The low-level codecs `parseExactRequirements` / `buildExactAuthorization` (`@deprecated` — trusts the server-supplied domain, local-key only) / `encodeXPaymentHeader` remain for hand-rolled or v1 clients. EVM + EIP-3009 only; validate against your target facilitator before production.
 
 ## Requirements
 

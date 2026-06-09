@@ -197,16 +197,18 @@ export function paymentTools(client: PipRailClient): AgentTool[] {
     {
       name: 'piprail_pay_request',
       description:
-        'Fetch an x402 payment-gated URL, automatically paying the required on-chain ' +
-        'payment if needed (subject to the spend policy + approval hook). Returns the HTTP ' +
-        'status, the response body, and a payment receipt if one settled. If the payment is ' +
-        'refused by policy or the approval hook, returns { declined: true, reason } — no funds moved.',
+        'Fetch an x402 payment-gated URL, automatically making the required payment if needed ' +
+        '(subject to the spend policy + approval hook). Pays whichever rail the client is configured ' +
+        'for — PipRail\'s backendless on-chain rail, or, when enabled, the standard `exact` rail ' +
+        '(where the buyer signs and the server settles, so no buyer gas). Returns the HTTP status, ' +
+        'the response body, and a payment receipt if one settled. If the payment is refused by policy ' +
+        'or the approval hook, returns { declined: true, reason } — no funds moved.',
       annotations: {
         title: 'Pay an x402 request',
         readOnlyHint: false, // this is the one tool that MOVES FUNDS
-        destructiveHint: true, // an on-chain payment is value-moving and not reversible
+        destructiveHint: true, // a payment is value-moving and not reversible
         idempotentHint: false, // paying twice = two payments
-        openWorldHint: true, // fetches a URL and settles on-chain
+        openWorldHint: true, // fetches a URL and settles a payment
       },
       parameters: {
         type: 'object',

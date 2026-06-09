@@ -1,5 +1,13 @@
 # @piprail/mcp changelog
 
+## 0.2.9 — 2026-06-10
+
+- **Rebuilt against `@piprail/sdk` ^1.14.0** — the opt-in universal `exact` BUYER rail.
+- **`PIPRAIL_SCHEMES`** — opt into paying standard x402 servers. Set `PIPRAIL_SCHEMES=onchain-proof,exact`
+  to let the wallet ALSO pay the standard `exact` rail (EVM + EIP-3009 / USDC), not just PipRail's
+  backendless `onchain-proof` rail. Unset ⇒ `onchain-proof` only, so the zero-config posture is unchanged.
+  The active schemes appear in the startup banner only when set. No custody/policy change.
+
 ## 0.2.8 — 2026-06-10
 
 - **Rebuilt against `@piprail/sdk` ^1.13.0** — the conformance bug-hunt fixes + the gate `discovery`

@@ -52,6 +52,8 @@ export function formatBanner(config: Config): string {
     row('tokens', config.tokens.join(', ')),
   ]
   if (config.hosts && config.hosts.length) lines.push(row('hosts', config.hosts.join(', ')))
+  // Only shown when PIPRAIL_SCHEMES is set — so the zero-config banner stays byte-identical.
+  if (config.schemes && config.schemes.length) lines.push(row('schemes', config.schemes.join(', ')))
   if (config.rpcUrl) lines.push(row('rpc', '(custom)'))
   if (config.allowUnknownTokens) {
     lines.push(row('unknown tokens', 'ALLOWED — unpriced, risk accepted'))

@@ -82,10 +82,13 @@ export interface X402ExactAcceptEntry {
   extra: {
     /** The exact-EVM transfer method. PipRail self-settles EIP-3009 today. */
     assetTransferMethod: 'eip3009'
-    /** EIP-712 domain name of the token (USDC: "USD Coin"; EURC: "EURC"). Read on-chain. */
-    name: string
-    /** EIP-712 domain version of the token (USDC/EURC: "2"). Read on-chain. */
-    version: string
+    /** EIP-712 domain name of the token. OPTIONAL per the exact-EVM scheme (only
+     *  `assetTransferMethod` is required) — a foreign rail may omit it. NEVER assumed
+     *  from the symbol (USDC's on-chain name() is "USD Coin", not "USDC"); a PipRail gate
+     *  READS it on-chain, and the PipRail buyer RE-DERIVES it on-chain and ignores this. */
+    name?: string
+    /** EIP-712 domain version of the token (USDC: "2"). OPTIONAL (see `name`); read/re-derived on-chain. */
+    version?: string
     /** Confirmations the gate waits for before granting access — mirrors the gate's
      *  `minConfirmations`, so the exact rail honours the same reorg safety as onchain-proof.
      *  A PipRail convenience (standard clients ignore unknown keys). */
@@ -329,6 +332,23 @@ export function buildSignatureHeader(signature: X402PaymentSignature): string {
   return toBase64Json(signature)
 }
 
+/**
+ * Build the v2 PAYMENT-SIGNATURE header value for a standard x402 `exact` payment:
+ * base64 of `{ x402Version: 2, accepted, payload }`. `accepted` is the chosen rail
+ * echoed back VERBATIM from the challenge's `accepts[]` (preserving any extra keys a
+ * facilitator needs); `payload` is the EIP-3009 `{ signature, authorization }` the
+ * buyer's EVM driver produced. Chain-agnostic (pure JSON/base64) — the driver owns
+ * the signing, this only frames it for the wire. Round-trips through
+ * {@link parseExactPaymentHeader}. (The `onchain-proof` counterpart is
+ * {@link buildSignatureHeader}; the v1 flat-shape utility is `encodeXPaymentHeader`.)
+ */
+export function buildExactSignatureHeader(input: {
+  accepted: X402ExactAcceptEntry
+  payload: ExactPaymentPayload
+}): string {
+  return toBase64Json({ x402Version: 2, accepted: input.accepted, payload: input.payload })
+}
+
 /* ----------------------------- parse ----------------------------- */
 
 /**
@@ -352,12 +372,55 @@ export async function parseChallenge(
   return null
 }
 
-/** Parse the PAYMENT-RESPONSE receipt header on a 200 settlement. */
+/** Parse the PAYMENT-RESPONSE receipt header on a 200 settlement. Reads the v2
+ *  `payment-response` header, falling back to the v1 `x-payment-response` a foreign
+ *  server may set. Returns a fully-formed {@link X402Receipt} only (a bare foreign
+ *  exact SettleResponse without a `payer` is read by {@link parseSettleResponse}). */
 export function parseReceipt(response: Response): X402Receipt | null {
-  const headerValue = response.headers.get(HEADER_RESPONSE)
+  const headerValue =
+    response.headers.get(HEADER_RESPONSE) ?? response.headers.get(HEADER_RESPONSE_V1)
   if (!headerValue) return null
   const parsed = fromBase64Json<unknown>(headerValue)
   return isValidReceipt(parsed) ? parsed : null
+}
+
+/**
+ * A standard x402 SettleResponse as the BUYER reads it off a settled (non-402)
+ * response. The `success` flag is authoritative: `false` is an EXPLICIT facilitator/
+ * server REJECTION (the buyer must NOT record a spend), `true` is an affirmative
+ * settlement. `transaction` is the on-chain settle tx the facilitator broadcast.
+ */
+export interface SettleOutcome {
+  success: boolean
+  transaction?: string
+  network?: string
+  payer?: string
+  errorReason?: string
+}
+
+/**
+ * Read a standard x402 SettleResponse for the BUYER, from the v2 `payment-response`
+ * header (or the v1 `x-payment-response` fallback). Returns `null` when neither
+ * header is present, unparseable, or carries no boolean `success` — i.e. when the
+ * server served the resource WITHOUT echoing a settle result, which the exact buyer
+ * treats as an affirmative 2xx settlement (receipt-less). When a body IS present with
+ * a boolean `success`, that flag is returned verbatim: ONLY an explicit
+ * `success: false` is a rejection. Used by the exact pay path to tell a real
+ * settlement from a phantom one (never record a spend on `success:false`).
+ */
+export function parseSettleResponse(response: Response): SettleOutcome | null {
+  const headerValue =
+    response.headers.get(HEADER_RESPONSE) ?? response.headers.get(HEADER_RESPONSE_V1)
+  if (!headerValue) return null
+  const parsed = fromBase64Json<Record<string, unknown>>(headerValue)
+  if (!parsed || typeof parsed !== 'object' || typeof parsed.success !== 'boolean') return null
+  return {
+    success: parsed.success,
+    ...(typeof parsed.transaction === 'string' ? { transaction: parsed.transaction } : {}),
+    ...(typeof parsed.network === 'string' ? { network: parsed.network } : {}),
+    ...(typeof parsed.payer === 'string' ? { payer: parsed.payer } : {}),
+    ...(typeof parsed.errorReason === 'string' ? { errorReason: parsed.errorReason } : {}),
+  }
 }
 
 /** Parse a PAYMENT-SIGNATURE header value (server side). */

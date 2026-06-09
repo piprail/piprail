@@ -1,6 +1,6 @@
 # PipRail
 
-> Last-Updated: 2026-06-09 · SDK-Version: 1.13.1 · MCP-Version: 0.2.8 · Type: APIService · License: MIT · Repository: https://github.com/piprail/piprail
+> Last-Updated: 2026-06-10 · SDK-Version: 1.14.0 · MCP-Version: 0.2.9 · Type: APIService · License: MIT · Repository: https://github.com/piprail/piprail
 
 > Accept and make x402 "402 Payment Required" crypto payments from any HTTP request — across 29 chains in 10 families (every major EVM chain plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar & the XRP Ledger). No backend, no database, no account, no fee: payments settle straight to your wallet, verified locally against your own RPC. Built for AI agents. It also does x402 **discovery** — emit a machine-readable manifest, register your endpoint on the open indexes (402 Index, CDP Bazaar), and let agents find payable APIs to use — on every chain. And `@piprail/mcp` — an MCP (Model Context Protocol) server, listed in the official MCP registry (`io.github.piprail/mcp`), that lets any MCP client (Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, Cline) pay, discover, and register x402 URLs autonomously, capped by a local spend policy the model cannot exceed.
 

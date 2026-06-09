@@ -159,6 +159,22 @@ export async function run() {
       check('relayer paid the gas (ETH balance dropped)', (await ethBal(relayer.address)) < r0)
     }
 
+    group('07 · BUYER — a PipRailClient({ schemes:["exact"] }) pays the exact rail end-to-end')
+    {
+      // The NEW buyer path: PipRail's own client (not a hand-roll) pays the gate's
+      // standard exact rail. The payer holds USDC + ZERO ETH, so this also proves the
+      // gasless buyer model under real on-chain settlement.
+      const m0 = await usdcBal(merchant), p0 = await usdcBal(payer.address)
+      const buyer = new PipRailClient({ chain: base, wallet: { privateKey: payerKey }, schemes: ['exact'], rpcUrl: ANVIL_URL })
+      const events = []
+      const res = await buyer.fetch(url, { schemes: ['exact'] }).catch((e) => e)
+      const body = res instanceof Error ? {} : await res.json().catch(() => ({}))
+      check('PipRailClient settled the exact rail → 200, unlocked', !(res instanceof Error) && res.status === 200 && body.unlocked === true, res instanceof Error ? res.message : `status=${res.status}`)
+      check('merchant received EXACTLY 0.01 USDC from the client', (await usdcBal(merchant)) - m0 === 10_000n)
+      check('payer spent 0.01 USDC and STILL holds 0 ETH (gasless buyer)', p0 - (await usdcBal(payer.address)) === 10_000n && (await ethBal(payer.address)) === 0n)
+      check('client recorded the spend exactly once', buyer.spent().count === 1, `count=${buyer.spent().count}`)
+    }
+
     group('07 · REPLAY — the same EIP-3009 authorization can\'t settle twice')
     {
       const account = privateKeyToAccount(payerKey)

@@ -156,7 +156,8 @@ piprail/
 - **Chains:** every major EVM chain plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand,
   Stellar, and the XRP Ledger — many families, one `chain:` parameter. Token coverage rule:
   **USDC almost everywhere**; USDT on most (omitted where the chain's "USDT" is a bridged
-  LayerZero/USDT0 token rather than Tether-native); EURC on Stellar; RLUSD on XRPL; **native
+  LayerZero/USDT0 token rather than Tether-native); EURC where Circle issues it (Stellar +
+  Ethereum/Base/Avalanche — all EIP-3009, so exact-payable); RLUSD on XRPL; **native
   coin is a valid payment asset on every family**. Any other token works by address. The
   authoritative, always-current chain list (and the receive-prerequisite caveats) lives in
   [`sdk/README.md`](sdk/README.md) and [`sdk/CHAINS.md`](sdk/CHAINS.md) — don't duplicate counts

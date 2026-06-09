@@ -6,10 +6,12 @@
  * x402 `exact` interop, in BOTH directions, EVM + EIP-3009 only, on the existing
  * `viem` peer (no new dep):
  *
- *   • BUYER side (client) — parse an `exact` requirement, build + EIP-712-sign the
- *     EIP-3009 authorization, encode the `X-PAYMENT` header. Deterministic,
- *     unit-testable; NOT wired into `PipRailClient.fetch`'s default (see
- *     `.claude/plans/agent-readiness/04-universal-exact.md`).
+ *   • BUYER side (client) — {@link payExactEvm} re-derives the token's EIP-712 domain
+ *     ON-CHAIN, signs the EIP-3009 authorization, and is wired into `PipRailClient`'s
+ *     pay path via the EVM driver's `payExact` SPI (OPT-IN through `schemes: ['exact']`;
+ *     the default is unchanged). The lower-level `buildExactAuthorization` /
+ *     `encodeXPaymentHeader` codecs remain for hand-rolled/v1 clients. See
+ *     `.claude/plans/exact-client/IMPLEMENTATION.md`.
  *
  *   • SELLER side (gate) — {@link readExactDomain} (read the token's true EIP-712
  *     domain so the gate can advertise + verify it) and {@link verifyAndSettleExactEvm}
@@ -33,7 +35,7 @@ import {
   type PublicClient,
   type WalletClient,
 } from 'viem'
-import { SettlementError } from '../../errors.js'
+import { SettlementError, UnsupportedSchemeError } from '../../errors.js'
 import type { VerifyResult, X402ExactAcceptEntry, ExactPaymentPayload } from '../../x402.js'
 
 /** x402 network slug → EVM chain id, for the chains PipRail ships with EIP-3009
@@ -147,6 +149,13 @@ export interface BuildExactParams {
  * Build + EIP-712-sign an EIP-3009 `transferWithAuthorization` for an `exact`
  * requirement. Returns the authorization and its signature; pass both to
  * {@link encodeXPaymentHeader} to produce the `X-PAYMENT` header value.
+ *
+ * @deprecated Low-level primitive — prefer {@link payExactEvm}, which the client's
+ * `payExact` SPI uses. This helper TRUSTS the server-supplied `accept.extra.{name,
+ * version}` for the EIP-712 domain (a lying/absent value yields a silently-invalid
+ * signature) and calls `account.signTypedData` directly (which is `undefined` on a
+ * bring-your-own JsonRpcAccount). `payExactEvm` re-derives the domain on-chain and
+ * signs via the wallet client. Kept exported as a deterministic test/codec building block.
  */
 export async function buildExactAuthorization(
   params: BuildExactParams
@@ -222,6 +231,97 @@ export function encodeXPaymentHeader(input: {
   return base64(JSON.stringify(payload))
 }
 
+/**
+ * BUYER, production path — build + EIP-712-sign an EIP-3009 `transferWithAuthorization`
+ * for a standard x402 `exact` rail, returning the signed `{ signature, authorization }`
+ * payload for {@link buildExactSignatureHeader} to frame. This is what the EVM driver's
+ * `payExact` SPI calls. Unlike {@link buildExactAuthorization}, it:
+ *
+ *   • RE-DERIVES the token's EIP-712 domain `{ name, version }` ON-CHAIN ({@link readExactDomain}),
+ *     never trusting the server's `extra.{name,version}` — so a lying/absent value can't
+ *     produce a silently-invalid signature. A `null` domain (not an EIP-3009 token — USDT/
+ *     native/plain ERC-20) throws {@link UnsupportedSchemeError}.
+ *   • Refuses a CONTRACT / EIP-1271 / EIP-7702-delegated signer (code at `from`) — it can't
+ *     produce a recoverable ECDSA signature — with {@link UnsupportedSchemeError}, BEFORE signing.
+ *   • Generates a CSPRNG 32-byte authorization nonce (Web Crypto) + the current unix time.
+ *   • Signs via `walletClient.signTypedData` (NOT `account.signTypedData`, which is undefined
+ *     on a bring-your-own JsonRpcAccount).
+ *
+ * The buyer NEVER broadcasts: the server / merchant-chosen facilitator broadcasts the
+ * authorization. `validAfter` is `'0'` (maximally compatible; the contract enforces only
+ * `now >= validAfter`); `validBefore` is `now + maxTimeoutSeconds`.
+ */
+export async function payExactEvm(input: {
+  publicClient: PublicClient
+  walletClient: WalletClient
+  account: Account
+  chainId: number
+  accept: X402ExactAcceptEntry
+}): Promise<{ payload: ExactPaymentPayload; payerFrom: string; nonce: Hex }> {
+  const { publicClient, walletClient, account, chainId, accept } = input
+
+  // EOA-only: a contract / EIP-1271 / EIP-7702-delegated account can't produce a
+  // recoverable ECDSA signature for transferWithAuthorization. Refuse BEFORE signing.
+  // A transient getCode failure is treated as EOA — the facilitator's own verify is
+  // the backstop, and refusing on a flaky RPC read would be worse than letting it try.
+  let code: string | undefined
+  try {
+    code = await publicClient.getCode({ address: account.address })
+  } catch {
+    code = undefined
+  }
+  if (code && code !== '0x') {
+    throw new UnsupportedSchemeError(
+      `exact buyer rail requires an EOA signer; ${account.address} is a contract / ` +
+        `EIP-1271 / EIP-7702-delegated account (no recoverable ECDSA signature). Pay via onchain-proof.`
+    )
+  }
+
+  // Re-derive the EIP-712 domain ON-CHAIN — never trust the server's extra.{name,version}.
+  // null ⇒ not an EIP-3009 token (USDT needs Permit2; native/plain ERC-20 aren't exact-payable).
+  const domain = await readExactDomain(publicClient, accept.asset)
+  if (!domain) {
+    throw new UnsupportedSchemeError(
+      `exact: ${accept.asset} on ${accept.network} isn't an EIP-3009 token ` +
+        `(USDT needs Permit2; native coin and plain ERC-20s aren't exact-payable). Pay via onchain-proof.`
+    )
+  }
+
+  // CSPRNG 32-byte authorization nonce — Web Crypto (headless + browser parity).
+  const g = globalThis.crypto
+  if (!g?.getRandomValues) {
+    throw new UnsupportedSchemeError(
+      'this runtime lacks Web Crypto (globalThis.crypto.getRandomValues); the exact rail needs a CSPRNG nonce.'
+    )
+  }
+  const raw = new Uint8Array(32)
+  g.getRandomValues(raw)
+  const nonce = `0x${[...raw].map((b) => b.toString(16).padStart(2, '0')).join('')}` as Hex
+
+  const now = Math.floor(Date.now() / 1000)
+  const from = account.address
+  const to = getAddress(accept.payTo)
+  const value = accept.amount // base units, already scaled by decimals
+  const validAfter = '0'
+  const validBefore = String(now + accept.maxTimeoutSeconds)
+
+  // Sign via the WALLET CLIENT, not account.signTypedData (a bring-your-own
+  // { walletClient } carries a JsonRpcAccount whose account.signTypedData is undefined).
+  const signature = await walletClient.signTypedData({
+    account,
+    domain: { name: domain.name, version: domain.version, chainId, verifyingContract: getAddress(accept.asset) },
+    types: EIP3009_TYPES,
+    primaryType: 'TransferWithAuthorization',
+    message: { from, to, value: BigInt(value), validAfter: 0n, validBefore: BigInt(validBefore), nonce },
+  })
+
+  return {
+    payload: { signature, authorization: { from, to, value, validAfter, validBefore, nonce } },
+    payerFrom: from,
+    nonce,
+  }
+}
+
 /* ───────────────────────── SELLER SIDE (gate) ─────────────────────────── */
 
 /**
@@ -287,9 +387,10 @@ const ZERO_NONCE = `0x${'00'.repeat(32)}` as const
  * plain ERC-20), so the gate refuses to advertise a standard `exact` rail for it.
  *
  * The name is NEVER assumed from the symbol: canonical USDC's domain name is
- * "USD Coin" (not "USDC"), EURC's is "EURC". `eip712Domain()` (EIP-5267) reverts
- * on these proxies, so we read `name()`+`version()` and probe `authorizationState`
- * to confirm EIP-3009 support.
+ * "USD Coin" (not "USDC"), and EURC's is "Euro Coin" on Ethereum/Avalanche but "EURC"
+ * on Base — proof that only the on-chain read is authoritative. `eip712Domain()`
+ * (EIP-5267) reverts on these proxies, so we read `name()`+`version()` and probe
+ * `authorizationState` to confirm EIP-3009 support.
  */
 export async function readExactDomain(
   publicClient: PublicClient,

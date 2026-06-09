@@ -109,6 +109,8 @@ npm test                 # full Vitest suite
 npm run build            # tsup build succeeds
 # lazy-chunk invariant — the EVM bundle pulls in no non-EVM chain lib:
 grep -E "from ?['\"]@(solana|ton|stellar)" dist/index.js   # → expect NO matches
+# viem-free protocol layer — the chain-agnostic core never imports a chain SDK:
+grep -lE "from ['\"]viem" src/client.ts src/x402.ts src/policy.ts src/ledger.ts src/server.ts src/agent.ts  # → expect NO matches
 ```
 
 `prepublishOnly` runs build + test + both typechecks. Never ship with any of these red.

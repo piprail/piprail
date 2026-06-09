@@ -52,12 +52,17 @@ export const CHAINS = {
     tokens: {
       USDC: { address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', decimals: 6, symbol: 'USDC' },
       USDT: { address: '0xdAC17F958D2ee523a2206206994597C13D831ec7', decimals: 6, symbol: 'USDT' },
+      // Circle EURC — EIP-3009 (exact-payable). On-chain EIP-712 domain name is "Euro Coin" here
+      // (NOT "EURC"); the buyer re-derives it on-chain, so the symbol below is display-only.
+      EURC: { address: '0x1aBaEA1f7C830bD89Acc67eC4af516284b1bC33c', decimals: 6, symbol: 'EURC' },
     },
   },
   base: {
     chain: base,
     tokens: {
       USDC: { address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', decimals: 6, symbol: 'USDC' },
+      // Circle EURC — EIP-3009 (exact-payable). On-chain EIP-712 domain name is "EURC" here.
+      EURC: { address: '0x60a3E35Cc302bFA44Cb288Bc5a4F316Fdb1adb42', decimals: 6, symbol: 'EURC' },
     },
   },
   arbitrum: {
@@ -94,6 +99,8 @@ export const CHAINS = {
     tokens: {
       USDC: { address: '0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E', decimals: 6, symbol: 'USDC' },
       USDT: { address: '0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7', decimals: 6, symbol: 'USDT' },
+      // Circle EURC — EIP-3009 (exact-payable). On-chain EIP-712 domain name is "Euro Coin" here.
+      EURC: { address: '0xC891EB4cbdEFf6e073e859e987815Ed1505c2ACD', decimals: 6, symbol: 'EURC' },
     },
   },
 

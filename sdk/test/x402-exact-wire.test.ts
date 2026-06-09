@@ -4,7 +4,7 @@
  * `{scheme,network,payload}`, slug) shapes, and reject everything else.
  */
 import { describe, it, expect } from 'vitest'
-import { parseExactPaymentHeader } from '../src/x402.js'
+import { parseExactPaymentHeader, parseSettleResponse } from '../src/x402.js'
 import { encodeXPaymentHeader } from '../src/drivers/evm/exact.js'
 
 const AUTH = {
@@ -98,5 +98,42 @@ describe('encodeXPaymentHeader — emits the v1 flat shape (intentional, not a b
     expect(p!.x402Version).toBe(1)
     expect(p!.payload.signature).toBe(SIG)
     expect(p!.payload.authorization.value).toBe(AUTH.value)
+  })
+})
+
+describe('parseSettleResponse — the buyer reads a SettleResponse', () => {
+  const enc = (o: unknown) => Buffer.from(JSON.stringify(o), 'utf8').toString('base64')
+
+  it('reads a BARE foreign SettleResponse {success,transaction,network} (no scheme/payer)', () => {
+    const res = new Response('{}', {
+      status: 200,
+      headers: { 'payment-response': enc({ success: true, transaction: '0xabc', network: 'eip155:8453' }) },
+    })
+    expect(parseSettleResponse(res)).toEqual({ success: true, transaction: '0xabc', network: 'eip155:8453' })
+  })
+
+  it('flags an EXPLICIT success:false (a rejection — never a settlement)', () => {
+    const res = new Response('{}', {
+      status: 200,
+      headers: { 'payment-response': enc({ success: false, errorReason: 'insufficient_funds', transaction: '' }) },
+    })
+    expect(parseSettleResponse(res)).toMatchObject({ success: false, errorReason: 'insufficient_funds' })
+  })
+
+  it('falls back to the v1 x-payment-response header', () => {
+    const res = new Response('{}', {
+      status: 200,
+      headers: { 'x-payment-response': enc({ success: true, transaction: '0xdef', network: 'eip155:8453' }) },
+    })
+    expect(parseSettleResponse(res)!.transaction).toBe('0xdef')
+  })
+
+  it('returns null with NO settle header (a receipt-less 2xx ⇒ the buyer treats it as affirmative)', () => {
+    expect(parseSettleResponse(new Response('{}', { status: 200 }))).toBeNull()
+  })
+
+  it('returns null when the body carries no boolean `success`', () => {
+    const res = new Response('{}', { status: 200, headers: { 'payment-response': enc({ transaction: '0xabc' }) } })
+    expect(parseSettleResponse(res)).toBeNull()
   })
 })

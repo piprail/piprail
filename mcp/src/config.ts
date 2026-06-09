@@ -14,6 +14,7 @@ import { CHAINS } from '@piprail/sdk'
 import type {
   ChainSelector,
   PaymentPolicy,
+  PaymentScheme,
   PipRailClientOptions,
   WalletInput,
 } from '@piprail/sdk'
@@ -38,6 +39,9 @@ export interface Config {
   hosts?: string[]
   /** Pay tokens the SDK can't price? Default false (safe). */
   allowUnknownTokens: boolean
+  /** Which payment schemes to settle. Absent ⇒ the SDK default (`onchain-proof` only,
+   *  so the MCP zero-config posture is byte-identical). Set via PIPRAIL_SCHEMES. */
+  schemes?: PaymentScheme[]
   /** Which env var supplied the key — surfaced in the banner (never the value). */
   keySource: string
 }
@@ -60,8 +64,12 @@ const KNOWN_PIPRAIL_VARS = [
   'PIPRAIL_TOKENS',
   'PIPRAIL_HOSTS',
   'PIPRAIL_ALLOW_UNKNOWN_TOKENS',
+  'PIPRAIL_SCHEMES',
   'PIPRAIL_NEAR_ACCOUNT_ID',
 ] as const
+
+/** The payment schemes the MCP may enable via PIPRAIL_SCHEMES. */
+const VALID_SCHEMES = ['onchain-proof', 'exact'] as const
 
 /**
  * Non-EVM families whose wallet secret is NOT a plain `privateKey`. Tron, Sui,
@@ -207,6 +215,23 @@ export function parseConfig(env: Env = process.env): Config {
 
   const tokens = parsed.tokens.length ? parsed.tokens : [defaultStable]
 
+  // 6) Optional payment schemes (comma-separated). ABSENT ⇒ leave it off so the SDK
+  //    default ('onchain-proof' only) holds and the MCP zero-config posture is
+  //    byte-identical. Add 'exact' to also pay standard x402 servers (EVM/EIP-3009).
+  const schemesRaw = pick(env, 'PIPRAIL_SCHEMES').value
+  let schemes: PaymentScheme[] | undefined
+  if (schemesRaw !== undefined) {
+    const requested = csv(schemesRaw.toLowerCase())
+    const bad = requested.filter((s) => !VALID_SCHEMES.includes(s as (typeof VALID_SCHEMES)[number]))
+    if (requested.length === 0 || bad.length) {
+      throw new ConfigError(
+        `Invalid PIPRAIL_SCHEMES "${schemesRaw}". Use a comma-separated subset of ` +
+          `${VALID_SCHEMES.join(', ')} (e.g. "onchain-proof,exact").`
+      )
+    }
+    schemes = [...new Set(requested)] as PaymentScheme[]
+  }
+
   return {
     chain: parsed.chain,
     walletSecret: parsed.walletSecret,
@@ -217,6 +242,7 @@ export function parseConfig(env: Env = process.env): Config {
     tokens,
     ...(parsed.hosts && parsed.hosts.length ? { hosts: parsed.hosts } : {}),
     allowUnknownTokens: parsed.allowUnknownTokens,
+    ...(schemes ? { schemes } : {}),
     keySource: key.source as string,
   }
 }
@@ -259,5 +285,8 @@ export function configToClientOptions(config: Config): PipRailClientOptions {
     wallet: walletInputFor(config),
     policy,
     ...(config.rpcUrl ? { rpcUrl: config.rpcUrl } : {}),
+    // Only set when PIPRAIL_SCHEMES was provided — otherwise omit so the SDK default
+    // ('onchain-proof' only) applies and the zero-config MCP posture is unchanged.
+    ...(config.schemes ? { schemes: config.schemes } : {}),
   }
 }

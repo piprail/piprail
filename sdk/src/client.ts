@@ -26,13 +26,18 @@ import {
 import {
   HEADER_SIGNATURE,
   buildSignatureHeader,
+  buildExactSignatureHeader,
   parseChallenge,
   parseReceipt,
+  parseSettleResponse,
   type Caip2,
   type X402AcceptEntry,
+  type X402ExactAcceptEntry,
+  type X402AnyAccept,
   type X402Challenge,
   type X402PaymentSignature,
   type X402Receipt,
+  type SettleOutcome,
 } from './x402.js'
 import {
   InvalidEnvelopeError,
@@ -41,15 +46,24 @@ import {
   NonReplayableBodyError,
   PaymentDeclinedError,
   PaymentTimeoutError,
+  UnsupportedSchemeError,
   WrongChainError,
 } from './errors.js'
+
+/** The payment schemes a client can settle: PipRail's native `onchain-proof` (the
+ *  default) and the standard x402 `exact` rail (EVM + EIP-3009 only, opt-in). */
+export type PaymentScheme = 'onchain-proof' | 'exact'
+
+/** The scheme set when none is configured — `onchain-proof` only, so the zero-config
+ *  path is byte-identical to before the `exact` buyer rail existed (defaults never change). */
+const DEFAULT_SCHEMES: readonly PaymentScheme[] = ['onchain-proof']
 import { evaluatePolicy, type PaymentIntent, type PaymentPolicy } from './policy.js'
 import { SpendLedger, type SpendSummary } from './ledger.js'
 import { formatUnits } from './util/units.js'
 
 /** Observability events. `ref` is the proof — a chain-specific id (EVM tx hash, Solana signature, TON locator, Stellar tx hash). */
 export type PipRailEvent =
-  | { kind: 'payment-required'; challenge: X402Challenge; accept: X402AcceptEntry }
+  | { kind: 'payment-required'; challenge: X402Challenge; accept: X402AnyAccept }
   | { kind: 'payment-broadcast'; ref: string }
   | { kind: 'payment-confirmed'; ref: string; blockNumber: bigint }
   /**
@@ -60,7 +74,14 @@ export type PipRailEvent =
    * orphaned into a double-pay. `reason` is the confirm error's message.
    */
   | { kind: 'payment-unconfirmed'; ref: string; reason: string }
-  | { kind: 'payment-settled'; receipt: X402Receipt | null }
+  /**
+   * The payment settled. `receipt` is PipRail's rich {@link X402Receipt} when the
+   * server returns one (its own gate, or a facilitator that echoes the full shape);
+   * `settle` is the standard x402 SettleResponse (`{ success, transaction, … }`) on
+   * conformant third-party-facilitator interop, where the lean SettleResponse has no
+   * rich receipt — read `settle.transaction` for the on-chain settle tx there.
+   */
+  | { kind: 'payment-settled'; receipt: X402Receipt | null; settle?: SettleOutcome }
   | { kind: 'payment-failed'; reason: string }
 
 /**
@@ -157,8 +178,9 @@ export type PayWarning =
 
 /** One offered rail, fully analysed against the bound wallet's own holdings. */
 export interface PayOption {
-  /** The rail this analyses (one entry from the 402's accepts[]). */
-  accept: X402AcceptEntry
+  /** The rail this analyses (one entry from the 402's accepts[]) — an
+   *  `onchain-proof` rail or, when `schemes` enables it, a standard `exact` rail. */
+  accept: X402AnyAccept
   /** The priced requirement — TRUE decimals/symbol + the policy verdict. */
   quote: PipRailQuote
   /** Estimated native-coin gas to send it (cost.basis surfaced). */
@@ -252,6 +274,24 @@ export interface PipRailClientOptions {
    * per call with `fetch(url, { autoRoute: true })`.
    */
   autoRoute?: boolean
+  /**
+   * Which payment SCHEMES this client may settle. Default **`['onchain-proof']`**
+   * (defaults never change): the zero-config client pays only PipRail's native
+   * backendless rail, exactly as before. Add `'exact'` to ALSO pay standard x402
+   * `exact` rails — letting the agent pay ANY standard x402 server (the dominant
+   * `exact`-on-Base-via-CDP web), not just PipRail's own gates:
+   *
+   *   new PipRailClient({ chain: 'base', wallet, schemes: ['onchain-proof', 'exact'] })
+   *
+   * `exact` is **EVM + EIP-3009 only** (USDC/EURC); it's silently ignored on a
+   * non-EVM chain, for USDT/native, or for a token the SDK can't price — those keep
+   * `onchain-proof`. The agent signs an EIP-3009 authorization with its OWN wallet
+   * and the server / merchant-chosen facilitator broadcasts it (the buyer pays ~0
+   * gas; PipRail hosts/settles nothing). The same `policy` + `onBeforePay` gate it
+   * BEFORE signing. **Verify against your target facilitator before production.**
+   * Override per call with `fetch(url, { schemes })`.
+   */
+  schemes?: PaymentScheme[]
   /** Logger hook. Default no-op. */
   onEvent?: (event: PipRailEvent) => void
 }
@@ -352,6 +392,12 @@ export class PipRailClient {
     })())
   }
 
+  /** Resolve the effective scheme set: a per-call override, else the constructor's
+   *  `schemes`, else the `onchain-proof`-only default. */
+  private resolveSchemes(perCall?: PaymentScheme[]): readonly PaymentScheme[] {
+    return perCall ?? this.opts.schemes ?? DEFAULT_SCHEMES
+  }
+
   /** GET that auto-handles 402. Pass a full URL to any x402-gated endpoint. */
   get(url: string, init?: RequestInit): Promise<Response> {
     return this.fetch(url, { ...(init ?? {}), method: 'GET' })
@@ -404,7 +450,7 @@ export class PipRailClient {
   async quote(url: string, init?: RequestInit): Promise<PipRailQuote | null> {
     const res = await fetch(url, { ...(init ?? {}), method: init?.method ?? 'GET' })
     if (res.status !== 402) return null
-    const { quote } = await this.resolveChallenge(url, res)
+    const { quote } = await this.resolveChallenge(url, res, this.resolveSchemes())
     return quote
   }
 
@@ -427,7 +473,7 @@ export class PipRailClient {
   ): Promise<PipRailCostQuote | null> {
     const res = await fetch(url, { ...(init ?? {}), method: init?.method ?? 'GET' })
     if (res.status !== 402) return null
-    const { net, accept, quote } = await this.resolveChallenge(url, res)
+    const { net, accept, quote } = await this.resolveChallenge(url, res, this.resolveSchemes())
     const cost = await net.estimateCost(accept)
     return { quote, cost }
   }
@@ -465,7 +511,7 @@ export class PipRailClient {
       throw new InvalidEnvelopeError('402 response did not include a parseable x402 challenge.')
     }
     const { net, wallet } = await this.ensure()
-    return this.planFromChallenge(net, wallet, challenge, url)
+    return this.planFromChallenge(net, wallet, challenge, url, this.resolveSchemes())
   }
 
   /**
@@ -496,8 +542,8 @@ export class PipRailClient {
    * - A resource just listed via {@link register} may not appear yet — 402 Index reviews
    *   before publishing, so retry with a brief backoff if a fresh listing is missing.
    * - Results are cross-scheme (mostly the mainstream `exact` scheme); `fetch()` pays
-   *   only `onchain-proof` rails directly (pay `exact` resources with the experimental
-   *   `drivers/evm/exact.ts`).
+   *   `onchain-proof` rails by default, and standard `exact` rails too once you opt in
+   *   with `schemes: ['onchain-proof', 'exact']` (EVM + EIP-3009 — USDC/EURC).
    */
   async discover(opts: DiscoverOptions = {}): Promise<DiscoveredResource[]> {
     const found = await searchOpenIndexes({
@@ -644,7 +690,10 @@ export class PipRailClient {
    * twice (once to fetch the 402, once with the proof attached). One-shot
    * streams throw `NonReplayableBodyError`.
    */
-  async fetch(url: string, init?: RequestInit): Promise<Response> {
+  async fetch(
+    url: string,
+    init?: RequestInit & { autoRoute?: boolean; schemes?: PaymentScheme[] }
+  ): Promise<Response> {
     const body = init?.body
     if (body !== undefined && body !== null && !isReplayableBodyInit(body)) {
       throw new NonReplayableBodyError(
@@ -656,18 +705,18 @@ export class PipRailClient {
     const firstResponse = await fetch(url, init)
     if (firstResponse.status !== 402) return firstResponse
 
-    const resolved = await this.resolveChallenge(url, firstResponse)
+    const schemes = this.resolveSchemes(init?.schemes)
+    const resolved = await this.resolveChallenge(url, firstResponse, schemes)
     const { net, wallet, challenge } = resolved
-    let accept = resolved.accept
+    let accept: X402AnyAccept = resolved.accept
     let quote = resolved.quote
 
     // Balance-aware routing (opt-in): pay the cheapest rail the wallet can ACTUALLY
     // settle, not just the first policy-passing one. Refuses (before any send) with the
     // funding hint if nothing is settleable.
-    const autoRoute =
-      (init as { autoRoute?: boolean } | undefined)?.autoRoute ?? this.opts.autoRoute ?? false
+    const autoRoute = init?.autoRoute ?? this.opts.autoRoute ?? false
     if (autoRoute) {
-      const plan = await this.planFromChallenge(net, wallet, challenge, url)
+      const plan = await this.planFromChallenge(net, wallet, challenge, url, schemes)
       if (!plan.best) {
         throw new PaymentDeclinedError(plan.fundingHint ?? 'No rail is settleable for this payment.')
       }
@@ -677,9 +726,16 @@ export class PipRailClient {
 
     this.safeEmit({ kind: 'payment-required', challenge, accept })
 
-    // Budget + approval gate — both refuse BEFORE any on-chain send.
+    // Budget + approval gate — both refuse BEFORE any on-chain send OR any signature.
     await this.authorize(quote)
 
+    // Standard `exact` rail: a separate, conservative pay path — the buyer SIGNS an
+    // EIP-3009 authorization and the server/facilitator broadcasts it (never payAndConfirm).
+    if (accept.scheme === 'exact') {
+      return this.payExactRail(net, wallet, accept, url, init, quote)
+    }
+
+    // PipRail's native `onchain-proof` rail — BYTE-IDENTICAL to before.
     const { ref, confirmed } = await this.payAndConfirm(net, wallet, accept)
     const response = await this.retryWithProof(url, init, accept, ref, confirmed)
     this.recordSpend(quote, ref)
@@ -695,11 +751,12 @@ export class PipRailClient {
    */
   private async resolveChallenge(
     url: string,
-    response: Response
+    response: Response,
+    schemes: readonly PaymentScheme[]
   ): Promise<{
     net: ResolvedNetwork
     wallet: WalletHandle
-    accept: X402AcceptEntry
+    accept: X402AnyAccept
     challenge: X402Challenge
     quote: PipRailQuote
   }> {
@@ -712,15 +769,41 @@ export class PipRailClient {
 
     const { net, wallet } = await this.ensure()
 
-    // Every accept this client could pay: our scheme, on the bound network. A
-    // multi-chain challenge may offer several — including the same network more
-    // than once (e.g. USDC and native) — so gather them all, then let policy choose.
-    const candidates = this.gatherCandidates(net, challenge)
+    // Every accept this client could pay (enabled schemes, on the bound network). A
+    // multi-chain challenge may offer several — including the same network more than
+    // once (e.g. USDC and native, or an onchain-proof + exact dual-rail) — so gather
+    // them all, then let policy choose.
+    const candidates = this.gatherCandidates(net, challenge, schemes)
     if (candidates.length === 0) {
-      const networks = challenge.accepts.map((a) => a.network).join(', ')
+      // Distinguish "this family can't pay the only scheme offered" (a scheme gap)
+      // from "no rail for this network at all" — different fixes for the agent.
+      const exactOnNet = challenge.accepts.some(
+        (a) => a.scheme === 'exact' && net.supports(a.network)
+      )
+      if (schemes.includes('exact') && exactOnNet && typeof net.payExact !== 'function') {
+        throw new UnsupportedSchemeError(
+          `This 402 offers a standard 'exact' rail on ${net.network}, but the ${net.family} ` +
+            `family can't pay 'exact' (EVM + EIP-3009 only), and no 'onchain-proof' rail was offered.`
+        )
+      }
+      // The dominant agent journey: a default (onchain-proof-only) client hits an exact-only
+      // 402 it COULD pay — point it straight at the one-line remedy instead of a dead end.
+      if (!schemes.includes('exact') && exactOnNet && typeof net.payExact === 'function') {
+        const payable = challenge.accepts.some(
+          (a) => a.scheme === 'exact' && net.supports(a.network) && net.describeAsset(a.asset) != null
+        )
+        if (payable) {
+          throw new NoCompatibleAcceptError(
+            `This 402 is payable only via the standard 'exact' rail on ${net.network}, which is ` +
+              `OFF by default. Enable it: new PipRailClient({ …, schemes: ['onchain-proof', 'exact'] }) ` +
+              `or per call fetch(url, { schemes: ['exact'] }) (MCP: PIPRAIL_SCHEMES=onchain-proof,exact).`
+          )
+        }
+      }
+      const networks = [...new Set(challenge.accepts.map((a) => a.network))].join(', ')
       throw new NoCompatibleAcceptError(
-        `No accepts[] entry for ${net.network} ` +
-          `(challenge offered: ${networks || 'none'}).`
+        `No accepts[] entry payable by this client on ${net.network} ` +
+          `(schemes: ${schemes.join(', ')}; challenge offered: ${networks || 'none'}).`
       )
     }
 
@@ -734,17 +817,47 @@ export class PipRailClient {
     return { net, wallet, accept: chosen.accept, challenge, quote: chosen.quote }
   }
 
-  /** The candidate accepts this client could pay: our scheme, on the bound network.
-   *  A dual-advertised challenge may also carry standard `exact` rails — the PipRail
-   *  client ignores those (it pays the backendless `onchain-proof` rail); the type
-   *  predicate narrows the `X402AnyAccept` union to the rails we settle. */
+  /** The candidate accepts this client could pay, on the bound network. Always the
+   *  backendless `onchain-proof` rails; PLUS standard `exact` rails when `schemes`
+   *  enables them AND the driver can settle them (EVM `payExact` + a recognised
+   *  EIP-3009 token). `onchain-proof` is gathered FIRST so default selection is
+   *  unchanged when `exact` is off. */
   private gatherCandidates(
     net: ResolvedNetwork,
-    challenge: X402Challenge
-  ): X402AcceptEntry[] {
-    return challenge.accepts.filter(
-      (a): a is X402AcceptEntry => a.scheme === 'onchain-proof' && net.supports(a.network)
-    )
+    challenge: X402Challenge,
+    schemes: readonly PaymentScheme[]
+  ): X402AnyAccept[] {
+    const out: X402AnyAccept[] = []
+    // `onchain-proof` FIRST (when enabled — it's the default) so the default selection
+    // and the dual-rail tiebreak are byte-identical to before the `exact` rail existed.
+    if (schemes.includes('onchain-proof')) {
+      out.push(
+        ...challenge.accepts.filter(
+          (a): a is X402AcceptEntry => a.scheme === 'onchain-proof' && net.supports(a.network)
+        )
+      )
+    }
+    // Standard `exact` rails, AFTER onchain-proof. Gathered only when the bound driver
+    // can actually pay them: it exposes the EVM-only `payExact` SPI, supports the rail's
+    // network, AND recognises the token — so the true decimals power the policy cap and a
+    // USDT / native / unknown token is never signed for.
+    if (schemes.includes('exact')) {
+      out.push(
+        ...challenge.accepts.filter(
+          (a): a is X402ExactAcceptEntry =>
+            a.scheme === 'exact' &&
+            net.supports(a.network) &&
+            typeof net.payExact === 'function' &&
+            net.describeAsset(a.asset) != null &&
+            // a foreign rail's maxTimeoutSeconds must be a usable positive integer, or
+            // signing it would build a NaN/garbage validBefore — drop it silently
+            // (symmetric with an unrecognised token) rather than leak a raw SyntaxError.
+            Number.isInteger(a.maxTimeoutSeconds) &&
+            a.maxTimeoutSeconds > 0
+        )
+      )
+    }
+    return out
   }
 
   /** Build the full {@link PaymentPlan} from an already-parsed challenge + bound
@@ -753,10 +866,11 @@ export class PipRailClient {
     net: ResolvedNetwork,
     wallet: WalletHandle,
     challenge: X402Challenge,
-    url: string
+    url: string,
+    schemes: readonly PaymentScheme[]
   ): Promise<PaymentPlan> {
     const chainLabel = typeof this.opts.chain === 'string' ? this.opts.chain : net.network
-    const candidates = this.gatherCandidates(net, challenge)
+    const candidates = this.gatherCandidates(net, challenge, schemes)
     if (candidates.length === 0) {
       const offered = [...new Set(challenge.accepts.map((a) => a.network))].join(', ') || 'none'
       return {
@@ -799,7 +913,7 @@ export class PipRailClient {
   private async analyzeRail(
     net: ResolvedNetwork,
     wallet: WalletHandle,
-    accept: X402AcceptEntry,
+    accept: X402AnyAccept,
     url: string,
     description?: string
   ): Promise<PayOption> {
@@ -814,6 +928,10 @@ export class PipRailClient {
 
     const amount = BigInt(accept.amount)
     const fee = safeBig(cost.fee)
+    // A standard `exact` rail: the buyer SIGNS an EIP-3009 authorization and the
+    // server/facilitator BROADCASTS it, so the buyer spends ~0 gas — only the token
+    // funds it, and native-coin gas is irrelevant to payability.
+    const isExact = accept.scheme === 'exact'
     const isNative = accept.asset === 'native'
     const blockers: PayBlocker[] = []
     const warnings: PayWarning[] = []
@@ -821,13 +939,21 @@ export class PipRailClient {
 
     if (!quote.withinPolicy) blockers.push('OUTSIDE_POLICY')
     if (quote.symbolMismatch) warnings.push('SYMBOL_MISMATCH')
-    if (cost.basis === 'heuristic') warnings.push('GAS_HEURISTIC')
+    // Gas-basis is meaningless for exact (no buyer gas) — never warn about it there.
+    if (!isExact && cost.basis === 'heuristic') warnings.push('GAS_HEURISTIC')
 
     const tokenKnown = bal.token != null
     const nativeKnown = bal.native != null
-    if (!tokenKnown || !nativeKnown) warnings.push('BALANCE_UNREADABLE')
+    // For exact only the TOKEN balance gates payability; the onchain-proof rails need
+    // the native gas coin too, so an unreadable native there is genuinely uncertain.
+    if (isExact ? !tokenKnown : !tokenKnown || !nativeKnown) warnings.push('BALANCE_UNREADABLE')
 
-    if (isNative) {
+    if (isExact) {
+      if (tokenKnown && bal.token! < amount) {
+        blockers.push('INSUFFICIENT_TOKEN')
+        shortfall.token = formatUnits(amount - bal.token!, quote.decimals)
+      }
+    } else if (isNative) {
       // The native coin is BOTH the payment and the gas — need amount + gas.
       if (nativeKnown && bal.native! < amount + fee) {
         blockers.push('INSUFFICIENT_TOKEN')
@@ -859,7 +985,7 @@ export class PipRailClient {
       recipient = { ready: rr.ready } // true | 'n/a'
     }
 
-    const unreadable = isNative ? !nativeKnown : !tokenKnown || !nativeKnown
+    const unreadable = isExact ? !tokenKnown : isNative ? !nativeKnown : !tokenKnown || !nativeKnown
     const state: PayOption['state'] = blockers.length
       ? 'blocked'
       : unreadable || rr.ready === 'unknown'
@@ -887,7 +1013,7 @@ export class PipRailClient {
    *  driver's describeAsset) + the policy verdict + a symbol-mismatch flag. */
   private buildQuote(
     net: ResolvedNetwork,
-    accept: X402AcceptEntry,
+    accept: X402AnyAccept,
     url: string,
     description?: string
   ): PipRailQuote {
@@ -901,7 +1027,16 @@ export class PipRailClient {
     }
     const amountBase = BigInt(accept.amount)
     const described = net.describeAsset(accept.asset)
+    // onchain-proof always carries extra.decimals; an exact rail's is optional but is
+    // only ever gathered when describeAsset recognises the token (so `described` is
+    // non-null there). Guard the residual undefined so a price is never mis-rendered.
     const decimals = described?.decimals ?? accept.extra.decimals
+    if (decimals === undefined) {
+      throw new InvalidEnvelopeError(
+        `challenge for ${accept.asset} on ${accept.network} states no decimals and the SDK ` +
+          `doesn't recognise the token — refusing to price it.`
+      )
+    }
     const symbol = described?.symbol ?? accept.extra.symbol
     // Derive the human amount from the amount + the decimals we TRUST (the SDK's
     // own when recognised), so a server can't display a misleading amountFormatted
@@ -1130,9 +1265,168 @@ export class PipRailClient {
       { ref }
     )
   }
+
+  /**
+   * Pay a standard x402 `exact` rail — a SEPARATE, fundamentally more conservative
+   * path than {@link retryWithProof}. The buyer SIGNS an EIP-3009 authorization ONCE
+   * (the driver's `payExact`) and the server / merchant-chosen facilitator BROADCASTS
+   * it synchronously, so a blind re-POST of a still-in-flight authorization could
+   * double-BROADCAST it. Hence, unlike the onchain-proof loop:
+   *
+   *   • sign exactly once — reuse the SAME header on every retry, never re-sign;
+   *   • retry ONLY an explicit 402 (a definitive pre-broadcast rejection), bounded
+   *     well under `maxTimeoutSeconds` so the loop can't outlive the authorization;
+   *   • a post-POST transport error/timeout → {@link PaymentTimeoutError} carrying the
+   *     nonce (the facilitator MAY have settled — verify on-chain, NEVER re-pay);
+   *   • a 5xx → return as-is (server settle failure; the authorization stays valid +
+   *     its nonce unused) — no settled event, no spend;
+   *   • a 200 whose SettleResponse says `success:false` → a rejection, NEVER a spend;
+   *   • the spend is recorded EXACTLY ONCE, on an affirmative settlement only.
+   */
+  private async payExactRail(
+    net: ResolvedNetwork,
+    wallet: WalletHandle,
+    accept: X402ExactAcceptEntry,
+    url: string,
+    init: (RequestInit & { autoRoute?: boolean; schemes?: PaymentScheme[] }) | undefined,
+    quote: PipRailQuote
+  ): Promise<Response> {
+    if (!net.payExact) {
+      // gatherCandidates only yields an exact rail when payExact exists — defensive.
+      throw new UnsupportedSchemeError(
+        `the ${net.family} family can't pay a standard 'exact' rail (EVM + EIP-3009 only).`
+      )
+    }
+    // A caller who aborts BEFORE we sign/send hasn't moved any funds — surface their
+    // AbortError verbatim, never the "may have settled" ambiguity, and don't waste a signature.
+    throwIfAborted(init?.signal)
+
+    // Sign ONCE — a fresh nonce is generated here and reused on every retry below.
+    const { payload, accepted, payerFrom, nonce } = await net.payExact(wallet, accept)
+    const headers = new Headers(init?.headers)
+    headers.set(HEADER_SIGNATURE, buildExactSignatureHeader({ accepted, payload }))
+
+    // A DEFINITIVE facilitator rejection — an explicit `success:false` (the spec's
+    // settlement-failure verdict, carried in the PAYMENT-RESPONSE header on a 402 OR a
+    // non-5xx), or a persistent transient 402. Never re-present, never a spend; the
+    // `errorReason` tells the agent the real fix (e.g. `insufficient_funds` → top up).
+    const rejectDefinitive = (why: string): never => {
+      this.safeEmit({ kind: 'payment-failed', reason: `exact: facilitator rejected nonce=${nonce} (${why})` })
+      throw new MaxRetriesExceededError(
+        `exact: the facilitator rejected the payment (${why}). Fix the cause, then re-present the ` +
+          `SAME signed authorization (nonce=${nonce}) — do NOT re-sign a fresh nonce. ref=${nonce}.`,
+        { ref: nonce }
+      )
+    }
+
+    // Bound the loop under the authorization's validity window (= now + maxTimeoutSeconds)
+    // so it can never outlive `validBefore`, with a small attempt cap on top.
+    const deadline = Date.now() + Math.max(1, Math.floor(accept.maxTimeoutSeconds / 2)) * 1000
+    const maxAttempts = Math.min(this.maxRetries, 3)
+    let lastReason: { error: string; detail: string } | null = null
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      if (attempt > 0) {
+        if (Date.now() >= deadline) break
+        await new Promise((r) => setTimeout(r, Math.min(2000, 400 * 2 ** (attempt - 1))))
+      }
+      throwIfAborted(init?.signal) // a pre-flight caller abort: nothing sent this attempt.
+
+      // Per-attempt timeout, CLAMPED to the deadline so a generous retryTimeoutMs can't let
+      // an attempt outlive the authorization's validity window.
+      const budget = Math.min(this.retryTimeoutMs, deadline - Date.now())
+      if (budget <= 0) break
+      const timeoutController = new AbortController()
+      const timeoutId = setTimeout(() => timeoutController.abort(), budget)
+      const signal: AbortSignal =
+        init?.signal && typeof AbortSignal.any === 'function'
+          ? AbortSignal.any([timeoutController.signal, init.signal])
+          : timeoutController.signal
+
+      let response: Response
+      try {
+        response = await fetch(url, { ...(init ?? {}), headers, signal })
+      } catch (err) {
+        // The authorization was POSTed; the facilitator MAY have broadcast it (a mid/post-
+        // flight caller abort is the same hazard). NEVER re-POST blindly (double-broadcast) —
+        // surface the nonce so the caller verifies on-chain before doing anything else.
+        throw new PaymentTimeoutError(
+          `exact: no response after submitting the authorization (nonce=${nonce}) to ` +
+            `${hostOf(url)}. The facilitator may have already settled it — verify on-chain with ` +
+            `authorizationState(${payerFrom}, ${nonce}) before re-presenting; do NOT re-pay.`,
+          { cause: err, ref: nonce }
+        )
+      } finally {
+        clearTimeout(timeoutId)
+      }
+
+      // The SettleResponse rides in the base64 PAYMENT-RESPONSE header on BOTH a 200 success
+      // AND the spec's canonical 402 settlement-FAILURE shape ({success:false, errorReason}).
+      const settle = parseSettleResponse(response)
+
+      if (response.status === 402) {
+        // A definitive settlement/verification failure (402 + success:false) must NOT be
+        // retried — re-presenting an insufficient-funds auth is futile.
+        if (settle && settle.success === false) rejectDefinitive(settle.errorReason ?? 'the facilitator reported success:false')
+        // A 402 with no success:false verdict is a transient "still verifying" / RPC-lag
+        // 402 — safe to re-present the SAME signed header.
+        lastReason = (await readInvalidReason(response)) ?? lastReason
+        continue
+      }
+
+      // Non-402. Settled iff it's a 2xx whose SettleResponse does NOT say success:false
+      // (a receipt-less 2xx counts as affirmative).
+      if (response.ok && !(settle && settle.success === false)) {
+        const receipt = parseReceipt(response)
+        this.safeEmit({ kind: 'payment-settled', receipt, ...(settle ? { settle } : {}) })
+        // Record the spend EXACTLY ONCE, on this affirmative-settle path only. Prefer the
+        // facilitator's on-chain settle tx; fall back to the nonce when it echoes none (`||`,
+        // so a misbehaving `transaction:''` doesn't become the audit ref).
+        const ref = settle?.transaction || receipt?.transaction || `eip3009-nonce:${nonce}`
+        this.recordSpend(quote, ref)
+        return response
+      }
+
+      // A 5xx is a SERVER settle failure (the authorization stays valid + its nonce unused):
+      // return it as-is, never a spend — even if it carries success:false (re-presentable later).
+      if (response.status >= 500) {
+        this.safeEmit({ kind: 'payment-failed', reason: `exact: server ${response.status} — authorization nonce=${nonce} not settled` })
+        return response
+      }
+      // A non-5xx, non-2xx with an explicit success:false is a definitive rejection.
+      if (settle && settle.success === false) rejectDefinitive(settle.errorReason ?? 'the facilitator reported success:false')
+      // Any other non-2xx (e.g. a 4xx unrelated to payment): return as-is, never a spend.
+      this.safeEmit({ kind: 'payment-failed', reason: `exact: server ${response.status} — authorization nonce=${nonce} not settled` })
+      return response
+    }
+
+    // Persistent transient 402 across the attempt/deadline budget.
+    const why = lastReason
+      ? `${lastReason.error}${lastReason.detail ? ` — ${lastReason.detail}` : ''}`
+      : 'server gave no reason'
+    this.safeEmit({
+      kind: 'payment-failed',
+      reason: `exact: 402 after submitting authorization nonce=${nonce} (${why})`,
+    })
+    throw new MaxRetriesExceededError(
+      `exact: server still returned 402 after submitting the signed authorization ` +
+        `(nonce=${nonce}). Last rejection: ${why}. Re-present the SAME authorization — do NOT ` +
+        `re-sign a fresh nonce; verify authorizationState(${payerFrom}, ${nonce}) first. ref=${nonce}.`,
+      { ref: nonce }
+    )
+  }
 }
 
 /* ----------------------------- helpers ----------------------------- */
+
+/** Throw the caller's abort reason if their signal has ALREADY fired — so a pre-flight
+ *  caller abort surfaces verbatim (an AbortError), never the exact path's "may have
+ *  settled — verify on-chain" warning (which is only for a mid/post-send drop). */
+function throwIfAborted(signal: AbortSignal | null | undefined): void {
+  if (signal?.aborted) {
+    throw signal.reason ?? new DOMException('This operation was aborted.', 'AbortError')
+  }
+}
 
 /** Parse a base-unit string to bigint, tolerating a malformed value (→ 0n). */
 function safeBig(s: string): bigint {
@@ -1292,8 +1586,20 @@ async function readInvalidReason(
         detail: typeof body.detail === 'string' ? body.detail : '',
       }
     }
+    // A standard (non-PipRail) facilitator's VerifyResponse rejection shape:
+    // `{ isValid: false, invalidReason, invalidMessage }` — surfaced on an exact 402.
+    if (body && body.isValid === false && typeof body.invalidReason === 'string') {
+      return {
+        error: body.invalidReason,
+        detail: typeof body.invalidMessage === 'string' ? body.invalidMessage : '',
+      }
+    }
   } catch {
-    /* body wasn't JSON in the expected shape — fall back to the prior reason */
+    /* body wasn't JSON in the expected shape — fall back to the header / prior reason */
   }
+  // Foreign exact facilitator: the reason rides in the base64 PAYMENT-RESPONSE HEADER
+  // ({ success:false, errorReason }), not the body — so it's never "server gave no reason".
+  const settle = parseSettleResponse(response)
+  if (settle?.errorReason) return { error: settle.errorReason, detail: '' }
   return null
 }

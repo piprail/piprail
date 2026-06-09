@@ -15,6 +15,7 @@ import type {
   Caip2,
   X402AcceptEntry,
   X402ExactAcceptEntry,
+  X402AnyAccept,
   ExactPaymentPayload,
   VerifyResult,
 } from '../x402.js'
@@ -275,10 +276,12 @@ export interface ResolvedNetwork {
    * never throws for a transient RPC issue — it falls back to a 'heuristic'
    * constant. `opts.from` (the payer's address) sharpens chains whose fee
    * depends on the sender (notably Tron energy); omit it for a typical estimate.
-   * Payer-side + informational — the gate never calls this.
+   * Payer-side + informational — the gate never calls this. Accepts either rail
+   * shape ({@link X402AnyAccept}): a standard `exact` rail estimates the BUYER's gas
+   * as ~0 (the server/facilitator broadcasts the signed authorization).
    */
   estimateCost(
-    accept: X402AcceptEntry,
+    accept: X402AnyAccept,
     opts?: { from?: string }
   ): Promise<CostEstimate>
 
@@ -310,6 +313,36 @@ export interface ResolvedNetwork {
   ): Promise<{ ready: boolean | 'n/a' | 'unknown'; reason?: RecipientReason }>
 
   /**
+   * OPTIONAL (EVM + EIP-3009 only) — the BUYER counterpart to {@link settleExactSelf}.
+   * Build + EIP-712-sign an EIP-3009 `transferWithAuthorization` for a standard x402
+   * `exact` rail, so a PipRail agent can PAY any standard x402 server (not just PipRail's
+   * own `onchain-proof` gates). The client frames the returned `payload` + `accepted` echo
+   * into the `PAYMENT-SIGNATURE` header and re-requests; the server / merchant-chosen
+   * facilitator BROADCASTS the authorization (the buyer never broadcasts and spends ~0 gas).
+   *
+   * Re-derives the token's EIP-712 domain ON-CHAIN (never trusts the server-supplied
+   * `extra.{name,version}`), generates a CSPRNG 32-byte nonce + current unix time
+   * internally, and signs through the wallet client (bring-your-own JsonRpcAccount safe).
+   * THROWS a typed `PipRailError` (`UnsupportedSchemeError`) when the asset isn't EIP-3009
+   * (USDT/native/plain ERC-20) or the signer is a contract / EIP-1271 / EIP-7702 account.
+   *
+   * The third optional `exact` method (after {@link exactDomain}/{@link settleExactSelf});
+   * optional `?` is the gather gate — non-EVM families omit it, so an `exact` rail is never
+   * gathered/paid on those chains. Returns the signed payload, the chosen-rail echo (the
+   * server's RAW rail, verbatim, so a facilitator's extra keys survive), the payer address,
+   * and the nonce (for the client's spend record + a re-present-the-same-auth retry).
+   */
+  payExact?(
+    wallet: WalletHandle,
+    accept: X402ExactAcceptEntry
+  ): Promise<{
+    payload: ExactPaymentPayload
+    accepted: X402ExactAcceptEntry
+    payerFrom: string
+    nonce: string
+  }>
+
+  /**
    * OPTIONAL — a DISCOVERY signer for the bound wallet: its public address plus a
    * message signer, used only for ownership proofs + SIWX index registration,
    * NEVER the payment path. `signMessage` returns a chain-native signature string
@@ -333,7 +366,8 @@ export interface ResolvedNetwork {
    * `null` when the asset is NOT an EIP-3009 token (no `transferWithAuthorization` —
    * e.g. USDT, native coin, or a plain ERC-20), so the gate can refuse to advertise a
    * standard `exact` rail for it. Never derived from the symbol (USDC's domain name is
-   * "USD Coin", not "USDC"; EURC's is "EURC"). Called once at exact-rail resolution
+   * "USD Coin", not "USDC"; EURC's is "Euro Coin" on Ethereum/Avalanche but "EURC" on Base —
+   * which is exactly why it must be READ, never assumed). Called once at exact-rail resolution
    * (cached by the gate). RPC-read; may throw on a transient read (the gate surfaces a
    * clear config error). The first of two optional server methods for the `exact` rail.
    */

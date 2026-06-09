@@ -13,7 +13,7 @@ read those sections before you ship them.
 
 | Chain(s) | Pay in native coin? | Built-in stablecoins | Receiver needs setup? | Wallet input |
 |---|:--:|---|---|---|
-| **EVM** (Ethereum, Base, Arbitrum, Optimism, Polygon, BNB, Avalanche, Mantle, Sonic, Linea, Scroll, Celo, zkSync, Unichain, World Chain, Sei, Injective, HyperEVM, Monad, Kaia, + any EVM chain) | ✅ ETH/BNB/POL/… | USDC (all **except Kaia**) · USDT (all **except Base, World Chain, Sei, HyperEVM, Monad**) | No | `{ privateKey }` |
+| **EVM** (Ethereum, Base, Arbitrum, Optimism, Polygon, BNB, Avalanche, Mantle, Sonic, Linea, Scroll, Celo, zkSync, Unichain, World Chain, Sei, Injective, HyperEVM, Monad, Kaia, + any EVM chain) | ✅ ETH/BNB/POL/… | USDC (all **except Kaia**) · USDT (all **except Base, World Chain, Sei, HyperEVM, Monad**) · **EURC** (Ethereum, Base, Avalanche) | No | `{ privateKey }` |
 | **Solana** | ✅ SOL | USDC · USDT | No (payer creates the recipient's token account) | `{ secretKey }` |
 | **Sui** | ✅ SUI | USDC (no USDT) | No | `{ privateKey }` (`suiprivkey1…`) |
 | **Aptos** | ✅ APT | USDC · USDT | No (primary FA store auto-creates) | `{ privateKey }` (`ed25519-priv-0x…`) |
@@ -44,8 +44,9 @@ read those sections before you ship them.
 ## Chains with no caveats
 
 ### EVM — Ethereum, Base, Arbitrum, Optimism, Polygon, BNB, Avalanche, …
-- **Pay in:** native coin (`'native'`), `'USDC'`, `'USDT'`, or a custom `{ address, decimals }`.
+- **Pay in:** native coin (`'native'`), `'USDC'`, `'USDT'`, `'EURC'` (where issued), or a custom `{ address, decimals }`.
 - **USDT gap:** built in on every preset **except Base, World Chain, Sei, HyperEVM, and Monad** (USDC only there). **Kaia** is the inverse — **USD₮ only** (no Circle-native USDC on Kaia).
+- **EURC:** Circle's euro stablecoin is built in on **Ethereum, Base, and Avalanche** (EIP-3009, 6-dp, addresses verified on-chain). Its EIP-712 domain name differs per deployment (`"Euro Coin"` on Ethereum/Avalanche, `"EURC"` on Base) — the SDK reads it on-chain, so `exact` payments are correct everywhere. Like USDC, it's `exact`-payable.
 - **Decimals:** on **BNB Chain**, Binance-Peg USDC/USDT are **18 decimals**, not 6 (the SDK handles it; don't hardcode 6).
 - **Stablecoin provenance — issuer-native vs bridged (every shipped address verified on-chain 2026-06-08, incl. bridge markers).** Every address is the correct, canonical, 1:1-redeemable dollar token on its chain; what varies is *who issues it*. You request it as `'USDC'` / `'USDT'` either way — provenance matters only if you specifically require issuer-native settlement.
   - **USDC** is **Circle-native** on every preset **except** **BNB** (Binance-Peg, 18-dp), **Mantle** (OP canonical-bridge), and **Scroll** (Bridged-USDC-Standard) — the last two are backed 1:1 by Circle USDC on Ethereum but are **not** Circle-issued on that chain (absent from Circle's native-USDC list).

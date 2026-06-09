@@ -133,7 +133,14 @@ export class PaymentTimeoutError extends PipRailError {
  */
 export class MaxRetriesExceededError extends PipRailError {
   readonly code = 'MAX_RETRIES_EXCEEDED'
-  /** The already-broadcast proof ref — recover with it, don't re-pay. */
+  /**
+   * The proof ref — recover with it, don't re-pay. Its meaning depends on the
+   * scheme: for `onchain-proof` it's the already-broadcast transaction ref
+   * (re-verify or re-submit it). For a standard `exact` rail it's the EIP-3009
+   * authorization NONCE (a `0x…` 32-byte value, NOT a tx hash) — re-PRESENT the
+   * same signed authorization, never re-sign a fresh nonce; check the token's
+   * `authorizationState(from, nonce)` before assuming it didn't settle.
+   */
   readonly ref?: string
   constructor(message: string, options?: ErrorOptions & { ref?: string }) {
     super(message, options)
@@ -191,6 +198,23 @@ export class InvalidEnvelopeError extends PipRailError {
  */
 export class NoCompatibleAcceptError extends PipRailError {
   readonly code = 'NO_COMPATIBLE_ACCEPT'
+}
+
+/**
+ * The client was asked to pay a SCHEME the bound chain family/asset/signer can't
+ * settle, and no fallback rail was offered. Specifically: a standard `exact` rail
+ * on a non-EVM family (only EVM ships the buyer `payExact`); an `exact` rail for a
+ * token that isn't EIP-3009 (USDT needs Permit2, native isn't exact-payable, a
+ * plain ERC-20 has no `transferWithAuthorization`); or an `exact` rail whose signer
+ * is a contract / EIP-1271 / EIP-7702-delegated account (no recoverable ECDSA sig).
+ *
+ * Distinct from {@link NoCompatibleAcceptError} (no rail for the network at all)
+ * and {@link WrongFamilyError} (the wallet/payTo/token was given in another
+ * family's shape). The fix is usually "enable/keep an `onchain-proof` rail" or
+ * "pay with a supported chain/token". Thrown by the client / the EVM driver.
+ */
+export class UnsupportedSchemeError extends PipRailError {
+  readonly code = 'UNSUPPORTED_SCHEME'
 }
 
 /** init.body was provided but isn't replayable (e.g. a one-shot ReadableStream). */
