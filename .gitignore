@@ -81,6 +81,7 @@ mcp/*.local.mjs
 !/.claude/skills/site-design/
 !/.claude/skills/release/
 !/.claude/skills/verify-gate/
+!/.claude/skills/deploy/
 
 # Stray local screenshots
 screencapture-*.png

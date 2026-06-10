@@ -11,6 +11,10 @@ description: >-
 
 # Releasing PipRail (`@piprail/sdk` · `@piprail/mcp`)
 
+> **Shipping a real change? Start with the [`deploy`](../deploy/SKILL.md) skill** — the master
+> runbook that also covers the doc/`llms.txt` surface sweep, the site/docs deploys, and the external
+> repos. **This file is the focused npm tag-and-publish mechanics** that `deploy` Phases 5–8 use.
+
 Publishing is **tag-driven CI**, not a manual `npm publish`. You bump versions,
 push a signed tag, and a GitHub Action builds + publishes with the repo's
 `NPM_TOKEN`. The **site** is separate: it auto-deploys to Netlify on every push

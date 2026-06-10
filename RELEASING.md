@@ -1,5 +1,10 @@
 # Releasing PipRail
 
+> **The full deployment runbook is the [`deploy`](.claude/skills/deploy/SKILL.md) skill** (run `/deploy`) —
+> it covers the doc/`llms.txt` surface sweep, the site + docs deploys, the GitHub Releases, the MCP
+> registry, and the external repos, with this file's npm mechanics folded in. This doc is the focused
+> tag-and-publish reference.
+
 How a maintainer ships a new version of **`@piprail/sdk`** or **`@piprail/mcp`**. Publishing is
 **tag-driven CI**, not a manual `npm publish`: you bump versions, push a tag, and a GitHub Action
 builds + publishes with the repo's `NPM_TOKEN`. The **site** is separate — it auto-deploys to Netlify
@@ -100,12 +105,16 @@ After `mcp-vX.Y.Z` is on npm, publish the manifest to the MCP registry so the li
 ```bash
 cd mcp
 mcp-publisher validate                              # catches the ≤100-char description + schema issues
-mcp-publisher login github                          # interactive device flow; or: login github --token "$(gh auth token)"
+mcp-publisher login github                          # interactive device flow (a human enters the github.com/login/device code)
 mcp-publisher publish                               # reads ./server.json → io.github.piprail/mcp
 ```
-The `io.github.piprail/*` namespace is authorized by **public** membership of the `piprail` GitHub org —
-if `publish` returns 403, make your org membership public
-(<https://github.com/orgs/piprail/people>) and re-run `login` (the token caches permissions at login).
+**Auth gotcha (verified):** the registry's token-exchange **rejects the gh-CLI OAuth token** — `mcp-publisher
+login github -token "$(gh auth token)"` 401s with "failed to get GitHub user", even though that token
+authenticates to GitHub's own API fine. The `-token` flag needs a **classic or fine-grained PAT** with
+`read:org` (github.com/settings/tokens), **not** `$(gh auth token)`. So use either the interactive device
+flow above, or `mcp-publisher login github -token ghp_…` with a real PAT. The `io.github.piprail/*`
+namespace is authorized by **public** membership of the `piprail` GitHub org — if `publish` returns 403,
+make your org membership public (<https://github.com/orgs/piprail/people>) and re-run `login`.
 
 ---
 
