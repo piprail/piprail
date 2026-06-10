@@ -63,6 +63,13 @@ export class SpendLedger {
   private readonly records: SpendRecord[] = []
   private readonly buckets = new Map<string, Bucket>()
 
+  /**
+   * Session clock origin (epoch-ms) — process/session start = ledger
+   * construction. In-memory; a new process is a new session. The client reads it
+   * to compute the `ttlSeconds` deadline and the rolling-window slice.
+   */
+  readonly sessionStart: number = Date.now()
+
   /** Record a settled payment. `decimals` is the TRUE token decimals (for the
    *  per-asset running total used by maxTotal + the formatted summary). */
   record(r: SpendRecord, decimals: number): void {
@@ -88,6 +95,40 @@ export class SpendLedger {
   /** Running total (base units) already spent on this (network, asset). */
   totalFor(network: string, asset: string): bigint {
     return this.buckets.get(keyFor(network, asset))?.total ?? 0n
+  }
+
+  /**
+   * Sum of base-unit amounts for (network, asset) whose record `at` (ISO
+   * timestamp) is at or after `sinceMs` (epoch-ms). Backs the rolling window
+   * (`sinceMs = now - windowSeconds*1000`). A linear scan of `records` —
+   * agent-session cardinality is small (tens), and it only runs when a window
+   * policy is set, so it's negligible against the network round-trip.
+   */
+  totalSince(network: string, asset: string, sinceMs: number): bigint {
+    let sum = 0n
+    for (const r of this.records) {
+      if (r.network === network && r.asset === asset && Date.parse(r.at) >= sinceMs) {
+        sum += BigInt(r.amountBase)
+      }
+    }
+    return sum
+  }
+
+  /**
+   * The per-(network, asset) buckets, as read-only tuples — `network`, `asset`,
+   * `symbol`, the TRUE `decimals` (frozen from the first record), and the running
+   * `totalBase`. Lets the client compose a budget view WITHOUT coupling the ledger
+   * to the policy (the cap math lives in the client). Decimals only exist for a
+   * pair once it's been spent on — a never-spent pair simply isn't a bucket.
+   */
+  assetBuckets(): { network: Caip2; asset: string; symbol?: string; decimals: number; totalBase: bigint }[] {
+    return [...this.buckets.values()].map((b) => ({
+      network: b.network,
+      asset: b.asset,
+      ...(b.symbol ? { symbol: b.symbol } : {}),
+      decimals: b.decimals,
+      totalBase: b.total,
+    }))
   }
 
   /** An immutable snapshot of all spend so far. */

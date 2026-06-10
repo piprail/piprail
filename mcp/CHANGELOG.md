@@ -1,5 +1,23 @@
 # @piprail/mcp changelog
 
+## 0.3.0 — 2026-06-10 — the trusted agent wallet (Mode A time envelope + Mode B ask-before-pay)
+
+Rebuilt against the SDK's trusted-wallet layer. All additive; the zero-config posture is byte-identical.
+
+- **Time envelope (Mode A):** `PIPRAIL_TTL` (session deadline, in seconds), plus an optional rolling
+  rate-limit `PIPRAIL_WINDOW_TOTAL` + `PIPRAIL_WINDOW_SECONDS` (set both or neither). Surfaced in the banner.
+- **Ask-before-pay (Mode B):** `PIPRAIL_CONFIRM=1` wires the SDK's `onBeforePay` seam to MCP
+  `elicitInput()` — a supervised client (Claude Desktop / Cursor) is asked to approve each payment.
+  Fail-safe to NOT paying on decline/cancel/timeout/transport-drop; silently degrades to Mode A on a
+  client that can't elicit; never carries a secret. `PIPRAIL_CONFIRM_TIMEOUT_MS` (default 55000, below the
+  60s CallTool deadline) tunes the window. A declined pay is TERMINAL — the agent must not auto-retry.
+- **Agent guide + budget (`PIPRAIL_GUIDE`, default on):** exposes `PIPRAIL_AGENT_GUIDE` as the
+  `piprail_agent_guide` prompt + a `piprail://guide` resource, and a live `piprail://budget` resource.
+- **Two new tools** — `piprail_budget` (remaining money + time leash) and `piprail_guide` (the contract),
+  both read-only. Tool count is now **7**.
+- **Structured output:** every tool result is emitted as `structuredContent` alongside the text block,
+  with an `outputSchema` forwarded for the stable read tools.
+
 ## 0.2.9 — 2026-06-10
 
 - **Rebuilt against `@piprail/sdk` ^1.14.0** — the opt-in universal `exact` BUYER rail.

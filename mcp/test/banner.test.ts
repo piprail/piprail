@@ -9,6 +9,8 @@ const cfg = (over: Partial<Config> = {}): Config => ({
   maxTotal: '10.00',
   tokens: ['USDC'],
   allowUnknownTokens: false,
+  confirm: false,
+  guide: true,
   keySource: 'PIPRAIL_PRIVATE_KEY',
   ...over,
 })
@@ -36,5 +38,21 @@ describe('formatBanner', () => {
   })
   test('no notes block for plain EVM', () => {
     expect(formatBanner(cfg())).not.toContain('⚠ notes:')
+  })
+  test('lists the two new read-only tools (budget + guide)', () => {
+    const b = formatBanner(cfg())
+    expect(b).toContain('piprail_budget')
+    expect(b).toContain('piprail_guide')
+  })
+  test('shows the confirm row ONLY when confirm is on; never leaks a secret', () => {
+    expect(formatBanner(cfg())).not.toMatch(/^\s*confirm/m)
+    const on = formatBanner(cfg({ confirm: true }))
+    expect(on).toMatch(/confirm/)
+    expect(on).not.toContain('SECRET')
+  })
+  test('shows the time-envelope rows only when configured', () => {
+    expect(formatBanner(cfg())).not.toMatch(/session ttl/)
+    expect(formatBanner(cfg({ ttlSeconds: 3600 }))).toMatch(/session ttl\s+3600s/)
+    expect(formatBanner(cfg({ windowTotal: '1.00', windowSeconds: 60 }))).toMatch(/rate window\s+1\.00 \/ 60s/)
   })
 })

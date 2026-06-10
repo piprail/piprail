@@ -49,3 +49,40 @@ describe('SpendLedger', () => {
     expect(new SpendLedger().totalFor('eip155:1', 'native')).toBe(0n)
   })
 })
+
+describe('SpendLedger — totalSince (rolling-window source)', () => {
+  it('includes records at/after sinceMs, excludes earlier, scoped to (network,asset)', () => {
+    const l = new SpendLedger()
+    l.record(base({ at: '2026-06-02T00:00:00.000Z', amountBase: '10000' }), 6) // early
+    l.record(base({ at: '2026-06-02T00:10:00.000Z', amountBase: '20000', ref: '0x2' }), 6) // late
+    const since = Date.parse('2026-06-02T00:05:00.000Z')
+    expect(l.totalSince('eip155:8453', USDC, since)).toBe(20_000n) // only the later
+    expect(l.totalSince('eip155:8453', USDC, 0)).toBe(30_000n) // both
+    expect(l.totalSince('eip155:8453', '0xother', since)).toBe(0n) // different asset
+  })
+
+  it('a record exactly AT sinceMs is included (>=)', () => {
+    const l = new SpendLedger()
+    l.record(base({ at: '2026-06-02T00:00:00.000Z' }), 6)
+    expect(l.totalSince('eip155:8453', USDC, Date.parse('2026-06-02T00:00:00.000Z'))).toBe(50_000n)
+  })
+})
+
+describe('SpendLedger — sessionStart + buckets_', () => {
+  it('sessionStart is a stable number set once at construction', () => {
+    const l = new SpendLedger()
+    const s = l.sessionStart
+    expect(typeof s).toBe('number')
+    l.record(base(), 6)
+    expect(l.sessionStart).toBe(s)
+  })
+
+  it('assetBuckets exposes (network, asset, decimals, totalBase) tuples', () => {
+    const l = new SpendLedger()
+    l.record(base(), 6)
+    expect(l.assetBuckets()).toEqual([
+      { network: 'eip155:8453', asset: USDC, symbol: 'USDC', decimals: 6, totalBase: 50_000n },
+    ])
+    expect(new SpendLedger().assetBuckets()).toEqual([]) // a fresh ledger has no buckets
+  })
+})

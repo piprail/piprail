@@ -25,11 +25,13 @@ export type {
   PayOption,
   PayBlocker,
   PayWarning,
+  SessionBudget,
+  SpendRemaining,
 } from './client.js'
 
 /* ---------------------- agent spend controls (Tier 1) ---------------------- */
 
-export type { PaymentPolicy, PaymentIntent, PolicyDecision } from './policy.js'
+export type { PaymentPolicy, PaymentIntent, PolicyDecision, PolicyDenyCode } from './policy.js'
 export { evaluatePolicy } from './policy.js'
 export type {
   SpendRecord,
@@ -41,6 +43,16 @@ export type {
 
 export { paymentTools } from './agent.js'
 export type { AgentTool, ToolAnnotations } from './agent.js'
+
+/* ---- agent ergonomics (Tier 3): NL renderers, the guide, scheme triage ---- */
+
+// Pure, chain-free helpers that make a bound client legible to an autonomous LLM:
+// one-line plan/decline/spend renderers, the cross-tool contract string, and a
+// 402 scheme/chain triage. The MCP wires these into its tool outputs + a prompt.
+export { summarizePlan, explainDecline, formatSpendReport } from './render.js'
+export { PIPRAIL_AGENT_GUIDE, agentGuide } from './agentGuide.js'
+export { classifyChallenge } from './classify.js'
+export type { ChallengeTriage, ChallengeVerdict } from './classify.js'
 
 /* --------------------------- accept (server side) --------------------------- */
 
@@ -134,6 +146,7 @@ export {
   SettlementError,
   toInsufficientFundsError,
 } from './errors.js'
+export type { DeclineReasonCode } from './errors.js'
 
 /* ------------------- wire format (for hand-rolled clients/servers) ------------------- */
 

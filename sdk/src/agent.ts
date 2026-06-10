@@ -9,7 +9,9 @@
  * PipRailClient these tools wrap, so every payment goes through the same guard.
  */
 import { parseReceipt } from './x402.js'
-import { PaymentDeclinedError } from './errors.js'
+import { PaymentDeclinedError, PipRailError } from './errors.js'
+import { summarizePlan, explainDecline, formatSpendReport } from './render.js'
+import { PIPRAIL_AGENT_GUIDE } from './agentGuide.js'
 import type { PipRailClient, DiscoverOptions, RegisterOptions } from './client.js'
 
 /**
@@ -42,9 +44,17 @@ export interface AgentTool {
   parameters: Record<string, unknown>
   /** Advisory MCP-style hints about the tool's nature (read-only, value-moving, …). */
   annotations?: ToolAnnotations
+  /** Optional JSON Schema (draft-07 object) for the tool's RESULT — declared only
+   *  on stable read-only tools so a strict client can validate `structuredContent`.
+   *  Kept OPEN (no `additionalProperties:false`) so additive fields never break it. */
+  outputSchema?: Record<string, unknown>
   /** Execute the tool. Returns a JSON-serialisable result. */
   invoke: (args: Record<string, unknown>) => Promise<unknown>
 }
+
+/** An OPEN object output schema (extra fields always allowed) — the only safe
+ *  shape for a tool whose result grows additively. Declared on the stable reads. */
+const OPEN_OBJECT: Record<string, unknown> = { type: 'object', additionalProperties: true }
 
 /** Read a Response body as JSON when possible, else as text. */
 async function readBody(res: Response): Promise<unknown> {
@@ -58,7 +68,7 @@ async function readBody(res: Response): Promise<unknown> {
 }
 
 /**
- * Five tools wrapping a configured {@link PipRailClient}:
+ * Seven tools wrapping a configured {@link PipRailClient}:
  *   - `piprail_discover(query?)` — FIND payable resources on the open x402
  *     indexes, WITHOUT paying (the phone book — solves "what can I buy?").
  *   - `piprail_quote_payment(url)` — price a gated URL WITHOUT paying.
@@ -67,9 +77,14 @@ async function readBody(res: Response): Promise<unknown> {
  *   - `piprail_pay_request(url, method?, body?)` — pay if needed and return the result.
  *   - `piprail_register(url, …)` — LIST a resource you run on the open indexes so
  *     other agents can find it (402 Index, no signature).
+ *   - `piprail_budget()` — read the remaining spend budget + time leash (Mode A self-check).
+ *   - `piprail_guide()` — read the agent contract (how to quote/plan/pay + read a refusal).
  *
- * A policy/approval refusal comes back as a structured `{ declined: true, reason }`
- * (not a thrown error), so the model can reason about it instead of crashing.
+ * The first five are byte-identical in name + order to before; the two read-only
+ * tools are appended LAST. EVERY failure the pay tool sees comes back as a
+ * STRUCTURED object (`{ ok:false, code, reason, explain, ref?, reasonCode?,
+ * declined? }`) — never a thrown error — so the model reasons about it (and never
+ * re-pays a broadcast-but-unconfirmed payment) instead of crashing.
  */
 export function paymentTools(client: PipRailClient): AgentTool[] {
   return [
@@ -139,6 +154,7 @@ export function paymentTools(client: PipRailClient): AgentTool[] {
         required: ['url'],
         additionalProperties: false,
       },
+      outputSchema: OPEN_OBJECT,
       invoke: async (args) => {
         const quote = await client.quote(String(args.url))
         return quote ? { gated: true, ...quote } : { gated: false, url: String(args.url) }
@@ -165,6 +181,7 @@ export function paymentTools(client: PipRailClient): AgentTool[] {
         required: ['url'],
         additionalProperties: false,
       },
+      outputSchema: OPEN_OBJECT,
       invoke: async (args) => {
         const plan = await client.planPayment(String(args.url))
         if (plan == null) return { gated: false, url: String(args.url) }
@@ -173,6 +190,8 @@ export function paymentTools(client: PipRailClient): AgentTool[] {
           payable: plan.payable,
           status: plan.status,
           fundingHint: plan.fundingHint,
+          // One model-readable line distilling the whole plan.
+          summary: summarizePlan(plan),
           best: plan.best
             ? {
                 network: plan.best.accept.network,
@@ -191,6 +210,8 @@ export function paymentTools(client: PipRailClient): AgentTool[] {
             warnings: o.warnings,
             recipientReady: o.recipient.ready,
           })),
+          // The session's time leash, present only when a time policy is configured.
+          ...(plan.session ? { session: plan.session } : {}),
         }
       },
     },
@@ -251,9 +272,28 @@ export function paymentTools(client: PipRailClient): AgentTool[] {
             receipt: parseReceipt(res),
           }
         } catch (err) {
-          if (err instanceof PaymentDeclinedError) {
-            return { declined: true, reason: err.message }
+          // The single funnel: EVERY SDK failure reaches the model as a structured
+          // object, never a thrown crash. A policy/approval refusal keeps
+          // `declined:true` (+ a typed `reasonCode` to spot a TERMINAL one); the
+          // common non-decline failures (insufficient funds, no rail, and the
+          // double-spend-critical timeouts that carry `.ref`) now arrive with a
+          // `code` + an `explain` line instead of escaping as an opaque error.
+          if (err instanceof PipRailError) {
+            const out: Record<string, unknown> = {
+              ok: false,
+              code: err.code,
+              reason: err.message,
+              explain: explainDecline(err),
+            }
+            if (err instanceof PaymentDeclinedError) {
+              out.declined = true
+              if (err.reasonCode) out.reasonCode = err.reasonCode
+            }
+            const ref = (err as { ref?: string }).ref
+            if (typeof ref === 'string') out.ref = ref
+            return out
           }
+          // A genuine, non-SDK bug → let it surface as an MCP isError.
           throw err
         }
       },
@@ -295,6 +335,45 @@ export function paymentTools(client: PipRailClient): AgentTool[] {
         const outcomes = await client.register(String(args.url), opts)
         return { outcomes }
       },
+    },
+    {
+      name: 'piprail_budget',
+      description:
+        'Read how much of your spend budget and time leash is left — per (network, asset) remaining, ' +
+        'the session time envelope, and your spend so far. Use it in Mode A (headless) to self-check ' +
+        'BEFORE paying, so you never discover the leash by hitting a decline. Read-only; moves no funds. ' +
+        'NOTE: totals and the time envelope are in-memory for THIS process and reset on restart.',
+      annotations: {
+        title: 'Check remaining budget',
+        readOnlyHint: true, // reads the in-memory ledger + policy; never pays
+        idempotentHint: true, // a pure read
+      },
+      parameters: { type: 'object', properties: {}, additionalProperties: false },
+      outputSchema: OPEN_OBJECT,
+      invoke: async () => {
+        const spent = client.spent()
+        const budget = client.budget()
+        return {
+          spent,
+          remaining: budget.byAsset,
+          session: budget.session,
+          report: formatSpendReport(spent),
+        }
+      },
+    },
+    {
+      name: 'piprail_guide',
+      description:
+        'Read the PipRail agent contract — the quote → plan → pay loop, how to read a refusal (and ' +
+        'which declines are TERMINAL), the never-re-pay rule for broadcast-but-unconfirmed payments, ' +
+        'and Mode A (headless) vs Mode B (supervised). Read-only; call it once if unsure how to use these tools.',
+      annotations: {
+        title: 'How to use PipRail',
+        readOnlyHint: true,
+        idempotentHint: true,
+      },
+      parameters: { type: 'object', properties: {}, additionalProperties: false },
+      invoke: async () => ({ guide: PIPRAIL_AGENT_GUIDE }),
     },
   ]
 }

@@ -114,8 +114,22 @@ the code. A consumer building a custom client may branch on it.
   `error — detail` (e.g. `… Last server rejection: amount_too_low — Paid 40000, required
   500000.`), and a `payment-failed` event carrying the same reason.
 - **Client refused to pay →** `PaymentDeclinedError` thrown *before* any on-chain send — the
-  quote exceeded the client's `policy`, or an `onBeforePay` hook returned false. Nothing moved.
+  quote exceeded the client's `policy` (amount/total/chain/token/host, or the session's **time
+  envelope**), or an `onBeforePay` hook returned false. Nothing moved. It carries an optional typed
+  `reasonCode` (`'POLICY' | 'BUDGET' | 'OUTSIDE_WINDOW' | 'SESSION_EXPIRED' | 'APPROVAL'`) so an agent
+  branches on the cause — and recognises a **TERMINAL** `SESSION_EXPIRED` / `APPROVAL` it must not
+  retry — without parsing the message. The session TTL (`SESSION_EXPIRED`) and rolling window
+  (`OUTSIDE_WINDOW`) reuse this EXISTING `PaymentDeclinedError` (`.code` stays `'PAYMENT_DECLINED'`):
+  **no new error class, no new `VerifyErrorCode`** — only the closed `PayBlocker` union gains `OUTSIDE_WINDOW`.
 - **Config / flow / wallet problem →** a thrown `PipRailError` with a stable `.code`.
+
+> **The agent toolkit funnels all of this.** The `piprail_pay_request` tool catches **every**
+> `PipRailError` and returns a structured `{ ok:false, code, reason, explain, ref?, reasonCode?,
+> declined? }` instead of letting it crash the agent loop — so a broadcast-but-unconfirmed
+> `PAYMENT_TIMEOUT`/`MAX_RETRIES_EXCEEDED`/`CONFIRMATION_TIMEOUT` reaches the model with its `.ref` and
+> the never-re-pay rule (via `explainDecline`). Only a genuine non-`PipRailError` bug rethrows.
+> The pure renderers (`render.ts`) and `classifyChallenge` (`classify.ts`) are viem-free protocol-layer
+> modules; `render.ts`'s VALUE import of `errors.ts` is allowed (errors.ts is chain-agnostic).
 
 Observability hooks never change control flow: the gate wraps `onPaid`, and the client routes
 every event through a private `safeEmit()` that swallows handler throws — a logging bug can't

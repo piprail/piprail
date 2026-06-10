@@ -149,14 +149,50 @@ export class MaxRetriesExceededError extends PipRailError {
 }
 
 /**
+ * A typed, machine-readable discriminator on a {@link PaymentDeclinedError} so an
+ * agent can branch on WHY a payment was refused WITHOUT regexing the human
+ * message. It's a HINT layered on top of the always-reliable `.code`
+ * (`'PAYMENT_DECLINED'`) — the two-channel error model is unchanged; this adds NO
+ * new `.code`. Values:
+ *   - `'POLICY'`         — a chain/host/token/per-payment cap refused it.
+ *   - `'BUDGET'`         — the per-(network,asset) lifetime `maxTotal` cap.
+ *   - `'OUTSIDE_WINDOW'` — the rolling `windowTotal` cap (wait for it to slide).
+ *   - `'SESSION_EXPIRED'`— the session TTL elapsed. **TERMINAL** — every payment
+ *                          this process is now refused; do NOT retry, restart/extend the TTL.
+ *   - `'APPROVAL'`       — an `onBeforePay` approval hook said no (e.g. an MCP
+ *                          human-in-the-loop decline). Terminal for this pay — do NOT auto-retry.
+ */
+export type DeclineReasonCode =
+  | 'POLICY'
+  | 'BUDGET'
+  | 'OUTSIDE_WINDOW'
+  | 'SESSION_EXPIRED'
+  | 'APPROVAL'
+
+/**
  * The client refused to pay BEFORE any on-chain send — the quoted payment
- * exceeded the configured {@link PaymentPolicy} (amount/total ceiling, or a
- * chain/token/host outside the allowlist), or an `onBeforePay` hook returned
- * `false`. No funds moved. The message names which guard fired; inspect the
- * `quote` via `client.quote(url)` to see the full breakdown.
+ * exceeded the configured {@link PaymentPolicy} (amount/total ceiling, a
+ * chain/token/host outside the allowlist, or the session's time envelope), or an
+ * `onBeforePay` hook returned `false`. No funds moved. The message names which
+ * guard fired; inspect the `quote` via `client.quote(url)` to see the full
+ * breakdown.
+ *
+ * `.reasonCode` is an optional, typed {@link DeclineReasonCode} the client stamps
+ * so an agent can branch on the cause (and spot a TERMINAL `'SESSION_EXPIRED'` /
+ * `'APPROVAL'` it must not retry) without parsing the prose. `.code` stays
+ * `'PAYMENT_DECLINED'`.
  */
 export class PaymentDeclinedError extends PipRailError {
   readonly code = 'PAYMENT_DECLINED'
+  /** Why it was declined, as a typed enum (a hint; `.code` is the reliable channel). */
+  readonly reasonCode?: DeclineReasonCode
+  constructor(
+    message: string,
+    options?: ErrorOptions & { reasonCode?: DeclineReasonCode }
+  ) {
+    super(message, options)
+    this.reasonCode = options?.reasonCode
+  }
 }
 
 /**

@@ -4,6 +4,35 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.15.0] — 2026-06-10 — the trusted agent wallet (budget-bound, time-boxed, asks-first)
+
+A minor, fully additive layer — defaults byte-identical, no new error code, protocol
+layer stays viem-free.
+
+### Added — a TIME dimension on `PaymentPolicy` (Mode A)
+- Four opt-in fields make the spend leash a *clock* too: `ttlSeconds` / `expiresAt` (a
+  session deadline — past it EVERY pay is refused with `reasonCode:'SESSION_EXPIRED'`,
+  TERMINAL) and `windowTotal` + `windowSeconds` (an optional rolling rate-limit, per
+  `(network, asset)`). All default off → behaviour unchanged. A half-armed window
+  (`windowTotal` without `windowSeconds`) or an unsafe `ttlSeconds` throws at construction.
+- `client.budget(): SessionBudget` and `PaymentPlan.session` surface the remaining money +
+  time leash so a headless agent can SEE it before paying. `client.remaining(): SpendRemaining[]`
+  gives the per-asset cap, ledger-scoped. All read-only, never throw, process-scoped (reset on restart).
+- `PolicyDecision` gains a typed `code` (`PolicyDenyCode`); `PayBlocker` gains `OUTSIDE_WINDOW`.
+
+### Added — agent ergonomics (the model-facing contract)
+- `PaymentDeclinedError.reasonCode` (`'POLICY' | 'BUDGET' | 'OUTSIDE_WINDOW' | 'SESSION_EXPIRED'
+  | 'APPROVAL'`) — a typed discriminator so an agent branches on the cause (and spots a TERMINAL
+  decline) without parsing prose. No new `.code`.
+- The `piprail_pay_request` tool now funnels EVERY `PipRailError` into a structured
+  `{ ok:false, code, reason, explain, ref?, reasonCode?, declined? }` — never an uncaught crash, so a
+  broadcast-but-unconfirmed timeout reaches the agent with its `.ref` and the never-re-pay rule.
+- New pure exports: `summarizePlan` / `explainDecline` / `formatSpendReport` (NL renderers, wired into
+  the tool outputs), `classifyChallenge` + `ChallengeTriage` (scheme/chain triage), and
+  `PIPRAIL_AGENT_GUIDE` / `agentGuide` (the cross-tool contract).
+- `paymentTools()` now returns **7** tools — the original 5, plus read-only `piprail_budget` and
+  `piprail_guide` appended last (the first five are byte-identical in name + order).
+
 ## [1.14.0] — 2026-06-10
 
 ### Added — pay the standard `exact` rail (opt-in, EVM + EIP-3009)
@@ -662,6 +691,7 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[1.15.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.14.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.13.1]: https://www.npmjs.com/package/@piprail/sdk
 [1.13.0]: https://www.npmjs.com/package/@piprail/sdk

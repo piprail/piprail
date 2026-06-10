@@ -34,6 +34,12 @@ describe('parseConfig — requirements & defaults', () => {
     expect(cfg.allowUnknownTokens).toBe(false)
     expect(cfg.hosts).toBeUndefined()
     expect(cfg.rpcUrl).toBeUndefined()
+    // No-boot regression: the boolean knobs default WITHOUT a ZodError on a zero-config boot.
+    expect(cfg.confirm).toBe(false)
+    expect(cfg.guide).toBe(true)
+    expect(cfg.ttlSeconds).toBeUndefined()
+    expect(cfg.windowTotal).toBeUndefined()
+    expect(cfg.confirmTimeoutMs).toBeUndefined()
   })
 })
 
@@ -102,6 +108,8 @@ describe('walletInputFor — per-family mapping', () => {
     maxTotal: '10.00',
     tokens: ['USDC'],
     allowUnknownTokens: false,
+    confirm: false,
+    guide: true,
     keySource: 'PIPRAIL_PRIVATE_KEY',
     ...extra,
   })
@@ -205,5 +213,92 @@ describe('parseConfig — chain-aware default token', () => {
     expect(
       parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_CHAIN: 'tron', PIPRAIL_TOKENS: 'USDT,TRX' }).tokens
     ).toEqual(['USDT', 'TRX'])
+  })
+})
+
+describe('parseConfig — time envelope (PIPRAIL_TTL + rolling window)', () => {
+  test('PIPRAIL_TTL parses to an integer ttlSeconds', () => {
+    expect(parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_TTL: '3600' }).ttlSeconds).toBe(3600)
+  })
+  test('a non-integer / zero / negative TTL is rejected', () => {
+    for (const v of ['0', '-5', '1.5', 'lots']) {
+      expect(() => parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_TTL: v })).toThrow(ConfigError)
+    }
+  })
+  test('a TTL beyond 10 years is rejected', () => {
+    expect(() => parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_TTL: '999999999' })).toThrow(/seconds/)
+  })
+  test('window needs BOTH bounds — one alone is a ConfigError', () => {
+    expect(() => parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_WINDOW_TOTAL: '1.00' })).toThrow(/together/)
+    expect(() => parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_WINDOW_SECONDS: '60' })).toThrow(/together/)
+  })
+  test('both bounds set → windowTotal + windowSeconds', () => {
+    const cfg = parseConfig({
+      PIPRAIL_PRIVATE_KEY: KEY,
+      PIPRAIL_WINDOW_TOTAL: '1.00',
+      PIPRAIL_WINDOW_SECONDS: '60',
+    })
+    expect(cfg.windowTotal).toBe('1.00')
+    expect(cfg.windowSeconds).toBe(60)
+  })
+  test('neither set → both omitted (byte-identical posture)', () => {
+    const cfg = parseConfig({ PIPRAIL_PRIVATE_KEY: KEY })
+    expect(cfg.windowTotal).toBeUndefined()
+    expect(cfg.windowSeconds).toBeUndefined()
+  })
+})
+
+describe('parseConfig — PIPRAIL_CONFIRM (Mode B) + PIPRAIL_CONFIRM_TIMEOUT_MS', () => {
+  test('default off; truthy/falsy parse', () => {
+    expect(parseConfig({ PIPRAIL_PRIVATE_KEY: KEY }).confirm).toBe(false)
+    expect(parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_CONFIRM: '1' }).confirm).toBe(true)
+    expect(parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_CONFIRM: 'yes' }).confirm).toBe(true)
+    expect(parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_CONFIRM: 'no' }).confirm).toBe(false)
+  })
+  test('a typo PIPRAIL_CONFIRMM is rejected by the typo guard', () => {
+    expect(() => parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_CONFIRMM: '1' })).toThrow(/Unknown PipRail config var/)
+  })
+  test('PIPRAIL_CONFIRM_TIMEOUT_MS: positive int parses; junk rejected; absent omitted', () => {
+    expect(parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_CONFIRM_TIMEOUT_MS: '30000' }).confirmTimeoutMs).toBe(30000)
+    for (const v of ['0', '-1', '1.5', 'soon']) {
+      expect(() => parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_CONFIRM_TIMEOUT_MS: v })).toThrow(ConfigError)
+    }
+    expect(parseConfig({ PIPRAIL_PRIVATE_KEY: KEY }).confirmTimeoutMs).toBeUndefined()
+  })
+})
+
+describe('parseConfig — PIPRAIL_GUIDE (default on)', () => {
+  test('default on; can be turned off', () => {
+    expect(parseConfig({ PIPRAIL_PRIVATE_KEY: KEY }).guide).toBe(true)
+    expect(parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_GUIDE: '0' }).guide).toBe(false)
+    expect(parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_GUIDE: 'false' }).guide).toBe(false)
+    expect(parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_GUIDE: 'no' }).guide).toBe(false)
+  })
+})
+
+describe('configToClientOptions — the time policy + the onBeforePay seam', () => {
+  test('NEVER sets onBeforePay (the confirm hook is wired in createMcpServer, not here)', () => {
+    const opts = configToClientOptions(parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_CONFIRM: '1' }))
+    expect('onBeforePay' in opts).toBe(false)
+  })
+  test('zero-config policy is byte-identical (no time fields leak in)', () => {
+    const opts = configToClientOptions(parseConfig({ PIPRAIL_PRIVATE_KEY: KEY }))
+    expect(opts.policy).toEqual({
+      maxAmount: '0.10',
+      maxTotal: '10.00',
+      tokens: ['USDC'],
+      allowUnknownTokens: false,
+    })
+  })
+  test('spreads ttl + window into the policy when set', () => {
+    const opts = configToClientOptions(
+      parseConfig({
+        PIPRAIL_PRIVATE_KEY: KEY,
+        PIPRAIL_TTL: '3600',
+        PIPRAIL_WINDOW_TOTAL: '1.00',
+        PIPRAIL_WINDOW_SECONDS: '60',
+      })
+    )
+    expect(opts.policy).toMatchObject({ ttlSeconds: 3600, windowTotal: '1.00', windowSeconds: 60 })
   })
 })

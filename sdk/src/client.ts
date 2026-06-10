@@ -48,6 +48,7 @@ import {
   PaymentTimeoutError,
   UnsupportedSchemeError,
   WrongChainError,
+  type DeclineReasonCode,
 } from './errors.js'
 
 /** The payment schemes a client can settle: PipRail's native `onchain-proof` (the
@@ -57,9 +58,15 @@ export type PaymentScheme = 'onchain-proof' | 'exact'
 /** The scheme set when none is configured — `onchain-proof` only, so the zero-config
  *  path is byte-identical to before the `exact` buyer rail existed (defaults never change). */
 const DEFAULT_SCHEMES: readonly PaymentScheme[] = ['onchain-proof']
-import { evaluatePolicy, type PaymentIntent, type PaymentPolicy } from './policy.js'
+import {
+  evaluatePolicy,
+  resolveDeadline,
+  type PaymentIntent,
+  type PaymentPolicy,
+  type PolicyDenyCode,
+} from './policy.js'
 import { SpendLedger, type SpendSummary } from './ledger.js'
-import { formatUnits } from './util/units.js'
+import { formatUnits, floorUnits } from './util/units.js'
 
 /** Observability events. `ref` is the proof — a chain-specific id (EVM tx hash, Solana signature, TON locator, Stellar tx hash). */
 export type PipRailEvent =
@@ -143,6 +150,9 @@ export interface PipRailQuote {
   withinPolicy: boolean
   /** Why the policy would refuse it (only when `withinPolicy === false`). */
   policyReason?: string
+  /** The TYPED reason the policy refused it (only when `withinPolicy === false`) —
+   *  routes the denial to the right blocker/`reasonCode` without parsing prose. */
+  policyCode?: PolicyDenyCode
 }
 
 /**
@@ -167,6 +177,7 @@ export type PayBlocker =
   | 'INSUFFICIENT_GAS' // wallet holds < the native-coin gas to send a token payment
   | 'RECIPIENT_NOT_READY' // payTo can't receive yet (no trustline/registration/opt-in/activation)
   | 'OUTSIDE_POLICY' // the client's spend policy refuses it (amount/total/chain/token/host/unknown)
+  | 'OUTSIDE_WINDOW' // the session's TIME envelope refuses it (rolling window exhausted, or the session expired)
 
 /** A soft flag — never blocks, always worth surfacing to the agent. */
 export type PayWarning =
@@ -216,6 +227,60 @@ export interface PaymentPlan {
   options: PayOption[]
   /** When NOT payable: one human, actionable sentence on exactly what to do. */
   fundingHint: string | null
+  /**
+   * Read-only TIME envelope — present ONLY when the policy configures one
+   * (`ttlSeconds`/`expiresAt`). Lets a headless (Mode A) agent SEE its remaining
+   * time leash before paying, rather than discovering it by hitting a decline.
+   *
+   * PROCESS-SCOPED: resets to a fresh window on restart; for crash-loop-resistant
+   * limits supply a pluggable durable store (the `isUsed`/`markUsed` analogue).
+   * `secondsRemaining` is a best-effort host wall-clock estimate, clamped ≥ 0.
+   */
+  session?: { expiresAt: number | null; secondsRemaining: number | null }
+}
+
+/**
+ * A read-only view of the spend leash for a Mode-A agent — `client.budget()`.
+ * Composes the in-memory ledger + the configured policy WITHOUT coupling them.
+ *
+ * PROCESS-SCOPED: every figure resets on restart — the session IS the process.
+ * For crash-loop-resistant limits supply a pluggable durable store (the
+ * `isUsed`/`markUsed` analogue). `secondsRemaining` is clamped ≥ 0.
+ */
+export interface SessionBudget {
+  /** The session's time envelope (null fields when no `ttlSeconds`/`expiresAt`). */
+  session: {
+    /** Session start, ISO. */
+    start: string
+    /** Deadline as ISO, or null when no time limit is configured. */
+    expiresAt: string | null
+    /** Seconds until expiry (clamped ≥ 0), or null when no time limit. */
+    secondsRemaining: number | null
+  }
+  /** Per-(network, asset) money leash — ONE row per pair the ledger has seen. */
+  byAsset: SpendRemaining[]
+}
+
+/**
+ * Per-(network, asset) remaining budget — the money half of the leash. One row
+ * per pair the LEDGER already holds (decimals are known only after the first
+ * spend), so a never-spent pair simply isn't a row. `cap`/`remaining` are
+ * `undefined` when no `policy.maxTotal` is set (unbounded). Never a cross-token
+ * sum — there is no price oracle.
+ */
+export interface SpendRemaining {
+  network: Caip2
+  asset: string
+  symbol?: string
+  decimals: number
+  /** Base units spent so far on this pair. */
+  spentBase: string
+  /** The `maxTotal` cap in base units; undefined when unbounded. */
+  capBase?: string
+  /** `max(0, cap − spent)` in base units; undefined when unbounded. */
+  remainingBase?: string
+  /** `remainingBase` in human units; undefined when unbounded. */
+  remainingFormatted?: string
 }
 
 /** Plain-language fix per receive-prerequisite, surfaced in PayOption.recipient.fix. */
@@ -368,6 +433,44 @@ export class PipRailClient {
     this.maxRetries = Math.max(1, opts.maxPaymentRetries ?? 3)
     this.retryTimeoutMs = opts.retryTimeoutMs ?? 30_000
     this.onEvent = opts.onEvent ?? (() => undefined)
+    this.assertPolicyTimeOptions(opts.policy)
+  }
+
+  /**
+   * Fail LOUDLY at construction on a misconfigured time policy — a security
+   * boundary must never silently half-arm. Two invariants (a misconfiguration is
+   * a programmer error → `TypeError`, no new SDK error code):
+   *   - the rolling window needs BOTH `windowTotal` and `windowSeconds`, or NEITHER
+   *     (one alone is a leash that silently doesn't bite);
+   *   - `ttlSeconds` must be a positive, safe integer whose `*1000` deadline stays
+   *     within `Number.MAX_SAFE_INTEGER` (else the arithmetic would lose precision).
+   */
+  private assertPolicyTimeOptions(policy: PaymentPolicy | undefined): void {
+    if (!policy) return
+    const hasWindowTotal = policy.windowTotal !== undefined
+    const hasWindowSeconds = policy.windowSeconds !== undefined
+    if (hasWindowTotal !== hasWindowSeconds) {
+      throw new TypeError(
+        'policy.windowTotal and policy.windowSeconds must be set together — a rolling-window ' +
+          'cap can\'t be half-armed (set both, or neither).'
+      )
+    }
+    if (hasWindowSeconds && !(Number.isSafeInteger(policy.windowSeconds) && policy.windowSeconds! > 0)) {
+      throw new TypeError('policy.windowSeconds must be a positive integer number of seconds.')
+    }
+    if (policy.ttlSeconds !== undefined) {
+      const ttl = policy.ttlSeconds
+      if (
+        !Number.isSafeInteger(ttl) ||
+        ttl <= 0 ||
+        !Number.isSafeInteger(this.ledger.sessionStart + ttl * 1000)
+      ) {
+        throw new TypeError(
+          'policy.ttlSeconds must be a positive integer number of seconds small enough that ' +
+            'the resulting deadline stays a safe integer.'
+        )
+      }
+    }
   }
 
   /** Emit an observability event, never letting a throwing handler break the
@@ -482,6 +585,69 @@ export class PipRailClient {
    *  count, cumulative spend per token, and the individual records. */
   spent(): SpendSummary {
     return this.ledger.summary()
+  }
+
+  /**
+   * Read-only budget + time leash for a Mode-A (headless) agent — the policy IS
+   * the consent, and this is how the agent SEES what's left of it before paying.
+   * Composes the in-memory ledger with the configured policy; never throws, moves
+   * no funds. PROCESS-SCOPED — every figure resets on restart (see {@link SessionBudget}).
+   */
+  budget(): SessionBudget {
+    const view = this.sessionView()
+    const start = new Date(this.ledger.sessionStart).toISOString()
+    return {
+      session: {
+        start,
+        expiresAt: view?.expiresAt != null ? new Date(view.expiresAt).toISOString() : null,
+        secondsRemaining: view?.secondsRemaining ?? null,
+      },
+      byAsset: this.remaining(),
+    }
+  }
+
+  /**
+   * Per-(network, asset) remaining budget — ONE row per pair the ledger already
+   * holds (decimals are known only after the first spend), so a fresh client with
+   * a `maxTotal` set returns `[]` until its first payment. `cap`/`remaining` are
+   * `undefined` when no `maxTotal` is configured (unbounded). Pure + in-memory;
+   * never throws, never sums across tokens (no price oracle). PROCESS-SCOPED.
+   */
+  remaining(): SpendRemaining[] {
+    const maxTotal = this.opts.policy?.maxTotal
+    return this.ledger.assetBuckets().map((b) => {
+      const base: SpendRemaining = {
+        network: b.network,
+        asset: b.asset,
+        ...(b.symbol ? { symbol: b.symbol } : {}),
+        decimals: b.decimals,
+        spentBase: b.totalBase.toString(),
+      }
+      if (maxTotal === undefined) return base
+      const capBase = floorUnits(maxTotal, b.decimals)
+      const remainingBase = capBase > b.totalBase ? capBase - b.totalBase : 0n
+      return {
+        ...base,
+        capBase: capBase.toString(),
+        remainingBase: remainingBase.toString(),
+        remainingFormatted: formatUnits(remainingBase, b.decimals),
+      }
+    })
+  }
+
+  /** The read-only TIME envelope for the plan/budget surfaces, or `undefined`
+   *  when no session deadline (`ttlSeconds`/`expiresAt`) is set. `secondsRemaining`
+   *  is clamped ≥ 0 — a best-effort host wall-clock estimate. */
+  private sessionView(
+    now = Date.now()
+  ): { expiresAt: number | null; secondsRemaining: number | null } | undefined {
+    const policy = this.opts.policy
+    if (!policy || (policy.ttlSeconds == null && policy.expiresAt == null)) return undefined
+    const deadline = resolveDeadline(policy, this.ledger.sessionStart)
+    return {
+      expiresAt: deadline,
+      secondsRemaining: deadline == null ? null : Math.max(0, Math.floor((deadline - now) / 1000)),
+    }
   }
 
   /**
@@ -870,6 +1036,7 @@ export class PipRailClient {
     schemes: readonly PaymentScheme[]
   ): Promise<PaymentPlan> {
     const chainLabel = typeof this.opts.chain === 'string' ? this.opts.chain : net.network
+    const session = this.sessionView()
     const candidates = this.gatherCandidates(net, challenge, schemes)
     if (candidates.length === 0) {
       const offered = [...new Set(challenge.accepts.map((a) => a.network))].join(', ') || 'none'
@@ -881,6 +1048,7 @@ export class PipRailClient {
         best: null,
         options: [],
         fundingHint: `This 402 isn't offered on your chain (${chainLabel}); it's payable on: ${offered}.`,
+        ...(session ? { session } : {}),
       }
     }
     // Analyse every rail in parallel; one rail's read failure never sinks the others
@@ -905,6 +1073,7 @@ export class PipRailClient {
       best,
       options,
       fundingHint: best ? null : buildFundingHint(options, chainLabel),
+      ...(session ? { session } : {}),
     }
   }
 
@@ -937,7 +1106,15 @@ export class PipRailClient {
     const warnings: PayWarning[] = []
     const shortfall: { token?: string; native?: string } = {}
 
-    if (!quote.withinPolicy) blockers.push('OUTSIDE_POLICY')
+    if (!quote.withinPolicy) {
+      // Route the time-envelope denials to their own blocker (the typed code + the
+      // `session` block tell "wait for the window to slide" from "session is over").
+      blockers.push(
+        quote.policyCode === 'SESSION_EXPIRED' || quote.policyCode === 'WINDOW_TOTAL'
+          ? 'OUTSIDE_WINDOW'
+          : 'OUTSIDE_POLICY'
+      )
+    }
     if (quote.symbolMismatch) warnings.push('SYMBOL_MISMATCH')
     // Gas-basis is meaningless for exact (no buyer gas) — never warn about it there.
     if (!isExact && cost.basis === 'heuristic') warnings.push('GAS_HEURISTIC')
@@ -1052,10 +1229,34 @@ export class PipRailClient {
       symbol,
       recognized: described != null,
     }
+    // Build the time context ONLY when a time policy is configured — otherwise
+    // pass `undefined` so the zero-config path runs no clock and no ledger scan
+    // (byte-identical to before). ONE `Date.now()` per quote feeds BOTH the
+    // expiry check and the rolling-window edge (same instant for one decision).
+    const policy = this.opts.policy
+    const hasWindow = !!policy && policy.windowTotal != null && policy.windowSeconds != null
+    const hasTimePolicy =
+      !!policy && (policy.ttlSeconds != null || policy.expiresAt != null || hasWindow)
+    const now = Date.now()
+    const ctx = hasTimePolicy
+      ? {
+          now,
+          sessionStart: this.ledger.sessionStart,
+          // Window slice ONLY when BOTH fields are set — never a `?? 0` width.
+          spentInWindowBase: hasWindow
+            ? this.ledger.totalSince(
+                accept.network,
+                accept.asset,
+                now - policy!.windowSeconds! * 1000
+              )
+            : 0n,
+        }
+      : undefined
     const decision = evaluatePolicy(
       intent,
       this.opts.policy,
-      this.ledger.totalFor(accept.network, accept.asset)
+      this.ledger.totalFor(accept.network, accept.asset),
+      ctx
     )
     const serverSymbol = accept.extra.symbol
     const symbolMismatch =
@@ -1080,15 +1281,19 @@ export class PipRailClient {
       symbolMismatch,
       withinPolicy: decision.allowed,
       ...(decision.reason ? { policyReason: decision.reason } : {}),
+      ...(decision.code ? { policyCode: decision.code } : {}),
     }
   }
 
   /** Enforce the spend policy and the onBeforePay hook — both refuse by
-   *  throwing PaymentDeclinedError, before any funds move. */
+   *  throwing PaymentDeclinedError, before any funds move. Every refusal carries
+   *  a typed `reasonCode` so an agent can branch on the cause (and spot a
+   *  TERMINAL expiry/approval decline it must not retry) without parsing prose. */
   private async authorize(quote: PipRailQuote): Promise<void> {
     if (!quote.withinPolicy) {
       throw new PaymentDeclinedError(
-        `Payment refused by policy: ${quote.policyReason ?? 'not allowed'}`
+        `Payment refused by policy: ${quote.policyReason ?? 'not allowed'}`,
+        { reasonCode: reasonCodeForPolicy(quote.policyCode) }
       )
     }
     const hook = this.opts.onBeforePay
@@ -1100,12 +1305,14 @@ export class PipRailClient {
       // A throwing decision hook means "do not pay" — fail safe, never pay.
       throw new PaymentDeclinedError('onBeforePay threw — refusing to pay.', {
         cause: err,
+        reasonCode: 'APPROVAL',
       })
     }
     if (!approved) {
       throw new PaymentDeclinedError(
         `onBeforePay declined ${quote.amountFormatted} ${quote.symbol ?? ''}`.trimEnd() +
-          ` on ${quote.network}.`
+          ` on ${quote.network}.`,
+        { reasonCode: 'APPROVAL' }
       )
     }
   }
@@ -1467,6 +1674,11 @@ function buildFundingHint(options: PayOption[], chainLabel: string): string | nu
   if (target.blockers.includes('RECIPIENT_NOT_READY')) {
     return `Recipient ${shortAddr(target.accept.payTo)} can't receive on ${chainLabel} yet — ${target.recipient.fix ?? 'recipient not ready'}.`
   }
+  if (target.blockers.includes('OUTSIDE_WINDOW')) {
+    return target.quote.policyCode === 'SESSION_EXPIRED'
+      ? `Session is over on ${chainLabel} — restart the process or extend the TTL; no retry will succeed.`
+      : `Budget window exhausted on ${chainLabel} — wait for it to free, or raise policy.windowTotal.`
+  }
   if (target.blockers.includes('OUTSIDE_POLICY')) {
     return `Refused by spend policy: ${target.quote.policyReason ?? 'not allowed'}.`
   }
@@ -1533,6 +1745,24 @@ export async function planAcross(
 function railOnNetwork(rail: DiscoveredRail, matches: (caip2: string) => boolean): boolean {
   const n = normalizeNetwork(rail.network)
   return !n.includes(':') || matches(n)
+}
+
+/** Map a typed policy-deny code to the error's typed `reasonCode` — so an agent
+ *  branches on a stable enum, never a prose substring. Expiry/window are their own
+ *  channels; the lifetime cap is `BUDGET`; everything else is plain `POLICY`. */
+function reasonCodeForPolicy(code: PolicyDenyCode | undefined): DeclineReasonCode | undefined {
+  switch (code) {
+    case 'SESSION_EXPIRED':
+      return 'SESSION_EXPIRED'
+    case 'WINDOW_TOTAL':
+      return 'OUTSIDE_WINDOW'
+    case 'MAX_TOTAL':
+      return 'BUDGET'
+    case undefined:
+      return undefined
+    default:
+      return 'POLICY'
+  }
 }
 
 /** Hostname of a URL for the policy host-allowlist + ledger — no port, so an

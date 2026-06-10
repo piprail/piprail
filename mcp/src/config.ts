@@ -42,6 +42,19 @@ export interface Config {
   /** Which payment schemes to settle. Absent ⇒ the SDK default (`onchain-proof` only,
    *  so the MCP zero-config posture is byte-identical). Set via PIPRAIL_SCHEMES. */
   schemes?: PaymentScheme[]
+  /** Session TTL in seconds (PIPRAIL_TTL). Absent ⇒ no time limit. */
+  ttlSeconds?: number
+  /** Rolling-window cap, human units (PIPRAIL_WINDOW_TOTAL). Set WITH windowSeconds or neither. */
+  windowTotal?: string
+  /** Rolling-window width in seconds (PIPRAIL_WINDOW_SECONDS). Set WITH windowTotal or neither. */
+  windowSeconds?: number
+  /** Ask the human to approve each payment via MCP elicitation (PIPRAIL_CONFIRM).
+   *  Default false — Mode A (the spend policy IS the consent). True ⇒ Mode B (supervised). */
+  confirm: boolean
+  /** Override the elicitation approval window in ms (PIPRAIL_CONFIRM_TIMEOUT_MS). Default 55000. */
+  confirmTimeoutMs?: number
+  /** Expose the PIPRAIL_AGENT_GUIDE prompt + resource (PIPRAIL_GUIDE). Default true. */
+  guide: boolean
   /** Which env var supplied the key — surfaced in the banner (never the value). */
   keySource: string
 }
@@ -66,6 +79,14 @@ const KNOWN_PIPRAIL_VARS = [
   'PIPRAIL_ALLOW_UNKNOWN_TOKENS',
   'PIPRAIL_SCHEMES',
   'PIPRAIL_NEAR_ACCOUNT_ID',
+  // Time envelope (Feature A): a session TTL + an optional rolling window.
+  'PIPRAIL_TTL',
+  'PIPRAIL_WINDOW_TOTAL',
+  'PIPRAIL_WINDOW_SECONDS',
+  // Ask-before-pay (Feature B, Mode B) + the agent guide (Feature C).
+  'PIPRAIL_CONFIRM',
+  'PIPRAIL_CONFIRM_TIMEOUT_MS',
+  'PIPRAIL_GUIDE',
 ] as const
 
 /** The payment schemes the MCP may enable via PIPRAIL_SCHEMES. */
@@ -114,6 +135,34 @@ const decimal = (name: string) =>
     .refine((v) => /^\d+(\.\d+)?$/.test(v) && Number.isFinite(Number(v)), {
       message: `${name} must be a non-negative decimal like "0.10"`,
     })
+
+/** A positive integer number of SECONDS whose `*1000` ms deadline stays a safe
+ *  integer, capped at 10 years — the time-envelope knobs (PIPRAIL_TTL / window). */
+const intSeconds = (name: string) =>
+  z
+    .string()
+    .trim()
+    .refine(
+      (v) =>
+        /^\d+$/.test(v) &&
+        Number.isSafeInteger(Number(v)) &&
+        Number(v) > 0 &&
+        Number.isSafeInteger(Number(v) * 1000) &&
+        Number(v) <= 315_360_000,
+      { message: `${name} must be a positive integer number of seconds (<= 10 years)` }
+    )
+
+/** A positive integer number of MILLISECONDS — the elicitation timeout override. */
+const intMs = (name: string) =>
+  z
+    .string()
+    .trim()
+    .refine((v) => /^\d+$/.test(v) && Number.isSafeInteger(Number(v)) && Number(v) > 0, {
+      message: `${name} must be a positive integer number of milliseconds`,
+    })
+
+/** The boolean-knob coercion shared by PIPRAIL_CONFIRM + PIPRAIL_GUIDE. */
+const boolKnob = () => z.string().transform((v) => /^(1|true|yes)$/i.test(v.trim()))
 
 /** Read the first set, non-empty value among `names`; also report which one matched. */
 function pick(env: Env, ...names: string[]): { value?: string; source?: string } {
@@ -172,6 +221,12 @@ export function parseConfig(env: Env = process.env): Config {
     allowUnknownTokens: z
       .string()
       .transform((v) => /^(1|true|yes)$/i.test(v.trim())),
+    ttlSeconds: intSeconds('PIPRAIL_TTL').transform(Number).optional(),
+    windowTotal: decimal('PIPRAIL_WINDOW_TOTAL').optional(),
+    windowSeconds: intSeconds('PIPRAIL_WINDOW_SECONDS').transform(Number).optional(),
+    confirm: boolKnob(),
+    confirmTimeoutMs: intMs('PIPRAIL_CONFIRM_TIMEOUT_MS').transform(Number).optional(),
+    guide: boolKnob(),
   })
 
   let parsed: z.infer<typeof Schema>
@@ -186,6 +241,14 @@ export function parseConfig(env: Env = process.env): Config {
       tokens: pick(env, 'PIPRAIL_TOKENS', 'TOKENS').value ?? defaultStable,
       hosts: pick(env, 'PIPRAIL_HOSTS', 'HOSTS').value,
       allowUnknownTokens: pick(env, 'PIPRAIL_ALLOW_UNKNOWN_TOKENS').value ?? 'false',
+      // Optional fields receive `undefined` safely; the boolean knobs need a default
+      // string here or a zero-config boot would hit a ZodError on every startup.
+      ttlSeconds: pick(env, 'PIPRAIL_TTL').value,
+      windowTotal: pick(env, 'PIPRAIL_WINDOW_TOTAL').value,
+      windowSeconds: pick(env, 'PIPRAIL_WINDOW_SECONDS').value,
+      confirm: pick(env, 'PIPRAIL_CONFIRM').value ?? 'false',
+      confirmTimeoutMs: pick(env, 'PIPRAIL_CONFIRM_TIMEOUT_MS').value,
+      guide: pick(env, 'PIPRAIL_GUIDE').value ?? 'true',
     })
   } catch (e) {
     if (e instanceof z.ZodError) {
@@ -210,6 +273,15 @@ export function parseConfig(env: Env = process.env): Config {
   if (parsed.chain === 'near' && !parsed.nearAccountId) {
     throw new ConfigError(
       'chain "near" requires PIPRAIL_NEAR_ACCOUNT_ID (your NEAR account id, e.g. you.near).'
+    )
+  }
+
+  // 5b) The rolling window needs BOTH bounds or NEITHER — a half-armed leash (a cap
+  //     with no width, or a width with no cap) silently wouldn't bite. Mirror the SDK guard.
+  if ((parsed.windowTotal === undefined) !== (parsed.windowSeconds === undefined)) {
+    throw new ConfigError(
+      'PIPRAIL_WINDOW_TOTAL and PIPRAIL_WINDOW_SECONDS must be set together (or neither) — ' +
+        'a rolling-window cap needs both a budget and a window width.'
     )
   }
 
@@ -243,6 +315,12 @@ export function parseConfig(env: Env = process.env): Config {
     ...(parsed.hosts && parsed.hosts.length ? { hosts: parsed.hosts } : {}),
     allowUnknownTokens: parsed.allowUnknownTokens,
     ...(schemes ? { schemes } : {}),
+    ...(parsed.ttlSeconds != null ? { ttlSeconds: parsed.ttlSeconds } : {}),
+    ...(parsed.windowTotal != null ? { windowTotal: parsed.windowTotal } : {}),
+    ...(parsed.windowSeconds != null ? { windowSeconds: parsed.windowSeconds } : {}),
+    confirm: parsed.confirm,
+    ...(parsed.confirmTimeoutMs != null ? { confirmTimeoutMs: parsed.confirmTimeoutMs } : {}),
+    guide: parsed.guide,
     keySource: key.source as string,
   }
 }
@@ -271,7 +349,9 @@ export function walletInputFor(config: Config): WalletInput {
   }
 }
 
-/** Build the SDK client options from validated config — the budget becomes the spend policy. */
+/** Build the SDK client options from validated config — the budget becomes the spend policy.
+ *  NOTE: `confirm`/`guide` are MCP-SERVER concerns and deliberately do NOT appear here — the
+ *  `onBeforePay` seam is wired in `createMcpServer`, never via the client options. */
 export function configToClientOptions(config: Config): PipRailClientOptions {
   const policy: PaymentPolicy = {
     maxAmount: config.maxAmount,
@@ -279,6 +359,10 @@ export function configToClientOptions(config: Config): PipRailClientOptions {
     tokens: config.tokens,
     allowUnknownTokens: config.allowUnknownTokens,
     ...(config.hosts ? { hosts: config.hosts } : {}),
+    // Time envelope — spread only when set so a zero-config MCP yields a byte-identical policy.
+    ...(config.ttlSeconds != null ? { ttlSeconds: config.ttlSeconds } : {}),
+    ...(config.windowTotal != null ? { windowTotal: config.windowTotal } : {}),
+    ...(config.windowSeconds != null ? { windowSeconds: config.windowSeconds } : {}),
   }
   return {
     chain: config.chain as ChainSelector,

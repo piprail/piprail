@@ -114,3 +114,99 @@ describe('evaluatePolicy — the reason is specific', () => {
     expect(evaluatePolicy(intent({ recognized: false }), {}, 0n).allowed).toBe(false)
   })
 })
+
+// A PolicyContext literal — the type is module-internal, but it's structural, so a
+// matching literal is a valid 4th arg (the client builds the real one).
+const ctx = (
+  over: Partial<{ now: number; sessionStart: number; spentInWindowBase: bigint }> = {}
+) => ({ now: 1_000_000, sessionStart: 0, spentInWindowBase: 0n, ...over })
+
+describe('evaluatePolicy — typed deny code (no prose-sniffing)', () => {
+  it('stamps a code on every deny path; undefined when allowed', () => {
+    expect(evaluatePolicy(intent(), { chains: ['solana'] }, 0n).code).toBe('CHAIN')
+    expect(evaluatePolicy(intent(), { hosts: ['other.com'] }, 0n).code).toBe('HOST')
+    expect(evaluatePolicy(intent({ recognized: false }), {}, 0n).code).toBe('UNKNOWN_TOKEN')
+    expect(evaluatePolicy(intent(), { tokens: ['USDT'] }, 0n).code).toBe('TOKEN')
+    expect(evaluatePolicy(intent(), { maxAmount: '0.04' }, 0n).code).toBe('MAX_AMOUNT')
+    expect(evaluatePolicy(intent(), { maxTotal: '0.10' }, 60_000n).code).toBe('MAX_TOTAL')
+    expect(evaluatePolicy(intent(), { maxAmount: '0.10' }, 0n).code).toBeUndefined()
+  })
+})
+
+describe('evaluatePolicy — no ctx is byte-identical (time fields ignored)', () => {
+  it('a 3-arg call never runs a time check, even with time fields set', () => {
+    expect(ok(intent(), { ttlSeconds: 1, windowTotal: '0', windowSeconds: 1 })).toBe(true)
+  })
+})
+
+describe('evaluatePolicy — session TTL / expiry', () => {
+  const ttl = { ttlSeconds: 100 } // deadline = sessionStart + 100_000ms
+
+  it('allows before the deadline, denies AT and after (inclusive expiry)', () => {
+    expect(evaluatePolicy(intent(), ttl, 0n, ctx({ now: 99_999 })).allowed).toBe(true)
+    const at = evaluatePolicy(intent(), ttl, 0n, ctx({ now: 100_000 }))
+    expect(at.allowed).toBe(false)
+    expect(at.code).toBe('SESSION_EXPIRED')
+    expect(evaluatePolicy(intent(), ttl, 0n, ctx({ now: 200_000 })).allowed).toBe(false)
+  })
+
+  it('expiry denies even a zero-amount / under-cap payment (amount-blind)', () => {
+    const zero = intent({ amountBase: 0n })
+    expect(
+      evaluatePolicy(zero, { ttlSeconds: 1, maxAmount: '100' }, 0n, ctx({ now: 10_000 })).code
+    ).toBe('SESSION_EXPIRED')
+  })
+
+  it('honours absolute expiresAt; the EARLIER of ttl/expiresAt wins', () => {
+    const both = { ttlSeconds: 100, expiresAt: 50_000 } // abs 50_000 is earlier than ttl 100_000
+    expect(evaluatePolicy(intent(), both, 0n, ctx({ now: 60_000 })).code).toBe('SESSION_EXPIRED')
+    expect(evaluatePolicy(intent(), both, 0n, ctx({ now: 40_000 })).allowed).toBe(true)
+  })
+
+  it('SESSION_EXPIRED is checked FIRST — it wins over chain/host/amount', () => {
+    const d = evaluatePolicy(
+      intent(),
+      { ttlSeconds: 1, chains: ['solana'], maxAmount: '0.001' },
+      0n,
+      ctx({ now: 100_000 })
+    )
+    expect(d.code).toBe('SESSION_EXPIRED')
+  })
+})
+
+describe('evaluatePolicy — rolling window', () => {
+  const win = { windowTotal: '0.10', windowSeconds: 60 } // cap 100000 base
+
+  it('allows within the window cap, denies over (strict >)', () => {
+    expect(evaluatePolicy(intent(), win, 0n, ctx({ spentInWindowBase: 40_000n })).allowed).toBe(true)
+    expect(evaluatePolicy(intent(), win, 0n, ctx({ spentInWindowBase: 50_000n })).allowed).toBe(true) // exactly at
+    const over = evaluatePolicy(intent(), win, 0n, ctx({ spentInWindowBase: 60_000n }))
+    expect(over.allowed).toBe(false)
+    expect(over.code).toBe('WINDOW_TOTAL')
+  })
+
+  it('does NOT run at the policy layer when windowSeconds is unset (half-armed = inert)', () => {
+    const d = evaluatePolicy(
+      intent(),
+      { windowTotal: '0.01' } as PaymentPolicy,
+      0n,
+      ctx({ spentInWindowBase: 999_999n })
+    )
+    expect(d.allowed).toBe(true)
+  })
+
+  it('windowTotal is LAST — maxTotal wins when both would fail', () => {
+    const d = evaluatePolicy(
+      intent(),
+      { maxTotal: '0.10', windowTotal: '0.10', windowSeconds: 60 },
+      60_000n,
+      ctx({ spentInWindowBase: 60_000n })
+    )
+    expect(d.code).toBe('MAX_TOTAL')
+  })
+
+  it('is per-(network,asset): the window cap is keyed on the slice the client passes', () => {
+    // The client pre-slices per asset; this asserts the pure function trusts ctx, not a global.
+    expect(evaluatePolicy(intent(), win, 0n, ctx({ spentInWindowBase: 0n })).allowed).toBe(true)
+  })
+})

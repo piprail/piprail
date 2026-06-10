@@ -14,7 +14,11 @@ export async function startServer(
   env: Record<string, string | undefined> = process.env
 ): Promise<void> {
   const config: Config = parseConfig(env)
-  const { server } = createMcpServer(configToClientOptions(config))
+  const { server } = createMcpServer(configToClientOptions(config), {
+    confirm: config.confirm,
+    ...(config.confirmTimeoutMs != null ? { confirmTimeoutMs: config.confirmTimeoutMs } : {}),
+    guide: config.guide,
+  })
   printBanner(config)
   const transport = new StdioServerTransport()
   await server.connect(transport)

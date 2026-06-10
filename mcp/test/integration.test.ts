@@ -41,4 +41,21 @@ describe('full local flow: env → config → server + banner', () => {
     expect(banner).toContain('(custom)')
     expect(banner).not.toContain('SUPER_SECRET_KEY')
   })
+
+  test('Mode B + a time envelope: the banner reflects both and the server builds', () => {
+    const cfg = parseConfig({
+      PIPRAIL_PRIVATE_KEY: SECRET,
+      PIPRAIL_CONFIRM: '1',
+      PIPRAIL_TTL: '1800',
+    })
+    expect(cfg.confirm).toBe(true)
+    const { server } = createMcpServer(configToClientOptions(cfg), {
+      confirm: cfg.confirm,
+      guide: cfg.guide,
+    })
+    expect(server).toBeTruthy()
+    const banner = formatBanner(cfg)
+    expect(banner).toMatch(/confirm/)
+    expect(banner).toMatch(/session ttl\s+1800s/)
+  })
 })

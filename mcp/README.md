@@ -143,7 +143,35 @@ All configuration is via environment variables — **never CLI arguments** (a ke
 | `PIPRAIL_HOSTS` | `HOSTS` | no | (any) | Comma-separated host allowlist (`api.x.com`, `*.y.com`). |
 | `PIPRAIL_RPC_URL` | `RPC_URL` | no | chain default | Override the RPC endpoint. |
 | `PIPRAIL_ALLOW_UNKNOWN_TOKENS` | — | no | `false` | Pay tokens the SDK can't price? Keep `false`. |
+| `PIPRAIL_TTL` | — | no | (none) | **Session deadline in seconds.** Past it EVERY payment is refused (terminal — restart to reset). In-memory. |
+| `PIPRAIL_WINDOW_TOTAL` | — | no | (none) | Rolling rate-limit budget, per (network, asset). Set **with** `PIPRAIL_WINDOW_SECONDS` or neither. |
+| `PIPRAIL_WINDOW_SECONDS` | — | no | (none) | Rolling-window width in seconds for `PIPRAIL_WINDOW_TOTAL`. |
+| `PIPRAIL_CONFIRM` | — | no | `false` | **Mode B** — ask the human to approve each payment via elicitation (supervised clients). |
+| `PIPRAIL_CONFIRM_TIMEOUT_MS` | — | no | `55000` | Approval window (ms). Keep below your client's request timeout (≈60000). |
+| `PIPRAIL_GUIDE` | — | no | `true` | Expose the agent-guide prompt + the guide/budget resources. |
 | `PIPRAIL_NEAR_ACCOUNT_ID` | `NEAR_ACCOUNT_ID` | only on NEAR | — | Your NEAR account id (e.g. `you.near`). |
+
+### Two modes — autonomous vs supervised
+
+The wallet works the same way in both; only the source of consent differs.
+
+- **Mode A — headless (default).** The agent runs free *inside* the budget **and time** envelope you
+  set (`PIPRAIL_MAX_*` + `PIPRAIL_TTL`/`PIPRAIL_WINDOW_*`). The policy *is* the consent — there's no
+  per-payment prompt. The agent reads its remaining leash with the `piprail_budget` tool.
+- **Mode B — supervised (`PIPRAIL_CONFIRM=1`).** On a client that can elicit (Claude Desktop, Cursor),
+  the human is asked *"Approve paying 0.05 USDC to api.example.com on base?"* at the moment of spend.
+  Decline / cancel / timeout / a dropped transport **all fail-safe to NOT paying**, and a declined pay
+  is terminal — the agent must not auto-retry. The prompt never carries a secret. On a client that
+  can't elicit (a CLI), it silently degrades to Mode A. A declined pay surfaces to the model as
+  `{ declined:true, reasonCode:'APPROVAL' }`.
+
+### Tools (7) + the agent guide
+
+The server exposes **seven** tools: `piprail_discover`, `piprail_quote_payment`, `piprail_plan_payment`,
+`piprail_pay_request`, `piprail_register`, plus two read-only additions — **`piprail_budget`** (the
+remaining money + time leash) and **`piprail_guide`** (the agent contract). Every result is also emitted
+as `structuredContent`. With `PIPRAIL_GUIDE` on (default), the contract is also an MCP prompt
+(`piprail_agent_guide`) and a `piprail://guide` resource, alongside a live `piprail://budget` resource.
 
 ### Wallet formats
 

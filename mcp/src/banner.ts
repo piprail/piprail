@@ -16,6 +16,8 @@ export const TOOL_NAMES = [
   'piprail_plan_payment',
   'piprail_pay_request',
   'piprail_register',
+  'piprail_budget',
+  'piprail_guide',
 ] as const
 
 const row = (label: string, value: string): string => `  ${label.padEnd(15)}${value}`
@@ -54,6 +56,20 @@ export function formatBanner(config: Config): string {
   if (config.hosts && config.hosts.length) lines.push(row('hosts', config.hosts.join(', ')))
   // Only shown when PIPRAIL_SCHEMES is set — so the zero-config banner stays byte-identical.
   if (config.schemes && config.schemes.length) lines.push(row('schemes', config.schemes.join(', ')))
+  // Time envelope (Feature A) — only shown when configured.
+  if (config.ttlSeconds != null) lines.push(row('session ttl', `${config.ttlSeconds}s`))
+  if (config.windowTotal != null && config.windowSeconds != null) {
+    lines.push(row('rate window', `${config.windowTotal} / ${config.windowSeconds}s`))
+  }
+  // Mode B (Feature B) — only shown when PIPRAIL_CONFIRM is on.
+  if (config.confirm) {
+    lines.push(
+      row(
+        'confirm',
+        'ON — asks the human to approve each payment IF the client supports elicitation; otherwise policy-only (Mode A)'
+      )
+    )
+  }
   if (config.rpcUrl) lines.push(row('rpc', '(custom)'))
   if (config.allowUnknownTokens) {
     lines.push(row('unknown tokens', 'ALLOWED — unpriced, risk accepted'))

@@ -148,16 +148,52 @@ For **every rail the 402 offers on your chain**, the plan reads **token balance 
 
 ```ts
 import { paymentTools } from '@piprail/sdk'
-const tools = paymentTools(client) // → [piprail_discover, piprail_quote_payment, piprail_plan_payment, piprail_pay_request, piprail_register]
+const tools = paymentTools(client)
+// → [piprail_discover, piprail_quote_payment, piprail_plan_payment,
+//    piprail_pay_request, piprail_register, piprail_budget, piprail_guide]
 ```
 
 Each descriptor also carries advisory **`annotations`** (MCP-style `ToolAnnotations` — `title`,
-`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`): the three reads are flagged
+`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`): the reads are flagged
 **read-only**, `piprail_pay_request` is flagged **value-moving** (the one tool that spends), and
 `piprail_register` is non-destructive — so an MCP client can render the right consent. They're hints,
 not the boundary; the spend policy is. `@piprail/mcp` advertises them on the wire.
 
 See [`examples/agent-tools.mjs`](../examples/agent-tools.mjs) for MCP / AI-SDK wiring.
+
+### A budget that's also a clock — the time envelope (Mode A)
+
+The spend policy already caps *amount* and *total*; it can also bound *time*, so a headless agent
+runs free **inside** a budget **and** time envelope and the policy *is* the consent — no per-pay ask.
+All opt-in; omit them and behaviour is byte-identical.
+
+```ts
+const client = new PipRailClient({
+  chain: 'base', wallet,
+  policy: {
+    maxAmount: '0.10', maxTotal: '5.00', tokens: ['USDC'],
+    ttlSeconds: 3600,             // the whole session expires in 1h — then EVERY pay is refused
+    windowTotal: '1.00', windowSeconds: 600,  // …and ≤ $1 of USDC in any rolling 10-minute window
+  },
+})
+
+client.budget()    // → { session: { expiresAt, secondsRemaining }, byAsset: [...] } — read the leash before paying
+client.remaining() // → per-(network,asset) remaining cap (ledger-scoped)
+```
+
+A pay past the deadline throws `PaymentDeclinedError` with **`reasonCode: 'SESSION_EXPIRED'`** (TERMINAL
+— don't retry); a window breach is `'OUTSIDE_WINDOW'`. The window needs **both** `windowTotal` and
+`windowSeconds` (one alone throws at construction — a leash can't be half-armed). State is in-memory and
+**resets on restart** (the session *is* the process); durable limits are the caller's pluggable concern.
+
+### Legible to the model — the decline contract + the guide
+
+`piprail_pay_request` funnels **every** failure into a structured `{ ok:false, code, reason, explain,
+ref?, reasonCode?, declined? }` — never an uncaught crash — so a broadcast-but-unconfirmed timeout
+reaches the agent with its `.ref` and the **never-re-pay** rule, not a double-spend. Pure helpers make
+the rest legible: `summarizePlan` / `explainDecline` / `formatSpendReport` (one-line English),
+`classifyChallenge` (wrong-chain vs unpayable-scheme), and `PIPRAIL_AGENT_GUIDE` (the whole contract,
+distilled for an LLM). `piprail_budget` lets the agent self-check its leash; `piprail_guide` returns the contract.
 
 ## Be discoverable — find and be found ($0, no backend)
 
