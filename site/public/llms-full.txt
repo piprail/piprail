@@ -1,6 +1,6 @@
 # PipRail — full reference for agents
 
-> Last-Updated: 2026-06-10 · SDK-Version: 1.14.0 · MCP-Version: 0.2.9 · Type: APIService · License: MIT
+> Last-Updated: 2026-06-10 · SDK-Version: 1.15.0 · MCP-Version: 0.3.0 · Type: APIService · License: MIT
 
 > Accept and make x402 "402 Payment Required" crypto payments from any HTTP request, across 29 chains in 10 families, with no backend, no database, no account, and no fee. Payments settle straight into your own wallet, verified locally against your own RPC. `@piprail/sdk` is an open-source (MIT) TypeScript SDK that runs headless or in the browser. This file is the everything-in-one-fetch version: the pitch, real code, the chain list, and the error model.
 
@@ -191,7 +191,7 @@ Add it to your client with your wallet key and (optionally) a budget — default
     "env": { "PIPRAIL_PRIVATE_KEY": "0x…", "PIPRAIL_CHAIN": "base", "PIPRAIL_MAX_AMOUNT": "0.10", "PIPRAIL_MAX_TOTAL": "10.00" } } } }
 ```
 
-Five tools appear: `piprail_discover` (find payable x402 endpoints on the open indexes), `piprail_quote_payment` (price without paying), `piprail_plan_payment` (balance + gas + recipient-readiness + policy, read-only, across every rail), `piprail_pay_request` (fetch + pay on the cheapest affordable rail), `piprail_register` (list an x402 endpoint so other agents can find it). The two discovery tools are read/announce-only — they never move funds. Listed in the official MCP registry as `io.github.piprail/mcp`. Config is ENV-ONLY (never CLI args — a key in argv leaks): `PIPRAIL_PRIVATE_KEY` (required), `PIPRAIL_CHAIN` (default base), `PIPRAIL_MAX_AMOUNT`, `PIPRAIL_MAX_TOTAL`, `PIPRAIL_TOKENS` (default USDC; USDT on Tron/TON), `PIPRAIL_HOSTS`, `PIPRAIL_RPC_URL`, `PIPRAIL_ALLOW_UNKNOWN_TOKENS` (keep false), `PIPRAIL_NEAR_ACCOUNT_ID` (NEAR only). The wallet key is the chain's native form (EVM/Tron hex `0x…`, Sui `suiprivkey1…`, Aptos `ed25519-priv-0x…` or hex, Solana base58, TON 24-word mnemonic, Algorand 25-word mnemonic, Stellar `S…` seed, XRPL `s…` seed, NEAR `ed25519:…` + account id). Clients: Claude Desktop, Cursor, Claude Code, Windsurf, VS Code (top-level key is `servers`), Cline. EVM works out of the box; non-EVM pulls its SDK peer on demand; one wallet per chain per instance — register the server once per chain for multi-rail. Why it's safe: the spend policy is enforced before any on-chain send and checked against the token's TRUE decimals, so a malicious server can't understate a price to slip past a cap; an over-budget request returns `{ declined: true, reason }` and nothing moves. No custody, no backend — runs locally with your key against your own RPC. MIT. Page: https://piprail.com/mcp · npm: https://www.npmjs.com/package/@piprail/mcp · README: https://github.com/piprail/piprail/blob/main/mcp/README.md
+Seven tools appear: `piprail_discover` (find payable x402 endpoints on the open indexes), `piprail_quote_payment` (price without paying), `piprail_plan_payment` (balance + gas + recipient-readiness + policy, read-only, across every rail), `piprail_pay_request` (fetch + pay on the cheapest affordable rail), `piprail_register` (list an x402 endpoint so other agents can find it), `piprail_budget` (read the remaining spend budget + time leash, read-only), and `piprail_guide` (the agent contract). The discovery/budget/guide tools are read-only — they never move funds. A failed pay returns a structured `{ ok:false, code, reason, explain, ref?, reasonCode? }` so the agent reasons over it instead of crashing or double-spending. Two modes: Mode A (headless, default — the budget+time envelope IS the consent) and Mode B (`PIPRAIL_CONFIRM=1` — the human approves each pay via MCP elicitation, fail-safe to not-pay). The time envelope adds `PIPRAIL_TTL` (session deadline) + `PIPRAIL_WINDOW_TOTAL`/`PIPRAIL_WINDOW_SECONDS` (rolling rate-limit). Listed in the official MCP registry as `io.github.piprail/mcp`. Config is ENV-ONLY (never CLI args — a key in argv leaks): `PIPRAIL_PRIVATE_KEY` (required), `PIPRAIL_CHAIN` (default base), `PIPRAIL_MAX_AMOUNT`, `PIPRAIL_MAX_TOTAL`, `PIPRAIL_TOKENS` (default USDC; USDT on Tron/TON), `PIPRAIL_HOSTS`, `PIPRAIL_RPC_URL`, `PIPRAIL_ALLOW_UNKNOWN_TOKENS` (keep false), `PIPRAIL_NEAR_ACCOUNT_ID` (NEAR only). The wallet key is the chain's native form (EVM/Tron hex `0x…`, Sui `suiprivkey1…`, Aptos `ed25519-priv-0x…` or hex, Solana base58, TON 24-word mnemonic, Algorand 25-word mnemonic, Stellar `S…` seed, XRPL `s…` seed, NEAR `ed25519:…` + account id). Clients: Claude Desktop, Cursor, Claude Code, Windsurf, VS Code (top-level key is `servers`), Cline. EVM works out of the box; non-EVM pulls its SDK peer on demand; one wallet per chain per instance — register the server once per chain for multi-rail. Why it's safe: the spend policy is enforced before any on-chain send and checked against the token's TRUE decimals, so a malicious server can't understate a price to slip past a cap; an over-budget request returns `{ declined: true, reason }` and nothing moves. No custody, no backend — runs locally with your key against your own RPC. MIT. Page: https://piprail.com/mcp · npm: https://www.npmjs.com/package/@piprail/mcp · README: https://github.com/piprail/piprail/blob/main/mcp/README.md
 
 ## 60-second walkthrough: give your agent a wallet
 
@@ -231,7 +231,7 @@ The key is the chosen chain's native form (EVM/Tron hex `0x…`, Sui `suiprivkey
 
 ### 3. Restart the client
 
-Five tools appear in the agent's tool list: `piprail_discover`, `piprail_quote_payment`, `piprail_plan_payment`, `piprail_pay_request`, `piprail_register`.
+Seven tools appear in the agent's tool list: `piprail_discover`, `piprail_quote_payment`, `piprail_plan_payment`, `piprail_pay_request`, `piprail_register`, `piprail_budget`, `piprail_guide`.
 
 ### 4. The agent pays on its own
 
@@ -256,7 +256,7 @@ A cite-ready, no-superlative summary of how PipRail differs:
 - **Quote before paying:** `piprail_quote_payment` shows the exact price without moving funds; `piprail_plan_payment` checks balance, gas, recipient-readiness, and policy in one read-only call — so the agent knows a payment will settle before broadcasting.
 - **Zero setup:** add your key to env vars and restart. No deploy, no API key to request, no account, no contract to write. Works in Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, and Cline.
 - **Native coin is a first-class payment asset on every chain:** ETH, SOL, TON, TRX, NEAR, SUI, APT, ALGO, XLM, and XRP all pay, verified locally — no exceptions. USDC ships almost everywhere, USDT on most chains, EURC on Stellar, RLUSD on XRPL.
-- **Same five tools in every MCP client:** the protocol is standard — you're not locked into one model or vendor.
+- **Same seven tools in every MCP client:** the protocol is standard — you're not locked into one model or vendor.
 
 ## Discovery — get found, find others
 
