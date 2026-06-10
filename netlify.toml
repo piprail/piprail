@@ -1,18 +1,19 @@
 # PipRail site — static Astro 5, built from the site/ workspace of this monorepo,
-# plus one Netlify Function (netlify/functions/x402-demo.mjs) that serves a LIVE
-# x402 endpoint at /x402/demo built with @piprail/sdk.
+# plus one Netlify Function (site/netlify/functions/x402-demo.mjs) that serves a LIVE
+# x402 endpoint at /x402/demo built with @piprail/sdk. This config stays at the repo
+# root (Netlify reads it from there); everything that IS the site lives under site/.
 [build]
   # Build the SDK first (its dist is what the function bundles), then the site.
   command = "npm run build:sdk && npm run build"
   publish = "site/dist"
   # Rebuild when a push touched the site, the function, the SDK, or the build wiring.
-  ignore = "git diff --quiet HEAD^ HEAD -- site/ netlify/ netlify.toml sdk/ package.json package-lock.json"
+  ignore = "git diff --quiet HEAD^ HEAD -- site/ netlify.toml sdk/ package.json package-lock.json"
 
 [build.environment]
   NODE_VERSION = "22"
 
 [functions]
-  directory = "netlify/functions"
+  directory = "site/netlify/functions"
   node_bundler = "esbuild"
   # The SDK lazy-loads each non-EVM family's libs on first use. This endpoint is
   # Base-only, so those optional peers are never imported at runtime — keep them
