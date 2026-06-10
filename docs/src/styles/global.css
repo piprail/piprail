@@ -103,19 +103,42 @@ html {
   background-color: color-mix(in oklch, var(--sl-color-accent) 6%, transparent);
 }
 
-/* Splash home — clean, centered, text-only hero (no image, no glow). */
+/* Splash home — big, confident, spacious hero. No image, no glow — just air,
+   strong type, and clear hierarchy. */
 .hero {
-  padding-block: 1rem 0;
+  padding-block: clamp(3.5rem, 7vw, 7rem) clamp(3rem, 6vw, 5.5rem);
+  gap: clamp(1.5rem, 4vw, 2.5rem);
+}
+/* The hero copy stack (title → tagline → actions) breathes. */
+.hero > div:last-child,
+.hero .sl-flex {
+  gap: clamp(1.25rem, 3vw, 2rem);
 }
 .hero h1 {
-  letter-spacing: -0.03em;
-  font-weight: 650;
+  font-size: clamp(2.75rem, 6.5vw, 4.75rem);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.02;
 }
 .hero .tagline {
-  line-height: 1.6;
+  font-size: clamp(1.1rem, 1rem + 0.7vw, 1.4rem);
+  line-height: 1.55;
   text-wrap: balance;
   color: var(--sl-color-gray-2);
-  max-width: 48ch;
+  max-width: 46ch;
+}
+.hero .actions {
+  margin-top: clamp(0.5rem, 2vw, 1.25rem);
+  gap: 0.85rem 1rem;
+}
+
+/* The first content section shouldn't butt up against the hero. */
+.sl-markdown-content > :first-child {
+  margin-top: 0;
+}
+/* A touch more space between the splash sections so it feels spacious, not dense. */
+.sl-markdown-content h2 {
+  margin-top: 3.25rem;
 }
 
 /* Respect reduced motion. */
