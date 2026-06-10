@@ -6,8 +6,9 @@ One tweet + one image per day, one per chain PipRail ships (the 29 logos in
 one `npm install`.**
 
 - **Plan + copy:** this file.
-- **Image template:** `design/exports/social/template.html` (one HTML, parameterised per chain).
-- **Rendered PNGs:** `design/exports/social/<chain>.png` (1600×900, gitignored — local renders).
+- **Image template + renderer:** `design/social/chain-cards/render.mjs` (the template is a
+  string inside the script, parameterised per chain from its `CHAINS` map).
+- **Rendered PNGs:** `design/social/chain-cards/<chain>.png` (1600×900, gitignored — local renders).
 - **Render command:** see §3.
 
 ---
@@ -73,8 +74,8 @@ Aspect: **1600×900** (16:9, X-friendly). Keep each PNG under ~400 KB.
 The template reads a chain config and composes the spec in §1. To render one chain:
 
 ```bash
-# from repo root — renders design/exports/social/<chain>.png at 1600×900
-node .claude/skills/site-design/design/exports/social/render.mjs ton
+# from repo root — renders design/social/chain-cards/<chain>.png at 1600×900
+node .claude/skills/site-design/design/social/chain-cards/render.mjs ton
 ```
 
 (Uses the Playwright Chromium already installed for the project — same HTML→screenshot
@@ -99,7 +100,7 @@ in §2.
 >
 > @ton_blockchain #TON #x402 #AIagents #payments #crypto
 
-Image: `design/exports/social/ton.png`
+Image: `design/social/chain-cards/ton.png`
 
 ---
 
@@ -172,8 +173,8 @@ When another project posts about x402 / agent payments on a chain we ship, reply
 **code-window** image (not the coin-rail post image — reserve that for the scheduled day):
 
 ```bash
-node .claude/skills/site-design/design/exports/social/render-reply.mjs <chain>
-# -> design/exports/social/reply-<chain>.png  (1600×900)
+node .claude/skills/site-design/design/social/chain-cards/render-reply.mjs <chain>
+# -> design/social/chain-cards/reply-<chain>.png  (1600×900)
 ```
 
 It shows the real integration (`chain: '<chain>'`, the asset list, `client.fetch(url)`) in the

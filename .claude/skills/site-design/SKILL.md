@@ -25,29 +25,30 @@ actually serves live in **`site/public/`** (repo). Never confuse the two.
 
 ### `design/` (bundled with this skill) — MASTER + working files (local only)
 Lives at **`.claude/skills/site-design/design/`** — beside this SKILL, so the skill
-and its assets travel together and the repo root stays clean. The source of truth
-you edit/regenerate FROM; never served by the site. Four peers — **inputs**, the two
-**render pipelines**, and the **outputs** (see [`design/README.md`](design/README.md) for the full map):
+and its assets travel together and the repo root stays clean. **One strict rule governs it:
+every file is SOURCE, PUBLISHED, or RENDER** — read [`design/README.md`](design/README.md), it's
+the law for this folder. SOURCE (templates/scripts) and PUBLISHED (masters + profile assets)
+are tracked; RENDER (anything a script generates) is gitignored and regenerable.
 
 ```
 .claude/skills/site-design/design/
-├── README.md                       # the folder guide (read it)
-├── source/                         # ① masters — the originals everything derives from
-│   ├── logo-source.png             # the high-res master logo (1254×1254)
-│   └── logo-512.png · logo-256.png # downscaled exports
-├── social/                         # ② social campaign — CAMPAIGN.md (copy/strategy)
-├── video/                          # ③ promo-video & social-card render pipeline (was the
-│   │                               #    root .video-build/) — own README; source tracked,
-│   └── scene.html · *.mjs · synth.py  #  renders (assets.js, frames/, *.png/*.mp4) ignored
-└── exports/                        # ④ rendered/staged OUTPUTS (local, gitignored)
-    ├── og-github-1280x640.png      #    GitHub repo "Social preview" card (manual upload)
-    ├── piprail-demo.mp4            #    the finished promo video
-    └── social/                     #    per-chain announcement cards + their render.mjs
+├── README.md            # the rule (SOURCE / PUBLISHED / RENDER) — read it
+├── source/              # ① MASTERS (tracked): logo-source.png · logo-512/256
+├── brand/               # ② PUBLISHED profile assets (tracked): og-github (→ GitHub social
+│                        #    preview) · x-banner (→ X header) + x-banner.html
+├── social/              # ③ SOCIAL pipelines — source tracked, renders gitignored
+│   ├── CAMPAIGN.md      #    the campaign plan
+│   ├── chain-cards/     #    per-chain announce cards — render.mjs (template is in the script)
+│   ├── post-cards/      #    themed posts — *.html templates + one generic render.mjs
+│   └── launch-cards/    #    one-off launch/comparison art + render-slides.mjs
+└── video/               # ④ PROMO-VIDEO pipeline (was root .video-build/) — own README;
+                         #    scene.html · capture/genassets/synth; renders gitignored
 ```
 
-The promo video and social cards are produced by the **`video/`** pipeline
-(HTML → headless-Chromium frames → ffmpeg). To regenerate or tweak the hype video, read
-[`design/video/README.md`](design/video/README.md) — don't reverse-engineer the scripts.
+Each pipeline folder (`social/*`, `video/`) has its **own README** with the exact render
+commands — read that folder's README before touching it; don't reverse-engineer the scripts.
+**Don't dump a finished render into `brand/`/`source/`** — if a script made it, it's a RENDER
+and stays under its pipeline, gitignored.
 
 ### `site/public/` — SHIPPED assets (served verbatim at piprail.com/…)
 Only optimized, final files go here. Everything is referenced by absolute path (`/logo.png`).
@@ -62,7 +63,7 @@ Only optimized, final files go here. Everything is referenced by absolute path (
 | `tokens/<sym>.svg` | one logo per default token (`usdc` `usdt` `eurc` `rlusd`); add one when a new default token ships | SVG |
 | `robots.txt` `llms.txt` `llms-full.txt` | crawler/LLM hints | — |
 
-> **Rule:** edit/keep originals in `design/`; export only the final, optimized file into `site/public/`. The GitHub social card (`og-github-1280x640.png`) stays in `design/exports/` — it's uploaded via the GitHub repo UI, not served by the site.
+> **Rule:** edit/keep originals in `design/`; export only the final, optimized file into `site/public/`. The GitHub social card (`og-github-1280x640.png`) stays in `design/brand/` (the PUBLISHED-deliverables folder) — it's uploaded via the GitHub repo UI, not served by the site.
 
 ---
 
@@ -120,7 +121,7 @@ sips -s format png -z 180 180 "$SRC" --out site/public/apple-touch-icon.png
 ```
 
 - **OG card (`site/public/og.png`, 1200×630):** the social card. If recomposing from a wider design, scale to width then center-crop: `sips -Z 1200 in.png; sips -c 630 1200 in.png`. Keep it under ~300 KB.
-- **GitHub social card (`design/exports/og-github-1280x640.png`, 1280×640):** GitHub's card ratio is 2:1, distinct from OG's 1.91:1 — keep it in `design/exports/`, upload via repo **Settings → Social preview**.
+- **GitHub social card (`design/brand/og-github-1280x640.png`, 1280×640):** GitHub's card ratio is 2:1, distinct from OG's 1.91:1 — keep it in `design/brand/` (PUBLISHED deliverables), upload via repo **Settings → Social preview**.
 - For higher fidelity than `sips`, `sharp` (already an Astro dep) or an SVG master works too.
 
 ---

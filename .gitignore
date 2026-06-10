@@ -88,22 +88,23 @@ Screenshot*.png
 
 # Research & design notes now live under /.claude/ (already ignored above) — local only.
 
-# Design-skill EXPORTS = local render/staging outputs (social cards, slide masters,
-# promo videos). The skill itself, its design/source/ masters, and the brand assets
-# already committed in here stay tracked; this only keeps NEW local renders out of
-# git so the repo never bloats. Commit a new design asset deliberately via `git add -f`.
-.claude/skills/site-design/design/exports/
-
-# Design-skill VIDEO pipeline (was the root .video-build/) — the SOURCE is tracked
-# (scene/card HTML, render *.mjs, synth.py, README), but the GENERATED renders are not:
-# assets.js (data-URI bundle), the synthesized audio, frame dumps, and any PNG/MP4 output.
+# === Design skill (.claude/skills/site-design/design/) — STRICT source-vs-render rule ===
+# Every file is exactly one of: SOURCE (templates *.html, scripts *.mjs/*.py, docs *.md —
+# TRACKED), PUBLISHED (brand/ + source/ — TRACKED, incl. their PNGs), or RENDER (anything a
+# pipeline generates — IGNORED). The pipelines live under social/ and video/, so their
+# generated PNG/MP4/audio, the assets.js bundle, and frame/sample dumps are kept out of git
+# (regenerate them with the render scripts). The full rule is documented in design/README.md.
+.claude/skills/site-design/design/social/**/*.png
+.claude/skills/site-design/design/social/**/*.mp4
+# chain-cards/ render.mjs writes a debug <chain>.html beside each <chain>.png — both are
+# RENDER output here (the template is a string inside render.mjs), so ignore the HTML too.
+# (post-cards/ and launch-cards/ .html ARE source templates, so this is scoped to chain-cards.)
+.claude/skills/site-design/design/social/chain-cards/*.html
+.claude/skills/site-design/design/video/**/*.png
+.claude/skills/site-design/design/video/**/*.mp4
+.claude/skills/site-design/design/video/**/*.wav
+.claude/skills/site-design/design/video/**/*.mp3
 .claude/skills/site-design/design/video/assets.js
-.claude/skills/site-design/design/video/wave.png
-.claude/skills/site-design/design/video/music.wav
-.claude/skills/site-design/design/video/frames/
-.claude/skills/site-design/design/video/sample/
-.claude/skills/site-design/design/video/*.png
-.claude/skills/site-design/design/video/*.mp4
-.claude/skills/site-design/design/video/*.wav
-.claude/skills/site-design/design/video/*.mp3
-.claude/skills/site-design/design/video/__pycache__/
+.claude/skills/site-design/design/**/frames/
+.claude/skills/site-design/design/**/sample/
+.claude/skills/site-design/design/**/__pycache__/

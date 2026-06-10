@@ -5,7 +5,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<script src="./assets.js"></script>
+<script src="../../video/assets.js"></script>
 <style>
   *{margin:0;padding:0;box-sizing:border-box;}
   :root{--bg:#000;--fg:#fafafa;--muted:#8b9298;--line:rgba(255,255,255,.08);--em:#2ee6a6;--blue:#4da2ff;}
@@ -21,11 +21,10 @@
   .brand img{width:64px;height:64px;border-radius:16px;}
   .brand b{font-size:46px;font-weight:800;letter-spacing:-.02em;}
   .brand .em{color:var(--em);}
-  .eyebrow{font:700 24px 'JetBrains Mono',monospace;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:16px;}
-  .eyebrow b{color:#fff;}
-  h1{font-weight:900;letter-spacing:-.03em;font-size:90px;line-height:0.98;margin-bottom:22px;}
+  .eyebrow{font:700 22px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:16px;}
+  h1{font-weight:900;letter-spacing:-.03em;font-size:92px;line-height:0.98;margin-bottom:22px;}
   h1 .em{color:var(--em);}
-  .sub{font-size:30px;color:var(--muted);font-weight:500;line-height:1.36;margin-bottom:40px;max-width:940px;}
+  .sub{font-size:30px;color:var(--muted);font-weight:500;line-height:1.36;margin-bottom:40px;max-width:950px;}
   .sub b{color:#dfe3e7;font-weight:600;}
   .chips{display:flex;flex-direction:column;gap:18px;}
   .chip{display:flex;align-items:center;gap:20px;background:#0c0d10;border:1px solid var(--line);border-radius:18px;padding:24px 28px;}
@@ -44,15 +43,15 @@
 <div id="card">
   <div class="g g1"></div><div class="g g2"></div>
   <div class="brand"><img id="logo" alt=""><b>Pip<span class="em">Rail</span></b></div>
-  <div class="eyebrow">Agentic payments on Base just crossed <b>100M</b></div>
-  <h1>Built for <span class="em">exactly this.</span></h1>
-  <div class="sub">That's <b>x402</b> — and it won't stay on one chain. PipRail brings it to <b>28</b>, both sides of the payment:</div>
+  <div class="eyebrow">AI can't hold cash. Or open a bank account.</div>
+  <h1>But it can hold a <span class="em">wallet.</span></h1>
+  <div class="sub">So we built the one it can actually <b>use</b>. PipRail gives any AI agent a budget-bound wallet to pay x402 URLs &mdash; capped so it can't overspend.</div>
   <div class="chips">
-    <div class="chip"><span class="ar">&rarr;</span><span class="t">Charge an <span>AI agent</span> for your API — one line.</span></div>
-    <div class="chip"><span class="ar">&rarr;</span><span class="t">Give your agent a <span>budget-bound wallet</span> it can't overspend.</span></div>
+    <div class="chip"><span class="ar">&rarr;</span><span class="t">Capped by a <span>policy the model can't break.</span></span></div>
+    <div class="chip"><span class="ar">&rarr;</span><span class="t">Pays x402 URLs on its own &mdash; on <span>28 chains.</span></span></div>
   </div>
   <div class="strip" id="strip"></div>
-  <div class="foot"><span>x402 · @piprail/mcp · one line</span><span class="em">piprail.com</span></div>
+  <div class="foot"><span>x402 &middot; @piprail/mcp &middot; the rails for machines</span><span class="em">piprail.com</span></div>
 </div>
 <script>
   const A=window.ASSETS;

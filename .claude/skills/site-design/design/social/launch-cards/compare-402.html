@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{--bg:#000;--fg:#fafafa;--muted:#8b9298;--line:rgba(255,255,255,.08);
+    --em:#2ee6a6;--warn:#e2b15a;--bad:#ff6b6b;--card:#0c0d10;}
+  html,body{width:1920px;height:1080px;background:#000;}
+  /* STRICT layout: head / body / foot are all in normal flow — foot can never overlap. */
+  .slide{width:1920px;height:1080px;background:var(--bg);color:var(--fg);
+    font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;
+    flex-direction:column;padding:56px 76px 46px;position:relative;overflow:hidden;}
+  .g{position:absolute;border-radius:50%;filter:blur(150px);z-index:0;pointer-events:none;}
+  .g.a{width:1100px;height:680px;left:-220px;top:-280px;background:rgba(46,230,166,.09);}
+  .g.b{width:1000px;height:680px;right:-220px;bottom:-320px;background:rgba(226,177,90,.06);}
+  .head,.foot{flex:none;position:relative;z-index:2;}
+  .body{flex:1;min-height:0;position:relative;z-index:2;display:flex;}
+  .kicker{font:700 22px 'JetBrains Mono',monospace;letter-spacing:.26em;text-transform:uppercase;color:var(--em);margin-bottom:12px;}
+  h1{font-weight:900;letter-spacing:-1.4px;font-size:58px;line-height:1.02;}
+  .head{margin-bottom:30px;}
+  h1 .em{color:var(--em);} h1 .warn{color:var(--warn);}
+  .foot{margin-top:22px;padding-top:18px;border-top:1px solid var(--line);
+    display:flex;align-items:center;justify-content:space-between;
+    font:600 21px 'JetBrains Mono',monospace;color:var(--muted);}
+  .foot .em{color:var(--em);} .foot b{color:#fafafa;font-weight:700;}
+
+  /* ---- slide 1: two flow columns ---- */
+  .cols{display:flex;gap:32px;width:100%;}
+  .col{flex:1;background:var(--card);border:1px solid var(--line);border-radius:22px;
+    padding:30px 34px;display:flex;flex-direction:column;position:relative;overflow:hidden;}
+  .col.good{box-shadow:inset 0 0 0 1px rgba(46,230,166,.16);}
+  .col::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;}
+  .col.good::before{background:linear-gradient(90deg,transparent,var(--em),transparent);}
+  .col.bad::before{background:linear-gradient(90deg,transparent,var(--warn),transparent);}
+  .chead{display:flex;align-items:center;gap:14px;margin-bottom:22px;}
+  .chead .lbl{font-weight:800;font-size:31px;letter-spacing:-.6px;}
+  .chead .pill{margin-left:auto;font:700 18px 'JetBrains Mono',monospace;padding:6px 14px;border-radius:999px;}
+  .good .pill{color:var(--em);background:rgba(46,230,166,.10);border:1px solid rgba(46,230,166,.3);}
+  .bad .pill{color:var(--warn);background:rgba(226,177,90,.10);border:1px solid rgba(226,177,90,.3);}
+  .step{display:flex;gap:16px;margin-bottom:17px;}
+  .num{flex:none;width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;
+    font:800 20px 'JetBrains Mono',monospace;}
+  .good .num{color:var(--em);background:rgba(46,230,166,.12);border:1px solid rgba(46,230,166,.3);}
+  .bad .num{color:var(--warn);background:rgba(226,177,90,.12);border:1px solid rgba(226,177,90,.3);}
+  .stxt{font-size:23px;line-height:1.38;color:#d7dbdf;padding-top:5px;}
+  .stxt b{color:#fff;font-weight:700;} .stxt code{font-family:'JetBrains Mono',monospace;font-size:20px;color:var(--em);}
+  .stxt .c{color:var(--muted);}
+  .brk{display:block;margin-top:5px;font-size:19px;color:var(--bad);font-weight:600;}
+  .brk::before{content:"⚠  ";}
+  .reinv{margin-top:auto;padding:16px 18px 0;font-size:20px;color:var(--warn);font-weight:700;line-height:1.34;border-top:1px solid var(--line);}
+
+  /* ---- slide 2: architecture (pull vs watch) ---- */
+  .archwrap{display:flex;flex-direction:column;width:100%;}
+  .arch{display:flex;gap:32px;flex:1;min-height:0;}
+  .acol{flex:1;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:26px 28px;position:relative;overflow:hidden;}
+  .acol.good{box-shadow:inset 0 0 0 1px rgba(46,230,166,.16);}
+  .acol::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;}
+  .acol.good::before{background:linear-gradient(90deg,transparent,var(--em),transparent);}
+  .acol.bad::before{background:linear-gradient(90deg,transparent,var(--warn),transparent);}
+  .ah{font-weight:800;font-size:26px;letter-spacing:-.5px;margin-bottom:16px;color:#eef1f4;}
+  .pipe{display:flex;flex-direction:column;flex:1;justify-content:center;}
+  .pb{background:#000;border:1px solid var(--line);border-radius:11px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+  .pb .l{font-size:21px;font-weight:600;color:#e6ebf0;}
+  .pb .dep{font:600 14px 'JetBrains Mono',monospace;color:var(--bad);text-align:right;line-height:1.3;}
+  .acol.good .pb{border-color:rgba(46,230,166,.22);}
+  .acol.good .pb .l{color:#dffaf0;}
+  .pa{height:18px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:16px;}
+  .acol.good .pa{color:var(--em);}
+  .atag{margin-top:14px;font:700 18px 'JetBrains Mono',monospace;}
+  .acol.bad .atag{color:var(--warn);} .acol.good .atag{color:var(--em);}
+  .opnote{flex:none;margin-top:18px;font-size:20px;color:#cfd4d9;line-height:1.42;}
+  .opnote b{color:var(--em);} .opnote .h{color:var(--muted);font-size:18px;}
+
+  /* ---- slide 3: three holes ---- */
+  .holes{display:flex;gap:28px;width:100%;}
+  .hole{flex:1;background:var(--card);border:1px solid var(--line);border-radius:22px;padding:32px 32px;display:flex;flex-direction:column;}
+  .hole .hn{font-weight:900;font-size:34px;letter-spacing:-.5px;margin-bottom:22px;}
+  .hole .hn span{color:var(--em);}
+  .rowx{display:flex;gap:13px;margin-bottom:16px;}
+  .tagx{flex:none;width:54px;font:800 17px 'JetBrains Mono',monospace;padding-top:3px;}
+  .tagx.r{color:var(--bad);} .tagx.g{color:var(--em);}
+  .rowx .d{font-size:22px;line-height:1.36;color:#d7dbdf;}
+  .demo{margin-top:auto;font:600 18px 'JetBrains Mono',monospace;color:var(--bad);
+    background:rgba(255,107,107,.07);border:1px solid rgba(255,107,107,.2);border-radius:12px;padding:13px 16px;line-height:1.4;}
+  .demo .ok{color:var(--em);}
+
+  /* ---- slide 3: scorecard ---- */
+  .scwrap{display:flex;flex-direction:column;width:100%;}
+  table{width:100%;border-collapse:collapse;font-size:24px;}
+  th,td{text-align:left;padding:9px 18px;border-bottom:1px solid var(--line);vertical-align:middle;}
+  th{font:700 19px 'JetBrains Mono',monospace;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);padding-bottom:8px;}
+  th.cc,td.cc{text-align:center;width:330px;}
+  td.prop{font-weight:600;color:#eef1f4;}
+  .bdg{display:inline-block;min-width:116px;padding:6px 0;border-radius:999px;font:800 18px 'JetBrains Mono',monospace;letter-spacing:.03em;}
+  .yes{color:var(--em);background:rgba(46,230,166,.12);border:1px solid rgba(46,230,166,.3);}
+  .partly{color:var(--warn);background:rgba(226,177,90,.12);border:1px solid rgba(226,177,90,.3);}
+  .no{color:var(--bad);background:rgba(255,107,107,.10);border:1px solid rgba(255,107,107,.28);}
+  .q{display:block;font:500 14px 'JetBrains Mono',monospace;color:var(--muted);margin-top:3px;}
+  .note{margin-top:14px;font-size:19px;color:var(--muted);line-height:1.4;}
+  .note .em{color:var(--em);}
+
+  /* ---- slide 4: reinvention checklist ---- */
+  .rebuild{display:flex;gap:40px;width:100%;align-items:stretch;}
+  .rlist{flex:1.55;display:flex;flex-direction:column;gap:13px;}
+  .ritem{display:flex;align-items:center;gap:18px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 22px;}
+  .ritem .b{font-size:24px;color:#eef1f4;font-weight:600;flex:1;}
+  .ritem .arrow{color:var(--muted);font-size:22px;flex:none;}
+  .ritem .eq{font:600 20px 'JetBrains Mono',monospace;color:var(--em);flex:none;text-align:right;width:300px;}
+  .ritem.cap{border-color:rgba(255,107,107,.3);background:rgba(255,107,107,.05);}
+  .ritem.cap .b{color:var(--bad);font-weight:700;} .ritem.cap .eq{color:var(--bad);}
+  .rside{flex:1;background:linear-gradient(180deg,rgba(46,230,166,.08),rgba(46,230,166,.02));
+    border:1px solid rgba(46,230,166,.25);border-radius:22px;padding:34px;display:flex;flex-direction:column;justify-content:center;}
+  .rside .t{font:700 22px 'JetBrains Mono',monospace;color:var(--em);letter-spacing:.04em;margin-bottom:18px;text-transform:uppercase;}
+  .rside .big{font-weight:900;font-size:42px;letter-spacing:-1px;line-height:1.08;margin-bottom:22px;}
+  .rside code{display:block;font:700 26px 'JetBrains Mono',monospace;color:var(--em);background:#000;border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:14px;}
+  .rside .s{font-size:22px;color:#cfd4d9;line-height:1.4;}
+
+  /* ---- slide 5: verdict ---- */
+  .vbody{display:flex;flex-direction:column;width:100%;}
+  .ans{font-weight:900;font-size:66px;letter-spacing:-1.8px;line-height:1.0;margin-bottom:26px;}
+  .ans .em{color:var(--em);} .ans .warn{color:var(--warn);}
+  .lead{font-size:28px;color:#cfd4d9;line-height:1.45;max-width:1560px;margin-bottom:28px;}
+  .lead b{color:#fff;}
+  .three{display:flex;gap:24px;margin-bottom:26px;}
+  .vc{flex:1;background:var(--card);border:1px solid rgba(46,230,166,.2);border-radius:18px;padding:24px 26px;}
+  .vc .t{font-weight:800;font-size:26px;color:var(--em);margin-bottom:10px;letter-spacing:-.4px;}
+  .vc .d{font-size:21px;color:#cfd4d9;line-height:1.38;}
+  .quote{background:rgba(46,230,166,.05);border-left:4px solid var(--em);border-radius:0 14px 14px 0;
+    padding:22px 30px;font-size:24px;line-height:1.48;color:#e7eaee;font-style:italic;}
+  .quote b{color:var(--em);font-style:normal;}
+</style>
+</head>
+<body>
+
+<!-- ============ SLIDE 1 — THE TWO FLOWS ============ -->
+<div class="slide" data-n="1">
+  <div class="g a"></div><div class="g b"></div>
+  <div class="head"><div class="kicker">Paying a paid API · side by side</div>
+    <h1>The <span class="em">402 handshake</span> &nbsp;vs&nbsp; <span class="warn">just send the money</span></h1></div>
+  <div class="body">
+    <div class="cols">
+      <div class="col good">
+        <div class="chead"><span class="lbl">WITH PipRail</span><span class="pill">x402</span></div>
+        <div class="step"><div class="num">1</div><div class="stxt"><b>Gate the route once.</b> <code>requirePayment({ chain, token, amount, payTo })</code></div></div>
+        <div class="step"><div class="num">2</div><div class="stxt"><b>402 + terms.</b> Server answers with the price, token, chain, <code>payTo</code> and a fresh single-use <code>nonce</code> — machine-readable.</div></div>
+        <div class="step"><div class="num">3</div><div class="stxt"><b>Pay.</b> Agent reads the terms, sends <b>one transfer to payTo</b> with its own key. No facilitator, no fee.</div></div>
+        <div class="step"><div class="num">4</div><div class="stxt"><b>Verify.</b> Agent retries with the proof; server re-derives the terms from <b>its own spec</b> and checks the tx on <b>its own RPC</b>.</div></div>
+        <div class="step"><div class="num">5</div><div class="stxt"><b>200 + receipt.</b> <span class="c">Any client ↔ any server, zero coordination.</span></div></div>
+      </div>
+      <div class="col bad">
+        <div class="chead"><span class="lbl">WITHOUT — raw transfer</span><span class="pill">DIY</span></div>
+        <div class="step"><div class="num">1</div><div class="stxt"><b>Find the terms… somehow.</b> Price + address live out of band — docs, hardcoded config.<span class="brk">No canonical truth; breaks silently if the address rotates.</span></div></div>
+        <div class="step"><div class="num">2</div><div class="stxt"><b>Send a bare transfer.</b> Nothing on it marks which request it's for.</div></div>
+        <div class="step"><div class="num">3</div><div class="stxt"><b>Claim "I paid."</b> Hand the server a tx hash you say is yours.</div></div>
+        <div class="step"><div class="num">4</div><div class="stxt"><b>Server reads the tx</b> — amount/asset OK… but <b>which request did it pay?</b><span class="brk">Two identical sends are indistinguishable. An old hash replays for free.</span></div></div>
+        <div class="reinv">5 · Patch each hole — a per-request id, a terms schema, a used-set — and you've re-invented x402, non-interoperably. The next merchant needs a whole new integration.</div>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span><b>PipRail</b> · x402, verified locally on your own RPC</span><span class="em">piprail.com</span></div>
+</div>
+
+<!-- ============ SLIDE 2 — ARCHITECTURE: PULL vs WATCH ============ -->
+<div class="slide" data-n="2">
+  <div class="g a"></div><div class="g b"></div>
+  <div class="head"><div class="kicker">Who runs the payments backend?</div>
+    <h1>How does the merchant even <span class="warn">find out</span> you paid?</h1></div>
+  <div class="body">
+    <div class="archwrap">
+      <div class="arch">
+        <div class="acol bad">
+          <div class="ah">WITHOUT — you run a payments backend</div>
+          <div class="pipe">
+            <div class="pb"><span class="l">Transfer lands on-chain</span></div>
+            <div class="pa">↓</div>
+            <div class="pb"><span class="l">A listener detects it</span><span class="dep">WebSocket / poll<br>Etherscan · Alchemy</span></div>
+            <div class="pa">↓</div>
+            <div class="pb"><span class="l">Correlate it to a request</span><span class="dep">+ accounts<br>Postgres / Redis</span></div>
+            <div class="pa">↓</div>
+            <div class="pb"><span class="l">Grant access — async job</span></div>
+            <div class="pa">↓</div>
+            <div class="pb"><span class="l">Notify the payer "you're in"</span><span class="dep">poll / SSE / callback</span></div>
+          </div>
+          <div class="atag">a stateful, async pipeline + 3rd-party infra</div>
+        </div>
+        <div class="acol good">
+          <div class="ah">WITH PipRail — payment IS the request</div>
+          <div class="pipe">
+            <div class="pb"><span class="l">Client pays + confirms (its own key)</span></div>
+            <div class="pa">↓</div>
+            <div class="pb"><span class="l">Retries with the proof header — in-band</span></div>
+            <div class="pa">↓</div>
+            <div class="pb"><span class="l">Server: a targeted lookup · your own RPC</span></div>
+            <div class="pa">↓</div>
+            <div class="pb"><span class="l">200 + data + receipt</span></div>
+          </div>
+          <div class="atag">one synchronous verify() — no listener, no DB, no notify</div>
+        </div>
+      </div>
+      <div class="opnote"><b>Raw forces a listener, a database, and an async notify-back</b> — PipRail folds it into one in-band <code style="color:var(--em);font-family:'JetBrains Mono',monospace">verify()</code> where the proof is an HTTP header and "you're in" is the same 200. <span class="h">Fair: a listener still fits donations, fire-and-forget, or non-HTTP rails — but for an agent paying an API, 402 is one call.</span></div>
+    </div>
+  </div>
+  <div class="foot"><span><b>PipRail</b> · pull + verify, not watch + notify</span><span class="em">piprail.com</span></div>
+</div>
+
+<!-- ============ SLIDE 3 — THREE HOLES ============ -->
+<div class="slide" data-n="3">
+  <div class="g a"></div><div class="g b"></div>
+  <div class="head"><div class="kicker">Run it yourself: node examples/why-402/without-402.mjs</div>
+    <h1>Three holes a raw transfer <span class="warn">can't close on its own</span></h1></div>
+  <div class="body">
+    <div class="holes">
+      <div class="hole">
+        <div class="hn">1 · <span>Discovery</span></div>
+        <div class="rowx"><div class="tagx r">RAW</div><div class="d">Nothing at the URL states the price or address. The agent hardcodes it from docs — unsigned, no canonical truth.</div></div>
+        <div class="rowx"><div class="tagx g">x402</div><div class="d">The 402 carries the terms, machine-readable, from whoever owns the URL.</div></div>
+        <div class="demo">agent hardcoded:<br>{ merchant, price } — can't detect a rotation</div>
+      </div>
+      <div class="hole">
+        <div class="hn">2 · <span>Replay</span></div>
+        <div class="rowx"><div class="tagx r">RAW</div><div class="d">A tx hash is permanent. Re-send the same proof and it unlocks again — free access.</div></div>
+        <div class="rowx"><div class="tagx g">x402</div><div class="d">Single-use proof set + recency window → a reused hash is rejected (<code style="color:inherit">tx_already_used</code>).</div></div>
+        <div class="demo">first use → <span class="ok">UNLOCKED</span><br>replay (same hash) → UNLOCKED (free!)</div>
+      </div>
+      <div class="hole">
+        <div class="hn">3 · <span>Collision</span></div>
+        <div class="rowx"><div class="tagx r">RAW</div><div class="d">Two agents each send an identical 0.05 USDC. The transfers are interchangeable — which paid which request?</div></div>
+        <div class="rowx"><div class="tagx g">x402</div><div class="d">Per-request nonce written into the transfer (memo chains) / used-set binding elsewhere.</div></div>
+        <div class="demo">Agent B claims req-B with C's tx →<br>UNLOCKED (B got in on C's money!)</div>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span><b>PipRail</b> · the holes are real and reproducible</span><span class="em">piprail.com</span></div>
+</div>
+
+<!-- ============ SLIDE 3 — HONEST SCORECARD ============ -->
+<div class="slide" data-n="4">
+  <div class="g a"></div><div class="g b"></div>
+  <div class="head"><div class="kicker">What you actually get · no spin</div>
+    <h1>Raw transfer vs <span class="em">x402</span> — the honest scorecard</h1></div>
+  <div class="body">
+    <div class="scwrap">
+      <table>
+        <tr><th>Property</th><th class="cc">Raw transfer</th><th class="cc">x402 (PipRail)</th></tr>
+        <tr><td class="prop">Machine-readable discovery</td><td class="cc"><span class="bdg partly">PARTLY</span><span class="q">static, self-host</span></td><td class="cc"><span class="bdg yes">YES</span><span class="q">per-request, standard</span></td></tr>
+        <tr><td class="prop">Server-authoritative verify</td><td class="cc"><span class="bdg yes">YES</span><span class="q">if you copy verify()</span></td><td class="cc"><span class="bdg yes">YES</span><span class="q">re-derives from own spec</span></td></tr>
+        <tr><td class="prop">Replay resistance</td><td class="cc"><span class="bdg yes">YES</span><span class="q">same used-set + window</span></td><td class="cc"><span class="bdg yes">YES</span><span class="q">single-use + recency</span></td></tr>
+        <tr><td class="prop">Per-request binding</td><td class="cc"><span class="bdg partly">PARTLY</span><span class="q">memo ok, digest fragile</span></td><td class="cc"><span class="bdg yes">YES</span><span class="q">memo nonce · digest scope</span></td></tr>
+        <tr><td class="prop">Dynamic per-request pricing</td><td class="cc"><span class="bdg no">NO</span><span class="q">needs a handshake</span></td><td class="cc"><span class="bdg yes">YES</span><span class="q">fresh challenge / call</span></td></tr>
+        <tr><td class="prop">Open-standard interop</td><td class="cc"><span class="bdg no">NO</span><span class="q">private dialect</span></td><td class="cc"><span class="bdg yes">YES</span><span class="q">x402 v2 envelope</span></td></tr>
+        <tr><td class="prop">Signed / tamper-proof terms</td><td class="cc"><span class="bdg yes">YES</span><span class="q">but you build signing</span></td><td class="cc"><span class="bdg yes">YES</span><span class="q">challenge is the auth</span></td></tr>
+        <tr><td class="prop">Closed error vocabulary + receipt</td><td class="cc"><span class="bdg yes">YES</span><span class="q">reused verbatim</span></td><td class="cc"><span class="bdg yes">YES</span><span class="q">VerifyErrorCode</span></td></tr>
+      </table>
+      <div class="note">Honest read: a careful raw build matches the on-chain security — verify, replay, signed terms. The two it <span class="em">structurally cannot</span> reach without re-introducing a handshake are <span class="em">dynamic per-request pricing</span> and <span class="em">open-standard interop</span> — and that's the whole game.</div>
+    </div>
+  </div>
+  <div class="foot"><span><b>PipRail</b> · honest by design — it's what makes it credible</span><span class="em">piprail.com</span></div>
+</div>
+
+<!-- ============ SLIDE 4 — REINVENTION CHECKLIST ============ -->
+<div class="slide" data-n="5">
+  <div class="g a"></div><div class="g b"></div>
+  <div class="head"><div class="kicker">If you refuse the 402, here's the bill</div>
+    <h1>To match us <span class="warn">raw</span>, you'd have to build…</h1></div>
+  <div class="body">
+    <div class="rebuild">
+      <div class="rlist">
+        <div class="ritem"><span class="b">A static discovery doc with the rail terms</span><span class="arrow">=</span><span class="eq">the 402 challenge</span></div>
+        <div class="ritem"><span class="b">A per-request proof-id, issued first, echoed in the tx</span><span class="arrow">=</span><span class="eq">the nonce</span></div>
+        <div class="ritem"><span class="b">Signing that spec + a public-key endpoint</span><span class="arrow">=</span><span class="eq">challenge = auth</span></div>
+        <div class="ritem"><span class="b">A single-use proof set + recency window (SET-NX at scale)</span><span class="arrow">=</span><span class="eq">replay defense</span></div>
+        <div class="ritem"><span class="b">Server-authoritative verify() re-deriving from config</span><span class="arrow">=</span><span class="eq">verify()</span></div>
+        <div class="ritem"><span class="b">The closed error vocabulary + receipt envelope</span><span class="arrow">=</span><span class="eq">VerifyErrorCode</span></div>
+        <div class="ritem cap"><span class="b">A spec every OTHER client + index also speaks</span><span class="arrow">=</span><span class="eq">the open standard</span></div>
+      </div>
+      <div class="rside">
+        <div class="t">…or just</div>
+        <div class="big">Ship all of it.</div>
+        <code>npm i @piprail/sdk</code>
+        <div class="s">One line gates a route or pays a 402 — across 28 chains. The last item you <b style="color:#ff6b6b;font-style:normal">can't build alone</b>: interop. That's why you adopt the standard, not reinvent it.</div>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span><b>PipRail</b> · the re-invention tax is the real case for 402</span><span class="em">piprail.com</span></div>
+</div>
+
+<!-- ============ SLIDE 5 — VERDICT ============ -->
+<div class="slide" data-n="6">
+  <div class="g a"></div><div class="g b"></div>
+  <div class="head"><div class="kicker">The honest verdict</div>
+    <h1>Can you do it without 402?</h1></div>
+  <div class="body">
+    <div class="vbody">
+      <div class="ans"><span class="warn">Partly</span> — and then you've <span class="em">rebuilt x402.</span></div>
+      <div class="lead">You can skip the <b>402 status code</b> — but not the <b>handshake</b>. And the moment you rebuild the handshake, a private one is strictly <b>worse</b> than the open standard PipRail already speaks.</div>
+      <div class="three">
+        <div class="vc"><div class="t">Dynamic pricing needs a handshake</div><div class="d">A static doc serves one fixed price. Per-request pricing forces a fresh signed spec per call — a challenge by another name.</div></div>
+        <div class="vc"><div class="t">Interop you can't build alone</div><div class="d">A private dialect is invisible to x402 indexes and breaks every off-the-shelf client. The network is the asset — you adopt it, you don't rebuild it.</div></div>
+        <div class="vc"><div class="t">Where PipRail actually innovates</div><div class="d">Not new crypto — a settlement scheme: pay first, prove with a tx ref, verify locally on your own RPC (no facilitator, no fee) — on the standard envelope.</div></div>
+      </div>
+      <div class="quote">A bare transfer is cash left on a restaurant table with no check — you're guessing the total, and nothing proves <b>this</b> cash settled <b>this</b> meal. x402 is the itemized check the kitchen hands you (exact amount, who to pay, a one-time table number) verified against the kitchen's own ticket — never your word. Reconstruct it yourself and you'll print the same check, <b>just one no other restaurant accepts.</b></div>
+    </div>
+  </div>
+  <div class="foot"><span><b>PipRail</b> · x402, verified locally on your own RPC</span><span class="em">piprail.com</span></div>
+</div>
+
+<script>
+  const s = new URLSearchParams(location.search).get('slide') || '1';
+  document.querySelectorAll('.slide').forEach(el=>{ el.style.display = (el.dataset.n===s) ? 'flex' : 'none'; });
+</script>
+</body>
+</html>

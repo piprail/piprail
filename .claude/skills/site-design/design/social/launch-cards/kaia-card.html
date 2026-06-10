@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1600px; height: 900px; }
+  body {
+    background: #0a0b0c;
+    font-family: Inter, system-ui, sans-serif;
+    color: #fafafa;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    -webkit-font-smoothing: antialiased;
+  }
+  .glow-e { position: absolute; width: 1000px; height: 1000px; left: -260px; top: -380px;
+    background: radial-gradient(circle, rgba(46,230,166,.16), transparent 60%); }
+  .glow-k { position: absolute; width: 900px; height: 900px; right: -240px; bottom: -340px;
+    background: radial-gradient(circle, rgba(191,240,9,.13), transparent 60%); }
+  .grid { position: absolute; inset: 0; opacity: .04;
+    background-image: linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px);
+    background-size: 64px 64px; mask-image: radial-gradient(circle at 50% 45%, #000, transparent 75%); }
+
+  header { display: flex; align-items: center; justify-content: space-between;
+    padding: 56px 76px; position: relative; z-index: 2; }
+  .brand { display: flex; align-items: center; gap: 18px; }
+  .brand img { width: 56px; height: 56px; border-radius: 13px; }
+  .brand span { font-weight: 700; font-size: 32px; letter-spacing: -.02em; }
+  .url { color: #8b8f96; font-size: 23px; font-family: 'JetBrains Mono', monospace; }
+
+  main { flex: 1; display: flex; align-items: center; justify-content: space-between;
+    gap: 64px; padding: 0 100px 40px; position: relative; z-index: 2; }
+  .copy { max-width: 880px; }
+  .eyebrow { display: inline-flex; align-items: center; gap: 12px; color: #2ee6a6;
+    font-weight: 600; font-size: 25px; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 26px; }
+  .eyebrow .dot { width: 13px; height: 13px; border-radius: 50%; background: #2ee6a6; box-shadow: 0 0 20px #2ee6a6; }
+  h1 { font-size: 110px; line-height: 1.0; font-weight: 800; letter-spacing: -.04em; }
+  h1 .k { color: #BFF009; }
+  p.sub { margin-top: 34px; font-size: 35px; line-height: 1.4; color: #c4c8cf; font-weight: 400; max-width: 800px; }
+  p.sub b { color: #fafafa; font-weight: 600; }
+  .chips { margin-top: 46px; display: flex; gap: 14px; flex-wrap: wrap; }
+  .chip { border: 1px solid rgba(255,255,255,.12); border-radius: 999px; padding: 13px 24px;
+    font-size: 25px; color: #e7e9ec; background: rgba(255,255,255,.035); }
+  .chip b { color: #2ee6a6; font-weight: 700; }
+
+  .mark { flex-shrink: 0; width: 330px; height: 330px; border-radius: 44px;
+    background: linear-gradient(160deg, rgba(191,240,9,.14), rgba(46,230,166,.05));
+    border: 1px solid rgba(191,240,9,.28);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 90px rgba(191,240,9,.20); }
+  .mark svg { width: 196px; height: 196px; }
+</style>
+</head>
+<body>
+  <div class="glow-e"></div>
+  <div class="glow-k"></div>
+  <div class="grid"></div>
+
+  <header>
+    <div class="brand"><img src="file:///Users/john/Sites/piprail/site/public/logo.png" alt="" /><span>PipRail</span></div>
+    <div class="url">piprail.com</div>
+  </header>
+
+  <main>
+    <div class="copy">
+      <div class="eyebrow"><span class="dot"></span>New chain · live now</div>
+      <h1><span class="k">Kaia</span> is&nbsp;on&nbsp;PipRail.</h1>
+      <p class="sub">Give your AI agent a wallet to pay x402 APIs on Kaia — in native <b>KAIA</b> or Tether-native <b>USD&#8366;</b>. Backendless, no fee, settled straight to your wallet.</p>
+      <div class="chips">
+        <span class="chip"><b>29</b> chains built in</span>
+        <span class="chip">Born from Kakao&nbsp;+&nbsp;LINE</span>
+        <span class="chip">x402 · self-custody</span>
+      </div>
+    </div>
+    <div class="mark">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12.1616 7.4684C12.1616 6.75114 12.7486 6.16679 13.4692 6.16679H15.8089V3H14.639H13.4692C10.9904 3 8.98036 5.00088 8.98036 7.4684C8.98036 8.11229 9.11808 8.72434 9.36428 9.27679C7.43912 10.0868 6.16077 11.808 5.86309 13.9861C5.51534 16.3775 6.47792 18.9572 8.57419 20.2034C10.4451 21.3763 13.3704 21.2987 14.9506 19.6717V20.7518H18.207V8.76999H13.4706C12.75 8.76999 12.1616 8.18569 12.1616 7.4684ZM15.023 11.9382V14.9457C15.023 16.6074 13.6695 17.9533 12.0017 17.9533C10.3338 17.9533 8.98036 16.606 8.98036 14.9457C8.98036 13.2855 10.3338 11.9382 12.0017 11.9382H15.023Z" fill="#BFF009"/></svg>
+    </div>
+  </main>
+</body>
+</html>

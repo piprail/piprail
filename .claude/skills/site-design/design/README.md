@@ -1,58 +1,81 @@
 # design/ — PipRail design working files
 
-**Bundled with the `site-design` skill** (`.claude/skills/site-design/design/`) and
-**local-only** — the source of truth you design *from*. The site only ships *final*
-assets, and those live in `site/public/` (repo) — not here.
+The one home for everything that produces a PipRail visual: the logo masters, the
+published profile assets, and the render pipelines for social cards and the promo video.
+**Bundled with the [`site-design` skill](../SKILL.md)** so the skill travels with its assets.
 
-> Full playbook (brand tokens, the Astro site, how to regenerate every asset):
-> see the skill at [`../SKILL.md`](../SKILL.md).
+> Full brand playbook (tokens, the Astro site, regenerating favicons/OG): see [`../SKILL.md`](../SKILL.md).
+
+---
+
+## The one rule: every file is SOURCE, PUBLISHED, or RENDER
+
+This folder used to be a flat dump of HTML next to PNGs next to MP4s. It isn't anymore.
+**Before you add a file, decide which of three kinds it is — that decides where it goes
+and whether git tracks it.** No exceptions.
+
+| Kind | What it is | Tracked? | Lives in |
+| --- | --- | --- | --- |
+| **SOURCE** | what you edit/design *from* — templates (`*.html`), render scripts (`*.mjs`/`*.py`), docs (`*.md`) | ✅ tracked | `social/`, `video/` (the pipelines) |
+| **PUBLISHED** | a final deliverable **uploaded to an external surface** and kept canonical | ✅ tracked | `source/` (masters), `brand/` (profile assets) |
+| **RENDER** | anything a pipeline **generates** — every `*.png`/`*.mp4`/audio, the `assets.js` bundle, `frames/` | ❌ gitignored | beside the script that makes it |
+
+A RENDER is disposable — you regenerate it by running its script. It is **never** committed
+(the `.gitignore` enforces this for `social/**` and `video/**`). A PUBLISHED asset is the
+opposite: few, permanent, version-controlled, and it has somewhere it gets uploaded.
+
+> **Decision shortcut:** "Can a script regenerate this?" → RENDER (don't commit). "Is this
+> uploaded to GitHub / X / the site and must persist?" → PUBLISHED (`brand/` or `source/`).
+> "Is it the template or script itself?" → SOURCE (tracked, beside its pipeline).
+
+---
 
 ## Folder layout
 
-Four peers — **inputs** (`source/`), the two **render pipelines** (`social/`, `video/`),
-and the **outputs** (`exports/`):
-
 ```
 design/
-├── source/      # ① MASTERS — the originals everything derives from   (tracked)
-│   ├── logo-source.png      # high-res master logo (1254×1254)
-│   ├── logo-512.png
-│   └── logo-256.png
-├── social/      # ② SOCIAL — the campaign copy + per-chain card pipeline
-│   ├── CAMPAIGN.md          # the campaign strategy/copy               (tracked)
-│   └── (render.mjs + chain cards live in exports/social/ — see below)
-├── video/       # ③ VIDEO — the promo-video & social-card render pipeline
-│   ├── README.md            # how the pipeline works (read it)        (tracked)
-│   ├── scene.html · card-*.html · *.mjs · synth.py   # the source     (tracked)
-│   └── assets.js · frames/ · *.png · *.mp4           # generated       (ignored)
-└── exports/     # ④ rendered/staged OUTPUTS not served by the site    (local, ignored)
-    ├── og-github-1280x640.png   # GitHub repo "Social preview" (upload via repo Settings)
-    ├── piprail-demo.mp4         # the finished promo video
-    ├── post-*.png / .html       # the themed "post" social cards
-    └── social/                  # per-chain announcement cards + their render.mjs
+├── README.md            ← this file (the rule)
+│
+├── source/              ① MASTERS — originals everything derives from        [tracked]
+│   └── logo-source.png · logo-512.png · logo-256.png
+│
+├── brand/               ② PUBLISHED profile deliverables (uploaded, permanent) [tracked]
+│   ├── og-github-1280x640.png   → GitHub ▸ repo Settings ▸ Social preview
+│   ├── x-banner-1500x500.png    → x.com/@piprail ▸ profile header
+│   └── x-banner.html            the banner's source template
+│
+├── social/              ③ SOCIAL render pipelines — source tracked, renders ignored
+│   ├── CAMPAIGN.md              the campaign plan/copy
+│   ├── chain-cards/             per-chain announcement cards — render.mjs (+ replies)
+│   ├── post-cards/              themed campaign posts — *.html templates + render.mjs
+│   └── launch-cards/            one-off launch art — compare/kaia/code-square + render-slides
+│
+└── video/               ④ PROMO-VIDEO pipeline — source tracked, renders ignored
+    └── scene.html · capture.mjs · genassets.mjs · synth.py  (+ README)
 ```
 
-> **Tracked vs local:** `source/`, `social/CAMPAIGN.md`, this README, and the `video/`
-> *source* are committed (the skill is self-contained). Everything under `exports/` and the
-> `video/` *generated outputs* are gitignored — rebuilt on demand, never bloating the repo.
-> Commit a new design asset deliberately with `git add -f`.
+Each pipeline folder has its **own README** stating exactly what it renders and how. Read it
+before touching that pipeline.
 
-## Where things go
+## Where a new thing goes
 
-| You're making… | Save the master in… | Ship the final to… |
-| --- | --- | --- |
-| Logo / favicon / app icon | `design/source/` | `site/public/` (`logo.png`, `favicon-*.png`, `apple-touch-icon.png`) |
-| Site OG / Twitter card | `design/source/` (composition) | `site/public/og.png` (1200×630) |
-| GitHub repo social card | — | `design/exports/og-github-1280x640.png` (1280×640; upload, not served) |
-| Chain / token logo | (official brand SVG) | `site/public/chains/<chain>.svg`, `site/public/tokens/<sym>.svg` |
-| Promo / demo video | edit `design/video/` (scene + scripts) | `design/exports/piprail-demo.mp4` (then site / socials) |
-| Social post / chain card | edit `design/video/card-*.html` or `design/exports/social/` | `design/exports/` (`post-*.png`, `social/<chain>.png`) |
-| Social campaign copy | `design/social/CAMPAIGN.md` | — (the plan; posts derive from it) |
-| WIP mockups / screenshots | `design/mockups/`, `design/screenshots/` | — |
+| You're making… | Put the SOURCE in… | The RENDER lands in… (gitignored) | PUBLISH to… |
+| --- | --- | --- | --- |
+| Logo / favicon / app icon | `source/` | — | `site/public/` (final, optimized) |
+| GitHub repo social card | (the PNG itself) | — | **`brand/og-github-1280x640.png`** → repo Settings |
+| X/Twitter profile header | `brand/x-banner.html` | — | **`brand/x-banner-1500x500.png`** → X profile |
+| Per-chain announcement card | edit `social/chain-cards/render.mjs` | `chain-cards/<chain>.png` | post to socials |
+| Themed campaign post | `social/post-cards/<name>.html` | `post-cards/post-<name>.png` | post to socials |
+| Launch / comparison card | `social/launch-cards/*.html` | `launch-cards/*.png` | post / slides |
+| Promo / demo video | edit `video/` (scene + scripts) | `video/piprail-demo.mp4` | site / socials |
+| Chain / token logo (SVG) | (official brand SVG) | — | `site/public/chains|tokens/` |
+
+> **Never** drop a finished render into `brand/` or `source/` just to "keep it" — if a script
+> made it, it's a RENDER and stays gitignored. Only assets that are *uploaded somewhere and
+> must persist* earn a tracked home. Commit a genuine new published asset with `git add -f`.
 
 ## Brand, in one line
 
 Dark (`oklch(0.145 0.005 260)`), near-white text, **one accent: emerald
-`oklch(0.78 0.17 162)` ≈ `#2ee6a6` ("paid")**. Fonts: Inter + JetBrains Mono.
-Minimal and static — the simplicity is the brand. Regenerate rasters from
-`source/logo-source.png` with `sips` (commands in the skill).
+`oklch(0.78 0.17 162)` ≈ `#2ee6a6` ("paid")**. Fonts: Inter + JetBrains Mono. Minimal and
+static — the simplicity is the brand. Rasters derive from `source/logo-source.png` (see the skill).

@@ -5,7 +5,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<script src="./assets.js"></script>
+<script src="../../video/assets.js"></script>
 <style>
   *{margin:0;padding:0;box-sizing:border-box;}
   :root{--bg:#000;--fg:#fafafa;--muted:#8b9298;--line:rgba(255,255,255,.08);--em:#2ee6a6;--blue:#4da2ff;}
@@ -22,9 +22,9 @@
   .brand b{font-size:46px;font-weight:800;letter-spacing:-.02em;}
   .brand .em{color:var(--em);}
   .eyebrow{font:700 23px 'JetBrains Mono',monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:16px;}
-  h1{font-weight:900;letter-spacing:-.03em;font-size:90px;line-height:0.98;margin-bottom:22px;}
+  h1{font-weight:900;letter-spacing:-.03em;font-size:92px;line-height:0.98;margin-bottom:22px;}
   h1 .em{color:var(--em);}
-  .sub{font-size:30px;color:var(--muted);font-weight:500;line-height:1.36;margin-bottom:40px;max-width:950px;}
+  .sub{font-size:30px;color:var(--muted);font-weight:500;line-height:1.36;margin-bottom:40px;max-width:952px;}
   .sub b{color:#dfe3e7;font-weight:600;}
   .chips{display:flex;flex-direction:column;gap:18px;}
   .chip{display:flex;align-items:center;gap:20px;background:#0c0d10;border:1px solid var(--line);border-radius:18px;padding:24px 28px;}
@@ -43,20 +43,20 @@
 <div id="card">
   <div class="g g1"></div><div class="g g2"></div>
   <div class="brand"><img id="logo" alt=""><b>Pip<span class="em">Rail</span></b></div>
-  <div class="eyebrow">2026 &middot; the year of agentic economies</div>
-  <h1>An economy runs on <span class="em">payments.</span></h1>
-  <div class="sub">Tokens and capital are step one. To actually transact, agents need to <b>pay and get paid</b>. That rail is PipRail:</div>
+  <div class="eyebrow">The next electronic exchange of value</div>
+  <h1>Payments, for <span class="em">machines.</span></h1>
+  <div class="sub">AI agents are starting to pay for things on their own. PipRail is an open SDK for it &mdash; the <b>x402</b> standard: per-request, self-custodial, no backend, no fee.</div>
   <div class="chips">
-    <div class="chip"><span class="ar">&rarr;</span><span class="t">Give an <span>AI agent</span> a budget-bound wallet to pay.</span></div>
-    <div class="chip"><span class="ar">&rarr;</span><span class="t">Or <span>charge</span> one for your API &mdash; one line, any x402 URL.</span></div>
+    <div class="chip"><span class="ar">&rarr;</span><span class="t">An agent pays <span>per-request</span>, capped so it can't overspend.</span></div>
+    <div class="chip"><span class="ar">&rarr;</span><span class="t">Or your API <span>charges an agent</span> &mdash; in one line.</span></div>
   </div>
   <div class="strip" id="strip"></div>
-  <div class="foot"><span>x402 &middot; live on BNB + 27 more chains</span><span class="em">piprail.com</span></div>
+  <div class="foot"><span>x402 &middot; open standard &middot; USDC on 28 chains</span><span class="em">piprail.com</span></div>
 </div>
 <script>
   const A=window.ASSETS;
   document.getElementById('logo').src=A.logo;
-  const S=['bnb','base','solana','sui','ton','near','stellar','xrpl','aptos','avalanche'];
+  const S=['stellar','xrpl','base','solana','ethereum','polygon','avalanche','bnb','near','ton'];
   const strip=document.getElementById('strip');
   for(const s of S){ const im=document.createElement('img'); im.src=A.chains[s]; strip.appendChild(im); }
   const more=document.createElement('span'); more.className='more'; more.textContent='+18 more'; strip.appendChild(more);
