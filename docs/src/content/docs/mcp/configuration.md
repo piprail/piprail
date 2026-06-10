@@ -1,0 +1,178 @@
+---
+title: Configuration
+description: Every PIPRAIL_* environment variable the MCP server reads — the wallet, the budget, the schemes, and the time envelope — and the wallet key format for each chain.
+sidebar:
+  order: 4
+---
+
+## Introduction
+
+The MCP server is configured **entirely through environment variables** — never CLI
+arguments. A key in `argv` leaks in process listings and shell history, so PipRail won't take
+one there. Put every var in your MCP client's `env` block (see [Client
+setup](/mcp/client-setup/)).
+
+Canonical names are prefixed `PIPRAIL_`. The parser is strict: any unrecognized `PIPRAIL_*`
+var is rejected as a typo at startup rather than silently ignored, so a misspelled name fails
+loudly with the list of valid vars.
+
+## The one requirement
+
+Only the wallet secret is mandatory. Everything else has a safe default — `base`, USDC, 0.10
+per payment, 10.00 lifetime per token.
+
+```jsonc
+"env": {
+  "PIPRAIL_PRIVATE_KEY": "0xYOUR_PRIVATE_KEY"   // chain defaults to base, token to USDC
+}
+```
+
+The value is read once, mapped to the chain's wallet shape, and **never logged**. The startup
+banner names which env var supplied it (`PIPRAIL_PRIVATE_KEY` / `PIPRAIL_WALLET_KEY` /
+`AGENT_KEY`) but never the value.
+
+## Every variable
+
+| Variable | Alias | Required | Default | Meaning |
+| --- | --- | --- | --- | --- |
+| `PIPRAIL_PRIVATE_KEY` | `PIPRAIL_WALLET_KEY`, `AGENT_KEY` | **yes** | — | Wallet key/seed/mnemonic in the chain's native format (see below). |
+| `PIPRAIL_CHAIN` | `CHAIN` | no | `base` | EVM preset name or non-EVM family — one wallet on one chain. |
+| `PIPRAIL_MAX_AMOUNT` | `MAX_AMOUNT` | no | `0.10` | Ceiling **per payment**, human units. |
+| `PIPRAIL_MAX_TOTAL` | `MAX_TOTAL` | no | `10.00` | Lifetime ceiling **per distinct token**, human units. |
+| `PIPRAIL_TOKENS` | `TOKENS` | no | `USDC` *(USDT on Tron/TON)* | Comma-separated allowed token symbols, plus `native` for the chain's coin. |
+| `PIPRAIL_SCHEMES` | — | no | `onchain-proof` | Comma-separated payment schemes (see below). |
+| `PIPRAIL_HOSTS` | `HOSTS` | no | (any) | Comma-separated host allowlist — exact (`api.example.com`) or wildcard (`*.example.com`). |
+| `PIPRAIL_RPC_URL` | `RPC_URL` | no | chain default | Override the RPC endpoint; fold any API key into the URL. |
+| `PIPRAIL_ALLOW_UNKNOWN_TOKENS` | — | no | `false` | Pay tokens the SDK can't price? Keep `false`. |
+| `PIPRAIL_TTL` | — | no | (none) | Session deadline in seconds — terminal once past. |
+| `PIPRAIL_WINDOW_TOTAL` | — | no | (none) | Rolling-window budget, human units. Set **with** `PIPRAIL_WINDOW_SECONDS` or neither. |
+| `PIPRAIL_WINDOW_SECONDS` | — | no | (none) | Rolling-window width in seconds. |
+| `PIPRAIL_CONFIRM` | — | no | `false` | Mode B — ask the human to approve each payment via elicitation. |
+| `PIPRAIL_CONFIRM_TIMEOUT_MS` | — | no | `55000` | Approval window in ms; keep below your client's request timeout (≈60000). |
+| `PIPRAIL_GUIDE` | — | no | `true` | Expose the agent-guide prompt + the guide/budget resources. |
+| `PIPRAIL_NEAR_ACCOUNT_ID` | `NEAR_ACCOUNT_ID` | only on NEAR | — | Your NEAR account id (e.g. `you.near`). |
+
+Boolean knobs (`PIPRAIL_ALLOW_UNKNOWN_TOKENS`, `PIPRAIL_CONFIRM`, `PIPRAIL_GUIDE`) accept
+`1`, `true`, or `yes` (case-insensitive) as true; anything else is false.
+
+## The budget — the spend policy
+
+`PIPRAIL_MAX_AMOUNT`, `PIPRAIL_MAX_TOTAL`, `PIPRAIL_TOKENS`, and `PIPRAIL_HOSTS` become the
+SDK's [spend policy](/spend-controls/payment-policy/) — enforced **before any on-chain send**.
+The model cannot exceed it even if it tries.
+
+```jsonc
+"env": {
+  "PIPRAIL_PRIVATE_KEY": "0xYOUR_PRIVATE_KEY",
+  "PIPRAIL_MAX_AMOUNT": "0.25",      // up to 0.25 per payment
+  "PIPRAIL_MAX_TOTAL": "5.00",       // 5.00 lifetime, per token
+  "PIPRAIL_TOKENS": "USDC,native",   // USDC or the chain's coin
+  "PIPRAIL_HOSTS": "*.example.com"   // only this domain
+}
+```
+
+`PIPRAIL_TOKENS` takes token **symbols** (`USDC`, `USDT`, `EURC`, …) plus the chain-agnostic
+alias **`native`** — the chain's own coin (ETH on Base, TRX on Tron, XLM on Stellar) without
+naming the ticker. The default tracks what actually exists on the chain: USDC everywhere, but
+**USDT on Tron and TON**, where native USDC doesn't exist (so a USDC-only policy would silently
+block every payment). See [Chains](/mcp/chains/) for the full per-chain token story.
+
+## The time envelope
+
+On top of the money caps you can add a time leash — see [Time
+envelope](/spend-controls/time-envelope/). `PIPRAIL_TTL` is a hard session deadline in seconds:
+once past, every payment is refused (terminal — restart to reset). The rolling window
+rate-limits spend over a sliding interval.
+
+```jsonc
+"env": {
+  "PIPRAIL_TTL": "3600",            // whole session expires after 1 hour
+  "PIPRAIL_WINDOW_TOTAL": "1.00",   // at most 1.00 per…
+  "PIPRAIL_WINDOW_SECONDS": "60"    // …rolling 60-second window
+}
+```
+
+:::caution
+`PIPRAIL_WINDOW_TOTAL` and `PIPRAIL_WINDOW_SECONDS` must be set **together or not at all**. A
+cap with no width (or a width with no cap) is a half-armed leash that wouldn't bite, so the
+server refuses to start with only one.
+:::
+
+## Schemes — opt-in `exact`
+
+`PIPRAIL_SCHEMES` chooses which payment schemes the wallet will settle. Absent, it stays on
+PipRail's backendless rail (`onchain-proof`) only — the zero-config default. Add `exact` to
+**also** pay standard x402 servers, which works on **EVM chains with EIP-3009 tokens (USDC,
+EURC)** only.
+
+```jsonc
+"env": {
+  "PIPRAIL_SCHEMES": "onchain-proof,exact"   // also pay standard x402 EVM servers
+}
+```
+
+Valid values are `onchain-proof` and `exact`; an empty or unrecognized list is rejected. See
+the [exact buyer rail](/making-payments/exact-buyer/) for what the standard scheme settles.
+
+## Two modes — autonomous vs supervised
+
+The wallet behaves the same in both; only the source of consent differs. See
+[Modes](/mcp/modes/) for the full contract.
+
+- **Mode A — headless (default).** The agent spends freely *inside* the budget and time
+  envelope. The policy **is** the consent — no per-payment prompt.
+- **Mode B — supervised (`PIPRAIL_CONFIRM=1`).** On a client that can elicit, the human is
+  asked to approve each spend at the moment it happens. Decline, cancel, timeout, or a dropped
+  transport all fail-safe to **not** paying. On a client that can't elicit, it silently
+  degrades to Mode A.
+
+```jsonc
+"env": {
+  "PIPRAIL_CONFIRM": "1",                  // ask before every payment
+  "PIPRAIL_CONFIRM_TIMEOUT_MS": "45000"    // approval window
+}
+```
+
+## Wallet key formats
+
+`PIPRAIL_PRIVATE_KEY` holds your secret in the chosen chain's **native** form — the server
+maps it to the right SDK wallet shape automatically. See [Wallets by
+family](/making-payments/wallets-by-family/) for details.
+
+| Chain(s) | Format |
+| --- | --- |
+| EVM (base, ethereum, …), Tron | private key — `0x…` 32-byte hex |
+| Sui | private key — `suiprivkey1…` (bech32) |
+| Aptos | private key — `ed25519-priv-0x…` (AIP-80) or raw `0x…` hex |
+| Solana | secret key — base58 |
+| TON | mnemonic — 24 words, space-separated |
+| Algorand | mnemonic — 25 words, space-separated |
+| Stellar | secret seed — `S…` |
+| XRPL | seed — `s…` |
+| NEAR | private key — `ed25519:…` **plus** `PIPRAIL_NEAR_ACCOUNT_ID` |
+
+:::note
+`chain: 'near'` is the one chain that needs a second var: `PIPRAIL_NEAR_ACCOUNT_ID` (your
+`you.near`). The server refuses to start without it.
+:::
+
+## RPC and API keys
+
+There is **no separate API-key field** — fold any key into `PIPRAIL_RPC_URL`. This is also how
+you point a rate-limited chain at a real endpoint (TON's keyless public RPC, for instance,
+stalls verification at ~1 req/s).
+
+```jsonc
+"env": {
+  "PIPRAIL_CHAIN": "ton",
+  "PIPRAIL_RPC_URL": "https://toncenter.com/api/v2/jsonRPC?api_key=YOUR_KEY"
+}
+```
+
+See [Chains](/mcp/chains/) for the per-chain RPC and gas caveats.
+
+## Unknown tokens
+
+By default the wallet refuses any token the SDK can't price, because an unpriceable token can't
+be checked against your caps. `PIPRAIL_ALLOW_UNKNOWN_TOKENS=true` lifts that guard — keep it
+`false` unless you have a specific reason, since it weakens the budget boundary.

@@ -14,7 +14,7 @@
 
 **Let any HTTP endpoint charge for itself, and any agent pay for itself — across 29 chains, in a couple of lines.**
 
-[Website](https://piprail.com) · [npm](https://www.npmjs.com/package/@piprail/sdk) · [Full docs →](sdk/README.md)
+[Website](https://piprail.com) · [Documentation](https://docs.piprail.com) · [npm](https://www.npmjs.com/package/@piprail/sdk)
 
 </div>
 
@@ -25,6 +25,8 @@
 ```bash
 npm install @piprail/sdk viem
 ```
+
+> 📖 **Full documentation → [docs.piprail.com](https://docs.piprail.com)** — the single, searchable source of truth for every function, option, chain, and example, plus the MCP server, spend controls, and the complete error model. This README is the tour.
 
 ### 💸 Charge for an endpoint
 
@@ -62,7 +64,7 @@ The same app can **take** payments and **make** them. Built for autonomous agent
   "env": { "PIPRAIL_PRIVATE_KEY": "0x…", "PIPRAIL_CHAIN": "base", "PIPRAIL_MAX_AMOUNT": "0.10" } } } }
 ```
 
-Five tools appear — `piprail_discover`, `piprail_quote_payment`, `piprail_plan_payment`, `piprail_pay_request`, `piprail_register`. Runs locally with your key; no backend, no custody. → [MCP guide](mcp/README.md)
+Seven tools appear — `piprail_discover`, `piprail_quote_payment`, `piprail_plan_payment`, `piprail_pay_request`, `piprail_register`, `piprail_budget`, `piprail_guide`. Runs locally with your key; no backend, no custody. → [MCP docs](https://docs.piprail.com/mcp/overview/)
 
 ### 🧭 Be discoverable — get found, find others
 
@@ -73,7 +75,7 @@ await client.register('https://api.example.com/report', { name: 'Market Report',
 const hits = await client.discover({ query: 'market data' }) // find payable APIs to use
 ```
 
-Emit a machine-readable manifest (`buildOpenApi` / `buildWellKnownX402` / `buildX402DnsTxt`), register on the open indexes (no auth, any chain), and discover resources to pay. → [DISCOVERY.md](sdk/DISCOVERY.md)
+Emit a machine-readable manifest (`buildOpenApi` / `buildWellKnownX402` / `buildX402DnsTxt`), register on the open indexes (no auth, any chain), and discover resources to pay. → [Discovery docs](https://docs.piprail.com/discovery/discover-and-register/)
 
 ## 🌐 Supported chains
 
@@ -157,7 +159,7 @@ listed in the [MCP registry](https://registry.modelcontextprotocol.io) as `io.gi
 `site/` is the source of [piprail.com](https://piprail.com); `examples/` holds runnable demos — both
 live here in the repo but aren't published.
 
-→ Full API & guides: **[sdk/README.md](sdk/README.md)** · MCP: **[mcp/README.md](mcp/README.md)** · discovery: **[sdk/DISCOVERY.md](sdk/DISCOVERY.md)**
+→ Full API, guides & reference: **[docs.piprail.com](https://docs.piprail.com)** — the complete, searchable documentation for the SDK + MCP (the source of truth).
 
 No `contracts/`, no server, no database. PipRail is a tool you install, not a platform you sign up for.
 

@@ -7,13 +7,16 @@
   "workspaces": [
     "sdk",
     "site",
-    "mcp"
+    "mcp",
+    "docs"
   ],
   "scripts": {
     "dev": "npm run dev -w @piprail/site",
+    "dev:docs": "npm run dev -w @piprail/docs",
     "build": "npm run build -w @piprail/site",
     "build:sdk": "npm run build -w @piprail/sdk",
     "build:mcp": "npm run build -w @piprail/mcp",
+    "build:docs": "npm run build -w @piprail/docs",
     "test:sdk": "npm test -w @piprail/sdk",
     "test:mcp": "npm test -w @piprail/mcp",
     "typecheck": "npm run typecheck -w @piprail/sdk && npm run typecheck -w @piprail/mcp"
