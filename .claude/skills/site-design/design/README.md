@@ -9,17 +9,33 @@ assets, and those live in `site/public/` (repo) — not here.
 
 ## Folder layout
 
+Four peers — **inputs** (`source/`), the two **render pipelines** (`social/`, `video/`),
+and the **outputs** (`exports/`):
+
 ```
 design/
-├── source/      # MASTERS — the originals everything derives from
+├── source/      # ① MASTERS — the originals everything derives from   (tracked)
 │   ├── logo-source.png      # high-res master logo (1254×1254)
 │   ├── logo-512.png
 │   └── logo-256.png
-├── exports/     # rendered/staged assets not served by the site
-│   └── og-github-1280x640.png   # GitHub repo "Social preview" (upload via repo Settings)
-├── mockups/     # WIP layouts / design explorations   (add as needed)
-└── screenshots/ # reference shots                       (add as needed)
+├── social/      # ② SOCIAL — the campaign copy + per-chain card pipeline
+│   ├── CAMPAIGN.md          # the campaign strategy/copy               (tracked)
+│   └── (render.mjs + chain cards live in exports/social/ — see below)
+├── video/       # ③ VIDEO — the promo-video & social-card render pipeline
+│   ├── README.md            # how the pipeline works (read it)        (tracked)
+│   ├── scene.html · card-*.html · *.mjs · synth.py   # the source     (tracked)
+│   └── assets.js · frames/ · *.png · *.mp4           # generated       (ignored)
+└── exports/     # ④ rendered/staged OUTPUTS not served by the site    (local, ignored)
+    ├── og-github-1280x640.png   # GitHub repo "Social preview" (upload via repo Settings)
+    ├── piprail-demo.mp4         # the finished promo video
+    ├── post-*.png / .html       # the themed "post" social cards
+    └── social/                  # per-chain announcement cards + their render.mjs
 ```
+
+> **Tracked vs local:** `source/`, `social/CAMPAIGN.md`, this README, and the `video/`
+> *source* are committed (the skill is self-contained). Everything under `exports/` and the
+> `video/` *generated outputs* are gitignored — rebuilt on demand, never bloating the repo.
+> Commit a new design asset deliberately with `git add -f`.
 
 ## Where things go
 
@@ -29,6 +45,9 @@ design/
 | Site OG / Twitter card | `design/source/` (composition) | `site/public/og.png` (1200×630) |
 | GitHub repo social card | — | `design/exports/og-github-1280x640.png` (1280×640; upload, not served) |
 | Chain / token logo | (official brand SVG) | `site/public/chains/<chain>.svg`, `site/public/tokens/<sym>.svg` |
+| Promo / demo video | edit `design/video/` (scene + scripts) | `design/exports/piprail-demo.mp4` (then site / socials) |
+| Social post / chain card | edit `design/video/card-*.html` or `design/exports/social/` | `design/exports/` (`post-*.png`, `social/<chain>.png`) |
+| Social campaign copy | `design/social/CAMPAIGN.md` | — (the plan; posts derive from it) |
 | WIP mockups / screenshots | `design/mockups/`, `design/screenshots/` | — |
 
 ## Brand, in one line

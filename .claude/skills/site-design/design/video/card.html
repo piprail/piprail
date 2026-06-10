@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<script src="./assets.js"></script>
+<style>
+  :root{
+    --bg: oklch(0.145 0.005 260); --fg: oklch(0.985 0 0); --muted: oklch(0.62 0.01 260);
+    --line: oklch(1 0 0 / 0.10); --accent: oklch(0.78 0.17 162); --sui:#4da2ff;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{width:1600px;height:900px;overflow:hidden;background:#000;}
+  #card{position:relative;width:1600px;height:900px;background:var(--bg);overflow:hidden;
+    font-family:"Inter",system-ui,sans-serif;color:var(--fg);
+    font-feature-settings:"ss01","cv11","cv05";-webkit-font-smoothing:antialiased;}
+  .g1{position:absolute;width:1100px;height:700px;left:-160px;top:-260px;border-radius:50%;z-index:0;
+    filter:blur(120px);background:radial-gradient(circle, oklch(0.78 0.17 162 / .18), transparent 70%);}
+  .g2{position:absolute;width:900px;height:700px;right:-160px;bottom:-260px;border-radius:50%;z-index:0;
+    filter:blur(130px);background:radial-gradient(circle, rgba(77,162,255,.16), transparent 70%);}
+  .content{position:relative;z-index:2;height:900px;padding:72px 84px;display:flex;flex-direction:column;}
+
+  .top{display:flex;align-items:center;gap:16px;margin-bottom:24px;}
+  .chip{display:inline-flex;align-items:center;gap:12px;padding:11px 20px;border-radius:999px;
+    border:1px solid var(--line);background:oklch(0.18 0.006 260 / .8);font-size:25px;font-weight:700;}
+  .chip img{width:30px;height:30px;border-radius:8px;}
+  .chip.x{color:var(--accent);font-family:"JetBrains Mono",monospace;font-weight:700;}
+
+  h1{font-weight:900;letter-spacing:-.025em;font-size:74px;line-height:1.0;margin-bottom:18px;}
+  h1 .sui{color:var(--sui);}
+  .sub{font-size:30px;color:var(--muted);font-weight:500;max-width:1200px;line-height:1.34;margin-bottom:32px;}
+  .sub b{color:var(--accent);font-weight:700;}
+
+  .win{flex:1;min-height:0;background:oklch(0.165 0.006 260);border:1px solid var(--line);border-radius:18px;
+    box-shadow:0 50px 130px -34px oklch(0.78 0.17 162 / .30), 0 20px 60px -20px #000;overflow:hidden;position:relative;}
+  .win::before{content:"";position:absolute;inset:0 0 auto 0;height:2px;
+    background:linear-gradient(90deg, transparent, var(--accent), transparent);opacity:.7;}
+  .bar{display:flex;align-items:center;gap:11px;padding:17px 24px;border-bottom:1px solid var(--line);}
+  .dot{width:14px;height:14px;border-radius:50%;}
+  .file{margin-left:16px;font:500 21px "JetBrains Mono",monospace;color:var(--muted);}
+  pre{margin:0;padding:28px 36px;font:500 30px/1.6 "JetBrains Mono",monospace;color:var(--fg);white-space:pre;}
+  .tok-kw{color:oklch(0.66 0.02 260);} .tok-str{color:oklch(0.84 0.13 162);}
+  .tok-fn{color:oklch(0.8 0.11 235);} .tok-chain{color:oklch(0.85 0.14 85);font-weight:600;}
+  .tok-num{color:oklch(0.8 0.12 25);} .tok-com{color:oklch(0.52 0.01 260);font-style:italic;}
+
+  .foot{display:flex;align-items:center;justify-content:space-between;margin-top:30px;}
+  .brand{display:flex;align-items:center;gap:16px;}
+  .brand img{width:54px;height:54px;border-radius:14px;}
+  .brand b{font-size:36px;font-weight:800;letter-spacing:-.02em;}
+  .brand .em{color:var(--accent);}
+  .foot .r{font-size:26px;color:var(--muted);font-weight:600;}
+  .foot .r .em{color:var(--accent);}
+</style>
+</head>
+<body>
+<div id="card">
+  <div class="g1"></div><div class="g2"></div>
+  <div class="content">
+    <div class="top">
+      <span class="chip"><img id="suilogo" alt="">Sui</span>
+      <span class="chip x">x402 · USDC + native SUI</span>
+      <span class="chip" style="color:var(--accent)">zero setup</span>
+    </div>
+    <h1>Get paid on <span class="sui">Sui</span> — in one line.</h1>
+    <div class="sub">Accept x402 payments in <b>USDC</b> or <b>native SUI</b>. No backend, no database, no fees — it settles straight to your wallet, verified on your own RPC.</div>
+
+    <div class="win">
+      <div class="bar">
+        <span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span>
+        <span class="file">server.ts</span>
+      </div>
+      <pre><span class="tok-kw">import</span> { requirePayment } <span class="tok-kw">from</span> <span class="tok-str">'@piprail/sdk'</span>
+
+<span class="tok-com">// Charge for any route on Sui — money lands in your wallet</span>
+app.<span class="tok-fn">get</span>(<span class="tok-str">'/report'</span>, <span class="tok-fn">requirePayment</span>({
+  chain: <span class="tok-chain">'sui'</span>,
+  token: <span class="tok-str">'USDC'</span>,        <span class="tok-com">// or 'native' to charge in SUI</span>
+  amount: <span class="tok-str">'0.05'</span>,
+  payTo,
+}))</pre>
+    </div>
+
+    <div class="foot">
+      <div class="brand"><img id="plogo" alt=""><b>Pip<span class="em">Rail</span></b></div>
+      <div class="r">x402 payments · <span class="em">28 chains</span> · piprail.com</div>
+    </div>
+  </div>
+</div>
+<script>
+  const A=window.ASSETS;
+  document.getElementById('suilogo').src=A.chains.sui;
+  document.getElementById('plogo').src=A.logo;
+  window.__ready=document.fonts.ready;
+</script>
+</body>
+</html>

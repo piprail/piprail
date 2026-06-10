@@ -26,18 +26,28 @@ actually serves live in **`site/public/`** (repo). Never confuse the two.
 ### `design/` (bundled with this skill) — MASTER + working files (local only)
 Lives at **`.claude/skills/site-design/design/`** — beside this SKILL, so the skill
 and its assets travel together and the repo root stays clean. The source of truth
-you edit/regenerate FROM; never served by the site.
+you edit/regenerate FROM; never served by the site. Four peers — **inputs**, the two
+**render pipelines**, and the **outputs** (see [`design/README.md`](design/README.md) for the full map):
 
 ```
 .claude/skills/site-design/design/
 ├── README.md                       # the folder guide (read it)
-├── source/                         # masters — the originals everything derives from
+├── source/                         # ① masters — the originals everything derives from
 │   ├── logo-source.png             # the high-res master logo (1254×1254)
 │   └── logo-512.png · logo-256.png # downscaled exports
-├── exports/                        # rendered/staged assets (e.g. social cards)
-│   └── og-github-1280x640.png      # GitHub repo "Social preview" card (manual upload)
-└── mockups/ , screenshots/         # add as needed for WIP / references
+├── social/                         # ② social campaign — CAMPAIGN.md (copy/strategy)
+├── video/                          # ③ promo-video & social-card render pipeline (was the
+│   │                               #    root .video-build/) — own README; source tracked,
+│   └── scene.html · *.mjs · synth.py  #  renders (assets.js, frames/, *.png/*.mp4) ignored
+└── exports/                        # ④ rendered/staged OUTPUTS (local, gitignored)
+    ├── og-github-1280x640.png      #    GitHub repo "Social preview" card (manual upload)
+    ├── piprail-demo.mp4            #    the finished promo video
+    └── social/                     #    per-chain announcement cards + their render.mjs
 ```
+
+The promo video and social cards are produced by the **`video/`** pipeline
+(HTML → headless-Chromium frames → ffmpeg). To regenerate or tweak the hype video, read
+[`design/video/README.md`](design/video/README.md) — don't reverse-engineer the scripts.
 
 ### `site/public/` — SHIPPED assets (served verbatim at piprail.com/…)
 Only optimized, final files go here. Everything is referenced by absolute path (`/logo.png`).

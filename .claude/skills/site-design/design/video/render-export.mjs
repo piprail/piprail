@@ -1,0 +1,16 @@
+import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
+const require = createRequire('/Users/john/.cache/piprail-video-tools/');
+const { chromium } = require('playwright-core');
+const BIN = process.env.HOME + "/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing";
+const name = process.argv[2];
+const SRC = `/Users/john/Sites/piprail/.claude/skills/site-design/design/exports/post-${name}.html`;
+const OUT = `/Users/john/Sites/piprail/.claude/skills/site-design/design/video/_${name}2160.png`;
+const b = await chromium.launch({ executablePath: BIN, headless: true, args:['--force-color-profile=srgb'] });
+const p = await b.newPage({ viewport:{width:1080,height:1080}, deviceScaleFactor:2 });
+await p.goto(pathToFileURL(SRC).href, { waitUntil:'load' });
+await p.evaluate(()=>document.fonts.ready).catch(()=>{});
+await p.waitForTimeout(400);
+await p.screenshot({ path: OUT });
+await b.close();
+console.log('rendered', name);

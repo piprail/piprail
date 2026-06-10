@@ -88,11 +88,22 @@ Screenshot*.png
 
 # Research & design notes now live under /.claude/ (already ignored above) — local only.
 
-# Scratch build dir for the promo video (frames, node_modules, wav) — local only
-.video-build/
-
 # Design-skill EXPORTS = local render/staging outputs (social cards, slide masters,
 # promo videos). The skill itself, its design/source/ masters, and the brand assets
 # already committed in here stay tracked; this only keeps NEW local renders out of
 # git so the repo never bloats. Commit a new design asset deliberately via `git add -f`.
 .claude/skills/site-design/design/exports/
+
+# Design-skill VIDEO pipeline (was the root .video-build/) — the SOURCE is tracked
+# (scene/card HTML, render *.mjs, synth.py, README), but the GENERATED renders are not:
+# assets.js (data-URI bundle), the synthesized audio, frame dumps, and any PNG/MP4 output.
+.claude/skills/site-design/design/video/assets.js
+.claude/skills/site-design/design/video/wave.png
+.claude/skills/site-design/design/video/music.wav
+.claude/skills/site-design/design/video/frames/
+.claude/skills/site-design/design/video/sample/
+.claude/skills/site-design/design/video/*.png
+.claude/skills/site-design/design/video/*.mp4
+.claude/skills/site-design/design/video/*.wav
+.claude/skills/site-design/design/video/*.mp3
+.claude/skills/site-design/design/video/__pycache__/

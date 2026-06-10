@@ -1,0 +1,602 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>PipRail — promo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<script src="./assets.js"></script>
+<style>
+  :root{
+    --bg: oklch(0.145 0.005 260);
+    --fg: oklch(0.985 0 0);
+    --muted: oklch(0.62 0.01 260);
+    --line: oklch(1 0 0 / 0.10);
+    --accent: oklch(0.78 0.17 162);
+    --accent-soft: oklch(0.78 0.17 162 / 0.14);
+    --blue: oklch(0.7 0.16 250);
+    --amber: oklch(0.85 0.14 85);
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html,body{ width:1920px; height:1080px; overflow:hidden; background:#000; }
+  #stage{
+    position:relative; width:1920px; height:1080px; background:var(--bg);
+    font-family:"Inter",system-ui,sans-serif; color:var(--fg);
+    font-feature-settings:"ss01","cv11","cv05"; -webkit-font-smoothing:antialiased;
+    overflow:hidden;
+  }
+  canvas#bg{ position:absolute; inset:0; z-index:0; }
+  .glow{ position:absolute; border-radius:50%; filter:blur(70px); pointer-events:none; z-index:1; }
+  #vignette{ position:absolute; inset:0; z-index:40; pointer-events:none;
+    background:radial-gradient(120% 90% at 50% 45%, transparent 55%, oklch(0.10 0.01 260 / 0.55) 100%); }
+  .scene{ position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; z-index:10; pointer-events:none; }
+
+  /* ---- typography ---- */
+  .eyebrow{ font-size:24px; font-weight:600; letter-spacing:.32em; text-transform:uppercase;
+    color:var(--accent); opacity:.95; }
+  .h1{ font-weight:900; letter-spacing:-.022em; line-height:1.02; font-size:118px; text-align:center; }
+  .h2{ font-weight:800; letter-spacing:-.02em; line-height:1.05; font-size:84px; text-align:center; }
+  .sub{ font-size:34px; font-weight:500; color:var(--muted); text-align:center; letter-spacing:-.01em; }
+  .em{ color:var(--accent); }
+  .glowtext{ text-shadow:0 0 40px oklch(0.78 0.17 162 / .55), 0 0 90px oklch(0.78 0.17 162 / .25); }
+
+  /* ---- code window (mirrors site CodeWindow) ---- */
+  .win{ position:relative; background:oklch(0.165 0.006 260); border:1px solid var(--line);
+    border-radius:16px; box-shadow:0 40px 120px -30px oklch(0.78 0.17 162 / .28), 0 20px 60px -20px #000;
+    overflow:hidden; }
+  .win::before{ content:""; position:absolute; inset:0 0 auto 0; height:2px;
+    background:linear-gradient(90deg, transparent, var(--accent), transparent); opacity:.7; }
+  .win .bar{ display:flex; align-items:center; gap:10px; padding:16px 20px; border-bottom:1px solid var(--line); }
+  .dot{ width:13px; height:13px; border-radius:50%; }
+  .win .file{ margin-left:14px; font:500 19px "JetBrains Mono",monospace; color:var(--muted); }
+  pre{ margin:0; padding:26px 30px; font:500 26px/1.55 "JetBrains Mono",monospace; color:var(--fg);
+    white-space:pre; }
+  .tok-kw{ color:oklch(0.66 0.02 260); }
+  .tok-str{ color:oklch(0.84 0.13 162); }
+  .tok-fn{ color:oklch(0.8 0.11 235); }
+  .tok-chain{ color:oklch(0.85 0.14 85); font-weight:600; }
+  .tok-num{ color:oklch(0.8 0.12 25); }
+  .tok-com{ color:oklch(0.52 0.01 260); font-style:italic; }
+
+  /* ---- chips / pills ---- */
+  .pill{ display:inline-flex; align-items:center; gap:14px; padding:18px 30px; border-radius:999px;
+    border:1px solid var(--line); background:oklch(0.18 0.006 260 / .8); font-size:30px; font-weight:600; }
+  .pill .k{ color:var(--accent); font-family:"JetBrains Mono",monospace; }
+  .badge{ display:inline-flex; align-items:center; gap:10px; padding:12px 22px; border-radius:999px;
+    border:1px solid var(--accent-soft); background:var(--accent-soft); color:var(--accent);
+    font-weight:700; font-size:26px; }
+
+  /* ---- chain tiles ---- */
+  .grid{ display:grid; gap:22px; }
+  .tile{ position:relative; width:118px; height:118px; border-radius:24px; overflow:hidden;
+    border:1px solid var(--line); background:#0c0d10;
+    box-shadow:0 14px 40px -16px #000, inset 0 0 0 1px oklch(1 0 0 / .03); }
+  .tile img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .tile .nm{ position:absolute; left:0; right:0; bottom:0; font-size:13px; font-weight:700;
+    text-align:center; padding:4px 0; background:linear-gradient(transparent, #000a); color:#fff;
+    letter-spacing:.01em; }
+
+  /* ---- logo lockup ---- */
+  .logoTile{ width:200px; height:200px; border-radius:46px; overflow:hidden; position:relative;
+    box-shadow:0 30px 90px -20px oklch(0.78 0.17 162 / .5), 0 0 0 1px oklch(1 0 0 / .06); }
+  .logoTile img{ width:100%; height:100%; display:block; }
+  .wordmark{ font-weight:900; letter-spacing:-.03em; font-size:104px; }
+
+  /* ---- rails & flow ---- */
+  #rail{ position:absolute; left:0; bottom:0; height:5px; width:1920px; z-index:30;
+    background:oklch(1 0 0 / .06); }
+  #railfill{ position:absolute; left:0; top:0; height:100%; width:1920px; transform-origin:left center;
+    background:linear-gradient(90deg, var(--accent), oklch(0.82 0.15 175)); box-shadow:0 0 22px oklch(0.78 0.17 162 / .8); }
+  #raildot{ position:absolute; bottom:-5px; width:16px; height:16px; border-radius:50%; background:#fff;
+    box-shadow:0 0 24px 6px oklch(0.78 0.17 162 / .9); z-index:31; }
+  #wm{ position:absolute; top:46px; left:54px; z-index:35; display:flex; align-items:center; gap:16px; opacity:0; }
+  #wm img{ width:44px; height:44px; border-radius:12px; }
+  #wm b{ font-size:30px; font-weight:800; letter-spacing:-.02em; }
+
+  .step{ position:relative; display:flex; flex-direction:column; align-items:center; gap:16px; width:300px; }
+  .stepbox{ width:230px; height:130px; border-radius:18px; border:1px solid var(--line);
+    background:oklch(0.17 0.006 260); display:flex; align-items:center; justify-content:center;
+    font:600 30px "JetBrains Mono",monospace; text-align:center; position:relative; }
+  .stepbox .lit{ position:absolute; inset:-1px; border-radius:18px; border:1.5px solid var(--accent);
+    box-shadow:0 0 40px oklch(0.78 0.17 162 / .55), inset 0 0 30px oklch(0.78 0.17 162 / .15); opacity:0; }
+  .steplabel{ font-size:22px; color:var(--muted); font-weight:600; letter-spacing:.02em; }
+  .flowrail{ position:absolute; height:3px; background:oklch(1 0 0 / .12); top:65px; }
+  .flowrail .fpulse{ position:absolute; top:-7px; width:17px; height:17px; border-radius:50%;
+    background:var(--accent); box-shadow:0 0 26px 7px oklch(0.78 0.17 162 / .85); }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="bg" width="1920" height="1080"></canvas>
+  <div id="vignette"></div>
+  <div id="rail"><div id="railfill"></div></div>
+  <div id="raildot"></div>
+  <div id="wm"><img id="wmimg" alt=""><b>Pip<span class="em">Rail</span></b></div>
+</div>
+
+<script>
+const TOTAL = 36;               // seconds
+const W = 1920, H = 1080;
+const stage = document.getElementById('stage');
+const A = window.ASSETS, CH = window.CHAINS;
+document.getElementById('wmimg').src = A.logo;
+const __anims = []; window.__anims = __anims;
+const clamp01 = x => Math.max(0, Math.min(1, x));
+
+// ---------- DOM helper ----------
+function mk(tag, cls, parent){ const e=document.createElement(tag); if(cls)e.className=cls; (parent||stage).appendChild(e); return e; }
+function txt(tag, cls, html, parent){ const e=mk(tag,cls,parent); e.innerHTML=html; return e; }
+
+// ---------- timeline core ----------
+const TF = { up:'translateY(52px)', down:'translateY(-52px)', left:'translateX(80px)',
+  right:'translateX(-80px)', scale:'scale(.8)', pop:'scale(.45)', rise:'translateY(70px) scale(.96)',
+  drop:'translateY(-64px) scale(1.05)', none:'none', zoom:'scale(1.18)' };
+function register(el, kfs){ const a=el.animate(kfs,{duration:TOTAL*1000,fill:'both'}); a.pause(); __anims.push(a); return a; }
+
+// show element visible during [inT,outT]. If outT>=TOTAL it holds to the end.
+// NOTE: a leading offset:0 keyframe is REQUIRED so the before-phase fill holds the
+// hidden state (otherwise WAAPI interpolates from the element's underlying opacity).
+function show(el, inT, outT, o={}){
+  const dur=o.dur??0.7, exd=o.exitDur??0.55;
+  const eIn=o.ease||'cubic-bezier(.16,.86,.28,1)';
+  const eOut=o.easeOut||'cubic-bezier(.5,0,.75,.25)';
+  const eTF=TF[o.enter||'up'], xTF=TF[o.exit||'down'];
+  const bIn=o.blur?`blur(${o.blur}px)`:'blur(0px)';
+  const hidden={opacity:0,transform:eTF,filter:bIn};
+  const exitFil=o.blur?`blur(${o.blur}px)`:'blur(0px)';
+  const kfs=[{offset:0,...hidden},
+             {offset:inT/TOTAL,...hidden,easing:eIn},
+             {offset:(inT+dur)/TOTAL,opacity:1,transform:'none',filter:'blur(0px)'}];
+  if(outT < TOTAL-0.02){
+    kfs.push({offset:outT/TOTAL,opacity:1,transform:'none',filter:'blur(0px)',easing:eOut});
+    kfs.push({offset:(outT+exd)/TOTAL,opacity:0,transform:xTF,filter:exitFil});
+    kfs.push({offset:1,opacity:0,transform:xTF,filter:exitFil});   // hold hidden to the end
+  } else {
+    kfs.push({offset:1,opacity:1,transform:'none',filter:'blur(0px)'});
+  }
+  for(const k of kfs)k.offset=clamp01(k.offset);
+  let prev=-1; for(const k of kfs){ if(k.offset<=prev) k.offset=prev+1e-5; prev=k.offset; }
+  return register(el,kfs);
+}
+// free-form keyframes on absolute-time points [{t,...props,ease}]. A copy of the
+// first point is pinned to offset:0 so the before-phase holds its initial state.
+function key(el, pts){
+  pts=pts.map(p=>({...p}));
+  if(pts[0].t>1e-4){ const f={...pts[0]}; f.t=0; delete f.ease; pts.unshift(f); }
+  const last=pts[pts.length-1];
+  if(last.t<TOTAL-1e-4){ const f={...last}; f.t=TOTAL; delete f.ease; pts.push(f); }
+  let prev=-1;
+  const kfs=pts.map(p=>{ const {t,ease,...props}=p; let off=clamp01(t/TOTAL); if(off<=prev)off=prev+1e-5; prev=off;
+    const f={...props,offset:off}; if(ease)f.easing=ease; return f; });
+  return register(el,kfs);
+}
+
+// ---------- scene factory ----------
+function scene(z){ const s=mk('div','scene'); s.style.zIndex=10+z; return s; }
+
+// =====================================================================
+// SCENE 1 — Logo ignite  (0.0 – 4.0)
+// =====================================================================
+(function(){
+  const s=scene(1);
+  // Pure-black backdrop for the intro.
+  const black=mk('div',null,s); black.style.cssText='position:absolute;inset:0;background:#000;z-index:0;';
+  key(black,[{t:0,opacity:1},{t:3.4,opacity:1},{t:4.0,opacity:0}]);
+
+  // ===== POSTER + HOOK (0.0 – 1.55) — fully formed at FRAME 0 so X's auto-thumbnail
+  //        (the first frame) is a branded hook, never a black screen. Then it energizes.
+  const hookGlow=mk('div',null,s); hookGlow.style.cssText=
+    'position:absolute;width:1320px;height:800px;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1;filter:blur(82px);background:radial-gradient(ellipse, oklch(0.80 0.17 162 / .30), transparent 70%);';
+  key(hookGlow,[{t:0,opacity:.62},{t:0.3,opacity:1},{t:1.2,opacity:.9},{t:1.55,opacity:0}]);
+  const hook=mk('div',null,s); hook.style.cssText='position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:3;';
+  const h1=txt('div','h1','GET <span class="em glowtext">PAID</span><br>IN CODE.',hook);
+  h1.style.cssText+='font-size:168px;line-height:0.98;';
+  key(h1,[{t:0,opacity:1,transform:'scale(1)',filter:'blur(0px)'},
+          {t:0.22,transform:'scale(1.045)',ease:'cubic-bezier(.2,.8,.3,1)'},
+          {t:0.52,transform:'scale(1)'},
+          {t:1.18,opacity:1,transform:'scale(1)',filter:'blur(0px)',ease:'cubic-bezier(.6,0,.82,.3)'},
+          {t:1.55,opacity:0,transform:'scale(.9)',filter:'blur(12px)'}]);
+  const hk=txt('div','sub','x402 payments for the <span class="em">agentic web</span>',hook);
+  hk.style.cssText+='margin-top:34px;font-size:38px;';
+  key(hk,[{t:0,opacity:1,transform:'translateY(0)'},
+          {t:1.2,opacity:1,transform:'translateY(0)',ease:'ease-in'},
+          {t:1.5,opacity:0,transform:'translateY(-14px)'}]);
+  // small brand lockup pinned in the poster -> the thumbnail is branded
+  const plock=mk('div',null,hook); plock.style.cssText='display:flex;align-items:center;gap:14px;margin-top:56px;';
+  const pli=mk('img',null,plock); pli.src=A.logo; pli.style.cssText='width:48px;height:48px;border-radius:13px;';
+  txt('b',null,'Pip<span class="em">Rail</span>',plock).style.cssText='font-size:36px;font-weight:800;letter-spacing:-.02em;';
+  key(plock,[{t:0,opacity:.96},{t:1.2,opacity:.96,ease:'ease-in'},{t:1.4,opacity:0}]);
+
+  // ===== BRAND ignite (1.45 – 3.4) =====
+  const glow=mk('div',null,s); glow.style.cssText=
+    'position:absolute;width:540px;height:540px;left:50%;top:43%;transform:translate(-50%,-50%);border-radius:50%;z-index:1;filter:blur(62px);background:radial-gradient(circle, oklch(0.80 0.17 162 / .42), oklch(0.78 0.17 162 / 0) 68%);';
+  key(glow,[{t:1.42,opacity:0,transform:'translate(-50%,-50%) scale(.5)',ease:'cubic-bezier(.16,.9,.3,1)'},
+            {t:1.98,opacity:.95,transform:'translate(-50%,-50%) scale(1)'},
+            {t:3.0,opacity:.8,transform:'translate(-50%,-50%) scale(1.04)'},
+            {t:3.8,opacity:0,transform:'translate(-50%,-50%) scale(1.15)'}]);
+
+  const tile=mk('div',null,s); tile.style.cssText='position:relative;z-index:2;width:198px;height:198px;margin-bottom:46px;';
+  const img=mk('img',null,tile); img.src=A.logo; img.style.cssText='width:100%;height:100%;display:block;border-radius:46px;';
+  key(tile,[{t:1.46,opacity:0,transform:'scale(.5) rotate(-6deg)',filter:'blur(5px)',ease:'cubic-bezier(.18,1.22,.4,1)'},
+            {t:2.12,opacity:1,transform:'scale(1) rotate(0deg)',filter:'blur(0px)'},
+            {t:3.15,opacity:1,transform:'scale(1) rotate(0deg)',filter:'blur(0px)',ease:'cubic-bezier(.5,0,.7,.3)'},
+            {t:3.85,opacity:0,transform:'scale(1.3) rotate(0deg)',filter:'blur(7px)'}]);
+
+  const wm=txt('div','wordmark glowtext','Pip<span class="em">Rail</span>',s);
+  wm.style.cssText+='position:relative;z-index:2;';
+  show(wm,1.98,3.3,{enter:'up',exit:'up',dur:0.55,exitDur:0.45});
+
+  const tag=txt('div','sub',
+    'one line &nbsp;·&nbsp; <span class="em">28 chains</span> &nbsp;·&nbsp; no backend, no fee',s);
+  tag.style.cssText+='margin-top:30px;font-size:36px;position:relative;z-index:2;';
+  show(tag,2.32,3.25,{enter:'up',exit:'up',dur:0.5,exitDur:0.4});
+})();
+
+// =====================================================================
+// SCENE 2 — 402 answered  (3.7 – 7.7)
+// =====================================================================
+(function(){
+  const s=scene(2);
+  const eb=txt('div','eyebrow','The web&rsquo;s payment status code',s); eb.style.marginBottom='30px';
+  show(eb,3.9,7.2,{enter:'up',dur:0.6,exitDur:0.45});
+
+  const big=mk('div',null,s); big.style.cssText='display:flex;align-items:center;gap:0;flex-direction:column;';
+  const l1=txt('div','h1','<span style="color:var(--amber)">402</span> Payment Required',big);
+  show(l1,4.15,5.9,{enter:'drop',exit:'up',dur:0.75,exitDur:0.5,blur:6});
+  const arrow=txt('div','h1','<span class="em glowtext">→ paid.</span> automatically.',big);
+  arrow.style.marginTop='14px';
+  show(arrow,5.0,7.2,{enter:'up',exit:'up',dur:0.7,exitDur:0.5,blur:6});
+
+  const sub=txt('div','sub','One HTTP status. A wallet that answers it — verified on your own RPC.',s);
+  sub.style.marginTop='44px';
+  show(sub,5.5,7.15,{enter:'up',dur:0.6,exitDur:0.4});
+})();
+
+// =====================================================================
+// SCENE 3 — Install + one line  (7.6 – 12.3)
+// =====================================================================
+(function(){
+  const s=scene(3);
+  const wrap=mk('div',null,s); wrap.style.cssText='display:flex;flex-direction:column;align-items:center;gap:40px;';
+
+  const term=mk('div','win',wrap); term.style.width='980px';
+  const bar=mk('div','bar',term);
+  ['#ff5f57','#febc2e','#28c840'].forEach(c=>{const d=mk('div','dot',bar);d.style.background=c;});
+  txt('span','file','zsh — install',bar);
+  const tp=mk('pre',null,term);
+  tp.innerHTML='<span class="tok-com">$</span> npm install <span class="tok-str">@piprail/sdk viem</span><span id="caret" style="color:var(--accent)">▋</span>';
+  tp.style.fontSize='30px';
+  // typing reveal via clip
+  const reveal=mk('div',null,term);
+  show(term,7.7,12.1,{enter:'scale',exit:'scale',dur:0.6,exitDur:0.5});
+  // typed reveal: clip the pre from right
+  key(tp,[{t:7.95,clipPath:'inset(0 100% 0 0)',ease:'steps(22,end)'},
+          {t:9.25,clipPath:'inset(0 0% 0 0)'},
+          {t:12.1,clipPath:'inset(0 0% 0 0)'}]);
+  const ok=txt('div','badge','✓ installed — 0 config',wrap);
+  show(ok,9.35,12.0,{enter:'up',dur:0.45,exitDur:0.4});
+
+  const code=mk('div','win',wrap); code.style.width='980px';
+  const cbar=mk('div','bar',code);
+  ['#ff5f57','#febc2e','#28c840'].forEach(c=>{const d=mk('div','dot',cbar);d.style.background=c;});
+  txt('span','file','server.ts',cbar);
+  const pre=mk('pre',null,code);
+  pre.innerHTML=
+`<span class="tok-kw">import</span> { requirePayment } <span class="tok-kw">from</span> <span class="tok-str">'@piprail/sdk'</span>
+
+app.<span class="tok-fn">get</span>(<span class="tok-str">'/report'</span>, <span class="tok-fn">requirePayment</span>({
+  chain: <span class="tok-chain" id="chainTok">'solana'</span>, token: <span class="tok-str">'USDC'</span>,
+  amount: <span class="tok-str">'0.05'</span>, payTo,
+}), (req, res) => res.<span class="tok-fn">json</span>({ data }))`;
+  show(code,8.4,12.15,{enter:'up',exit:'down',dur:0.7,exitDur:0.5});
+
+  const cap=txt('div','sub','Gate any route — it <span class="em">charges for itself.</span>',wrap);
+  cap.style.fontSize='40px'; cap.style.fontWeight='600'; cap.style.color='var(--fg)';
+  show(cap,9.0,12.05,{enter:'up',dur:0.6,exitDur:0.4});
+})();
+
+// =====================================================================
+// SCENE 4 — CHAIN STORM  (12.2 – 18.8)   [music drop]
+// =====================================================================
+(function(){
+  const s=scene(4); s.style.justifyContent='center';
+  const eb=txt('div','eyebrow','One parameter — every chain',s); eb.style.marginBottom='12px';
+  show(eb,12.3,18.4,{enter:'up',dur:0.5,exitDur:0.5});
+  const head=txt('div','h1','EVERY <span class="em glowtext">CHAIN.</span>',s);
+  head.style.cssText+='font-size:100px;margin-bottom:16px;';
+  show(head,12.35,18.45,{enter:'drop',exit:'up',dur:0.6,exitDur:0.5,blur:8});
+
+  // compact inline counter strip
+  const stats=mk('div',null,s); stats.style.cssText='display:flex;gap:52px;margin-bottom:32px;align-items:baseline;';
+  function stat(label,id){ const c=mk('div',null,stats); c.style.cssText='display:flex;align-items:baseline;gap:14px;';
+    const n=txt('span',null,'0',c); n.id=id; n.style.cssText='font-weight:900;font-size:74px;letter-spacing:-.03em;color:var(--accent);';
+    n.classList.add('glowtext');
+    txt('span',null,label,c).style.cssText='font-size:30px;color:var(--muted);font-weight:600;'; return c; }
+  const c1=stat('chains','chainCount'); const c2=stat('families','famCount');
+  show(c1,12.5,18.4,{enter:'up',dur:0.5,exitDur:0.45});
+  show(c2,12.62,18.4,{enter:'up',dur:0.5,exitDur:0.45});
+
+  // grid — flex-wrap so 28 tiles flow 10 / 10 / 8 and each row auto-centers; roomy
+  const grid=mk('div',null,s); grid.id='chainGrid'; grid.style.cssText='display:flex;flex-wrap:wrap;justify-content:center;align-content:center;gap:26px;width:1540px;margin-bottom:30px;';
+  const tiles=[];
+  CH.forEach((c,i)=>{ const t=mk('div','tile',grid); t.style.cssText+='width:128px;height:128px;border-radius:26px;';
+    const im=mk('img',null,t); im.src=A.chains[c.slug];
+    txt('div','nm',c.name.replace(' Chain','').replace(' Ledger',''),t); tiles.push(t); });
+  // wave-stagger pop-in (10 per row)
+  tiles.forEach((t,i)=>{ const col=i%10, row=Math.floor(i/10); const d=col*0.05+row*0.13;
+    const inT=12.7+d;
+    key(t,[{t:inT,opacity:0,transform:'scale(.2) translateY(28px)',ease:'cubic-bezier(.2,1.3,.4,1)'},
+           {t:inT+0.5,opacity:1,transform:'scale(1) translateY(0)'},
+           {t:18.3,opacity:1,transform:'scale(1)',ease:'cubic-bezier(.5,0,.7,.3)'},
+           {t:18.3+0.04*col+0.5,opacity:0,transform:'scale(.5) translateY(-30px)'}]); });
+
+  const sub=txt('div','sub',
+    '19 EVM mainnets + Solana · TON · Tron · NEAR · Sui · Aptos · Algorand · Stellar · XRPL',s);
+  sub.style.cssText+='font-size:27px;margin-bottom:14px;';
+  show(sub,13.5,18.3,{enter:'up',dur:0.6,exitDur:0.45});
+
+  const tline=txt('div',null,
+    '<span class="em">USDC</span> almost everywhere &nbsp;·&nbsp; <span class="em">USDT</span> on most &nbsp;·&nbsp; <span class="em">EURC</span> · <span class="em">RLUSD</span> &nbsp;·&nbsp; native coin on every chain',s);
+  tline.style.cssText='font-size:25px;color:var(--muted);font-weight:500;';
+  show(tline,14.0,18.3,{enter:'up',dur:0.55,exitDur:0.4});
+})();
+
+// =====================================================================
+// SCENE 5 — The 402 loop  (18.8 – 23.4)
+// =====================================================================
+(function(){
+  const s=scene(5);
+  const head=txt('div','h2','The 402 loop — <span class="em">no backend.</span>',s);
+  head.style.marginBottom='60px';
+  show(head,18.9,23.2,{enter:'up',dur:0.6,exitDur:0.45});
+
+  const row=mk('div',null,s); row.style.cssText='display:flex;align-items:flex-start;gap:40px;position:relative;';
+  const rail=mk('div','flowrail',row); rail.style.cssText+='left:150px;right:150px;width:auto;';
+  const pulse=mk('div','fpulse',rail); pulse.id='fpulse';
+  key(rail,[{t:18.95,opacity:0},{t:19.45,opacity:1},{t:23.05,opacity:1},{t:23.45,opacity:0}]);
+  const steps=[['GET /report','request'],['402 + accept','challenge'],['pay on-chain','settle'],['200 OK ✓','unlocked']];
+  steps.forEach((st,i)=>{ const c=mk('div','step',row);
+    const box=mk('div','stepbox',c); const lit=mk('div','lit',box); lit.id='lit'+i;
+    txt('span',null,st[0],box).style.color = i===3?'var(--accent)':(i===1?'var(--amber)':'var(--fg)');
+    txt('div','steplabel',st[1],c);
+    show(c,19.0+i*0.18,23.15,{enter:'up',dur:0.5,exitDur:0.4});
+    // light pulse as the dot passes
+    const lt=19.9+i*0.62;
+    key(lit,[{t:lt-0.2,opacity:0},{t:lt+0.1,opacity:1,ease:'ease-out'},{t:lt+0.7,opacity:.25},{t:23.15,opacity:.25}]);
+  });
+
+  const three=mk('div',null,s); three.style.cssText='display:flex;gap:40px;margin-top:70px;';
+  ['no backend','no database','no fee'].forEach((w,i)=>{ const p=txt('div',null,w,three);
+    p.style.cssText='font-weight:800;font-size:40px;letter-spacing:-.01em;'; p.classList.add('em','glowtext');
+    show(p,21.3+i*0.22,23.1,{enter:'pop',dur:0.45,exitDur:0.4}); });
+})();
+
+// =====================================================================
+// SCENE 6 — Agent budgets: plan before paying  (23.4 – 28.0)
+// =====================================================================
+(function(){
+  const s=scene(6);
+  const eb=txt('div','eyebrow','Built for agents',s); eb.style.marginBottom='26px';
+  show(eb,23.5,27.7,{enter:'up',dur:0.5,exitDur:0.45});
+  const head=txt('div','h2','Budget payment <span class="em">+ gas</span> — before paying.',s);
+  head.style.marginBottom='50px'; head.style.fontSize='72px';
+  show(head,23.6,27.7,{enter:'up',dur:0.6,exitDur:0.45});
+
+  const row=mk('div',null,s); row.style.cssText='display:flex;align-items:center;gap:46px;';
+  const code=mk('div','win',row); code.style.width='820px';
+  const cbar=mk('div','bar',code);
+  ['#ff5f57','#febc2e','#28c840'].forEach(c=>{const d=mk('div','dot',cbar);d.style.background=c;});
+  txt('span','file','agent.ts',cbar);
+  const pre=mk('pre',null,code); pre.style.fontSize='24px';
+  pre.innerHTML=
+`<span class="tok-com">// Will this 402 go through — and where?</span>
+<span class="tok-kw">const</span> plan = <span class="tok-kw">await</span> client.<span class="tok-fn">planPayment</span>(url)
+
+<span class="tok-kw">if</span> (plan.payable) {
+  <span class="tok-kw">await</span> client.<span class="tok-fn">fetch</span>(url, { autoRoute: <span class="tok-kw">true</span> })
+} <span class="tok-kw">else</span> {
+  <span class="tok-fn">console</span>.<span class="tok-fn">log</span>(plan.fundingHint)
+}`;
+  show(code,23.7,27.7,{enter:'left',exit:'down',dur:0.65,exitDur:0.45});
+
+  const card=mk('div','win',row); card.style.cssText+='width:520px;padding:8px 0;';
+  const cb=mk('div','bar',card); txt('span','file','PaymentPlan',cb).style.color='var(--accent)';
+  const body=mk('div',null,card); body.style.cssText='padding:24px 30px;display:flex;flex-direction:column;gap:18px;font-size:27px;font-family:\'JetBrains Mono\',monospace;';
+  const rows=[['payable','✓ true','var(--accent)'],['best','base · USDC','var(--fg)'],['gas','~0.00002 ETH','var(--fg)'],['policy','within budget','var(--accent)']];
+  rows.forEach((r,i)=>{ const ln=mk('div',null,body); ln.style.cssText='display:flex;justify-content:space-between;gap:24px;';
+    txt('span',null,r[0],ln).style.color='var(--muted)';
+    txt('span',null,r[1],ln).style.color=r[2];
+    show(ln,24.4+i*0.18,27.65,{enter:'up',dur:0.4,exitDur:0.35}); });
+  show(card,24.0,27.7,{enter:'right',exit:'down',dur:0.65,exitDur:0.45});
+
+  const trio=mk('div',null,s); trio.style.cssText='display:flex;gap:18px;margin-top:54px;align-items:center;';
+  ['quote()','estimateCost()','planPayment()'].forEach((w,i)=>{
+    if(i){ const sep=txt('span',null,'→',trio); sep.style.cssText='color:var(--muted);font-size:34px;display:inline-block;';
+      show(sep,25.15+i*0.2,27.6,{enter:'up',dur:0.4,exitDur:0.4}); }
+    const p=mk('div','pill',trio); p.style.fontSize='27px';
+    txt('span','k',w,p);
+    show(p,25.2+i*0.2,27.6,{enter:'up',dur:0.45,exitDur:0.4}); });
+})();
+
+// =====================================================================
+// SCENE 7 — Discovery + MCP  (28.0 – 32.4)
+// =====================================================================
+(function(){
+  const s=scene(7);
+  const eb=txt('div','eyebrow','Get found · find others · let agents pay',s);
+  eb.style.cssText+='position:absolute;top:170px;left:0;right:0;text-align:center;';
+  show(eb,28.1,32.2,{enter:'up',dur:0.5,exitDur:0.4});
+
+  // discovery group — absolutely centered so it doesn't reserve space for the MCP block
+  const disc=mk('div',null,s); disc.style.cssText='position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:30px;';
+  [['EMIT','a machine-readable manifest'],['REGISTER','on the open indexes'],['DISCOVER','what&rsquo;s payable, any chain']].forEach((d,i)=>{
+    const c=mk('div','win',disc); c.style.cssText+='width:400px;padding:40px 40px;';
+    txt('div',null,d[0],c).style.cssText='font-weight:900;font-size:48px;color:var(--accent);letter-spacing:.02em;';
+    txt('div',null,d[1],c).style.cssText='font-size:27px;color:var(--muted);margin-top:14px;';
+    show(c,28.2+i*0.16,30.0,{enter:'up',exit:'down',dur:0.55,exitDur:0.4}); });
+
+  // MCP block — also absolutely centered
+  const mcp=mk('div',null,s); mcp.style.cssText='position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:50px;';
+  const cfg=mk('div','win',mcp); cfg.style.width='760px';
+  const cbar=mk('div','bar',cfg);
+  ['#ff5f57','#febc2e','#28c840'].forEach(c=>{const d=mk('div','dot',cbar);d.style.background=c;});
+  txt('span','file','claude_desktop_config.json',cbar);
+  const pre=mk('pre',null,cfg); pre.style.fontSize='23px';
+  pre.innerHTML=
+`{
+  <span class="tok-str">"mcpServers"</span>: {
+    <span class="tok-str">"piprail"</span>: {
+      <span class="tok-str">"command"</span>: <span class="tok-str">"npx"</span>,
+      <span class="tok-str">"args"</span>: [<span class="tok-str">"-y"</span>, <span class="tok-str">"@piprail/mcp"</span>],
+      <span class="tok-str">"env"</span>: { <span class="tok-str">"PIPRAIL_CHAIN"</span>: <span class="tok-chain">"base"</span> }
+    }
+  }
+}`;
+  show(cfg,30.0,32.2,{enter:'left',dur:0.6,exitDur:0.4});
+
+  const side=mk('div',null,mcp); side.style.cssText='display:flex;flex-direction:column;gap:18px;width:560px;';
+  const t1=txt('div',null,'<span class="em">@piprail/mcp</span>',side); t1.style.cssText='font-weight:900;font-size:54px;letter-spacing:-.02em;';
+  const t2=txt('div',null,'Any MCP client — Claude Desktop, Cursor, Cline — gets a <span class="em">budget-bound wallet.</span>',side);
+  t2.style.cssText='font-size:28px;color:var(--muted);line-height:1.35;';
+  show(t1,30.15,32.2,{enter:'right',dur:0.55,exitDur:0.4});
+  show(t2,30.3,32.2,{enter:'right',dur:0.55,exitDur:0.4});
+  const tools=mk('div',null,side); tools.style.cssText='display:flex;flex-wrap:wrap;gap:10px;margin-top:6px;';
+  ['discover','quote','plan','pay','register'].forEach((w,i)=>{ const p=mk('div','badge',tools);
+    p.style.fontSize='22px'; p.style.padding='8px 16px'; txt('span',null,'piprail_'+w,p);
+    show(p,30.55+i*0.12,32.15,{enter:'up',dur:0.4,exitDur:0.35}); });
+})();
+
+// =====================================================================
+// SCENE 8 — Outro / CTA  (32.3 – 36.0)
+// =====================================================================
+(function(){
+  const s=scene(8);
+  const burst=mk('div','glow',s); burst.style.cssText+=
+    'width:900px;height:900px;left:50%;top:46%;transform:translate(-50%,-50%);background:oklch(0.78 0.17 162 / .3);';
+  key(burst,[{t:32.3,opacity:0,transform:'translate(-50%,-50%) scale(.3)',ease:'cubic-bezier(.16,.9,.3,1)'},
+             {t:33.2,opacity:.85,transform:'translate(-50%,-50%) scale(1)'},
+             {t:34.0,opacity:.6,transform:'translate(-50%,-50%) scale(1.05)'},
+             {t:36,opacity:.5,transform:'translate(-50%,-50%) scale(1.08)'}]);
+
+  const lock=mk('div',null,s); lock.style.cssText='display:flex;align-items:center;gap:30px;margin-bottom:34px;';
+  const tile=mk('div','logoTile',lock); tile.style.cssText+='width:140px;height:140px;border-radius:34px;';
+  mk('img',null,tile).src=A.logo;
+  txt('div','wordmark glowtext','Pip<span class="em">Rail</span>',lock).style.fontSize='118px';
+  key(tile,[{t:32.4,opacity:0,transform:'scale(.4) rotate(-6deg)',ease:'cubic-bezier(.18,1.25,.4,1)'},
+            {t:33.15,opacity:1,transform:'scale(1) rotate(0)'},{t:36,opacity:1,transform:'scale(1)'}]);
+  const wm=lock.lastChild; show(wm,32.6,TOTAL,{enter:'right',dur:0.6});
+
+  const cmd=mk('div','pill',s); cmd.style.cssText+='font-family:"JetBrains Mono",monospace;font-size:36px;margin-bottom:30px;';
+  cmd.innerHTML='<span class="tok-com">$</span>&nbsp; npm install <span class="em">@piprail/sdk</span>';
+  show(cmd,33.1,TOTAL,{enter:'up',dur:0.55});
+
+  const links=mk('div',null,s); links.style.cssText='display:flex;gap:40px;font-size:32px;color:var(--muted);font-weight:600;';
+  ['piprail.com','github.com/piprail','MIT · no backend · no fee'].forEach((l,i)=>{
+    const e=txt('div',null,l,links); if(l==='piprail.com')e.style.color='var(--accent)';
+    show(e,33.4+i*0.14,TOTAL,{enter:'up',dur:0.5}); });
+  const fin=txt('div','sub','The simplest way to get paid on the agentic web.',s);
+  fin.style.cssText+='margin-top:40px;font-size:34px;';
+  show(fin,33.9,TOTAL,{enter:'up',dur:0.6});
+})();
+
+// =====================================================================
+// Persistent: bottom rail fill, leading dot, watermark
+// =====================================================================
+key(document.getElementById('railfill'),[{t:0,transform:'scaleX(0)'},{t:TOTAL,transform:'scaleX(1)',ease:'linear'}]);
+(function(){ const wm=document.getElementById('wm');
+  key(wm,[{t:0,opacity:0},{t:4.2,opacity:0},{t:4.8,opacity:.85},{t:31.5,opacity:.85},{t:32.2,opacity:0},{t:36,opacity:0}]); })();
+
+// impact flash + expanding shockwave rings, synced to the music drop (12s) and outro hit (32s)
+(function(){
+  const flash=mk('div',null,stage); flash.style.cssText='position:absolute;inset:0;background:#e9fff7;z-index:46;pointer-events:none;mix-blend-mode:screen;';
+  key(flash,[{t:0,opacity:0},{t:11.94,opacity:0},{t:12.02,opacity:.32,ease:'ease-out'},{t:12.42,opacity:0},
+             {t:31.94,opacity:0},{t:32.02,opacity:.36,ease:'ease-out'},{t:32.5,opacity:0},{t:36,opacity:0}]);
+  function shock(t0){ const r=mk('div',null,stage);
+    r.style.cssText='position:absolute;left:50%;top:50%;width:320px;height:320px;border-radius:50%;border:3px solid oklch(0.84 0.16 165);z-index:5;pointer-events:none;box-shadow:0 0 50px oklch(0.78 0.17 162 / .6);';
+    key(r,[{t:t0-0.12,opacity:0,transform:'translate(-50%,-50%) scale(.18)'},
+           {t:t0+0.05,opacity:.85,transform:'translate(-50%,-50%) scale(.5)',ease:'cubic-bezier(.1,.7,.2,1)'},
+           {t:t0+0.95,opacity:0,transform:'translate(-50%,-50%) scale(4.6)'}]); }
+  shock(12.0); shock(32.35);
+})();
+
+// ---------- imperative backdrop (deterministic in t) ----------
+const cv=document.getElementById('bg'), cx=cv.getContext('2d');
+let SEED=20260607>>>0; function rnd(){ SEED=(SEED*1664525+1013904223)>>>0; return SEED/4294967296; }
+const PARTS=Array.from({length:110},()=>({x:rnd()*W,y:rnd()*H,r:rnd()*2.4+0.6,sp:rnd()*0.5+0.1,ph:rnd()*6.28,dr:rnd()*0.4+0.05}));
+// outro spark burst (deterministic): streaks radiating from centre on the final hit
+const SPARKS=Array.from({length:70},()=>({a:rnd()*6.283,sp:rnd()*430+240,r0:rnd()*40,len:rnd()*46+26,w:rnd()*2.2+0.8}));
+// energy envelope 0..1 — lifts the backdrop through the drop (12–30s)
+function energyAt(t){ if(t<4)return 0; if(t<12)return 0.25+0.45*Math.min(1,(t-4)/7); if(t<=30)return 1; if(t<34)return Math.max(0,1-(t-30)/4); return 0.1; }
+// scene glow anchors [t, x, y, hue(0 emerald/1 blue), strength]
+const GLOWS=[[0,960,540],[6,960,420],[10,720,540],[15,960,560],[21,960,520],[26,700,520],[30,1100,540],[34,960,500]];
+function glowAt(t){ // interpolate anchor x/y
+  let a=GLOWS[0],b=GLOWS[GLOWS.length-1];
+  for(let i=0;i<GLOWS.length-1;i++){ if(t>=GLOWS[i][0]&&t<=GLOWS[i+1][0]){a=GLOWS[i];b=GLOWS[i+1];break;} }
+  const k=b[0]===a[0]?0:(t-a[0])/(b[0]-a[0]); const e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
+  return [a[1]+(b[1]-a[1])*e, a[2]+(b[2]-a[2])*e];
+}
+function frameImperative(t){
+  cx.clearRect(0,0,W,H);
+  // moving ambient glows
+  const [gx,gy]=glowAt(t);
+  let g=cx.createRadialGradient(gx,gy,0,gx,gy,720);
+  g.addColorStop(0,'rgba(46,230,166,0.10)'); g.addColorStop(1,'rgba(46,230,166,0)');
+  cx.fillStyle=g; cx.fillRect(0,0,W,H);
+  let g2=cx.createRadialGradient(1500,140,0,1500,140,640);
+  g2.addColorStop(0,'rgba(70,150,255,0.05)'); g2.addColorStop(1,'rgba(70,150,255,0)');
+  cx.fillStyle=g2; cx.fillRect(0,0,W,H);
+  // drifting particles — brighter & faster through the drop
+  const en=energyAt(t);
+  for(const p of PARTS){ const y=(p.y - t*p.sp*40*(1+0.7*en))%H; const yy=y<0?y+H:y;
+    const tw=0.4+0.6*Math.abs(Math.sin(p.ph+t*p.dr*3*(1+en)));
+    cx.beginPath(); cx.arc(p.x,yy,p.r*(1+0.25*en),0,6.283);
+    cx.fillStyle=`rgba(46,230,166,${(0.05+0.16*tw)*(0.6+0.7*en)})`; cx.fill(); }
+  // outro spark burst (32.4 -> ~33.8) — framing the final logo, synced with the shockwave
+  if(t>=32.4 && t<33.9){ const k=(t-32.4)/1.4; const fade=Math.max(0,1-k/1.15);
+    for(const sp of SPARKS){ const d=sp.r0+sp.sp*k*(2-k)*0.62;
+      const x1=960+Math.cos(sp.a)*d, y1=540+Math.sin(sp.a)*d;
+      const x2=960+Math.cos(sp.a)*(d+sp.len), y2=540+Math.sin(sp.a)*(d+sp.len);
+      cx.strokeStyle=`rgba(46,230,166,${(0.85*fade).toFixed(3)})`; cx.lineWidth=sp.w;
+      cx.beginPath(); cx.moveTo(x1,y1); cx.lineTo(x2,y2); cx.stroke(); } }
+  // gentle float on the chain grid during the storm
+  const cg=document.getElementById('chainGrid');
+  if(cg) cg.style.transform = (t>=12.4&&t<18.4) ? `translateY(${(Math.sin((t-12.4)*1.15)*5).toFixed(2)}px)` : 'none';
+  // bottom rail + dot — hidden during the pure-black intro, revealed for scene 2+
+  const introA = t<3.4 ? 0 : Math.min(1,(t-3.4)/0.6);
+  document.getElementById('rail').style.opacity = introA;
+  const rd=document.getElementById('raildot'); rd.style.left=(clamp01(t/TOTAL)*W-8)+'px';
+  rd.style.opacity = (t>3.4 && t<35.9) ? introA : 0;
+  // chain-token cycling in scene 3 (10.3 -> 12.0)
+  const ct=document.getElementById('chainTok');
+  if(ct){ if(t>=10.3&&t<=11.95){ const names=["'base'","'arbitrum'","'solana'","'algorand'","'sui'","'xrpl'","'near'","'ton'","'aptos'","'monad'"];
+      ct.textContent=names[Math.floor((t-10.3)*12)%names.length]; }
+    else if(t<10.3) ct.textContent="'solana'"; else ct.textContent="'base'"; }
+  // chain / family counters in scene 4
+  const cc=document.getElementById('chainCount'), fc=document.getElementById('famCount');
+  if(cc){ const k=clamp01((t-12.6)/1.5); cc.textContent=Math.round(k*28); }
+  if(fc){ const k=clamp01((t-12.6)/1.5); fc.textContent=Math.round(k*10); }
+  // 402 flow pulse (scene 5: 19.6 -> 22.4 travels across rail)
+  const fp=document.getElementById('fpulse');
+  if(fp){ const k=clamp01((t-19.6)/2.8); fp.style.left=(k*100)+'%'; fp.style.opacity=(t>19.5&&t<22.7)?'1':'0'; }
+}
+
+// ---------- master seek ----------
+window.duration = TOTAL;
+window.seek = function(t){
+  const ms=Math.max(0,Math.min(t,TOTAL-1e-4))*1000;
+  for(const a of __anims) a.currentTime=ms;
+  frameImperative(Math.max(0,Math.min(t,TOTAL)));
+};
+window.__ready = (async()=>{ try{ await document.fonts.ready; }catch(e){} window.seek(0); return true; })();
+
+// ---------- live preview (open scene.html?preview in a browser) ----------
+if(location.search.includes('preview')){
+  let start=null;
+  function loop(ts){ if(start==null)start=ts; let t=((ts-start)/1000)%TOTAL; window.seek(t); requestAnimationFrame(loop); }
+  document.fonts.ready.then(()=>requestAnimationFrame(loop));
+}
+</script>
+</body>
+</html>

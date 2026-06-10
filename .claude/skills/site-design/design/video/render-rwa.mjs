@@ -1,0 +1,12 @@
+import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
+const require = createRequire('/Users/john/.cache/piprail-video-tools/');
+const { chromium } = require('playwright-core');
+const BIN = process.env.HOME + "/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing";
+const b = await chromium.launch({ executablePath: BIN, headless: true, args:['--force-color-profile=srgb'] });
+const p = await b.newPage({ viewport:{width:1080,height:1080}, deviceScaleFactor:2 });
+await p.goto(pathToFileURL('/Users/john/Sites/piprail/.claude/skills/site-design/design/video/card-rwa.html').href,{waitUntil:'load'});
+await p.evaluate(()=>document.fonts.ready).catch(()=>{});
+await p.waitForTimeout(350);
+await p.screenshot({ path:'/Users/john/Sites/piprail/.claude/skills/site-design/design/video/_rwa2160.png' });
+await b.close(); console.log('rendered');
