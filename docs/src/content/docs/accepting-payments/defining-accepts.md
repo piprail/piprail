@@ -63,8 +63,9 @@ requirePayment({
 ```
 
 The two forms are **mutually exclusive** — pass `accept[]` *or* top-level
-`chain`/`token`/`amount`, never both. Passing both, or neither in full, throws a clear `Error` at
-gate construction.
+`chain`/`token`/`amount`, never both. Passing both, or neither in full, throws a clear `Error` on
+the **first request** (the gate resolves lazily, not at construction time) — under `requirePayment`
+that error is forwarded to `next(err)`.
 
 ### Per-rail overrides and fallbacks
 

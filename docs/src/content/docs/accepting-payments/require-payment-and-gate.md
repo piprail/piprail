@@ -138,6 +138,7 @@ A throw inside `onPaid` is swallowed — a logging hook can never break the requ
 | `minConfirmations` | How many confirmations before a proof counts. Default `1`. |
 | `maxTimeoutSeconds` | How long a challenge stays valid, in seconds. Default `600`. |
 | `onPaid` | Callback after a payment verifies. |
+| `generateNonce` | Custom per-challenge nonce generator. Default `crypto.randomUUID()`. |
 | `isUsed` / `markUsed` | Pluggable replay store for multi-instance deploys. |
 | `exact` | Also accept the standard `exact` scheme (Mode A self-settle, or Mode B facilitator). |
 | `discovery` | Emit the discovery manifest so crawlers can find this endpoint. |

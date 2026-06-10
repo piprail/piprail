@@ -94,7 +94,7 @@ a receive prerequisite, and the message states the requirement plus the raw chai
 | NEAR | `storage_deposit` registration on the NEP-141 token (~0.00125 NEAR). |
 | Algorand | a one-time **ASA opt-in** for the issued token (e.g. USDC) — a 0-amount self-transfer. Native ALGO needs nothing. |
 
-Chains with no receive prerequisite (EVM, Solana, Sui, Aptos, Tron, native TON/NEAR/ALGO) never throw it.
+Chains with no receive prerequisite (EVM, Solana, Sui, Aptos, Tron, TON, and native NEAR/ALGO) never throw it.
 
 :::tip
 You don't have to discover either of these by failing. [`planPayment()`](/making-payments/plan-payment/)

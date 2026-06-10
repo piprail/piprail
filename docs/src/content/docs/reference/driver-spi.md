@@ -80,7 +80,7 @@ transient RPC read.
 | `supports(network)` | both | Does this bound network handle that CAIP-2 string? |
 | `resolveToken(token)` | both | Turn a `TokenInput` into a `ResolvedToken`. |
 | `describeAsset(asset)` | both | The SDK's *own* trusted decimals/symbol for a known asset, or `null`. Pure, no RPC. |
-| `assertValidPayTo(payTo)` | server | Throw if `payTo` is invalid for this family. |
+| `assertValidPayTo(payTo)` | both | Throw if `payTo` is invalid for this family. (A general family-validity check; called server-side today.) |
 | `bindWallet(wallet)` | payer | Validate + wrap the user's wallet into a `WalletHandle`. |
 | `send(wallet, accept)` | payer | Broadcast payment; resolve to the proof ref (tx hash / signature). |
 | `confirm(ref, minConfirmations)` | payer | Wait until `ref` reaches confirmations; resolve a `ConfirmInfo`. |
