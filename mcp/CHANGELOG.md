@@ -1,5 +1,14 @@
 # @piprail/mcp changelog
 
+## 0.3.1 — 2026-06-10 — docs consolidation: README points to docs.piprail.com
+
+Docs-only. No code, no tool, no behaviour change.
+
+- **`README.md` trimmed to a signpost** — the full MCP manual (per-client config, the complete env-var
+  reference, modes, per-chain setup, the tools reference) now lives at **[docs.piprail.com/mcp](https://docs.piprail.com/mcp/overview/)**,
+  the single source of truth. The README keeps the pitch, the one minimal config block, the 7-tool line,
+  the registry id, and a docs link table.
+
 ## 0.3.0 — 2026-06-10 — the trusted agent wallet (Mode A time envelope + Mode B ask-before-pay)
 
 Rebuilt against the SDK's trusted-wallet layer. All additive; the zero-config posture is byte-identical.

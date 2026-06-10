@@ -55,7 +55,7 @@ If a payer just sends a raw transfer to your wallet, you can't discover the pric
 |---|---|
 | Emit a discovery manifest, register on the open indexes, and find payable APIs — `emit` / `register` / `discover`, live | [`discovery/`](./discovery) |
 
-> Discovery is **$0 and backendless** — built on the open x402 indexes (402 Index, CDP Bazaar); PipRail hosts none of its own. `register()` lists your endpoint (no auth, any chain), `discover()` finds resources to pay, and the pure emitters turn your gate's config into the OpenAPI / `.well-known` / DNS artifacts crawlers read. See [`../sdk/DISCOVERY.md`](../sdk/DISCOVERY.md).
+> Discovery is **$0 and backendless** — built on the open x402 indexes (402 Index, CDP Bazaar); PipRail hosts none of its own. `register()` lists your endpoint (no auth, any chain), `discover()` finds resources to pay, and the pure emitters turn your gate's config into the OpenAPI / `.well-known` / DNS artifacts crawlers read. See [docs.piprail.com/discovery](https://docs.piprail.com/discovery/discover-and-register/).
 
 ## Prove it works — the adversarial test harnesses
 
@@ -82,7 +82,7 @@ no real keys; the live settlement tests use a local Anvil fork of Base with fake
 ## Start here
 
 - **New to PipRail?** Read [`CONCEPTS.md`](./CONCEPTS.md) — the 402 loop, who owns what, and which primitive to use when.
-- **Full SDK API:** [`../sdk/README.md`](../sdk/README.md) — every chain, custom tokens, policy controls, gas estimation.
-- **MCP setup:** [`../mcp/README.md`](../mcp/README.md) — per-client config, all chains, wallet formats.
+- **Full SDK API:** [docs.piprail.com](https://docs.piprail.com) — every chain, custom tokens, policy controls, gas estimation.
+- **MCP setup:** [docs.piprail.com/mcp](https://docs.piprail.com/mcp/overview/) — per-client config, all chains, wallet formats.
 
 Each example targets **Base + USDC** with a placeholder `payTo` — set your own wallet, then `npm install && npm start` in the folder.

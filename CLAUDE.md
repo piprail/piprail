@@ -159,9 +159,10 @@ piprail/
   LayerZero/USDT0 token rather than Tether-native); EURC where Circle issues it (Stellar +
   Ethereum/Base/Avalanche — all EIP-3009, so exact-payable); RLUSD on XRPL; **native
   coin is a valid payment asset on every family**. Any other token works by address. The
-  authoritative, always-current chain list (and the receive-prerequisite caveats) lives in
-  [`sdk/README.md`](sdk/README.md) and [`sdk/CHAINS.md`](sdk/CHAINS.md) — don't duplicate counts
-  here. Every token address is verified on-chain before shipping.
+  authoritative, always-current chain list (and the receive-prerequisite caveats) lives in the
+  code (`sdk/src/drivers/`) and the docs ([docs.piprail.com/chains](https://docs.piprail.com/chains/overview/));
+  `sdk/CHAINS.md` is now a stub pointing there — don't duplicate counts here. Every token address
+  is verified on-chain before shipping.
 - **Test wallets:** `.secrets/wallets/<family>-wallet.json` (gitignored, chmod 600), one per
   family, holding a payer + a recoverable `merchantAddress` as the test `payTo`; funded manually
   for live mainnet smoke tests with tiny amounts. The `.secrets/` directory is never committed.

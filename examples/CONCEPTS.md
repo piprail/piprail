@@ -123,6 +123,6 @@ else console.log(plan?.fundingHint) // "Top up 0.04 USDC on base" / "recipient m
 
 ## More
 
-- [SDK README](../sdk/README.md) — full API, every chain, wallet formats, custom tokens.
-- [ERRORS.md](../sdk/ERRORS.md) — every error code and how to handle it.
+- [docs.piprail.com](https://docs.piprail.com) — full API, every chain, wallet formats, custom tokens.
+- [Error model](https://docs.piprail.com/errors/error-model/) — every error code and how to handle it.
 - [examples/README.md](./README.md) — pick a framework and run it.

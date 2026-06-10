@@ -97,4 +97,4 @@ examples/sdk-sandbox/
 ## See also
 - [`../mcp-sandbox`](../mcp-sandbox) — the same rigor for the MCP server
 - [`../agent`](../agent) · [`../express`](../express) — minimal copy-paste apps
-- [SDK docs](../../sdk/README.md) · [ERRORS.md](../../sdk/ERRORS.md) · [STANDARDS.md](../../sdk/STANDARDS.md)
+- [Docs](https://docs.piprail.com) · [Error model](https://docs.piprail.com/errors/error-model/) · [STANDARDS.md](../../sdk/STANDARDS.md)

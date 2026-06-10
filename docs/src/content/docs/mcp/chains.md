@@ -79,9 +79,7 @@ one: the SDK has **no separate API-key field** — fold any key into the `PIPRAI
 
 For the recipient-readiness caveats, `piprail_plan_payment` reports `recipientReady` so the agent
 knows before it pays — see [planPayment()](/making-payments/plan-payment/). The full per-chain
-list lives in the SDK's
-[CHAINS.md](https://github.com/piprail/piprail/blob/main/sdk/CHAINS.md), and each family has its
-own page under [Chains](/chains/overview/).
+list lives under [Chains](/chains/overview/), where each family has its own page.
 
 ## Paying on multiple chains at once
 

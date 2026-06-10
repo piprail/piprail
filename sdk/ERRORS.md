@@ -1,11 +1,15 @@
-# PipRail error handling — the standard
+# PipRail error handling — the driver contract
 
-This is the **single source of truth** for how `@piprail/sdk` reports errors. It is
-deliberately small and uniform: every module — the client, the server gate, the registry,
-and every chain driver (all ten families: EVM, Solana, TON, Tron, NEAR, Sui, Stellar, XRPL, Aptos,
-Algorand, and any future one) — follows it
-*exactly*, so a human developer, a merchant server, or an AI agent always gets a **typed,
-understandable** reason, never an opaque chain-library blob.
+> ### 📖 The user-facing error model lives at → **[docs.piprail.com/errors](https://docs.piprail.com/errors/error-model/)**
+> If you're a *consumer* of the SDK — handling a `PipRailError`, reading a `VerifyErrorCode`, or
+> debugging why a payment failed — read the docs. They're the source of truth for the error model.
+
+This file is the **internal error & driver contract** — the normative rules every module (the
+client, the server gate, the registry) and **every chain driver** follows so the user-facing model
+above holds *by construction*. It's deliberately small and uniform: every family (EVM, Solana, TON,
+Tron, NEAR, Sui, Stellar, XRPL, Aptos, Algorand, and any future one) maps errors the same way, so a
+human, a merchant server, or an AI agent always gets a **typed, understandable** reason, never an
+opaque chain-library blob.
 
 > If you're adding a chain/family/token, the `add-chain-integration` skill points here.
 > Follow §5 (the driver contract) verbatim and your module is consistent by construction.

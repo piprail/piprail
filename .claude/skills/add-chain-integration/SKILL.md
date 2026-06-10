@@ -244,13 +244,15 @@ plus tests plus docs plus the site** — zero new driver code.
      key(s) to that array. This is intentional (it stops accidental drift) — update it.
    - Add a dedicated assertion for the new chain (chainId, USDC decimals/symbol, and any
      token you deliberately omitted asserted `toBeUndefined()`).
-5. **Docs:** add a row to the built-in chains table in `sdk/README.md` (and `sdk/CHAINS.md` if
-   the chain has setup caveats), and update its prose counts — e.g. the spelled-out
-   "all N families" phrasing only changes when a NEW FAMILY is added (an EVM preset doesn't
-   touch it). **Do NOT edit a count in `CLAUDE.md`** — it intentionally carries none
-   ("don't duplicate counts here") and defers to `sdk/README.md` + `sdk/CHAINS.md`. Add the
-   chain to CLAUDE.md's "Key facts" list only if it isn't already covered by "every major EVM
-   chain plus …".
+5. **Docs (docs.piprail.com is the source of truth):** add the chain to the built-in chains table
+   in **`docs/src/content/docs/chains/overview.md`** (EVM presets) and add a per-chain page
+   **`docs/src/content/docs/chains/<chain>.md`** if it has setup caveats (mirror an existing family
+   page). The `sdk/README.md` chain table was removed (it's a signpost now) — don't look for it
+   there; only update its family one-liner if a NEW FAMILY is added. `sdk/CHAINS.md` is a stub →
+   no edit. Bump the **count** where it genuinely lives: `sdk/package.json`'s `description`
+   ("across N chains"). **Do NOT edit a count in `CLAUDE.md`** — it intentionally carries none and
+   defers to the code + docs. Add the chain to CLAUDE.md's "Key facts" list only if it isn't
+   already covered by "every major EVM chain plus …".
 6. **Site (mandatory):** §6 — add the chain to the `chains` array, grab its SVG, bump the
    "chains built in" stat tile to the new grand total, and re-spell the EVM-only count in the
    `#chains` grid heading (and every echoed copy). Don't trust any number quoted here — read the
@@ -400,9 +402,10 @@ the only real design decision:
    the pay test injects a mock client to assert the built tx (memo binds to the nonce,
    right destination/asset/amount). **Lazy-load check** is a `dist/` grep after build (see
    the runbook), not a unit test.
-7. **Docs + Site:** README `chain` union + table (+ `CHAINS.md` for caveats); `CLAUDE.md` has
-   **no count to bump** (it defers to README/CHAINS.md) — add the chain to its "Key facts" list
-   only if not already covered; and the full site update (§6).
+7. **Docs + Site:** the `chain` union in code + the chains table in **`docs/.../chains/overview.md`**
+   (+ a per-chain `docs/.../chains/<chain>.md` for caveats); bump the count in `sdk/package.json`'s
+   `description`; `CLAUDE.md` has **no count to bump** (it defers to code + docs) — add the chain to
+   its "Key facts" list only if not already covered; and the full site update (§6).
 
 ### Two patterns the templates bake in (get these right)
 
@@ -455,7 +458,7 @@ npm run typecheck && npm run typecheck:test && npm test   # typecheck:test type-
 npm run build
 grep -nE "(from ?['\"]@scope/chain-sdk|require\(['\"]@scope/chain-sdk)" dist/index.js dist/index.cjs   # → NOTHING
 grep -rl "@scope/chain-sdk" dist/ | grep -vE "index\.(js|cjs|mjs)"   # → only the <family>-*.{js,cjs} chunk
-# 8. Docs: README chains table + custom-token example (CLAUDE.md has no count to bump).
+# 8. Docs: docs/.../chains/overview.md table (+ chains/<chain>.md if caveats) + count in sdk/package.json description (CLAUDE.md has no count to bump).
 # 9. Site (§6): SVG in the CORRECT order slot, chains array, stats count, grid heading.
 cd ../site && npm run build      # 0 errors
 ```
@@ -696,9 +699,9 @@ SDK
 - [ ] Full gate (sdk/STANDARDS.md §6): npm run typecheck ✓  npm run typecheck:test ✓  npm test ✓
       npm run build ✓ (lazy chunks intact via dist grep)
 
-Docs
-- [ ] sdk/README.md chains table / token coverage updated (+ sdk/CHAINS.md if the chain has caveats); re-spell any prose count (e.g. "all N families") only when a NEW FAMILY is added
-- [ ] CLAUDE.md: NO count to edit (it defers to README/CHAINS.md) — add the chain to the "Key facts" list only if not already covered
+Docs (docs.piprail.com = source of truth)
+- [ ] docs/src/content/docs/chains/overview.md table + token coverage updated (+ a docs/.../chains/<chain>.md page if the chain has caveats); the COUNT lives in sdk/package.json `description` ("across N chains") — bump it; re-spell any README prose count (e.g. "all N families") only when a NEW FAMILY is added (sdk/CHAINS.md is a stub — no edit)
+- [ ] CLAUDE.md: NO count to edit (it defers to code + docs) — add the chain to the "Key facts" list only if not already covered
 - [ ] (run the docs-sync skill to catch every surface a count/chain touches, incl. the separate piprail/.github org-profile repo)
 
 Site (NOT optional)

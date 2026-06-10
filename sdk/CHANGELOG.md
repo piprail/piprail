@@ -4,6 +4,15 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.15.1] — 2026-06-10 — docs consolidation: the README is now a signpost to docs.piprail.com
+
+Docs-only. No code, no API, no behaviour change — `dist` is byte-identical.
+
+### Changed
+- **`README.md` trimmed to a signpost.** The full manual now lives at **[docs.piprail.com](https://docs.piprail.com)**, the single source of truth. The README keeps a one-line pitch, install, two tiny examples, and a docs link table.
+- **Slimmer npm tarball.** `CHAINS.md`, `ERRORS.md`, `STANDARDS.md`, and `DISCOVERY.md` are no longer shipped in the package (`files`) — they duplicated the docs site (or are internal contributor contracts). The package now ships `dist` + `README.md` + `CHANGELOG.md` + `LICENSE`.
+- In-repo, `CHAINS.md` and `DISCOVERY.md` are reduced to pointers at the canonical docs; `ERRORS.md` is reframed as the internal driver error contract (the user-facing error model lives at [docs.piprail.com/errors](https://docs.piprail.com/errors/error-model/)).
+
 ## [1.15.0] — 2026-06-10 — the trusted agent wallet (budget-bound, time-boxed, asks-first)
 
 A minor, fully additive layer — defaults byte-identical, no new error code, protocol
@@ -691,6 +700,7 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[1.15.1]: https://www.npmjs.com/package/@piprail/sdk
 [1.15.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.14.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.13.1]: https://www.npmjs.com/package/@piprail/sdk

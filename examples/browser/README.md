@@ -45,4 +45,4 @@ await client.fetch('https://api.example.com/paid')   // 402 → MetaMask signs �
 
 Raw `{ privateKey }` wallets belong only in a **server's** environment. The merchant gate (`requirePayment` / `createPaymentGate`) needs only an address, so it's safe anywhere.
 
-See the [SDK README → "In the browser"](../../sdk/README.md) for the full story, and [`../CONCEPTS.md`](../CONCEPTS.md) for the 402 loop.
+See the [docs](https://docs.piprail.com/getting-started/installation/) for the full browser story, and [`../CONCEPTS.md`](../CONCEPTS.md) for the 402 loop.

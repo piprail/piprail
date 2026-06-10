@@ -28,4 +28,4 @@ npm run register   # list an endpoint you run on 402 Index (live, no auth, any c
 > **Safe by design.** `discover` is a pure read. `register` lists only endpoints that actually return
 > `402` (the index probes them), and the default `URL` is intentionally *not* a 402 endpoint, so running
 > it with no args demonstrates the graceful rejection rather than creating a listing. Nothing here spends
-> funds. Full reference: [`../../sdk/DISCOVERY.md`](../../sdk/DISCOVERY.md).
+> funds. Full reference: [docs.piprail.com/discovery](https://docs.piprail.com/discovery/discover-and-register/).

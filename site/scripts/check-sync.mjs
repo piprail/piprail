@@ -39,10 +39,11 @@ for (const file of AEO_FILES) {
 }
 
 // 2. The five MCP tool names must be present wherever the tool set is enumerated in prose
-//    (guards against a silent revert to the old three-tool wording). Note: sdk/README.md is
-//    intentionally excluded — it's now a brief signpost to docs.piprail.com (the source of
-//    truth), so it links to the agent-toolkit docs rather than enumerating the tool names.
-for (const file of [...AEO_FILES, 'mcp/README.md', 'README.md']) {
+//    (guards against a silent revert to the old three-tool wording). Note: sdk/README.md AND the
+//    root README.md are intentionally excluded — both are now brief signposts to docs.piprail.com
+//    (the source of truth), so they link onward rather than enumerating the tool names. The names
+//    stay guarded in mcp/README.md + llms.txt + llms-full.txt.
+for (const file of [...AEO_FILES, 'mcp/README.md']) {
   const txt = read(file)
   const missing = TOOLS.filter((t) => !txt.includes(t))
   check(`${file} · lists all 5 MCP tools`, missing.length === 0, `missing: ${missing.join(', ')}`)

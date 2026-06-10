@@ -1,6 +1,6 @@
 {
   "name": "@piprail/mcp",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "PipRail MCP server — hand any MCP client a budget-bound x402 payment wallet. Local-only, no backend, no custody; the spend policy is enforced before any on-chain send, so the model literally cannot overspend.",
   "type": "module",
   "bin": {
