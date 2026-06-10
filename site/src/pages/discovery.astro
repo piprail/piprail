@@ -5,7 +5,7 @@ import Footer from '../components/Footer.astro'
 import CodeWindow from '../components/CodeWindow.astro'
 import SectionHeading from '../components/SectionHeading.astro'
 import Breadcrumbs from '../components/Breadcrumbs.astro'
-import { discoverEmitCode, discoverRegisterCode, discoverFindCode } from '../data/snippets'
+import { discoverRegisterCode, discoverFindCode } from '../data/snippets'
 import {
   Search, Megaphone, Code2, Globe, ShieldCheck, Zap, ArrowRight, Sparkles, Plug, Bot, ChevronDown,
 } from 'lucide-astro'
@@ -34,13 +34,14 @@ const indexes = [
 ]
 
 // The centerpiece — exactly how it works, three opt-in moves.
+// Only the two clearest moves carry a code snippet (register + discover); the
+// emit step keeps its value prop, no snippet — full reference at docs.piprail.com.
 const moves = [
   {
     n: '01',
     tag: 'EMIT',
     icon: Code2,
     title: 'Turn your gate into a crawlable file',
-    code: discoverEmitCode,
     points: [
       'gate.describe() exposes your price, token, chain and payTo as static, nonce-free metadata.',
       'buildOpenApi / buildWellKnownX402 / buildX402DnsTxt are pure — no network, no chain library.',
@@ -149,8 +150,8 @@ const faqLd = {
         <a href="#how" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto">
           See exactly how <ArrowRight size={16} aria-hidden="true" />
         </a>
-        <a href="https://github.com/piprail/piprail/blob/main/sdk/DISCOVERY.md" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto">
-          Read DISCOVERY.md
+        <a href="https://docs.piprail.com/discovery/discover-and-register/" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto">
+          Read the docs
         </a>
       </div>
     </section>
@@ -209,14 +210,14 @@ const faqLd = {
     <section id="how" class="scroll-mt-20 border-t border-white/10 py-16 sm:py-20">
       <SectionHeading title="Exactly how it works — three opt-in moves.">
         Two moves to <span class="text-neutral-200">be found</span>, one to <span class="text-neutral-200">find</span>.
-        All opt-in; the pay path is byte-identical to before. Each is a couple of lines.
+        All opt-in, the pay path byte-identical to before — each a couple of lines.
       </SectionHeading>
       <div class="space-y-px overflow-hidden rounded-2xl border border-white/10 bg-white/10">
         {moves.map((m, i) => {
           const Icon = m.icon
           return (
-            <div class="grid items-center gap-8 bg-neutral-950 p-6 sm:p-8 lg:grid-cols-2 lg:gap-12">
-              <div class:list={[i % 2 === 1 && 'lg:order-2']}>
+            <div class:list={['grid items-center gap-8 bg-neutral-950 p-6 sm:p-8 lg:gap-12', m.code && 'lg:grid-cols-2']}>
+              <div class:list={[m.code && i % 2 === 1 && 'lg:order-2']}>
                 <div class="flex items-center gap-3">
                   <span class="flex h-9 w-9 items-center justify-center rounded-lg border border-accent/20 bg-accent/10 text-accent"><Icon size={16} aria-hidden="true" /></span>
                   <span class="font-mono text-sm text-neutral-500">{m.n}</span>
@@ -232,9 +233,11 @@ const faqLd = {
                   ))}
                 </ul>
               </div>
-              <div class:list={['min-w-0', i % 2 === 1 && 'lg:order-1']}>
-                <CodeWindow file={m.tag === 'DISCOVER' ? 'agent.ts' : 'server.ts'} code={m.code} />
-              </div>
+              {m.code && (
+                <div class:list={['min-w-0', i % 2 === 1 && 'lg:order-1']}>
+                  <CodeWindow file={m.tag === 'DISCOVER' ? 'agent.ts' : 'server.ts'} code={m.code} />
+                </div>
+              )}
             </div>
           )
         })}
@@ -396,7 +399,7 @@ const faqLd = {
         <a href="/sdk" class="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110">
           <Plug size={16} aria-hidden="true" /> Explore the SDK
         </a>
-        <a href="https://github.com/piprail/piprail/blob/main/sdk/DISCOVERY.md" class="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20">
+        <a href="https://docs.piprail.com/discovery/discover-and-register/" class="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20">
           Full reference
         </a>
       </div>

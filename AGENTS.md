@@ -41,7 +41,7 @@ site/       piprail.com — Astro 5 + Tailwind v4 (deploys to Netlify)
 - **Pay:** `new PipRailClient({ chain, wallet, policy? })` → `client.fetch(url)` auto-pays a 402; `quote(url)`, `estimateCost(url)`, **`planPayment(url)`** (affordability + recipient-readiness preflight → `PaymentPlan`; `canAfford(url)`; `fetch(url, { autoRoute: true })` pays the cheapest settleable rail), `spent()`. Module-level `planAcross(clients, url)` plans across chains.
 - **Schemes (pay side):** default pays only PipRail's `onchain-proof`. Opt in with `schemes: ['onchain-proof', 'exact']` (or per-call `fetch(url, { schemes })`) to also pay standard x402 `exact` rails — **EVM + EIP-3009 only** (USDC/EURC); ignored on non-EVM / USDT / native. Buyer signs, the server/facilitator broadcasts (buyer ~0 gas); `policy`/`onBeforePay` still gate it. Default `['onchain-proof']` keeps the zero-config path byte-identical. `@piprail/mcp`: `PIPRAIL_SCHEMES`.
 - **Discovery (opt-in, $0, nothing hosted):** `client.discover(opts?)` reads the OPEN indexes (CDP Bazaar + 402 Index, free) → `DiscoveredResource[]`; `client.register(url, opts?)` lists a resource on them (402 Index no-auth by default; x402scan SIWX optional) → `RegisterOutcome[]`. Emit static artifacts with `buildOpenApi` / `buildWellKnownX402` / `buildX402DnsTxt` (pure), fed by `gate.describe()`. We build on open infra and host nothing — never add our own registry/DB. Caveats: open indexes assume the `exact` scheme; x402scan is Base/Solana-only; no single ratified discovery standard yet.
-- **Agents:** `paymentTools(client)` → tool descriptors (`piprail_discover` · `piprail_quote_payment` · `piprail_plan_payment` · `piprail_pay_request` · `piprail_register`) whose `parameters` are **JSON Schema** (use the low-level MCP `Server`, not Zod-based `McpServer`). They pass through `@piprail/mcp` automatically.
+- **Agents:** `paymentTools(client)` → **seven** tool descriptors (`piprail_discover` · `piprail_quote_payment` · `piprail_plan_payment` · `piprail_pay_request` · `piprail_register` · `piprail_budget` · `piprail_guide`) whose `parameters` are **JSON Schema** (use the low-level MCP `Server`, not Zod-based `McpServer`). They pass through `@piprail/mcp` automatically.
 - Chains by name (`'base'`, `'bnb'`, `'solana'`, `'ton'`, …) or a viem `Chain` / `{ id, rpcUrl }`. Tokens: `'USDC'`, `'USDT'`, `'native'`, or custom by address/mint/issuer/contractId/coinType.
 
 Confirm any signature against `sdk/src/index.ts` before using it.
@@ -71,8 +71,9 @@ Confirm any signature against `sdk/src/index.ts` before using it.
 
 ## Key files
 
-- [`sdk/README.md`](sdk/README.md) — full API, all 29 chains, wallet formats, custom tokens.
-- [`sdk/DISCOVERY.md`](sdk/DISCOVERY.md) — the complete discovery reference (emit · register · discover; every fn, option, flow, caveat).
-- [`sdk/ERRORS.md`](sdk/ERRORS.md) — the error standard (thrown vs. returned codes).
+- **[docs.piprail.com](https://docs.piprail.com)** — the **source of truth** for all user-facing documentation (every function, chain, example, the MCP server, the error model). Built from the `docs/` Starlight workspace. The package READMEs are brief signposts that link here; don't re-expand them into full manuals.
+- [`sdk/src/index.ts`](sdk/src/index.ts) — the public API surface. **Confirm any signature here before using it.**
+- [`sdk/ERRORS.md`](sdk/ERRORS.md) — the error standard (thrown vs. returned codes) — a build contract.
 - [`sdk/STANDARDS.md`](sdk/STANDARDS.md) — how anything in the SDK is built + the verification gate.
+- [`docs/`](docs/) — the docs site (Astro Starlight). Behaviour changes → update the relevant docs page in the same PR (see the `docs-sync` skill).
 - [`examples/CONCEPTS.md`](examples/CONCEPTS.md) — the 402 loop, decision tree, replay model.

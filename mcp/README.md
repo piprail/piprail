@@ -10,20 +10,8 @@ npx -y @piprail/mcp        # speaks MCP over stdio
 
 Listed in the official **MCP registry** as [`io.github.piprail/mcp`](https://registry.modelcontextprotocol.io).
 
-It exposes five tools — three for paying, two for discovery:
-
-| Tool | What it does |
-| --- | --- |
-| `piprail_discover` | Find payable resources on the **open** x402 indexes (CDP Bazaar + 402 Index, free) — the phone book. No paying. |
-| `piprail_quote_payment` | Price a gated URL **without** paying. |
-| `piprail_plan_payment` | Check you *can* pay — balance, gas, recipient-readiness — across every rail, without paying. |
-| `piprail_pay_request` | Fetch a URL, paying the `402` automatically (within the budget). |
-| `piprail_register` | List a resource you run on the open indexes (402 Index, no signature) so other agents can find it. |
-
-Each tool is advertised with MCP **annotations** so your client can reason about it and show the right
-consent: `piprail_discover` / `piprail_quote_payment` / `piprail_plan_payment` are **read-only**,
-`piprail_pay_request` is flagged **value-moving** (the one tool that spends), and `piprail_register` is
-non-destructive. Hints only — the spend policy is the real boundary, enforced before any on-chain send.
+> ### 📖 Full documentation → **[docs.piprail.com/mcp](https://docs.piprail.com/mcp/overview/)**
+> This README is the quick start. Every client's config, the complete env-var reference, the modes, the per-chain setup, and the tools reference live in the docs. **The docs are the source of truth.**
 
 ---
 
@@ -31,13 +19,7 @@ non-destructive. Hints only — the spend policy is the real boundary, enforced 
 
 Add it to your MCP client with two things: your **wallet private key** and (optionally) a **budget**. The defaults are deliberately small and safe: **0.10 per payment, 10.00 lifetime per token, USDC on Base.**
 
-> **Never commit your key.** Put it in your client's `env` block, or export it and use `${env:…}` interpolation where the client supports it (Cursor, Claude Code, Windsurf, VS Code do; Claude Desktop does **not** — treat that config file as a secret).
-
-### Claude Desktop
-
-Settings → Developer → Edit Config, or edit directly:
-- **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
-- **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+Claude Desktop (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
 ```json
 {
@@ -57,205 +39,42 @@ Settings → Developer → Edit Config, or edit directly:
 }
 ```
 
-Restart Claude Desktop — the three `piprail_*` tools appear.
+Restart the client and the PipRail tools appear. Invocation is identical in every client — only the config-file path and the top-level key differ (VS Code uses `servers`, not `mcpServers`).
 
-### Cursor — `.cursor/mcp.json` (project) or `~/.cursor/mcp.json` (global)
+> **Never commit your key.** Put it in your client's `env` block, or use `${env:…}` interpolation where supported. Claude Desktop has no interpolation — treat that config file as a secret.
 
-```json
-{
-  "mcpServers": {
-    "piprail": {
-      "command": "npx",
-      "args": ["-y", "@piprail/mcp"],
-      "env": {
-        "PIPRAIL_PRIVATE_KEY": "${env:PIPRAIL_PRIVATE_KEY}",
-        "PIPRAIL_CHAIN": "base"
-      }
-    }
-  }
-}
-```
+→ [Client setup, per client](https://docs.piprail.com/mcp/client-setup/) ·
+[Full configuration reference](https://docs.piprail.com/mcp/configuration/)
 
-### Claude Code — `.mcp.json` (project) or `~/.claude/.mcp.json`
+## The 7 tools
 
-```json
-{
-  "mcpServers": {
-    "piprail": {
-      "command": "npx",
-      "args": ["-y", "@piprail/mcp"],
-      "env": { "PIPRAIL_PRIVATE_KEY": "${env:PIPRAIL_PRIVATE_KEY}", "PIPRAIL_CHAIN": "base" }
-    }
-  }
-}
-```
-
-### Windsurf — `~/.codeium/windsurf/mcp_config.json`
-
-```json
-{
-  "mcpServers": {
-    "piprail": {
-      "command": "npx",
-      "args": ["-y", "@piprail/mcp"],
-      "env": { "PIPRAIL_PRIVATE_KEY": "${env:PIPRAIL_PRIVATE_KEY}", "PIPRAIL_CHAIN": "base" }
-    }
-  }
-}
-```
-
-### VS Code (Copilot) — `.vscode/mcp.json` (note: top-level key is `servers`)
-
-```json
-{
-  "servers": {
-    "piprail": {
-      "command": "npx",
-      "args": ["-y", "@piprail/mcp"],
-      "env": { "PIPRAIL_PRIVATE_KEY": "${env:PIPRAIL_PRIVATE_KEY}", "PIPRAIL_CHAIN": "base" }
-    }
-  }
-}
-```
-
-### Cline — CLI-managed
-
-```bash
-export PIPRAIL_PRIVATE_KEY=0xYOUR_PRIVATE_KEY
-export PIPRAIL_CHAIN=base
-cline mcp add piprail npx -y @piprail/mcp
-```
-
----
-
-## Configuration
-
-All configuration is via environment variables — **never CLI arguments** (a key in `argv` leaks in process listings and shell history). Canonical names are `PIPRAIL_*`; the legacy aliases below are also accepted.
-
-| Variable | Alias | Required | Default | Meaning |
-| --- | --- | --- | --- | --- |
-| `PIPRAIL_PRIVATE_KEY` | `PIPRAIL_WALLET_KEY`, `AGENT_KEY` | **yes** | — | Wallet key/seed for the chosen chain (see *Wallet formats* below). |
-| `PIPRAIL_CHAIN` | `CHAIN` | no | `base` | Chain to pay on (any PipRail chain). |
-| `PIPRAIL_MAX_AMOUNT` | `MAX_AMOUNT` | no | `0.10` | Max spend **per payment** (token units). |
-| `PIPRAIL_MAX_TOTAL` | `MAX_TOTAL` | no | `10.00` | Lifetime cap **per token** (token units). |
-| `PIPRAIL_TOKENS` | `TOKENS` | no | `USDC` *(USDT on Tron/TON)* | Comma-separated allowed token symbols, plus `native` for the chain's coin. |
-| `PIPRAIL_SCHEMES` | — | no | `onchain-proof` | Comma-separated payment schemes to settle. Add `exact` (`onchain-proof,exact`) to ALSO pay standard x402 servers — EVM + EIP-3009 (USDC) only. Omit to keep PipRail's backendless rail only. |
-| `PIPRAIL_HOSTS` | `HOSTS` | no | (any) | Comma-separated host allowlist (`api.x.com`, `*.y.com`). |
-| `PIPRAIL_RPC_URL` | `RPC_URL` | no | chain default | Override the RPC endpoint. |
-| `PIPRAIL_ALLOW_UNKNOWN_TOKENS` | — | no | `false` | Pay tokens the SDK can't price? Keep `false`. |
-| `PIPRAIL_TTL` | — | no | (none) | **Session deadline in seconds.** Past it EVERY payment is refused (terminal — restart to reset). In-memory. |
-| `PIPRAIL_WINDOW_TOTAL` | — | no | (none) | Rolling rate-limit budget, per (network, asset). Set **with** `PIPRAIL_WINDOW_SECONDS` or neither. |
-| `PIPRAIL_WINDOW_SECONDS` | — | no | (none) | Rolling-window width in seconds for `PIPRAIL_WINDOW_TOTAL`. |
-| `PIPRAIL_CONFIRM` | — | no | `false` | **Mode B** — ask the human to approve each payment via elicitation (supervised clients). |
-| `PIPRAIL_CONFIRM_TIMEOUT_MS` | — | no | `55000` | Approval window (ms). Keep below your client's request timeout (≈60000). |
-| `PIPRAIL_GUIDE` | — | no | `true` | Expose the agent-guide prompt + the guide/budget resources. |
-| `PIPRAIL_NEAR_ACCOUNT_ID` | `NEAR_ACCOUNT_ID` | only on NEAR | — | Your NEAR account id (e.g. `you.near`). |
-
-### Two modes — autonomous vs supervised
-
-The wallet works the same way in both; only the source of consent differs.
-
-- **Mode A — headless (default).** The agent runs free *inside* the budget **and time** envelope you
-  set (`PIPRAIL_MAX_*` + `PIPRAIL_TTL`/`PIPRAIL_WINDOW_*`). The policy *is* the consent — there's no
-  per-payment prompt. The agent reads its remaining leash with the `piprail_budget` tool.
-- **Mode B — supervised (`PIPRAIL_CONFIRM=1`).** On a client that can elicit (Claude Desktop, Cursor),
-  the human is asked *"Approve paying 0.05 USDC to api.example.com on base?"* at the moment of spend.
-  Decline / cancel / timeout / a dropped transport **all fail-safe to NOT paying**, and a declined pay
-  is terminal — the agent must not auto-retry. The prompt never carries a secret. On a client that
-  can't elicit (a CLI), it silently degrades to Mode A. A declined pay surfaces to the model as
-  `{ declined:true, reasonCode:'APPROVAL' }`.
-
-### Tools (7) + the agent guide
-
-The server exposes **seven** tools: `piprail_discover`, `piprail_quote_payment`, `piprail_plan_payment`,
-`piprail_pay_request`, `piprail_register`, plus two read-only additions — **`piprail_budget`** (the
-remaining money + time leash) and **`piprail_guide`** (the agent contract). Every result is also emitted
-as `structuredContent`. With `PIPRAIL_GUIDE` on (default), the contract is also an MCP prompt
-(`piprail_agent_guide`) and a `piprail://guide` resource, alongside a live `piprail://budget` resource.
-
-### Wallet formats
-
-`PIPRAIL_PRIVATE_KEY` holds your secret in the chosen chain's native form — the server maps it to the right shape automatically:
-
-| Chain(s) | Format |
+| Tool | What it does |
 | --- | --- |
-| EVM (base, ethereum, …), Tron | private key — `0x…` 32-byte hex |
-| Sui | private key — `suiprivkey1…` (bech32) |
-| Aptos | private key — `ed25519-priv-0x…` (AIP-80) or raw `0x…` hex |
-| Solana | secret key — base58 |
-| TON | mnemonic — 24 words, space-separated |
-| Algorand | mnemonic — 25 words, space-separated |
-| Stellar | secret seed — `S…` |
-| XRPL | seed — `s…` |
-| NEAR | private key — `ed25519:…` **+** `PIPRAIL_NEAR_ACCOUNT_ID` |
+| `piprail_discover` | Find payable resources on the **open** x402 indexes — without paying. |
+| `piprail_quote_payment` | Price a gated URL **without** paying. |
+| `piprail_plan_payment` | Check it *can* pay — balance, gas, recipient-readiness — across every rail. |
+| `piprail_pay_request` | Fetch a URL and pay the `402` automatically, within the budget. **The one value-moving tool.** |
+| `piprail_register` | List a resource you run on the open indexes so other agents find it. |
+| `piprail_budget` | Read remaining budget + time leash + spend-so-far. |
+| `piprail_guide` | Read the agent contract — the quote → plan → pay loop and the never-re-pay rule. |
 
----
+Only `piprail_pay_request` ever moves money; every other tool is read-only, and each is advertised with MCP annotations so your client can show the right consent. The spend policy — not the annotations — is the real boundary.
 
-## Chains
+→ [Tools reference](https://docs.piprail.com/mcp/tools/)
 
-**EVM chains work out of the box** — `npx -y @piprail/mcp` ships with `viem`, so `base`, `ethereum`, `arbitrum`, `polygon`, `bnb`, and every other EVM preset just run.
+## Two modes
 
-**Non-EVM chains** (Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, XRPL) need their SDK peer library available — the SDK keeps them as optional lazy peers so EVM installs stay lean. Install the matching peer alongside the server, e.g. for Solana:
+- **Mode A — headless (default).** The agent runs free *inside* the budget and time envelope. The policy **is** the consent — no per-payment prompt; over-budget requests are refused before any on-chain send.
+- **Mode B — supervised (`PIPRAIL_CONFIRM=1`).** The human approves each payment at the moment of spend (on clients that support elicitation). Any decline/cancel/timeout fail-safes to **not** paying. Mode B sits on top of the policy — it never replaces it.
 
-```bash
-npx -y -p @piprail/mcp -p @solana/web3.js -p @solana/spl-token -p bs58 piprail-mcp
-```
-
-(The per-family peers are listed in [`@piprail/sdk`'s `peerDependencies`](https://www.npmjs.com/package/@piprail/sdk).)
-
-### The default token is chain-aware
-
-`PIPRAIL_TOKENS` defaults to the canonical stablecoin that actually **exists** on the chain: **USDC** everywhere, but **USDT** on **Tron** and **TON** (native USDC doesn't exist there, so a USDC-only policy would silently block every payment). Override it anytime, e.g. `PIPRAIL_TOKENS=USDC,native` to also allow the chain's coin. The allowlist takes token **symbols** (`USDC`, `USDT`, `EURC`, …) plus the chain-agnostic alias **`native`** — the same word the accept side uses (`token: 'native'`) — which allows the chain's own coin (ETH on Base, TRX on Tron, XLM on Stellar, …) without naming the ticker. (Its real ticker works too.)
-
-### Per-chain caveats
-
-The server prints a `⚠ notes:` block on startup where these apply. The full per-chain list lives in the SDK's [CHAINS.md](https://github.com/piprail/piprail/blob/main/sdk/CHAINS.md).
-
-- **API keys go in the RPC URL.** The SDK has **no separate API-key field** — fold any key into `PIPRAIL_RPC_URL`.
-- **TON** — a keyed RPC is **effectively required**: the keyless public endpoint is rate-limited (~1 req/s) and stalls verification. Use `PIPRAIL_RPC_URL=https://toncenter.com/api/v2/jsonRPC?api_key=YOUR_KEY`. Pays **USDT**; wallet key is the 24-word mnemonic.
-- **Tron** — the default public RPC (TronGrid) is rate-limited. For production point `PIPRAIL_RPC_URL` at a higher-limit endpoint; note the SDK passes it as the node URL and has no header field, so use a provider that accepts a URL-embedded key (or your own node) rather than a header-only TronGrid key. Gas is **real TRX** (a USDT transfer burns Energy), so the wallet needs **TRX as well as USDT** — `piprail_plan_payment` budgets both. Pays **USDT**; wallet key is a 32-byte hex private key (like EVM).
-- **NEAR** — set `PIPRAIL_NEAR_ACCOUNT_ID` (your `you.near`); the key is the `ed25519:…` secret.
-- **Stellar / XRPL / Algorand** — receiving needs a one-time trustline/opt-in on the *recipient* side; `piprail_plan_payment` reports `recipientReady` so the agent knows before it pays.
-
-### Paying on multiple chains at once
-
-Each server instance is **one wallet on one chain.** To give an agent several rails, register the server once per chain — each MCP entry is namespaced, so the agent gets all of them:
-
-```json
-{
-  "mcpServers": {
-    "piprail-base": {
-      "command": "npx", "args": ["-y", "@piprail/mcp"],
-      "env": { "PIPRAIL_PRIVATE_KEY": "0xYOUR_EVM_KEY", "PIPRAIL_CHAIN": "base" }
-    },
-    "piprail-solana": {
-      "command": "npx", "args": ["-y", "@piprail/mcp"],
-      "env": { "PIPRAIL_PRIVATE_KEY": "<solana-secret-base58>", "PIPRAIL_CHAIN": "solana" }
-    },
-    "piprail-tron": {
-      "command": "npx", "args": ["-y", "@piprail/mcp"],
-      "env": {
-        "PIPRAIL_PRIVATE_KEY": "<tron-hex-key>",
-        "PIPRAIL_CHAIN": "tron",
-        "PIPRAIL_TOKENS": "USDT",
-        "PIPRAIL_RPC_URL": "https://api.trongrid.io"
-      }
-    }
-  }
-}
-```
-
-(On Tron, `PIPRAIL_TOKENS=USDT` is the default anyway — shown for clarity; swap the TronGrid URL for your own higher-limit endpoint in production, and keep TRX in the wallet for gas.)
-
----
+→ [Modes](https://docs.piprail.com/mcp/modes/)
 
 ## Why it's safe
 
-- **The spend policy is the boundary.** `PIPRAIL_MAX_AMOUNT` / `PIPRAIL_MAX_TOTAL` / `PIPRAIL_TOKENS` / `PIPRAIL_HOSTS` are enforced by the SDK **before any on-chain send** — an over-budget request comes back as `{ declined: true, reason }` and **nothing moves**. The model cannot overspend even if it tries.
-- **No custody, no backend.** This server runs locally with your key; funds settle wallet-to-wallet against your own RPC. PipRail runs no service and holds nothing.
-- **Caps are checked against the token's true decimals**, so a malicious server can't slip past a limit by understating a price.
+- The spend policy (`PIPRAIL_MAX_AMOUNT` / `PIPRAIL_MAX_TOTAL` / `PIPRAIL_TOKENS` / `PIPRAIL_HOSTS`) is enforced **before any on-chain send**, against the token's **true** decimals — a server can't slip past a cap by understating a price.
+- No custody, no backend — your key stays local; funds settle wallet-to-wallet against your own RPC.
 
----
+→ [Security](https://docs.piprail.com/mcp/security/) · [Chains & per-chain setup](https://docs.piprail.com/mcp/chains/)
 
 ## Use it as a library
 
@@ -267,10 +86,10 @@ const { server } = createMcpServer(configToClientOptions(config))
 // connect your own transport…
 ```
 
----
+→ [Use as a library](https://docs.piprail.com/mcp/use-as-a-library/)
 
 ## Links
 
-[PipRail](https://piprail.com) · [`@piprail/sdk`](https://www.npmjs.com/package/@piprail/sdk) · [SDK docs](https://github.com/piprail/piprail/blob/main/sdk/README.md) · [x402](https://x402.org) · [Model Context Protocol](https://modelcontextprotocol.io)
+[Docs](https://docs.piprail.com/mcp/overview/) · [PipRail](https://piprail.com) · [`@piprail/sdk`](https://www.npmjs.com/package/@piprail/sdk) · [x402](https://x402.org) · [Model Context Protocol](https://modelcontextprotocol.io)
 
 MIT · no backend, no fee, ever.

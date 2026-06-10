@@ -1,0 +1,136 @@
+---
+title: PipRail
+description: The universal payment rail for AI agents. Let any API, dataset, model, or agent charge for itself — and any agent pay for itself — across every major chain, in a couple of lines. No backend, no fee, settled straight to your wallet.
+template: splash
+hero:
+  tagline: The universal payment rail for the agent economy. Any API, dataset, model, or agent can charge for itself — and any agent can pay for itself — across every major chain, in a couple of lines. No backend. No fee. Settled straight to your wallet.
+  image:
+    file: ../../assets/logo.png
+  actions:
+    - text: Get started
+      link: /getting-started/introduction/
+      icon: right-arrow
+      variant: primary
+    - text: Quickstart in 5 min
+      link: /getting-started/quickstart/
+      icon: rocket
+      variant: secondary
+    - text: View on GitHub
+      link: https://github.com/piprail/piprail
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+## Monetize anything. Pay for anything.
+
+PipRail is the open payment layer for autonomous software. It turns the long-dormant HTTP **402
+Payment Required** status into a real, universal rail: an agent can spin something up and **charge
+for it in one line**, and another agent can **pay for it on its own** — no platform to ask, no
+middleman to pay, no account to create. Just `npm install`, name a chain, add a wallet.
+
+<CardGrid>
+  <Card title="Monetize anything" icon="rocket">
+    Wrap any route, API, dataset, or model and it charges per call — paid straight to your wallet.
+    An agent can build something and start earning the same minute, with **no fee and no backend**.
+  </Card>
+  <Card title="Agents that pay their own way" icon="random">
+    Hand an LLM a **budget-bound wallet** and it discovers, quotes, plans, and pays x402 URLs
+    autonomously — capped by a spend policy it cannot exceed. The agent economy needs money that
+    moves at machine speed; this is it.
+  </Card>
+  <Card title="Machine-to-machine marketplaces" icon="puzzle">
+    Agents find each other's paid services on the open indexes, price them, and settle
+    peer-to-peer. A universal adapter across **every major chain** — one `chain:` parameter picks
+    the rail.
+  </Card>
+  <Card title="Programmable money, self-custodial" icon="approve-check">
+    Every payment is a real on-chain transfer, verified locally against your own RPC. No custody,
+    no hosted facilitator, no toll booth — **the rail is open and free**, the way the agent economy
+    should run.
+  </Card>
+</CardGrid>
+
+## Take a payment — one line
+
+```ts
+import express from 'express'
+import { requirePayment } from '@piprail/sdk'
+
+const app = express()
+
+// This route now costs 0.10 USDC on Base — paid straight to your wallet.
+app.get(
+  '/report',
+  requirePayment({ chain: 'base', token: 'USDC', amount: '0.10', payTo: '0xYourWallet' }),
+  (req, res) => res.json({ report: 'the goods' }),
+)
+
+app.listen(3000)
+```
+
+The first request gets a `402` with payment instructions; once the caller pays on-chain, the
+request goes through. You didn't paste a token address, run a server, deploy a contract, or sign
+up for anything.
+
+→ [Accepting payments](/accepting-payments/require-payment-and-gate/)
+
+## Pay a payment — wrap `fetch`
+
+```ts
+import { PipRailClient } from '@piprail/sdk'
+
+const client = new PipRailClient({
+  chain: 'base',
+  wallet: { privateKey: process.env.AGENT_KEY },
+})
+
+// Identical to fetch — but if the URL answers 402, it pays and retries automatically.
+const res = await client.fetch('https://api.example.com/report')
+const data = await res.json()
+// → the unlocked response body, exactly as the resource served it
+```
+
+→ [Making payments](/making-payments/piprail-client/)
+
+## One rail, every chain
+
+Every major EVM chain plus **Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP
+Ledger** — one `chain` parameter picks everything. USDC almost everywhere, USDT on most, the native
+coin on every family, and any other token by address. No allowlist: pass any EVM chain by
+`{ id, rpcUrl }`.
+
+```ts
+requirePayment({ chain: 'base',   token: 'USDC', amount: '0.10', payTo }) // USDC on Base
+requirePayment({ chain: 'solana', token: 'USDC', amount: '0.10', payTo }) // USDC on Solana
+requirePayment({ chain: 'tron',   token: 'USDT', amount: '1',    payTo }) // USD₮ on Tron
+```
+
+→ [Browse every chain](/chains/overview/)
+
+## Two packages, no server
+
+<CardGrid>
+  <Card title="@piprail/sdk" icon="seti:typescript">
+    The TypeScript SDK — `requirePayment` to charge, `PipRailClient` to pay. Runs headless or in
+    the browser. Spend budgets, gas estimates, `planPayment`, and discovery built in.
+
+    [Read the SDK docs →](/getting-started/introduction/)
+  </Card>
+  <Card title="@piprail/mcp" icon="puzzle">
+    A Model Context Protocol server that hands Claude, Cursor, or any MCP agent a budget-bound
+    wallet — add one `env` block and it pays x402 URLs on its own, within caps it can't exceed.
+
+    [Set up the MCP server →](/mcp/overview/)
+  </Card>
+</CardGrid>
+
+## Start here
+
+<CardGrid>
+  <LinkCard title="Introduction" href="/getting-started/introduction/" description="What PipRail is, and the one idea that makes it work." />
+  <LinkCard title="Quickstart" href="/getting-started/quickstart/" description="Gate a route and pay a 402 end-to-end in five minutes." />
+  <LinkCard title="How it works" href="/getting-started/how-it-works/" description="The 402 round-trip and merchant-local verification — no facilitator." />
+  <LinkCard title="Built for agents" href="/agent-toolkit/payment-tools/" description="Hand an LLM a wallet it can spend, safely." />
+</CardGrid>

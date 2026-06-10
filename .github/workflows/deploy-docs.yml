@@ -1,0 +1,58 @@
+name: deploy-docs
+
+# Builds the docs/ workspace (Astro Starlight) and deploys it to GitHub Pages at
+# docs.piprail.com. Inert until GitHub Pages is enabled on this repo (Settings →
+# Pages → Source = GitHub Actions) and the custom domain + DNS are set up — see
+# .claude/plans/docs-site/05-implementation-checklist.md. The marketing site
+# (piprail.com) is unaffected: it deploys separately via Netlify (see site.yml).
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/deploy-docs.yml'
+  workflow_dispatch:
+
+# Least-privilege tokens the Pages deploy needs.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One in-flight Pages deploy at a time; let a newer push cancel an older run.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: build docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      # Install at the workspace root (the lockfile + workspaces live here), then
+      # build only the docs workspace. Astro writes static output to docs/dist.
+      - run: npm ci
+      - run: npm run build -w @piprail/docs
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: docs/dist
+
+  deploy:
+    name: deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

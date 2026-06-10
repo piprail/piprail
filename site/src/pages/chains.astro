@@ -43,7 +43,7 @@ const faqs = [
   },
   {
     q: `Do any chains need extra setup before they work?`,
-    a: `Most don't — on EVM, Solana, Sui, and Aptos you install, add a wallet, and pay or get paid with no extra steps, in the native coin or a stablecoin. A few have one-time caveats. On Algorand, native ALGO is the zero-setup path, while receiving USDC needs a one-time ASA opt-in on the recipient. TON ships USD₮ (no native USDC) and needs an API-keyed RPC — one parameter, rpcUrl with a free toncenter key in the URL. Tron pays in USD₮ or native TRX, and gas is real TRX. On NEAR, native NEAR is zero-setup while a NEP-141 token like USDC needs a one-time storage_deposit on the recipient. Stellar and the XRP Ledger require the recipient to hold a one-time trustline and to be an activated, reserve-funded account; native XLM/XRP need no trustline. Native coin is a valid payment asset on every chain. Full per-chain setup and wallet formats are in CHAINS.md.`,
+    a: `Most don't — on EVM, Solana, Sui, and Aptos you install, add a wallet, and pay or get paid with no extra steps, in the native coin or a stablecoin. A few have one-time caveats. On Algorand, native ALGO is the zero-setup path, while receiving USDC needs a one-time ASA opt-in on the recipient. TON ships USD₮ (no native USDC) and needs an API-keyed RPC — one parameter, rpcUrl with a free toncenter key in the URL. Tron pays in USD₮ or native TRX, and gas is real TRX. On NEAR, native NEAR is zero-setup while a NEP-141 token like USDC needs a one-time storage_deposit on the recipient. Stellar and the XRP Ledger require the recipient to hold a one-time trustline and to be an activated, reserve-funded account; native XLM/XRP need no trustline. Native coin is a valid payment asset on every chain. Full per-chain setup and wallet formats are in the documentation at docs.piprail.com.`,
   },
   {
     q: `Can I use a chain PipRail doesn't ship a preset for?`,
@@ -78,17 +78,17 @@ const faqLd = {
         Every chain that <span class="text-accent">matters</span>, one line.
       </h1>
       <p class="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-neutral-400 sm:text-lg">
-        PipRail accepts and makes x402 payments on <span class="text-neutral-200">{evmCount} EVM mainnets</span> plus
-        Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger — <span class="text-neutral-200">{total} chains</span> in all.
-        USDC almost everywhere, USDT on most, the native coin on every one, any other token by address.
-        Switch by changing a single string.
+        Pay and get paid across <span class="text-neutral-200">{evmCount} EVM mainnets</span> plus
+        Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger — <span class="text-neutral-200">{total} chains</span>, one parameter.
+        USDC almost everywhere, USDT on most, the native coin everywhere, any other token by address.
+        Switch chains by changing a single string.
       </p>
       <div class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
         <a href="/sdk" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto">
           How to accept on any chain <ArrowRight size={16} aria-hidden="true" />
         </a>
-        <a href="https://github.com/piprail/piprail/blob/main/sdk/CHAINS.md" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto">
-          CHAINS.md — per-chain reference
+        <a href="https://docs.piprail.com/chains/overview/" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto">
+          Per-chain reference
         </a>
       </div>
     </section>
@@ -136,9 +136,9 @@ const faqLd = {
     <!-- Any other chain -->
     <section class="border-t border-white/10 py-16 sm:py-20">
       <SectionHeading title="Not on the list? Still works.">
-        Built-in presets are a convenience, not an allowlist. Any other EVM chain works by passing
-        a <code class="text-neutral-300">{'{ id, rpcUrl }'}</code> and the token by address; the non-EVM families
-        auto-mount the moment you name one.
+        No allowlist, ever. Any other EVM chain drops in with a
+        <code class="text-neutral-300">{'{ id, rpcUrl }'}</code> and the token by address — and the non-EVM
+        families auto-mount the instant you name one.
       </SectionHeading>
       <div class="grid gap-6 lg:grid-cols-2">
         <div class="min-w-0">
@@ -155,8 +155,8 @@ const faqLd = {
     <!-- Per-chain setup -->
     <section class="border-t border-white/10 py-16 sm:py-20">
       <SectionHeading title="One-time setup, where it applies.">
-        Most chains need nothing beyond a wallet — pay in the native coin or a stablecoin, anywhere.
-        These are the only chains with a one-time, recipient-side step. The native coin is always zero-setup.
+        Most chains need nothing but a wallet — pay in the native coin or a stablecoin, done.
+        Only these few have a one-time, recipient-side step, and the native coin is always zero-setup.
       </SectionHeading>
       <ul class="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10">
         {withSetup.map((c) => (
@@ -171,7 +171,7 @@ const faqLd = {
       </ul>
       <p class="mt-6 text-sm leading-relaxed text-neutral-500">
         Full per-chain setup, wallet formats, and proof-binding notes:
-        <a href="https://github.com/piprail/piprail/blob/main/sdk/CHAINS.md" class="text-accent underline-offset-4 hover:underline">CHAINS.md →</a>
+        <a href="https://docs.piprail.com/chains/overview/" class="text-accent underline-offset-4 hover:underline">the chains docs →</a>
       </p>
     </section>
 

@@ -24,10 +24,11 @@ const linkCls = (p: string) =>
 // mobile overlay, so the two can never drift. `mobileOnly` keeps the desktop bar
 // uncrowded (Partners lives in the overlay + footer, not the inline bar).
 const navLinks = [
+  { href: 'https://docs.piprail.com', label: 'Docs' },
   { href: '/sdk', label: 'SDK' },
   { href: '/mcp', label: 'MCP' },
-  { href: '/discovery', label: 'Discovery' },
   { href: '/chains', label: 'Chains' },
+  { href: '/discovery', label: 'Discovery', mobileOnly: true },
   { href: '/partners', label: 'Partners', mobileOnly: true },
   { href: 'https://github.com/piprail/piprail', label: 'GitHub' },
 ]

@@ -8,9 +8,7 @@ import SectionHeading from '../components/SectionHeading.astro'
 import FeatureGrid from '../components/FeatureGrid.astro'
 import { chains } from '../data/chains'
 import { glossary } from '../data/glossary'
-import {
-  acceptCode, gateCode, payCode, oneParamCode, multiAcceptCode, agentSafeCode, planCode,
-} from '../data/snippets'
+import { gateCode, payCode } from '../data/snippets'
 import { Zap, Coins, ShieldCheck, PackageCheck, ArrowRight, ChevronDown, Check, Code2 } from 'lucide-astro'
 
 const total = chains.length
@@ -148,8 +146,8 @@ const glossaryLd = {
           <span class="select-none text-neutral-600">$</span>
           <span class="truncate">npm install @piprail/sdk viem</span>
         </div>
-        <a href="https://github.com/piprail/piprail/blob/main/sdk/README.md" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto">
-          Full API docs <ArrowRight size={16} aria-hidden="true" />
+        <a href="https://docs.piprail.com" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto">
+          Read the docs <ArrowRight size={16} aria-hidden="true" />
         </a>
       </div>
     </section>
@@ -157,19 +155,16 @@ const glossaryLd = {
     <!-- Accept -->
     <section class="border-t border-white/10 py-16 sm:py-20">
       <SectionHeading title="Accept — charge for any endpoint.">
-        <code class="text-neutral-300">requirePayment</code> is the Express one-liner;
-        <code class="text-neutral-300">createPaymentGate</code> is the framework-agnostic core for everything
-        else (Next.js, Hono, Fastify, Cloudflare Workers, Bun, Deno). Build a gate, switch on <code class="text-neutral-300">verify()</code>.
+        Build a gate, switch on <code class="text-neutral-300">verify()</code>. <code class="text-neutral-300">createPaymentGate</code>
+        is the framework-agnostic core (Next.js, Hono, Fastify, Workers, Bun, Deno); Express gets the
+        <code class="text-neutral-300">requirePayment</code> one-liner.
       </SectionHeading>
-      <div class="grid gap-6 lg:grid-cols-2">
-        <div class="min-w-0">
-          <p class="mb-3 text-xs font-medium uppercase tracking-wider text-muted">Express — one middleware</p>
-          <CodeWindow file="server.ts" code={acceptCode} />
-        </div>
-        <div class="min-w-0">
-          <p class="mb-3 text-xs font-medium uppercase tracking-wider text-muted">Everything else — the gate</p>
-          <CodeWindow file="route.ts" code={gateCode} />
-        </div>
+      <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-center">
+        <CodeWindow file="route.ts" code={gateCode} class="min-w-0" />
+        <p class="text-base leading-relaxed text-neutral-400">
+          Three outcomes, three responses — no backend, no database, verified locally against your own RPC.
+          <a href="https://docs.piprail.com" class="text-accent underline-offset-4 hover:underline">Read the docs →</a>
+        </p>
       </div>
       <div class="mt-6 overflow-hidden rounded-2xl border border-white/10">
         <div class="grid grid-cols-[auto_1fr] gap-px bg-white/10 text-sm">
@@ -189,8 +184,7 @@ const glossaryLd = {
     <section class="border-t border-white/10 py-16 sm:py-20">
       <SectionHeading title="Pay — let an agent pay for itself.">
         Wrap the agent's calls with <code class="text-neutral-300">PipRailClient</code>. On a 402 it reads the
-        challenge, pays on-chain, waits for confirmation, and retries with proof — you just get the 200 back.
-        Runs anywhere JavaScript does: Node, edge, or the browser.
+        challenge, pays on-chain, retries with proof — you just get the 200 back. Node, edge, or browser.
       </SectionHeading>
       <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-center">
         <CodeWindow file="agent.ts" code={payCode} class="min-w-0" />
@@ -206,48 +200,35 @@ const glossaryLd = {
     <!-- One word picks the chain -->
     <section class="border-t border-white/10 py-16 sm:py-20">
       <SectionHeading title="One word picks the chain.">
-        Switch networks by changing a single string — from Ethereum to Solana to TON. Same line, same wallet.
-        Or offer several at once and let the agent pay with whatever it holds.
+        Change a single string — Ethereum, Solana, TON — and you've switched networks. Same line, same wallet.
+        Or offer several rails in one challenge (one nonce, no per-chain routes) and let the agent pay with whatever it holds.
       </SectionHeading>
-      <div class="grid gap-6 lg:grid-cols-2">
-        <div class="min-w-0">
-          <p class="mb-3 text-xs font-medium uppercase tracking-wider text-muted">Name the chain</p>
-          <CodeWindow code={oneParamCode} />
-          <p class="mt-3 text-sm text-neutral-500">
-            <a href="/chains" class="text-accent underline-offset-4 hover:underline">Every supported chain →</a>
-          </p>
-        </div>
-        <div class="min-w-0">
-          <p class="mb-3 text-xs font-medium uppercase tracking-wider text-muted">Or take several in one challenge</p>
-          <CodeWindow code={multiAcceptCode} />
-          <p class="mt-3 text-sm leading-relaxed text-neutral-500">One nonce, several rails — no per-chain routes to wire up.</p>
-        </div>
+      <div class="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
+        <a href="/chains" class="text-accent underline-offset-4 hover:underline">Every supported chain →</a>
+        <a href="https://docs.piprail.com/chains/overview/" class="text-accent underline-offset-4 hover:underline">Read the docs →</a>
       </div>
     </section>
 
     <!-- Agent-safe -->
     <section class="border-t border-white/10 py-16 sm:py-20">
       <SectionHeading title="Agent-safe by default.">
-        Hand an autonomous agent a wallet without losing sleep. Set a budget, and PipRail refuses anything
+        Hand an autonomous agent a wallet without losing sleep. Set a budget and PipRail refuses anything
         outside it <span class="text-neutral-200">before a single token moves</span> — the safety lives in code, not a prompt.
       </SectionHeading>
-      <div class="grid gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:items-center">
-        <CodeWindow file="agent.ts" code={agentSafeCode} class="min-w-0" />
-        <FeatureGrid items={agentGuards} />
-      </div>
+      <FeatureGrid items={agentGuards} />
+      <p class="mt-6 text-sm text-neutral-500">
+        <a href="https://docs.piprail.com" class="text-accent underline-offset-4 hover:underline">Read the docs →</a>
+      </p>
     </section>
 
     <!-- Plan before you pay -->
     <section class="border-t border-white/10 py-16 sm:py-20">
       <SectionHeading title="Plan before you pay.">
         One read-only call checks a 402 against your own wallet — balance, native gas, and whether the
-        recipient can receive — and tells you the rail to use, or exactly what to top up. Then
+        recipient can receive — then tells you the rail to use, or exactly what to top up. Then
         <span class="text-accent">one line</span> pays it.
       </SectionHeading>
-      <div class="grid gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:items-center">
-        <CodeWindow file="agent.ts" code={planCode} class="min-w-0" />
-        <FeatureGrid items={planChecks} />
-      </div>
+      <FeatureGrid items={planChecks} />
       <p class="mx-auto mt-8 max-w-3xl text-center text-sm text-neutral-400">
         <code class="text-neutral-200">quote()</code> tells you the price,
         <code class="text-neutral-200">estimateCost()</code> the gas, and
@@ -325,9 +306,9 @@ const glossaryLd = {
       </div>
       <div class="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { t: 'README — full API', h: 'https://github.com/piprail/piprail/blob/main/sdk/README.md' },
-          { t: 'CHAINS.md — per chain', h: 'https://github.com/piprail/piprail/blob/main/sdk/CHAINS.md' },
-          { t: 'ERRORS.md — error model', h: 'https://github.com/piprail/piprail/blob/main/sdk/ERRORS.md' },
+          { t: 'Full documentation', h: 'https://docs.piprail.com' },
+          { t: 'Chains — per chain', h: 'https://docs.piprail.com/chains/overview/' },
+          { t: 'Error model', h: 'https://docs.piprail.com/errors/error-model/' },
           { t: 'Examples — runnable', h: 'https://github.com/piprail/piprail/tree/main/examples' },
         ].map((d) => (
           <a href={d.h} class="flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/2.5 px-4 py-3.5 text-sm font-medium text-neutral-200 transition hover:border-accent/30 hover:bg-white/5">
