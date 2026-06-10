@@ -11,12 +11,13 @@
     "attacks": "node suites/03-policy-attacks.mjs",
     "config": "node suites/04-config-surface.mjs",
     "live": "node suites/05-live-settlement.mjs",
+    "live-nonevm": "node suites/live-mcp-nonevm.mjs",
     "merchant": "node lib/merchant.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "@piprail/mcp": "^0.2.2",
-    "@piprail/sdk": "^1.8.0",
+    "@piprail/mcp": "^0.3.0",
+    "@piprail/sdk": "^1.15.0",
     "express": "^5.0.0",
     "viem": "^2.21.0"
   },

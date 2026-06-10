@@ -22,15 +22,17 @@ export async function run() {
 
       const { tools } = await s.client.listTools()
       const names = tools.map((t) => t.name).sort()
-      check('advertises exactly the 5 piprail tools (incl. discover + register)',
-        JSON.stringify(names) === JSON.stringify(['piprail_discover', 'piprail_pay_request', 'piprail_plan_payment', 'piprail_quote_payment', 'piprail_register']),
+      check('advertises exactly the 7 piprail tools (incl. budget + guide)',
+        JSON.stringify(names) === JSON.stringify(['piprail_budget', 'piprail_discover', 'piprail_guide', 'piprail_pay_request', 'piprail_plan_payment', 'piprail_quote_payment', 'piprail_register']),
         names.join(', '))
       check('every tool has a description + object JSON-Schema',
         tools.every((t) => t.description && t.inputSchema?.type === 'object'))
+      // The read tools with no target URL (search / budget / guide) take no required args;
+      // the rest (quote / plan / pay / register) require `url`. All forbid extras.
+      const NO_URL = ['piprail_discover', 'piprail_budget', 'piprail_guide']
       for (const t of tools) {
-        if (t.name === 'piprail_discover') {
-          // discover is a search — no required `url`; all args optional, extras forbidden
-          check('piprail_discover: all-optional args + forbids extra args',
+        if (NO_URL.includes(t.name)) {
+          check(`${t.name}: all-optional args + forbids extra args`,
             !t.inputSchema.required && t.inputSchema.additionalProperties === false)
         } else {
           check(`${t.name}: requires \`url\` + forbids extra args`,
@@ -40,7 +42,7 @@ export async function run() {
       const payTool = tools.find((t) => t.name === 'piprail_pay_request')
       check('pay tool exposes optional method + body params',
         Boolean(payTool.inputSchema.properties?.method) && Boolean(payTool.inputSchema.properties?.body))
-      check('handshake + listTools succeeded ⇒ stdout is a clean protocol channel', names.length === 5)
+      check('handshake + listTools succeeded ⇒ stdout is a clean protocol channel', names.length === 7)
 
       // Tool annotations reach a real MCP client over stdio (SDK ≥1.8.0 / MCP ≥0.2.2):
       // the reads are flagged read-only, and pay is flagged value-moving so a client

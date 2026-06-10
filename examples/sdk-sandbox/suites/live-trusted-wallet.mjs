@@ -7,7 +7,10 @@
 // MAINNET, TINY amounts. Reads keys from .secrets at runtime, NEVER prints them.
 import { readFileSync } from 'node:fs'
 import express from 'express'
-import { PipRailClient, requirePayment, paymentTools, PaymentDeclinedError } from '../../../sdk/dist/index.js'
+// Imports the PUBLISHED @piprail/sdk (from node_modules) so it tests the released
+// package exactly as a user would install it — set SDK_LOCAL=1 to test the working tree.
+const { PipRailClient, requirePayment, paymentTools, PaymentDeclinedError } =
+  await import(process.env.SDK_LOCAL ? '../../../sdk/dist/index.js' : '@piprail/sdk')
 import { group, check, note, summarize } from '../lib/report.mjs'
 
 const AMOUNT = '0.001' // USDC settled on the success path

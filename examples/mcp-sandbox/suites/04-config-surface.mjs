@@ -18,7 +18,7 @@ import { group, check, note, summarize } from '../lib/report.mjs'
 const require = createRequire(import.meta.url)
 const KEY = '0x' + '1'.repeat(64)
 const NON_EVM = ['solana', 'ton', 'tron', 'near', 'sui', 'aptos', 'algorand', 'stellar', 'xrpl']
-const TOOLS = ['piprail_discover', 'piprail_pay_request', 'piprail_plan_payment', 'piprail_quote_payment', 'piprail_register']
+const TOOLS = ['piprail_budget', 'piprail_discover', 'piprail_guide', 'piprail_pay_request', 'piprail_plan_payment', 'piprail_quote_payment', 'piprail_register']
 
 export async function run() {
   group('04 · Defaults, aliases & coercion')
@@ -131,13 +131,13 @@ export async function run() {
     } catch {
       note('server.json not present in this install — skipped (it ships in the published package)')
     }
-    check('TOOL_NAMES is exactly the 5 piprail tools', JSON.stringify([...TOOL_NAMES].sort()) === JSON.stringify([...TOOLS].sort()))
+    check('TOOL_NAMES is exactly the 7 piprail tools', JSON.stringify([...TOOL_NAMES].sort()) === JSON.stringify([...TOOLS].sort()))
 
     // paymentTools() is the SDK export the MCP turns into MCP tools.
     const client = new PipRailClient({ chain: 'base', wallet: { privateKey: KEY }, policy: { tokens: ['USDC'] } })
     const tools = paymentTools(client)
-    check('SDK paymentTools(client) → 5 AgentTools (name/description/object-params/invoke)',
-      tools.length === 5 && tools.every((t) => t.name && t.description && t.parameters?.type === 'object' && typeof t.invoke === 'function'))
+    check('SDK paymentTools(client) → 7 AgentTools (name/description/object-params/invoke)',
+      tools.length === 7 && tools.every((t) => t.name && t.description && t.parameters?.type === 'object' && typeof t.invoke === 'function'))
     check('their names match what the server advertises', JSON.stringify(tools.map((t) => t.name).sort()) === JSON.stringify([...TOOLS].sort()))
 
     // createMcpServer wires client + server in-process (no transport, no network).
