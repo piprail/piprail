@@ -77,6 +77,34 @@ the issuer-native token. Where a chain's "USDT" is actually a bridged USDT0 / La
 want it. See [Chains overview](/chains/overview/) for the per-chain provenance.
 :::
 
+## Per-chain setup & caveats — at a glance
+
+Most chains are zero-setup: install, name the chain, add a wallet. A few have one-time caveats
+worth knowing **before you ship** — the peer library to install, what the *recipient* must do to
+receive a token, and which native coin pays gas. Each family page has the full detail.
+
+| Chain | Install (lazy peer) | To **receive**, the recipient needs… | Gas / notes |
+| --- | --- | --- | --- |
+| **EVM** ([all presets](/chains/overview/)) | `viem` (core dep) | nothing | native coin (ETH/BNB/POL/AVAX/…) |
+| **[Solana](/chains/solana/)** | `@solana/web3.js @solana/spl-token bs58` | nothing (the SDK auto-creates the token account) | SOL |
+| **[TON](/chains/ton/)** | `@ton/ton @ton/core @ton/crypto` | nothing (jetton wallet auto-deploys on first receipt) | TON · **needs a free toncenter RPC key** (`@tonapibot` on Telegram, in `rpcUrl`); ships USD₮, no native USDC |
+| **[Tron](/chains/tron/)** | `tronweb` | nothing | **real TRX** for energy/bandwidth; ships USD₮ (native TRX also works) |
+| **[NEAR](/chains/near/)** | `near-api-js` | a NEP-141 token (USDC/USDT): one-time **`storage_deposit`** (~0.00125 NEAR). Native NEAR: nothing | NEAR · set `accountId` |
+| **[Sui](/chains/sui/)** | `@mysten/sui` | nothing | SUI · USDC only (no native USDT) |
+| **[Aptos](/chains/aptos/)** | `@aptos-labs/ts-sdk` | nothing (primary FA store auto-creates) | APT |
+| **[Algorand](/chains/algorand/)** | `algosdk` | USDC: one-time **ASA opt-in** (a 0-amount self-transfer). Native ALGO: nothing | ALGO · USDC only |
+| **[Stellar](/chains/stellar/)** | `@stellar/stellar-sdk` | for USDC/EURC: a **trustline** + the account funded above its base reserve. Native XLM: nothing | XLM · USDC + EURC |
+| **[XRP Ledger](/chains/xrpl/)** | `xrpl` | for USDC/RLUSD: a **trustline** + the account activated (≥1 XRP reserve). Native XRP: nothing | XRP · USDC + RLUSD |
+
+A recipient that isn't set up surfaces as a typed [`RecipientNotReadyError`](/errors/why-payments-fail/)
+(or a `RECIPIENT_NOT_READY` blocker from [`planPayment()`](/making-payments/plan-payment/)) with the
+exact fix — never a silent failure. The base-reserve XLM/XRP is **locked, not spent**.
+
+:::note
+EVM, Solana, Tron, Sui, and Aptos need no receive setup at all. Native coin is zero-setup on
+**every** family. The caveats above only apply to the specific issued tokens noted.
+:::
+
 ## The built-in EVM registry — `CHAINS`
 
 `CHAINS` is the exported registry of built-in EVM presets. Each preset carries the underlying
