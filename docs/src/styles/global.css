@@ -1,14 +1,14 @@
-/* PipRail docs — brand theme on top of Starlight, in pure CSS (no Tailwind needed).
-   Dark-first, emerald accent, Inter + JetBrains Mono, the signature top glow.
-   Palette mirrors site/src/styles/global.css so docs.piprail.com and piprail.com
-   feel like one product. Starlight derives its whole UI from the variables below. */
+/* PipRail docs — a clean, Laravel-style documentation theme on top of Starlight.
+   Dark-first, emerald accent, Inter + JetBrains Mono. No glow, no gradients —
+   just sharp typography, calm surfaces, and generous space. Starlight derives its
+   whole UI from the color variables below. */
 
-/* ---- Dark theme (default) — PipRail's home turf ---- */
+/* ---- Dark theme (default) ---- */
 :root {
   /* Emerald accent — "paid". */
   --sl-color-accent-low: oklch(0.3 0.07 162);
-  --sl-color-accent: oklch(0.72 0.16 162);
-  --sl-color-accent-high: oklch(0.88 0.12 162);
+  --sl-color-accent: oklch(0.74 0.16 162);
+  --sl-color-accent-high: oklch(0.9 0.11 162);
 
   /* Text → background ramp (cool neutral, hue 260, low chroma). */
   --sl-color-white: oklch(0.985 0 0); /* brightest text (headings) */
@@ -17,8 +17,8 @@
   --sl-color-gray-3: oklch(0.64 0.01 260); /* muted text */
   --sl-color-gray-4: oklch(0.48 0.01 260);
   --sl-color-gray-5: oklch(0.3 0.008 260); /* hairlines */
-  --sl-color-gray-6: oklch(0.205 0.006 260); /* panels, code, sidebar */
-  --sl-color-black: oklch(0.145 0.005 260); /* page background */
+  --sl-color-gray-6: oklch(0.2 0.006 260); /* panels, code, sidebar */
+  --sl-color-black: oklch(0.155 0.005 260); /* page background */
 
   /* Brand fonts. */
   --sl-font: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -26,37 +26,28 @@
   --sl-nav-height: 4rem;
 }
 
-/* ---- Light theme — clean, with a deeper emerald for contrast ---- */
+/* ---- Light theme — crisp white, deeper emerald for contrast ---- */
 :root[data-theme='light'] {
   --sl-color-accent-low: oklch(0.92 0.06 162);
-  --sl-color-accent: oklch(0.55 0.15 162);
-  --sl-color-accent-high: oklch(0.38 0.1 162);
+  --sl-color-accent: oklch(0.53 0.15 162);
+  --sl-color-accent-high: oklch(0.37 0.1 162);
 
   --sl-color-white: oklch(0.17 0.005 260); /* darkest text */
-  --sl-color-gray-1: oklch(0.22 0.006 260);
-  --sl-color-gray-2: oklch(0.3 0.008 260);
+  --sl-color-gray-1: oklch(0.24 0.006 260);
+  --sl-color-gray-2: oklch(0.32 0.008 260);
   --sl-color-gray-3: oklch(0.48 0.01 260);
-  --sl-color-gray-4: oklch(0.64 0.01 260);
-  --sl-color-gray-5: oklch(0.8 0.007 260);
-  --sl-color-gray-6: oklch(0.92 0.005 260);
-  --sl-color-gray-7: oklch(0.96 0.004 260);
-  --sl-color-black: oklch(0.99 0 0); /* page background */
+  --sl-color-gray-4: oklch(0.6 0.01 260);
+  --sl-color-gray-5: oklch(0.82 0.007 260);
+  --sl-color-gray-6: oklch(0.93 0.005 260);
+  --sl-color-gray-7: oklch(0.97 0.004 260);
+  --sl-color-black: oklch(1 0 0); /* page background — clean white */
 }
 
-/* Subtle OpenType polish, matching the marketing site. */
+/* Subtle OpenType polish. */
 html {
   font-feature-settings: 'ss01', 'cv11', 'cv05';
   -webkit-font-smoothing: antialiased;
-}
-
-/* The signature PipRail glow — emerald top-center + a hint of blue top-right —
-   painted over the page bg and pinned so it stays at the top on scroll. */
-:root[data-theme='dark'] body {
-  background-image:
-    radial-gradient(900px 480px at 50% -10%, oklch(0.78 0.17 162 / 0.1), transparent 70%),
-    radial-gradient(680px 480px at 88% 2%, oklch(0.7 0.16 250 / 0.06), transparent 70%);
-  background-repeat: no-repeat;
-  background-attachment: fixed;
+  text-rendering: optimizeLegibility;
 }
 
 ::selection {
@@ -64,16 +55,16 @@ html {
   color: var(--sl-color-black);
 }
 
-/* Logo — the self-contained badge (black chip + white P + emerald rail) reads on
-   light AND dark. A hairline ring lifts the chip off the near-black dark page. */
+/* Logo — the self-contained badge (chip + P + emerald rail) reads on light AND
+   dark. A hairline ring keeps it crisp against the near-black header. */
 .site-title img {
-  height: 1.85rem;
+  height: 1.75rem;
   width: auto;
-  border-radius: 0.5rem;
-  box-shadow: 0 0 0 1px color-mix(in oklch, var(--sl-color-gray-4) 55%, transparent);
+  border-radius: 0.45rem;
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--sl-color-gray-4) 45%, transparent);
 }
 
-/* Quiet, thin scrollbars on code blocks (matches the marketing site). */
+/* Quiet, thin scrollbars on code blocks. */
 :root[data-theme='dark'] pre::-webkit-scrollbar {
   height: 6px;
 }
@@ -82,56 +73,54 @@ html {
   border-radius: 999px;
 }
 
-/* A touch more breathing room on link underlines. */
-.sl-markdown-content a:not(:where(.not-content *)) {
-  text-underline-offset: 0.25em;
-  text-decoration-thickness: 1px;
-}
-
-/* Comfortable reading rhythm — nothing should feel squashed. */
+/* ---- Typography: the Laravel-clean reading column ---- */
 .sl-markdown-content {
-  line-height: 1.7;
+  line-height: 1.72;
 }
-.sl-markdown-content :is(h2, h3) {
-  letter-spacing: -0.01em;
+.sl-markdown-content :is(h1, h2, h3, h4) {
+  letter-spacing: -0.018em;
 }
 .sl-markdown-content h2 {
   margin-top: 2.75rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--sl-color-hairline, var(--sl-color-gray-5));
+}
+.sl-markdown-content a:not(:where(.not-content *)) {
+  text-underline-offset: 0.22em;
+  text-decoration-thickness: 1px;
 }
 
-/* Cards — a subtle emerald lift so the use-case grid feels alive, with room to breathe. */
-.card {
+/* Cards / link-cards — calm surfaces with a clean emerald border on hover. No glow. */
+.card,
+.sl-link-card {
   transition:
-    border-color 0.2s ease,
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
+    border-color 0.15s ease,
+    background-color 0.15s ease;
 }
-.card:hover {
-  border-color: color-mix(in oklch, var(--sl-color-accent) 45%, var(--sl-color-gray-5));
-  transform: translateY(-2px);
-  box-shadow: 0 8px 30px -12px color-mix(in oklch, var(--sl-color-accent) 30%, transparent);
+.card:hover,
+.sl-link-card:hover {
+  border-color: var(--sl-color-accent);
+  background-color: color-mix(in oklch, var(--sl-color-accent) 6%, transparent);
 }
 
-/* Splash hero — a bit more presence; the body glow already sits behind it. */
+/* Splash home — clean, centered, text-only hero (no image, no glow). */
+.hero {
+  padding-block: 1rem 0;
+}
 .hero h1 {
-  letter-spacing: -0.025em;
+  letter-spacing: -0.03em;
+  font-weight: 650;
 }
 .hero .tagline {
   line-height: 1.6;
   text-wrap: balance;
-}
-/* Give the hero logo a soft emerald halo so the badge feels intentional, not pasted on. */
-.hero > .hero-html img,
-.hero img {
-  filter: drop-shadow(0 12px 40px color-mix(in oklch, var(--sl-color-accent) 28%, transparent));
+  color: var(--sl-color-gray-2);
+  max-width: 48ch;
 }
 
-/* Respect reduced motion (the marketing site does too). */
+/* Respect reduced motion. */
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
-  }
-  .card:hover {
-    transform: none;
   }
 }
