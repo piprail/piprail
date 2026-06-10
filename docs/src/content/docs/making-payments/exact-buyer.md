@@ -57,9 +57,11 @@ signature.
 | An EOA signer | USDT (needs Permit2), native coin, plain ERC-20 |
 | | A contract / EIP-1271 / EIP-7702 signer |
 
-The chains the buyer rail knows by x402 network slug are **`ethereum`, `base`, `arbitrum`,
-`optimism`, `polygon`, and `avalanche`** (the EIP-3009 USDC deployments). An `exact` rail on any
-other slug simply isn't selected — it falls back to `onchain-proof`.
+An `exact` rail is selected only when the 402 names a network **your bound EVM chain supports** —
+the client matches each offered rail against its own chain via the driver (it doesn't gate on a
+fixed slug list) and settles on that chain. So a USDC/EURC `exact` rail on the chain your client is
+bound to is payable; an `exact` rail naming a different chain (or any non-EVM family) simply isn't
+selected and falls back to `onchain-proof`.
 
 When you enable both schemes, the client gathers `onchain-proof` rails first, so on a dual-rail
 402 the default selection is unchanged. An `exact` rail is only ever picked when the bound EVM

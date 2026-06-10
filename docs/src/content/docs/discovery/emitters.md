@@ -30,7 +30,7 @@ const resource = await gate.describe('https://api.example.com/report')
 //   { url: 'https://api.example.com/report', accepts: [ { scheme: 'onchain-proof',
 //     network: 'eip155:8453', asset: '0x833…2913', payTo: '0xYourWallet',
 //     amount: '100000', amountFormatted: '0.10', decimals: 6, symbol: 'USDC',
-//     maxTimeoutSeconds: 300 } ] }
+//     maxTimeoutSeconds: 600 } ] }
 ```
 
 A `ResourceDescription` has `url`, an optional `method`/`description`, and an `accepts: PaymentRail[]`.

@@ -100,6 +100,26 @@ See [`quote()`](/making-payments/quote/) for the priced requirement,
 [`planPayment()`](/making-payments/plan-payment/) for the full `PaymentPlan` — per-rail
 blockers, a `fundingHint`, and `best`.
 
+## Try it against a live endpoint (no server needed)
+
+Want to pay a real 402 before standing up your own server? PipRail runs a live one on **Base
+mainnet** — a **$0.01 USDC** 402 you can hit right now:
+
+```bash
+curl -i https://piprail.com/x402/demo      # see a real 402 challenge + the accepts[]
+```
+
+```ts
+// Pay it from a client (needs ~$0.01 USDC + a little ETH for gas on Base):
+const client = new PipRailClient({ chain: 'base', wallet: { privateKey: process.env.AGENT_KEY } })
+const res = await client.fetch('https://piprail.com/x402/demo')   // 402 → pay → 200
+```
+
+It's a real, backendless endpoint — dual-rail (PipRail's `onchain-proof` **and** a gasless standard
+`exact` rail settled via the free PayAI facilitator), and it's listed on x402scan and 402 Index.
+Prefer to watch the round-trip in your browser first? Try the interactive demo at
+[piprail.com/demo](https://piprail.com/demo).
+
 ## Next steps
 
 - Add **spend caps** so an agent can't overspend — [Spend Controls](/spend-controls/payment-policy/).

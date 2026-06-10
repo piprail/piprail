@@ -122,7 +122,8 @@ payment receipt if one settled.
 ```jsonc
 // piprail_pay_request({ url, method, body })
 { "url": "https://api.example.com/jobs", "method": "POST", "body": { "topic": "weather" } }
-// → { status: 200, ok: true, body: {…}, receipt: { network, transaction, payTo, … } }
+// → { status: 200, ok: true, body: {…}, receipt: { network, transaction, payTo, … } | null }
+//   receipt is the parsed X402Receipt, or null when nothing settled (e.g. the URL wasn't gated)
 ```
 
 :::danger

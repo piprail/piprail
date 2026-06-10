@@ -43,7 +43,8 @@ const data = await res.json()
 // → the unlocked 200 response — same shape the server returns once paid
 ```
 
-`get` and `post` are thin conveniences over `fetch` (`post` JSON-serialises a plain object):
+`get` and `post` are thin conveniences over `fetch` (`post` JSON-serialises a plain object); both
+take the same optional `RequestInit` second argument as `fetch`:
 
 ```ts
 const res = await client.post('https://api.example.com/jobs', { prompt: 'summarise Q3' })
@@ -205,7 +206,7 @@ broadcast lands but local confirmation times out) — for logging or a UI.
 | `wallet` | The per-family wallet (see above). |
 | `rpcUrl` | Your RPC (fold any API key in here). |
 | `policy` | The [spend policy](/spend-controls/payment-policy/) — caps, allowlists, time window. |
-| `onBeforePay` | Approval hook — receives the `PipRailQuote`, return `false` to refuse a payment. |
+| `onBeforePay` | Approval hook — receives the `PipRailQuote`; returning `false` **or throwing** refuses the payment (`PaymentDeclinedError`, `reasonCode: 'APPROVAL'`), before any send. |
 | `onEvent` | Lifecycle observability callback. |
 | `autoRoute` | Default for `fetch`'s cheapest-rail routing (default off). |
 | `schemes` | Which schemes to settle — `['onchain-proof']` (default) or add `'exact'`. |

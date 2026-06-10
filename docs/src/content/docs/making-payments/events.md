@@ -69,9 +69,10 @@ confirmed, settled. That's the spine of a progress indicator:
 
 ```ts
 onEvent: (e) => {
-  // `accept.amount` is base units; the human amount + symbol live on `accept.extra`.
+  // `accept.amount` is base units. On `onchain-proof`, `extra.amountFormatted`/`symbol` are the
+  // human form; on an `exact` rail both are optional — fall back to `accept.amount`.
   if (e.kind === 'payment-required') {
-    ui.show(`Paying ${e.accept.extra.amountFormatted} ${e.accept.extra.symbol ?? ''}…`)
+    ui.show(`Paying ${e.accept.extra.amountFormatted ?? e.accept.amount} ${e.accept.extra.symbol ?? ''}…`)
   }
   if (e.kind === 'payment-broadcast') ui.show(`Sent ${e.ref.slice(0, 10)}…`)
   if (e.kind === 'payment-confirmed') ui.show(`Confirmed in block ${e.blockNumber}`)

@@ -184,9 +184,19 @@ exports are for hand-rolled clients, v1 servers, and custom flows.
 | `buildExactAuthorization` | fn | Deprecated — trusts the server-supplied domain |
 | `ExactAccept`, `ExactAuthorization`, `BuildExactParams` | type | — |
 
-The Mode-B facilitator path (`createPaymentGate({ exact: { settle: { facilitator } } })`) is built
-on `settleViaFacilitator` with its `FacilitatorConfig`, `FacilitatorPaymentRequirements`, and
-`SettleViaFacilitatorInput` types.
+## Advanced: exact facilitator (Mode B) — `facilitator.js`
+
+The Mode-B facilitator path (`createPaymentGate({ exact: { settle: { facilitator } } })`) delegates
+verify + settle to a third-party facilitator you choose. PipRail hosts nothing.
+
+| Export | Kind | Note |
+| --- | --- | --- |
+| `settleViaFacilitator` | fn | Run the two-POST verify→settle contract against a facilitator URL. |
+| `FacilitatorConfig` | type | The facilitator's base `url` + optional `authHeaders` provider. |
+| `FacilitatorPaymentRequirements` | type | The trusted `exact` requirements posted to the facilitator. |
+| `SettleViaFacilitatorInput` | type | Full input to `settleViaFacilitator` (config + payload + receipt fields). |
+
+See the [exact rail (seller)](/accepting-payments/exact-rail-seller/) page for how to wire it.
 
 See [Low-level exact](/reference/exact-lowlevel/),
 [exact rail (seller)](/accepting-payments/exact-rail-seller/), and

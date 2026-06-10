@@ -101,11 +101,13 @@ The challenge **envelope** PipRail emits is x402 v2-conformant. The difference b
 `onchain-proof` and `exact` is the *scheme* (how the proof is formed), not the schema.
 :::
 
-## CAIP-2 networks and CAIP-19 assets
+## CAIP-2 networks and chain-native asset ids
 
-x402 identifies chains with [CAIP-2](https://chainagnostic.org) (`eip155:8453` for Base,
-`solana:…`, etc.) and assets with CAIP-19. PipRail handles this mapping for you — you name a
-friendly `chain` and `token`, and it emits the right identifiers.
+x402 identifies the **network** with [CAIP-2](https://chainagnostic.org) (`eip155:8453` for Base,
+`solana:…`, etc.). The **asset**, though, is the raw **chain-native identifier**, not CAIP-19: an
+ERC-20 `0x…` address on EVM, an SPL mint on Solana, a jetton master on TON, `CODE:ISSUER` on
+Stellar, or the literal `'native'` for the chain's coin. PipRail fills both in for you — you name a
+friendly `chain` and `token`, and it emits the right `network` + `asset`.
 
 ## Building it by hand
 

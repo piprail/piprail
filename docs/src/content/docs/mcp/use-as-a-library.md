@@ -11,25 +11,48 @@ The MCP server ships as a runnable binary (`npx -y @piprail/mcp`), but it's also
 library with no side effects. If you're building your own MCP host, an agent runtime, or a
 custom transport, you can construct the server yourself and own the connection.
 
-The library entry exports two functions that do the work — `parseConfig` (env →
-[`Config`](/mcp/configuration/)) and `createMcpServer` (client options → `{ server, client }`)
-— plus `configToClientOptions` to bridge them. None of them touch the network or a chain.
+For the common case there's a single turnkey entry — **`startServer`** — that runs the whole boot
+flow. For full control, the lower-level pieces are also exported: `parseConfig` (env →
+[`Config`](/mcp/configuration/)), `configToClientOptions` (config → SDK client options), and
+`createMcpServer` (client options → `{ server, client }`). None of them touch the network or a chain.
 
 ```ts
-import { createMcpServer, parseConfig, configToClientOptions } from '@piprail/mcp'
+import { startServer, createMcpServer, parseConfig, configToClientOptions } from '@piprail/mcp'
 ```
 
-## The standard wiring
+## The quickest path — `startServer`
 
-The same three steps the binary runs: parse the env into a validated config, turn that into SDK
-client options, then build the server. You own the transport.
+`startServer(env?)` is the entire binary in one call: it parses the env (defaults to
+`process.env`), builds the client + server, wires `confirm`/`guide` from the config, prints the
+startup banner to **stderr**, and connects a stdio transport. It throws `ConfigError` on bad env.
+
+```ts
+import { startServer } from '@piprail/mcp'
+
+await startServer()                                   // uses process.env
+// …or feed it your own env object:
+await startServer({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_CHAIN: 'base' })
+```
+
+Reach for the lower-level wiring below only when you need a non-stdio transport or want to hold the
+`client` yourself.
+
+## The standard wiring — own the transport
+
+The steps `startServer` runs under the hood, for when you need a non-stdio transport: parse the env
+into a validated config, turn that into SDK client options, then build the server — passing the
+`confirm`/`guide` flags through as the **second argument** (omit it and Mode B never arms and the
+guide can't be suppressed).
 
 ```ts
 import { createMcpServer, parseConfig, configToClientOptions } from '@piprail/mcp'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 
 const config = parseConfig(process.env)               // → Config (throws ConfigError on bad env)
-const { server } = createMcpServer(configToClientOptions(config))
+const { server } = createMcpServer(configToClientOptions(config), {
+  confirm: config.confirm,
+  guide: config.guide,
+})
 
 await server.connect(new StdioServerTransport())
 ```
