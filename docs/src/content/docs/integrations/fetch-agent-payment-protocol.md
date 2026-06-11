@@ -69,7 +69,7 @@ one makes the whole exchange **gasless for both sides**:
 On **FDUSD / USD1** the buyer signs an EIP-3009 `transferWithAuthorization` — no gas, **no Permit2
 approve** — and a facilitator broadcasts it, so neither agent pays gas. That is exactly the "agents can't
 manage gas and billing keys" problem the BNB Agent Survival Pack named. See
-[Permit2 & BNB Chain](/making-payments/permit2-and-bnb/) for the full mechanics.
+[Gasless payments](/making-payments/gasless-payments/) for the full mechanics.
 
 ## Run it
 
@@ -102,5 +102,5 @@ The full APP round-trip (the two uAgents) needs `pip install uagents` and a fund
 ## See also
 
 - [`@piprail/mcp` overview](/mcp/overview/) · [Use as a library / settlement engine](/mcp/use-as-a-library/)
-- [Permit2 & BNB Chain](/making-payments/permit2-and-bnb/) — the gasless mechanics
+- [Gasless payments](/making-payments/gasless-payments/) — the gasless mechanics
 - [requirePayment & createPaymentGate](/accepting-payments/require-payment-and-gate/) — the payee gate

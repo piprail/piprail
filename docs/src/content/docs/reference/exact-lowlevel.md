@@ -19,7 +19,7 @@ servers, or custom flows. It is **EVM-only**, and these codecs cover the **EIP-3
 (canonical USDC and EURC). The `exact` scheme's other asset-transfer method, **Permit2**, makes
 ERC-20s _without_ EIP-3009 — like Binance-Peg USDC/USDT on BNB Chain — `exact`-payable too; its
 mechanics and low-level exports (`PERMIT2_ADDRESS`, `X402_EXACT_PERMIT2_PROXY`,
-`PERMIT2_WITNESS_TYPES`) live in [Permit2 & BNB Chain](/making-payments/permit2-and-bnb/). (The
+`PERMIT2_WITNESS_TYPES`) live in [Gasless payments](/making-payments/gasless-payments/). (The
 chain's native coin is never `exact`-payable — it has no `transferFrom` to authorize.)
 
 :::note
@@ -78,8 +78,10 @@ chainIdForExactNetwork('arbitrum')  // → 42161
 chainIdForExactNetwork('zksync')    // → null — not in the map
 ```
 
-The shipped set is `ethereum`, `base`, `base-sepolia`, `arbitrum`, `optimism`, `polygon`, and
-`avalanche`.
+The shipped set is `ethereum`, `base`, `base-sepolia`, `arbitrum`, `optimism`, `polygon`,
+`avalanche`, `bnb`, and the EIP-3009-verified chains `sonic`, `linea`, `celo`, `unichain`,
+`worldchain`, `sei`, `hyperevm`. (It's a reference helper, not the gate — the `exact` rail is
+offered on **any** EVM chain whose token is EIP-3009 or whose chain has the Permit2 proxy.)
 
 ## Read the token's true domain — `readExactDomain`
 

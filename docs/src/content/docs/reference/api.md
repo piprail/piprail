@@ -181,7 +181,7 @@ The standard x402 `exact` scheme at the codec tier. For the high-level paths use
 exports are for hand-rolled clients, v1 servers, and custom flows. The `exact` scheme has two
 asset-transfer methods: **EIP-3009** (`transferWithAuthorization`, on tokens that implement it) and
 **Permit2** (for ERC-20s that don't — e.g. Binance-Peg USDC/USDT on BNB). See
-[Permit2 & BNB Chain](/making-payments/permit2-and-bnb/) for the Permit2 walkthrough.
+[Gasless payments](/making-payments/gasless-payments/) for the Permit2 walkthrough.
 
 | Export | Kind | Note |
 | --- | --- | --- |

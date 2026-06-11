@@ -57,7 +57,7 @@ The `exact` rail is **EVM only**, via one of two on-chain methods. The 402's rai
   whose `spender` is the canonical x402ExactPermit2Proxy and whose `witness.to` binds the recipient
   (so a relayer can't redirect funds). Gasless per-payment too — **after a one-time `approve(Permit2)`**
   the SDK does lazily the first time you pay that token (the only on-chain action the buyer ever
-  takes on this rail). See [Permit2 & BNB](/making-payments/permit2-and-bnb/).
+  takes on this rail). See [Gasless payments](/making-payments/gasless-payments/).
 
 | Works on `exact` | Stays on `onchain-proof` |
 | --- | --- |

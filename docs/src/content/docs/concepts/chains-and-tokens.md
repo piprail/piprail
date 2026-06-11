@@ -143,7 +143,7 @@ On **BNB Chain**, all four built-in stablecoins are **18 decimals**, not 6 (the 
 correct decimals, so naming `token: 'USDC'` is always right — don't hardcode 6). Provenance differs:
 **USDC/USDT are Binance-Peg** (not EIP-3009 → the `exact` rail uses Permit2), while **FDUSD and USD1
 are EIP-3009** (→ the gasless `transferWithAuthorization` path, no Permit2 approve). The SDK
-auto-selects per token; see [Permit2 & BNB](/making-payments/permit2-and-bnb/).
+auto-selects per token; see [Gasless payments](/making-payments/gasless-payments/).
 :::
 
 ## Any other EVM chain

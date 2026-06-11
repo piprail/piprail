@@ -11,6 +11,12 @@ import starlightLlmsTxt from 'starlight-llms-txt'
 export default defineConfig({
   site: 'https://docs.piprail.com',
 
+  // The chain-specific "Permit2 & BNB Chain" page was consolidated into the broader
+  // "Gasless payments" page — keep the old URL alive.
+  redirects: {
+    '/making-payments/permit2-and-bnb/': '/making-payments/gasless-payments/',
+  },
+
   integrations: [
     starlight({
       title: 'PipRail',

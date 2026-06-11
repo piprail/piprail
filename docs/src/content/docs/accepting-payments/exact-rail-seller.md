@@ -24,7 +24,7 @@ The `exact` rail is **EVM ERC-20 only**, via one of two methods the gate picks a
 **EIP-3009** for tokens that expose `transferWithAuthorization` (USDC, EURC), or **Permit2** for
 any other ERC-20 — most notably **Binance-Peg USDC/USDT on BNB Chain** (no native Circle USDC
 exists on BNB). It does **not** cover native coins or non-EVM chains; those stay
-`onchain-proof`-only, and mixing them in one gate is fine. See [Permit2 & BNB](/making-payments/permit2-and-bnb/).
+`onchain-proof`-only, and mixing them in one gate is fine. See [Gasless payments](/making-payments/gasless-payments/).
 :::
 
 ## Mode A — self-settle with your own relayer
