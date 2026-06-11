@@ -140,6 +140,10 @@ The proof stays redeemable until the server's `maxTimeoutSeconds` recency window
 behaves the same way — the tx may still land — but it carries **no** `.ref`; re-check the proof
 ref you already hold from `send()`, don't expect one on the error.
 
+For the full picture of what happens to a payment when a request doesn't finish — on both the
+client and the gate side — see [Replay protection &
+recovery](/accepting-payments/replay-protection/#paid-but-didnt-receive--the-recovery-model).
+
 ## Branching on a decline reason
 
 A `PaymentDeclinedError` is thrown *before* any send — the quote exceeded your

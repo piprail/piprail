@@ -444,11 +444,31 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
   // verification fails, so submitting someone else's not-yet-confirmed tx
   // can't grief them.
   //
+  // BOUNDED: an entry is evicted once it's older than the replay window
+  // (`maxTimeoutSeconds`). That's safe because the driver's recency check
+  // rejects any proof older than the window anyway (an onchain-proof tx that
+  // aged out, an `exact` authorization past `validBefore` / already spent on
+  // its on-chain nonce), so a dropped entry can never be replayed — and without
+  // it the set would grow forever on a long-lived gate. The map keys by expiry
+  // in insertion order (one fixed window), so eviction is an amortized-O(1)
+  // front sweep.
+  //
   // Provide isUsed/markUsed to share state across instances (e.g. Redis). A
   // custom store is checked, then marked only on success; make the check
-  // atomic (SET NX) if you need the same concurrency guarantee.
+  // atomic (SET NX) if you need the same concurrency guarantee, and give it its
+  // own TTL (the window) so it stays bounded too.
   const hasCustomStore = Boolean(options.isUsed || options.markUsed)
-  const localUsed = new Set<string>()
+  const localUsed = new Map<string, number>() // ref(lowercased) → expiry epoch-ms
+  const replayWindowMs = maxTimeoutSeconds * 1000
+
+  /** Evict entries past the replay window. All share one fixed window, so they
+   *  expire in insertion order — sweep from the oldest, stop at the first live one. */
+  function pruneUsed(now: number): void {
+    for (const [key, expiry] of localUsed) {
+      if (expiry > now) break
+      localUsed.delete(key)
+    }
+  }
 
   /** Reserve a proof ref. Returns true if it was ALREADY taken (→ reject). */
   async function claimTx(ref: string): Promise<boolean> {
@@ -456,11 +476,13 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
       return options.isUsed ? Boolean(await options.isUsed(ref)) : false
     }
     // EVM tx hashes are case-insensitive hex → normalize for the default store
-    // (custom isUsed/markUsed above receive the RAW ref). Synchronous reserve
-    // before any await closes the concurrent double-redeem race.
+    // (custom isUsed/markUsed above receive the RAW ref). The reserve below is
+    // synchronous (prune + has + set, no await), closing the concurrent double-redeem race.
     const key = ref.toLowerCase()
+    const now = Date.now()
+    pruneUsed(now)
     if (localUsed.has(key)) return true
-    localUsed.add(key)
+    localUsed.set(key, now + replayWindowMs)
     return false
   }
 
@@ -679,7 +701,16 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     const ref = sig.payload.txHash
     if (await claimTx(ref)) return rejection('tx_already_used', `Proof ${ref} was already redeemed.`)
 
-    const result = await spec.net.verify(ref, buildAccept(spec, sig.payload.nonce))
+    let result: VerifyResult
+    try {
+      result = await spec.net.verify(ref, buildAccept(spec, sig.payload.nonce))
+    } catch (err) {
+      // A thrown verify (an RPC blip, not a definitive rejection) must NOT burn the
+      // proof — release the claim so the still-valid payment can be retried, mirroring
+      // the exact path. (Drivers return a VerifyResult; this guards an unexpected throw.)
+      await settleTx(ref, false)
+      throw err
+    }
     if (!result.ok) {
       await settleTx(ref, false)
       return rejection(result.error, result.detail)

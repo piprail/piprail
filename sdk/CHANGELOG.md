@@ -4,6 +4,28 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.20.1] — 2026-06-11 — gate replay store: bounded + exception-safe
+
+Patch — internal robustness on the gate's built-in replay protection. No API change, no visible
+behaviour change, defaults identical.
+
+### Fixed
+- **Bounded the default used-proof set.** It's now evicted past the replay window
+  (`maxTimeoutSeconds`) instead of growing for the life of the process — safe because the driver's
+  recency check rejects any proof that old anyway, so a dropped entry still can't be replayed. A
+  long-lived gate no longer slowly leaks memory. Custom `isUsed`/`markUsed` stores are unaffected
+  (give them a TTL = the window).
+- **`onchain-proof` verification is now claim-release exception-safe.** If a driver's `verify()`
+  *throws* (an unexpected RPC exception) rather than returning a rejection, the gate now releases the
+  proof reservation before rethrowing — so a transient blip can't permanently burn an otherwise-valid
+  proof. This matches the `exact` path, which already did it.
+
+### Docs
+- Rewrote **[Replay protection & recovery](https://docs.piprail.com/accepting-payments/replay-protection/)**
+  with the full "paid but didn't receive — what happens to the payment?" model (a recoverability
+  matrix, the at-most-once-by-design rationale, the bounded-memory behaviour, and the client's
+  never-re-pay `.ref` recovery).
+
 ## [1.20.0] — 2026-06-11 — discovery hardening: conformance-locked, accurate timing, PipRail-attributed
 
 A minor release focused on the discovery/registration subsystem — verified live against the real
