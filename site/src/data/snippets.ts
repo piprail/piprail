@@ -17,7 +17,7 @@ app.<span class="tok-fn">get</span>(<span class="tok-str">'/report'</span>,
 export const payCode = `<span class="tok-kw">import</span> { PipRailClient } <span class="tok-kw">from</span> <span class="tok-str">'@piprail/sdk'</span>
 
 <span class="tok-kw">const</span> client = <span class="tok-kw">new</span> <span class="tok-fn">PipRailClient</span>({
-  chain: <span class="tok-chain">'arbitrum'</span>,
+  chain: <span class="tok-chain">'bnb'</span>,
   wallet: { privateKey: process.env.KEY },
 })
 
@@ -156,7 +156,7 @@ export const discoverRegisterCode = `<span class="tok-kw">import</span> { PipRai
   name: <span class="tok-str">'Market Report'</span>,
   priceUsd: <span class="tok-num">0.05</span>,
 })
-<span class="tok-com">// → listed on 402 Index, searchable in seconds</span>`
+<span class="tok-com">// → listed on 402 Index, probed, then searchable</span>`
 
 export const discoverFindCode = `<span class="tok-com">// find payable APIs on the open indexes</span>
 <span class="tok-kw">const</span> hits = <span class="tok-kw">await</span> client.<span class="tok-fn">discover</span>({

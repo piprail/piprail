@@ -191,7 +191,7 @@ const bingVerification = import.meta.env.PUBLIC_BING_VERIFICATION
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
 
@@ -203,7 +203,25 @@ const bingVerification = import.meta.env.PUBLIC_BING_VERIFICATION
 
     <Analytics />
   </head>
-  <body class="min-h-screen antialiased">
+  <body class="relative min-h-screen antialiased">
+    <!-- Hero ambience: faint glow orbs + drifting particles, far in the background. Decorative. -->
+    <div class="hero-orb hero-orb-1" aria-hidden="true"></div>
+    <div class="hero-orb hero-orb-2" aria-hidden="true"></div>
+    <div class="hero-dots" aria-hidden="true">
+      {[
+        {x:6,y:40,s:3,o:.32,a:'a',d:17,dl:0}, {x:13,y:130,s:2,o:.20,a:'b',d:21,dl:3}, {x:21,y:70,s:2,o:.18,a:'c',d:19,dl:6},
+        {x:29,y:180,s:4,o:.36,a:'a',d:23,dl:1}, {x:37,y:30,s:2,o:.22,a:'b',d:15,dl:4}, {x:44,y:130,s:3,o:.28,a:'c',d:25,dl:7},
+        {x:51,y:80,s:2,o:.16,a:'a',d:18,dl:2}, {x:58,y:210,s:3,o:.34,a:'b',d:22,dl:5}, {x:64,y:50,s:2,o:.20,a:'c',d:16,dl:8},
+        {x:70,y:150,s:4,o:.38,a:'a',d:24,dl:0}, {x:78,y:90,s:2,o:.18,a:'b',d:20,dl:3}, {x:84,y:40,s:3,o:.30,a:'c',d:17,dl:6},
+        {x:90,y:160,s:2,o:.22,a:'a',d:26,dl:2}, {x:95,y:100,s:3,o:.26,a:'b',d:19,dl:5}, {x:10,y:250,s:2,o:.16,a:'c',d:23,dl:7},
+        {x:26,y:310,s:3,o:.30,a:'a',d:21,dl:1}, {x:42,y:270,s:2,o:.18,a:'b',d:18,dl:4}, {x:56,y:350,s:4,o:.34,a:'c',d:25,dl:6},
+        {x:72,y:300,s:2,o:.20,a:'a',d:17,dl:8}, {x:88,y:330,s:3,o:.28,a:'b',d:22,dl:0}, {x:18,y:430,s:2,o:.16,a:'c',d:24,dl:3},
+        {x:48,y:470,s:3,o:.26,a:'a',d:20,dl:5}, {x:66,y:410,s:2,o:.18,a:'b',d:19,dl:7}, {x:82,y:500,s:3,o:.28,a:'c',d:23,dl:2},
+        {x:34,y:560,s:2,o:.15,a:'a',d:21,dl:4}, {x:60,y:580,s:2,o:.16,a:'b',d:18,dl:6},
+      ].map((p) => (
+        <i style={`left:${p.x}%;top:${p.y}px;width:${p.s}px;height:${p.s}px;--o:${p.o};animation:float-${p.a} ${p.d}s ease-in-out ${p.dl}s infinite`}></i>
+      ))}
+    </div>
     <slot />
 
     <!-- Open every EXTERNAL link in a new tab by default, with a safe rel.

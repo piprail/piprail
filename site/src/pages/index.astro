@@ -7,8 +7,8 @@ import SectionHeading from '../components/SectionHeading.astro'
 import { chains } from '../data/chains'
 import { acceptCode, payCode, mcpConfigCode } from '../data/snippets'
 import {
-  Zap, Coins, ShieldCheck, PackageCheck, Boxes, Percent, Code2, Scale,
-  ArrowRight, Globe, ChevronDown, Play, Bot, Plug, Wallet, Sparkles, Handshake,
+  Zap, Coins, ShieldCheck, PackageCheck, Boxes, Code2,
+  ArrowRight, ChevronDown, Play, Bot, Plug, Wallet, Sparkles, Handshake,
   Search, Megaphone,
 } from 'lucide-astro'
 
@@ -17,28 +17,21 @@ const total = chains.length
 const familyCount = [...new Set(chains.map((c) => c.family))].length
 const evmCount = chains.filter((c) => c.family === 'EVM').length
 
+// Hero chain marquee — BNB leads, then prominence order; the 2nd row runs the
+// reverse so the two lanes never read as vertical twins. Rendered twice per lane
+// for a seamless loop (see .marquee in global.css).
+const marqueeA = [...chains].sort((a, b) => (a.slug === 'bnb' ? -1 : b.slug === 'bnb' ? 1 : 0))
+const marqueeB = [...marqueeA].reverse()
+
 // Concise, front-loaded, count-derived meta — the homepage is the brand anchor.
 const title = 'PipRail — x402 crypto payments for AI agents, every chain'
 const description = `Accept x402 crypto payments on ${total} chains — or hand your AI agent a wallet to pay on its own. One line, USDC/USDT/native straight to your wallet. No backend, no fee, MIT.`
 
-const stats = [
-  { icon: Boxes, v: String(total), l: 'chains built in' },
-  { icon: Percent, v: '0', l: 'protocol fee' },
-  { icon: Code2, v: '1', l: 'line to integrate' },
-  { icon: Scale, v: 'MIT', l: 'open source' },
-]
-
-const why = [
-  { icon: Globe, t: 'Widest coverage in x402', d: `${total} chains across ${familyCount} families, with native, self-custodial drivers — the only package that reaches TON, Tron, NEAR, Sui, Aptos, Algorand, and the XRP Ledger together.` },
-  { icon: ShieldCheck, t: 'Backendless by default', d: 'No facilitator, no relayer, no protocol fee. The payer broadcasts their own transfer, and you verify it against your own RPC — where most x402 stacks settle through a third party.' },
-  { icon: Zap, t: 'One line, zero infra', d: 'npm install, name a chain, add a wallet. Nothing to sign up for, deploy, or host — you’re charging agents in minutes.' },
-]
-
-// The universal-rail story: backendless by default, standard-interoperable on opt-in.
+// The neutrality pillar: open standard, nobody in the middle, both rails.
 const interop = [
-  { icon: ShieldCheck, t: 'Backendless by default', d: `The onchain-proof rail: the payer broadcasts their own transfer and you verify it against your own RPC. No relayer, no facilitator, no key to hold — on every one of the ${total} chains.` },
-  { icon: Handshake, t: 'Speaks the standard', d: 'Opt in to a standard exact (EIP-3009) rail and any x402 client — Coinbase’s, the open-source reference client, anyone’s — can pay your gate. Settle with your own relayer key, or a facilitator you choose.' },
-  { icon: Boxes, t: 'One gate, both rails', d: 'A gate advertises both at once: standard clients pick exact, PipRail clients pick onchain-proof. Proven end-to-end against the official x402 reference client on Base mainnet.' },
+  { icon: ShieldCheck, t: 'Nobody in the middle', d: 'No facilitator, no relayer, no custody. The payer broadcasts their own transfer; you verify it against your own RPC. Funds land straight in your wallet — no one can take a cut, throttle you, or shut you off.' },
+  { icon: Handshake, t: 'The open standard', d: 'x402 was donated to the Linux Foundation — the neutral rail the agent economy is converging on. PipRail’s envelope is v2-conformant, so any x402 client — Coinbase’s, the reference client, anyone’s — can pay your gate.' },
+  { icon: Boxes, t: 'One gate, both rails', d: 'Advertise the backendless onchain-proof rail and the ratified exact (EIP-3009) rail at once — standard clients pick one, PipRail clients the other. Proven end-to-end against the official x402 reference client on Base mainnet.' },
 ]
 
 const steps = [
@@ -56,12 +49,24 @@ const familyLogos = [
   { slug: 'algorand', label: 'Algorand' }, { slug: 'stellar', label: 'Stellar' }, { slug: 'xrpl', label: 'XRPL' },
 ]
 
+// "One protocol. Every chain." panel — surface the flagship EVM family with BNB
+// FIRST (and highlighted), then the 9 non-EVM families (one native driver each).
+const evmOrdered = [...chains.filter((c) => c.family === 'EVM')].sort((a, b) => (a.slug === 'bnb' ? -1 : b.slug === 'bnb' ? 1 : 0))
+const evmFeatured = evmOrdered.slice(0, 8)
+const evmMore = evmOrdered.length - evmFeatured.length
+const nonEvmFamilies = familyLogos.slice(1)
+
+// A diverse handful of logos for the "fragmented world" node in the story diagram.
+const fragmentLogos = ['ethereum', 'solana', 'bnb', 'xrpl', 'tron', 'stellar']
+
 const mcpTools = [
   { name: 'piprail_discover', desc: 'find payable APIs on the open indexes — the phone book' },
   { name: 'piprail_quote_payment', desc: 'price a gated URL — without paying' },
   { name: 'piprail_plan_payment', desc: 'check it can afford it: balance, gas, recipient-readiness' },
   { name: 'piprail_pay_request', desc: 'fetch it, paying the 402 automatically' },
   { name: 'piprail_register', desc: 'list an endpoint you run so other agents find it' },
+  { name: 'piprail_budget', desc: 'read the remaining spend budget + time leash' },
+  { name: 'piprail_guide', desc: 'read the agent contract — how to quote, plan, pay' },
 ]
 
 // Top questions only — the rest live on /sdk, /mcp, /chains, /discovery (each with its own schema).
@@ -80,7 +85,7 @@ const faqs = [
   },
   {
     q: `How do I let Claude or Cursor pay for things autonomously?`,
-    a: `Install the PipRail MCP server: add a small config block to your MCP client (Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, or Cline) that runs "npx -y @piprail/mcp" with your wallet key, chain, and spend caps. The agent gains five tools — piprail_discover (find payable APIs), piprail_quote_payment, piprail_plan_payment, piprail_pay_request, and piprail_register (list its own) — so it finds and pays x402-gated APIs on its own across ${total} chains. It runs locally with your own wallet, and the spend policy is enforced before any on-chain send, so the model literally cannot overspend.`,
+    a: `Install the PipRail MCP server: add a small config block to your MCP client (Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, or Cline) that runs "npx -y @piprail/mcp" with your wallet key, chain, and spend caps. The agent gains seven tools — piprail_discover (find payable APIs), piprail_quote_payment, piprail_plan_payment, piprail_pay_request, piprail_register (list its own), piprail_budget (read its remaining budget), and piprail_guide (the agent contract) — so it finds and pays x402-gated APIs on its own across ${total} chains. It runs locally with your own wallet, and the spend policy is enforced before any on-chain send, so the model literally cannot overspend.`,
   },
   {
     q: `Which chains and tokens does PipRail support?`,
@@ -127,15 +132,15 @@ const howToLd = {
         The universal payment rail for the
         <span class="text-accent">agent economy</span>.
       </h1>
-      <p class="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-neutral-400 sm:text-lg md:text-xl">
-        Let any API, dataset, model, or agent <span class="text-neutral-200">charge for itself</span> — and any
-        agent <span class="text-neutral-200">pay for itself</span> — on every chain, in one line. Monetize anything;
-        pay for anything. USDC/USDT/native straight to your wallet. No middleman, no account, no fee.
+      <p class="mx-auto mt-6 max-w-xl text-base leading-relaxed text-neutral-400 sm:text-lg md:text-xl">
+        Any API <span class="text-neutral-200">charges for itself</span> — any AI agent
+        <span class="text-neutral-200">pays on its own</span>. One line, every chain, straight to your wallet.
+        No backend, no fee.
       </p>
 
       <!-- dual CTA — route the two audiences -->
       <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-        <a href="/sdk" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto">
+        <a href="/sdk" class="inline-flex w-full items-center justify-center gap-2 cta-glow rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto">
           <Code2 size={16} aria-hidden="true" /> Get paid — the SDK
         </a>
         <a href="/mcp" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto">
@@ -147,30 +152,110 @@ const howToLd = {
         <span class="truncate">npm install @piprail/sdk viem</span>
       </div>
 
-      <!-- chain strip -->
+      <!-- chain strip — two-lane animated marquee, edge-faded, BNB first -->
       <div class="mt-14 sm:mt-16">
-        <p class="mb-6 text-[11px] uppercase tracking-[0.2em] text-neutral-600">Live on every major chain</p>
-        <div class="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-x-7 gap-y-5 sm:gap-x-9">
-          {chains.map((c) => (
-            <img src={`/chains/${c.slug}.svg`} alt={`${c.name} logo`} width="28" height="28" loading="lazy"
-              class="h-7 w-7 rounded-full ring-1 ring-white/10 opacity-90 transition hover:scale-110 hover:opacity-100" />
-          ))}
+        <p class="mb-7 text-[11px] uppercase tracking-[0.2em] text-neutral-600">Live on every major chain</p>
+        <div class="space-y-3 sm:space-y-4">
+          <div class="marquee overflow-hidden py-1">
+            <div class="marquee-track left">
+              {[...marqueeA, ...marqueeA].map((c, i) => (
+                <div aria-hidden={i >= marqueeA.length} class="mr-3 flex shrink-0 flex-col items-center gap-2 rounded-xl border border-white/8 bg-white/3 px-4 py-3 transition hover:border-accent/30 hover:bg-white/5 sm:px-5 sm:py-3.5">
+                  <img src={`/chains/${c.slug}.svg`} alt={`${c.name} logo`} width="36" height="36" class="h-8 w-8 rounded-full ring-1 ring-white/10 sm:h-9 sm:w-9" />
+                  <span class="whitespace-nowrap text-[11px] font-medium text-neutral-400 sm:text-xs">{c.name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div class="marquee overflow-hidden py-1">
+            <div class="marquee-track right">
+              {[...marqueeB, ...marqueeB].map((c, i) => (
+                <div aria-hidden={i >= marqueeB.length} class="mr-3 flex shrink-0 flex-col items-center gap-2 rounded-xl border border-white/8 bg-white/3 px-4 py-3 transition hover:border-accent/30 hover:bg-white/5 sm:px-5 sm:py-3.5">
+                  <img src={`/chains/${c.slug}.svg`} alt={`${c.name} logo`} width="36" height="36" class="h-8 w-8 rounded-full ring-1 ring-white/10 sm:h-9 sm:w-9" />
+                  <span class="whitespace-nowrap text-[11px] font-medium text-neutral-400 sm:text-xs">{c.name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- 2 · Stats bar -->
-    <section aria-label="At a glance" class="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 md:grid-cols-4">
-      {stats.map((s) => {
-        const Icon = s.icon
-        return (
-          <div class="bg-neutral-950 px-5 py-7 text-center transition-colors hover:bg-neutral-900/60">
-            <Icon size={18} class="mx-auto mb-3 text-accent/70" aria-hidden="true" />
-            <p class="text-3xl font-semibold tracking-tight text-neutral-100 md:text-4xl">{s.v}</p>
-            <p class="mt-1.5 text-sm text-neutral-400">{s.l}</p>
+    <!-- 2 · The story — the universal payment adapter -->
+    <section id="story" aria-label="What PipRail is" class="scroll-mt-24 py-12 sm:py-16">
+      <div class="mx-auto max-w-3xl text-center">
+        <span class="inline-flex items-center rounded-full border border-accent/25 bg-accent/8 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-accent">The universal payment adapter</span>
+        <h2 class="mt-5 text-3xl font-semibold leading-[1.12] tracking-tight sm:text-4xl">
+          Money online was built for humans.<br class="hidden sm:block" />
+          <span class="text-accent">PipRail rebuilds it for agents.</span>
+        </h2>
+        <p class="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-neutral-400 sm:text-lg">
+          AI agents now earn and spend on their own — buying data, paying for compute, selling their work. But money
+          online still assumes a human with a credit card, scattered across dozens of blockchains that each settle
+          differently. An agent can’t swipe a card, and no endpoint can charge across them all.
+        </p>
+      </div>
+
+      <!-- the adapter, visualized: a fragmented world → PipRail → any agent ⇄ any API -->
+      <div class="mt-12 flex flex-col items-stretch gap-3 sm:mt-14 sm:flex-row sm:items-center sm:gap-0">
+        <!-- the problem: many chains, all different -->
+        <div class="card flex-1 rounded-2xl p-5 text-center sm:p-6">
+          <p class="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">The fragmented world</p>
+          <div class="mt-3.5 flex flex-wrap items-center justify-center gap-2">
+            {fragmentLogos.map((slug) => (
+              <img src={`/chains/${slug}.svg`} alt="" width="30" height="30" class="h-7 w-7 rounded-full ring-1 ring-white/10 opacity-80" />
+            ))}
           </div>
-        )
-      })}
+          <p class="mt-3.5 text-sm leading-snug text-neutral-400">{total} chains — each its own tokens, signing &amp; gas</p>
+        </div>
+
+        <!-- connector → -->
+        <div class="hidden h-px sm:mx-1 sm:flex sm:w-14 sm:items-center">
+          <div class="h-px w-full bg-linear-to-r from-white/10 via-accent/50 to-accent/90"></div>
+        </div>
+
+        <!-- the adapter: PipRail in the middle -->
+        <div class="relative flex-1 overflow-hidden rounded-2xl border border-accent/30 bg-linear-to-b from-accent/10 to-white/2 p-6 text-center shadow-[0_0_56px_-14px_rgba(46,230,166,0.5)]">
+          <div class="pointer-events-none absolute left-1/2 top-1/2 h-44 w-44 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent/15 blur-3xl"></div>
+          <div class="relative">
+            <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-accent/30 bg-neutral-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
+              <img src="/logo.png" alt="PipRail" width="34" height="34" class="h-8.5 w-8.5" />
+            </div>
+            <p class="mt-3.5 font-display text-lg font-semibold tracking-tight text-white">PipRail</p>
+            <p class="mt-1 text-sm font-medium text-accent">one adapter · one line</p>
+          </div>
+        </div>
+
+        <!-- connector → -->
+        <div class="hidden h-px sm:mx-1 sm:flex sm:w-14 sm:items-center">
+          <div class="h-px w-full bg-linear-to-r from-accent/90 via-accent/50 to-white/10"></div>
+        </div>
+
+        <!-- the payoff: any API ⇄ any agent -->
+        <div class="card flex-1 rounded-2xl p-5 text-center sm:p-6">
+          <p class="text-[11px] font-semibold uppercase tracking-wider text-accent">The payoff</p>
+          <div class="mt-3.5 flex items-center justify-center gap-2 text-sm">
+            <span class="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 font-medium text-neutral-200">Any API</span>
+            <span class="text-accent">⇄</span>
+            <span class="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 font-medium text-neutral-200">Any agent</span>
+          </div>
+          <p class="mt-3.5 text-sm leading-snug text-neutral-400">charges for itself · pays on its own</p>
+        </div>
+      </div>
+
+      <!-- the resolution + the proof, woven in -->
+      <p class="mx-auto mt-10 max-w-2xl text-center text-base leading-relaxed text-neutral-300 sm:text-lg">
+        Name a chain — PipRail handles the token, the signing, the proof.
+        <span class="text-white">One line, every chain, straight to your wallet.</span> No backend, no facilitator, no fee.
+      </p>
+      <div class="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm text-neutral-500">
+        <span><span class="font-semibold text-neutral-200">{total}</span> chains</span>
+        <span class="text-white/15" aria-hidden="true">·</span>
+        <span><span class="font-semibold text-neutral-200">$0</span> fee</span>
+        <span class="text-white/15" aria-hidden="true">·</span>
+        <span><span class="font-semibold text-neutral-200">1</span> line</span>
+        <span class="text-white/15" aria-hidden="true">·</span>
+        <span><span class="font-semibold text-neutral-200">MIT</span> open source</span>
+      </div>
     </section>
 
     <!-- 3 · The fork — two audiences, two doors -->
@@ -180,7 +265,7 @@ const howToLd = {
         <span class="text-neutral-200">pay</span> for one. Pick your side — both are a couple of lines.
       </SectionHeading>
       <div class="grid gap-6 lg:grid-cols-2">
-        <div class="flex min-w-0 flex-col rounded-2xl border border-white/10 bg-white/2 p-6 sm:p-7">
+        <div class="flex min-w-0 flex-col card rounded-2xl p-6 sm:p-7">
           <h3 class="flex items-center gap-2 text-sm font-medium uppercase tracking-wider text-muted">
             <span class="h-1.5 w-1.5 rounded-full bg-accent"></span> Accept — your server gets paid
           </h3>
@@ -188,7 +273,7 @@ const howToLd = {
           <CodeWindow file="server.ts" code={acceptCode} class="min-w-0" />
           <a href="/sdk" class="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-accent transition hover:gap-2.5">Build a paid API <ArrowRight size={15} aria-hidden="true" /></a>
         </div>
-        <div class="flex min-w-0 flex-col rounded-2xl border border-white/10 bg-white/2 p-6 sm:p-7">
+        <div class="flex min-w-0 flex-col card rounded-2xl p-6 sm:p-7">
           <h3 class="flex items-center gap-2 text-sm font-medium uppercase tracking-wider text-muted">
             <span class="h-1.5 w-1.5 rounded-full bg-accent"></span> Pay — your agent pays for itself
           </h3>
@@ -220,7 +305,7 @@ const howToLd = {
             live, client-side, no install. The SDK loads from a CDN right on the page.
           </p>
           <div class="mt-8">
-            <a href="/demo" class="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110">
+            <a href="/demo" class="inline-flex items-center justify-center gap-2 cta-glow rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110">
               <Play size={15} fill="currentColor" aria-hidden="true" /> Try the live demo
             </a>
           </div>
@@ -253,33 +338,56 @@ const howToLd = {
     <!-- 5 · Why PipRail -->
     <section class="border-t border-white/10 py-20 sm:py-24">
       <SectionHeading title="One protocol. Every chain.">
-        Every blockchain settles value its own way. PipRail collapses that behind a single x402 line and one
-        self-custodial driver per family — so the same integration pays and gets paid across all {familyCount},
-        native coin or stablecoin. Backendless, no fee, no one in the middle. No other x402 SDK reaches this far.
+        One x402 line, one self-custodial driver per family — the same integration pays and gets paid across all
+        {familyCount} families, native coin or stablecoin. And PipRail reaches chains no other x402 SDK touches:
+        TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar &amp; the XRP Ledger, alongside every major EVM chain.
       </SectionHeading>
 
-      <div class="mb-4 flex flex-wrap items-center justify-center gap-x-7 gap-y-4 rounded-2xl border border-white/10 bg-neutral-950 px-6 py-7 sm:gap-x-10">
-        {familyLogos.map((f) => (
-          <span class="flex items-center gap-2" title={f.label}>
-            <img src={`/chains/${f.slug}.svg`} alt={`${f.label} logo`} width="28" height="28" loading="lazy" class="h-7 w-7 rounded-full ring-1 ring-white/10" />
-            <span class="text-sm font-medium text-neutral-300">{f.label}</span>
-          </span>
-        ))}
-      </div>
-
-      <div class="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 md:grid-cols-3">
-        {why.map((w) => {
-          const Icon = w.icon
-          return (
-            <div class="bg-neutral-950 p-6 sm:p-8">
-              <span class="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5">
-                <Icon size={18} class="text-accent" aria-hidden="true" />
-              </span>
-              <p class="mt-4 text-lg font-medium text-neutral-100">{w.t}</p>
-              <p class="mt-2 leading-relaxed text-neutral-500">{w.d}</p>
+      <div id="coverage" class="lift relative mb-4 overflow-hidden rounded-2xl border border-white/10 bg-neutral-950/80 p-6 sm:p-8">
+        <!-- emerald wash -->
+        <div class="pointer-events-none absolute -right-24 -top-28 h-72 w-72 rounded-full bg-accent/10 blur-3xl"></div>
+        <div class="relative space-y-7">
+          <!-- EVM — the flagship family, BNB first + highlighted -->
+          <div>
+            <div class="mb-4 flex flex-wrap items-center gap-x-2.5 gap-y-1">
+              <span class="inline-flex items-center rounded-md border border-accent/30 bg-accent/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-accent">EVM</span>
+              <span class="text-sm text-neutral-400">{evmCount} mainnets — one driver covers them all</span>
             </div>
-          )
-        })}
+            <div class="flex flex-wrap items-center gap-2.5">
+              {evmFeatured.map((c) => (
+                <span class={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium transition ${c.slug === 'bnb' ? 'border-accent/45 bg-accent/12 text-white shadow-[0_0_26px_-6px_rgba(46,230,166,0.65)]' : 'border-white/10 bg-white/5 text-neutral-300 hover:border-white/20'}`}>
+                  <img src={`/chains/${c.slug}.svg`} alt="" width="20" height="20" class="h-5 w-5 rounded-full ring-1 ring-white/10" />
+                  {c.name}
+                </span>
+              ))}
+              <a href="/chains" class="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-medium text-neutral-400 transition hover:border-accent/30 hover:text-accent">
+                +{evmMore} more <ArrowRight size={13} aria-hidden="true" />
+              </a>
+            </div>
+          </div>
+
+          <div class="h-px bg-linear-to-r from-transparent via-white/12 to-transparent"></div>
+
+          <!-- the 9 non-EVM families — each its own native, self-custodial driver -->
+          <div>
+            <p class="mb-4 text-sm text-neutral-400">
+              <span class="font-medium text-neutral-200">+ {familyCount - 1} more families</span> — each a native, self-custodial driver
+            </p>
+            <div class="flex flex-wrap items-center gap-2.5">
+              {nonEvmFamilies.map((f) => (
+                <span class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-medium text-neutral-300 transition hover:border-white/20">
+                  <img src={`/chains/${f.slug}.svg`} alt="" width="20" height="20" class="h-5 w-5 rounded-full ring-1 ring-white/10" />
+                  {f.label}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <p class="text-sm leading-snug text-neutral-500">
+            Need a chain we don’t ship? Pass a <code class="rounded bg-white/5 px-1 text-neutral-300">{'{ id, rpcUrl }'}</code> —
+            any EVM chain works, no allowlist. <a href="/chains" class="text-accent transition hover:underline">Browse every chain →</a>
+          </p>
+        </div>
       </div>
     </section>
 
@@ -289,7 +397,7 @@ const howToLd = {
         A four-step round trip over plain HTTP. No facilitator, no custody.
         <a href="/sdk" class="text-accent underline-offset-4 hover:underline">See the full flow →</a>
       </SectionHeading>
-      <ol class="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 sm:grid-cols-2 lg:grid-cols-4">
+      <ol class="lift grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 sm:grid-cols-2 lg:grid-cols-4">
         {steps.map((s) => {
           const Icon = s.icon
           return (
@@ -308,12 +416,13 @@ const howToLd = {
 
     <!-- 6.5 · Universal — speaks the standard, stays backendless -->
     <section class="border-t border-white/10 py-20 sm:py-24">
-      <SectionHeading title="One standard. Every client.">
-        PipRail’s envelope is x402 <span class="text-neutral-200">v2-conformant</span>, so any x402 client can read your gate.
-        Keep the backendless default — the payer broadcasts, you verify locally — and opt in to the ratified
-        <code class="text-neutral-300">exact</code> rail to get paid by the whole ecosystem. No middleman either way.
+      <SectionHeading title="Open standard. No middleman.">
+        x402 is the open payment rail the agent economy is converging on — and PipRail speaks it
+        <span class="text-neutral-200">without ever putting anyone in the middle</span>. Funds settle to your wallet,
+        verified against your own RPC. Nobody to rate-limit you, take a cut, or shut you off — yet any x402 client in
+        the world can still pay you.
       </SectionHeading>
-      <div class="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 md:grid-cols-3">
+      <div class="lift grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 md:grid-cols-3">
         {interop.map((w) => {
           const Icon = w.icon
           return (
@@ -330,48 +439,58 @@ const howToLd = {
     </section>
 
     <!-- 7 · MCP teaser -->
-    <section class="border-t border-white/10 py-20 sm:py-24">
+    <section id="mcp-teaser" class="scroll-mt-24 border-t border-white/10 py-20 sm:py-24">
       <div class="relative overflow-hidden rounded-3xl border border-accent/20 bg-linear-to-br from-accent/8 via-white/2 to-transparent p-8 sm:p-10 lg:p-14">
         <div class="pointer-events-none absolute -left-24 -top-28 h-80 w-80 rounded-full bg-accent/10 blur-3xl"></div>
-        <div class="relative grid items-center gap-10 lg:grid-cols-[1fr_1.05fr] lg:gap-14">
-          <div>
-            <span class="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/8 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
-              <Sparkles size={13} aria-hidden="true" /> @piprail/mcp
-            </span>
-            <h2 class="mt-5 text-3xl font-semibold leading-[1.1] tracking-tight sm:text-4xl">
-              Give your AI agent <span class="text-accent">a wallet</span>.
-            </h2>
-            <p class="mt-5 max-w-xl text-base leading-relaxed text-neutral-400 sm:text-lg">
-              Paste one config block and Claude Desktop, Cursor, or any MCP client pays x402-gated APIs
-              <span class="text-neutral-200">on its own</span> — across {total} chains, capped by a spend policy it
-              <span class="text-neutral-200">cannot exceed</span>. No code, no backend, no custody.
-            </p>
-            <ul class="mt-7 space-y-2.5">
+        <div class="relative">
+          <div class="grid items-center gap-10 lg:grid-cols-[1fr_1.05fr] lg:gap-14">
+            <div>
+              <span class="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/8 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+                <Sparkles size={13} aria-hidden="true" /> @piprail/mcp
+              </span>
+              <h2 class="mt-5 text-3xl font-semibold leading-[1.1] tracking-tight sm:text-4xl">
+                Give your AI agent <span class="text-accent">a wallet</span>.
+              </h2>
+              <p class="mt-5 max-w-xl text-base leading-relaxed text-neutral-400 sm:text-lg">
+                Paste one config block and Claude Desktop, Cursor, or any MCP client pays x402-gated APIs
+                <span class="text-neutral-200">on its own</span> — across {total} chains, capped by a spend policy it
+                <span class="text-neutral-200">cannot exceed</span>. No code, no backend, no custody.
+              </p>
+              <div class="mt-8 flex flex-col gap-3 sm:flex-row">
+                <a href="/mcp" class="inline-flex items-center justify-center gap-2 cta-glow rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110">
+                  <Bot size={16} aria-hidden="true" /> Set it up
+                </a>
+                <a href="https://www.npmjs.com/package/@piprail/mcp" class="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20">
+                  @piprail/mcp on npm
+                </a>
+              </div>
+            </div>
+            <div class="min-w-0">
+              <CodeWindow file="claude_desktop_config.json" code={mcpConfigCode} />
+              <div class="card mt-4 flex items-center gap-3 rounded-xl px-4 py-3">
+                <Wallet size={16} class="shrink-0 text-accent" aria-hidden="true" />
+                <p class="text-sm leading-snug text-neutral-400">
+                  <span class="font-mono text-neutral-200">npx -y @piprail/mcp</span> — nothing to install. Then say
+                  <span class="text-neutral-300">“pay for and summarize that report.”</span>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- the seven tools, given room to breathe in a full-width grid -->
+          <div class="mt-10 border-t border-white/10 pt-8 sm:mt-12">
+            <p class="mb-5 text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">Seven tools your agent gets</p>
+            <ul class="grid gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
               {mcpTools.map((t) => (
                 <li class="flex items-start gap-3">
-                  <span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-accent/30 bg-accent/10 text-accent"><Plug size={12} aria-hidden="true" /></span>
-                  <span class="text-sm leading-snug text-neutral-300"><code class="text-neutral-100">{t.name}</code> — {t.desc}</span>
+                  <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-accent/30 bg-accent/10 text-accent"><Plug size={12} aria-hidden="true" /></span>
+                  <div class="min-w-0">
+                    <code class="font-mono text-[13px] font-medium text-neutral-100">{t.name}</code>
+                    <p class="mt-1 text-sm leading-snug text-neutral-400">{t.desc}</p>
+                  </div>
                 </li>
               ))}
             </ul>
-            <div class="mt-8 flex flex-col gap-3 sm:flex-row">
-              <a href="/mcp" class="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110">
-                <Bot size={16} aria-hidden="true" /> Set it up
-              </a>
-              <a href="https://www.npmjs.com/package/@piprail/mcp" class="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20">
-                @piprail/mcp on npm
-              </a>
-            </div>
-          </div>
-          <div class="min-w-0">
-            <CodeWindow file="claude_desktop_config.json" code={mcpConfigCode} />
-            <div class="mt-4 flex items-center gap-3 rounded-xl border border-white/10 bg-white/2 px-4 py-3">
-              <Wallet size={16} class="shrink-0 text-accent" aria-hidden="true" />
-              <p class="text-sm leading-snug text-neutral-400">
-                <span class="font-mono text-neutral-200">npx -y @piprail/mcp</span> — nothing to install. Then say
-                <span class="text-neutral-300">“pay for and summarize that report.”</span>
-              </p>
-            </div>
           </div>
         </div>
       </div>
@@ -383,7 +502,7 @@ const howToLd = {
         x402 lets your endpoint charge — PipRail makes it <span class="text-neutral-200">discoverable</span>, built on the
         open x402 indexes that already exist. No registry, no database, no fee — nothing PipRail-hosted. Three opt-in moves:
       </SectionHeading>
-      <div class="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 md:grid-cols-3">
+      <div class="lift grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 md:grid-cols-3">
         <div class="bg-neutral-950 p-6 sm:p-7">
           <span class="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5"><Code2 size={18} class="text-accent" aria-hidden="true" /></span>
           <p class="mt-4 text-lg font-medium text-neutral-100">Emit</p>
@@ -392,7 +511,7 @@ const howToLd = {
         <div class="bg-neutral-950 p-6 sm:p-7">
           <span class="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5"><Megaphone size={18} class="text-accent" aria-hidden="true" /></span>
           <p class="mt-4 text-lg font-medium text-neutral-100">Register</p>
-          <p class="mt-2 leading-relaxed text-neutral-500"><code class="text-neutral-300">client.register(url)</code> lists you on 402 Index — no auth, no signature, searchable in seconds.</p>
+          <p class="mt-2 leading-relaxed text-neutral-500"><code class="text-neutral-300">client.register(url)</code> lists you on 402 Index — no auth, no signature, no fee.</p>
         </div>
         <div class="bg-neutral-950 p-6 sm:p-7">
           <span class="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5"><Search size={18} class="text-accent" aria-hidden="true" /></span>
@@ -407,26 +526,6 @@ const howToLd = {
       </div>
     </section>
 
-    <!-- 8 · Chains teaser -->
-    <section class="border-t border-white/10 py-20 sm:py-24">
-      <div class="grid items-center gap-8 lg:grid-cols-[1fr_auto]">
-        <div>
-          <h2 class="text-3xl font-semibold tracking-tight md:text-4xl">{total} chains, {familyCount} families.</h2>
-          <p class="mt-4 max-w-xl text-base leading-relaxed text-neutral-400 sm:text-lg">
-            {evmCount} EVM mainnets plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar &amp; the XRP Ledger —
-            each with its canonical stablecoins and native coin, ready to go. Any other chain works via one config object.
-          </p>
-          <a href="/chains" class="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-accent transition hover:gap-2.5">Browse every chain <ArrowRight size={15} aria-hidden="true" /></a>
-        </div>
-        <div class="flex max-w-xs flex-wrap items-center justify-center gap-3 rounded-2xl border border-white/10 bg-neutral-950 p-6 lg:max-w-sm">
-          {chains.slice(0, 12).map((c) => (
-            <img src={`/chains/${c.slug}.svg`} alt={`${c.name} logo`} width="32" height="32" loading="lazy" class="h-8 w-8 rounded-full ring-1 ring-white/10" />
-          ))}
-          <a href="/chains" class="flex h-8 items-center rounded-full bg-white/5 px-3 text-xs font-medium text-neutral-300 ring-1 ring-white/10 transition hover:bg-white/10">+{total - 12}</a>
-        </div>
-      </div>
-    </section>
-
     <!-- 9 · FAQ (top 5) -->
     <section id="faq" class="scroll-mt-20 border-t border-white/10 py-20 sm:py-24">
       <div class="grid gap-8 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:gap-16">
@@ -437,7 +536,7 @@ const howToLd = {
             <a href="/chains" class="text-accent underline-offset-4 hover:underline">Chains</a> pages.
           </SectionHeading>
         </div>
-        <div class="divide-y divide-white/10 overflow-hidden rounded-2xl border border-white/10 bg-neutral-950">
+        <div class="lift divide-y divide-white/10 overflow-hidden rounded-2xl border border-white/10 bg-neutral-950">
           {faqs.map((f, i) => (
             <details class="group" open={i === 0}>
               <summary class="flex cursor-pointer list-none items-center justify-between gap-5 px-6 py-5 text-[15px] font-medium text-neutral-100 transition hover:bg-white/3 [&::-webkit-details-marker]:hidden sm:px-7">
@@ -463,7 +562,7 @@ const howToLd = {
         One install. One line. Straight to your wallet, on every chain that matters.
       </p>
       <div class="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-        <a href="/sdk" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto">
+        <a href="/sdk" class="inline-flex w-full items-center justify-center gap-2 cta-glow rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto">
           Read the SDK guide <ArrowRight size={16} aria-hidden="true" />
         </a>
         <a href="https://github.com/piprail/piprail" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto">
@@ -474,7 +573,7 @@ const howToLd = {
 
     <!-- 11 · Partners strip -->
     <section class="border-t border-white/10 py-10">
-      <a href="/partners" class="flex flex-col items-start justify-between gap-3 rounded-2xl border border-white/10 bg-white/2 px-6 py-5 transition hover:border-accent/30 hover:bg-white/5 sm:flex-row sm:items-center">
+      <a href="/partners" class="card flex flex-col items-start justify-between gap-3 rounded-2xl px-6 py-5 transition hover:border-accent/30 hover:bg-white/5 sm:flex-row sm:items-center">
         <span class="flex items-center gap-3 text-sm text-neutral-300">
           <Handshake size={18} class="shrink-0 text-accent" aria-hidden="true" />
           <span><span class="font-medium text-neutral-100">Building on the agent economy?</span> PipRail is open to grants, chain integrations, sponsorships &amp; strategic opportunities.</span>

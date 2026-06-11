@@ -1,71 +1,110 @@
 ---
-// Shared site footer — brand, project links, maintainer credit, trademark line.
-// Used on every page for consistency.
+// Shared site footer — brand + tagline, three link columns, project social,
+// and the maintainer credit + trademark bottom bar. Used on every page.
+const columns = [
+  {
+    title: 'Product',
+    links: [
+      { href: '/sdk', label: 'SDK' },
+      { href: '/mcp', label: 'MCP' },
+      { href: '/chains', label: 'Chains' },
+      { href: '/demo', label: 'Live demo' },
+      { href: '/partners', label: 'Partners' },
+    ],
+  },
+  {
+    title: 'Resources',
+    links: [
+      { href: 'https://docs.piprail.com', label: 'Docs' },
+      { href: 'https://www.npmjs.com/package/@piprail/sdk', label: 'SDK on npm' },
+      { href: 'https://www.npmjs.com/package/@piprail/mcp', label: 'MCP on npm' },
+      { href: 'https://x402.org', label: 'x402 standard' },
+    ],
+  },
+  {
+    title: 'Project',
+    links: [
+      { href: 'https://github.com/piprail/piprail', label: 'GitHub' },
+      { href: 'https://github.com/piprail/piprail/blob/main/sdk/CHANGELOG.md', label: 'Changelog' },
+      { href: 'https://www.drips.network/app/projects/github/piprail/piprail', label: 'Support on Drips' },
+      { href: 'https://github.com/piprail/piprail/blob/main/LICENSE', label: 'License (MIT)' },
+    ],
+  },
+]
 ---
 
-<footer class="mx-auto max-w-6xl px-4 py-12 sm:px-6">
-  <div class="border-t border-white/10 pt-10">
-    <!-- Brand + project links -->
-    <div class="flex flex-col gap-6 text-sm text-neutral-400 sm:flex-row sm:items-center sm:gap-7">
-      <a href="/" class="flex items-center gap-2 font-semibold text-neutral-200 transition hover:text-white">
-        <img src="/logo.png" alt="" width="24" height="24" class="h-6 w-6 rounded-md ring-1 ring-white/10" />
-        PipRail
-      </a>
-      <nav class="flex flex-wrap items-center gap-x-6 gap-y-2" aria-label="Footer">
-        <a href="/sdk" class="transition hover:text-neutral-200">SDK</a>
-        <a href="/mcp" class="transition hover:text-neutral-200">MCP</a>
-        <a href="/chains" class="transition hover:text-neutral-200">Chains</a>
-        <a href="/demo" class="transition hover:text-neutral-200">Demo</a>
-        <a href="/partners" class="transition hover:text-neutral-200">Partners</a>
-        <a href="https://docs.piprail.com" class="transition hover:text-neutral-200">Docs</a>
-        <a href="https://www.npmjs.com/package/@piprail/sdk" class="transition hover:text-neutral-200">npm</a>
-        <a href="https://www.npmjs.com/package/@piprail/mcp" class="transition hover:text-neutral-200">MCP npm</a>
-        <a href="https://github.com/piprail/piprail" class="transition hover:text-neutral-200">GitHub</a>
-        <a href="https://x402.org" class="transition hover:text-neutral-200">x402</a>
-      </nav>
-      <span class="text-xs text-neutral-500 sm:ml-auto">MIT · pay straight to your wallet</span>
-    </div>
+<footer class="mx-auto max-w-6xl px-4 pb-10 pt-16 sm:px-6">
+  <div class="relative border-t border-white/10 pt-12">
+    <!-- faint emerald wash so the footer reads as its own region -->
+    <div class="pointer-events-none absolute inset-x-0 -top-px mx-auto h-px max-w-2xl bg-linear-to-r from-transparent via-accent/40 to-transparent"></div>
 
-    <!-- Maintainer credit -->
-    <div class="mt-8 flex flex-col gap-4 border-t border-white/6 pt-8 sm:flex-row sm:items-center sm:justify-between">
-      <p class="text-sm leading-relaxed text-neutral-400">
-        Built &amp; maintained by <span class="font-medium text-neutral-300">John Weeks</span>.
-        Questions or ideas? Reach me on GitHub or X — or support the work on Drips.
-      </p>
-      <div class="flex items-center gap-2.5">
-        <a
-          href="https://www.drips.network/app/projects/github/piprail/piprail"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Support PipRail on Drips"
-          class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 text-sm font-medium text-neutral-300 transition hover:border-white/20 hover:text-white"
-        >
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.69l.74.69C16.27 7.06 18 9.77 18 12.5a6 6 0 0 1-12 0c0-2.73 1.73-5.44 5.26-9.12l.74-.69z"></path></svg>
-          Support
+    <div class="grid gap-10 sm:grid-cols-2 md:grid-cols-[1.6fr_1fr_1fr_1fr] lg:gap-12">
+      <!-- Brand block -->
+      <div class="sm:col-span-2 md:col-span-1">
+        <a href="/" class="inline-flex items-center gap-2.5">
+          <img src="/logo.png" alt="" width="32" height="32" class="h-8 w-8 rounded-lg ring-1 ring-white/10" />
+          <span class="font-display text-lg font-semibold tracking-tight text-white">PipRail</span>
         </a>
-        <a
-          href="https://github.com/John-Weeks-Dev"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="John Weeks on GitHub"
-          class="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-neutral-400 transition hover:border-white/20 hover:text-white"
-        >
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.91 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222 0 1.606-.014 2.898-.014 3.293 0 .322.216.694.825.576C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"></path></svg>
-        </a>
-        <a
-          href="https://x.com/johnweeksdev"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="John Weeks on X"
-          class="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-neutral-400 transition hover:border-white/20 hover:text-white"
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path></svg>
-        </a>
+        <p class="mt-4 max-w-xs text-sm leading-relaxed text-neutral-400">
+          The universal x402 payment rail for AI agents — get paid, or pay, in stablecoins on every chain.
+          No backend, no facilitator, no fee.
+        </p>
+        <div class="mt-6 flex items-center gap-2.5">
+          <a
+            href="https://github.com/piprail/piprail"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="PipRail on GitHub"
+            class="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-neutral-400 transition hover:border-white/20 hover:text-white"
+          >
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.91 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222 0 1.606-.014 2.898-.014 3.293 0 .322.216.694.825.576C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"></path></svg>
+          </a>
+          <a
+            href="https://x.com/piprailhq"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="PipRail on X"
+            class="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-neutral-400 transition hover:border-white/20 hover:text-white"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path></svg>
+          </a>
+          <a
+            href="https://www.npmjs.com/package/@piprail/sdk"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="@piprail/sdk on npm"
+            class="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-neutral-400 transition hover:border-white/20 hover:text-white"
+          >
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M2 2v20h20V2H2zm17 17h-3V7h-5v12H5V5h14v14z"></path></svg>
+          </a>
+        </div>
       </div>
+
+      <!-- Link columns -->
+      {columns.map((col) => (
+        <nav aria-label={col.title}>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-neutral-500">{col.title}</h3>
+          <ul class="mt-4 space-y-2.5">
+            {col.links.map((l) => (
+              <li>
+                <a href={l.href} class="text-sm text-neutral-400 transition hover:text-white">{l.label}</a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      ))}
     </div>
 
-    <p class="mt-8 text-xs leading-relaxed text-neutral-500">
-      © 2026 the PipRail project · PipRail™ and the PipRail logo are trademarks of the PipRail project · source code <a href="https://github.com/piprail/piprail/blob/main/LICENSE" class="underline transition hover:text-neutral-400">MIT-licensed</a>
-    </p>
+    <!-- Bottom bar -->
+    <div class="mt-12 flex flex-col gap-3 border-t border-white/6 pt-7 text-xs leading-relaxed text-neutral-500 sm:flex-row sm:items-center sm:justify-between">
+      <p>
+        © 2026 the PipRail project · PipRail™ and the PipRail logo are trademarks of the PipRail project ·
+        source code <a href="https://github.com/piprail/piprail/blob/main/LICENSE" class="underline underline-offset-2 transition hover:text-neutral-300">MIT-licensed</a>
+      </p>
+      <p class="shrink-0">
+        Built &amp; maintained by
+        <a href="https://github.com/John-Weeks-Dev" target="_blank" rel="noopener noreferrer" class="font-medium text-neutral-400 transition hover:text-white">John Weeks</a>
+      </p>
+    </div>
   </div>
 </footer>

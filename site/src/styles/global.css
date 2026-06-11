@@ -9,6 +9,14 @@
   --color-accent-soft: oklch(0.78 0.17 162 / 0.12);
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", "Menlo", monospace;
+  --font-display: "Space Grotesk", "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Display face for headings — a geometric grotesk that gives headers their own
+   voice against the Inter body + JetBrains Mono code (site-wide; the `font-display`
+   utility is also available for one-offs like the footer wordmark). */
+h1, h2 {
+  font-family: var(--font-display);
 }
 
 html {
@@ -20,17 +28,78 @@ html {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Soft emerald glow behind the hero, fading into the page. */
-body {
-  background:
-    radial-gradient(900px 500px at 50% -8%, oklch(0.78 0.17 162 / 0.10), transparent 70%),
-    radial-gradient(700px 500px at 85% 8%, oklch(0.7 0.16 250 / 0.06), transparent 70%);
+/* Hero ambience — two slow-drifting emerald/blue glow orbs behind the header give the
+   background gentle life (it's the first thing visitors see). Subtle + slow; the static
+   grid sits in front. Honors reduced-motion (the orbs hold still). */
+.hero-orb {
+  position: absolute; z-index: -2; pointer-events: none;
+  border-radius: 50%; filter: blur(90px); will-change: transform, opacity;
 }
+.hero-orb-1 {
+  left: 24%; top: -150px; width: 640px; height: 460px;
+  background: radial-gradient(closest-side, oklch(0.78 0.17 162 / 0.17), transparent);
+  animation: orb-1 34s ease-in-out infinite;
+}
+.hero-orb-2 {
+  left: 58%; top: -90px; width: 560px; height: 460px;
+  background: radial-gradient(closest-side, oklch(0.70 0.16 250 / 0.13), transparent);
+  animation: orb-2 46s ease-in-out infinite;
+}
+@keyframes orb-1 {
+  0%, 100% { transform: translate(0, 0) scale(1);     opacity: 0.82; }
+  50%      { transform: translate(-48px, 34px) scale(1.12); opacity: 1; }
+}
+@keyframes orb-2 {
+  0%, 100% { transform: translate(0, 0) scale(1);     opacity: 0.68; }
+  50%      { transform: translate(46px, 24px) scale(1.1);  opacity: 0.95; }
+}
+@media (prefers-reduced-motion: reduce) { .hero-orb { animation: none; opacity: 0.9; } }
+
+/* Hero particles — faint emerald specks drifting far in the background, like distant
+   stars. Decorative; tiny + low-opacity so they read as deep background. Each <i> gets
+   its position/size/timing inline; three drift keyframes keep them out of sync. */
+.hero-dots { position: absolute; inset: 0 0 auto 0; height: 760px; z-index: -1; pointer-events: none; overflow: hidden; }
+.hero-dots i {
+  position: absolute; border-radius: 50%;
+  background: oklch(0.86 0.13 162 / 1);
+  box-shadow: 0 0 6px oklch(0.86 0.13 162 / 0.5);
+  opacity: var(--o, 0.3);
+  will-change: transform, opacity;
+}
+@keyframes float-a { 0%, 100% { transform: translate(0, 0); opacity: var(--o, .3); } 50% { transform: translate(14px, -22px); opacity: calc(var(--o, .3) + .18); } }
+@keyframes float-b { 0%, 100% { transform: translate(0, 0); opacity: var(--o, .25); } 50% { transform: translate(-18px, -14px); opacity: calc(var(--o, .25) + .16); } }
+@keyframes float-c { 0%, 100% { transform: translate(0, 0); opacity: var(--o, .2); } 50% { transform: translate(12px, 16px); opacity: calc(var(--o, .2) + .14); } }
+@media (prefers-reduced-motion: reduce) { .hero-dots i { animation: none !important; } }
 
 ::selection {
   background: var(--color-accent);
   color: var(--color-bg);
 }
+
+/* ── Surfaces — subtle card depth ──────────────────────────────────────────
+   Restrained on purpose: a quiet top-down gradient, a 1px top edge-light, and a
+   soft ambient lift, so panels read as crafted surfaces while the accent
+   sections (demo/MCP) still lead. `card` = a full surface (gradient + border +
+   depth); `lift` = depth only, for the hairline-divider grids whose cells fill
+   the frame. */
+@utility card {
+  background-image: linear-gradient(180deg, oklch(1 0 0 / 0.05), oklch(1 0 0 / 0.015));
+  border: 1px solid oklch(1 0 0 / 0.10);
+  box-shadow:
+    inset 0 1px 0 oklch(1 0 0 / 0.06),
+    0 1px 2px oklch(0 0 0 / 0.25),
+    0 16px 36px -20px oklch(0 0 0 / 0.55);
+}
+@utility lift {
+  box-shadow:
+    inset 0 1px 0 oklch(1 0 0 / 0.05),
+    0 1px 2px oklch(0 0 0 / 0.25),
+    0 16px 36px -20px oklch(0 0 0 / 0.55);
+}
+
+/* Soft emerald halo under the primary (accent) CTAs — premium lift, deepens on hover. */
+.cta-glow { box-shadow: 0 10px 34px -12px oklch(0.78 0.17 162 / 0.55); }
+.cta-glow:hover { box-shadow: 0 12px 40px -10px oklch(0.78 0.17 162 / 0.72); }
 
 /* Thin, quiet scrollbars on the code blocks. */
 pre::-webkit-scrollbar { height: 6px; }
@@ -43,6 +112,25 @@ pre::-webkit-scrollbar-thumb { background: oklch(1 0 0 / 0.12); border-radius: 9
 .tok-chain { color: oklch(0.85 0.14 85); font-weight: 600; }
 .tok-num   { color: oklch(0.8 0.12 25); }
 .tok-com   { color: oklch(0.5 0.01 260); font-style: italic; }
+
+/* ── Chain marquee — two lanes drifting opposite ways, edge-faded so chips slip
+   in and out at the sides. Pure CSS transform (GPU-cheap); pauses on hover and
+   for reduced-motion. Each lane holds two identical copies, so translateX(-50%)
+   loops seamlessly. ── */
+.marquee {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+          mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+}
+.marquee-track { display: flex; width: max-content; will-change: transform; }
+.marquee-track.left  { animation: marquee-l 64s linear infinite; }
+.marquee-track.right { animation: marquee-r 80s linear infinite; }
+.marquee:hover .marquee-track { animation-play-state: paused; }
+@keyframes marquee-l { from { transform: translateX(0); }    to { transform: translateX(-50%); } }
+@keyframes marquee-r { from { transform: translateX(-50%); } to { transform: translateX(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track.left, .marquee-track.right { animation: none; transform: none; }
+  .marquee { -webkit-mask-image: none; mask-image: none; }
+}
 
 /* Load-in motion — CSS only, no JS runtime. */
 @keyframes fade-up {
