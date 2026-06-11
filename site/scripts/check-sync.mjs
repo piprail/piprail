@@ -22,7 +22,7 @@ const pkgVersion = (p) => JSON.parse(read(p)).version
 const sdkV = pkgVersion('sdk/package.json')
 const mcpV = pkgVersion('mcp/package.json')
 
-const TOOLS = ['piprail_discover', 'piprail_quote_payment', 'piprail_plan_payment', 'piprail_pay_request', 'piprail_register']
+const TOOLS = ['piprail_discover', 'piprail_quote_payment', 'piprail_plan_payment', 'piprail_pay_request', 'piprail_register', 'piprail_budget', 'piprail_guide']
 const AEO_FILES = ['site/public/llms.txt', 'site/public/llms-full.txt']
 
 const checks = []
@@ -38,7 +38,7 @@ for (const file of AEO_FILES) {
   check(`${file} · MCP-Version matches mcp/package.json`, mcp === mcpV, `header=${mcp ?? '(missing)'} pkg=${mcpV}`)
 }
 
-// 2. The five MCP tool names must be present wherever the tool set is enumerated in prose
+// 2. Every MCP tool name must be present wherever the tool set is enumerated in prose
 //    (guards against a silent revert to the old three-tool wording). Note: sdk/README.md AND the
 //    root README.md are intentionally excluded — both are now brief signposts to docs.piprail.com
 //    (the source of truth), so they link onward rather than enumerating the tool names. The names
@@ -46,7 +46,7 @@ for (const file of AEO_FILES) {
 for (const file of [...AEO_FILES, 'mcp/README.md']) {
   const txt = read(file)
   const missing = TOOLS.filter((t) => !txt.includes(t))
-  check(`${file} · lists all 5 MCP tools`, missing.length === 0, `missing: ${missing.join(', ')}`)
+  check(`${file} · lists all ${TOOLS.length} MCP tools`, missing.length === 0, `missing: ${missing.join(', ')}`)
 }
 
 // 3. Structural: the repo's own docs must document BOTH published packages. The root
@@ -68,7 +68,7 @@ console.log('')
 if (failed) {
   console.error(`✗ docs-sync guard FAILED (${failed}). The site is out of sync with the packages.`)
   console.error('  Fix: update the SDK-Version / MCP-Version headers in site/public/llms.txt + llms-full.txt')
-  console.error(`       to SDK ${sdkV} / MCP ${mcpV}, and keep all 5 tool names. See RELEASING.md → "Deploy checklist".`)
+  console.error(`       to SDK ${sdkV} / MCP ${mcpV}, and keep all ${TOOLS.length} tool names. See RELEASING.md → "Deploy checklist".`)
   process.exit(1)
 }
-console.log(`✓ docs in sync — llms.txt + llms-full.txt match SDK ${sdkV} / MCP ${mcpV}; all 5 MCP tools present.`)
+console.log(`✓ docs in sync — llms.txt + llms-full.txt match SDK ${sdkV} / MCP ${mcpV}; all ${TOOLS.length} MCP tools present.`)

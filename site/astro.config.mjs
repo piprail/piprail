@@ -15,6 +15,7 @@ export default defineConfig({
           'https://piprail.com/sdk/': { priority: 0.9, changefreq: 'weekly' },
           'https://piprail.com/mcp/': { priority: 0.9, changefreq: 'weekly' },
           'https://piprail.com/chains/': { priority: 0.8, changefreq: 'weekly' },
+          'https://piprail.com/discovery/': { priority: 0.7, changefreq: 'weekly' },
           'https://piprail.com/demo/': { priority: 0.7, changefreq: 'monthly' },
           'https://piprail.com/partners/': { priority: 0.5, changefreq: 'monthly' },
         }
