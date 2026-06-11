@@ -16,7 +16,7 @@ import type {
   X402AcceptEntry,
   X402ExactAcceptEntry,
   X402AnyAccept,
-  ExactPaymentPayload,
+  ExactPaymentPayloadAny,
   VerifyResult,
 } from '../x402.js'
 import type { ChainInput } from './evm/chains.js'
@@ -336,7 +336,7 @@ export interface ResolvedNetwork {
     wallet: WalletHandle,
     accept: X402ExactAcceptEntry
   ): Promise<{
-    payload: ExactPaymentPayload
+    payload: ExactPaymentPayloadAny
     accepted: X402ExactAcceptEntry
     payerFrom: string
     nonce: string
@@ -388,7 +388,7 @@ export interface ResolvedNetwork {
    */
   settleExactSelf?(input: {
     relayer: WalletHandle
-    payload: ExactPaymentPayload
+    payload: ExactPaymentPayloadAny
     accept: X402ExactAcceptEntry
   }): Promise<VerifyResult>
 }

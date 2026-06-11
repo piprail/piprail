@@ -54,7 +54,7 @@ const fakeEvm: PaymentDriver = {
         lastSettleAccept = accept
         if (settleMode === 'throw') throw new SettlementError('relayer out of gas')
         if (settleMode === 'invalid') return { ok: false, error: 'amount_too_low', detail: 'Authorized 1, required 50000.' }
-        return { ok: true, receipt: { scheme: 'exact', success: true, network: accept.network, transaction: `0x${'fe'.repeat(32)}`, asset: accept.asset, amount: accept.amount, payer: payload.authorization.from, payTo: accept.payTo, verifiedAt: 'now' } }
+        return { ok: true, receipt: { scheme: 'exact', success: true, network: accept.network, transaction: `0x${'fe'.repeat(32)}`, asset: accept.asset, amount: accept.amount, payer: 'permit2Authorization' in payload ? payload.permit2Authorization.from : payload.authorization.from, payTo: accept.payTo, verifiedAt: 'now' } }
       },
     }
   },
@@ -113,8 +113,16 @@ describe('exact rail — dual-advertise', () => {
 })
 
 describe('exact rail — config validation', () => {
-  it('throws when exact is requested on a non-EIP-3009 token (USDT)', async () => {
+  it('advertises a PERMIT2 rail for a non-EIP-3009 ERC-20 (USDT) — auto-fallback, not a throw', async () => {
     const gate = createPaymentGate({ chain: { id: 8453, rpcUrl: 'x' }, token: 'USDT', amount: '1', payTo: PAY_TO, exact: { settle: 'self', relayer: { privateKey: '0x' + 'ab'.repeat(32) } } })
+    const { challenge } = await gate.challenge('https://api/x')
+    const exact = challenge.accepts.find((a) => a.scheme === 'exact')
+    expect(exact?.extra).toMatchObject({ assetTransferMethod: 'permit2' })
+    expect('name' in exact!.extra).toBe(false) // permit2 omits the token's EIP-712 domain
+  })
+
+  it("still throws for `method:'eip3009'` FORCED on a non-EIP-3009 token", async () => {
+    const gate = createPaymentGate({ chain: { id: 8453, rpcUrl: 'x' }, token: 'USDT', amount: '1', payTo: PAY_TO, exact: { settle: 'self', relayer: { privateKey: '0x' + 'ab'.repeat(32) }, method: 'eip3009' } })
     await expect(gate.challenge()).rejects.toThrow(/EIP-3009/)
   })
 
@@ -204,6 +212,52 @@ describe('exact rail — verify + settle routing', () => {
     const exactRail = challenge.accepts.find((a) => a.scheme === 'exact')!
     const res = await gate.verify(v2Header({ ...exactRail, network: 'eip155:1', asset: '0xother' }, AUTH()))
     expect(res).toMatchObject({ kind: 'invalid', error: 'transfer_not_found' })
+  })
+})
+
+describe('exact rail — permit2 variant (non-EIP-3009 tokens, e.g. BNB)', () => {
+  const permit2Gate = () =>
+    createPaymentGate({
+      chain: { id: 56, rpcUrl: 'x' }, token: 'USDT', amount: '1', payTo: PAY_TO,
+      exact: { settle: 'self', relayer: { privateKey: '0x' + 'ab'.repeat(32) } },
+    })
+  const PA = (over: Record<string, unknown> = {}) => ({
+    permitted: { token: '0xusdt', amount: '1000000' },
+    from: '0x857b06519E91e3A54538791bDbb0E22373e36b66',
+    spender: '0x402085c248EeA27D92E8b30b2C58ed07f9E20001',
+    nonce: String(Math.floor(Math.random() * 1e15)),
+    deadline: '9999999999',
+    witness: { to: PAY_TO, validAfter: '0' },
+    ...over,
+  })
+  const v2Permit2Header = (accepted: unknown, pa: unknown, signature = '0xsig') =>
+    b64({ x402Version: 2, accepted, payload: { signature, permit2Authorization: pa } })
+
+  it('advertises a permit2 exact rail (assetTransferMethod permit2, no token name/version)', async () => {
+    const { challenge } = await permit2Gate().challenge('https://api/x')
+    const exact = challenge.accepts.find((a) => a.scheme === 'exact')!
+    expect(exact.extra).toMatchObject({ assetTransferMethod: 'permit2' })
+    expect('name' in exact.extra).toBe(false)
+    expect('version' in exact.extra).toBe(false)
+  })
+
+  it('verifies + settles an inbound permit2 PAYMENT-SIGNATURE → paid (server-trusted accept)', async () => {
+    const gate = permit2Gate()
+    const { challenge } = await gate.challenge()
+    const exactRail = challenge.accepts.find((a) => a.scheme === 'exact')!
+    const res = await gate.verify(v2Permit2Header(exactRail, PA()))
+    expect(res.kind).toBe('paid')
+    if (res.kind === 'paid') expect(res.receipt.scheme).toBe('exact')
+    expect((lastSettleAccept as { extra: { assetTransferMethod: string } }).extra.assetTransferMethod).toBe('permit2')
+  })
+
+  it('replay-claims the permit2 nonce → a second submit of the same payment is tx_already_used', async () => {
+    const gate = permit2Gate()
+    const { challenge } = await gate.challenge()
+    const exactRail = challenge.accepts.find((a) => a.scheme === 'exact')!
+    const header = v2Permit2Header(exactRail, PA())
+    expect((await gate.verify(header)).kind).toBe('paid')
+    expect(await gate.verify(header)).toMatchObject({ kind: 'invalid', error: 'tx_already_used' })
   })
 })
 

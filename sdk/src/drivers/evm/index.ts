@@ -15,6 +15,7 @@ import {
 import { payEvm } from './pay.js'
 import { verifyEvm } from './verify.js'
 import { readExactDomain, verifyAndSettleExactEvm, payExactEvm } from './exact.js'
+import { payPermit2Evm, verifyAndSettlePermit2Evm } from './permit2.js'
 import { networkForChain, chainIdFromNetwork } from '../../x402.js'
 import {
   ConfirmationTimeoutError,
@@ -184,12 +185,15 @@ function makeEvmNetwork(resolved: ResolvedChain): ResolvedNetwork {
       // server / merchant-chosen facilitator broadcasts it — so the BUYER spends ~0
       // gas. Report a gasless estimate so the planner never blocks it on native funds.
       if (accept.scheme === 'exact') {
+        const permit2 = accept.extra.assetTransferMethod === 'permit2'
         return nativeCost({
           symbol,
           decimals,
           fee: 0n,
           basis: 'estimated',
-          detail: 'gasless — the server/facilitator settles the signed authorization',
+          detail: permit2
+            ? 'gasless after a one-time Permit2 approval; the server/facilitator settles the signed authorization'
+            : 'gasless — the server/facilitator settles the signed authorization',
         })
       }
       // Typical gas for a simple transfer: ~21k native, ~65k ERC-20.
@@ -260,12 +264,24 @@ function makeEvmNetwork(resolved: ResolvedChain): ResolvedNetwork {
       })
     },
 
-    // Standard x402 `exact` rail (EIP-3009), BUYER side — EVM only. Re-derives the
-    // token's EIP-712 domain on-chain, signs an authorization with the agent's own
-    // key, and returns it for the client to frame into PAYMENT-SIGNATURE. Never
-    // broadcasts. Throws UnsupportedSchemeError for a non-EIP-3009 token / contract signer.
+    // Standard x402 `exact` rail, BUYER side — EVM only. Routes on the rail's
+    // `assetTransferMethod`: `permit2` (any ERC-20 — e.g. Binance-Peg USDC on BNB, signs a
+    // Permit2 witness transfer + lazily does the one-time approval) or `eip3009` (re-derives
+    // the token's EIP-712 domain on-chain + signs transferWithAuthorization). Never broadcasts.
+    // Throws UnsupportedSchemeError for a contract signer (or a non-EIP-3009 token on the eip3009 path).
     async payExact(wallet: WalletHandle, accept) {
       const a = wallet._native as WalletAdapter
+      if (accept.extra.assetTransferMethod === 'permit2') {
+        const { payload, payerFrom, nonce } = await payPermit2Evm({
+          publicClient,
+          walletClient: a.walletClient,
+          account: a.account,
+          chainId: resolved.chainId,
+          chain: resolved.chain,
+          accept,
+        })
+        return { payload, accepted: accept, payerFrom, nonce }
+      }
       const { payload, payerFrom, nonce } = await payExactEvm({
         publicClient,
         walletClient: a.walletClient,
@@ -283,6 +299,18 @@ function makeEvmNetwork(resolved: ResolvedChain): ResolvedNetwork {
 
     async settleExactSelf({ relayer, payload, accept }) {
       const a = relayer._native as WalletAdapter
+      // Route on the PAYLOAD shape (the client's actual signature kind) — a Permit2
+      // payload carries `permit2Authorization`, an EIP-3009 one carries `authorization`.
+      if ('permit2Authorization' in payload) {
+        return verifyAndSettlePermit2Evm({
+          publicClient,
+          walletClient: a.walletClient,
+          account: a.account,
+          chain: resolved.chain,
+          payload,
+          accept,
+        })
+      }
       return verifyAndSettleExactEvm({
         publicClient,
         walletClient: a.walletClient,

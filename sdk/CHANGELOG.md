@@ -4,6 +4,90 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.17.0] — 2026-06-11 — `onPaid` hardening: enriched, isolated, durable receipts
+
+A minor, fully additive release — defaults byte-identical (fire-and-forget stays the default,
+the wire `X402Receipt` is unchanged), the protocol layer stays viem-free, and the EVM bundle
+pulls in **no new dependency** (`deliverReceipt` is global `fetch` + Web Crypto).
+
+### Fixed — an `async onPaid` could crash the process
+- The gate's `onPaid` isolation only caught **synchronous** throws; an `async` handler that
+  rejected (the common case — a DB/queue/webhook write) escaped as an `unhandledRejection` that
+  could crash the process. `fireOnPaid` now isolates a **rejected promise as well as a sync
+  throw**, routing both to the new `onPaidError` seam. The "a hook can never break the request"
+  guarantee is now true for async handlers too.
+
+### Added — the enriched `PaidReceipt` (what `onPaid` now receives)
+- `onPaid` (and the new `onPaidError`) receive a `PaidReceipt`: every `X402Receipt` field **plus**
+  `decimals`, `symbol`, `amountFormatted` (formatted from the *settled* amount), and a stable
+  `idempotencyKey` (= the settled tx id) — so a receipt handler never needs a second lookup. The
+  wire receipt (`result.receipt`, the response header) stays the lean settlement record.
+
+### Added — receipt-hook options on `requirePayment` / `createPaymentGate`
+- `onPaid?: (receipt: PaidReceipt) => void | Promise<void>` — now explicitly **sync or async**.
+- `onPaidError?: (err, receipt) => void` — observe a failing hook instead of swallowing it
+  silently (its own throws are isolated too).
+- `awaitOnPaid?: boolean` (default `false`) — await the hook before serving the resource, so
+  "receipt recorded" is guaranteed on the happy path. A rejection is still isolated; it never
+  turns a settled payment into a 402.
+
+### Added — `deliverReceipt()`, a reliable self-hosted webhook primitive
+- `deliverReceipt(receipt, { url, secret, retries, timeoutMs, backoff, headers, onAttempt })`
+  POSTs a `PaidReceipt` to **your own** endpoint with retries + exponential backoff, an
+  **HMAC-SHA256** signature (`piprail-signature: sha256=…`), and an `idempotency-key` header. It
+  **never throws** (failure → `{ delivered: false, … }`), retries `408`/`429`/`5xx`/transport
+  errors, and stops on a permanent `4xx`. Isomorphic (global `fetch` + Web Crypto), zero new deps.
+  PipRail hosts nothing — the URL is yours. New exports: `deliverReceipt`, `DeliverReceiptOptions`,
+  `DeliverAttempt`, `DeliverResult`, and the `PaidReceipt` type.
+
+### Delivery contract (documented)
+- `onPaid` is **at-least-once**: exactly once per proof on a single in-memory replay store, but
+  across instances sharing a custom `isUsed`/`markUsed` store a race can deliver twice — **dedupe
+  on `idempotencyKey`**. Covered on the Receipts & onPaid docs page with queue + webhook patterns.
+
+### Tests
+- +22: `test/server-onpaid.test.ts` (enrichment, sync+async isolation, no-`unhandledRejection`,
+  `awaitOnPaid` ordering, fire-once-per-settlement) and `test/receipts.test.ts` (retries, backoff,
+  permanent-vs-retryable status, HMAC signature verification, idempotency + header precedence,
+  timeout/abort, never-throws).
+
+## [1.16.0] — 2026-06-11 — x402 `exact` Permit2 method: BNB Chain is a first-class exact rail
+
+A minor, fully additive feature — defaults byte-identical (`exact` stays opt-in), the protocol
+layer stays viem-free, and the EVM bundle pulls in **no new dependency** (Permit2 is EIP-712
+signing + one `approve` on the existing `viem` peer; the lazy-chunk invariant still holds).
+
+### Added — the `permit2` asset-transfer method of the x402 `exact` scheme (EVM)
+- The `exact` scheme now settles tokens **without** EIP-3009 — most importantly **Binance-Peg
+  USDC/USDT on BNB Chain** (no native Circle USDC exists on BNB). Per the x402 spec
+  (`specs/schemes/exact/scheme_exact_evm.md`): the buyer signs a Permit2 `PermitWitnessTransferFrom`
+  whose `spender` is the canonical **x402ExactPermit2Proxy** (`0x402085…20001`) and whose
+  `witness.to` binds the recipient; the merchant/relayer self-settles via the proxy's `settle`.
+- **Buyer** — `PipRailClient({ schemes: ['exact'] })` auto-detects `extra.assetTransferMethod` and
+  signs EIP-3009 or Permit2 accordingly. The one-time `approve(Permit2)` is done lazily on first use
+  (the only on-chain action the buyer takes; gas-free thereafter); `estimateCost` notes it.
+- **Seller** — `requirePayment({ exact: { settle: 'self', relayer } })` **auto-selects** the method:
+  EIP-3009 when the token supports it, else Permit2 (any ERC-20). New `exact.method?: 'eip3009' |
+  'permit2' | 'auto'` (default `'auto'`) pins it. The advertised rail carries
+  `extra.assetTransferMethod`; Permit2 replay uses the Permit2 nonce bitmap.
+- New public exports: `PERMIT2_ADDRESS`, `X402_EXACT_PERMIT2_PROXY`, `PERMIT2_WITNESS_TYPES`, and the
+  wire types `Permit2Authorization` / `Permit2PaymentPayload` / `ExactPaymentPayloadAny`.
+  `ParsedExactPayment` is now a discriminated union on `method` (`'eip3009' | 'permit2'`). BNB slugs
+  added to `EXACT_NETWORK_SLUGS`.
+- **FDUSD + USD1 are now default BNB tokens.** Both **are EIP-3009** (unlike Binance-Peg USDC/USDT),
+  so the `exact` rail uses the **gasless `transferWithAuthorization` path — no Permit2 approve**.
+  They hardcode their EIP-712 domain version (`"1"`) without a `version()` function, so
+  `readExactDomain` now **derives the version from the on-chain `DOMAIN_SEPARATOR`** (generalizes to
+  any `version()`-less EIP-3009 token). 18-decimal; verified on-chain.
+
+### Verified
+- **Live-proven on BNB mainnet** (real USDC, both rails — 402 → pay → 200, balance moved, replay
+  rejected): onchain-proof tx `0x4bf044b554e5d1390b5c0fb225bad7501c4fa1e3538005aed144ad153d30eb14`;
+  exact/Permit2 self-settle tx `0x6e3ecc3f3230d6e1627db5c233a102dd1878e46bab676302a84f78f30be61589`.
+- **FDUSD + USD1 live-proven on BNB mainnet** via the gasless EIP-3009 `exact` rail (domain version
+  derived on-chain, replay rejected): FDUSD tx `0xfaec2e82a294790322a24db65458abbe4913a493e81dd66accfcf7a8be5dbfda`;
+  USD1 tx `0x10e68722375943a183edd749b67acf05a75baa98680a31b06af804d56a160c28`.
+
 ## [1.15.1] — 2026-06-10 — docs consolidation: the README is now a signpost to docs.piprail.com
 
 Docs-only. No code, no API, no behaviour change — `dist` is byte-identical.

@@ -9,11 +9,13 @@ describe('resolveChain — built-in mainnets', () => {
     expect(r.tokens.USDC).toMatchObject({ decimals: 6 })
   })
 
-  it('resolves "bnb" to 18-decimal USDC + USDT', () => {
+  it('resolves "bnb" to 18-decimal USDC, USDT, FDUSD (EIP-3009), USD1 (EIP-3009)', () => {
     const r = resolveChain('bnb')
     expect(r.chainId).toBe(56)
-    expect(r.tokens.USDC).toMatchObject({ decimals: 18 })
-    expect(r.tokens.USDT).toMatchObject({ decimals: 18 })
+    expect(r.tokens.USDC).toMatchObject({ decimals: 18, symbol: 'USDC' })
+    expect(r.tokens.USDT).toMatchObject({ decimals: 18, symbol: 'USDT' })
+    expect(r.tokens.FDUSD).toMatchObject({ decimals: 18, symbol: 'FDUSD', address: '0xc5f0f7b66764F6ec8C8Dff7BA683102295E16409' })
+    expect(r.tokens.USD1).toMatchObject({ decimals: 18, symbol: 'USD1', address: '0x8d0D000Ee44948FC98c9B98A4FA4921476f08B0d' })
   })
 
   it('resolves the rest of the default mainnets', () => {

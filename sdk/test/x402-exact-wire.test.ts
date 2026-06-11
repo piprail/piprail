@@ -27,7 +27,8 @@ describe('parseExactPaymentHeader — v2 (PAYMENT-SIGNATURE)', () => {
     expect(p!.network).toBe('eip155:8453')
     expect(p!.asset).toBe('0xUSDC')
     expect(p!.payload.signature).toBe(SIG)
-    expect(p!.payload.authorization.value).toBe('10000')
+    expect(p!.method).toBe('eip3009')
+    if (p && p.method === 'eip3009') expect(p.payload.authorization.value).toBe('10000')
     expect(p!.raw).toMatchObject({ x402Version: 2 })
   })
 })
@@ -40,7 +41,8 @@ describe('parseExactPaymentHeader — v1 (X-PAYMENT)', () => {
     expect(p!.x402Version).toBe(1)
     expect(p!.network).toBe('base')
     expect(p!.asset).toBeUndefined()
-    expect(p!.payload.authorization.nonce).toBe(AUTH.nonce)
+    expect(p!.method).toBe('eip3009')
+    if (p && p.method === 'eip3009') expect(p.payload.authorization.nonce).toBe(AUTH.nonce)
   })
 
   it('defaults x402Version to 2 when absent', () => {
@@ -97,7 +99,8 @@ describe('encodeXPaymentHeader — emits the v1 flat shape (intentional, not a b
     expect(p).not.toBeNull()
     expect(p!.x402Version).toBe(1)
     expect(p!.payload.signature).toBe(SIG)
-    expect(p!.payload.authorization.value).toBe(AUTH.value)
+    expect(p!.method).toBe('eip3009')
+    if (p && p.method === 'eip3009') expect(p.payload.authorization.value).toBe(AUTH.value)
   })
 })
 

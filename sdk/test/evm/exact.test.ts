@@ -300,6 +300,7 @@ describe('buildExactSignatureHeader — the v2 PAYMENT-SIGNATURE envelope', () =
     expect(p!.x402Version).toBe(2)
     expect(p!.network).toBe('eip155:8453')
     expect(p!.asset).toBe(USDC)
-    expect(p!.payload.authorization.nonce).toBe(NONCE)
+    expect(p!.method).toBe('eip3009')
+    if (p && p.method === 'eip3009') expect(p.payload.authorization.nonce).toBe(NONCE)
   })
 })

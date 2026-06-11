@@ -26,9 +26,12 @@
  * the same funds to the same payTo and waste their own gas — no redirect risk.
  */
 import {
+  encodeAbiParameters,
   getAddress,
+  keccak256,
   parseSignature,
   recoverTypedDataAddress,
+  toHex,
   type Account,
   type Chain,
   type Hex,
@@ -38,8 +41,10 @@ import {
 import { SettlementError, UnsupportedSchemeError } from '../../errors.js'
 import type { VerifyResult, X402ExactAcceptEntry, ExactPaymentPayload } from '../../x402.js'
 
-/** x402 network slug → EVM chain id, for the chains PipRail ships with EIP-3009
- *  USDC. Extend as needed; an unknown slug just won't be selected. */
+/** x402 network slug → EVM chain id, for the chains PipRail ships an exact-payable
+ *  stablecoin on — EIP-3009 USDC/EURC on most, and **Permit2** on BNB (Binance-Peg
+ *  USDC isn't EIP-3009). Extend as needed; an unknown slug just won't be selected.
+ *  (Matching uses CAIP-2 via `net.supports`; this is the public slug helper.) */
 export const EXACT_NETWORK_SLUGS: Readonly<Record<string, number>> = {
   ethereum: 1,
   base: 8453,
@@ -48,6 +53,8 @@ export const EXACT_NETWORK_SLUGS: Readonly<Record<string, number>> = {
   optimism: 10,
   polygon: 137,
   avalanche: 43114,
+  bnb: 56,
+  bsc: 56,
 }
 
 /** Resolve an x402 `exact` network slug (e.g. "base") to its EVM chain id. */
@@ -375,22 +382,52 @@ export const eip3009Abi = [
   },
   { type: 'function', name: 'name', stateMutability: 'view', inputs: [], outputs: [{ type: 'string' }] },
   { type: 'function', name: 'version', stateMutability: 'view', inputs: [], outputs: [{ type: 'string' }] },
+  // EIP-3009 tokens that DON'T expose version() still expose DOMAIN_SEPARATOR — we match it to
+  // DERIVE the hardcoded domain version (e.g. FDUSD / USD1 on BNB Chain both use "1").
+  { type: 'function', name: 'DOMAIN_SEPARATOR', stateMutability: 'view', inputs: [], outputs: [{ type: 'bytes32' }] },
 ] as const
 
 const ZERO_ADDR = '0x0000000000000000000000000000000000000000' as const
 const ZERO_NONCE = `0x${'00'.repeat(32)}` as const
 
+/** The standard 4-field EIP-712 domain typehash (name, version, chainId, verifyingContract). */
+const EIP712_DOMAIN_TYPEHASH = keccak256(
+  toHex('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)')
+)
+
+/** Hardcoded EIP-712 domain versions to try when a token has no `version()` (most use "1"). */
+const EXACT_DOMAIN_VERSION_CANDIDATES = ['1', '2'] as const
+
+/** Compute the standard 4-field EIP-712 `DOMAIN_SEPARATOR` for `{ name, version, chainId, verifyingContract }`. */
+function eip712DomainSeparator(
+  name: string,
+  version: string,
+  chainId: number,
+  verifyingContract: `0x${string}`
+): `0x${string}` {
+  return keccak256(
+    encodeAbiParameters(
+      [{ type: 'bytes32' }, { type: 'bytes32' }, { type: 'bytes32' }, { type: 'uint256' }, { type: 'address' }],
+      [EIP712_DOMAIN_TYPEHASH, keccak256(toHex(name)), keccak256(toHex(version)), BigInt(chainId), verifyingContract]
+    )
+  )
+}
+
 /**
- * Read an EIP-3009 token's true EIP-712 domain `{ name, version }` from the
- * contract — what a payer must sign over. Returns `null` if the asset is NOT an
- * EIP-3009 token (no `authorizationState`/`version` — e.g. USDT, native coin, a
- * plain ERC-20), so the gate refuses to advertise a standard `exact` rail for it.
+ * Read an EIP-3009 token's true EIP-712 domain `{ name, version }` from the contract — what a
+ * payer must sign over. Returns `null` if the asset is NOT an EIP-3009 token (no
+ * `authorizationState` — e.g. USDT, native coin, a plain ERC-20), so the caller falls back to
+ * permit2 / onchain-proof.
  *
- * The name is NEVER assumed from the symbol: canonical USDC's domain name is
- * "USD Coin" (not "USDC"), and EURC's is "Euro Coin" on Ethereum/Avalanche but "EURC"
- * on Base — proof that only the on-chain read is authoritative. `eip712Domain()`
- * (EIP-5267) reverts on these proxies, so we read `name()`+`version()` and probe
- * `authorizationState` to confirm EIP-3009 support.
+ * The name is NEVER assumed from the symbol: canonical USDC's domain name is "USD Coin" (not
+ * "USDC"), and EURC's is "Euro Coin" on Ethereum/Avalanche but "EURC" on Base — only the on-chain
+ * read is authoritative.
+ *
+ * The version comes from `version()` when the token exposes it (canonical FiatToken — USDC is
+ * "2"). Many EIP-3009 tokens HARDCODE the domain version and DON'T expose `version()` — e.g.
+ * **FDUSD and USD1 on BNB Chain** (both "1"). For those we DERIVE the version by matching the
+ * token's on-chain `DOMAIN_SEPARATOR()` against the standard 4-field domain for a small set of
+ * common versions; a token with a non-standard / salted domain returns `null` (→ permit2 fallback).
  */
 export async function readExactDomain(
   publicClient: PublicClient,
@@ -403,12 +440,13 @@ export async function readExactDomain(
   } catch {
     return null
   }
+
+  // EIP-3009 confirmation + the domain name. `authorizationState` exists ONLY on EIP-3009 tokens
+  // (reverts on a plain ERC-20 / USDT), so it's the marker; `name()` is the domain name.
+  let name: string
   try {
-    const [name, version] = await Promise.all([
+    const [n] = await Promise.all([
       publicClient.readContract({ address: token, abi: eip3009Abi, functionName: 'name' }),
-      publicClient.readContract({ address: token, abi: eip3009Abi, functionName: 'version' }),
-      // The EIP-3009 probe: this view exists only on EIP-3009 tokens; it reverts on
-      // a plain ERC-20 / USDT, marking the token as not exact-payable.
       publicClient.readContract({
         address: token,
         abi: eip3009Abi,
@@ -416,12 +454,47 @@ export async function readExactDomain(
         args: [ZERO_ADDR, ZERO_NONCE],
       }),
     ])
-    if (typeof name !== 'string' || typeof version !== 'string' || !name || !version) return null
-    return { name, version }
+    if (typeof n !== 'string' || !n) return null
+    name = n
   } catch {
-    // version()/authorizationState reverted (not EIP-3009), or a transient read.
-    return null
+    return null // not EIP-3009 (or a transient read) → caller falls back to permit2 / onchain-proof
   }
+
+  // The domain version: from version() when exposed, else derived from DOMAIN_SEPARATOR.
+  try {
+    const version = await publicClient.readContract({ address: token, abi: eip3009Abi, functionName: 'version' })
+    if (typeof version === 'string' && version) return { name, version }
+  } catch {
+    /* no version() — derive it below */
+  }
+  return deriveExactDomainVersion(publicClient, token, name)
+}
+
+/**
+ * Derive an EIP-3009 token's EIP-712 domain `version` when it doesn't expose `version()`, by
+ * matching its on-chain `DOMAIN_SEPARATOR()` against the standard 4-field domain for a few common
+ * versions ("1", "2"). Returns `null` for a non-standard / salted domain (→ permit2 fallback).
+ */
+async function deriveExactDomainVersion(
+  publicClient: PublicClient,
+  token: `0x${string}`,
+  name: string
+): Promise<{ name: string; version: string } | null> {
+  let onchain: string
+  let chainId: number
+  try {
+    onchain = (await publicClient.readContract({ address: token, abi: eip3009Abi, functionName: 'DOMAIN_SEPARATOR' })) as string
+    chainId = publicClient.chain?.id ?? (await publicClient.getChainId())
+  } catch {
+    return null // no DOMAIN_SEPARATOR / chainId to match against → can't derive
+  }
+  const target = onchain.toLowerCase()
+  for (const version of EXACT_DOMAIN_VERSION_CANDIDATES) {
+    if (eip712DomainSeparator(name, version, chainId, token).toLowerCase() === target) {
+      return { name, version }
+    }
+  }
+  return null
 }
 
 /** Shorten a long revert/error message for a `detail` field. */

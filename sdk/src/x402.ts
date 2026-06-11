@@ -80,8 +80,12 @@ export interface X402ExactAcceptEntry {
   payTo: AddressId
   maxTimeoutSeconds: number
   extra: {
-    /** The exact-EVM transfer method. PipRail self-settles EIP-3009 today. */
-    assetTransferMethod: 'eip3009'
+    /** The exact-EVM transfer method, per the x402 `exact` EVM scheme: `'eip3009'`
+     *  for tokens with native `transferWithAuthorization`, or `'permit2'` for tokens
+     *  WITHOUT it (e.g. Binance-Peg USDC on BNB) — the payer signs a Permit2 witness
+     *  transfer whose `spender` is the canonical x402ExactPermit2Proxy and whose
+     *  `witness.to` binds the recipient. PipRail self-settles BOTH. */
+    assetTransferMethod: 'eip3009' | 'permit2'
     /** EIP-712 domain name of the token. OPTIONAL per the exact-EVM scheme (only
      *  `assetTransferMethod` is required) — a foreign rail may omit it. NEVER assumed
      *  from the symbol (USDC's on-chain name() is "USD Coin", not "USDC"); a PipRail gate
@@ -155,22 +159,59 @@ export interface ExactPaymentPayload {
 }
 
 /**
- * What {@link parseExactPaymentHeader} extracts from an inbound `exact` payment,
- * normalised across the v1 (`X-PAYMENT`, flat `{scheme,network,payload}`, network
- * slug) and v2 (`PAYMENT-SIGNATURE`, `{accepted,payload}`, CAIP-2 network) wire
- * shapes. `network`/`asset` are the CLIENT's claim — used only to MATCH an offered
- * rail; the gate re-derives every verified field from its own trusted rail.
+ * The `permit2Authorization` a payer signs for the `permit2` variant of the x402
+ * `exact` EVM scheme (tokens without EIP-3009 — e.g. Binance-Peg USDC on BNB). It is
+ * an EIP-712 `PermitWitnessTransferFrom` over the canonical Permit2 contract, whose
+ * `spender` is the canonical **x402ExactPermit2Proxy** and whose **witness** binds the
+ * recipient (`to`) + an activation time (`validAfter`). All numeric fields are DECIMAL
+ * strings on the wire (`permitted.amount`, `nonce`, `deadline`, `witness.validAfter`).
  */
-export interface ParsedExactPayment {
+export interface Permit2Authorization {
+  /** What may be pulled: the ERC-20 token + the exact base-unit amount. */
+  permitted: { token: string; amount: string }
+  /** The payer (token owner). */
+  from: string
+  /** The signature's allowed spender — the canonical x402ExactPermit2Proxy. */
+  spender: string
+  /** Permit2 unordered nonce (a uint256, decimal string). Single-use via its bitmap. */
+  nonce: string
+  /** Unix-seconds signature expiry. */
+  deadline: string
+  /** The proxy-enforced witness: funds go ONLY to `to`, and not before `validAfter`. */
+  witness: { to: string; validAfter: string }
+}
+
+/** The `payload` a client sends for the `permit2` exact variant: a signature + its Permit2 authorization. */
+export interface Permit2PaymentPayload {
+  signature: string
+  permit2Authorization: Permit2Authorization
+}
+
+/** Either `exact`-rail payload shape — EIP-3009 (`authorization`) or Permit2 (`permit2Authorization`). */
+export type ExactPaymentPayloadAny = ExactPaymentPayload | Permit2PaymentPayload
+
+interface ParsedExactBase {
   x402Version: number
   /** The client's claimed network (slug or CAIP-2) — for matching, not trust. */
   network: string
   /** The client's claimed asset, if present (v2 `accepted.asset`). */
   asset?: string
-  payload: ExactPaymentPayload
   /** The full decoded PaymentPayload, for verbatim forwarding to a facilitator (Mode B). */
   raw: Record<string, unknown>
 }
+
+/**
+ * What {@link parseExactPaymentHeader} extracts from an inbound `exact` payment,
+ * normalised across the v1 (`X-PAYMENT`, flat `{scheme,network,payload}`, network slug)
+ * and v2 (`PAYMENT-SIGNATURE`, `{accepted,payload}`, CAIP-2 network) wire shapes.
+ * `network`/`asset` are the CLIENT's claim — used only to MATCH an offered rail; the gate
+ * re-derives every verified field from its own trusted rail. A discriminated union on
+ * `method`, so narrowing on `method` narrows `payload`: `'eip3009'` → {@link ExactPaymentPayload}
+ * (`authorization`), `'permit2'` → {@link Permit2PaymentPayload} (`permit2Authorization`).
+ */
+export type ParsedExactPayment =
+  | (ParsedExactBase & { method: 'eip3009'; payload: ExactPaymentPayload })
+  | (ParsedExactBase & { method: 'permit2'; payload: Permit2PaymentPayload })
 
 export interface X402Receipt {
   scheme: 'onchain-proof' | 'exact'
@@ -193,6 +234,38 @@ export interface X402Receipt {
   payer: AddressId
   payTo: AddressId
   verifiedAt: string
+}
+
+/**
+ * The settled-payment record handed to a gate's `onPaid` hook — the wire
+ * {@link X402Receipt} plus the merchant-facing extras the gate already computed
+ * for the challenge, so a receipt handler never needs a second lookup to display
+ * or reconcile it: the token's `decimals`/`symbol`, the human `amountFormatted`
+ * (derived from the SETTLED base-unit `amount`, not the requested price), and a
+ * stable `idempotencyKey`.
+ *
+ * **Delivery contract — read this before persisting receipts.** `onPaid` is
+ * **at-least-once**: with a single in-memory replay store it fires exactly once
+ * per proof, but across instances sharing a custom `isUsed`/`markUsed` store two
+ * nodes can settle the same proof in a race and each fire once. Always **dedupe on
+ * `idempotencyKey`** (a unique index / upsert). It is also fire-and-forget by
+ * default — the gate does not block the response on it and a process crash between
+ * settlement and your side-effect drops that receipt. For durability either set
+ * `awaitOnPaid` (record before the 200) or push to a durable queue inside the hook;
+ * for a webhook, use {@link deliverReceipt} (signed, retried, idempotent).
+ */
+export interface PaidReceipt extends X402Receipt {
+  /** The token's on-chain decimals — pairs with `amount` so you can format without a lookup. */
+  decimals: number
+  /** The token symbol when the gate knows it (e.g. `USDC`, `FDUSD`). */
+  symbol?: string
+  /** Human-readable settled amount, e.g. `"0.05"` — `amount` / 10**`decimals`. */
+  amountFormatted: string
+  /**
+   * A stable, unique key for this settlement (the settled `transaction` id). `onPaid`
+   * is at-least-once across instances — dedupe persistence and webhook delivery on this.
+   */
+  idempotencyKey: string
 }
 
 /**
@@ -344,7 +417,7 @@ export function buildSignatureHeader(signature: X402PaymentSignature): string {
  */
 export function buildExactSignatureHeader(input: {
   accepted: X402ExactAcceptEntry
-  payload: ExactPaymentPayload
+  payload: ExactPaymentPayloadAny
 }): string {
   return toBase64Json({ x402Version: 2, accepted: input.accepted, payload: input.payload })
 }
@@ -464,26 +537,44 @@ export function parseExactPaymentHeader(value: string): ParsedExactPayment | nul
   const payload = v.payload as Record<string, unknown> | undefined
   if (!payload || typeof payload !== 'object') return null
   const signature = payload.signature
-  const authorization = payload.authorization as Record<string, unknown> | undefined
-  if (typeof signature !== 'string' || !authorization || typeof authorization !== 'object') return null
-  for (const k of ['from', 'to', 'value', 'validAfter', 'validBefore', 'nonce'] as const) {
-    if (typeof authorization[k] !== 'string') return null
-  }
+  if (typeof signature !== 'string') return null
 
-  const x402Version =
-    typeof v.x402Version === 'number' ? v.x402Version : 2
+  const x402Version = typeof v.x402Version === 'number' ? v.x402Version : 2
   const asset = accepted && typeof accepted.asset === 'string' ? accepted.asset : undefined
+  const base = { x402Version, network, ...(asset ? { asset } : {}), raw: v }
 
-  return {
-    x402Version,
-    network,
-    ...(asset ? { asset } : {}),
-    payload: {
-      signature,
-      authorization: authorization as unknown as ExactAuthorizationWire,
-    },
-    raw: v,
+  // EIP-3009 shape: payload.authorization { from, to, value, validAfter, validBefore, nonce }.
+  const authorization = payload.authorization as Record<string, unknown> | undefined
+  if (authorization && typeof authorization === 'object') {
+    for (const k of ['from', 'to', 'value', 'validAfter', 'validBefore', 'nonce'] as const) {
+      if (typeof authorization[k] !== 'string') return null
+    }
+    return {
+      ...base,
+      method: 'eip3009',
+      payload: { signature, authorization: authorization as unknown as ExactAuthorizationWire },
+    }
   }
+
+  // Permit2 shape: payload.permit2Authorization { permitted{token,amount}, from, spender, nonce, deadline, witness{to,validAfter} }.
+  const p2 = payload.permit2Authorization as Record<string, unknown> | undefined
+  if (p2 && typeof p2 === 'object') {
+    const permitted = p2.permitted as Record<string, unknown> | undefined
+    const witness = p2.witness as Record<string, unknown> | undefined
+    if (!permitted || typeof permitted !== 'object' || !witness || typeof witness !== 'object') return null
+    if (typeof permitted.token !== 'string' || typeof permitted.amount !== 'string') return null
+    if (typeof witness.to !== 'string' || typeof witness.validAfter !== 'string') return null
+    for (const k of ['from', 'spender', 'nonce', 'deadline'] as const) {
+      if (typeof p2[k] !== 'string') return null
+    }
+    return {
+      ...base,
+      method: 'permit2',
+      payload: { signature, permit2Authorization: p2 as unknown as Permit2Authorization },
+    }
+  }
+
+  return null
 }
 
 function isValidChallenge(value: unknown): value is X402Challenge {

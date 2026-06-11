@@ -84,6 +84,14 @@ export type {
   SettleViaFacilitatorInput,
 } from './facilitator.js'
 
+/* --------------------- reliable receipt delivery (server side) --------------------- */
+
+// A durable webhook a stateless gate can't be: POST a settled PaidReceipt to YOUR
+// endpoint with retries + HMAC signature + idempotency key. Never throws. Use it as
+// the body of an `onPaid` hook. PipRail hosts nothing — the URL is your server.
+export { deliverReceipt } from './receipts.js'
+export type { DeliverReceiptOptions, DeliverAttempt, DeliverResult } from './receipts.js'
+
 /* ------------------------------- chains ------------------------------- */
 
 // CHAINS = the built-in EVM mainnet registry. Iterate it for a chain picker,
@@ -183,10 +191,14 @@ export type {
   X402Challenge,
   X402PaymentSignature,
   X402Receipt,
+  PaidReceipt,
   X402ResourceObject,
   SettleOutcome,
   ExactAuthorizationWire,
   ExactPaymentPayload,
+  ExactPaymentPayloadAny,
+  Permit2Authorization,
+  Permit2PaymentPayload,
   ParsedExactPayment,
 } from './x402.js'
 
@@ -210,6 +222,20 @@ export {
   EIP3009_TYPES,
 } from './drivers/evm/exact.js'
 export type { ExactAccept, ExactAuthorization, BuildExactParams } from './drivers/evm/exact.js'
+
+/* ----- x402 `exact`-scheme `permit2` variant (EVM, for non-EIP-3009 tokens — e.g. BNB) ----- */
+
+// The `permit2` asset-transfer method of the x402 `exact` scheme — for ERC-20s WITHOUT
+// EIP-3009 (Binance-Peg USDC/USDT on BNB Chain). High-level usage is unchanged
+// (`PipRailClient({ schemes: ['exact'] })` BUYER / `createPaymentGate({ exact: … })` SELLER);
+// these are the canonical addresses + the EIP-712 type set, for reference/advanced use. The
+// proxy is BOTH the signature `spender` and the seller's settle contract (canonical CREATE2,
+// every EVM chain), and it binds `witness.to` so funds can only reach the signed recipient.
+export {
+  PERMIT2_ADDRESS,
+  X402_EXACT_PERMIT2_PROXY,
+  PERMIT2_WITNESS_TYPES,
+} from './drivers/evm/permit2.js'
 
 /* ------------------- discovery (find + be found, $0, no backend) ------------------- */
 

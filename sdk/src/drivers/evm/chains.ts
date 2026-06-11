@@ -89,9 +89,15 @@ export const CHAINS = {
   bnb: {
     chain: bsc,
     tokens: {
-      // Binance-Peg tokens on BNB Chain are 18 decimals (not the usual 6).
+      // Binance-Peg tokens on BNB Chain are 18 decimals (not the usual 6). USDC/USDT here are
+      // Binance-Peg (NOT EIP-3009) → the `exact` rail uses Permit2.
       USDC: { address: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d', decimals: 18, symbol: 'USDC' },
       USDT: { address: '0x55d398326f99059fF775485246999027B3197955', decimals: 18, symbol: 'USDT' },
+      // FDUSD + USD1 ARE EIP-3009 (transferWithAuthorization) → the `exact` rail uses the gasless,
+      // no-Permit2-approve path. Both hardcode EIP-712 domain version "1" (no version() — the SDK
+      // derives it from DOMAIN_SEPARATOR). Verified on-chain (symbol/decimals/domain match).
+      FDUSD: { address: '0xc5f0f7b66764F6ec8C8Dff7BA683102295E16409', decimals: 18, symbol: 'FDUSD' },
+      USD1: { address: '0x8d0D000Ee44948FC98c9B98A4FA4921476f08B0d', decimals: 18, symbol: 'USD1' },
     },
   },
   avalanche: {

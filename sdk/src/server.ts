@@ -17,7 +17,7 @@
  * single-process by design; pass your own `isUsed`/`markUsed` to share it.
  */
 
-import { parseUnits } from './util/units.js'
+import { parseUnits, formatUnits } from './util/units.js'
 import { resolveNetwork } from './drivers/index.js'
 import type { ResolvedNetwork, TokenInput, ChainSelector, WalletHandle } from './drivers/types.js'
 import { buildBazaarExtension } from './discovery.js'
@@ -40,6 +40,7 @@ import {
   type X402AnyAccept,
   type X402Challenge,
   type X402Receipt,
+  type PaidReceipt,
   type X402PaymentSignature,
   type ParsedExactPayment,
   type VerifyResult,
@@ -69,16 +70,18 @@ export interface AcceptOption {
 }
 
 /**
- * Opt into ALSO advertising a standard x402 `exact` rail (EIP-3009) beside the
- * default `onchain-proof` rail, so ANY standard x402 client can pay this gate
- * (dual-advertise). EVM + EIP-3009 tokens only (USDC, EURC — NOT USDT, NOT native).
- * Omitting `exact` leaves the gate byte-identical to today (onchain-proof only).
+ * Opt into ALSO advertising a standard x402 `exact` rail beside the default
+ * `onchain-proof` rail, so ANY standard x402 client can pay this gate (dual-advertise).
+ * EVM ERC-20 only — **EIP-3009** (USDC, EURC) or, for tokens without it, **Permit2**
+ * (any ERC-20 — e.g. Binance-Peg USDC on BNB, settled via the canonical
+ * x402ExactPermit2Proxy). NOT native coins, NOT non-EVM chains. Omitting `exact` leaves
+ * the gate byte-identical to today (onchain-proof only).
  *
  * Two settlement modes, both backendless (PipRail hosts nothing):
- *  - `settle: 'self'`  — your own `relayer` key broadcasts `transferWithAuthorization`.
- *     You pay gas to RECEIVE (the inverse of onchain-proof, where the payer pays gas)
- *     and must keep the relayer funded. The signature binds `to`, so there's no
- *     redirect risk. This is the on-brand default for the rail.
+ *  - `settle: 'self'`  — your own `relayer` key broadcasts the settle (EIP-3009's
+ *     `transferWithAuthorization`, or the proxy's `settle` for Permit2). You pay gas to
+ *     RECEIVE (the inverse of onchain-proof) and keep the relayer funded. The signature
+ *     binds the recipient, so there's no redirect risk. The on-brand default for the rail.
  *  - `settle: { facilitator }` — delegate verify+settle to a third-party x402
  *     facilitator YOU choose (Coinbase CDP, x402.org, …). No relayer key needed; the
  *     facilitator pays gas. Also the only path onto Coinbase's Bazaar directory.
@@ -90,6 +93,10 @@ export interface ExactRailOption {
   /** Required for `settle: 'self'` — the gas-paying relayer wallet: EVM `{ privateKey }`
    *  or a bring-your-own `{ walletClient }`. (Distinct from `payTo`, the receive address.) */
   relayer?: unknown
+  /** Which exact-EVM transfer method to advertise. `'auto'` (default) uses EIP-3009 when the
+   *  token supports it, else Permit2 — so a non-EIP-3009 token like Binance-Peg USDC on BNB
+   *  "just works". Force `'eip3009'` or `'permit2'` to pin one. */
+  method?: 'eip3009' | 'permit2' | 'auto'
 }
 
 export interface RequirePaymentOptions {
@@ -138,8 +145,28 @@ export interface RequirePaymentOptions {
   isUsed?: (ref: string) => boolean | Promise<boolean>
   /** Replay hook — record a redeemed proof. */
   markUsed?: (ref: string) => void | Promise<void>
-  /** Fired when a payment verifies successfully. */
-  onPaid?: (receipt: X402Receipt) => void
+  /**
+   * Fired when a payment verifies successfully, with the enriched {@link PaidReceipt}.
+   * May be **sync or async** — a throw OR a rejected promise is isolated (routed to
+   * `onPaidError`), so the hook can never break the request or crash the process.
+   * Fire-and-forget by default (the response is not blocked on it); set `awaitOnPaid`
+   * to record the receipt before the resource is served. `onPaid` is **at-least-once**
+   * across instances — dedupe on `receipt.idempotencyKey`. See {@link PaidReceipt}.
+   */
+  onPaid?: (receipt: PaidReceipt) => void | Promise<void>
+  /**
+   * Observe a failure inside `onPaid` (sync throw or async rejection). Without it,
+   * a failing receipt hook is swallowed silently — set this to log/alert/queue the
+   * dropped receipt. Its own throws are also swallowed (it can never break a request).
+   */
+  onPaidError?: (error: unknown, receipt: PaidReceipt) => void
+  /**
+   * Await `onPaid` before returning the paid result (and thus before the gated
+   * resource is served), so "receipt recorded" is guaranteed on the happy path.
+   * Default `false` (fire-and-forget — lower latency). A rejection is still isolated
+   * via `onPaidError`; it never turns a settled payment into a 402.
+   */
+  awaitOnPaid?: boolean
   /**
    * ALSO advertise a standard x402 `exact` rail (EIP-3009) so any standard x402
    * client can pay this gate — opt-in, EVM/EIP-3009 only. See {@link ExactRailOption}.
@@ -228,11 +255,14 @@ type ResolvedExactMode =
   | { kind: 'self'; relayer: WalletHandle }
   | { kind: 'facilitator'; url: string; authHeaders?: () => Promise<Record<string, string>> }
 
-/** A resolved standard `exact` rail bound to one spec — its on-chain EIP-712 domain
- *  (read from the token) + how it settles. Present only on EVM/EIP-3009 specs when
- *  `options.exact` is set. */
+/** A resolved standard `exact` rail bound to one spec — the transfer method + how it
+ *  settles. Present only on EVM ERC-20 specs when `options.exact` is set. */
 interface ResolvedExactRail {
-  domain: { name: string; version: string }
+  /** `'eip3009'` (token has transferWithAuthorization) or `'permit2'` (any ERC-20, e.g. BNB). */
+  method: 'eip3009' | 'permit2'
+  /** The token's on-chain EIP-712 domain — for `eip3009` ONLY (Permit2 signs over the
+   *  Permit2 contract's own domain, not the token's), so it's omitted for `permit2`. */
+  domain?: { name: string; version: string }
   mode: ResolvedExactMode
 }
 
@@ -319,8 +349,9 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
       if (options.exact && !specs.some((s) => s.exact)) {
         throw new Error(
           'requirePayment: `exact` was requested but none of the offered rails support it. ' +
-            'The standard `exact` rail is EVM + EIP-3009 only (USDC / EURC) — not native coins, ' +
-            'not USDT, not non-EVM chains. Offer an EVM EIP-3009 token, or drop `exact`.'
+            'The standard `exact` rail is EVM ERC-20 only — EIP-3009 (USDC / EURC) or Permit2 ' +
+            '(any ERC-20, e.g. Binance-Peg USDC on BNB) — NOT native coins, NOT non-EVM chains. ' +
+            'Offer an EVM ERC-20 token, or drop `exact`.'
         )
       }
       return specs
@@ -334,42 +365,57 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
   }
 
   /**
-   * Resolve a standard `exact` rail for one spec, or `undefined` when it can't carry
-   * one (non-EVM, native coin, or a non-EIP-3009 token). Reads the token's true
-   * EIP-712 domain once (cached with the spec) and binds the relayer (self mode).
+   * Resolve a standard `exact` rail for one spec, or `undefined` when it can't carry one
+   * (non-EVM family or a native coin). Picks EIP-3009 when the token supports it (reading
+   * its EIP-712 domain once, cached with the spec), else Permit2 (any ERC-20 — e.g. BNB),
+   * and binds the relayer (self mode).
    */
   async function resolveExactRail(
     net: ResolvedNetwork,
     asset: string
   ): Promise<ResolvedExactRail | undefined> {
     const cfg = options.exact!
-    // EVM + EIP-3009 only. A family without the optional methods, or a native asset,
-    // simply can't offer exact — leave it onchain-proof-only (mixed gates are fine).
-    if (net.family !== 'evm' || asset === 'native' || !net.exactDomain || !net.settleExactSelf) {
+    // EVM ERC-20 only. A non-EVM family, one without the self-settle method, or a native
+    // asset can't offer exact — leave it onchain-proof-only (mixed gates are fine).
+    if (net.family !== 'evm' || asset === 'native' || !net.settleExactSelf) {
       return undefined
     }
-    const domain = await net.exactDomain(asset)
-    if (!domain) {
-      throw new Error(
-        `requirePayment: \`exact\` requested for asset ${asset} on ${net.network}, but it isn't an ` +
-          `EIP-3009 token (couldn't read name()/version()/authorizationState). The exact rail supports ` +
-          `USDC / EURC and other EIP-3009 tokens — USDT and native coins need onchain-proof. ` +
-          `(Or check your rpcUrl is reachable.)`
-      )
+    // Pick the transfer method: EIP-3009 when the token supports it, else Permit2 (any
+    // ERC-20 — e.g. Binance-Peg USDC on BNB). `method` can pin one.
+    const want = cfg.method ?? 'auto'
+    let method: 'eip3009' | 'permit2'
+    let domain: { name: string; version: string } | undefined
+    if (want === 'permit2') {
+      method = 'permit2'
+    } else {
+      const d = net.exactDomain ? await net.exactDomain(asset) : null
+      if (d) {
+        method = 'eip3009'
+        domain = d
+      } else if (want === 'eip3009') {
+        throw new Error(
+          `requirePayment: exact \`method: 'eip3009'\` requested for ${asset} on ${net.network}, but it isn't an ` +
+            `EIP-3009 token (no name()/version()/authorizationState). Use \`method: 'permit2'\` (any ERC-20, e.g. ` +
+            `Binance-Peg USDC on BNB) or \`'auto'\`. (Or check your rpcUrl is reachable.)`
+        )
+      } else {
+        method = 'permit2' // auto-fallback for a non-EIP-3009 ERC-20
+      }
     }
     if (cfg.settle === 'self') {
       if (cfg.relayer === undefined) {
         throw new Error(
           "requirePayment: exact `settle: 'self'` needs a `relayer` wallet (the gas-paying key that " +
-            'broadcasts transferWithAuthorization), e.g. exact: { settle: ' + "'self', relayer: { privateKey } }."
+            'broadcasts the settle), e.g. exact: { settle: ' + "'self', relayer: { privateKey } }."
         )
       }
       const relayer = net.bindWallet(cfg.relayer)
-      return { domain, mode: { kind: 'self', relayer } }
+      return { method, ...(domain ? { domain } : {}), mode: { kind: 'self', relayer } }
     }
     // Facilitator mode — a third-party verify+settle the merchant chose.
     return {
-      domain,
+      method,
+      ...(domain ? { domain } : {}),
       mode: {
         kind: 'facilitator',
         url: cfg.settle.facilitator,
@@ -431,10 +477,11 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     }
   }
 
-  /** The standard `exact` rail for a spec (only when `spec.exact` is resolved). The
-   *  EIP-712 `name`/`version` were READ from the token at resolution — never assumed. */
+  /** The standard `exact` rail for a spec (only when `spec.exact` is resolved). For
+   *  `eip3009` the EIP-712 `name`/`version` were READ from the token at resolution (never
+   *  assumed); `permit2` omits them (it signs over the Permit2 contract's own domain). */
   function buildExactAccept(s: ResolvedSpec): X402ExactAcceptEntry {
-    const d = s.exact!.domain
+    const rail = s.exact!
     return {
       scheme: 'exact',
       network: s.net.network,
@@ -443,9 +490,8 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
       payTo: s.payTo,
       maxTimeoutSeconds,
       extra: {
-        assetTransferMethod: 'eip3009',
-        name: d.name,
-        version: d.version,
+        assetTransferMethod: rail.method,
+        ...(rail.domain ? { name: rail.domain.name, version: rail.domain.version } : {}),
         minConfirmations,
         decimals: s.decimals,
         amountFormatted: s.amountFormatted,
@@ -517,14 +563,63 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     return { kind: 'invalid', error: code, detail, challenge: c, requiredHeader, statusCode: 402 }
   }
 
-  function fireOnPaid(receipt: X402Receipt): void {
-    if (options.onPaid) {
-      try {
-        options.onPaid(receipt)
-      } catch {
-        /* never let a logging hook break the request */
-      }
+  /** Enrich a wire receipt into the merchant-facing {@link PaidReceipt}: the gate
+   *  already resolved the token's decimals/symbol, so format the SETTLED base-unit
+   *  amount (never throws — falls back to base units) and surface the dedupe key. */
+  function enrichReceipt(spec: ResolvedSpec, receipt: X402Receipt): PaidReceipt {
+    let amountFormatted = receipt.amount
+    try {
+      amountFormatted = formatUnits(BigInt(receipt.amount), spec.decimals)
+    } catch {
+      /* keep the raw base-unit string if the amount can't be parsed */
     }
+    return {
+      ...receipt,
+      decimals: spec.decimals,
+      ...(spec.symbol ? { symbol: spec.symbol } : {}),
+      amountFormatted,
+      idempotencyKey: receipt.transaction,
+    }
+  }
+
+  /** Surface a receipt-hook failure through the optional `onPaidError` seam. The
+   *  observer is itself isolated — even a throwing error handler can't break a request. */
+  function reportOnPaidError(error: unknown, receipt: PaidReceipt): void {
+    if (!options.onPaidError) return
+    try {
+      options.onPaidError(error, receipt)
+    } catch {
+      /* an observer must never break the request either */
+    }
+  }
+
+  /**
+   * Run `onPaid` with TOTAL isolation. A synchronous throw AND an async rejection
+   * are both caught and routed to `onPaidError` — neither can break the request nor
+   * escape as an unhandledRejection (the old `try/catch` only caught sync throws, so
+   * an `async` handler that rejected could crash the process). Returns the in-flight
+   * promise so the caller can `await` it when `awaitOnPaid` is set.
+   */
+  function fireOnPaid(receipt: PaidReceipt): void | Promise<void> {
+    if (!options.onPaid) return
+    let outcome: void | Promise<void>
+    try {
+      outcome = options.onPaid(receipt)
+    } catch (err) {
+      reportOnPaidError(err, receipt)
+      return
+    }
+    if (outcome != null && typeof (outcome as Promise<void>).then === 'function') {
+      return Promise.resolve(outcome).catch((err) => reportOnPaidError(err, receipt))
+    }
+  }
+
+  /** Fire `onPaid` after a settled payment: await it (record-before-serve) when
+   *  `awaitOnPaid`, else fire-and-forget. Either way it can never throw upward. */
+  async function deliverOnPaid(spec: ResolvedSpec, receipt: X402Receipt): Promise<void> {
+    const paid = enrichReceipt(spec, receipt)
+    if (options.awaitOnPaid) await fireOnPaid(paid)
+    else void fireOnPaid(paid)
   }
 
   async function describe(resourceUrl = ''): Promise<ResourceDescription> {
@@ -576,7 +671,7 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
       return rejection(result.error, result.detail)
     }
     await settleTx(ref, true)
-    fireOnPaid(result.receipt)
+    await deliverOnPaid(spec, result.receipt)
     return { kind: 'paid', receipt: result.receipt, receiptHeader: buildReceiptHeader(result.receipt) }
   }
 
@@ -620,9 +715,13 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
       )
     }
 
-    // Replay-claim the EIP-3009 authorization nonce (the on-chain authorizationState
-    // is a second, canonical guard).
-    const nonce = exact.payload.authorization.nonce
+    // Replay-claim the authorization nonce — EIP-3009's `authorization.nonce` or Permit2's
+    // `permit2Authorization.nonce` (the on-chain nonce state is a second, canonical guard).
+    const auth =
+      'permit2Authorization' in exact.payload
+        ? exact.payload.permit2Authorization
+        : exact.payload.authorization
+    const nonce = auth.nonce
     if (await claimTx(nonce)) {
       return rejection('tx_already_used', `Authorization nonce ${nonce} was already redeemed.`)
     }
@@ -655,7 +754,7 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
             extra: { name: accept.extra.name ?? '', version: accept.extra.version ?? '' },
           },
           receipt: { network: accept.network, asset: accept.asset, payTo: accept.payTo, amount: accept.amount },
-          payerHint: exact.payload.authorization.from,
+          payerHint: auth.from,
         })
       }
     } catch (err) {
@@ -670,7 +769,7 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
       return rejection(result.error, result.detail)
     }
     await settleTx(nonce, true)
-    fireOnPaid(result.receipt)
+    await deliverOnPaid(spec, result.receipt)
     return { kind: 'paid', receipt: result.receipt, receiptHeader: buildReceiptHeader(result.receipt) }
   }
 
