@@ -47,7 +47,18 @@ If a payer just sends a raw transfer to your wallet, you can't discover the pric
 | An agent that auto-pays a `402` (+ a spend policy) | [`agent/`](./agent) |
 | Expose payment as MCP tools — **build your own** server | [`mcp/`](./mcp) |
 
-> **Most agents write no code.** The published [`@piprail/mcp`](../mcp) server gives any MCP client (Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, Cline) all **five** tools (three for paying, two for discovery), budget-capped — just `npx -y @piprail/mcp` with your key + chain in `env`. The [`mcp/`](./mcp) folder is the minimal from-scratch version, for when you want to embed or customize it.
+> **Most agents write no code.** The published [`@piprail/mcp`](../mcp) server gives any MCP client (Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, Cline) all **seven** tools (discover · quote · plan · pay · register · budget · guide), budget-capped — just `npx -y @piprail/mcp` with your key + chain in `env`. The [`mcp/`](./mcp) folder is the minimal from-scratch version, for when you want to embed or customize it.
+
+## Integrations
+
+| What | Folder |
+|---|---|
+| PipRail as a stablecoin **`payment_method` for Fetch's Agent Payment Protocol** (uAgents) — gasless on BNB | [`fetch-app/`](./fetch-app) |
+| **PipRail Pay** — a self-funding Agentverse agent that **earns** (402 gate) **and spends** (budget-bound client) over x402 | [`agentverse-agent/`](./agentverse-agent) |
+
+> Fetch keeps owning the agent-to-agent payment *negotiation*; PipRail becomes the *settlement* it delegates to — bridged via [`@piprail/mcp`](../mcp) (payer) + the SDK gate (payee), no SDK change. On BNB the buyer signs an EIP-3009 authorization for FDUSD/USD1 and a facilitator broadcasts it, so **neither agent pays gas**. See [docs.piprail.com/integrations/fetch-agent-payment-protocol](https://docs.piprail.com/integrations/fetch-agent-payment-protocol/).
+>
+> **PipRail Pay** is the reference Agentverse uAgent — an x402 payment concierge that gets paid a USDC fee (earn) and pays any allow-listed x402 URL on the caller's behalf with a budget-bound wallet (spend). Live-proven on mainnet (earn on BNB, spend on Base). See [docs.piprail.com/integrations/agentverse-uagents](https://docs.piprail.com/integrations/agentverse-uagents/).
 
 ## Find & be found (discovery)
 

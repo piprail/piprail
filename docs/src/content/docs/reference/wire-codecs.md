@@ -179,8 +179,12 @@ The codecs are typed by a small set of interfaces, all exported as `type`s:
 | `X402AcceptEntry` | one `onchain-proof` rail in `accepts[]` |
 | `X402AnyAccept` | `X402AcceptEntry \| X402ExactAcceptEntry` (a challenge entry, either rail) |
 | `X402PaymentSignature` | the client's proof: `accepted` + `{ nonce, txHash }` |
-| `X402Receipt` | the settled receipt on a 200 |
+| `X402Receipt` | the settled receipt on a 200 (the wire shape) |
 | `X402ResourceObject` | the gated resource: `url`, optional `description` / `mimeType` |
+
+The wire receipt is `X402Receipt`. A gate's [`onPaid`](/accepting-payments/receipts-and-onpaid/#the-paidreceipt)
+hook receives a **`PaidReceipt`** — the same fields plus `decimals` / `symbol` / `amountFormatted` /
+`idempotencyKey` — but that enrichment never goes on the wire; the `payment-response` header stays `X402Receipt`.
 | `Caip2` | a CAIP-2 network id, e.g. `eip155:8453` |
 | `AssetId` | a chain-specific asset id, or `'native'` |
 | `AddressId` | a chain-specific account id |

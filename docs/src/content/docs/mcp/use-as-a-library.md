@@ -153,3 +153,11 @@ These are the same reads the `piprail://budget` resource exposes.
 The budget is process-scoped: every figure resets when the process restarts. The spend policy
 is a leash within one run, not a persistent ledger.
 :::
+
+## As a settlement engine for uAgents / Fetch APP
+
+Because the MCP is a language-agnostic, budget-bound payer over stdio, it's the natural bridge from a
+non-TypeScript agent runtime to PipRail's rail. A Python [uAgent](https://fetch.ai/docs) can spawn
+`@piprail/mcp`, speak MCP JSON-RPC, and call `piprail_pay_request(url)` to settle a payment — which is
+exactly how PipRail plugs into Fetch's Agent Payment Protocol as an `x402` `payment_method`. See
+[Fetch Agent Payment Protocol](/integrations/fetch-agent-payment-protocol/).

@@ -1,6 +1,6 @@
 ---
 title: "Receipts & onPaid"
-description: Record every settled payment — the onPaid callback, the X402Receipt shape, and buildReceiptHeader for hand-rolled servers.
+description: Record every settled payment — the onPaid callback (sync or async, fully isolated), the enriched PaidReceipt, awaitOnPaid, at-least-once delivery with deliverReceipt, and buildReceiptHeader for hand-rolled servers.
 sidebar:
   order: 4
 ---
@@ -9,39 +9,73 @@ sidebar:
 
 A gate verifies a payment on-chain, then needs to *do* something with it — fulfil an order,
 log the spend, increment a counter. The `onPaid` callback is where that happens, and the
-[`X402Receipt`](/reference/wire-codecs/) it hands you is the verified record of the payment:
-amount, asset, payer, and the settled transaction id. Everything in a receipt was re-derived from
-your own trusted [`accept`](/accepting-payments/defining-accepts/) during
-[verification](/accepting-payments/verifying-payments/), never taken from the client.
+[`PaidReceipt`](#the-paidreceipt) it hands you is the verified record of the payment: amount
+(base **and** formatted), asset, payer, and the settled transaction id. Everything in a receipt
+was re-derived from your own trusted [`accept`](/accepting-payments/defining-accepts/) during
+[verification](/accepting-payments/verifying-payments/), never taken from the client. The hook is
+isolated, may be sync or async, and can deliver receipts durably — all covered below.
 
 ## The `onPaid` callback
 
 Pass `onPaid` to [`requirePayment`](/accepting-payments/require-payment-and-gate/) or
-`createPaymentGate`. It fires **once**, after verification succeeds and the proof has been
-recorded as used — so by the time it runs, the payment is real and replay-safe:
+`createPaymentGate`. It fires after verification succeeds and the proof has been recorded as
+used — so by the time it runs, the payment is real and replay-safe. It receives a
+[`PaidReceipt`](#the-paidreceipt): the wire receipt **plus** the display fields the gate already
+computed (`decimals`, `symbol`, `amountFormatted`) and a stable `idempotencyKey`, so you never
+need a second lookup to record or render it:
 
 ```ts
 requirePayment({
-  chain: 'base', token: 'USDC', amount: '0.10', payTo: '0xYourWallet',
-  onPaid: (receipt) => console.log('paid', receipt.amount, 'tx', receipt.transaction),
-  // receipt.amount is base units ("100000"); receipt.transaction is the settled on-chain tx id
+  chain: 'bnb', token: 'FDUSD', amount: '0.05', payTo: '0xYourWallet',
+  onPaid: (r) => console.log(`paid ${r.amountFormatted} ${r.symbol} — tx ${r.transaction}`),
+  // r.amount is still base units ("50000…"); r.amountFormatted is "0.05"; r.idempotencyKey = the tx id
 })
 ```
 
-It receives the `X402Receipt` and returns nothing. A throw inside `onPaid` is swallowed — a
-logging hook can never break the request or hold up the response:
+### Sync or async — and always isolated
+
+`onPaid` may be **synchronous or `async`**. Either way it is fully isolated: a thrown error **or
+a rejected promise** is caught and routed to `onPaidError` — it can never break the request,
+hold up a response it isn't awaiting, or escape as an `unhandledRejection` that crashes the
+process. So the natural async handler is safe:
 
 ```ts
-onPaid: (receipt) => {
-  fulfilOrder(receipt.payer, receipt.amount)   // even if this throws, the payer still gets a 200
-}
+onPaid: async (r) => {
+  await db.insert('payments', { tx: r.transaction, amount: r.amount })  // a rejection here is isolated
+},
+onPaidError: (err, r) => logger.error({ err, tx: r.transaction }, 'receipt persist failed'),
 ```
 
-:::note
-`onPaid` is fire-and-forget: it is called synchronously, the response is not awaited, and its
-return value is ignored. Do durable work (a database write, a queue push) in a way that doesn't
-need the request to wait on it.
+:::tip[Make failures visible]
+Without `onPaidError`, a failing receipt hook is swallowed silently (the safe default — it
+protects the request). Set `onPaidError` to log, alert, or queue the dropped receipt so a
+delivery failure never disappears.
 :::
+
+### Fire-and-forget, or `awaitOnPaid`
+
+By default `onPaid` is **fire-and-forget**: the gate does not block the response on it. That
+keeps latency low, but it means a process crash between settlement and your side-effect drops
+that receipt. Two ways to make it durable:
+
+- **`awaitOnPaid: true`** — the gate awaits the hook before serving the resource, so "receipt
+  recorded" is guaranteed on the happy path (at the cost of that latency). A rejection is still
+  isolated to `onPaidError`; it never turns a settled payment into a 402.
+- **Push to a durable queue inside the hook** — keep the hook fast (enqueue and return) and do
+  the heavy work in your own worker. For a webhook, use [`deliverReceipt`](#reliable-delivery).
+
+### The idempotency contract
+
+`onPaid` is **at-least-once**. With the default in-memory [replay store](/accepting-payments/replay-protection/)
+it fires exactly once per proof. But across **multiple instances** sharing a custom
+`isUsed`/`markUsed` store, two nodes can settle the same proof in a race and each fire once.
+**Always dedupe on `receipt.idempotencyKey`** (a unique index or upsert):
+
+```ts
+onPaid: async (r) => {
+  await db.payments.upsert({ where: { tx: r.idempotencyKey }, create: { …r }, update: {} })
+}
+```
 
 ## The `X402Receipt`
 
@@ -71,9 +105,27 @@ interface X402Receipt {
 
 :::caution
 `amount` is in **base units**, not the human-readable string. A 6-decimal token like USDC
-reports `0.10` as `"100000"`. The challenge's `amountFormatted` carries the display string, but
-the receipt is deliberately exact.
+reports `0.10` as `"100000"`. The wire receipt is deliberately exact — but the `PaidReceipt`
+your `onPaid` hook receives also carries the display fields, so you rarely touch base units.
 :::
+
+### The `PaidReceipt` (what `onPaid` receives)
+
+`onPaid` and `onPaidError` get a `PaidReceipt` — every `X402Receipt` field **plus** the
+merchant-facing extras the gate already resolved for the challenge, so a receipt handler never
+needs a second lookup:
+
+```ts
+interface PaidReceipt extends X402Receipt {
+  decimals: number          // the token's on-chain decimals (pairs with `amount`)
+  symbol?: string           // 'USDC', 'FDUSD', … when known
+  amountFormatted: string   // "0.05" — derived from the SETTLED `amount`, not the requested price
+  idempotencyKey: string    // the settled tx id; dedupe at-least-once delivery on this
+}
+```
+
+The wire `X402Receipt` (the header, `result.receipt`) stays the lean settlement record; the
+enrichment is only on the hook payload.
 
 ## Recording a settled payment
 
@@ -94,8 +146,53 @@ onPaid: (receipt) => {
 ```
 
 Because `transaction` is unique and `onPaid` only fires after the gate's
-[replay store](/accepting-payments/replay-protection/) has claimed the proof, it doubles as an
-idempotency key — the same payment can't drive two `onPaid` calls on one instance.
+[replay store](/accepting-payments/replay-protection/) has claimed the proof, `idempotencyKey`
+(= `transaction`) is your dedupe key. On one instance it fires once per proof; across instances
+it's [at-least-once](#the-idempotency-contract), so make your write idempotent on that key.
+
+## Reliable delivery
+
+A stateless gate can't be a durable webhook on its own — that's exactly why `deliverReceipt`
+exists. It POSTs a settled `PaidReceipt` to **your own** endpoint with retries + exponential
+backoff, an HMAC-SHA256 signature, and an idempotency-key header. It **never throws** (a failed
+delivery comes back as `{ delivered: false, … }`), so it's safe as the body of an `onPaid` hook:
+
+```ts
+import { createPaymentGate, deliverReceipt } from '@piprail/sdk'
+
+createPaymentGate({
+  chain: 'bnb', token: 'FDUSD', amount: '0.05', payTo: '0xYourWallet',
+  awaitOnPaid: true,                                  // record before serving the resource
+  onPaid: (r) => deliverReceipt(r, {
+    url: process.env.RECEIPTS_WEBHOOK,                 // YOUR endpoint — PipRail hosts nothing
+    secret: process.env.RECEIPTS_SECRET,              // signs the body: `piprail-signature: sha256=…`
+  }),
+  onPaidError: (err, r) => logger.error({ err, tx: r.transaction }, 'receipt delivery threw'),
+})
+```
+
+On your receiver: verify the `piprail-signature` (HMAC-SHA256 of the raw body with your secret)
+and **upsert on the `idempotency-key` header** — `deliverReceipt`'s retries and at-least-once
+`onPaid` both mean the same receipt may arrive more than once.
+
+It retries `408`/`429`/`5xx` and transport errors; a permanent `4xx` stops immediately. Tune it
+with `retries`, `timeoutMs`, `backoff`, `headers`, and observe each try with `onAttempt`:
+
+```ts
+const result = await deliverReceipt(receipt, {
+  url, secret,
+  retries: 8,                 // up to 9 POSTs
+  timeoutMs: 5000,            // per attempt
+  onAttempt: ({ attempt, status, willRetry }) => metrics.inc('receipt.try', { attempt, status, willRetry }),
+})
+if (!result.delivered) deadLetter.push(receipt)   // give up gracefully after the budget
+```
+
+For a queue instead of a webhook, keep the hook fast and let your worker do the heavy lifting:
+
+```ts
+onPaid: (r) => queue.add('receipt', r),           // enqueue-and-return; the worker reconciles + retries
+```
 
 ## Hand-rolled servers — `buildReceiptHeader`
 

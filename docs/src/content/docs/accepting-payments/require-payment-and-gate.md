@@ -114,19 +114,23 @@ accepts](/accepting-payments/defining-accepts/) for the full options.
 ## Receipts and `onPaid`
 
 Pass an `onPaid` callback to record every settled payment — log it, fulfil an order, increment a
-counter. It fires once, after verification succeeds, with the verified
-[`X402Receipt`](/accepting-payments/receipts-and-onpaid/):
+counter. It fires after verification succeeds, with an enriched
+[`PaidReceipt`](/accepting-payments/receipts-and-onpaid/#the-paidreceipt) (the wire receipt **plus**
+`decimals` / `symbol` / `amountFormatted` / `idempotencyKey`):
 
 ```ts
 requirePayment({
-  chain: 'base', token: 'USDC', amount: '0.10', payTo: '0xYourWallet',
-  onPaid: (receipt) => console.log('paid', receipt.amount, 'tx', receipt.transaction),
-  // receipt.amount is base units; receipt.transaction is the on-chain settle tx id
+  chain: 'bnb', token: 'FDUSD', amount: '0.05', payTo: '0xYourWallet',
+  onPaid: (r) => console.log(`paid ${r.amountFormatted} ${r.symbol} — tx ${r.transaction}`),
 })
 ```
 
-A throw inside `onPaid` is swallowed — a logging hook can never break the request. See
-[Receipts & onPaid](/accepting-payments/receipts-and-onpaid/) for every field.
+`onPaid` may be **sync or async** and is fully isolated — a thrown error or a rejected promise can
+never break the request (route them to `onPaidError`). It's fire-and-forget by default; set
+`awaitOnPaid` to record before the resource is served, and for a durable webhook use
+[`deliverReceipt`](/accepting-payments/receipts-and-onpaid/#reliable-delivery). Delivery is
+**at-least-once** — dedupe on `idempotencyKey`. See
+[Receipts & onPaid](/accepting-payments/receipts-and-onpaid/) for the full story.
 
 ## Key options
 
@@ -137,7 +141,9 @@ A throw inside `onPaid` is swallowed — a logging hook can never break the requ
 | `rpcUrl` | Your RPC for verification (fold any API key in here). |
 | `minConfirmations` | How many confirmations before a proof counts. Default `1`. |
 | `maxTimeoutSeconds` | How long a challenge stays valid, in seconds. Default `600`. |
-| `onPaid` | Callback after a payment verifies. |
+| `onPaid` | Callback after a payment verifies (sync or async; receives a `PaidReceipt`). |
+| `onPaidError` | Observe a failing `onPaid` instead of swallowing it silently. |
+| `awaitOnPaid` | Await `onPaid` before serving the resource (default `false` = fire-and-forget). |
 | `generateNonce` | Custom per-challenge nonce generator. Default `crypto.randomUUID()`. |
 | `isUsed` / `markUsed` | Pluggable replay store for multi-instance deploys. |
 | `exact` | Also accept the standard `exact` scheme (Mode A self-settle, or Mode B facilitator). |

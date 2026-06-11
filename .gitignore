@@ -51,6 +51,7 @@ coverage/
 
 # Local-only mainnet test scripts (read keys from external .secrets at runtime)
 examples/*.local.mjs
+examples/**/*.local.mjs
 mcp/*.local.mjs
 
 # Playwright MCP scratch (screenshots / snapshots) — local only

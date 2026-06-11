@@ -1,0 +1,17 @@
+{
+  "name": "@piprail/example-fetch-app",
+  "private": true,
+  "type": "module",
+  "version": "0.0.1",
+  "description": "PipRail as the settlement engine for Fetch's Agent Payment Protocol (the payee's x402 gate).",
+  "scripts": {
+    "merchant": "node merchant.mjs"
+  },
+  "dependencies": {
+    "@piprail/sdk": "^1.16.0",
+    "express": "^4"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

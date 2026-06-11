@@ -102,7 +102,7 @@ shipping. The current registry:
 | `'arbitrum'` | Arbitrum | USDC, USDT |
 | `'optimism'` | Optimism | USDC, USDT |
 | `'polygon'` | Polygon | USDC, USDT |
-| `'bnb'` | BNB Chain | USDC, USDT |
+| `'bnb'` | BNB Chain | USDC, USDT, FDUSD, USD1 |
 | `'avalanche'` | Avalanche | USDC, USDT, EURC |
 | `'mantle'` | Mantle | USDC, USDT |
 | `'sonic'` | Sonic | USDC, USDT |
@@ -123,8 +123,11 @@ USDC/USDT, the EURC EIP-712 caveat, and BNB's 18-decimal peg tokens, see
 [Chains & tokens](/concepts/chains-and-tokens/).
 
 :::note
-On **BNB Chain**, Binance-Peg USDC/USDT are **18 decimals**, not 6. The preset has the correct
-decimals — request `token: 'USDC'` and the SDK uses them; don't hardcode 6.
+On **BNB Chain**, all four built-in stablecoins are **18 decimals**, not 6 (the preset has it
+right — name `token: 'USDC'` and don't hardcode 6). They split by provenance: **USDC/USDT are
+Binance-Peg** (not EIP-3009 → the `exact` rail uses **Permit2**), while **FDUSD and USD1 are
+EIP-3009** (→ the gasless `transferWithAuthorization` path, **no Permit2 approve**). The SDK
+auto-selects per token — see [Permit2 & BNB](/making-payments/permit2-and-bnb/).
 :::
 
 ## Resolving a chain — `resolveChain`

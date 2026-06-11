@@ -1,6 +1,6 @@
 ---
 title: Pay any x402 server (the exact rail)
-description: Opt the client into the standard x402 `exact` scheme so it can pay any x402 server, not just PipRail gates — EVM + EIP-3009 (USDC/EURC), gas-free for the buyer.
+description: Opt the client into the standard x402 `exact` scheme so it can pay any x402 server, not just PipRail gates — EVM, via EIP-3009 (USDC/EURC) or Permit2 (any ERC-20, e.g. Binance-Peg USDC on BNB), gas-free for the buyer.
 sidebar:
   order: 8
 ---
@@ -42,26 +42,34 @@ fully gasless end to end.)
 | Who broadcasts | The client | The server / facilitator |
 | Buyer pays gas | Yes (native coin) | No (~0) |
 | Pays which servers | PipRail gates | Any standard x402 server |
-| Proof | Tx ref, verified locally | A signed EIP-3009 authorization |
+| Proof | Tx ref, verified locally | A signed EIP-3009 authorization **or** Permit2 witness |
 
 ## What exact can settle
 
-The `exact` rail is **EVM + EIP-3009 only** — the canonical USDC and EURC deployments, which
-expose `transferWithAuthorization`. The client re-derives each token's EIP-712 domain on-chain
-before signing, so a lying or absent server-supplied domain can't produce a silently-invalid
-signature.
+The `exact` rail is **EVM only**, via one of two on-chain methods. The 402's rail names which one
+(`extra.assetTransferMethod`), and the client picks the matching signer automatically:
+
+- **`eip3009`** — canonical USDC/EURC and other tokens exposing `transferWithAuthorization`. The
+  client re-derives the token's EIP-712 domain on-chain before signing, so a lying or absent
+  server-supplied domain can't produce a silently-invalid signature. Fully gasless for the buyer.
+- **`permit2`** — any ERC-20 **without** EIP-3009, most notably **Binance-Peg USDC/USDT on BNB
+  Chain** (no native Circle USDC exists on BNB). The client signs a Permit2 `PermitWitnessTransferFrom`
+  whose `spender` is the canonical x402ExactPermit2Proxy and whose `witness.to` binds the recipient
+  (so a relayer can't redirect funds). Gasless per-payment too — **after a one-time `approve(Permit2)`**
+  the SDK does lazily the first time you pay that token (the only on-chain action the buyer ever
+  takes on this rail). See [Permit2 & BNB](/making-payments/permit2-and-bnb/).
 
 | Works on `exact` | Stays on `onchain-proof` |
 | --- | --- |
-| EVM USDC / EURC (EIP-3009) | Any non-EVM family (Solana, TON, …) |
-| An EOA signer | USDT (needs Permit2), native coin, plain ERC-20 |
-| | A contract / EIP-1271 / EIP-7702 signer |
+| EVM EIP-3009 (USDC / EURC; FDUSD & USD1 on BNB) | Any non-EVM family (Solana, TON, …) |
+| EVM Permit2 — any ERC-20 (e.g. Binance-Peg USDC on BNB) | The chain's native coin |
+| An EOA signer | A contract / EIP-1271 / EIP-7702 signer |
 
 An `exact` rail is selected only when the 402 names a network **your bound EVM chain supports** —
 the client matches each offered rail against its own chain via the driver (it doesn't gate on a
-fixed slug list) and settles on that chain. So a USDC/EURC `exact` rail on the chain your client is
-bound to is payable; an `exact` rail naming a different chain (or any non-EVM family) simply isn't
-selected and falls back to `onchain-proof`.
+fixed slug list) and settles on that chain. So an EIP-3009 (USDC/EURC) **or** Permit2 (e.g. BNB)
+`exact` rail on the chain your client is bound to is payable; an `exact` rail naming a different
+chain (or any non-EVM family) simply isn't selected and falls back to `onchain-proof`.
 
 When you enable both schemes, the client gathers `onchain-proof` rails first, so on a dual-rail
 402 the default selection is unchanged. An `exact` rail is only ever picked when the bound EVM
@@ -115,10 +123,11 @@ if (!plan) {
 
 ## When exact can't settle
 
-If a 402 offers only an `exact` rail and the bound family can't pay it — a non-EVM chain, a
-non-EIP-3009 token, or a contract / EIP-1271 / EIP-7702 signer — the client throws
+If a 402 offers only an `exact` rail and the bound family can't pay it — a non-EVM chain, the
+chain's native coin, or a contract / EIP-1271 / EIP-7702 signer — the client throws
 [`UnsupportedSchemeError`](/errors/error-hierarchy/) (`.code === 'UNSUPPORTED_SCHEME'`) rather
-than signing something that can't settle.
+than signing something that can't settle. (A non-EIP-3009 ERC-20 is **not** in this list — it
+pays via the Permit2 method.)
 
 ```ts
 import { PipRailClient, UnsupportedSchemeError } from '@piprail/sdk'
@@ -160,9 +169,10 @@ fresh nonce.
   nonce unused, so nothing is recorded as spent.
 
 On an `exact` rail, the `.ref` carried by `PaymentTimeoutError` / `MaxRetriesExceededError` is the
-EIP-3009 authorization **nonce** (a `0x…` 32-byte value, *not* a tx hash). Recover by checking the
-token's `authorizationState(from, nonce)` and re-presenting the **same** authorization — never
-re-sign:
+authorization **nonce** — the EIP-3009 nonce (a `0x…` 32-byte value) or, on the Permit2 method, the
+Permit2 nonce (a uint256). It is *not* a tx hash. Recover by checking the nonce's on-chain state
+(EIP-3009 `authorizationState(from, nonce)`, or the Permit2 nonce bitmap) and re-presenting the
+**same** authorization — never re-sign:
 
 ```ts
 import { PaymentTimeoutError, MaxRetriesExceededError } from '@piprail/sdk'

@@ -1,0 +1,17 @@
+{
+  "name": "@piprail/example-agentverse-agent",
+  "private": true,
+  "type": "module",
+  "version": "0.0.1",
+  "description": "PipRail Pay — a self-funding x402 relay agent for Agentverse (earns via a 402 gate, spends via a budget-bound client).",
+  "scripts": {
+    "relay": "node relay.mjs"
+  },
+  "dependencies": {
+    "@piprail/sdk": "^1.17.0",
+    "express": "^4"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

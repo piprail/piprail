@@ -20,9 +20,11 @@ entry in the same 402, so a standard client picks `exact` while a PipRail client
 `onchain-proof`. Omitting `exact` leaves the challenge byte-identical to before.
 
 :::note
-The `exact` rail is **EVM + EIP-3009 only** — that means USDC and EURC (and other EIP-3009
-tokens). It does **not** cover USDT (needs Permit2), native coins, or any non-EVM chain. Those
-rails stay `onchain-proof`-only, and mixing them in one gate is fine.
+The `exact` rail is **EVM ERC-20 only**, via one of two methods the gate picks automatically:
+**EIP-3009** for tokens that expose `transferWithAuthorization` (USDC, EURC), or **Permit2** for
+any other ERC-20 — most notably **Binance-Peg USDC/USDT on BNB Chain** (no native Circle USDC
+exists on BNB). It does **not** cover native coins or non-EVM chains; those stay
+`onchain-proof`-only, and mixing them in one gate is fine. See [Permit2 & BNB](/making-payments/permit2-and-bnb/).
 :::
 
 ## Mode A — self-settle with your own relayer
@@ -42,11 +44,12 @@ const gate = requirePayment({
 //   The gate dual-advertises `exact` + `onchain-proof` in every 402.
 ```
 
-The `relayer` is the gas-paying wallet that broadcasts the transfer — **distinct from `payTo`,
-the receive address**. Pass an EVM `{ privateKey }`, or bring your own viem signer with
-`{ walletClient }`. Self-settle uses `transferWithAuthorization` (not
-`receiveWithAuthorization`), and the signature binds `to` = `payTo`, so a front-runner can only
-push the same funds to the same `payTo` and waste their own gas — there is no redirect risk.
+The `relayer` is the gas-paying wallet that broadcasts the settle — **distinct from `payTo`, the
+receive address**. Pass an EVM `{ privateKey }`, or bring your own viem signer with
+`{ walletClient }`. It broadcasts EIP-3009's `transferWithAuthorization` (USDC/EURC) or, on the
+Permit2 method (e.g. BNB), the canonical x402ExactPermit2Proxy's `settle`. Either way the
+signature binds the recipient (`to` / `witness.to` = `payTo`), so a front-runner can only push
+the same funds to the same `payTo` and waste their own gas — there is no redirect risk.
 
 :::caution
 `settle: 'self'` requires `relayer`. Omit it and the gate throws at setup. Keep the relayer
@@ -127,7 +130,8 @@ import type { ExactRailOption } from '@piprail/sdk'
 | Field | Type | Purpose |
 | --- | --- | --- |
 | `settle` | `'self'` \| `{ facilitator: string; authHeaders?: () => Promise<Record<string, string>> }` | Pick the mode: your own relayer (`'self'`) or a facilitator URL you choose. |
-| `relayer` | EVM `{ privateKey }` or `{ walletClient }` | **Required for `settle: 'self'`** — the gas-paying wallet that broadcasts `transferWithAuthorization`. Distinct from `payTo`. Ignored in facilitator mode. |
+| `relayer` | EVM `{ privateKey }` or `{ walletClient }` | **Required for `settle: 'self'`** — the gas-paying wallet that broadcasts the settle (EIP-3009 `transferWithAuthorization`, or the Permit2 proxy `settle`). Distinct from `payTo`. Ignored in facilitator mode. |
+| `method` | `'eip3009'` \| `'permit2'` \| `'auto'` | Which transfer method to advertise. `'auto'` (default) uses EIP-3009 when the token supports it, else Permit2 (so BNB's Binance-Peg USDC "just works"). Pin one to force it. |
 
 ## Choosing a mode
 
@@ -145,21 +149,24 @@ when you'd rather not run a relayer, or when you specifically need the Bazaar li
 
 ## What the client signs (and what you verify)
 
-The payer signs an EIP-3009 authorization off-chain and **never broadcasts** — your relayer
-(Mode A) or the facilitator (Mode B) does. The buyer side is covered on
-[The exact rail (buyer)](/making-payments/exact-buyer/).
+The payer signs an EIP-3009 authorization (or, for non-EIP-3009 tokens, a Permit2 witness
+transfer) off-chain and **never broadcasts** — your relayer (Mode A) or the facilitator (Mode B)
+does. The buyer side is covered on [The exact rail (buyer)](/making-payments/exact-buyer/).
 
 In Mode A, before broadcasting, the gate verifies the inbound authorization locally against the
-trusted rail: the signature must recover to the authorizer, `to` must equal `payTo`, the value
-must cover the amount, the authorization must be unexpired and its on-chain nonce unused. The
-EIP-712 domain is **read on-chain** from the token, never assumed — canonical USDC's domain name
-is `"USD Coin"` (not `"USDC"`), and EURC's is `"Euro Coin"` on Ethereum/Avalanche but `"EURC"`
-on Base, so only the on-chain read is authoritative.
+trusted rail: the signature must recover to the authorizer, the recipient must equal `payTo`, the
+value must cover the amount, and the authorization must be unexpired with its on-chain nonce
+unused. On **EIP-3009** the EIP-712 domain is **read on-chain** from the token, never assumed —
+canonical USDC's domain name is `"USD Coin"` (not `"USDC"`), and EURC's is `"Euro Coin"` on
+Ethereum/Avalanche but `"EURC"` on Base, so only the on-chain read is authoritative. On **Permit2**
+the same checks apply (`witness.to` = `payTo`, `permitted.amount` ≥ the price, the Permit2 nonce
+unused, and the `spender` must be the canonical x402ExactPermit2Proxy), but the signature is over
+the Permit2 contract's own domain, so no per-token domain read is needed.
 
 :::tip
 If you request `exact` but none of your offered rails can carry it (a single native-coin or
 non-EVM gate), the gate throws a clear error at setup rather than silently shipping
-`onchain-proof` only. Offer an EVM EIP-3009 token (USDC / EURC), or drop `exact`.
+`onchain-proof` only. Offer an EVM ERC-20 (EIP-3009 USDC/EURC, or any token via Permit2), or drop `exact`.
 :::
 
 ## Replay protection and `onPaid`

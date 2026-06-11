@@ -27,17 +27,21 @@ the same logic, framework-free.
 | --- | --- | --- |
 | `requirePayment` | fn | **Headline** |
 | `createPaymentGate` | fn | **Headline** |
+| `deliverReceipt` | fn | Reliable receipt webhook — signed + retried POST to **your** endpoint |
 | `toInvalidBody` | fn | Deprecated |
-| `RequirePaymentOptions`, `AcceptOption`, `ExactRailOption` | type | — |
+| `RequirePaymentOptions`, `AcceptOption`, `ExactRailOption` | type | carries `onPaid` / `onPaidError` / `awaitOnPaid` |
 | `ChainSelector`, `TokenInput` | type | — |
 | `PaymentGate`, `VerifyPaymentResult` | type | — |
+| `PaidReceipt` | type | The enriched receipt `onPaid` receives |
+| `DeliverReceiptOptions`, `DeliverAttempt`, `DeliverResult` | type | — |
 | `X402InvalidBody` | type | — |
 | `ExpressLike{Request,Response,Next,Middleware}` | type | — |
 
 See [requirePayment & createPaymentGate](/accepting-payments/require-payment-and-gate/),
 [Defining accepts](/accepting-payments/defining-accepts/),
 [Verifying payments](/accepting-payments/verifying-payments/), and
-[Receipts & onPaid](/accepting-payments/receipts-and-onpaid/).
+[Receipts & onPaid](/accepting-payments/receipts-and-onpaid/) (the `PaidReceipt`, `onPaidError`,
+`awaitOnPaid`, and `deliverReceipt`).
 
 ## Pay (agent side)
 
@@ -170,19 +174,24 @@ format (server: `buildChallengeHeader` → verify → `buildReceiptHeader`; clie
 
 See [Wire codecs](/reference/wire-codecs/) and [VerifyErrorCode](/errors/verify-error-code/).
 
-## Advanced: low-level exact (EVM, EIP-3009)
+## Advanced: low-level exact (EVM — EIP-3009 + Permit2)
 
 The standard x402 `exact` scheme at the codec tier. For the high-level paths use
 `PipRailClient({ schemes: ['exact'] })` (buyer) or `createPaymentGate({ exact })` (seller) — these
-exports are for hand-rolled clients, v1 servers, and custom flows.
+exports are for hand-rolled clients, v1 servers, and custom flows. The `exact` scheme has two
+asset-transfer methods: **EIP-3009** (`transferWithAuthorization`, on tokens that implement it) and
+**Permit2** (for ERC-20s that don't — e.g. Binance-Peg USDC/USDT on BNB). See
+[Permit2 & BNB Chain](/making-payments/permit2-and-bnb/) for the Permit2 walkthrough.
 
 | Export | Kind | Note |
 | --- | --- | --- |
 | `parseExactRequirements`, `chainIdForExactNetwork`, `encodeXPaymentHeader` | fn | — |
 | `readExactDomain`, `eip3009Abi` | fn / const | reads/uses a token's true on-chain EIP-712 domain |
 | `EXACT_NETWORK_SLUGS`, `EIP3009_TYPES` | const | — |
+| `PERMIT2_ADDRESS`, `X402_EXACT_PERMIT2_PROXY`, `PERMIT2_WITNESS_TYPES` | const | Permit2 method: the canonical Permit2 + x402ExactPermit2Proxy + witness types |
 | `buildExactAuthorization` | fn | Deprecated — trusts the server-supplied domain |
 | `ExactAccept`, `ExactAuthorization`, `BuildExactParams` | type | — |
+| `Permit2Authorization`, `Permit2PaymentPayload`, `ExactPaymentPayloadAny` | type | Permit2 wire shapes; `ParsedExactPayment` is a union on `method` |
 
 ## Advanced: exact facilitator (Mode B) — `facilitator.js`
 
