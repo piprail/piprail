@@ -8,15 +8,23 @@ wallet, and relays the unlocked result back.
 > Earn + spend, both x402, no backend, no custody. The only thing the market rewards is an agent
 > that *actually does something* — this one funds itself.
 
-## Proven live on mainnet
+## Payable by ANY x402 client (dual-rail)
 
-The full earn → spend loop, settled on real chains (tiny amounts, funds stay in the test wallets):
+The relay advertises **both** rails, so it's not just PipRail-equipped agents that can pay it — every
+standard x402 client can too. It **self-settles** the `exact` rail with its own wallet (no facilitator),
+and the transfer method is auto-selected per token. Proven live on BNB mainnet, full earn → spend loop
+each time (tiny amounts; funds stay in the test wallets):
 
-- **EARN** — a caller paid the relay's fee gate, **0.02 USDC on BNB** → tx `0x7602a59abd180204e974345a3c4e4576641590ed52afe8d4e124b0d6b50d9333`
-- **SPEND** — the relay then paid the live [piprail.com/x402/demo](https://piprail.com/x402/demo), **0.01 USDC on Base** → tx `0x70bd504d277bb12197003a92b8059c40a3c178666a288c3db90b8aac0ed3308c`
-- The demo's `{ paid: true, … }` content was relayed back through the agent. ✅
+| Pay the relay via… | Method | Earn tx (BNB) | → Spend tx (Base) |
+|---|---|---|---|
+| `onchain-proof` (PipRail client) | tx-proof | [`0x7602a59abd…`](https://bscscan.com/tx/0x7602a59abd180204e974345a3c4e4576641590ed52afe8d4e124b0d6b50d9333) | [`0x70bd504d27…`](https://basescan.org/tx/0x70bd504d277bb12197003a92b8059c40a3c178666a288c3db90b8aac0ed3308c) |
+| `exact` — **FDUSD** (any x402 client) | EIP-3009, gasless buyer | [`0x54b324fc8a…`](https://bscscan.com/tx/0x54b324fc8a) | [`0xd9cde1bb5a…`](https://basescan.org/tx/0xd9cde1bb5a43d5690ba3a1128c2c427eb60520464d1c836b519d2a5efa13e256) |
+| `exact` — **USDC** (any x402 client) | Permit2 | [`0x9ee00b58c5…`](https://bscscan.com/tx/0x9ee00b58c5) | [`0x0d3031901b…`](https://basescan.org/tx/0x0d3031901b76e71c095a1984d439e0a4effcabaf5e0adad9f286f4d7b45189d5) |
 
-(Reproduce with the gitignored `agentverse-live.local.mjs` against your own funded wallet.)
+The demo's `{ paid: true, … }` content was relayed back through the agent every time. ✅
+
+(Reproduce with the gitignored `agentverse-live.local.mjs` (onchain-proof) and
+`agentverse-exact-live.local.mjs FDUSD|USDC` (the exact rail) against your own funded wallet.)
 
 ## How it works
 
@@ -31,6 +39,12 @@ caller ◀── unlocked result ──────┘
 The relay (`relay.mjs`) holds both PipRail sides. The fee gate **earns**; a `PipRailClient` with a
 spend `policy` it cannot exceed **spends**. An allow-list keeps it from being an open relay. Earn
 and spend can be on different chains (here: earn on BNB, spend on Base).
+
+The earn gate is **dual-rail by default**: it advertises PipRail's `onchain-proof` **and** the standard
+x402 `exact` rail, so any x402 client can pay it. It self-settles the `exact` rail with its own wallet
+(no facilitator), auto-selecting EIP-3009 (FDUSD/USD1 — gasless for the buyer) or Permit2 (Binance-Peg
+USDC/USDT) per token. Set `RELAY_EXACT=0` to disable, or `RELAY_GATE_FACILITATOR=<url>` to settle via a
+facilitator instead.
 
 ## Files
 

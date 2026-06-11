@@ -28,6 +28,9 @@ custodian and no middleman taking a cut of the transfer.
 ## Key features
 
 - **Pay any x402 URL** — pass `url=<x402-endpoint>` and get the unlocked content back.
+- **Payable by any x402 client** — the fee gate is dual-rail (PipRail `onchain-proof` **and** the
+  standard `exact` rail, self-settled), so any x402 client can pay it — FDUSD/USD1 settle gaslessly
+  for the buyer (EIP-3009), Binance-Peg USDC/USDT via Permit2.
 - **Budget-bound** — the relay's wallet enforces per-call and lifetime spend caps; it cannot be
   drained, and it refuses anything outside policy *before* any on-chain send.
 - **Cross-chain** — earns its fee on one chain (e.g. BNB) and can pay targets on another (e.g. Base).

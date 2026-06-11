@@ -35,8 +35,13 @@ URL on your behalf, then relays the unlocked result. One process holds both PipR
 ```js
 import { requirePayment, PipRailClient } from '@piprail/sdk'
 
-// EARN — the fee gate (callers pay this to use the agent)
-const fee = requirePayment({ chain: 'bnb', token: 'USDC', amount: '0.02', payTo: process.env.PAY_TO })
+// EARN — a DUAL-RAIL fee gate: payable by ANY x402 client (onchain-proof AND the
+// standard `exact` rail), self-settled with the relay's own wallet (no facilitator);
+// the method (EIP-3009 vs Permit2) is auto-selected per token.
+const fee = requirePayment({
+  chain: 'bnb', token: 'USDC', amount: '0.02', payTo: process.env.PAY_TO,
+  exact: { settle: 'self', relayer: { privateKey: process.env.RELAY_PRIVATE_KEY } },
+})
 
 // SPEND — a budget-bound wallet it cannot overspend
 const payer = new PipRailClient({
@@ -52,18 +57,21 @@ app.all('/pay', fee, async (req, res) => {
 ```
 
 Earn and spend can be on **different chains** (here: earn on BNB, spend on Base) — useful when a
-caller holds USDC on one chain but the seller wants another.
+caller holds USDC on one chain but the seller wants another. The dual-rail gate means the agent is
+payable by the **whole** x402 ecosystem, not just PipRail-equipped clients.
 
 ### Proven live on mainnet
 
-The full earn → spend loop, on real chains:
+Every payment path settled on real chains, full earn → spend loop each time:
 
-| Leg | What | Chain | Tx |
+| Pay the relay via… | Method | Earn (BNB) | → Spend (Base) |
 |---|---|---|---|
-| **Earn** | a caller pays the relay's fee (0.02 USDC) | BNB | `0x7602a59abd…` |
-| **Spend** | the relay pays [piprail.com/x402/demo](https://piprail.com/x402/demo) (0.01 USDC) | Base | `0x70bd504d277b…` |
+| `onchain-proof` | tx-proof | `0x7602a59abd…` | `0x70bd504d277b…` |
+| `exact` — FDUSD | EIP-3009 (gasless buyer) | `0x54b324fc8a…` | `0xd9cde1bb5a…` |
+| `exact` — USDC | Permit2 | `0x9ee00b58c5…` | `0x0d3031901b…` |
 
-The demo's `{ paid: true, … }` content was relayed back through the agent — a self-funding agent end to end.
+The demo's `{ paid: true, … }` content was relayed back through the agent every time — a self-funding
+agent payable by any x402 client, end to end.
 
 ## Make it discoverable on Agentverse + ASI:One
 
