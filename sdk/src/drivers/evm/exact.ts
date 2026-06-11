@@ -43,8 +43,11 @@ import type { VerifyResult, X402ExactAcceptEntry, ExactPaymentPayload } from '..
 
 /** x402 network slug → EVM chain id, for the chains PipRail ships an exact-payable
  *  stablecoin on — EIP-3009 USDC/EURC on most, and **Permit2** on BNB (Binance-Peg
- *  USDC isn't EIP-3009). Extend as needed; an unknown slug just won't be selected.
- *  (Matching uses CAIP-2 via `net.supports`; this is the public slug helper.) */
+ *  USDC isn't EIP-3009). This is a public REFERENCE/helper, NOT the runtime gate: the
+ *  gate offers `exact` on ANY EVM chain whose token is EIP-3009 (detected live via
+ *  `exactDomain`) or whose chain has the Permit2 proxy — so keep this list in sync with
+ *  what we've VERIFIED, but the rail isn't limited to it. An unknown slug → `null`.
+ *  (Matching uses CAIP-2 via `net.supports`.) */
 export const EXACT_NETWORK_SLUGS: Readonly<Record<string, number>> = {
   ethereum: 1,
   base: 8453,
@@ -55,6 +58,14 @@ export const EXACT_NETWORK_SLUGS: Readonly<Record<string, number>> = {
   avalanche: 43114,
   bnb: 56,
   bsc: 56,
+  // EIP-3009 USDC verified on-chain (authorizationState present) — gasless, no proxy:
+  sonic: 146,
+  linea: 59144,
+  celo: 42220,
+  unichain: 130,
+  worldchain: 480,
+  sei: 1329,
+  hyperevm: 999,
 }
 
 /** Resolve an x402 `exact` network slug (e.g. "base") to its EVM chain id. */

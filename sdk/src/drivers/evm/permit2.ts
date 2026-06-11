@@ -54,10 +54,38 @@ import type {
 /** Canonical Permit2 (Uniswap), same address on every EVM chain incl. BNB. */
 export const PERMIT2_ADDRESS = '0x000000000022D473030F116dDEE9F6B43aC78BA3' as const
 
-/** Canonical x402ExactPermit2Proxy (CREATE2), same address on every EVM chain incl. BNB.
- *  It is the `spender` the buyer signs over, and the contract the seller settles through;
- *  it enforces `transferDetails.to == witness.to`, so funds can only reach the signed payTo. */
+/** Canonical x402ExactPermit2Proxy — the SAME CREATE2 address on every chain where it's been
+ *  deployed (see {@link PERMIT2_PROXY_CHAIN_IDS}; it is NOT on every EVM chain). It is the
+ *  `spender` the buyer signs over, and the contract the seller settles through; it enforces
+ *  `transferDetails.to == witness.to`, so funds can only reach the signed payTo. */
 export const X402_EXACT_PERMIT2_PROXY = '0x402085c248EeA27D92E8b30b2C58ed07f9E20001' as const
+
+/** EVM chain ids where BOTH the canonical Permit2 AND the x402ExactPermit2Proxy are deployed —
+ *  i.e. where the **Permit2** transfer method of `exact` can actually settle. Verified on-chain
+ *  (`eth_getCode`, 2026-06-11). EIP-3009 needs NO proxy, so this gates only the Permit2 fallback;
+ *  on a non-EIP-3009 token on a chain absent here, the gate offers `onchain-proof` only rather
+ *  than an unsettleable Permit2 rail. The proxy is a permissionless CREATE2 deploy, so extend
+ *  this as it lands on more chains (re-verify before adding). */
+export const PERMIT2_PROXY_CHAIN_IDS: ReadonlySet<number> = new Set([
+  1, // Ethereum
+  8453, // Base
+  84532, // Base Sepolia
+  42161, // Arbitrum
+  10, // Optimism
+  137, // Polygon
+  43114, // Avalanche
+  56, // BNB
+  42220, // Celo
+  480, // World Chain
+  1329, // Sei
+  999, // HyperEVM
+  143, // Monad
+])
+
+/** Whether a chain has the x402 Permit2 proxy deployed (→ can settle the Permit2 exact method). */
+export function isPermit2ProxyChain(chainId: number): boolean {
+  return PERMIT2_PROXY_CHAIN_IDS.has(chainId)
+}
 
 /**
  * EIP-712 type set for the x402 `permit2` exact method. MUST encode to exactly the type

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { privateKeyToAccount } from 'viem/accounts'
 import { verifyTypedData, type PublicClient, type WalletClient, type Account } from 'viem'
+import { isPermit2ProxyChain } from '../../src/drivers/evm/permit2.js'
 import {
   parseExactRequirements,
   chainIdForExactNetwork,
@@ -71,6 +72,27 @@ describe('chainIdForExactNetwork', () => {
     expect(chainIdForExactNetwork('base')).toBe(8453)
     expect(chainIdForExactNetwork('ethereum')).toBe(1)
     expect(chainIdForExactNetwork('not-a-chain')).toBeNull()
+  })
+
+  it('maps the EIP-3009-verified expansion chains', () => {
+    // gasless EIP-3009 USDC verified on-chain (authorizationState present)
+    expect(chainIdForExactNetwork('sonic')).toBe(146)
+    expect(chainIdForExactNetwork('linea')).toBe(59144)
+    expect(chainIdForExactNetwork('celo')).toBe(42220)
+    expect(chainIdForExactNetwork('unichain')).toBe(130)
+    expect(chainIdForExactNetwork('worldchain')).toBe(480)
+    expect(chainIdForExactNetwork('sei')).toBe(1329)
+    expect(chainIdForExactNetwork('hyperevm')).toBe(999)
+  })
+})
+
+describe('isPermit2ProxyChain', () => {
+  it('knows where the x402 Permit2 proxy is deployed (so we never advertise an unsettleable rail)', () => {
+    expect(isPermit2ProxyChain(56)).toBe(true) // BNB
+    expect(isPermit2ProxyChain(8453)).toBe(true) // Base
+    expect(isPermit2ProxyChain(999)).toBe(true) // HyperEVM
+    expect(isPermit2ProxyChain(5000)).toBe(false) // Mantle — Permit2 but NO proxy
+    expect(isPermit2ProxyChain(534352)).toBe(false) // Scroll — Permit2 but NO proxy
   })
 })
 

@@ -235,6 +235,8 @@ export {
   PERMIT2_ADDRESS,
   X402_EXACT_PERMIT2_PROXY,
   PERMIT2_WITNESS_TYPES,
+  PERMIT2_PROXY_CHAIN_IDS,
+  isPermit2ProxyChain,
 } from './drivers/evm/permit2.js'
 
 /* ------------------- discovery (find + be found, $0, no backend) ------------------- */

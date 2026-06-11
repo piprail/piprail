@@ -4,6 +4,37 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.18.0] — 2026-06-11 — gasless `exact` on 7 more chains + a Permit2-proxy guard
+
+A minor, fully additive release — defaults byte-identical (`exact` stays opt-in), no new dependency,
+the lazy-chunk invariant holds.
+
+### Added — gasless EIP-3009 `exact` on 7 more EVM chains
+- **Sonic, Linea, Celo, Unichain, World Chain, Sei, HyperEVM** added to `EXACT_NETWORK_SLUGS`. Each
+  ships a **native Circle USDC** whose `transferWithAuthorization` (EIP-3009) was **verified on-chain**
+  (`authorizationState` present), so the buyer pays **gasless, with no approval and no proxy**. This
+  roughly **doubles** PipRail's gasless-EVM footprint (7 → 14 mainnet chains). Live-proven on **HyperEVM
+  mainnet** (a standard `exact` client signed EIP-3009, the gate self-settled — tx `0xe31f92ee…`).
+- (The rail was never gated per-chain in the driver — it's capability-detected at runtime via
+  `exactDomain`. `EXACT_NETWORK_SLUGS` is the public `chainIdForExactNetwork` helper + the advertised
+  list; it had simply drifted behind the real capability. It's now accurate.)
+
+### Hardened — never advertise an unsettleable Permit2 rail
+- The `exact` rail's **Permit2** fallback (for non-EIP-3009 tokens) now checks the **x402ExactPermit2Proxy
+  is deployed** on the chain before advertising it. On a chain with neither an EIP-3009 token nor the
+  proxy (e.g. Mantle/Scroll/Kaia for their tokens), the gate offers `onchain-proof` only instead of a
+  Permit2 rail it could never settle; a forced `method: 'permit2'` there is a clear config error.
+- New driver-contract method `exactPermit2Supported?()` (EVM driver implements it from the verified
+  proxy-chain set). New public exports: **`PERMIT2_PROXY_CHAIN_IDS`**, **`isPermit2ProxyChain`**.
+
+### Docs
+- The chain-specific "Permit2 & BNB Chain" page was consolidated into a comprehensive **Gasless
+  payments** page (what gasless means · `onchain-proof` vs `exact` · EIP-3009 vs Permit2 · a clear
+  per-chain/-token coverage table). Old URL redirects.
+
+### Tests
+- +5 (the 7 new slugs, `isPermit2ProxyChain`, and the proxy-guard: auto-drop, mixed-gate, forced-throw).
+
 ## [1.17.0] — 2026-06-11 — `onPaid` hardening: enriched, isolated, durable receipts
 
 A minor, fully additive release — defaults byte-identical (fire-and-forget stays the default,

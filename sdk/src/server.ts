@@ -402,6 +402,20 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
         method = 'permit2' // auto-fallback for a non-EIP-3009 ERC-20
       }
     }
+    // The Permit2 method settles through the x402 proxy — only offer it where that proxy
+    // is deployed, so we never advertise a rail we couldn't settle. (EIP-3009 needs no
+    // proxy.) Forced `method:'permit2'` on a proxy-less chain is a config error; `'auto'`
+    // quietly drops to onchain-proof-only.
+    if (method === 'permit2' && !(net.exactPermit2Supported?.() ?? false)) {
+      if (cfg.method === 'permit2') {
+        throw new Error(
+          `requirePayment: exact \`method: 'permit2'\` needs the x402 Permit2 proxy deployed on ` +
+            `${net.network}, but it isn't there. Offer an EIP-3009 token (gasless, no proxy), or drop ` +
+            `\`exact\` on this chain. (See PERMIT2_PROXY_CHAIN_IDS.)`
+        )
+      }
+      return undefined // auto: no settleable exact rail here → onchain-proof only
+    }
     if (cfg.settle === 'self') {
       if (cfg.relayer === undefined) {
         throw new Error(

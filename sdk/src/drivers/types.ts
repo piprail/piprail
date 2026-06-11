@@ -374,6 +374,16 @@ export interface ResolvedNetwork {
   exactDomain?(asset: string): Promise<{ name: string; version: string } | null>
 
   /**
+   * OPTIONAL (EVM-only) — whether this chain can carry the **Permit2** transfer method
+   * of the `exact` scheme: i.e. the canonical Permit2 **and** the `x402ExactPermit2Proxy`
+   * are deployed here. The gate calls it to AVOID advertising a Permit2 `exact` rail it
+   * could never settle (a non-EIP-3009 token on a proxy-less chain — e.g. Binance-Peg
+   * USDC on a chain without the proxy). EIP-3009 needs no proxy, so this gates ONLY the
+   * Permit2 fallback. Omitted (or `false`) ⇒ treat Permit2 as unavailable on this chain.
+   */
+  exactPermit2Supported?(): boolean
+
+  /**
    * OPTIONAL (EVM-only today) — verify a standard x402 `exact` (EIP-3009) payment
    * locally, then SELF-SETTLE it by broadcasting `transferWithAuthorization` from the
    * merchant's own `relayer` wallet (the merchant pays gas to receive; the signature

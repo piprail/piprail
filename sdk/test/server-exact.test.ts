@@ -17,6 +17,7 @@ const USDC = '0xusdc'
 let settleMode: 'ok' | 'invalid' | 'throw' = 'ok'
 let lastSettleAccept: unknown = null
 let domainThrowOnce = false // simulate a transient RPC failure on the first exactDomain read
+let permit2Supported = true // toggle the x402 Permit2 proxy presence for the proxy-guard tests
 const settleSpy = vi.fn()
 
 const fakeEvm: PaymentDriver = {
@@ -44,6 +45,8 @@ const fakeEvm: PaymentDriver = {
       balanceOf: async () => ({ token: 0n, native: 0n }),
       recipientReady: async () => ({ ready: 'n/a' as const }),
       verify: async (ref, accept) => ({ ok: true, receipt: { scheme: 'onchain-proof', success: true, network: accept.network, transaction: ref, asset: accept.asset, amount: accept.amount, payer: '0xpayer', payTo: accept.payTo, verifiedAt: 'now' } }),
+      // Stands in for a chain's x402 Permit2 proxy presence (default on = e.g. BNB).
+      exactPermit2Supported: () => permit2Supported,
       // EIP-3009 only for USDC (the "usdc" asset); native/USDT aren't EIP-3009.
       exactDomain: async (asset) => {
         if (domainThrowOnce) { domainThrowOnce = false; throw new Error('transient RPC reading domain') }
@@ -341,5 +344,45 @@ describe('exact rail — facilitator mode (Mode B)', () => {
     expect(bodies[0]!.x402Version).toBe(2)
     expect((bodies[0]!.paymentRequirements as { network: string }).network).toBe('eip155:8453') // CAIP-2 (v2)
     expect((bodies[0]!.paymentRequirements as { amount: string }).amount).toBe('50000') // v2 `amount`, not maxAmountRequired
+  })
+})
+
+describe('exact rail — Permit2 proxy guard (never advertise an unsettleable rail)', () => {
+  afterEach(() => {
+    permit2Supported = true
+  })
+  const relayer = { privateKey: '0x' + 'ab'.repeat(32) }
+
+  it('auto: a non-EIP-3009 token on a proxy-less chain carries no exact rail (→ the existing "none support it" guard)', async () => {
+    permit2Supported = false
+    const gate = createPaymentGate({
+      chain: { id: 5000, rpcUrl: 'x' }, token: 'USDT', amount: '1', payTo: PAY_TO,
+      exact: { settle: 'self', relayer },
+    })
+    await expect(gate.challenge('https://api/x')).rejects.toThrow(/none of the offered rails support it/i)
+  })
+
+  it('a MIXED gate still advertises exact on the EIP-3009 token (USDC), dropping only the proxy-less permit2 one', async () => {
+    permit2Supported = false
+    const gate = createPaymentGate({
+      accept: [
+        { chain: { id: 5000, rpcUrl: 'x' }, token: 'USDC', amount: '0.05', payTo: PAY_TO },
+        { chain: { id: 5000, rpcUrl: 'x' }, token: 'USDT', amount: '1', payTo: PAY_TO },
+      ],
+      exact: { settle: 'self', relayer },
+    })
+    const { challenge } = await gate.challenge('https://api/x')
+    const exactRails = challenge.accepts.filter((a) => a.scheme === 'exact')
+    expect(exactRails).toHaveLength(1)
+    expect(exactRails[0]!.extra).toMatchObject({ assetTransferMethod: 'eip3009' })
+  })
+
+  it('forced method:permit2 on a proxy-less chain is a clear config error', async () => {
+    permit2Supported = false
+    const gate = createPaymentGate({
+      chain: { id: 5000, rpcUrl: 'x' }, token: 'USDT', amount: '1', payTo: PAY_TO,
+      exact: { settle: 'self', relayer, method: 'permit2' },
+    })
+    await expect(gate.challenge('https://api/x')).rejects.toThrow(/Permit2 proxy deployed/i)
   })
 })

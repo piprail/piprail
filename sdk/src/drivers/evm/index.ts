@@ -15,7 +15,7 @@ import {
 import { payEvm } from './pay.js'
 import { verifyEvm } from './verify.js'
 import { readExactDomain, verifyAndSettleExactEvm, payExactEvm } from './exact.js'
-import { payPermit2Evm, verifyAndSettlePermit2Evm } from './permit2.js'
+import { payPermit2Evm, verifyAndSettlePermit2Evm, isPermit2ProxyChain } from './permit2.js'
 import { networkForChain, chainIdFromNetwork } from '../../x402.js'
 import {
   ConfirmationTimeoutError,
@@ -295,6 +295,12 @@ function makeEvmNetwork(resolved: ResolvedChain): ResolvedNetwork {
     // Standard x402 `exact` rail (EIP-3009), seller side — EVM only.
     async exactDomain(asset) {
       return readExactDomain(publicClient, asset)
+    },
+
+    // Whether the Permit2 transfer method can settle here (proxy deployed). EIP-3009
+    // needs no proxy; this only gates the Permit2 fallback for non-EIP-3009 tokens.
+    exactPermit2Supported() {
+      return isPermit2ProxyChain(resolved.chainId)
     },
 
     async settleExactSelf({ relayer, payload, accept }) {
