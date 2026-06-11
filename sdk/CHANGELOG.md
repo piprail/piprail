@@ -4,6 +4,28 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.19.0] — 2026-06-11 — gasless `exact` on 3 more chains (Monad · zkSync Era · Injective)
+
+A minor, fully additive release — defaults byte-identical (`exact` stays opt-in), no new dependency,
+the lazy-chunk invariant holds. The same slug-only path as 1.18.0, extended after on-chain verification.
+
+### Added — gasless EIP-3009 `exact` on 3 more EVM chains → **17 gasless mainnet EVM chains**
+- **Monad (143), zkSync Era (324), Injective (1776)** added to `EXACT_NETWORK_SLUGS`. Each ships a
+  **native Circle USDC** verified on-chain to the same bar as 1.18.0: `symbol`/`decimals` match,
+  `authorizationState` present (the EIP-3009 marker), explicit EIP-712 domain `version` 2, and — the
+  check that actually matters for signing — the preset **chainId matches the chain's real
+  `eth_chainId`** (a mismatch would have the token reject every signature). All three resolve
+  `exact/eip3009` through a live gate end-to-end. The buyer pays **gasless, no approval, no proxy**.
+- zkSync Era's native account abstraction is **not a blocker** here: an EOA payer's standard `ecrecover`
+  path through the token's FiatToken `transferWithAuthorization` is unaffected, and the EIP-712 domain
+  was confirmed correct (chainId 324, version 2).
+
+### Docs
+- The **Gasless payments** coverage table now lists all 17 gasless-via-EIP-3009 chains.
+
+### Tests
+- `chainIdForExactNetwork` now asserts the 3 new slugs alongside the 1.18.0 set.
+
 ## [1.18.0] — 2026-06-11 — gasless `exact` on 7 more chains + a Permit2-proxy guard
 
 A minor, fully additive release — defaults byte-identical (`exact` stays opt-in), no new dependency,

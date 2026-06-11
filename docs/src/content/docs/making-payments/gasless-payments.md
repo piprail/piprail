@@ -57,12 +57,14 @@ Read this as: *"on chain X, token Y is gasless via Z."* Anything not listed pays
 
 | Token | Gasless on |
 |---|---|
-| **USDC** (native Circle) | Ethereum · Base · Arbitrum · Optimism · Polygon · Avalanche · **Sonic · Linea · Celo · Unichain · World Chain · Sei · HyperEVM** |
+| **USDC** (native Circle) | Ethereum · Base · Arbitrum · Optimism · Polygon · Avalanche · **Sonic · Linea · Celo · Unichain · World Chain · Sei · HyperEVM · Monad · zkSync Era · Injective** |
 | **EURC** | Ethereum · Base · Avalanche · World Chain |
 | **FDUSD**, **USD1** | BNB Chain |
 
-*(Every native Circle USDC is the same FiatToken contract that implements EIP-3009 — verified on-chain
-for the shipped chains. More Circle-native chains, e.g. Monad/zkSync/Injective, are being verified.)*
+*(**17 chains, and counting.** Every native Circle USDC is the same Circle FiatToken contract that
+implements EIP-3009 — so naming the chain is all it takes, no proxy and no approval. Each chain above
+was verified on-chain before shipping: `authorizationState` present, EIP-712 domain `version` 2, and the
+chain's real `eth_chainId` matched. The list grows as Circle issues native USDC on more chains.)*
 
 ### Gasless via Permit2 — one-time approval, needs the proxy
 

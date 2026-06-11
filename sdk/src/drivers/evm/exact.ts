@@ -58,7 +58,8 @@ export const EXACT_NETWORK_SLUGS: Readonly<Record<string, number>> = {
   avalanche: 43114,
   bnb: 56,
   bsc: 56,
-  // EIP-3009 USDC verified on-chain (authorizationState present) — gasless, no proxy:
+  // Native Circle USDC, EIP-3009 verified on-chain (authorizationState present, domain
+  // version 2, chainId matched) — gasless, no proxy, no approve:
   sonic: 146,
   linea: 59144,
   celo: 42220,
@@ -66,6 +67,9 @@ export const EXACT_NETWORK_SLUGS: Readonly<Record<string, number>> = {
   worldchain: 480,
   sei: 1329,
   hyperevm: 999,
+  monad: 143,
+  zksync: 324,
+  injective: 1776,
 }
 
 /** Resolve an x402 `exact` network slug (e.g. "base") to its EVM chain id. */

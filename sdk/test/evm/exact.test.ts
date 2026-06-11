@@ -83,6 +83,10 @@ describe('chainIdForExactNetwork', () => {
     expect(chainIdForExactNetwork('worldchain')).toBe(480)
     expect(chainIdForExactNetwork('sei')).toBe(1329)
     expect(chainIdForExactNetwork('hyperevm')).toBe(999)
+    // Tier 2 — same bar (native USDC, authorizationState, domain v2, chainId matched):
+    expect(chainIdForExactNetwork('monad')).toBe(143)
+    expect(chainIdForExactNetwork('zksync')).toBe(324)
+    expect(chainIdForExactNetwork('injective')).toBe(1776)
   })
 })
 
