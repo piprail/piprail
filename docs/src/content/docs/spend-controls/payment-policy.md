@@ -77,7 +77,9 @@ policy: { maxTotal: '20.00', tokens: ['USDC'] }   // 20 USDC, full stop
 ```
 
 The running totals live in the [spend ledger](/spend-controls/spend-ledger/), which is
-process-scoped: every figure resets on restart.
+process-scoped: every figure resets on restart. Shipping a fleet or a long-lived service? See
+[Running in production](/getting-started/running-in-production/) for what's in-memory and how to
+make it durable.
 
 ## The allowlists — `chains`, `tokens`, `hosts`
 

@@ -127,6 +127,9 @@ double-redeem. Your `isUsed` / `markUsed` receive the **raw** ref (the default s
 EVM tx hashes for you; a custom store does not).
 :::
 
+Running more than one gate instance is the headline production concern — it's the first item on the
+[Running in production](/getting-started/running-in-production/) checklist.
+
 ## What the ref is, per chain
 
 The replay key is the proof's identifying ref. For the default `onchain-proof` rail it's the

@@ -95,6 +95,15 @@ advertised `priceUsd` is a coarse pre-filter; always re-confirm with `quote()` b
 **402 Index** — one POST, no auth, no signature, no payment. It returns one `RegisterOutcome` per
 target; a target the chain can't satisfy comes back `{ ok: false, detail }`, never a throw.
 
+:::caution[Advertise an `exact` rail before you list]
+Index payers are **overwhelmingly standard `exact` clients**. A default `onchain-proof`-only gate
+gets *listed* but those clients **cannot pay it** — a discoverable dead end. Before you register,
+turn on a standard [`exact` rail](/accepting-payments/exact-rail-seller/) on the gate
+(`requirePayment({ exact: … })`) so the whole index audience can actually pay you, and set
+`discovery: true` (x402scan requires an input schema). See
+[Running in production §6](/getting-started/running-in-production/#6-be-discoverable-and-payable).
+:::
+
 ```ts
 const [outcome] = await client.register('https://api.example.com/report', {
   name: 'Daily report',

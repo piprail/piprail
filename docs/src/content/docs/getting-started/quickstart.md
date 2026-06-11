@@ -32,7 +32,7 @@ app.get(
   requirePayment({
     chain: 'base',
     token: 'USDC',
-    amount: '0.10',          // human units — 0.10 USDC
+    amount: '0.10',          // human units — 0.10 USDC ≈ 10 US cents (USDC is a $1 stablecoin)
     payTo: '0xYourWallet',   // paid straight to you; PipRail never touches it
   }),
   (req, res) => {
