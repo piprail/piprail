@@ -97,11 +97,14 @@ export interface RegisterInput {
   /** HTTP method the resource answers on. Default 'GET'. */
   method?: string
   /**
-   * Opt-in (default off): add a `via: '@piprail/sdk'` tag to the listing payload. It's the
-   * MERCHANT's listing on a third-party index, so we never tag it by default; and it's
-   * **best-effort** — an index may ignore an unrecognised field. The reliable, always-on
-   * attribution is the `User-Agent` on the request + the `x-generator` stamp in your
-   * emitted `/openapi.json`. Off by default keeps your listing clean and can't be seen as spam.
+   * Attribute the listing to PipRail. **Default ON** (set `false` to opt out). When on, the
+   * payload gets a `via: '@piprail/sdk'` provenance field AND a compact `· Built with
+   * @piprail/sdk` suffix on the description (see {@link appendAttribution}) — the one field an
+   * index displays, so the listing is *visibly* built with PipRail as it spreads, the same
+   * unobtrusive "Made with X" marker as the `/openapi.json` `x-generator`. It's metadata only:
+   * never changes how the resource is paid or ranked, never double-stamps a description that
+   * already mentions PipRail, and never fabricates one you didn't provide. The `User-Agent`
+   * carries PipRail on every request regardless.
    */
   attribution?: boolean
 }
@@ -150,9 +153,11 @@ export const DIRECTORY_INFO: Readonly<Record<DiscoverySource, DirectoryInfo>> = 
     onSuccess: 'pending-review',
     readByDiscover: true,
     caveat:
-      '402 Index probes your URL on submit, then lists it as PENDING REVIEW — a self-registered ' +
-      'resource is NOT in search until approved. Verify your domain on 402index.io for instant ' +
-      'approval; otherwise it appears after manual review, so retry discover() later.',
+      '402 Index probes your URL on submit (rejecting anything that does not return a real 402), then ' +
+      'lists it — a self-registered resource becomes searchable once it passes automated health + ' +
+      'payment-validity checks, with NO domain verification required (observed live: searchable within ' +
+      '~2 days for a healthy endpoint). Verify your domain on 402index.io for instant, guaranteed approval ' +
+      '+ a verified badge, which also flips every pending listing on that domain live at once.',
   },
   x402scan: {
     source: 'x402scan',
@@ -408,16 +413,22 @@ function railFrom402IndexFields(o: Record<string, unknown>): DiscoveredRail[] {
  */
 export async function register402Index(input: RegisterInput): Promise<RegisterOutcome> {
   try {
+    // Attribution is ON by default (opt out with `attribution: false`) — a `via` provenance
+    // field PLUS a tasteful description suffix (the one field 402 Index displays), so a
+    // PipRail-registered listing is visibly "built with PipRail" as it spreads. See STANDARDS §
+    // attribution — it's metadata only and never alters how the resource is paid or ranked.
+    const attributionOn = input.attribution !== false
+    const description = attributionOn ? appendAttribution(input.description) : input.description
     const payload: Record<string, unknown> = {
       url: input.url,
       name: input.name ?? hostOf(input.url),
       protocol: 'x402',
-      ...(input.description ? { description: input.description } : {}),
+      ...(description ? { description } : {}),
       ...(typeof input.priceUsd === 'number' ? { price_usd: input.priceUsd } : {}),
       ...(input.asset ? { payment_asset: input.asset } : {}),
       ...(input.network ? { payment_network: input.network } : {}),
       ...(input.method ? { http_method: input.method.toUpperCase() } : {}),
-      ...(input.attribution ? { via: '@piprail/sdk' } : {}),
+      ...(attributionOn ? { via: '@piprail/sdk' } : {}),
     }
     const res = await fetch(INDEX402_REGISTER, {
       method: 'POST',
@@ -440,7 +451,8 @@ export async function register402Index(input: RegisterInput): Promise<RegisterOu
           msg ??
           (live
             ? 'Registered + live on 402 Index (domain verified).'
-            : 'Registered on 402 Index — pending review (verify your domain on 402index.io for instant approval).'),
+            : 'Registered on 402 Index — probed on submit, then searchable once it passes automated ' +
+              'health + payment checks (verify your domain on 402index.io for instant approval + a verified badge).'),
       }
     }
     // Surface the index's own reason so a merchant can act — 402 Index PROBES the URL
@@ -813,6 +825,23 @@ function hostOf(url: string): string {
 
 function errMsg(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
+}
+
+/** The compact "Made with X" marker {@link appendAttribution} adds to a listing's
+ *  description by default (the elegant, universally-accepted Swagger/Hugo pattern).
+ *  Middot-separated so it reads as metadata, never as part of the merchant's prose. */
+export const REGISTER_ATTRIBUTION = '· Built with @piprail/sdk'
+
+/** Append {@link REGISTER_ATTRIBUTION} to a listing description — *tastefully*. Pure.
+ *  Returns the description unchanged when it's absent (we never fabricate one), already
+ *  mentions PipRail (never double-stamp), or the result would exceed a sane listing cap
+ *  (≤ 500 chars). This is the only attribution an index actually DISPLAYS, so it's how a
+ *  registered listing stays visibly "built with PipRail" — opt out with `attribution:false`. */
+export function appendAttribution(description: string | undefined): string | undefined {
+  if (!description) return description
+  if (/piprail/i.test(description)) return description
+  const next = `${description.trimEnd()} ${REGISTER_ATTRIBUTION}`
+  return next.length <= 500 ? next : description
 }
 
 function encodeBase64(str: string): string {

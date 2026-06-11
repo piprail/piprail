@@ -209,12 +209,13 @@ describe('client.register() — x402scan SIWX (EVM)', () => {
 })
 
 describe('client.register() — agent-friendly lifecycle caveats (visibility + note)', () => {
-  it("402 Index success → visibility 'pending-review' + a review caveat (NOT 'searchable now')", async () => {
+  it("402 Index success → visibility 'pending-review' + a caveat (NOT 'searchable now')", async () => {
     globalThis.fetch = (async () => new Response('{}', { status: 201 })) as typeof fetch
     const [o] = await evmClient().register('https://api.example.com/r')
     expect(o!.ok).toBe(true)
     expect(o!.visibility).toBe('pending-review')
-    expect(o!.note).toMatch(/review|propagat|before/i)
+    // The caveat must convey it isn't instantly searchable + how to make it live faster.
+    expect(o!.note).toMatch(/searchable|checks|verify your domain/i)
   })
 
   it("402 Index reports a domain-verified listing (service.status:'active') as visibility 'live'", async () => {
@@ -438,15 +439,19 @@ describe('client.register() — orchestration across targets', () => {
     expect(payment_network).toBe('optimism') // not 'base'
   })
 
-  it('passes opt-in attribution through to the listing payload (off unless asked)', async () => {
+  it('attributes the listing to PipRail by default, and opts out with attribution:false', async () => {
     const bodies: Record<string, unknown>[] = []
     globalThis.fetch = (async (_u: unknown, init?: RequestInit) => {
       bodies.push(JSON.parse(String(init?.body)))
       return new Response('{}', { status: 200 })
     }) as typeof fetch
-    await evmClient().register('https://x/y') // default
-    await evmClient().register('https://x/y', { attribution: true }) // opted in
-    expect('via' in bodies[0]!).toBe(false)
-    expect(bodies[1]!.via).toBe('@piprail/sdk')
+    await evmClient().register('https://x/y', { description: 'A paid feed.' }) // default ON
+    await evmClient().register('https://x/y', { description: 'A paid feed.', attribution: false }) // opted out
+    // default: via + a tasteful description suffix
+    expect(bodies[0]!.via).toBe('@piprail/sdk')
+    expect(bodies[0]!.description).toBe('A paid feed. · Built with @piprail/sdk')
+    // opted out: clean, untouched
+    expect('via' in bodies[1]!).toBe(false)
+    expect(bodies[1]!.description).toBe('A paid feed.')
   })
 })

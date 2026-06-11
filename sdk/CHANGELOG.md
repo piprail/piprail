@@ -4,6 +4,36 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.20.0] — 2026-06-11 — discovery hardening: conformance-locked, accurate timing, PipRail-attributed
+
+A minor release focused on the discovery/registration subsystem — verified live against the real
+402 Index + the deployed demo's wire, then locked as a contract. No payment-path change; the lazy-chunk
+invariant holds.
+
+### Changed — registration attribution is now ON by default (opt-out)
+- `client.register()` / `register402Index()` now attribute the listing to PipRail by default: a
+  `via: '@piprail/sdk'` provenance field **plus** a tasteful `· Built with @piprail/sdk` suffix on the
+  **description** (the one field an index displays) — the same unobtrusive "Made with X" marker as the
+  OpenAPI `x-generator`. It's metadata only (never changes how a resource is paid, ranked, or found),
+  is **deduped** (never double-stamps a description already naming PipRail), never fabricates a missing
+  description, and is **length-guarded**. **Opt out with `attribution: false`.** (Was opt-in/off before
+  — this is the one default change in the release; everything else is additive.)
+- New pure exports: **`appendAttribution(description)`** and **`REGISTER_ATTRIBUTION`**.
+
+### Fixed — registration timing/visibility now matches reality
+- The 402 Index caveat + register `detail` overstated the gate ("not searchable until approved"). Live
+  evidence (the demo is self-registered, `domain_verified: 0`, yet fully searchable) shows a self-
+  registered listing becomes searchable once it passes 402 Index's automated health + payment-validity
+  checks — no domain verification required. Domain verification is the **instant, guaranteed** path
+  (+ a verified badge). Wording corrected across `DIRECTORY_INFO`, the docs, and the llms files.
+
+### Added — an x402 conformance contract (test)
+- `test/discovery-conformance.test.ts` encodes, as executable predicates, the x402 v2 PaymentRequirements
+  envelope (CAIP-2 networks, atomic-unit string amounts, the EIP-712 domain on an `exact` rail) **and**
+  x402scan's `validateResource` gate (HTTPS · v2 · non-empty accepts · resolvable input schema · ≥1
+  Base/Solana rail), asserted against the live demo's captured wire and the SDK's own generated output —
+  so a regression that would make a PipRail endpoint un-listable fails CI.
+
 ## [1.19.0] — 2026-06-11 — gasless `exact` on 3 more chains (Monad · zkSync Era · Injective)
 
 A minor, fully additive release — defaults byte-identical (`exact` stays opt-in), no new dependency,

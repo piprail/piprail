@@ -270,6 +270,8 @@ export {
   DIRECTORY_INFO,
   getDirectoryInfo,
   decorateOutcome,
+  appendAttribution,
+  REGISTER_ATTRIBUTION,
 } from './indexes.js'
 export type {
   DiscoverySource,

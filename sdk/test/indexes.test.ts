@@ -233,11 +233,12 @@ describe('register402Index — standalone', () => {
       url: 'https://api.example.com/r',
       name: 'api.example.com',
       protocol: 'x402',
-      description: 'D',
+      description: 'D · Built with @piprail/sdk', // attribution on by default (opt out with attribution:false)
       price_usd: 0.1,
       payment_asset: 'USDC',
       payment_network: 'base',
       http_method: 'POST',
+      via: '@piprail/sdk',
     })
   })
 
@@ -327,7 +328,7 @@ describe('registerX402Scan — standalone', () => {
   })
 })
 
-describe('attribution — User-Agent (always) + opt-in register tag (never by default)', () => {
+describe('attribution — User-Agent (always) + PipRail tag (default ON, opt-out)', () => {
   const UA = '@piprail/sdk (+https://piprail.com)'
 
   it('sends the PipRail User-Agent on a READ request', async () => {
@@ -350,23 +351,55 @@ describe('attribution — User-Agent (always) + opt-in register tag (never by de
     expect(ua).toBe(UA)
   })
 
-  it('does NOT add a `via` tag by default (the listing stays clean — no third-party spam)', async () => {
+  it('adds the `via` provenance field by default', async () => {
     let body: Record<string, unknown> = {}
     globalThis.fetch = (async (_u: unknown, init?: RequestInit) => {
       body = JSON.parse(String(init?.body))
       return new Response('{}', { status: 200 })
     }) as typeof fetch
     await register402Index({ url: 'https://x/y' })
-    expect('via' in body).toBe(false)
+    expect(body.via).toBe('@piprail/sdk')
   })
 
-  it('adds `via: "@piprail/sdk"` ONLY when attribution is opted in', async () => {
+  it('appends "· Built with @piprail/sdk" to the description by default', async () => {
     let body: Record<string, unknown> = {}
     globalThis.fetch = (async (_u: unknown, init?: RequestInit) => {
       body = JSON.parse(String(init?.body))
       return new Response('{}', { status: 200 })
     }) as typeof fetch
-    await register402Index({ url: 'https://x/y', attribution: true })
+    await register402Index({ url: 'https://x/y', description: 'Weather by lat/lon.' })
+    expect(body.description).toBe('Weather by lat/lon. · Built with @piprail/sdk')
+  })
+
+  it('opts out completely with attribution:false (no via, untouched description)', async () => {
+    let body: Record<string, unknown> = {}
+    globalThis.fetch = (async (_u: unknown, init?: RequestInit) => {
+      body = JSON.parse(String(init?.body))
+      return new Response('{}', { status: 200 })
+    }) as typeof fetch
+    await register402Index({ url: 'https://x/y', description: 'Weather by lat/lon.', attribution: false })
+    expect('via' in body).toBe(false)
+    expect(body.description).toBe('Weather by lat/lon.')
+  })
+
+  it('never double-stamps a description that already mentions PipRail', async () => {
+    let body: Record<string, unknown> = {}
+    globalThis.fetch = (async (_u: unknown, init?: RequestInit) => {
+      body = JSON.parse(String(init?.body))
+      return new Response('{}', { status: 200 })
+    }) as typeof fetch
+    await register402Index({ url: 'https://x/y', description: 'Built with @piprail/sdk already.' })
+    expect(body.description).toBe('Built with @piprail/sdk already.') // unchanged
+  })
+
+  it('never fabricates a description when none was given (only sends via)', async () => {
+    let body: Record<string, unknown> = {}
+    globalThis.fetch = (async (_u: unknown, init?: RequestInit) => {
+      body = JSON.parse(String(init?.body))
+      return new Response('{}', { status: 200 })
+    }) as typeof fetch
+    await register402Index({ url: 'https://x/y' })
+    expect('description' in body).toBe(false)
     expect(body.via).toBe('@piprail/sdk')
   })
 })

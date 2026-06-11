@@ -405,11 +405,12 @@ export interface RegisterOptions {
    */
   targets?: DiscoverySource[]
   /**
-   * Opt-in (default off): tag the listing as built with PipRail (`via: '@piprail/sdk'`).
-   * It's a third-party listing, so we never tag it by default — and it's best-effort (the
-   * index may ignore the field). The always-on, reliable attribution is the request
-   * `User-Agent` + the `x-generator` stamp in your emitted `/openapi.json` (see
-   * `buildOpenApi`). Leave off unless you specifically want the listing tagged.
+   * Attribute the listing to PipRail. **Default ON** (set `false` to opt out). When on, the
+   * listing gets a `via: '@piprail/sdk'` provenance field plus a compact `· Built with
+   * @piprail/sdk` suffix on the description — the same unobtrusive "Made with X" marker as the
+   * `/openapi.json` `x-generator`. Metadata only: it never changes how the resource is paid or
+   * ranked, never double-stamps a description that already names PipRail, and never fabricates
+   * one. The request `User-Agent` carries PipRail regardless.
    */
   attribution?: boolean
 }
@@ -778,7 +779,8 @@ export class PipRailClient {
             ...(opts.asset ? { asset: opts.asset } : {}),
             ...(networkSlug ? { network: networkSlug } : {}),
             ...(opts.method ? { method: opts.method } : {}),
-            ...(opts.attribution ? { attribution: true } : {}),
+            // Attribution is default-ON; forward an explicit opt-out, else let register402Index default it.
+            ...(opts.attribution === false ? { attribution: false } : {}),
           })
         )
       } else if (target === 'x402scan') {
