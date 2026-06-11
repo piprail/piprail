@@ -19,7 +19,7 @@ const indexes = [
   {
     name: '402 Index',
     role: 'Primary register · free read',
-    note: 'One POST to list yourself — no auth, no signature, no fee. Searchable in seconds, every chain. A superset (it also re-ingests the CDP Bazaar).',
+    note: 'One POST to list yourself — no auth, no signature, no fee, every chain. Probed on submit; verify your domain to go live instantly. A superset (it also re-ingests the CDP Bazaar).',
   },
   {
     name: 'CDP Bazaar',
@@ -79,7 +79,7 @@ const merchantFlow = [
   { n: '01', t: 'Gate the route', d: 'requirePayment() — it’s now payable, but invisible.' },
   { n: '02', t: 'Describe + emit', d: 'gate.describe() → buildOpenApi() → serve /openapi.json on your origin.' },
   { n: '03', t: 'Register', d: 'client.register(url) → 402 Index (no auth) [+ x402scan SIWX].' },
-  { n: '04', t: 'Found', d: 'Searchable in seconds. Nothing PipRail-hosted.' },
+  { n: '04', t: 'Found', d: 'Probed, then searchable (instant if you verify your domain). Nothing PipRail-hosted.' },
 ]
 const agentFlow = [
   { n: '01', t: 'Discover', d: 'client.discover({ query }) — candidates from the open indexes.' },
@@ -103,7 +103,7 @@ const requirements = [
 const faqs = [
   {
     q: 'How does an AI agent discover my x402 endpoint?',
-    a: 'Discovery is built into the SDK and backendless — PipRail builds on the open x402 indexes that already exist (402 Index, the CDP Bazaar read API, x402scan) and hosts none of its own. To be found, call client.register(url): one POST to 402 Index, no auth and no signature, searchable in seconds (optionally x402scan via one wallet signature, Base/Solana only). To find resources to pay, an agent calls client.discover({ query }), which reads those open indexes for free and returns candidates it then quotes and pays. No registry, no database, no fee.',
+    a: 'Discovery is built into the SDK and backendless — PipRail builds on the open x402 indexes that already exist (402 Index, the CDP Bazaar read API, x402scan) and hosts none of its own. To be found, call client.register(url): one POST to 402 Index, no auth and no signature — probed on submit, then searchable once it passes automated checks (or instantly, if you verify your domain). To find resources to pay, an agent calls client.discover({ query }), which reads those open indexes for free and returns candidates it then quotes and pays. No registry, no database, no fee.',
   },
   {
     q: 'Does PipRail run a registry or database for discovery?',
@@ -393,7 +393,7 @@ const faqLd = {
         Get found in one line.
       </h2>
       <p class="mx-auto mt-5 max-w-xl text-base leading-relaxed text-neutral-400">
-        Gate a route, then <code class="text-neutral-300">client.register(url)</code> — searchable in seconds, on infra you don’t run.
+        Gate a route, then <code class="text-neutral-300">client.register(url)</code> — one POST, searchable on infra you don’t run.
       </p>
       <div class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
         <a href="/sdk" class="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110">

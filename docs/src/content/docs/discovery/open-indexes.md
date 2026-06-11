@@ -146,11 +146,12 @@ The `RegisterInput` fields:
 | `description` / `priceUsd` | Listing metadata. |
 | `asset` / `network` | Payment symbol (e.g. `'USDC'`) and network slug (e.g. `'base'`). |
 | `method` | HTTP method the resource answers on. Defaults to `GET`. |
-| `attribution` | Opt-in (default off) — adds a best-effort `via: '@piprail/sdk'` tag to the listing. |
+| `attribution` | **Default on** (opt out with `false`) — attributes the listing to PipRail via a `via: '@piprail/sdk'` field + a tasteful `· Built with @piprail/sdk` description suffix. Metadata only. |
 
-A self-registered listing comes back **pending review** (`onSuccess: 'pending-review'`) — it
-isn't searchable until 402 Index approves it. To get instant approval (and flip every pending
-listing on the domain to live), verify your domain — see
+A self-registered listing comes back **pending review** (`onSuccess: 'pending-review'`) — probed on
+submit, then searchable once it passes 402 Index's automated health + payment checks (no domain
+verification required — proven by the live demo). To go live **instantly** instead — and
+flip every pending listing on the domain to live with a verified badge — verify your domain; see
 [Domain verification](/discovery/domain-verification/).
 
 :::note

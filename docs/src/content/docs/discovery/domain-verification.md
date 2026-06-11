@@ -8,9 +8,10 @@ sidebar:
 ## Introduction
 
 When you [register](/discovery/discover-and-register/) a resource on 402 Index, it lands as
-`pending-review` — accepted, but not searchable until 402 Index approves it. Verifying your
-domain is the instant-approval path: prove you control the host, and **every** pending listing
-on that domain becomes findable at once.
+`pending-review` — accepted and probed, but not *instantly* searchable. A healthy listing becomes
+findable on its own once it passes 402 Index's automated checks (no verification required); verifying
+your domain is the **instant, guaranteed** path: prove you control the host, and **every** pending
+listing on that domain becomes findable at once, with a `domain_verified` badge.
 
 It's two steps, no auth, no signature, no payment. You `claimDomain` a host (402 Index issues a
 token), serve a small proof file, then `verifyDomain` so 402 Index re-fetches and approves. Both

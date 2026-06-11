@@ -18,6 +18,13 @@ There is no PipRail registry. `discover()` reads **CDP Bazaar** + **402 Index** 
 normalizer, not a directory.
 :::
 
+:::caution[Discovery is an emerging layer]
+x402 has no single ratified discovery standard yet — the open indexes and their conventions are a
+moving target. PipRail stays conformant (a standard x402 v2 wire, OpenAPI-first, the `extensions.bazaar`
+input schema) and hosts nothing, so you're never locked to one index. Treat the per-index facts below
+as current behaviour, not a permanent SLA.
+:::
+
 ## Discover — find payable resources
 
 `discover()` reads the open indexes, merges and dedupes them by resource URL, and by default
@@ -112,7 +119,8 @@ const [outcome] = await client.register('https://api.example.com/report', {
 })
 
 console.log(outcome.ok, outcome.visibility, outcome.note)
-// → true 'pending-review' '402 Index probes your URL on submit, then lists it as PENDING REVIEW … retry discover() later.'
+// → true 'pending-review' '402 Index probes your URL on submit … becomes searchable once it
+//    passes automated health + payment checks … verify your domain for instant approval + a badge.'
 ```
 
 ### RegisterOptions
@@ -126,7 +134,7 @@ console.log(outcome.ok, outcome.visibility, outcome.note)
 | `network` | the client's `chain` | Payment network slug, e.g. `'base'`. |
 | `method` | `'GET'` | HTTP method the resource answers on. |
 | `targets` | `['402index']` | Which indexes to list on. Add `'x402scan'` for the SIWX path. |
-| `attribution` | `false` | Opt-in `via: '@piprail/sdk'` tag on the listing. |
+| `attribution` | `true` | Attribute the listing to PipRail (the `via` field + a tasteful `· Built with @piprail/sdk` on the description). Metadata only; opt out with `attribution: false`. See [Attribution](#attribution--how-a-listing-is-associated-with-piprail). |
 
 ### A RegisterOutcome
 
@@ -148,15 +156,72 @@ interface RegisterOutcome {
 | `visibility` | Meaning |
 | --- | --- |
 | `'live'` | Findable now — search it immediately. |
-| `'pending-review'` | Accepted, but reviewed/propagated before it's publicly findable; retry `discover()` later. |
+| `'pending-review'` | Accepted and probed, but not instantly searchable — it becomes findable once it passes the index's automated checks (or instantly, if your domain is verified). Retry `discover()` later. |
 | `'not-listable'` | It didn't list — a failure, or this index structurally can't list a PipRail resource. |
 
 :::note
-402 Index **probes your URL on submit** and lists it as `pending-review` — a self-registered
-resource is not searchable until approved. Verify your domain for instant approval; see
-[Domain verification](/discovery/domain-verification/). 402 Index rejects (422) any endpoint that
-doesn't actually return a 402, and `detail` carries its reason.
+402 Index **probes your URL on submit** (rejecting with a `422` anything that doesn't actually
+return a 402 — `detail` carries the reason). A self-registered listing then becomes searchable once
+it passes automated health + payment-validity checks; **verify your domain** for instant, guaranteed
+approval + a verified badge — see [Domain verification](/discovery/domain-verification/).
 :::
+
+## How long until it's discoverable?
+
+The honest answer, measured against the live demo — not a marketing number:
+
+| Path | What happens | When it's searchable |
+| --- | --- | --- |
+| **Self-register** (default) | 402 Index probes your URL on submit, then runs automated health + payment-validity checks. | Once it passes the checks — **no domain verification required**. |
+| **Verify your domain** | Serve one hash file, call `verifyDomain()` (see below). | **Instant + guaranteed** — and it flips every pending listing on that domain live at once, with a `domain_verified` badge. |
+
+**The real data point** (facts, not a marketing number). PipRail's own live demo,
+[`piprail.com/x402/demo`](https://piprail.com/x402/demo), was self-registered on 402 Index on
+**2026-06-09** with **no domain verification** (`domain_verified: 0`), and is confirmed searchable —
+`client.discover({ query: 'piprail' })` returns it, with `health_status: healthy`,
+`x402_payment_valid: 1`, `reliability_score: 90`. So a healthy, genuinely-payable endpoint **does**
+become discoverable on the self-register path with no verification step (402 Index doesn't expose the
+exact probe-to-search latency). If you need a guaranteed, immediate go-live, verify your domain.
+
+```ts
+// The exact call that finds the live demo today — register → discover, end to end:
+const found = await client.discover({ query: 'piprail' })
+// → [{ resource: 'https://piprail.com/x402/demo', source: '402index', priceUsd: 0.01,
+//      name: 'PipRail x402 demo', rails: [ { network: 'eip155:8453', … } ] }]
+```
+
+To go live immediately instead of waiting on the probe, verify your domain — two calls, no funds:
+
+```ts
+const claim = await client.claimDomain('https://api.example.com/report')
+// serve claim.verificationHash as the body of claim.verificationUrl
+//   (your /.well-known/402index-verify.txt), then:
+const res = await client.verifyDomain('api.example.com')
+// → { ok: true, status: 'verified' } — your listings on that domain are now live
+```
+
+## Attribution — how a listing is associated with PipRail
+
+By default, a listing you register is **attributed to PipRail** — the same unobtrusive "Made with X"
+marker tools like Swagger and Hugo add, so the SDK spreads as endpoints get found. It's two things,
+both metadata only (they never change how your resource is paid, ranked, or found):
+
+- a `via: '@piprail/sdk'` provenance field on the registration payload, and
+- a compact `· Built with @piprail/sdk` appended to your listing **description** — the one field an
+  index actually displays.
+
+It's *tasteful by construction*: it never double-stamps a description that already mentions PipRail,
+never fabricates a description you didn't provide, and never pushes one past a sane length cap. The
+request `User-Agent` (`@piprail/sdk (+https://piprail.com)`) carries PipRail on every call regardless.
+
+```ts
+// Default — attributed:
+await client.register(url, { description: 'Real-time weather by lat/lon.' })
+//   description listed as: "Real-time weather by lat/lon. · Built with @piprail/sdk"
+
+// Opt out — your listing, untouched:
+await client.register(url, { description: 'Real-time weather by lat/lon.', attribution: false })
+```
 
 ## Branch on a directory before you call
 
@@ -177,7 +242,7 @@ info.review          // 'probe-sync' — a synchronous URL probe (not facilitato
 | Source | Read by `discover()` | Write auth | Notes |
 | --- | --- | --- | --- |
 | `bazaar` | yes | — (facilitator-only) | Free to read. Can't be written to — Bazaar catalogs only what its own facilitator settles, and PipRail uses none. |
-| `402index` | yes | none | The primary register target: one POST, no auth. Lists `pending-review` until your domain is verified. |
+| `402index` | yes | none | The primary register target: one POST, no auth. Probed on submit, then searchable once it passes automated checks; verify your domain for instant approval. |
 | `x402scan` | **no** | SIWX | Base/Solana only; needs one wallet signature and a resolvable input schema. A live listing here won't appear in `discover()`. |
 
 :::caution
