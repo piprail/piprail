@@ -126,5 +126,3 @@ else console.log(plan?.fundingHint) // "Top up 0.04 USDC on base" / "recipient m
 - [docs.piprail.com](https://docs.piprail.com) — full API, every chain, wallet formats, custom tokens.
 - [Error model](https://docs.piprail.com/errors/error-model/) — every error code and how to handle it.
 - [examples/README.md](./README.md) — pick a framework and run it.
-- [fetch-app/](./fetch-app) — PipRail as the settlement engine for another protocol: a `payment_method` for Fetch's Agent Payment Protocol (the MCP bridges the payer; the SDK gate verifies the payee). The pattern for plugging PipRail under any agent-payment negotiation layer.
-- [agentverse-agent/](./agentverse-agent) — **PipRail Pay**, a self-funding Agentverse uAgent: it **earns** behind a `requirePayment` 402 gate and **spends** with a budget-bound `PipRailClient` to pay x402 URLs for the caller. The worked example of "give an agent a wallet it can't overspend." Live-proven on mainnet.

@@ -51,14 +51,7 @@ If a payer just sends a raw transfer to your wallet, you can't discover the pric
 
 ## Integrations
 
-| What | Folder |
-|---|---|
-| PipRail as a stablecoin **`payment_method` for Fetch's Agent Payment Protocol** (uAgents) — gasless on BNB | [`fetch-app/`](./fetch-app) |
-| **PipRail Pay** — a self-funding Agentverse agent that **earns** (402 gate) **and spends** (budget-bound client) over x402 | [`agentverse-agent/`](./agentverse-agent) |
-
-> Fetch keeps owning the agent-to-agent payment *negotiation*; PipRail becomes the *settlement* it delegates to — bridged via [`@piprail/mcp`](../mcp) (payer) + the SDK gate (payee), no SDK change. On BNB the buyer signs an EIP-3009 authorization for FDUSD/USD1 and a facilitator broadcasts it, so **neither agent pays gas**. See [docs.piprail.com/integrations/fetch-agent-payment-protocol](https://docs.piprail.com/integrations/fetch-agent-payment-protocol/).
->
-> **PipRail Pay** is the reference Agentverse uAgent — an x402 payment concierge that gets paid a USDC fee (earn) and pays any allow-listed x402 URL on the caller's behalf with a budget-bound wallet (spend). Live-proven on mainnet (earn on BNB, spend on Base). See [docs.piprail.com/integrations/agentverse-uagents](https://docs.piprail.com/integrations/agentverse-uagents/).
+Integrations coming soon.
 
 ## Find & be found (discovery)
 

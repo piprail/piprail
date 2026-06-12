@@ -1,4 +1,0 @@
-# The demo agents need the Fetch uAgents framework. The bridge (piprail_bridge.py)
-# and its self-test are stdlib-only — no deps — so you can verify the PipRail wiring
-# before installing anything here.
-uagents>=0.16

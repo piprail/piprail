@@ -1,6 +1,0 @@
-# Agentverse registration + the optional ASI:One chat front-end.
-# (The relay itself is Node — see package.json. These are only for register.py /
-# asi_chat_agent.py.)
-fetchai
-uagents-core
-uagents>=0.16

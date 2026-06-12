@@ -86,7 +86,7 @@ export default defineConfig({
         { label: 'Chains', collapsed: true, items: [{ autogenerate: { directory: 'chains' } }] },
         { label: 'Errors', items: [{ autogenerate: { directory: 'errors' } }] },
         { label: 'MCP Server', items: [{ autogenerate: { directory: 'mcp' } }] },
-        { label: 'Integrations', items: [{ autogenerate: { directory: 'integrations' } }] },
+        { label: 'Integrations', link: '/integrations/' },
         { label: 'Testing', items: [{ autogenerate: { directory: 'testing' } }] },
         { label: 'Reference', collapsed: true, items: [{ autogenerate: { directory: 'reference' } }] },
       ],

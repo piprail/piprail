@@ -45,8 +45,7 @@ Full pitch + all code inline: [llms-full.txt](https://piprail.com/llms-full.txt)
 
 ## Integrations
 
-- [Fetch Agent Payment Protocol](https://docs.piprail.com/integrations/fetch-agent-payment-protocol/): PipRail as the stablecoin settlement engine under Fetch.ai's Agent Payment Protocol (uAgents) — an `x402` `payment_method`. `@piprail/mcp` bridges the payer, the SDK gate verifies the payee; no SDK change. On BNB the buyer signs an EIP-3009 authorization for FDUSD/USD1 and a facilitator broadcasts it, so neither agent pays gas. Runnable adapter: [examples/fetch-app](https://github.com/piprail/piprail/tree/main/examples/fetch-app).
-- [Agentverse & uAgents](https://docs.piprail.com/integrations/agentverse-uagents/): give a Fetch.ai Agentverse uAgent a budget-bound x402 wallet — earn behind a `requirePayment` 402 gate, spend with a `PipRailClient` it can't overspend. Reference agent **PipRail Pay** (an x402 pay-for-me concierge) is live-proven on mainnet (earn on BNB, spend on Base). Code: [examples/agentverse-agent](https://github.com/piprail/piprail/tree/main/examples/agentverse-agent).
+- Integrations with other agent frameworks and payment protocols are coming soon.
 
 ## Chains
 

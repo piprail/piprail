@@ -105,5 +105,4 @@ Continue to [Client setup](/mcp/client-setup/), the full
 [Configuration reference](/mcp/configuration/), and the [Tools reference](/mcp/tools/).
 
 Building an agent in another language or framework? The MCP doubles as a language-agnostic
-**settlement engine** — e.g. for Fetch.ai uAgents via the
-[Agent Payment Protocol](/integrations/fetch-agent-payment-protocol/).
+**settlement engine** — any runtime that can speak MCP JSON-RPC over stdio can pay through it.

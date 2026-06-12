@@ -29,7 +29,7 @@ sdk/        @piprail/sdk — the product (the only npm-published package)
     types.ts            the PaymentDriver contract (the only thing the protocol layer sees)
   test/                 Vitest — the contract
   README.md ERRORS.md STANDARDS.md
-examples/   teaching code (standalone): express/ next-app-router/ agent/ mcp/ fetch-app/ agentverse-agent/ + README.md + CONCEPTS.md
+examples/   teaching code (standalone): express/ next-app-router/ agent/ mcp/ + README.md + CONCEPTS.md
 site/       piprail.com — Astro 5 + Tailwind v4 (deploys to Netlify)
 ```
 
@@ -44,7 +44,6 @@ site/       piprail.com — Astro 5 + Tailwind v4 (deploys to Netlify)
 - **Discovery (opt-in, $0, nothing hosted):** `client.discover(opts?)` reads the OPEN indexes (CDP Bazaar + 402 Index, free) → `DiscoveredResource[]`; `client.register(url, opts?)` lists a resource on them (402 Index no-auth by default; x402scan SIWX optional) → `RegisterOutcome[]`. Emit static artifacts with `buildOpenApi` / `buildWellKnownX402` / `buildX402DnsTxt` (pure), fed by `gate.describe()`. We build on open infra and host nothing — never add our own registry/DB. Caveats: open indexes assume the `exact` scheme; x402scan is Base/Solana-only; no single ratified discovery standard yet.
 - **Agents:** `paymentTools(client)` → **seven** tool descriptors (`piprail_discover` · `piprail_quote_payment` · `piprail_plan_payment` · `piprail_pay_request` · `piprail_register` · `piprail_budget` · `piprail_guide`) whose `parameters` are **JSON Schema** (use the low-level MCP `Server`, not Zod-based `McpServer`). They pass through `@piprail/mcp` automatically.
 - Chains by name (`'base'`, `'bnb'`, `'solana'`, `'ton'`, …) or a viem `Chain` / `{ id, rpcUrl }`. Tokens: `'USDC'`, `'USDT'`, `'native'`, or custom by address/mint/issuer/contractId/coinType.
-- **Integrations:** PipRail can be the **settlement engine** under another protocol. `examples/fetch-app/` plugs it into Fetch's **Agent Payment Protocol** as an `x402` `payment_method` — `@piprail/mcp` bridges the payer (`piprail_pay_request`), the SDK gate verifies the payee. No SDK change; the pattern generalizes to any agent-payment negotiation layer. Docs: `integrations/fetch-agent-payment-protocol`. `examples/agentverse-agent/` (**PipRail Pay**) is the reference **Agentverse uAgent** — earns behind a `requirePayment` gate + spends with a budget-bound `PipRailClient` (an x402 pay-for-me relay), live-proven on mainnet. Docs: `integrations/agentverse-uagents`. Both are example agents on the open SDK — `@piprail/sdk` stays token/fee-free (the brand wall).
 
 Confirm any signature against `sdk/src/index.ts` before using it.
 
