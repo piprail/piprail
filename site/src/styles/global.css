@@ -28,6 +28,15 @@ html {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Contain the decorative, full-bleed background art (the wide .hero-orb glows and
+   drifting particles are absolutely positioned and intentionally over-sized) so it
+   can never push the layout sideways on narrow screens. `clip` — not `hidden` — so
+   it doesn't become a scroll container and break `position: sticky` (the FAQ aside). */
+html, body {
+  overflow-x: clip;
+  max-width: 100%;
+}
+
 /* Hero ambience — two slow-drifting emerald/blue glow orbs behind the header give the
    background gentle life (it's the first thing visitors see). Subtle + slow; the static
    grid sits in front. Honors reduced-motion (the orbs hold still). */
