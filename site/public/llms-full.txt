@@ -1,6 +1,6 @@
 # PipRail — full reference for agents
 
-> Last-Updated: 2026-06-12 · SDK-Version: 1.20.1 · MCP-Version: 0.3.1 · Type: APIService · License: MIT
+> Last-Updated: 2026-06-13 · SDK-Version: 1.21.0 · MCP-Version: 0.3.2 · Type: APIService · License: MIT
 
 > Accept and make x402 "402 Payment Required" crypto payments from any HTTP request, across 29 chains in 10 families, with no backend, no database, no account, and no fee. Payments settle straight into your own wallet, verified locally against your own RPC. `@piprail/sdk` is an open-source (MIT) TypeScript SDK that runs headless or in the browser. This file is the everything-in-one-fetch version: the pitch, real code, the chain list, and the error model.
 

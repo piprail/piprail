@@ -4,6 +4,45 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.21.0] — 2026-06-13 — standard `exact` rail on Solana (SVM) + fully-gasless facilitator mode
+
+Opt-in, defaults unchanged. `onchain-proof` stays the default on every chain and is byte-identical.
+
+### Added
+- **The standard x402 `exact` rail now covers Solana**, not just EVM — so any standard x402
+  client/agent that speaks `exact` (the majority) can pay a PipRail Solana gate directly, and a
+  PipRail agent can pay any standard Solana `exact` server. Per the ratified `scheme_exact_svm.md`:
+  the buyer partial-signs an SPL `TransferChecked` transaction whose **fee payer is the merchant**,
+  and the gate co-signs as fee payer + broadcasts against your own RPC — **no facilitator, no
+  backend** (the same self-settle model as the EVM `exact` rail). Enable it exactly as on EVM:
+  `requirePayment({ chain: 'solana', token: 'USDC', amount, payTo, exact: { settle: 'self', relayer } })`,
+  and on the client `new PipRailClient({ chain: 'solana', wallet, schemes: ['onchain-proof', 'exact'] })`.
+- **Buyer-gasless on Solana, for any SPL token.** The buyer signs the canonical
+  `[setComputeUnitLimit, setComputeUnitPrice, TransferChecked]` transaction and spends **zero SOL** —
+  only the token funds the payment. Gasless-ness is transaction-level (the fee payer), not token-level,
+  so **USDC and USDT are equally gasless** (no EIP-3009/Permit2 equivalent needed, unlike EVM). The fee
+  payer must be **distinct from `payTo`** (a scheme MUST-rule the SDK enforces), and the recipient's
+  token account must already exist (the exact rail won't create it — `onchain-proof` does).
+- **Solana facilitator mode → _fully_ gasless (neither buyer nor merchant pays).** `exact: { settle: {
+  facilitator } }` now works on Solana, not just EVM: the gate auto-discovers the facilitator's
+  fee-payer pubkey from its `GET /supported`, advertises it, and forwards settlement — the **facilitator
+  pays the gas**. Live-proven on mainnet against **PayAI** (`https://facilitator.payai.network`, no API
+  key). Self-settle (your own relayer pays the sub-cent fee) remains available; PipRail hosts nothing
+  and is never the fee payer.
+
+### Security (defense-in-depth, after an adversarial review)
+- The gate counts **only authentically-signed** transfers toward the required amount (a
+  tiny-signed + large-unsigned multi-transfer can't reach the price), enforces fee-payer **isolation by
+  resolved pubkey** across every instruction (ALT-safe, not a literal index check), and **canonicalizes**
+  the SVM replay key so a base64-malleated re-submission can't bypass the replay claim.
+
+### Changed (internal — no API change)
+- The `exact` rail moved behind a new driver SPI, `ResolvedNetwork.resolveExactRail`, so the gate is
+  fully chain-agnostic (it no longer special-cases EVM). EVM's EIP-3009/Permit2 method-selection is
+  unchanged in behaviour; Solana plugs in `{ method: 'svm', extra: { feePayer, tokenProgram } }`.
+- The wire types gained the SVM `exact` payload (`{ transaction }`) and the `extra` keys
+  `feePayer`/`memo`/`tokenProgram`; `assetTransferMethod` now also accepts `'svm'`.
+
 ## [1.20.1] — 2026-06-11 — gate replay store: bounded + exception-safe
 
 Patch — internal robustness on the gate's built-in replay protection. No API change, no visible

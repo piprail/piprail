@@ -44,6 +44,7 @@ the raw key into the config file — treat that file as a secret.
 | Windsurf | `~/.codeium/windsurf/mcp_config.json` | `mcpServers` | Yes |
 | VS Code (Copilot) | `.vscode/mcp.json` | **`servers`** | Yes |
 | Cline | `cline_mcp_settings.json` (edited from the MCP Servers panel) | `mcpServers` | Yes |
+| OpenClaw | `~/.openclaw/openclaw.json` | **`mcp.servers`** (nested) | **No** — file is a secret |
 
 ## Claude Desktop
 
@@ -150,6 +151,27 @@ Cline stores servers in `cline_mcp_settings.json`. Open it from the MCP Servers 
       "command": "npx",
       "args": ["-y", "@piprail/mcp"],
       "env": { "PIPRAIL_PRIVATE_KEY": "${env:PIPRAIL_PRIVATE_KEY}", "PIPRAIL_CHAIN": "base" }
+    }
+  }
+}
+```
+
+## OpenClaw
+
+OpenClaw nests MCP servers under **`mcp.servers`** in `~/.openclaw/openclaw.json` (not a top-level
+`mcpServers`), and manages the block with `openclaw mcp set` / `openclaw mcp list`. Put the key in the
+`env` block — treat the file as a secret. You can also `clawhub install piprail-openclaw` to discover it. Full
+guide: the [OpenClaw integration](/integrations/openclaw/).
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "piprail": {
+        "command": "npx",
+        "args": ["-y", "@piprail/mcp"],
+        "env": { "PIPRAIL_PRIVATE_KEY": "0xYOUR_PRIVATE_KEY", "PIPRAIL_CHAIN": "base" }
+      }
     }
   }
 }

@@ -81,12 +81,13 @@ means that family simply doesn't offer the feature — the protocol layer skips 
 
 | Method | Available | Enables |
 | --- | --- | --- |
-| `payExact` | EVM + EIP-3009 | Buying on a standard [`exact` rail](/making-payments/exact-buyer/). |
-| `exactDomain` / `settleExactSelf` | EVM only | Selling a standard [`exact` rail](/accepting-payments/exact-rail-seller/). |
+| `resolveExactRail` / `settleExactSelf` / `payExact` | EVM + Solana | Advertising, buying, and selling a standard [`exact` rail](/accepting-payments/exact-rail-seller/) (EVM EIP-3009/Permit2; Solana SVM). |
+| `exactDomain` / `exactPermit2Supported` | EVM only | The EVM method-selection (EIP-3009 vs Permit2). |
 | `discoverySigner` | EVM today | SIWX [registration](/discovery/discover-and-register/) on open indexes. |
 
-Because these are optional, adding one to EVM does not trigger the "implement in all families"
-rule that required methods carry.
+Because these are optional, adding one to a family does not trigger the "implement in all families"
+rule that required methods carry. `resolveExactRail` is the seam that lets a family add `exact`
+support (Solana was added this way) without the chain-agnostic protocol layer learning a new family.
 
 ## One folder per family
 

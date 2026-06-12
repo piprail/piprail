@@ -23,7 +23,7 @@ import type { ResolvedNetwork, TokenInput, ChainSelector, WalletHandle } from '.
 import { buildBazaarExtension } from './discovery.js'
 import type { ResourceDescription, PaymentRail, DiscoveryDescriptor } from './discovery.js'
 import { SettlementError } from './errors.js'
-import { settleViaFacilitator } from './facilitator.js'
+import { settleViaFacilitator, fetchFacilitatorFeePayer } from './facilitator.js'
 import {
   buildChallengeHeader,
   buildReceiptHeader,
@@ -72,30 +72,43 @@ export interface AcceptOption {
 /**
  * Opt into ALSO advertising a standard x402 `exact` rail beside the default
  * `onchain-proof` rail, so ANY standard x402 client can pay this gate (dual-advertise).
- * EVM ERC-20 only — **EIP-3009** (USDC, EURC) or, for tokens without it, **Permit2**
- * (any ERC-20 — e.g. Binance-Peg USDC on BNB, settled via the canonical
- * x402ExactPermit2Proxy). NOT native coins, NOT non-EVM chains. Omitting `exact` leaves
- * the gate byte-identical to today (onchain-proof only).
+ * Supported on **EVM ERC-20** — **EIP-3009** (USDC, EURC) or, for tokens without it, **Permit2**
+ * (any ERC-20 — e.g. Binance-Peg USDC on BNB, settled via the canonical x402ExactPermit2Proxy) —
+ * and on **Solana** (any SPL token; the buyer partial-signs a `TransferChecked` and your relayer
+ * is the fee payer). NOT native coins, NOT families without a standard `exact` scheme. Omitting
+ * `exact` leaves the gate byte-identical to today (onchain-proof only).
  *
  * Two settlement modes, both backendless (PipRail hosts nothing):
- *  - `settle: 'self'`  — your own `relayer` key broadcasts the settle (EIP-3009's
- *     `transferWithAuthorization`, or the proxy's `settle` for Permit2). You pay gas to
- *     RECEIVE (the inverse of onchain-proof) and keep the relayer funded. The signature
- *     binds the recipient, so there's no redirect risk. The on-brand default for the rail.
- *  - `settle: { facilitator }` — delegate verify+settle to a third-party x402
- *     facilitator YOU choose (Coinbase CDP, x402.org, …). No relayer key needed; the
- *     facilitator pays gas. Also the only path onto Coinbase's Bazaar directory.
+ *  - `settle: 'self'`  — your own `relayer` key broadcasts the settle (EVM EIP-3009's
+ *     `transferWithAuthorization` / the proxy's `settle` for Permit2; on Solana, co-signing the
+ *     buyer's transaction as the fee payer). You pay gas to RECEIVE (the inverse of onchain-proof)
+ *     and keep the relayer funded. The signature binds the recipient, so there's no redirect risk.
+ *     The on-brand backendless default for the rail.
+ *  - `settle: { facilitator }` — delegate verify+settle to a third-party x402 facilitator YOU
+ *     choose. **The facilitator pays the gas, so neither the buyer nor the merchant pays any** —
+ *     fully gasless end to end. On **EVM** use Coinbase CDP, x402.org, PayAI, …; on **Solana** use a
+ *     facilitator that sponsors the fee payer (e.g. PayAI's `https://facilitator.payai.network`,
+ *     no API key) — the gate reads its fee-payer pubkey from `GET /supported` automatically. No
+ *     relayer key needed. (EVM facilitators are also the path onto Coinbase's Bazaar directory.)
  */
 export interface ExactRailOption {
   settle:
     | 'self'
-    | { facilitator: string; authHeaders?: () => Promise<Record<string, string>> }
-  /** Required for `settle: 'self'` — the gas-paying relayer wallet: EVM `{ privateKey }`
-   *  or a bring-your-own `{ walletClient }`. (Distinct from `payTo`, the receive address.) */
+    | {
+        facilitator: string
+        authHeaders?: () => Promise<Record<string, string>>
+        /** Solana only — the facilitator's fee-payer pubkey, if you'd rather set it than have the
+         *  gate read it from the facilitator's `GET /supported`. Optional: omitted, the gate
+         *  discovers it automatically (e.g. PayAI). Ignored on EVM. */
+        feePayer?: string
+      }
+  /** Required for `settle: 'self'` — the gas-paying relayer wallet: EVM `{ privateKey }` /
+   *  `{ walletClient }`, or Solana `{ secretKey }` / `{ signer }`. (Distinct from `payTo`, the
+   *  receive address — on Solana they MUST be different keys, a scheme MUST-rule.) */
   relayer?: unknown
-  /** Which exact-EVM transfer method to advertise. `'auto'` (default) uses EIP-3009 when the
+  /** Which exact transfer method to advertise (EVM). `'auto'` (default) uses EIP-3009 when the
    *  token supports it, else Permit2 — so a non-EIP-3009 token like Binance-Peg USDC on BNB
-   *  "just works". Force `'eip3009'` or `'permit2'` to pin one. */
+   *  "just works". Force `'eip3009'` or `'permit2'` to pin one. Ignored on Solana (always SVM). */
   method?: 'eip3009' | 'permit2' | 'auto'
 }
 
@@ -168,8 +181,8 @@ export interface RequirePaymentOptions {
    */
   awaitOnPaid?: boolean
   /**
-   * ALSO advertise a standard x402 `exact` rail (EIP-3009) so any standard x402
-   * client can pay this gate — opt-in, EVM/EIP-3009 only. See {@link ExactRailOption}.
+   * ALSO advertise a standard x402 `exact` rail so any standard x402 client can pay this
+   * gate — opt-in, EVM (EIP-3009/Permit2) + Solana (SVM). See {@link ExactRailOption}.
    * Omit to keep the gate exactly as today (`onchain-proof` only).
    */
   exact?: ExactRailOption
@@ -256,13 +269,14 @@ type ResolvedExactMode =
   | { kind: 'facilitator'; url: string; authHeaders?: () => Promise<Record<string, string>> }
 
 /** A resolved standard `exact` rail bound to one spec — the transfer method + how it
- *  settles. Present only on EVM ERC-20 specs when `options.exact` is set. */
+ *  settles. Present when `options.exact` is set and the spec's family can carry it
+ *  (EVM ERC-20 via EIP-3009/Permit2, or Solana SPL via the SVM scheme). */
 interface ResolvedExactRail {
-  /** `'eip3009'` (token has transferWithAuthorization) or `'permit2'` (any ERC-20, e.g. BNB). */
-  method: 'eip3009' | 'permit2'
-  /** The token's on-chain EIP-712 domain — for `eip3009` ONLY (Permit2 signs over the
-   *  Permit2 contract's own domain, not the token's), so it's omitted for `permit2`. */
-  domain?: { name: string; version: string }
+  /** `'eip3009'`/`'permit2'` (EVM) or `'svm'` (Solana). */
+  method: 'eip3009' | 'permit2' | 'svm'
+  /** Family-specific keys the driver supplies, merged verbatim into the accept's `extra`
+   *  (EVM EIP-3009: the token's `name`/`version`; Solana: `feePayer`/`tokenProgram`). */
+  extra?: Record<string, unknown>
   mode: ResolvedExactMode
 }
 
@@ -276,7 +290,7 @@ interface ResolvedSpec {
   amountBase: bigint
   amountFormatted: string
   payTo: AddressId
-  /** A standard `exact` rail for this spec, when opted in + supported (EVM/EIP-3009). */
+  /** A standard `exact` rail for this spec, when opted in + supported (EVM or Solana). */
   exact?: ResolvedExactRail
 }
 
@@ -349,9 +363,9 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
       if (options.exact && !specs.some((s) => s.exact)) {
         throw new Error(
           'requirePayment: `exact` was requested but none of the offered rails support it. ' +
-            'The standard `exact` rail is EVM ERC-20 only — EIP-3009 (USDC / EURC) or Permit2 ' +
-            '(any ERC-20, e.g. Binance-Peg USDC on BNB) — NOT native coins, NOT non-EVM chains. ' +
-            'Offer an EVM ERC-20 token, or drop `exact`.'
+            'The standard `exact` rail is EVM ERC-20 (EIP-3009 — USDC / EURC — or Permit2, e.g. ' +
+            'Binance-Peg USDC on BNB) or a Solana SPL token (SVM) — NOT native coins, NOT families ' +
+            'without a standard `exact` scheme. Offer an EVM ERC-20 / Solana SPL token, or drop `exact`.'
         )
       }
       return specs
@@ -365,57 +379,25 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
   }
 
   /**
-   * Resolve a standard `exact` rail for one spec, or `undefined` when it can't carry one
-   * (non-EVM family or a native coin). Picks EIP-3009 when the token supports it (reading
-   * its EIP-712 domain once, cached with the spec), else Permit2 (any ERC-20 — e.g. BNB),
-   * and binds the relayer (self mode).
+   * Resolve a standard `exact` rail for one spec, or `undefined` when its family/asset can't
+   * carry one. Family-agnostic: it binds the self-settle relayer (chain-agnostic config),
+   * delegates the chain-specific "which method + what `extra`" decision to the driver's
+   * {@link ResolvedNetwork.resolveExactRail} SPI (EVM picks EIP-3009/Permit2 + reads the token's
+   * EIP-712 domain; Solana returns the SVM method + the merchant `feePayer`), then attaches the
+   * settle mode. A family that doesn't implement the SPI offers no exact rail.
    */
   async function resolveExactRail(
     net: ResolvedNetwork,
     asset: string
   ): Promise<ResolvedExactRail | undefined> {
     const cfg = options.exact!
-    // EVM ERC-20 only. A non-EVM family, one without the self-settle method, or a native
-    // asset can't offer exact — leave it onchain-proof-only (mixed gates are fine).
-    if (net.family !== 'evm' || asset === 'native' || !net.settleExactSelf) {
-      return undefined
-    }
-    // Pick the transfer method: EIP-3009 when the token supports it, else Permit2 (any
-    // ERC-20 — e.g. Binance-Peg USDC on BNB). `method` can pin one.
-    const want = cfg.method ?? 'auto'
-    let method: 'eip3009' | 'permit2'
-    let domain: { name: string; version: string } | undefined
-    if (want === 'permit2') {
-      method = 'permit2'
-    } else {
-      const d = net.exactDomain ? await net.exactDomain(asset) : null
-      if (d) {
-        method = 'eip3009'
-        domain = d
-      } else if (want === 'eip3009') {
-        throw new Error(
-          `requirePayment: exact \`method: 'eip3009'\` requested for ${asset} on ${net.network}, but it isn't an ` +
-            `EIP-3009 token (no name()/version()/authorizationState). Use \`method: 'permit2'\` (any ERC-20, e.g. ` +
-            `Binance-Peg USDC on BNB) or \`'auto'\`. (Or check your rpcUrl is reachable.)`
-        )
-      } else {
-        method = 'permit2' // auto-fallback for a non-EIP-3009 ERC-20
-      }
-    }
-    // The Permit2 method settles through the x402 proxy — only offer it where that proxy
-    // is deployed, so we never advertise a rail we couldn't settle. (EIP-3009 needs no
-    // proxy.) Forced `method:'permit2'` on a proxy-less chain is a config error; `'auto'`
-    // quietly drops to onchain-proof-only.
-    if (method === 'permit2' && !(net.exactPermit2Supported?.() ?? false)) {
-      if (cfg.method === 'permit2') {
-        throw new Error(
-          `requirePayment: exact \`method: 'permit2'\` needs the x402 Permit2 proxy deployed on ` +
-            `${net.network}, but it isn't there. Offer an EIP-3009 token (gasless, no proxy), or drop ` +
-            `\`exact\` on this chain. (See PERMIT2_PROXY_CHAIN_IDS.)`
-        )
-      }
-      return undefined // auto: no settleable exact rail here → onchain-proof only
-    }
+    if (!net.resolveExactRail) return undefined // family has no standard `exact` settlement
+
+    // The SVM fee payer comes from one of two places: the merchant's own relayer (self mode), or
+    // — in facilitator mode — the FACILITATOR's sponsor pubkey, so neither buyer nor merchant pays
+    // gas. Bind the relayer (self) / discover the facilitator's fee payer (facilitator) up front.
+    let relayer: WalletHandle | undefined
+    let feePayer: string | undefined
     if (cfg.settle === 'self') {
       if (cfg.relayer === undefined) {
         throw new Error(
@@ -423,19 +405,32 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
             'broadcasts the settle), e.g. exact: { settle: ' + "'self', relayer: { privateKey } }."
         )
       }
-      const relayer = net.bindWallet(cfg.relayer)
-      return { method, ...(domain ? { domain } : {}), mode: { kind: 'self', relayer } }
+      relayer = net.bindWallet(cfg.relayer)
+    } else {
+      feePayer = cfg.settle.feePayer // a configured fee-payer override, if any
     }
-    // Facilitator mode — a third-party verify+settle the merchant chose.
-    return {
-      method,
-      ...(domain ? { domain } : {}),
-      mode: {
-        kind: 'facilitator',
-        url: cfg.settle.facilitator,
-        ...(cfg.settle.authHeaders ? { authHeaders: cfg.settle.authHeaders } : {}),
-      },
+
+    const method = cfg.method ?? 'auto'
+    let info = await net.resolveExactRail({ asset, method, relayer, feePayer })
+    // Facilitator mode + the family couldn't resolve a rail WITHOUT a fee payer (Solana, no
+    // override): discover the facilitator's own fee payer from its `GET /supported` and retry — so
+    // neither buyer nor merchant pays gas. EVM resolves without a fee payer, so it never does this
+    // extra fetch (the discovery is lazy, only when the first resolve came back empty).
+    if (!info && cfg.settle !== 'self' && !feePayer) {
+      const discovered = await fetchFacilitatorFeePayer(cfg.settle.facilitator, net.network)
+      if (discovered) info = await net.resolveExactRail({ asset, method, relayer, feePayer: discovered })
     }
+    if (!info) return undefined // this asset/chain can't carry exact → onchain-proof only
+
+    const mode: ResolvedExactMode =
+      cfg.settle === 'self'
+        ? { kind: 'self', relayer: relayer! }
+        : {
+            kind: 'facilitator',
+            url: cfg.settle.facilitator,
+            ...(cfg.settle.authHeaders ? { authHeaders: cfg.settle.authHeaders } : {}),
+          }
+    return { method: info.method, ...(info.extra ? { extra: info.extra } : {}), mode }
   }
 
   // Replay protection. The built-in store reserves the proof ref synchronously
@@ -513,9 +508,10 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     }
   }
 
-  /** The standard `exact` rail for a spec (only when `spec.exact` is resolved). For
-   *  `eip3009` the EIP-712 `name`/`version` were READ from the token at resolution (never
-   *  assumed); `permit2` omits them (it signs over the Permit2 contract's own domain). */
+  /** The standard `exact` rail for a spec (only when `spec.exact` is resolved). The driver's
+   *  chain-specific `extra` is merged in verbatim: EVM `eip3009` carries the token's EIP-712
+   *  `name`/`version` (READ at resolution, never assumed; `permit2` omits them — it signs over
+   *  the Permit2 contract's own domain); Solana carries `feePayer`/`tokenProgram`. */
   function buildExactAccept(s: ResolvedSpec): X402ExactAcceptEntry {
     const rail = s.exact!
     return {
@@ -527,11 +523,11 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
       maxTimeoutSeconds,
       extra: {
         assetTransferMethod: rail.method,
-        ...(rail.domain ? { name: rail.domain.name, version: rail.domain.version } : {}),
         minConfirmations,
         decimals: s.decimals,
         amountFormatted: s.amountFormatted,
         ...(s.symbol ? { symbol: s.symbol } : {}),
+        ...(rail.extra as Partial<X402ExactAcceptEntry['extra']>),
       },
     }
   }
@@ -760,15 +756,31 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
       )
     }
 
-    // Replay-claim the authorization nonce — EIP-3009's `authorization.nonce` or Permit2's
-    // `permit2Authorization.nonce` (the on-chain nonce state is a second, canonical guard).
-    const auth =
-      'permit2Authorization' in exact.payload
-        ? exact.payload.permit2Authorization
-        : exact.payload.authorization
-    const nonce = auth.nonce
+    // Replay-claim the unique authorization id: EIP-3009's `authorization.nonce`, Permit2's
+    // `permit2Authorization.nonce`, or — for SVM, which has no separate nonce field — the signed
+    // transaction itself (stable per signed tx, the same on every re-presentation). The on-chain
+    // nonce / signature state is a second, canonical guard.
+    let nonce: string
+    let evmAuth: { nonce: string; from: string } | null = null
+    if ('transaction' in exact.payload) {
+      // CANONICALIZE the base64 (decode → re-encode) before using it as the replay key — two
+      // malleable encodings of the SAME signed tx (whitespace / missing padding / base64url) must
+      // collapse to one key, so a mutated re-submission can't slip past the claim. Chain-agnostic;
+      // the deterministic on-chain txid is the second backstop. A non-base64 string keys as-is.
+      try {
+        nonce = Buffer.from(exact.payload.transaction, 'base64').toString('base64')
+      } catch {
+        nonce = exact.payload.transaction
+      }
+    } else if ('permit2Authorization' in exact.payload) {
+      evmAuth = exact.payload.permit2Authorization
+      nonce = evmAuth.nonce
+    } else {
+      evmAuth = exact.payload.authorization
+      nonce = evmAuth.nonce
+    }
     if (await claimTx(nonce)) {
-      return rejection('tx_already_used', `Authorization nonce ${nonce} was already redeemed.`)
+      return rejection('tx_already_used', `Authorization ${evmAuth ? `nonce ${nonce}` : 'transaction'} was already redeemed.`)
     }
 
     const accept = buildExactAccept(spec)
@@ -794,12 +806,17 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
             amount: accept.amount,
             payTo: accept.payTo,
             maxTimeoutSeconds: accept.maxTimeoutSeconds,
-            // name/version are OPTIONAL on the wire type (a foreign rail may omit them), but the
-            // gate's OWN exact rail always read them on-chain at resolution — so they're present here.
-            extra: { name: accept.extra.name ?? '', version: accept.extra.version ?? '' },
+            // The scheme's chain-specific `extra`, from the gate's OWN trusted rail: SVM forwards the
+            // facilitator's `feePayer` (the gas sponsor); EVM forwards the token's EIP-712 domain.
+            extra:
+              accept.extra.assetTransferMethod === 'svm'
+                ? { feePayer: accept.extra.feePayer ?? '' }
+                : { name: accept.extra.name ?? '', version: accept.extra.version ?? '' },
           },
           receipt: { network: accept.network, asset: accept.asset, payTo: accept.payTo, amount: accept.amount },
-          payerHint: auth.from,
+          // The buyer address, for the receipt's `payer` fallback. EVM carries it in the
+          // authorization; SVM doesn't (the facilitator returns the settled payer) → omit it.
+          ...(evmAuth ? { payerHint: evmAuth.from } : {}),
         })
       }
     } catch (err) {

@@ -1,0 +1,20 @@
+{
+  "//": "Add PipRail to OpenClaw as an MCP server. Merge this into ~/.openclaw/openclaw.json.",
+  "//key": "OpenClaw nests servers under mcp.servers (NOT a top-level mcpServers). Manage it with",
+  "//cli": "`openclaw mcp set` / `openclaw mcp list`, or edit the file directly. Keep your key secret.",
+  "mcp": {
+    "servers": {
+      "piprail": {
+        "command": "npx",
+        "args": ["-y", "@piprail/mcp"],
+        "env": {
+          "PIPRAIL_PRIVATE_KEY": "0xYOUR_PRIVATE_KEY",
+          "PIPRAIL_CHAIN": "base",
+          "PIPRAIL_MAX_AMOUNT": "0.10",
+          "PIPRAIL_MAX_TOTAL": "5.00",
+          "PIPRAIL_TOKENS": "USDC"
+        }
+      }
+    }
+  }
+}

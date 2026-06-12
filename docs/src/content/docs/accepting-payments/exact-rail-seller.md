@@ -9,10 +9,11 @@ sidebar:
 
 PipRail gates default to the `onchain-proof` scheme: the client pays first, then proves it
 with a tx ref your gate verifies locally. The ratified x402 `exact` scheme is the inverse —
-the client signs an [EIP-3009](https://eips.ethereum.org/EIPS/eip-3009)
-`transferWithAuthorization` and *someone else* broadcasts it. Opting into `exact` makes your
-gate payable by **any** standard x402 client (and is the only path onto Coinbase's Bazaar
-directory), while staying backendless: PipRail still hosts nothing.
+the client signs (an [EIP-3009](https://eips.ethereum.org/EIPS/eip-3009)
+`transferWithAuthorization` on EVM, a partial-signed `TransferChecked` transaction on Solana) and
+*someone else* broadcasts it. Opting into `exact` makes your gate payable by **any** standard
+x402 client (and is the only path onto Coinbase's Bazaar directory), while staying backendless:
+PipRail still hosts nothing.
 
 You opt in by passing `exact` to [`requirePayment` / `createPaymentGate`](/accepting-payments/require-payment-and-gate/).
 The gate then **dual-advertises**: each rail offers an `exact` entry *and* the `onchain-proof`
@@ -20,11 +21,13 @@ entry in the same 402, so a standard client picks `exact` while a PipRail client
 `onchain-proof`. Omitting `exact` leaves the challenge byte-identical to before.
 
 :::note
-The `exact` rail is **EVM ERC-20 only**, via one of two methods the gate picks automatically:
-**EIP-3009** for tokens that expose `transferWithAuthorization` (USDC, EURC), or **Permit2** for
-any other ERC-20 — most notably **Binance-Peg USDC/USDT on BNB Chain** (no native Circle USDC
-exists on BNB). It does **not** cover native coins or non-EVM chains; those stay
-`onchain-proof`-only, and mixing them in one gate is fine. See [Gasless payments](/making-payments/gasless-payments/).
+The `exact` rail covers **EVM ERC-20** and **Solana SPL** tokens, via the method the gate picks
+automatically: **EIP-3009** for EVM tokens that expose `transferWithAuthorization` (USDC, EURC),
+**Permit2** for any other EVM ERC-20 (e.g. **Binance-Peg USDC/USDT on BNB**), or **SVM** for any
+Solana SPL token (USDC, USDT — the merchant is the transaction fee payer). It does **not** cover
+native coins (incl. SOL) or families without an `exact` scheme (TON, Tron, NEAR, Sui, Aptos,
+Algorand, Stellar, XRPL); those stay `onchain-proof`-only, and mixing them in one gate is fine. See
+[Gasless payments](/making-payments/gasless-payments/).
 :::
 
 ## Mode A — self-settle with your own relayer
@@ -45,11 +48,20 @@ const gate = requirePayment({
 ```
 
 The `relayer` is the gas-paying wallet that broadcasts the settle — **distinct from `payTo`, the
-receive address**. Pass an EVM `{ privateKey }`, or bring your own viem signer with
-`{ walletClient }`. It broadcasts EIP-3009's `transferWithAuthorization` (USDC/EURC) or, on the
-Permit2 method (e.g. BNB), the canonical x402ExactPermit2Proxy's `settle`. Either way the
-signature binds the recipient (`to` / `witness.to` = `payTo`), so a front-runner can only push
-the same funds to the same `payTo` and waste their own gas — there is no redirect risk.
+receive address**. On EVM pass `{ privateKey }` or bring your own viem signer with `{ walletClient }`;
+on **Solana** pass `{ secretKey }` (a `Uint8Array` or base58 string) or `{ signer }`. It broadcasts
+EIP-3009's `transferWithAuthorization` (USDC/EURC), the Permit2 proxy's `settle` (e.g. BNB), or — on
+Solana — **co-signs the buyer's `TransferChecked` as the fee payer** and submits it. Either way the
+signature binds the recipient (`to` / `witness.to` = `payTo`, or the recomputed recipient ATA on
+Solana), so a front-runner can only push the same funds to the same `payTo` — there is no redirect risk.
+
+:::caution[Solana: the fee payer must differ from `payTo`]
+On the Solana SVM rail the relayer is the transaction **fee payer**, and a scheme MUST-rule forbids
+the fee payer from appearing in any instruction — so it **must be a different key from `payTo`**. The
+gate enforces this. The buyer pays zero SOL; your relayer pays only the (sub-cent) network fee. The
+recipient's token account must already exist (the exact rail won't create it). **Prefer Mode B (a
+facilitator) on Solana for a _fully_ gasless gate** — then neither you nor the buyer pays any SOL.
+:::
 
 :::caution
 `settle: 'self'` requires `relayer`. Omit it and the gate throws at setup. Keep the relayer
@@ -58,24 +70,29 @@ emitted as HTTP `502`), never a 402 — the payer's signed authorization stays v
 so they can retry once you top it up.
 :::
 
-## Mode B — delegate to a facilitator
+## Mode B — delegate to a facilitator (EVM **and** Solana)
 
 Instead of running a relayer, delegate verify + settle to a third-party x402 facilitator **you
 choose** (Coinbase CDP, x402.org, PayAI, or any compatible one). No relayer key, and the
 facilitator pays gas. Under the hood this is just two HTTP POSTs to the facilitator's
-configured URL — PipRail hosts nothing.
+configured URL — PipRail hosts nothing. Works on **EVM and Solana**.
 
 :::tip[Gasless settlement with a free facilitator]
 Point `facilitator` at a **free, no-auth** facilitator like **PayAI**
-(`https://facilitator.payai.network`) and the whole flow is **gasless** — the buyer only
-**signs** an EIP-3009 authorization (no gas), you run **no relayer key**, and PayAI
-**broadcasts the transfer on Base and pays the gas**. No `authHeaders` needed.
+(`https://facilitator.payai.network`) and the whole flow is **gasless** — the buyer only **signs**
+(no gas), you run **no relayer key**, and PayAI **broadcasts the transfer and pays the gas**. No
+`authHeaders` needed. Works on Base/EVM **and Solana** (PayAI is Solana-first):
 
 ```ts
-const gate = requirePayment({
-  chain: 'base', token: 'USDC', amount: '0.10', payTo: '0xYourWallet',
-  exact: { settle: { facilitator: 'https://facilitator.payai.network' } },
-})
+// EVM (Base):
+requirePayment({ chain: 'base', token: 'USDC', amount: '0.10', payTo: '0xYourWallet',
+  exact: { settle: { facilitator: 'https://facilitator.payai.network' } } })
+
+// Solana — fully gasless (neither buyer nor merchant pays SOL; PayAI does). The gate reads the
+// facilitator's fee-payer pubkey from its GET /supported automatically (or pin it with
+// `settle: { facilitator, feePayer }`). Live-proven on mainnet:
+requirePayment({ chain: 'solana', token: 'USDC', amount: '0.05', payTo: 'YourSolanaReceiveAddr',
+  exact: { settle: { facilitator: 'https://facilitator.payai.network' } } })
 ```
 
 PipRail hosts no facilitator — it just POSTs `/verify` then `/settle` to the URL **you**
@@ -130,8 +147,8 @@ import type { ExactRailOption } from '@piprail/sdk'
 | Field | Type | Purpose |
 | --- | --- | --- |
 | `settle` | `'self'` \| `{ facilitator: string; authHeaders?: () => Promise<Record<string, string>> }` | Pick the mode: your own relayer (`'self'`) or a facilitator URL you choose. |
-| `relayer` | EVM `{ privateKey }` or `{ walletClient }` | **Required for `settle: 'self'`** — the gas-paying wallet that broadcasts the settle (EIP-3009 `transferWithAuthorization`, or the Permit2 proxy `settle`). Distinct from `payTo`. Ignored in facilitator mode. |
-| `method` | `'eip3009'` \| `'permit2'` \| `'auto'` | Which transfer method to advertise. `'auto'` (default) uses EIP-3009 when the token supports it, else Permit2 (so BNB's Binance-Peg USDC "just works"). Pin one to force it. |
+| `relayer` | EVM `{ privateKey }` / `{ walletClient }`, or Solana `{ secretKey }` / `{ signer }` | **Required for `settle: 'self'`** — the gas-paying wallet that broadcasts the settle (EIP-3009 `transferWithAuthorization`, the Permit2 proxy `settle`, or the Solana fee-payer co-sign). Distinct from `payTo` (**must differ** on Solana). Ignored in facilitator mode. |
+| `method` | `'eip3009'` \| `'permit2'` \| `'auto'` | Which EVM transfer method to advertise. `'auto'` (default) uses EIP-3009 when the token supports it, else Permit2 (so BNB's Binance-Peg USDC "just works"). Pin one to force it. **Ignored on Solana** (always SVM). |
 
 ## Choosing a mode
 
@@ -149,24 +166,27 @@ when you'd rather not run a relayer, or when you specifically need the Bazaar li
 
 ## What the client signs (and what you verify)
 
-The payer signs an EIP-3009 authorization (or, for non-EIP-3009 tokens, a Permit2 witness
-transfer) off-chain and **never broadcasts** — your relayer (Mode A) or the facilitator (Mode B)
-does. The buyer side is covered on [The exact rail (buyer)](/making-payments/exact-buyer/).
+The payer signs off-chain (an EIP-3009 authorization, a Permit2 witness transfer, or — on Solana — a
+partial-signed `TransferChecked` transaction) and **never broadcasts** — your relayer (Mode A) or the
+facilitator (Mode B) does. The buyer side is covered on [The exact rail (buyer)](/making-payments/exact-buyer/).
 
-In Mode A, before broadcasting, the gate verifies the inbound authorization locally against the
-trusted rail: the signature must recover to the authorizer, the recipient must equal `payTo`, the
-value must cover the amount, and the authorization must be unexpired with its on-chain nonce
-unused. On **EIP-3009** the EIP-712 domain is **read on-chain** from the token, never assumed —
-canonical USDC's domain name is `"USD Coin"` (not `"USDC"`), and EURC's is `"Euro Coin"` on
-Ethereum/Avalanche but `"EURC"` on Base, so only the on-chain read is authoritative. On **Permit2**
-the same checks apply (`witness.to` = `payTo`, `permitted.amount` ≥ the price, the Permit2 nonce
-unused, and the `spender` must be the canonical x402ExactPermit2Proxy), but the signature is over
-the Permit2 contract's own domain, so no per-token domain read is needed.
+In Mode A, before broadcasting, the gate verifies the inbound payment locally against the trusted
+rail: the signature must recover to the authorizer, the recipient must equal `payTo`, the value must
+cover the amount, and it must be unexpired with its nonce unused. On **EIP-3009** the EIP-712 domain is
+**read on-chain** from the token, never assumed — canonical USDC's domain name is `"USD Coin"` (not
+`"USDC"`), and EURC's is `"Euro Coin"` on Ethereum/Avalanche but `"EURC"` on Base, so only the on-chain
+read is authoritative. On **Permit2** the same checks apply (`witness.to` = `payTo`, `permitted.amount`
+≥ the price, the Permit2 nonce unused, `spender` = the canonical x402ExactPermit2Proxy). On **Solana
+(SVM)** the gate re-derives the recipient ATA from `payTo`, requires the `TransferChecked` mint + amount
+to match, enforces the fee-payer safety rules (the fee payer in no instruction, never a program, never
+drained), checks the buyer's signature via a `sigVerify` simulation, then co-signs as fee payer and
+broadcasts.
 
 :::tip
-If you request `exact` but none of your offered rails can carry it (a single native-coin or
-non-EVM gate), the gate throws a clear error at setup rather than silently shipping
-`onchain-proof` only. Offer an EVM ERC-20 (EIP-3009 USDC/EURC, or any token via Permit2), or drop `exact`.
+If you request `exact` but none of your offered rails can carry it (a single native-coin gate, or a
+family without an `exact` scheme), the gate throws a clear error at setup rather than silently shipping
+`onchain-proof` only. Offer an EVM ERC-20 (EIP-3009 USDC/EURC, or any token via Permit2) or a Solana
+SPL token, or drop `exact`.
 :::
 
 ## Replay protection and `onPaid`

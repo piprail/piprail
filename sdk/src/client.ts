@@ -52,7 +52,7 @@ import {
 } from './errors.js'
 
 /** The payment schemes a client can settle: PipRail's native `onchain-proof` (the
- *  default) and the standard x402 `exact` rail (EVM + EIP-3009 only, opt-in). */
+ *  default) and the standard x402 `exact` rail (EVM EIP-3009/Permit2 + Solana SVM, opt-in). */
 export type PaymentScheme = 'onchain-proof' | 'exact'
 
 /** The scheme set when none is configured — `onchain-proof` only, so the zero-config
@@ -348,9 +348,10 @@ export interface PipRailClientOptions {
    *
    *   new PipRailClient({ chain: 'base', wallet, schemes: ['onchain-proof', 'exact'] })
    *
-   * `exact` is **EVM + EIP-3009 only** (USDC/EURC); it's silently ignored on a
-   * non-EVM chain, for USDT/native, or for a token the SDK can't price — those keep
-   * `onchain-proof`. The agent signs an EIP-3009 authorization with its OWN wallet
+   * `exact` is **EVM (EIP-3009/Permit2) + Solana (SVM)** today (USDC/EURC); it's
+   * silently ignored on a family without an `exact` rail, for native, or for a token the
+   * SDK can't price — those keep `onchain-proof`. The agent signs the authorization (an
+   * EIP-3009 message on EVM, a partial-signed transaction on Solana) with its OWN wallet
    * and the server / merchant-chosen facilitator broadcasts it (the buyer pays ~0
    * gas; PipRail hosts/settles nothing). The same `policy` + `onBeforePay` gate it
    * BEFORE signing. **Verify against your target facilitator before production.**
@@ -710,7 +711,7 @@ export class PipRailClient {
    *   before publishing, so retry with a brief backoff if a fresh listing is missing.
    * - Results are cross-scheme (mostly the mainstream `exact` scheme); `fetch()` pays
    *   `onchain-proof` rails by default, and standard `exact` rails too once you opt in
-   *   with `schemes: ['onchain-proof', 'exact']` (EVM + EIP-3009 — USDC/EURC).
+   *   with `schemes: ['onchain-proof', 'exact']` (EVM EIP-3009/Permit2 + Solana SVM).
    */
   async discover(opts: DiscoverOptions = {}): Promise<DiscoveredResource[]> {
     const found = await searchOpenIndexes({
@@ -951,7 +952,7 @@ export class PipRailClient {
       if (schemes.includes('exact') && exactOnNet && typeof net.payExact !== 'function') {
         throw new UnsupportedSchemeError(
           `This 402 offers a standard 'exact' rail on ${net.network}, but the ${net.family} ` +
-            `family can't pay 'exact' (EVM + EIP-3009 only), and no 'onchain-proof' rail was offered.`
+            `family can't pay 'exact' (supported on EVM + Solana today), and no 'onchain-proof' rail was offered.`
         )
       }
       // The dominant agent journey: a default (onchain-proof-only) client hits an exact-only
@@ -1503,7 +1504,7 @@ export class PipRailClient {
     if (!net.payExact) {
       // gatherCandidates only yields an exact rail when payExact exists — defensive.
       throw new UnsupportedSchemeError(
-        `the ${net.family} family can't pay a standard 'exact' rail (EVM + EIP-3009 only).`
+        `the ${net.family} family can't pay a standard 'exact' rail (supported on EVM + Solana today).`
       )
     }
     // A caller who aborts BEFORE we sign/send hasn't moved any funds — surface their

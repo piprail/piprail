@@ -4,7 +4,7 @@
  * `{scheme,network,payload}`, slug) shapes, and reject everything else.
  */
 import { describe, it, expect } from 'vitest'
-import { parseExactPaymentHeader, parseSettleResponse } from '../src/x402.js'
+import { parseExactPaymentHeader, parseSettleResponse, buildExactSignatureHeader } from '../src/x402.js'
 import { encodeXPaymentHeader } from '../src/drivers/evm/exact.js'
 
 const AUTH = {
@@ -26,7 +26,7 @@ describe('parseExactPaymentHeader — v2 (PAYMENT-SIGNATURE)', () => {
     expect(p!.x402Version).toBe(2)
     expect(p!.network).toBe('eip155:8453')
     expect(p!.asset).toBe('0xUSDC')
-    expect(p!.payload.signature).toBe(SIG)
+    if (p && p.method !== 'svm') expect(p.payload.signature).toBe(SIG)
     expect(p!.method).toBe('eip3009')
     if (p && p.method === 'eip3009') expect(p.payload.authorization.value).toBe('10000')
     expect(p!.raw).toMatchObject({ x402Version: 2 })
@@ -48,6 +48,27 @@ describe('parseExactPaymentHeader — v1 (X-PAYMENT)', () => {
   it('defaults x402Version to 2 when absent', () => {
     const h = b64({ scheme: 'exact', network: 'base', payload: { signature: SIG, authorization: AUTH } })
     expect(parseExactPaymentHeader(h)!.x402Version).toBe(2)
+  })
+})
+
+describe('parseExactPaymentHeader — SVM (Solana, { transaction })', () => {
+  const TX = Buffer.alloc(64, 9).toString('base64') // a stand-in base64 tx blob
+  it('parses the v2 SVM shape as method:"svm" (payload.transaction, no signature field)', () => {
+    const accepted = { scheme: 'exact', network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', asset: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' }
+    const h = b64({ x402Version: 2, accepted, payload: { transaction: TX } })
+    const p = parseExactPaymentHeader(h)
+    expect(p).not.toBeNull()
+    expect(p!.method).toBe('svm')
+    expect(p!.network).toBe('solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp')
+    if (p && p.method === 'svm') expect(p.payload.transaction).toBe(TX)
+  })
+
+  it('round-trips through buildExactSignatureHeader', () => {
+    const accepted = { scheme: 'exact', network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', asset: 'mint', payTo: 'p', amount: '1', maxTimeoutSeconds: 600, extra: { assetTransferMethod: 'svm', feePayer: 'fp' } }
+    const h = buildExactSignatureHeader({ accepted: accepted as never, payload: { transaction: TX } })
+    const p = parseExactPaymentHeader(h)
+    expect(p!.method).toBe('svm')
+    if (p && p.method === 'svm') expect(p.payload.transaction).toBe(TX)
   })
 })
 
@@ -98,7 +119,7 @@ describe('encodeXPaymentHeader — emits the v1 flat shape (intentional, not a b
     const p = parseExactPaymentHeader(encodeXPaymentHeader(input))
     expect(p).not.toBeNull()
     expect(p!.x402Version).toBe(1)
-    expect(p!.payload.signature).toBe(SIG)
+    if (p && p.method !== 'svm') expect(p.payload.signature).toBe(SIG)
     expect(p!.method).toBe('eip3009')
     if (p && p.method === 'eip3009') expect(p.payload.authorization.value).toBe(AUTH.value)
   })

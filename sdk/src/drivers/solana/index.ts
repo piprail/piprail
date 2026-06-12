@@ -9,11 +9,13 @@ import { Connection, Keypair, PublicKey } from '@solana/web3.js'
 import {
   getAccount,
   getAssociatedTokenAddressSync,
+  TOKEN_2022_PROGRAM_ID,
   TokenAccountNotFoundError,
 } from '@solana/spl-token'
 import { SOLANA_MAINNET, SOL_DECIMALS, type SolanaPreset } from './chains.js'
 import { paySolana } from './pay.js'
 import { verifySolana } from './verify.js'
+import { payExactSolana, verifyAndSettleExactSolana } from './exact.js'
 import { toKeypair } from './wallet.js'
 import {
   ConfirmationTimeoutError,
@@ -193,6 +195,58 @@ function makeSolanaNetwork(preset: SolanaPreset, rpcUrl: string): ResolvedNetwor
 
     async verify(ref, accept) {
       return verifySolana({ connection, signature: ref, accept })
+    },
+
+    // Standard x402 `exact` rail, BUYER side — partial-sign an SPL TransferChecked with the
+    // merchant as fee payer (the buyer spends zero SOL). Never broadcasts. Throws
+    // UnsupportedSchemeError for native / a missing feePayer / feePayer === payTo.
+    async payExact(wallet: WalletHandle, accept) {
+      const { payload, payerFrom, nonce } = await payExactSolana({
+        connection,
+        keypair: wallet._native as Keypair,
+        accept,
+      })
+      return { payload, accepted: accept, payerFrom, nonce }
+    },
+
+    // Standard x402 `exact` rail, SELLER side — verify the partial-signed tx against the
+    // trusted accept, then co-sign as the fee payer + broadcast (self-settle, no facilitator).
+    async settleExactSelf({ relayer, payload, accept }) {
+      if (!('transaction' in payload)) {
+        // An EVM-shaped (eip3009/permit2) payload reached the Solana driver — impossible via the
+        // gate's per-spec routing, but fail closed as a client fault rather than crash.
+        return { ok: false, error: 'signature_invalid', detail: 'SVM exact expects a { transaction } payload.' }
+      }
+      return verifyAndSettleExactSolana({
+        connection,
+        feePayerKeypair: relayer._native as Keypair,
+        payload,
+        accept,
+      })
+    },
+
+    // The gate's rail-advertisement SPI. The SVM fee payer is EITHER a facilitator's sponsor
+    // pubkey (`feePayer` — facilitator mode, neither buyer nor merchant pays gas) OR the
+    // merchant's own bound `relayer` (self mode); native isn't exact-payable. Reads the mint's
+    // owner once to flag token-2022 (so both ends derive the same ATA). `null` ⇒ no exact rail.
+    async resolveExactRail({ asset, relayer, feePayer }) {
+      if (asset === 'native') return null
+      const fp = feePayer ?? (relayer ? (relayer._native as Keypair).publicKey.toBase58() : undefined)
+      if (!fp) return null // need a facilitator fee payer OR a self-settle relayer
+      try {
+        // eslint-disable-next-line no-new
+        new PublicKey(fp)
+      } catch {
+        return null // a malformed facilitator/relayer fee-payer can't carry a rail
+      }
+      let tokenProgram: 'spl-token' | 'token-2022' = 'spl-token'
+      try {
+        const info = await connection.getAccountInfo(new PublicKey(asset))
+        if (info?.owner.equals(TOKEN_2022_PROGRAM_ID)) tokenProgram = 'token-2022'
+      } catch {
+        /* default spl-token (the built-ins are classic); a wrong guess fails verification cleanly */
+      }
+      return { method: 'svm', extra: { feePayer: fp, tokenProgram } }
     },
   }
 }

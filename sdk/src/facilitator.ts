@@ -17,7 +17,9 @@
 import type { VerifyResult, VerifyErrorCode, X402Receipt, Caip2, AssetId, AddressId } from './x402.js'
 import { SettlementError } from './errors.js'
 
-/** Standard x402 `exact` PaymentRequirements, built from the gate's TRUSTED rail. */
+/** Standard x402 `exact` PaymentRequirements, built from the gate's TRUSTED rail. `extra`
+ *  carries the scheme's chain-specific fields: EVM EIP-3009 → `{ name, version }` (the token's
+ *  EIP-712 domain), Solana SVM → `{ feePayer }` (the facilitator's fee-payer pubkey). */
 export interface FacilitatorPaymentRequirements {
   scheme: 'exact'
   network: string
@@ -25,7 +27,41 @@ export interface FacilitatorPaymentRequirements {
   amount: string
   payTo: string
   maxTimeoutSeconds: number
-  extra: { name: string; version: string }
+  extra: Record<string, unknown>
+}
+
+/**
+ * Read a facilitator's **fee-payer pubkey** for a CAIP-2 `network` from its `GET /supported`
+ * endpoint (the `extra.feePayer` of the matching `exact` kind). This is how a resource server
+ * learns who will sponsor gas on a facilitator-settled **Solana** rail — so it can advertise
+ * `extra.feePayer` and the buyer can build the transaction against it. With a facilitator like
+ * PayAI the facilitator IS the fee payer, so **neither the buyer nor the merchant pays gas**.
+ *
+ * Best-effort + bounded (an `AbortController` timeout): returns `undefined` on any failure or
+ * when the kind has no `feePayer` (EVM `exact` kinds carry none — EVM ignores this). Pure `fetch`,
+ * no chain libraries (STANDARDS §1).
+ */
+export async function fetchFacilitatorFeePayer(
+  url: string,
+  network: string,
+  timeoutMs = 8000
+): Promise<string | undefined> {
+  const base = url.replace(/\/+$/, '')
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs)
+  try {
+    const res = await fetch(`${base}/supported`, { signal: ctrl.signal })
+    if (!res.ok) return undefined
+    const body = (await res.json()) as { kinds?: Array<{ scheme?: string; network?: string; extra?: Record<string, unknown> }> }
+    const kinds = Array.isArray(body?.kinds) ? body.kinds : []
+    const kind = kinds.find((k) => k?.scheme === 'exact' && k?.network === network)
+    const fp = kind?.extra?.feePayer
+    return typeof fp === 'string' ? fp : undefined
+  } catch {
+    return undefined
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 /** A merchant-chosen facilitator: its base URL + optional per-request auth headers. */

@@ -8,6 +8,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest'
 import { createPaymentGate } from '../src/server.js'
 import { registerDriver } from '../src/drivers/index.js'
 import type { PaymentDriver } from '../src/drivers/types.js'
+import { resolveExactRailEvm } from '../src/drivers/evm/exact.js'
 import { SettlementError } from '../src/errors.js'
 
 const PAY_TO = '0x1111111111111111111111111111111111111111'
@@ -52,12 +53,24 @@ const fakeEvm: PaymentDriver = {
         if (domainThrowOnce) { domainThrowOnce = false; throw new Error('transient RPC reading domain') }
         return asset === USDC ? { name: 'USD Coin', version: '2' } : null
       },
+      // The rail-advertisement SPI drives the REAL EVM selection helper through the fake's
+      // primitives — so the gate's eip3009/permit2/throws coverage stays on real code.
+      resolveExactRail: async ({ asset, method }) =>
+        resolveExactRailEvm({
+          asset,
+          method,
+          readDomain: async (a) => {
+            if (domainThrowOnce) { domainThrowOnce = false; throw new Error('transient RPC reading domain') }
+            return a === USDC ? { name: 'USD Coin', version: '2' } : null
+          },
+          permit2Supported: () => permit2Supported,
+        }),
       settleExactSelf: async ({ relayer, payload, accept }) => {
         settleSpy({ relayer, payload, accept })
         lastSettleAccept = accept
         if (settleMode === 'throw') throw new SettlementError('relayer out of gas')
         if (settleMode === 'invalid') return { ok: false, error: 'amount_too_low', detail: 'Authorized 1, required 50000.' }
-        return { ok: true, receipt: { scheme: 'exact', success: true, network: accept.network, transaction: `0x${'fe'.repeat(32)}`, asset: accept.asset, amount: accept.amount, payer: 'permit2Authorization' in payload ? payload.permit2Authorization.from : payload.authorization.from, payTo: accept.payTo, verifiedAt: 'now' } }
+        return { ok: true, receipt: { scheme: 'exact', success: true, network: accept.network, transaction: `0x${'fe'.repeat(32)}`, asset: accept.asset, amount: accept.amount, payer: 'permit2Authorization' in payload ? payload.permit2Authorization.from : 'authorization' in payload ? payload.authorization.from : 'svm', payTo: accept.payTo, verifiedAt: 'now' } }
       },
     }
   },

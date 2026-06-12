@@ -1,5 +1,13 @@
 # @piprail/mcp changelog
 
+## 0.3.2 — 2026-06-13 — Solana `exact` (gasless) via the SDK
+
+No MCP code change — this pins `@piprail/sdk` to `^1.21.0`, which adds the standard x402 **`exact`**
+rail on **Solana**. Set `PIPRAIL_CHAIN=solana` + `PIPRAIL_SCHEMES=onchain-proof,exact` and the wallet
+pays standard Solana `exact` servers **gasless** — any SPL token (USDC/USDT), with a facilitator (e.g.
+PayAI) covering the gas so the wallet spends zero SOL. See
+[docs.piprail.com/mcp](https://docs.piprail.com/mcp/configuration/).
+
 ## 0.3.1 — 2026-06-10 — docs consolidation: README points to docs.piprail.com
 
 Docs-only. No code, no tool, no behaviour change.

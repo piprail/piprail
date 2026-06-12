@@ -496,6 +496,51 @@ const howToLd = {
       </div>
     </section>
 
+    <!-- 7.4 · Integrations -->
+    <section id="integrations" class="scroll-mt-24 border-t border-white/10 py-20 sm:py-24">
+      <SectionHeading title="Use it where your agents already live.">
+        Drop PipRail into the frameworks agents are built in — <span class="text-neutral-200">no payment code</span>.
+        Each integration just wraps <code class="text-neutral-300">@piprail/mcp</code>, so the agent gets all seven
+        tools, budget-bound — straight to your wallet.
+      </SectionHeading>
+
+      <!-- featured: OpenClaw -->
+      <div class="lift relative overflow-hidden rounded-2xl border border-white/10 bg-neutral-950/80 p-6 sm:p-8">
+        <div class="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-accent/8 blur-3xl"></div>
+        <div class="relative grid items-center gap-8 lg:grid-cols-[1fr_auto] lg:gap-12">
+          <div class="flex items-start gap-5">
+            <img src="/integrations/openclaw.webp" alt="OpenClaw" width="64" height="64" class="h-16 w-16 shrink-0 rounded-2xl border border-white/10 object-cover shadow-lg shadow-black/30" loading="lazy" />
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-2.5">
+                <h3 class="text-xl font-semibold tracking-tight text-neutral-100">OpenClaw</h3>
+                <span class="rounded-full border border-accent/25 bg-accent/10 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-accent">ClawHub skill</span>
+              </div>
+              <p class="mt-2 max-w-xl leading-relaxed text-neutral-400">
+                Hand an OpenClaw agent a budget-bound wallet across {total} chains. Install the skill, add one
+                <code class="text-neutral-300">mcp.servers</code> entry, and the seven <code class="text-neutral-300">piprail_*</code> tools appear —
+                <span class="text-neutral-300">no facilitator, no fee</span>.
+              </p>
+              <div class="mt-4 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-black/40 px-3 py-2 font-mono text-[13px] text-neutral-300">
+                <span class="text-accent" aria-hidden="true">$</span> clawhub install piprail-openclaw
+              </div>
+            </div>
+          </div>
+          <a href="https://docs.piprail.com/integrations/openclaw/" class="inline-flex shrink-0 items-center justify-center gap-2 cta-glow rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110">
+            Set it up <ArrowRight size={16} aria-hidden="true" />
+          </a>
+        </div>
+      </div>
+
+      <!-- roadmap + all-integrations link -->
+      <div class="mt-4 flex flex-wrap items-center gap-3">
+        <span class="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">More coming</span>
+        <span class="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-neutral-400">Vercel AI SDK</span>
+        <span class="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-neutral-400">Mastra</span>
+        <span class="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-neutral-400">ElizaOS</span>
+        <a href="https://docs.piprail.com/integrations/" class="ml-auto inline-flex items-center gap-1.5 text-sm font-medium text-accent transition hover:gap-2.5">All integrations <ArrowRight size={15} aria-hidden="true" /></a>
+      </div>
+    </section>
+
     <!-- 7.5 · Discoverability teaser -->
     <section class="border-t border-white/10 py-20 sm:py-24">
       <SectionHeading title="Payable isn’t the same as findable.">

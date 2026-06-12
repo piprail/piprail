@@ -1,10 +1,19 @@
 ---
 title: Integrations
-description: PipRail integrations — coming soon.
+description: First-party PipRail integrations with agent frameworks and skill marketplaces.
+sidebar:
+  label: Overview
+  order: 0
 ---
 
-**Integrations coming soon.**
+PipRail works today as a standalone SDK — gate a server route with [`requirePayment`](/accepting-payments/require-payment-and-gate/), pay as a client with [`PipRailClient`](/making-payments/piprail-client/), or hand an agent a budget-bound wallet via the [MCP server](/mcp/overview/), across [every supported chain](/chains/overview/).
 
-PipRail works today as a standalone SDK — gate a server route with [`requirePayment`](/accepting-payments/quickstart/), pay as a client with [`PipRailClient`](/making-payments/quickstart/), or hand an agent a budget-bound wallet via the [MCP server](/mcp/overview/), across [every supported chain](/chains/overview/).
+These pages cover **first-party integrations** that drop PipRail into the frameworks where agents already live — without writing payment code.
 
-First-party integrations with other agent frameworks and payment protocols are on the way. Check back soon.
+## Available
+
+| Integration | What it gives you |
+| --- | --- |
+| [OpenClaw](/integrations/openclaw/) | A ClawHub skill that hands an OpenClaw agent the 7 PipRail tools (budget-bound), via [`@piprail/mcp`](/mcp/overview/). |
+
+More framework integrations are on the way. Any MCP client can use PipRail today via the [MCP server](/mcp/overview/) — see [Client setup](/mcp/client-setup/).

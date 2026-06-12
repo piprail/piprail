@@ -1,21 +1,26 @@
 ---
 title: Gasless payments
-description: How gasless x402 payments work in PipRail — the exact rail (the buyer signs, zero gas), its two methods EIP-3009 and Permit2, and a clear table of exactly which chains and tokens are gasless and which aren't.
+description: How gasless x402 payments work in PipRail — the exact rail (the buyer signs, zero gas), its three methods EIP-3009, Permit2, and SVM (Solana), and a clear table of exactly which chains and tokens are gasless and which aren't.
 sidebar:
   order: 9
 ---
 
 This is the one page for **gasless payments**: what "gasless" means here, how PipRail does it, and a
 clear table of **which chains and tokens are gasless** — and which aren't. If the EIP-3009 / Permit2 /
-exact-rail terms have been confusing, read this top to bottom and they'll click.
+SVM / exact-rail terms have been confusing, read this top to bottom and they'll click.
 
 ## What "gasless" means
 
 In an ordinary on-chain payment the buyer **broadcasts** the transfer and **pays the gas**. PipRail's
 standard x402 **`exact` rail is gasless _for the buyer_**: the buyer only **signs** the transfer
-off-chain (zero gas, no native coin needed), and someone else broadcasts it — the merchant's own
-**relayer** (self-settle) or a **facilitator**. On the right token, *neither* side pays gas (the buyer
-signs for free, a facilitator settles).
+(zero gas, no native coin needed), and someone else broadcasts it — the merchant's own **relayer**
+(self-settle) or a **facilitator**. On EVM the buyer signs an off-chain authorization; on **Solana**
+the buyer partial-signs the transfer transaction and a **fee payer** completes + broadcasts it. Either
+way the buyer needs only the *token*, never the gas coin.
+
+**Who pays the gas, then?** Whoever settles. With **self-settle** the merchant's relayer pays the
+(tiny) fee to receive. With a **facilitator** (e.g. PayAI), the **facilitator pays the gas — so
+neither the buyer nor the merchant pays anything**. PipRail itself never pays and hosts nothing.
 
 ## Two rails: `onchain-proof` vs `exact`
 
@@ -25,28 +30,38 @@ PipRail offers up to two rails on a single 402; the agent picks one.
 |---|---|---|
 | Who broadcasts | the **buyer** | the merchant's relayer / a facilitator |
 | Buyer pays gas? | **yes** (a normal transfer) | **no** — just signs |
-| Where it works | **every** chain + token PipRail supports | **EVM** + a *signable* token (below) |
+| Where it works | **every** chain + token PipRail supports | **EVM** + **Solana** (below) |
 | Opt-in | default | `schemes: ['onchain-proof', 'exact']` |
 
 `onchain-proof` is PipRail's backendless default — universal, but the buyer holds the gas token.
-`exact` is the gasless upgrade, and it's what the wider x402 ecosystem (Coinbase, Binance, …) speaks.
+`exact` is the gasless upgrade, and it's what the wider x402 ecosystem (Coinbase, Binance, Solana, …)
+speaks.
 
-## Two `exact` methods: EIP-3009 vs Permit2
+## Three `exact` methods: EIP-3009, Permit2, and SVM
 
-The `exact` rail signs one of two ways, depending on the token. **PipRail auto-selects** per token
-(`method: 'auto'`), so you rarely choose by hand.
+The `exact` rail works one of three ways, depending on the chain + token. **PipRail auto-selects**
+(`method: 'auto'`), so you rarely choose by hand — Solana always uses SVM; EVM picks EIP-3009 or Permit2.
 
-| | **EIP-3009** (the gold path) | **Permit2** |
-|---|---|---|
-| Works on | tokens that implement `transferWithAuthorization` | **any** ERC-20 |
-| Examples | Circle **USDC** & **EURC**, **FDUSD**, **USD1**, PYUSD | Binance-Peg USDC/USDT on BNB |
-| Extra contract needed | **none** — the relayer calls the token directly | the canonical **Permit2** + the **x402ExactPermit2Proxy** |
-| One-time setup | **none** | one `approve(Permit2)` per token (buyer, ~46k gas) |
-| Per-payment buyer gas | **~0** | **~0** (after that one approval) |
+| | **EIP-3009** (EVM, gold path) | **Permit2** (EVM) | **SVM** (Solana) |
+|---|---|---|---|
+| Works on | tokens with `transferWithAuthorization` | **any** ERC-20 | **any** SPL token |
+| Examples | Circle **USDC** & **EURC**, **FDUSD**, **USD1**, PYUSD | Binance-Peg USDC/USDT on BNB | Solana **USDC** & **USDT** |
+| What the buyer signs | an EIP-3009 authorization (off-chain) | a Permit2 witness transfer (off-chain) | the SPL `TransferChecked` **transaction** (partial-sign) |
+| Who broadcasts | merchant relayer / facilitator | merchant relayer / facilitator | merchant relayer (**fee payer**) |
+| Extra contract needed | **none** | the canonical **Permit2** + the **x402ExactPermit2Proxy** | **none** |
+| One-time setup | **none** | one `approve(Permit2)` per token (~46k gas) | **none** |
+| Per-payment buyer gas | **~0** | **~0** (after that approval) | **0** (only the fee-payer pays SOL) |
 
-**EIP-3009 is the cleanest** — no approval, no extra contract, the buyer needs only the stablecoin.
-**Permit2 covers the gap** — tokens that *don't* implement EIP-3009 (most notably the Binance-Peg
-USDC/USDT on BNB), at the cost of one approval and a proxy that must be deployed on the chain.
+**EIP-3009 is the cleanest EVM path** — no approval, no extra contract, the buyer needs only the
+stablecoin. **Permit2 covers the EVM gap** — tokens that *don't* implement EIP-3009 (most notably the
+Binance-Peg USDC/USDT on BNB), at the cost of one approval and a proxy.
+
+**SVM is the Solana path, and it's the simplest of the three:** there is *no per-token requirement* at
+all. Gasless-ness on Solana comes from the transaction's **fee payer** being the merchant — not from a
+token feature — so it works for **any SPL token equally** (USDC and USDT alike). The buyer compiles the
+`TransferChecked` with the merchant's public key as the fee payer, signs only its own slot, and hands
+the partially-signed transaction to the gate, which co-signs as fee payer and broadcasts. (See the
+[architecture note](#solana--how-svm-gasless-works) below for the fee-payer safety rules.)
 
 ## ⭐ Which chains & tokens are gasless?
 
@@ -73,16 +88,30 @@ chain's real `eth_chainId` matched. The list grows as Circle issues native USDC 
 | **USDC**, **USDT** (Binance-Peg) | BNB Chain |
 | any ERC-20 | any chain with the x402 Permit2 proxy deployed (Ethereum, Base, Arbitrum, Optimism, Polygon, Avalanche, BNB, Celo, World Chain, Sei, HyperEVM, Monad) |
 
+### Gasless via SVM — Solana, any SPL token, no per-token setup
+
+| Token | Gasless on |
+|---|---|
+| **USDC** (native Circle) · **USDT** · **any SPL token** | Solana |
+
+*(On Solana the gasless mechanism is the transaction **fee payer**, not a token feature — so **USDC and
+USDT are equally gasless**, with no EIP-3009 equivalent, no Permit2 proxy, and no per-token approval.
+This is the key difference from EVM, where Tether's USDT needs Permit2. With a **facilitator** (PayAI)
+the fee payer is the facilitator → **neither buyer nor merchant pays gas**; with **self-settle** the
+merchant's relayer pays the sub-cent fee. Requirements: the fee-payer key must be **distinct from
+`payTo`**, and the recipient's **token account must already exist** — the exact rail won't create it
+(a brand-new recipient can be paid on `onchain-proof`, which does).)*
+
 ### NOT gasless → `onchain-proof` (the buyer broadcasts)
 
-- **Native coins** (ETH, BNB, MATIC, …) — no `transferFrom` to authorize.
-- **All non-EVM families** — Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, XRPL. (Fees there
-  are sub-cent, but the buyer signs *and* broadcasts.)
-- **USDT** on chains where it isn't EIP-3009 **and** has no Permit2 proxy (Tether implements no EIP-3009
-  anywhere) — and bridged USDC (e.g. Mantle, Scroll), which isn't the Circle FiatToken.
+- **Native coins** (ETH, BNB, SOL, MATIC, …) — nothing to authorize / no fee-payer split.
+- **The other non-EVM families** — TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, XRPL. (Fees there are
+  sub-cent, but the buyer signs *and* broadcasts.) **Solana is the exception** — it's gasless via SVM (above).
+- **USDT** on EVM chains where it isn't EIP-3009 **and** has no Permit2 proxy (Tether implements no
+  EIP-3009 anywhere) — and bridged USDC (e.g. Mantle, Scroll), which isn't the Circle FiatToken.
 
-> PipRail never advertises a rail it can't settle: if a token isn't EIP-3009 **and** the chain has no
-> Permit2 proxy, the gate simply offers `onchain-proof`, not a broken `exact` rail.
+> PipRail never advertises a rail it can't settle: if an EVM token isn't EIP-3009 **and** the chain has
+> no Permit2 proxy, the gate simply offers `onchain-proof`, not a broken `exact` rail.
 
 ## Turn it on
 
@@ -100,7 +129,7 @@ await client.fetch('https://any-x402-endpoint/api/data') // pays the cheapest se
 ```
 
 **Seller** — advertise `exact` beside `onchain-proof`; the method auto-selects per token. Settle with
-your own relayer (you pay the settle gas) or a facilitator (they do):
+your own relayer (you pay the settle gas) or, on EVM, a facilitator (they do):
 
 ```ts
 import { requirePayment } from '@piprail/sdk'
@@ -111,9 +140,28 @@ requirePayment({
 })
 ```
 
-With a **facilitator** settling and an **EIP-3009** token, **neither side pays gas** — the headline
-gasless case. See the full how-tos: [the exact rail (buyer)](/making-payments/exact-buyer/) ·
-[the exact rail (seller)](/accepting-payments/exact-rail-seller/).
+**Seller on Solana — fully gasless via a facilitator** (recommended; **neither buyer nor merchant pays
+gas** — the facilitator does). No relayer key, no SOL:
+
+```ts
+requirePayment({
+  chain: 'solana', token: 'USDC', amount: '0.05', payTo: 'YourReceiveAddress…',
+  // USDT works identically — any SPL token is gasless on Solana.
+  exact: { settle: { facilitator: 'https://facilitator.payai.network' } }, // PayAI: no API key, pays the gas
+})
+```
+
+The gate reads the facilitator's fee-payer pubkey from its `GET /supported` automatically (or set
+`settle: { facilitator, feePayer }` to pin it). **Or self-settle** with your own relayer (a Solana
+keypair, distinct from `payTo`) if you'd rather not use a third party — then your relayer pays the
+sub-cent SOL fee:
+
+```ts
+exact: { settle: 'self', relayer: { secretKey: process.env.SOLANA_RELAYER_KEY } } // fee payer ≠ payTo
+```
+
+With a **facilitator** (EVM EIP-3009, or Solana), **neither side pays gas**. See the full how-tos:
+[the exact rail (buyer)](/making-payments/exact-buyer/) · [the exact rail (seller)](/accepting-payments/exact-rail-seller/).
 
 ## BNB Chain — a worked example of both methods
 
@@ -126,6 +174,44 @@ EIP-3009. All four are live-proven on BNB mainnet.
 A wrinkle PipRail handles for you: FDUSD and USD1 hardcode their EIP-712 domain version (`"1"`) and
 don't expose `version()`, so [`readExactDomain`](/reference/exact-lowlevel/) **derives the version from
 the on-chain `DOMAIN_SEPARATOR`** — making any `version()`-less EIP-3009 token first-class with no config.
+
+## Solana — how SVM gasless works
+
+Solana's `exact` rail (the ratified x402 `scheme_exact_svm`) is gasless by a different mechanism than
+EVM — and a simpler one:
+
+1. The **buyer** compiles the canonical SVM transaction — `[setComputeUnitLimit, setComputeUnitPrice,
+   TransferChecked]` (USDC, USDT, any SPL) — whose **fee payer** is whoever will sponsor it (the rail
+   advertises a `feePayer` pubkey: the facilitator's, or the merchant's relayer). It signs **only its
+   own** slot — leaving the fee-payer slot empty — and sends the partially-signed, base64 transaction.
+   The buyer never broadcasts and pays **no** SOL.
+2. The **sponsor** completes + broadcasts it:
+   - **Facilitator mode** (recommended) — the gate forwards the signed transaction to the facilitator's
+     `/verify` + `/settle`; the **facilitator co-signs as fee payer and broadcasts, paying the gas**. So
+     **neither buyer nor merchant pays SOL**. PipRail hosts nothing — it's two HTTP POSTs.
+   - **Self-settle mode** — the gate verifies the transaction against its own trusted rail (re-deriving
+     the recipient ATA, amount, and mint — never trusting the client), **co-signs as the fee payer**, and
+     broadcasts against your own RPC. The merchant's relayer pays the sub-cent fee.
+
+This is why **any SPL token is gasless on Solana**: the fee abstraction lives in the transaction, not
+the token. The scheme's **fee-payer safety rules** ensure the sponsor only ever pays the network fee —
+the fee payer must never appear in any instruction, never be invoked as a program, and never be the
+source of funds (and it must differ from `payTo`). The recipient's token account must already exist (the
+exact rail never creates it — that keeps the transaction to the strict canonical form; a brand-new
+recipient is payable on `onchain-proof`, which creates the account). Replay is bounded by the gate's
+used-proof set plus Solana's own duplicate-signature rejection. Native **SOL** is *not* exact-payable
+(the scheme is defined over SPL `TransferChecked`) — it stays on `onchain-proof`.
+
+### Solana facilitators (who can sponsor the gas)
+
+| Facilitator | Networks | API key | Notes |
+|---|---|---|---|
+| **[PayAI](https://facilitator.payai.network/)** | Solana mainnet + many EVM | **none** | Solana-first; covers gas for **buyer & merchant**; the gate auto-discovers its fee payer from `GET /supported`. **Live-proven with PipRail.** |
+| **[Coinbase CDP](https://docs.cdp.coinbase.com/)** | Base + Solana | yes (CDP auth) | Fee-free settlement on Base + Solana; pass `authHeaders`. Also the path onto Coinbase's Bazaar. |
+| **[Kora](https://github.com/solana-foundation/kora)** | Solana | self-host | The Solana Foundation's relayer/paymaster — run your own node (you sponsor gas, optionally charge it in the token). |
+
+You choose the facilitator (PipRail depends on none). PayAI is the zero-config default for a fully-gasless
+Solana gate; point `settle.facilitator` at whichever you trust.
 
 ## How the Permit2 method stays safe
 

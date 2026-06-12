@@ -6,69 +6,40 @@ import CodeWindow from '../components/CodeWindow.astro'
 import SectionHeading from '../components/SectionHeading.astro'
 import Breadcrumbs from '../components/Breadcrumbs.astro'
 import { mcpConfigCode } from '../data/snippets'
-import { Bot, Plug, Wallet, ShieldCheck, Terminal, ArrowRight, ChevronDown, Code2, Sparkles, Search, Megaphone } from 'lucide-astro'
+import { Wallet, ShieldCheck, Terminal, ArrowRight, ChevronDown, Code2, Sparkles, Plug } from 'lucide-astro'
 
 const title = '@piprail/mcp — budget-bound x402 payment wallet for AI agents (Claude, Cursor, Code)'
 const description =
   'Hand any MCP client a local, budget-capped payment wallet. Agents autonomously pay x402 URLs across 29 chains — Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, Cline. No backend, no custody, no integration.'
 
-// The core payment workflow — quote → plan → pay.
+// The seven tools your agent gets — only piprail_pay_request moves money.
 const tools = [
-  { n: '01', name: 'piprail_quote_payment', d: 'Read the exact price of a gated URL — without paying.' },
-  { n: '02', name: 'piprail_plan_payment', d: 'Check balance, gas, recipient-readiness, and your spend policy in one read-only call across every rail — and say which rail to use, or exactly what to top up.' },
-  { n: '03', name: 'piprail_pay_request', d: 'Fetch the URL with payment attached, on the cheapest rail you can afford, and return the resource.' },
+  { name: 'piprail_discover', d: 'Find payable x402 APIs on the open indexes.' },
+  { name: 'piprail_quote_payment', d: 'Read a URL’s exact price — without paying.' },
+  { name: 'piprail_plan_payment', d: 'Check balance, gas + policy across every rail first.' },
+  { name: 'piprail_pay_request', d: 'Pay the cheapest affordable rail, return the resource.', pays: true },
+  { name: 'piprail_register', d: 'List an endpoint you run so other agents find it.' },
+  { name: 'piprail_budget', d: 'Read remaining spend + time leash.' },
+  { name: 'piprail_guide', d: 'Read the agent contract (quote → plan → pay).' },
 ]
 
-// Discovery — find payable APIs and let your own be found. Built on the OPEN
-// x402 indexes (CDP Bazaar + 402 Index); nothing PipRail-hosted.
-const discoveryTools = [
-  { icon: Search, name: 'piprail_discover', d: 'Search the open x402 indexes for payable APIs — the phone book. Filtered to your chain by default; no paying.' },
-  { icon: Megaphone, name: 'piprail_register', d: 'List an endpoint you run on the open indexes (402 Index — no auth, no signature) so other agents discover it.' },
+// First-party framework integrations — wrap this same MCP server.
+const frameworks = [
+  { name: 'OpenClaw', tag: 'Live', logo: '/integrations/openclaw.webp', live: true,
+    d: 'Hand an OpenClaw agent a budget-bound wallet. Install the ClawHub skill or add one mcp.servers entry — the seven piprail_* tools appear, capped by a spend policy.',
+    cmd: 'clawhub install piprail-openclaw',
+    href: 'https://docs.piprail.com/integrations/openclaw/' },
+  { name: 'Vercel AI SDK', tag: 'Coming soon', logo: '/integrations/vercel.webp', live: false,
+    d: 'paymentTools() dropped straight in as Vercel AI SDK tools — your app’s agent pays x402 APIs inside the same generateText loop.' },
+  { name: 'ElizaOS', tag: 'Coming soon', logo: '/integrations/elizaos.webp', live: false,
+    d: 'A PipRail plugin so ElizaOS agents pay for the data, compute, and services they use — self-custodial, no facilitator.' },
 ]
 
-// Where it runs + how to point each client at it. Claude Desktop takes the plain
-// value (its config file is a secret); the rest support ${env:…} interpolation.
-const clients = [
-  { name: 'Claude Desktop', file: '~/Library/Application Support/Claude/claude_desktop_config.json (macOS) · %APPDATA%\\Claude (Windows)', note: 'Settings → Developer → Edit Config. No env interpolation — treat the file as a secret.' },
-  { name: 'Cursor', file: '.cursor/mcp.json (project) · ~/.cursor/mcp.json (global)', note: 'Supports ${env:PIPRAIL_PRIVATE_KEY} — keep the key out of the file.' },
-  { name: 'Claude Code', file: '.mcp.json (project) · ~/.claude/.mcp.json (user)', note: 'Supports ${env:…} interpolation.' },
-  { name: 'Windsurf', file: '~/.codeium/windsurf/mcp_config.json', note: 'Supports ${env:…} and ${file:…}.' },
-  { name: 'VS Code (Copilot)', file: '.vscode/mcp.json', note: 'Top-level key is "servers", not "mcpServers".' },
-  { name: 'Cline', file: 'CLI-managed (no file)', note: 'cline mcp add piprail npx -y @piprail/mcp' },
-]
-
-// Every env var the server reads (canonical names; AGENT_KEY is an alias for the key).
-const envVars = [
-  { k: 'PIPRAIL_PRIVATE_KEY', req: 'yes', def: '—', d: 'Wallet key/seed for the chosen chain (alias: AGENT_KEY). Env-only, never a CLI arg.' },
-  { k: 'PIPRAIL_CHAIN', req: 'no', def: 'base', d: 'Chain to pay on — any of the 29 PipRail supports.' },
-  { k: 'PIPRAIL_MAX_AMOUNT', req: 'no', def: '0.10', d: 'Max spend per single payment (token units).' },
-  { k: 'PIPRAIL_MAX_TOTAL', req: 'no', def: '10.00', d: 'Lifetime spend cap per token (token units).' },
-  { k: 'PIPRAIL_TOKENS', req: 'no', def: 'USDC*', d: 'Allowed token symbols + "native" for the chain coin (CSV). *Defaults to USDT on Tron & TON.' },
-  { k: 'PIPRAIL_HOSTS', req: 'no', def: 'any', d: 'Host allowlist (CSV; supports *.example.com).' },
-  { k: 'PIPRAIL_RPC_URL', req: 'no', def: 'chain default', d: 'Override the RPC — fold any API key into this URL.' },
-  { k: 'PIPRAIL_NEAR_ACCOUNT_ID', req: 'NEAR only', def: '—', d: 'Your NEAR account id (e.g. you.near).' },
-]
-
-// The secret format per chain family — one var, the server maps it correctly.
-const walletFormats = [
-  { chains: 'EVM (base, ethereum, …), Tron', fmt: 'private key — 0x… 32-byte hex' },
-  { chains: 'Sui', fmt: 'private key — suiprivkey1… (bech32)' },
-  { chains: 'Aptos', fmt: 'private key — ed25519-priv-0x… or raw 0x… hex' },
-  { chains: 'Solana', fmt: 'secret key — base58' },
-  { chains: 'TON', fmt: 'mnemonic — 24 words' },
-  { chains: 'Algorand', fmt: 'mnemonic — 25 words' },
-  { chains: 'Stellar', fmt: 'secret seed — S…' },
-  { chains: 'XRPL', fmt: 'seed — s…' },
-  { chains: 'NEAR', fmt: 'private key ed25519:… + PIPRAIL_NEAR_ACCOUNT_ID' },
-]
-
+// Trimmed to the trust + decision questions (the how-to lives in the docs). Keeps the FAQ schema.
 const faqs = [
-  { q: 'Can I use PipRail with Claude Desktop?', a: 'Yes. @piprail/mcp is an MCP (Model Context Protocol) server, so it runs in any MCP client — Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, and Cline. Add one entry to your client’s config with your wallet key and spend limits, restart, and seven tools (piprail_discover, piprail_quote_payment, piprail_plan_payment, piprail_pay_request, piprail_register, piprail_budget, piprail_guide) appear in the agent’s tool list. No code, no backend.' },
-  { q: 'How do I set up @piprail/mcp?', a: 'Add it to your MCP client’s config with two things: your wallet private key and (optionally) a budget. For Claude Desktop, open Settings → Developer → Edit Config and add an mcpServers entry that runs "npx -y @piprail/mcp" with env PIPRAIL_PRIVATE_KEY, PIPRAIL_CHAIN, PIPRAIL_MAX_AMOUNT, and PIPRAIL_MAX_TOTAL. Restart the client. Cursor, Claude Code, Windsurf, and VS Code support ${env:PIPRAIL_PRIVATE_KEY} interpolation so the key never sits in the config file.' },
   { q: 'How does spend budgeting work — can the agent overspend?', a: 'No. PIPRAIL_MAX_AMOUNT caps each individual payment and PIPRAIL_MAX_TOTAL caps lifetime spend per token. Both are enforced by the SDK before any on-chain send, and checked against the token’s true on-chain decimals — so a malicious server can’t slip past a limit by misstating the price. An over-budget request comes back as { declined: true, reason } and nothing moves. You can also restrict tokens (PIPRAIL_TOKENS) and destination hosts (PIPRAIL_HOSTS).' },
-  { q: 'What happens if an agent tries to pay something out of policy?', a: 'The call is declined before any on-chain send and returns { declined: true, reason } — the model never signs and never broadcasts. Because piprail_plan_payment is read-only, the agent can also check affordability and policy compliance up front and avoid the failed attempt entirely.' },
-  { q: 'Which AI clients and chains does the MCP support?', a: 'Clients: Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, and Cline — any MCP client. Chains: all 29 PipRail supports — 20 EVM mainnets plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger. EVM works out of the box (the server ships with viem); non-EVM chains pull their SDK peer library on demand. Each server instance is one wallet on one chain — register it once per chain to give an agent several rails.' },
   { q: 'Does the MCP take custody of my funds or run a backend?', a: 'No. The server runs locally on your machine with your key, your RPC, and your limits. Payments settle wallet-to-wallet straight to the recipient — PipRail runs no service and holds nothing. There’s no PipRail backend to compromise and no facilitator in the path. The server code is MIT and open; you can audit or run it yourself.' },
+  { q: 'Which AI clients and chains does the MCP support?', a: 'Clients: Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, and Cline — any MCP client. Chains: all 29 PipRail supports — 20 EVM mainnets plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger. EVM works out of the box (the server ships with viem); non-EVM chains pull their SDK peer library on demand. Each server instance is one wallet on one chain — register it once per chain to give an agent several rails.' },
   { q: 'What’s the difference between @piprail/sdk and @piprail/mcp?', a: 'The SDK is for developers who write code — you call requirePayment / createPaymentGate to charge, or PipRailClient to pay, in TypeScript. The MCP flips that: you write no code, you add an env block, and agents in your MCP client pay x402 URLs autonomously, capped by a spend policy. Same engine, same 29 chains, same backendless self-custody — the MCP is the zero-integration path for AI/agent operators.' },
 ]
 
@@ -127,127 +98,71 @@ const faqLd = {
             <span><span class="text-neutral-200">Never commit your key.</span> Cursor, Claude Code, Windsurf and VS Code support
             <code class="rounded bg-white/5 px-1 text-neutral-300">{'${env:PIPRAIL_PRIVATE_KEY}'}</code> interpolation — keep it out of the file. Claude Desktop takes the plain value, so treat that config as a secret.</span>
           </p>
-        </div>
-      </div>
-    </section>
-
-    <!-- The payment workflow (3 payment tools; discovery's 2 tools are in their own section) -->
-    <section class="border-t border-white/10 py-16 sm:py-20">
-      <SectionHeading title="Quote, plan, pay.">
-        The moment the server connects, your agent gains a complete, safe payment workflow.
-      </SectionHeading>
-      <div class="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 md:grid-cols-3">
-        {tools.map((t) => (
-          <div class="bg-neutral-950 p-6 sm:p-7">
-            <div class="flex items-center gap-3">
-              <span class="flex h-9 w-9 items-center justify-center rounded-lg border border-accent/20 bg-accent/10 text-accent"><Plug size={16} aria-hidden="true" /></span>
-              <span class="font-mono text-sm text-neutral-500">{t.n}</span>
-            </div>
-            <p class="mt-4 font-mono text-[13px] font-medium text-neutral-100">{t.name}</p>
-            <p class="mt-2 text-sm leading-relaxed text-neutral-500">{t.d}</p>
+          <div class="mt-5 flex flex-wrap gap-2 border-t border-white/10 pt-5">
+            <a href="https://docs.piprail.com/mcp/client-setup/" class="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[13px] font-medium text-neutral-300 transition hover:border-white/20">Per-client config <ArrowRight size={13} aria-hidden="true" /></a>
+            <a href="https://docs.piprail.com/mcp/configuration/" class="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[13px] font-medium text-neutral-300 transition hover:border-white/20">Every env var <ArrowRight size={13} aria-hidden="true" /></a>
           </div>
-        ))}
+        </div>
       </div>
-      <p class="mx-auto mt-8 max-w-3xl text-center text-sm italic text-neutral-400">
-        Budget-bound and local-only. The policy is enforced on-chain before any send, so the model can't overspend
-        even if it tries — and no key ever leaves your machine.
-      </p>
     </section>
 
-    <!-- Discovery (2 more tools) -->
+    <!-- The seven tools -->
     <section class="border-t border-white/10 py-16 sm:py-20">
-      <SectionHeading title="Find, and be found.">
-        Two more tools turn the wallet into a marketplace participant — built on the <span class="text-neutral-200">open</span>
-        x402 indexes (CDP Bazaar, 402 Index). Nothing PipRail-hosted: no registry, no database, no fee.
+      <SectionHeading title="Seven tools, the moment it connects.">
+        A complete, safe payment workflow — <span class="text-neutral-200">discover → quote → plan → pay</span>.
+        Only <code class="text-neutral-300">piprail_pay_request</code> moves money; the rest are read-only.
       </SectionHeading>
-      <div class="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 sm:grid-cols-2">
-        {discoveryTools.map((t) => {
-          const Icon = t.icon
-          return (
-            <div class="bg-neutral-950 p-6 sm:p-7">
-              <span class="flex h-9 w-9 items-center justify-center rounded-lg border border-accent/20 bg-accent/10 text-accent"><Icon size={16} aria-hidden="true" /></span>
-              <p class="mt-4 font-mono text-[13px] font-medium text-neutral-100">{t.name}</p>
-              <p class="mt-2 text-sm leading-relaxed text-neutral-500">{t.d}</p>
+      <ul class="grid gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
+        {tools.map((t) => (
+          <li class="flex items-start gap-3">
+            <span class={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border ${t.pays ? 'border-accent/40 bg-accent/15 text-accent' : 'border-white/10 bg-white/5 text-neutral-400'}`}><Plug size={12} aria-hidden="true" /></span>
+            <div class="min-w-0">
+              <code class="font-mono text-[13px] font-medium text-neutral-100">{t.name}</code>
+              {t.pays && <span class="ml-1.5 align-middle text-[10px] font-semibold uppercase tracking-wider text-accent">pays</span>}
+              <p class="mt-1 text-sm leading-snug text-neutral-500">{t.d}</p>
             </div>
-          )
-        })}
-      </div>
-    </section>
-
-    <!-- Why MCP, not just the SDK -->
-    <section class="border-t border-white/10 py-16 sm:py-20">
-      <div class="grid gap-8 lg:grid-cols-2 lg:gap-12">
-        <div class="rounded-2xl border border-white/10 bg-neutral-950 p-7">
-          <span class="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5"><Code2 size={18} class="text-neutral-300" aria-hidden="true" /></span>
-          <h3 class="mt-4 text-lg font-medium text-neutral-100">@piprail/sdk — you write the code</h3>
-          <p class="mt-2 leading-relaxed text-neutral-500">For developers building a paid endpoint or a paying agent in TypeScript: <code class="text-neutral-300">requirePayment</code> / <code class="text-neutral-300">createPaymentGate</code> to charge, <code class="text-neutral-300">PipRailClient</code> to pay.</p>
-        </div>
-        <div class="rounded-2xl border border-accent/20 bg-accent/5 p-7">
-          <span class="flex h-10 w-10 items-center justify-center rounded-xl border border-accent/20 bg-accent/10"><Bot size={18} class="text-accent" aria-hidden="true" /></span>
-          <h3 class="mt-4 text-lg font-medium text-neutral-100">@piprail/mcp — you add an env block</h3>
-          <p class="mt-2 leading-relaxed text-neutral-400">For AI/agent operators: no code at all. Add the wallet and the limits, and agents in your MCP client pay autonomously. Same engine, same 29 chains, same self-custody.</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- Works in every MCP client -->
-    <section class="border-t border-white/10 py-16 sm:py-20">
-      <SectionHeading title="Works in every MCP client.">
-        Same tools everywhere. Here's where each client keeps its config.
-      </SectionHeading>
-      <ul class="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 sm:grid-cols-2">
-        {clients.map((c) => (
-          <li class="bg-neutral-950 p-5">
-            <p class="text-[15px] font-medium text-neutral-100">{c.name}</p>
-            <p class="mt-1.5 wrap-break-word font-mono text-xs text-neutral-500">{c.file}</p>
-            <p class="mt-2 text-sm leading-snug text-neutral-400">{c.note}</p>
           </li>
         ))}
       </ul>
+      <p class="mt-8 text-sm text-neutral-500">
+        Budget-bound and local-only — the policy is enforced before any send, so the model can’t overspend even if it tries.
+        <a href="https://docs.piprail.com/mcp/tools/" class="ml-1 text-accent underline-offset-4 hover:underline">Full tool reference →</a>
+      </p>
     </section>
 
-    <!-- Config reference -->
-    <section class="border-t border-white/10 py-16 sm:py-20">
-      <SectionHeading title="Configuration.">
-        All config is environment variables — never CLI arguments (a key in <code class="text-neutral-300">argv</code> leaks).
-        Canonical names below; the wallet key also accepts the <code class="text-neutral-300">AGENT_KEY</code> alias.
+    <!-- Framework integrations -->
+    <section id="integrations" class="scroll-mt-24 border-t border-white/10 py-16 sm:py-20">
+      <SectionHeading title="Drop it into your framework.">
+        First-party integrations wrap this same MCP server — the agent gets all seven tools, budget-bound, with no config wrangling.
       </SectionHeading>
-      <div class="overflow-x-auto rounded-2xl border border-white/10">
-        <table class="w-full min-w-160 border-collapse text-left text-sm">
-          <thead>
-            <tr class="border-b border-white/10 bg-white/3 text-xs uppercase tracking-wider text-muted">
-              <th class="px-4 py-3 font-medium">Variable</th>
-              <th class="px-4 py-3 font-medium">Required</th>
-              <th class="px-4 py-3 font-medium">Default</th>
-              <th class="px-4 py-3 font-medium">Meaning</th>
-            </tr>
-          </thead>
-          <tbody>
-            {envVars.map((v) => (
-              <tr class="border-b border-white/5 last:border-0">
-                <td class="whitespace-nowrap px-4 py-3 font-mono text-[12.5px] text-neutral-200">{v.k}</td>
-                <td class="px-4 py-3 text-neutral-400">{v.req}</td>
-                <td class="whitespace-nowrap px-4 py-3 font-mono text-[12.5px] text-neutral-400">{v.def}</td>
-                <td class="px-4 py-3 text-neutral-400">{v.d}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div class="space-y-4">
+        {frameworks.map((f) => (
+          <div class={`relative overflow-hidden rounded-2xl border p-6 sm:p-7 ${f.live ? 'border-accent/25 bg-linear-to-br from-accent/8 via-transparent to-transparent' : 'border-white/10 bg-neutral-950/60'}`}>
+            {f.live && <div class="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-accent/10 blur-3xl"></div>}
+            <div class="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-7">
+              <img src={f.logo} alt={f.name} width="72" height="72" class={`h-16 w-16 shrink-0 rounded-2xl border border-white/10 object-cover shadow-lg shadow-black/40 sm:h-18 sm:w-18 ${f.live ? '' : 'opacity-90'}`} loading="lazy" />
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-2.5">
+                  <h3 class="text-lg font-semibold tracking-tight text-neutral-100">{f.name}</h3>
+                  <span class={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${f.live ? 'border border-accent/30 bg-accent/10 text-accent' : 'border border-white/10 bg-white/5 text-neutral-500'}`}>{f.tag}</span>
+                </div>
+                <p class="mt-2 max-w-2xl text-sm leading-relaxed text-neutral-400">{f.d}</p>
+                {f.cmd && (
+                  <div class="mt-3.5 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-black/40 px-3 py-2 font-mono text-[13px] text-neutral-300">
+                    <span class="text-accent" aria-hidden="true">$</span> {f.cmd}
+                  </div>
+                )}
+              </div>
+              <div class="shrink-0">
+                {f.live
+                  ? <a href={f.href} class="inline-flex w-full items-center justify-center gap-2 cta-glow rounded-xl bg-accent px-5 py-3 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto">Setup guide <ArrowRight size={15} aria-hidden="true" /></a>
+                  : <span class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-medium text-neutral-500 sm:w-auto">Coming soon</span>}
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
-
-      <h3 class="mt-10 mb-3 text-sm font-medium uppercase tracking-wider text-muted">Wallet key format, per chain</h3>
-      <div class="overflow-x-auto rounded-2xl border border-white/10">
-        <table class="w-full min-w-120 border-collapse text-left text-sm">
-          <tbody>
-            {walletFormats.map((w) => (
-              <tr class="border-b border-white/5 last:border-0">
-                <td class="px-4 py-3 font-medium text-neutral-200">{w.chains}</td>
-                <td class="px-4 py-3 font-mono text-[12.5px] text-neutral-400">{w.fmt}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <p class="mt-5 text-sm text-neutral-500">Building on a framework that isn’t here yet? It already works as a raw MCP server. <a href="https://docs.piprail.com/integrations/" class="font-medium text-accent transition hover:underline">All integrations →</a></p>
     </section>
 
     <!-- Why it's safe -->
@@ -274,8 +189,7 @@ const faqLd = {
       </div>
       <p class="mt-6 text-sm leading-relaxed text-neutral-500">
         Pay across all 29 chains — 20 EVM mainnets plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and
-        the XRP Ledger. EVM works out of the box; non-EVM chains pull their SDK peer on demand.
-        <a href="/chains" class="text-accent underline-offset-4 hover:underline">See every chain →</a>
+        the XRP Ledger. <a href="/chains" class="text-accent underline-offset-4 hover:underline">See every chain →</a>
       </p>
     </section>
 
@@ -284,7 +198,7 @@ const faqLd = {
       <div class="grid gap-8 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:gap-16">
         <div class="lg:sticky lg:top-24 lg:self-start">
           <SectionHeading title="MCP FAQ." class="max-w-sm">
-            Setting up agent payments — answered for humans and agents alike.
+            The trust questions, answered. The setup how-to lives in the <a href="https://docs.piprail.com/mcp/overview/" class="text-accent underline-offset-4 hover:underline">docs</a>.
           </SectionHeading>
         </div>
         <div class="divide-y divide-white/10 overflow-hidden rounded-2xl border border-white/10 bg-neutral-950">

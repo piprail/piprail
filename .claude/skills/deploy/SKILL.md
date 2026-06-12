@@ -156,7 +156,7 @@ mcp-publisher login github             # then: mcp-publisher publish   (reads ./
 
 PipRail is listed in third-party repos that drift independently. Update them with a PR when a deploy
 **materially** changes the pitch, the chain count, or the package surface (a routine patch usually doesn't).
-The open/where-to PRs are tracked in [`.claude/research/launch-and-distribution.md`](../../research/launch-and-distribution.md):
+The open/where-to PRs are tracked in [`.claude/research/accounts-and-listings.md`](../../research/accounts-and-listings.md) ("Open listing PRs"):
 
 - [ ] **Org profile — `piprail/.github` (SEPARATE REPO)** → `profile/README.md` (the chain logo grid + count + pitch). Nothing in this repo updates it; clone, edit, push. Easiest to forget.
 - [ ] **Coinbase x402 ecosystem** (official, x402.org/ecosystem) → `partners-data/piprail/metadata.json` (a PR to `coinbase/x402`).

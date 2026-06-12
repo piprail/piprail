@@ -210,21 +210,25 @@ to fix the **recipient**, not its own balance:
 
 ## Optional methods
 
-Four methods carry an optional `?`. Because they're optional, omitting one leaves today's
+Several methods carry an optional `?`. Because they're optional, omitting one leaves today's
 behaviour and **does not** trigger the "implement in all families" rule for required methods — a
-family ships them only when its chain supports them. Today they're EVM-only.
+family ships them only when its chain supports them. The `exact`-rail methods are implemented by
+**EVM** and **Solana** today; `exactDomain` / `exactPermit2Supported` are EVM-specific.
 
 | Method | Purpose |
 | --- | --- |
-| `payExact(wallet, accept)` | Buyer side. Build + EIP-712-sign an EIP-3009 `transferWithAuthorization` so a PipRail agent can pay **any** standard x402 `exact` server. Omitting it means no `exact` rail is ever gathered/paid on that family. |
-| `exactDomain(asset)` | Server side. Read an EIP-3009 token's on-chain EIP-712 domain (`name`/`version`); `null` when the asset isn't EIP-3009, so the gate refuses to advertise an `exact` rail for it. |
-| `settleExactSelf(input)` | Server side (Mode A). Verify a standard `exact` payment locally, then self-settle by broadcasting from the merchant's relayer wallet. |
+| `resolveExactRail(input)` | Server side. Resolve the chain-specific `exact` rail descriptor for an asset — `{ method, extra }` (EVM `eip3009`/`permit2` + EIP-712 `name`/`version`; Solana `svm` + `feePayer`/`tokenProgram`), or `null` when the asset/chain can't carry `exact`. This is what keeps `server.ts` family-agnostic — it never names a family, it just merges the returned `extra` into the rail. |
+| `payExact(wallet, accept)` | Buyer side. Sign the `exact` payment so a PipRail agent can pay **any** standard x402 `exact` server: an EIP-3009 `transferWithAuthorization` (EVM) or a partial-signed `TransferChecked` transaction (Solana). Omitting it means no `exact` rail is ever gathered/paid on that family. |
+| `settleExactSelf(input)` | Server side (Mode A). Verify a standard `exact` payment locally, then self-settle by broadcasting from the merchant's relayer wallet (EVM: `transferWithAuthorization` / the Permit2 proxy; Solana: co-sign as fee payer). |
+| `exactDomain(asset)` | Server side (**EVM**). Read an EIP-3009 token's on-chain EIP-712 domain (`name`/`version`); `null` when the asset isn't EIP-3009. |
+| `exactPermit2Supported()` | Server side (**EVM**). Whether the x402 Permit2 proxy is deployed on this chain (gates the Permit2 fallback). |
 | `discoverySigner(wallet)` | A signer for **discovery only** (ownership proofs / SIWX index registration), never the payment path. |
 
-The three `exact` methods are covered for buyers under [paying an exact
+The `exact` methods are covered for buyers under [paying an exact
 rail](/making-payments/exact-buyer/), for sellers under [selling an exact
 rail](/accepting-payments/exact-rail-seller/), and at the wire level on the
-[low-level exact](/reference/exact-lowlevel/) page.
+[low-level exact](/reference/exact-lowlevel/) page. `resolveExactRail` lets a new family add `exact`
+support without touching the chain-agnostic protocol layer.
 
 ### The discovery signer
 

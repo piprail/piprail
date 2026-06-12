@@ -1,6 +1,6 @@
 ---
 title: Solana
-description: Accept and pay x402 payments on Solana — SOL, USDC, and USDT — with one lazy peer dep, a Keypair wallet, and digest-bound on-chain verification.
+description: Accept and pay x402 payments on Solana — SOL, USDC, and USDT — with one lazy peer dep, a Keypair wallet, digest-bound on-chain verification, and the gasless standard `exact` rail (the buyer pays zero SOL; any SPL token).
 sidebar:
   order: 2
 ---
@@ -79,6 +79,39 @@ other SPL token works by passing `{ mint, decimals }` — no allowlist.
 const payTo = 'YourSolanaAddr'
 requirePayment({ chain: 'solana', token: { mint: 'EPjF…Dt1v', decimals: 6 }, amount: '0.10', payTo })
 ```
+
+## Gasless — the standard `exact` rail
+
+Solana supports the ratified x402 **`exact`** scheme (the `svm` method), so any standard x402 client
+can pay your gate **and** the buyer spends **zero SOL**. It works for **any SPL token** — USDC and
+**USDT alike** — because the gasless-ness comes from the transaction's **fee payer**, not from a token
+feature (there is no EIP-3009/Permit2 equivalent on Solana, and none is needed).
+
+**Fully gasless via a facilitator (recommended)** — neither buyer nor merchant pays SOL; the
+facilitator (e.g. [PayAI](https://facilitator.payai.network/), no API key) sponsors the gas. The gate
+discovers the facilitator's fee-payer pubkey from its `GET /supported` automatically. **Live-proven on
+mainnet.**
+
+```ts
+// Seller — fully gasless. No relayer, no SOL.
+requirePayment({
+  chain: 'solana', token: 'USDC', amount: '0.05', payTo: 'YourReceiveAddr',
+  exact: { settle: { facilitator: 'https://facilitator.payai.network' } },
+})
+
+// Or self-settle with your own relayer (fee payer ≠ payTo) — your relayer pays the sub-cent fee:
+//   exact: { settle: 'self', relayer: { secretKey: process.env.SOLANA_RELAYER_KEY } }
+
+// Buyer — opt in; the client signs the transfer, the sponsor pays the fee.
+new PipRailClient({ chain: 'solana', wallet, schemes: ['onchain-proof', 'exact'] })
+```
+
+The buyer partial-signs the canonical `[cu-limit, cu-price, TransferChecked]` transaction, leaving the
+fee-payer slot empty; the facilitator (or your relayer) co-signs as fee payer and broadcasts. The buyer
+needs only the token (zero SOL). The recipient's **token account must already exist** — the exact rail
+won't create it (a brand-new recipient is payable on `onchain-proof`, which does). Native **SOL** is not
+exact-payable. Full details: [Gasless payments](/making-payments/gasless-payments/) ·
+[exact rail (buyer)](/making-payments/exact-buyer/) · [exact rail (seller)](/accepting-payments/exact-rail-seller/).
 
 ## Receiver setup — none
 

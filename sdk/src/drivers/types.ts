@@ -228,6 +228,23 @@ export interface DiscoverySigner {
 }
 
 /**
+ * How a family advertises a standard `exact` rail for one asset — returned by
+ * {@link ResolvedNetwork.resolveExactRail} and consumed by the gate to build the
+ * `X402ExactAcceptEntry`. The `method` is the family's transfer method (EVM:
+ * `'eip3009'`/`'permit2'`, Solana: `'svm'`); `extra` is merged VERBATIM into the
+ * accept's `extra`, carrying the family-specific bits a payer needs (EVM: the EIP-712
+ * `name`/`version`; Solana: the merchant `feePayer` + `tokenProgram`). Keeping the
+ * chain-specific shape behind this descriptor is what lets `server.ts` stay
+ * chain-agnostic — it never names a family, it just merges `extra`.
+ */
+export interface ExactRailInfo {
+  method: 'eip3009' | 'permit2' | 'svm'
+  /** Family-specific `extra` keys merged into the exact accept (e.g. `{ name, version }`
+   *  for EVM EIP-3009, `{ feePayer, tokenProgram }` for Solana). */
+  extra?: Record<string, unknown>
+}
+
+/**
  * A driver bound to one concrete network — what the gate and client hold. Each
  * method's error behaviour is fixed by the SDK error standard (see ERRORS.md §5):
  * `resolveToken`/`assertValidPayTo`/`bindWallet` throw `WrongFamilyError` /
@@ -359,6 +376,31 @@ export interface ResolvedNetwork {
   /* -------- server side -------- */
   /** Verify `ref` satisfies `accept`, RPC-only, in-process. */
   verify(ref: string, accept: X402AcceptEntry): Promise<VerifyResult>
+
+  /**
+   * OPTIONAL — resolve a standard `exact` rail for `asset` on this network, or `null`
+   * when this asset/chain can't carry one (a native coin, an unsupported token, or a
+   * family with no `exact` settlement). This is the gate's rail-ADVERTISEMENT SPI: the
+   * chain-agnostic `server.ts` calls it to decide whether to dual-advertise an `exact`
+   * rail beside `onchain-proof`, and uses the returned {@link ExactRailInfo} to build the
+   * `X402ExactAcceptEntry` — so the gate never special-cases a family.
+   *
+   * `method` is the merchant's preference (`'auto'` lets the family pick — EVM auto-selects
+   * EIP-3009 over Permit2; Solana ignores it and always uses `'svm'`). The fee payer for a
+   * family that needs one (Solana) comes from EITHER `feePayer` (a facilitator-provided
+   * sponsor pubkey, in facilitator mode — so neither buyer nor merchant pays gas) OR `relayer`
+   * (the merchant's own bound self-settle wallet, in self mode); `feePayer` takes precedence.
+   * RPC-read (EVM reads the token's EIP-712 domain; Solana reads the mint's token program); MAY
+   * throw a typed config error for an explicitly-requested-but-unsupported method (EVM does). A
+   * family that omits this method offers no `exact` rail (today: every non-EVM, non-Solana family).
+   */
+  resolveExactRail?(input: {
+    asset: string
+    method: 'eip3009' | 'permit2' | 'svm' | 'auto'
+    relayer?: WalletHandle
+    /** A facilitator-provided fee-payer pubkey (facilitator mode); overrides the relayer's. */
+    feePayer?: string
+  }): Promise<ExactRailInfo | null>
 
   /**
    * OPTIONAL (EVM-only today) — the on-chain EIP-712 domain `{ name, version }` of an

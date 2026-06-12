@@ -40,6 +40,7 @@ import {
 } from 'viem'
 import { SettlementError, UnsupportedSchemeError } from '../../errors.js'
 import type { VerifyResult, X402ExactAcceptEntry, ExactPaymentPayload } from '../../x402.js'
+import type { ExactRailInfo } from '../types.js'
 
 /** x402 network slug → EVM chain id, for the chains PipRail ships an exact-payable
  *  stablecoin on — EIP-3009 USDC/EURC on most, and **Permit2** on BNB (Binance-Peg
@@ -75,6 +76,64 @@ export const EXACT_NETWORK_SLUGS: Readonly<Record<string, number>> = {
 /** Resolve an x402 `exact` network slug (e.g. "base") to its EVM chain id. */
 export function chainIdForExactNetwork(slug: string): number | null {
   return EXACT_NETWORK_SLUGS[slug] ?? null
+}
+
+/**
+ * Resolve the EVM `exact` rail descriptor for `asset` — the gate's method-selection logic
+ * (EIP-3009 vs Permit2), extracted as a PURE function so both the EVM driver and the
+ * protocol-layer tests can drive it. Injects the two primitives so it holds no network handle:
+ * `readDomain` reads the token's on-chain EIP-712 domain ({@link readExactDomain}), and
+ * `permit2Supported` reports whether the x402 Permit2 proxy is deployed on this chain.
+ *
+ * `method`: `'auto'` picks EIP-3009 when the token supports it, else Permit2; `'eip3009'` /
+ * `'permit2'` pin one and THROW a clear config error when that pin can't be honoured. Returns
+ * `null` for native (not exact-payable) or when an auto-selected Permit2 has no proxy here (→
+ * the gate quietly stays onchain-proof-only). `'svm'` is treated as `'auto'` (EVM never uses it).
+ */
+export async function resolveExactRailEvm(input: {
+  asset: string
+  method: 'eip3009' | 'permit2' | 'svm' | 'auto'
+  readDomain: (asset: string) => Promise<{ name: string; version: string } | null>
+  permit2Supported: () => boolean
+}): Promise<ExactRailInfo | null> {
+  const { asset, method, readDomain, permit2Supported } = input
+  if (asset === 'native') return null
+  const want = method === 'eip3009' || method === 'permit2' ? method : 'auto'
+
+  let chosen: 'eip3009' | 'permit2'
+  let extra: Record<string, unknown> = {}
+  if (want === 'permit2') {
+    chosen = 'permit2'
+  } else {
+    const d = await readDomain(asset)
+    if (d) {
+      chosen = 'eip3009'
+      extra = { name: d.name, version: d.version }
+    } else if (want === 'eip3009') {
+      throw new Error(
+        `requirePayment: exact \`method: 'eip3009'\` requested for ${asset}, but it isn't an ` +
+          `EIP-3009 token (no name()/version()/authorizationState). Use \`method: 'permit2'\` (any ERC-20, ` +
+          `e.g. Binance-Peg USDC on BNB) or \`'auto'\`. (Or check your rpcUrl is reachable.)`
+      )
+    } else {
+      chosen = 'permit2' // auto-fallback for a non-EIP-3009 ERC-20
+    }
+  }
+
+  // The Permit2 method settles through the x402 proxy — only offer it where that proxy is
+  // deployed. A forced `method:'permit2'` on a proxy-less chain is a config error; `'auto'`
+  // quietly drops to onchain-proof-only.
+  if (chosen === 'permit2' && !permit2Supported()) {
+    if (method === 'permit2') {
+      throw new Error(
+        `requirePayment: exact \`method: 'permit2'\` needs the x402 Permit2 proxy deployed on this ` +
+          `chain, but it isn't there. Offer an EIP-3009 token (gasless, no proxy), or drop \`exact\` on ` +
+          `this chain. (See PERMIT2_PROXY_CHAIN_IDS.)`
+      )
+    }
+    return null
+  }
+  return { method: chosen, extra }
 }
 
 /** A parsed x402 `exact` PaymentRequirements entry (the fields we consume). */

@@ -102,12 +102,14 @@ server refuses to start with only one.
 
 `PIPRAIL_SCHEMES` chooses which payment schemes the wallet will settle. Absent, it stays on
 PipRail's backendless rail (`onchain-proof`) only — the zero-config default. Add `exact` to
-**also** pay standard x402 servers, which works on **EVM chains with EIP-3009 tokens (USDC,
-EURC)** only.
+**also** pay standard x402 servers — on **EVM** (EIP-3009 tokens like USDC/EURC, or any ERC-20 via
+Permit2) and on **Solana** (any SPL token, gasless via the fee-payer scheme). The buyer pays no gas
+on either.
 
 ```jsonc
 "env": {
-  "PIPRAIL_SCHEMES": "onchain-proof,exact"   // also pay standard x402 EVM servers
+  "PIPRAIL_CHAIN": "solana",                 // or an EVM chain like "base"
+  "PIPRAIL_SCHEMES": "onchain-proof,exact"   // also pay standard x402 servers (EVM + Solana)
 }
 ```
 

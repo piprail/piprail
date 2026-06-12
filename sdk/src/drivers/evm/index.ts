@@ -14,7 +14,7 @@ import {
 } from './wallet.js'
 import { payEvm } from './pay.js'
 import { verifyEvm } from './verify.js'
-import { readExactDomain, verifyAndSettleExactEvm, payExactEvm } from './exact.js'
+import { readExactDomain, verifyAndSettleExactEvm, payExactEvm, resolveExactRailEvm } from './exact.js'
 import { payPermit2Evm, verifyAndSettlePermit2Evm, isPermit2ProxyChain } from './permit2.js'
 import { networkForChain, chainIdFromNetwork } from '../../x402.js'
 import {
@@ -303,6 +303,17 @@ function makeEvmNetwork(resolved: ResolvedChain): ResolvedNetwork {
       return isPermit2ProxyChain(resolved.chainId)
     },
 
+    // The gate's rail-advertisement SPI — EIP-3009 vs Permit2 selection (the pure helper),
+    // injecting the on-chain domain read + the Permit2 proxy-presence check.
+    async resolveExactRail({ asset, method }) {
+      return resolveExactRailEvm({
+        asset,
+        method,
+        readDomain: (a) => readExactDomain(publicClient, a),
+        permit2Supported: () => isPermit2ProxyChain(resolved.chainId),
+      })
+    },
+
     async settleExactSelf({ relayer, payload, accept }) {
       const a = relayer._native as WalletAdapter
       // Route on the PAYLOAD shape (the client's actual signature kind) — a Permit2
@@ -316,6 +327,11 @@ function makeEvmNetwork(resolved: ResolvedChain): ResolvedNetwork {
           payload,
           accept,
         })
+      }
+      if ('transaction' in payload) {
+        // An SVM-shaped payload reached the EVM driver — impossible via the gate's per-spec
+        // routing, but fail closed as a client fault rather than crash.
+        return { ok: false, error: 'signature_invalid', detail: 'An SVM (Solana) payload was submitted to an EVM exact rail.' }
       }
       return verifyAndSettleExactEvm({
         publicClient,

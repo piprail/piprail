@@ -80,12 +80,14 @@ export interface X402ExactAcceptEntry {
   payTo: AddressId
   maxTimeoutSeconds: number
   extra: {
-    /** The exact-EVM transfer method, per the x402 `exact` EVM scheme: `'eip3009'`
-     *  for tokens with native `transferWithAuthorization`, or `'permit2'` for tokens
-     *  WITHOUT it (e.g. Binance-Peg USDC on BNB) — the payer signs a Permit2 witness
-     *  transfer whose `spender` is the canonical x402ExactPermit2Proxy and whose
-     *  `witness.to` binds the recipient. PipRail self-settles BOTH. */
-    assetTransferMethod: 'eip3009' | 'permit2'
+    /** The exact transfer method. EVM: `'eip3009'` for tokens with native
+     *  `transferWithAuthorization`, or `'permit2'` for tokens WITHOUT it (e.g.
+     *  Binance-Peg USDC on BNB) — the payer signs a Permit2 witness transfer whose
+     *  `spender` is the canonical x402ExactPermit2Proxy and whose `witness.to` binds the
+     *  recipient. **Solana (SVM): `'svm'`** — the payer partial-signs an SPL
+     *  `TransferChecked` transaction whose fee payer is the merchant (`feePayer` below),
+     *  and the gate co-signs as fee payer + broadcasts. PipRail self-settles ALL. */
+    assetTransferMethod: 'eip3009' | 'permit2' | 'svm'
     /** EIP-712 domain name of the token. OPTIONAL per the exact-EVM scheme (only
      *  `assetTransferMethod` is required) — a foreign rail may omit it. NEVER assumed
      *  from the symbol (USDC's on-chain name() is "USD Coin", not "USDC"); a PipRail gate
@@ -93,6 +95,20 @@ export interface X402ExactAcceptEntry {
     name?: string
     /** EIP-712 domain version of the token (USDC: "2"). OPTIONAL (see `name`); read/re-derived on-chain. */
     version?: string
+    /** **SVM only** — the merchant's fee-payer (sponsor) public key (base58), per the
+     *  x402 `exact` SVM scheme. The buyer compiles the transaction with this account as
+     *  the fee payer (so the buyer spends zero SOL on the network fee), leaving its
+     *  signature slot empty; the gate fills it and broadcasts. Distinct from `payTo` —
+     *  the fee payer must never appear in any instruction's accounts (a MUST-rule). */
+    feePayer?: string
+    /** **SVM only, OPTIONAL** — a ≤256-byte reconciliation memo the buyer attaches to the
+     *  transaction (the SVM scheme's optional `extra.memo`). */
+    memo?: string
+    /** **SVM only** — which SPL token program the mint belongs to, so both the buyer and
+     *  the gate derive the SAME associated-token-account address (an ATA's address depends
+     *  on the token program). Defaults to `'spl-token'` (classic) when absent — the
+     *  built-in USDC/USDT are classic. */
+    tokenProgram?: 'spl-token' | 'token-2022'
     /** Confirmations the gate waits for before granting access — mirrors the gate's
      *  `minConfirmations`, so the exact rail honours the same reorg safety as onchain-proof.
      *  A PipRail convenience (standard clients ignore unknown keys). */
@@ -187,8 +203,23 @@ export interface Permit2PaymentPayload {
   permit2Authorization: Permit2Authorization
 }
 
-/** Either `exact`-rail payload shape — EIP-3009 (`authorization`) or Permit2 (`permit2Authorization`). */
-export type ExactPaymentPayloadAny = ExactPaymentPayload | Permit2PaymentPayload
+/**
+ * The `payload` a client sends for the **SVM (Solana) `exact`** variant: a base64-encoded,
+ * serialized, **partially-signed** versioned Solana transaction (the buyer's `TransferChecked`
+ * with the merchant as fee payer; the fee-payer signature slot is left empty for the gate to
+ * fill). Per `scheme_exact_svm.md`. The transaction itself IS the proof — there's no separate
+ * authorization object (the SVM analogue of EIP-3009's `authorization`).
+ */
+export interface ExactSvmPaymentPayload {
+  transaction: string
+}
+
+/** Any `exact`-rail payload shape — EIP-3009 (`authorization`), Permit2 (`permit2Authorization`),
+ *  or SVM (`transaction`). */
+export type ExactPaymentPayloadAny =
+  | ExactPaymentPayload
+  | Permit2PaymentPayload
+  | ExactSvmPaymentPayload
 
 interface ParsedExactBase {
   x402Version: number
@@ -207,11 +238,13 @@ interface ParsedExactBase {
  * `network`/`asset` are the CLIENT's claim — used only to MATCH an offered rail; the gate
  * re-derives every verified field from its own trusted rail. A discriminated union on
  * `method`, so narrowing on `method` narrows `payload`: `'eip3009'` → {@link ExactPaymentPayload}
- * (`authorization`), `'permit2'` → {@link Permit2PaymentPayload} (`permit2Authorization`).
+ * (`authorization`), `'permit2'` → {@link Permit2PaymentPayload} (`permit2Authorization`),
+ * `'svm'` → {@link ExactSvmPaymentPayload} (`transaction`).
  */
 export type ParsedExactPayment =
   | (ParsedExactBase & { method: 'eip3009'; payload: ExactPaymentPayload })
   | (ParsedExactBase & { method: 'permit2'; payload: Permit2PaymentPayload })
+  | (ParsedExactBase & { method: 'svm'; payload: ExactSvmPaymentPayload })
 
 export interface X402Receipt {
   scheme: 'onchain-proof' | 'exact'
@@ -536,12 +569,19 @@ export function parseExactPaymentHeader(value: string): ParsedExactPayment | nul
 
   const payload = v.payload as Record<string, unknown> | undefined
   if (!payload || typeof payload !== 'object') return null
-  const signature = payload.signature
-  if (typeof signature !== 'string') return null
 
   const x402Version = typeof v.x402Version === 'number' ? v.x402Version : 2
   const asset = accepted && typeof accepted.asset === 'string' ? accepted.asset : undefined
   const base = { x402Version, network, ...(asset ? { asset } : {}), raw: v }
+
+  // SVM shape: payload.transaction is a base64 partial-signed tx (no separate `signature` field).
+  // Checked FIRST because, unlike the EVM shapes, it carries no top-level `signature`.
+  if (typeof payload.transaction === 'string') {
+    return { ...base, method: 'svm', payload: { transaction: payload.transaction } }
+  }
+
+  const signature = payload.signature
+  if (typeof signature !== 'string') return null
 
   // EIP-3009 shape: payload.authorization { from, to, value, validAfter, validBefore, nonce }.
   const authorization = payload.authorization as Record<string, unknown> | undefined

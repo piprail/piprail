@@ -15,12 +15,15 @@ You almost never call this module. The **high-level paths** cover the common cas
 standard x402 server with [`schemes: ['exact']`](/making-payments/exact-buyer/), and get paid
 over `exact` with [`createPaymentGate({ exact })`](/accepting-payments/exact-rail-seller/).
 This page is the **low-level codec tier** underneath them — for hand-rolled clients, v1
-servers, or custom flows. It is **EVM-only**, and these codecs cover the **EIP-3009** method
-(canonical USDC and EURC). The `exact` scheme's other asset-transfer method, **Permit2**, makes
+servers, or custom flows. These codecs are **EVM-only** and cover the **EIP-3009** method
+(canonical USDC and EURC). The `exact` scheme's other EVM method, **Permit2**, makes
 ERC-20s _without_ EIP-3009 — like Binance-Peg USDC/USDT on BNB Chain — `exact`-payable too; its
 mechanics and low-level exports (`PERMIT2_ADDRESS`, `X402_EXACT_PERMIT2_PROXY`,
-`PERMIT2_WITNESS_TYPES`) live in [Gasless payments](/making-payments/gasless-payments/). (The
-chain's native coin is never `exact`-payable — it has no `transferFrom` to authorize.)
+`PERMIT2_WITNESS_TYPES`) live in [Gasless payments](/making-payments/gasless-payments/). On
+**Solana**, the `exact` payload is a different shape entirely — a base64 partial-signed
+`TransferChecked` transaction (`ExactSvmPaymentPayload`, the `svm` method), built and verified inside
+the Solana driver, not via these EVM codecs; see [Gasless payments](/making-payments/gasless-payments/#solana--how-svm-gasless-works).
+(The chain's native coin — incl. SOL — is never `exact`-payable.)
 
 :::note
 Everything here is exported from `@piprail/sdk`. The buyer/seller engines that wire these
