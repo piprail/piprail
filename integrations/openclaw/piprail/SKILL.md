@@ -74,9 +74,19 @@ clawhub install piprail            # the ClawHub CLI
 openclaw skills install piprail     # …or OpenClaw's native command
 ```
 
-Then wire the MCP server into `~/.openclaw/openclaw.json` (this is the step that hands the agent the
-tools) — OpenClaw nests servers under `mcp.servers`. It needs **no key to start** (read-only); add
-`PIPRAIL_PRIVATE_KEY` — your own self-custodial wallet key — only to enable paying:
+Then wire the MCP server into `~/.openclaw/openclaw.json` — OpenClaw nests servers under `mcp.servers`.
+**No key is needed** — this is the whole config, and it starts the server **read-only**
+(discover / quote / register / budget / guide all work):
+
+```json
+{ "mcp": { "servers": { "piprail": {
+  "command": "npx", "args": ["-y", "@piprail/mcp"],
+  "env": { "PIPRAIL_CHAIN": "base" }
+} } } }
+```
+
+Want the agent to actually **pay**? Then — and only then — add your own self-custodial wallet key plus
+a budget cap (`PIPRAIL_PRIVATE_KEY` is a wallet signing key you hold, never an API key):
 
 ```json
 { "mcp": { "servers": { "piprail": {
@@ -85,8 +95,7 @@ tools) — OpenClaw nests servers under `mcp.servers`. It needs **no key to star
 } } } }
 ```
 
-Restart OpenClaw (or run `openclaw mcp set`) and the `piprail_*` tools appear — read-only until you add
-a key, then it can pay. See **Configure** below for the full env.
+Restart OpenClaw (or run `openclaw mcp set`) and the `piprail_*` tools appear. See **Configure** below.
 
 ## Configure
 
