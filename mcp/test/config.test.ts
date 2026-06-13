@@ -116,6 +116,7 @@ describe('walletInputFor — per-family mapping', () => {
   const mk = (chain: string, extra: Partial<Config> = {}): Config => ({
     chain,
     walletSecret: 'SECRET',
+    readOnly: false,
     maxAmount: '0.10',
     maxTotal: '10.00',
     tokens: ['USDC'],

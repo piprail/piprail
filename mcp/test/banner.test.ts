@@ -5,6 +5,7 @@ import type { Config } from '../src/config.js'
 const cfg = (over: Partial<Config> = {}): Config => ({
   chain: 'base',
   walletSecret: 'SECRET',
+  readOnly: false,
   maxAmount: '0.10',
   maxTotal: '10.00',
   tokens: ['USDC'],
