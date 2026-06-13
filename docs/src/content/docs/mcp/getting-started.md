@@ -109,7 +109,7 @@ The env block isn't ad-hoc — each variable maps to an SDK concept. The four yo
 
 | Variable | Required | Default | Maps to |
 | --- | --- | --- | --- |
-| `PIPRAIL_PRIVATE_KEY` | **yes** | — | The wallet, in the chain's native key format. |
+| `PIPRAIL_PRIVATE_KEY` | only to **pay** | — | The wallet, in the chain's native key format. Omit it to run **read-only** (discover/quote/register/budget/guide). |
 | `PIPRAIL_CHAIN` | no | `base` | The chain to pay on (any PipRail chain). |
 | `PIPRAIL_MAX_AMOUNT` | no | `0.10` | Per-payment ceiling in token units. |
 | `PIPRAIL_MAX_TOTAL` | no | `10.00` | Lifetime cap per token in token units. |
@@ -127,14 +127,15 @@ is on the [Configuration](/mcp/configuration/) page; NEAR additionally needs
 
 ## Verify it's running
 
-The server validates the env block at startup and **fails loudly** rather than silently: a
-mistyped `PIPRAIL_*` variable, a missing key, an unknown chain, or a malformed budget all abort
-with an actionable message on stderr. On a clean boot it prints a startup banner (and a
-`⚠ notes:` block for any per-chain caveats); a missing key reads:
+The server validates the env block at startup and **fails loudly** on a real mistake — a mistyped
+`PIPRAIL_*` variable, an unknown chain, or a malformed budget all abort with an actionable message on
+stderr. A **missing key is not an error**: the server boots **read-only** (discover/quote/register/
+budget/guide work; only paying needs a key) and the banner says exactly that:
 
 ```text
-PIPRAIL_PRIVATE_KEY (alias: AGENT_KEY) is required — set it to your wallet key/seed for the chosen chain.
+PipRail MCP server v… — ready on stdio (READ-ONLY — no wallet key)
+  wallet key     NONE — read-only mode. discover/quote/register/budget/guide work; set PIPRAIL_PRIVATE_KEY to pay.
 ```
 
-If the tools don't appear after a restart, check your client's MCP log for that line — see the
-[FAQ](/mcp/faq/) for the common causes.
+With a key set, the banner names which env var supplied it and all 7 tools are live. If the tools
+don't appear after a restart, check your client's MCP log — see the [FAQ](/mcp/faq/) for common causes.

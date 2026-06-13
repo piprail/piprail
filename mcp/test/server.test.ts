@@ -97,6 +97,18 @@ describe('createMcpServer — tool listing', () => {
     }
   })
 
+  test('READ-ONLY (no wallet): still exposes all 7 tools; read-only ones work', async () => {
+    const { mcp } = await connect({ clientOptions: { wallet: undefined } })
+    const { tools } = await mcp.listTools()
+    expect(tools).toHaveLength(7) // the tool surface is identical with or without a key
+    // a read-only tool works with no wallet (static guide, no network)
+    const guide = await mcp.callTool({ name: 'piprail_guide', arguments: {} })
+    expect(guide.isError).toBeFalsy()
+    // budget reads the policy/ledger — no wallet, no network needed
+    const budget = await mcp.callTool({ name: 'piprail_budget', arguments: {} })
+    expect(budget.isError).toBeFalsy()
+  })
+
   test('forwards an outputSchema ONLY on the stable read tools', async () => {
     const { mcp } = await connect()
     const byName = Object.fromEntries((await mcp.listTools()).tools.map((t) => [t.name, t]))

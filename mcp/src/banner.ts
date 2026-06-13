@@ -46,7 +46,7 @@ export function chainWarnings(config: Config): string[] {
 /** Build the human-readable banner string. NEVER includes the wallet secret. */
 export function formatBanner(config: Config): string {
   const lines = [
-    `PipRail MCP server v${VERSION} — ready on stdio`,
+    `PipRail MCP server v${VERSION} — ready on stdio${config.readOnly ? ' (READ-ONLY — no wallet key)' : ''}`,
     ``,
     row('chain', config.chain),
     row('per-payment', config.maxAmount),
@@ -76,7 +76,12 @@ export function formatBanner(config: Config): string {
   }
   lines.push(
     ``,
-    row('wallet key', `set via ${config.keySource}`),
+    config.readOnly
+      ? row(
+          'wallet key',
+          'NONE — read-only mode. discover/quote/register/budget/guide work; set PIPRAIL_PRIVATE_KEY to pay.'
+        )
+      : row('wallet key', `set via ${config.keySource}`),
     row('tools', TOOL_NAMES.join(', '))
   )
   const notes = chainWarnings(config)

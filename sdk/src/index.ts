@@ -151,6 +151,7 @@ export {
   NoCompatibleAcceptError,
   UnsupportedSchemeError,
   NonReplayableBodyError,
+  WalletRequiredError,
   SettlementError,
   toInsufficientFundsError,
 } from './errors.js'

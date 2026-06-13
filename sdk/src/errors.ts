@@ -259,6 +259,15 @@ export class NonReplayableBodyError extends PipRailError {
 }
 
 /**
+ * A wallet-bound operation was called on a READ-ONLY client — one built with no
+ * `wallet`. Read-only clients still `quote`, `discover`, and `register` (402 Index);
+ * paying, planning, or signing needs a wallet. Pass `wallet` to enable them.
+ */
+export class WalletRequiredError extends PipRailError {
+  readonly code = 'WALLET_REQUIRED'
+}
+
+/**
  * The chosen chain belongs to one family (EVM, Solana, TON, Stellar, XRPL, Tron,
  * Sui, NEAR, Aptos, Algorand) but the wallet, payTo, or token was given in another family's form
  * (e.g. an `0x…` payTo on Solana, or a `{ mint }` token on a Stellar chain).

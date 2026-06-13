@@ -65,7 +65,7 @@ mcp/*.local.mjs
 /cache/
 
 # Design asset backups — kept local. (Design masters now live with the skill at
-# /.claude/skills/site-design/design/, already covered by /.claude/ below.)
+# /.claude/skills/branding/design/, already covered by /.claude/ below.)
 /site/asset-backups/
 
 # Local agent workspace. DEFAULT = PRIVATE: everything under .claude/ stays local
@@ -79,7 +79,7 @@ mcp/*.local.mjs
 !/.claude/skills/
 /.claude/skills/*
 !/.claude/skills/add-chain-integration/
-!/.claude/skills/site-design/
+!/.claude/skills/branding/
 !/.claude/skills/release/
 !/.claude/skills/verify-gate/
 !/.claude/skills/deploy/
@@ -90,23 +90,26 @@ Screenshot*.png
 
 # Research & design notes now live under /.claude/ (already ignored above) — local only.
 
-# === Design skill (.claude/skills/site-design/design/) — STRICT source-vs-render rule ===
+# === Design skill (.claude/skills/branding/design/) — STRICT source-vs-render rule ===
 # Every file is exactly one of: SOURCE (templates *.html, scripts *.mjs/*.py, docs *.md —
-# TRACKED), PUBLISHED (brand/ + source/ — TRACKED, incl. their PNGs), or RENDER (anything a
-# pipeline generates — IGNORED). The pipelines live under social/ and video/, so their
-# generated PNG/MP4/audio, the assets.js bundle, and frame/sample dumps are kept out of git
-# (regenerate them with the render scripts). The full rule is documented in design/README.md.
-.claude/skills/site-design/design/social/**/*.png
-.claude/skills/site-design/design/social/**/*.mp4
+# TRACKED), PUBLISHED (source/ masters + social/profile/ profile deliverables — TRACKED, incl.
+# their PNGs), or RENDER (anything a pipeline generates — IGNORED). The pipelines live under
+# social/ and video/, so their generated PNG/MP4/audio, the assets.js bundle, and frame/sample
+# dumps are kept out of git (regenerate them with the render scripts). Rule: design/README.md.
+.claude/skills/branding/design/social/**/*.png
+.claude/skills/branding/design/social/**/*.mp4
+# EXCEPT the PUBLISHED profile deliverables (X header + GitHub social card) — uploaded
+# externally and must persist, so keep them tracked (negation must follow the rule above).
+!.claude/skills/branding/design/social/profile/*.png
 # chain-cards/ render.mjs writes a debug <chain>.html beside each <chain>.png — both are
 # RENDER output here (the template is a string inside render.mjs), so ignore the HTML too.
 # (post-cards/ and launch-cards/ .html ARE source templates, so this is scoped to chain-cards.)
-.claude/skills/site-design/design/social/chain-cards/*.html
-.claude/skills/site-design/design/video/**/*.png
-.claude/skills/site-design/design/video/**/*.mp4
-.claude/skills/site-design/design/video/**/*.wav
-.claude/skills/site-design/design/video/**/*.mp3
-.claude/skills/site-design/design/video/assets.js
-.claude/skills/site-design/design/**/frames/
-.claude/skills/site-design/design/**/sample/
-.claude/skills/site-design/design/**/__pycache__/
+.claude/skills/branding/design/social/chain-cards/*.html
+.claude/skills/branding/design/video/**/*.png
+.claude/skills/branding/design/video/**/*.mp4
+.claude/skills/branding/design/video/**/*.wav
+.claude/skills/branding/design/video/**/*.mp3
+.claude/skills/branding/design/video/assets.js
+.claude/skills/branding/design/**/frames/
+.claude/skills/branding/design/**/sample/
+.claude/skills/branding/design/**/__pycache__/

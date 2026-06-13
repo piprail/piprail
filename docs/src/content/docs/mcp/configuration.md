@@ -35,7 +35,7 @@ banner names which env var supplied it (`PIPRAIL_PRIVATE_KEY` / `PIPRAIL_WALLET_
 
 | Variable | Alias | Required | Default | Meaning |
 | --- | --- | --- | --- | --- |
-| `PIPRAIL_PRIVATE_KEY` | `PIPRAIL_WALLET_KEY`, `AGENT_KEY` | **yes** | — | Wallet key/seed/mnemonic in the chain's native format (see below). |
+| `PIPRAIL_PRIVATE_KEY` | `PIPRAIL_WALLET_KEY`, `AGENT_KEY` | only to **pay** | — | Wallet key/seed/mnemonic in the chain's native format (see below). **Omit it** to run read-only (discover/quote/register/budget/guide work; pay/plan need it). |
 | `PIPRAIL_CHAIN` | `CHAIN` | no | `base` | EVM preset name or non-EVM family — one wallet on one chain. |
 | `PIPRAIL_MAX_AMOUNT` | `MAX_AMOUNT` | no | `0.10` | Ceiling **per payment**, human units. |
 | `PIPRAIL_MAX_TOTAL` | `MAX_TOTAL` | no | `10.00` | Lifetime ceiling **per distinct token**, human units. |

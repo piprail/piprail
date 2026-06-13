@@ -49,7 +49,7 @@ top-level `mcpServers`), and you can manage the block with `openclaw mcp set` / 
 ```
 
 Restart OpenClaw and the `piprail_*` tools appear. You can also **discover** PipRail on
-[ClawHub](https://github.com/openclaw/clawhub) — `clawhub install piprail-openclaw` — which carries this same
+[ClawHub](https://github.com/openclaw/clawhub) — `clawhub install piprail` — which carries this same
 setup.
 
 :::danger
@@ -62,7 +62,7 @@ OpenClaw passes ordinary credential env vars through to the server, but strips i
 
 | Variable | Required | Default | Purpose |
 | --- | --- | --- | --- |
-| `PIPRAIL_PRIVATE_KEY` | ✅ | — | Funded wallet key/seed for the chain (EVM `0x…`, Solana base58, or a mnemonic) |
+| `PIPRAIL_PRIVATE_KEY` | only to **pay** | — | Self-custodial wallet key/seed (EVM `0x…`, Solana base58, or a mnemonic). **Omit it for read-only** — discover/quote/register/budget/guide still work. Not an API key. |
 | `PIPRAIL_CHAIN` | — | `base` | Which chain to pay on — any EVM, or `solana`/`ton`/`tron`/`near`/`sui`/`aptos`/`algorand`/`stellar`/`xrpl` |
 | `PIPRAIL_MAX_AMOUNT` | — | `0.10` | Max per payment (human units) |
 | `PIPRAIL_MAX_TOTAL` | — | `10.00` | Lifetime budget per token |
@@ -110,7 +110,7 @@ Agent: [piprail_pay_request(url)]  → paid 0.001 USDC (tx 0x…). ETH: $3,247.1
    (`declined: true`), no funds moved.
 
 The runnable skill folder lives at
-[`integrations/piprail-openclaw/`](https://github.com/piprail/piprail/tree/main/integrations/piprail-openclaw) —
+[`integrations/openclaw/piprail/`](https://github.com/piprail/piprail/tree/main/integrations/openclaw/piprail) —
 `SKILL.md`, an example `openclaw.json`, and `.env.example`.
 
 ## See also

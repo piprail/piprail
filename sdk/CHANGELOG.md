@@ -4,6 +4,21 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.22.0] — 2026-06-13 — optional wallet (read-only client)
+
+A purely **additive, opt-in** feature: `PipRailClient`'s `wallet` is now **optional**. Omit it for a
+**read-only client** that can `quote`, `estimateCost`, `discover`, and `register` (402 Index) with no
+key — paying, planning, or signing then throws the new typed `WalletRequiredError`. **Supplying a
+wallet is byte-identical to every prior version** — the full suite passes unchanged and the wallet is
+bound exactly as before; this only adds a key-less path. It's what lets `@piprail/mcp` boot read-only
+with no `PIPRAIL_PRIVATE_KEY`.
+
+### Added
+- **Optional `wallet`** in `PipRailClientOptions` → a read-only client. `quote` / `estimateCost` /
+  `discover` / `register` (402 Index) work with no key; `discoverySigner()` returns `null`.
+- **`WalletRequiredError`** (stable code `WALLET_REQUIRED`) — thrown by `fetch` (pay) and `planPayment`
+  on a read-only client, so the wallet requirement is explicit and typed.
+
 ## [1.21.1] — 2026-06-13 — facilitator hardening + gasless auto-routing + agent-facing docs
 
 A correctness/robustness patch over 1.21.0, after a full re-review and **live mainnet tests of the

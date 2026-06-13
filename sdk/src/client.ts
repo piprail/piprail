@@ -47,6 +47,7 @@ import {
   PaymentDeclinedError,
   PaymentTimeoutError,
   UnsupportedSchemeError,
+  WalletRequiredError,
   WrongChainError,
   type DeclineReasonCode,
 } from './errors.js'
@@ -292,8 +293,13 @@ const RECIPIENT_FIX: Record<RecipientReason, string> = {
 }
 
 export interface PipRailClientOptions {
-  /** Wallet for the chosen chain family. */
-  wallet: WalletInput
+  /**
+   * Wallet for the chosen chain family. **Optional** — omit it for a READ-ONLY
+   * client that can `quote`, `discover`, `estimateCost`, and `register` (402 Index)
+   * with no key. Paying, planning, or signing then throws {@link WalletRequiredError}
+   * until a wallet is provided. Supplying a wallet is byte-identical to before.
+   */
+  wallet?: WalletInput
   /** Which chain to pay on. EVM ('bnb'|'base'|…), 'solana', 'ton', 'stellar',
    *  'xrpl', 'tron', 'sui', 'near', 'aptos', or 'algorand'. */
   chain: ChainSelector
@@ -428,7 +434,7 @@ export class PipRailClient {
 
   // Resolved lazily on first request — this is what lets Solana (and future
   // families) auto-mount with no setup call.
-  private bound?: Promise<{ net: ResolvedNetwork; wallet: WalletHandle }>
+  private bound?: Promise<{ net: ResolvedNetwork; wallet: WalletHandle | undefined }>
 
   constructor(opts: PipRailClientOptions) {
     this.opts = opts
@@ -486,13 +492,16 @@ export class PipRailClient {
   }
 
   /** Auto-mount the chain's driver, resolve the network, and bind the wallet — once. */
-  private ensure(): Promise<{ net: ResolvedNetwork; wallet: WalletHandle }> {
+  private ensure(): Promise<{ net: ResolvedNetwork; wallet: WalletHandle | undefined }> {
     return (this.bound ??= (async () => {
       const net = await resolveNetwork({
         chain: this.opts.chain,
         rpcUrl: this.opts.rpcUrl,
       })
-      const wallet = net.bindWallet(this.opts.wallet)
+      // Read-only client: no wallet supplied ⇒ bind none. quote/discover/estimateCost/
+      // register(402index) work; pay/plan/sign throw WalletRequiredError via their guards.
+      // With a wallet, this is the exact same bindWallet call as before.
+      const wallet = this.opts.wallet !== undefined ? net.bindWallet(this.opts.wallet) : undefined
       return { net, wallet }
     })())
   }
@@ -679,6 +688,12 @@ export class PipRailClient {
       throw new InvalidEnvelopeError('402 response did not include a parseable x402 challenge.')
     }
     const { net, wallet } = await this.ensure()
+    if (!wallet) {
+      throw new WalletRequiredError(
+        'planPayment needs a wallet (it checks YOUR balance, gas, and recipient-readiness). ' +
+          'This client is read-only — construct it with a `wallet` to plan or pay.'
+      )
+    }
     return this.planFromChallenge(net, wallet, challenge, url, this.resolveSchemes())
   }
 
@@ -849,6 +864,7 @@ export class PipRailClient {
    */
   async discoverySigner(): Promise<DiscoverySigner | null> {
     const { net, wallet } = await this.ensure()
+    if (!wallet) return null // read-only client: no key to sign discovery proofs / SIWX
     return net.discoverySigner ? net.discoverySigner(wallet) : null
   }
 
@@ -877,6 +893,12 @@ export class PipRailClient {
     const schemes = this.resolveSchemes(init?.schemes)
     const resolved = await this.resolveChallenge(url, firstResponse, schemes)
     const { net, wallet, challenge } = resolved
+    if (!wallet) {
+      throw new WalletRequiredError(
+        'Paying a 402 needs a wallet to sign + settle. This client is read-only — ' +
+          'construct it with a `wallet` to pay (quote/discover/register still work without one).'
+      )
+    }
     let accept: X402AnyAccept = resolved.accept
     let quote = resolved.quote
 
@@ -924,7 +946,7 @@ export class PipRailClient {
     schemes: readonly PaymentScheme[]
   ): Promise<{
     net: ResolvedNetwork
-    wallet: WalletHandle
+    wallet: WalletHandle | undefined
     accept: X402AnyAccept
     challenge: X402Challenge
     quote: PipRailQuote

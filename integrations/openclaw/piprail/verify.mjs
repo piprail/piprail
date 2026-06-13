@@ -9,7 +9,7 @@
 //
 //   node verify.mjs                 # offline: handshake + 7 tools + read-only calls
 //   node verify.mjs --live          # + quote the live demo + prove the budget cap
-//   PIPRAIL_MCP_BIN=../../mcp/dist/bin.js node verify.mjs --live   # test a local build
+//   PIPRAIL_MCP_BIN=../../../mcp/dist/bin.js node verify.mjs --live   # test a local build
 //
 // No funds move: the wallet is a throwaway key, and the budget test asserts a
 // REFUSAL (cap below price → declined before any on-chain send).

@@ -1,5 +1,14 @@
 # @piprail/mcp changelog
 
+## 0.4.0 — 2026-06-13 — read-only mode (runs with no wallet key)
+
+**`PIPRAIL_PRIVATE_KEY` is now optional.** With no key the server **boots read-only** instead of
+exiting: `piprail_discover`, `piprail_quote_payment`, `piprail_register`, `piprail_budget`, and
+`piprail_guide` all work with zero config — only `piprail_pay_request` / `piprail_plan_payment` need a
+wallet, and they refuse cleanly (`code: WALLET_REQUIRED`) until you set one. **Setting a key is
+byte-identical to before** — all 7 tools, same behavior, same spend policy. Built on
+`@piprail/sdk@^1.22.0` (optional wallet). Try it: `npx -y @piprail/mcp` — no key needed to browse + quote.
+
 ## 0.3.3 — 2026-06-13 — rebuilt against SDK 1.21.1 (facilitator hardening + agent guide)
 
 No MCP code change — pins `@piprail/sdk` to `^1.21.1`, which hardens the gasless `exact` rail and

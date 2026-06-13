@@ -4,11 +4,14 @@
 wraps the same thing we already ship: [`@piprail/sdk`](../sdk)'s `paymentTools()` and the published
 [`@piprail/mcp`](../mcp) server (7 tools, budget-bound). Nothing new to build.
 
+Each framework gets its own folder under `integrations/<framework>/`, with PipRail's artifact inside
+(`integrations/<framework>/piprail/`) — so the structure scales as we add frameworks.
+
 | Integration | Folder | What it gives you | Status |
 |---|---|---|---|
-| **OpenClaw** 🦞 | [`piprail-openclaw/`](./piprail-openclaw) | A [ClawHub](https://github.com/openclaw/clawhub) skill that hands an OpenClaw agent the 7 PipRail tools, budget-bound — via `@piprail/mcp` as an MCP server. `clawhub install piprail-openclaw`. | ✅ built + tested |
-| _Vercel AI SDK · Mastra_ | _soon_ | `paymentTools()` as Vercel AI SDK / Mastra tools. | planned |
-| _ElizaOS_ | _soon_ | A PipRail plugin + an MCP-monetization guide. | planned |
+| **OpenClaw** 🦞 | [`openclaw/piprail/`](./openclaw/piprail) | A [ClawHub](https://github.com/openclaw/clawhub) skill (published under **@piprail**) that hands an OpenClaw agent the 7 PipRail tools, budget-bound — via `@piprail/mcp` as an MCP server. `clawhub install piprail`. | ✅ built + tested |
+| _Vercel AI SDK · Mastra_ | _`vercel/piprail/` (soon)_ | `paymentTools()` as Vercel AI SDK / Mastra tools. | planned |
+| _ElizaOS_ | _`elizaos/piprail/` (soon)_ | A PipRail plugin + an MCP-monetization guide. | planned |
 
 > **Any MCP client can use PipRail today** without a dedicated integration — point it at
 > `npx -y @piprail/mcp`. See [docs.piprail.com/mcp/client-setup](https://docs.piprail.com/mcp/client-setup/).

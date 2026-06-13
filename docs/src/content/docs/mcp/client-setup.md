@@ -160,7 +160,7 @@ Cline stores servers in `cline_mcp_settings.json`. Open it from the MCP Servers 
 
 OpenClaw nests MCP servers under **`mcp.servers`** in `~/.openclaw/openclaw.json` (not a top-level
 `mcpServers`), and manages the block with `openclaw mcp set` / `openclaw mcp list`. Put the key in the
-`env` block — treat the file as a secret. You can also `clawhub install piprail-openclaw` to discover it. Full
+`env` block — treat the file as a secret. You can also `clawhub install piprail` to discover it. Full
 guide: the [OpenClaw integration](/integrations/openclaw/).
 
 ```json

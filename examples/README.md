@@ -51,7 +51,7 @@ If a payer just sends a raw transfer to your wallet, you can't discover the pric
 
 ## Integrations
 
-First-party framework integrations live in their own top-level [`integrations/`](../integrations) folder — e.g. the **OpenClaw** ClawHub skill at [`integrations/piprail-openclaw/`](../integrations/piprail-openclaw) (`clawhub install piprail-openclaw`). Each wraps the published `@piprail/mcp` — nothing new to build. Full guides: [docs.piprail.com/integrations](https://docs.piprail.com/integrations/).
+First-party framework integrations live in their own top-level [`integrations/`](../integrations) folder, one per framework — e.g. the **OpenClaw** ClawHub skill at [`integrations/openclaw/piprail/`](../integrations/openclaw/piprail) (`clawhub install piprail`). Each wraps the published `@piprail/mcp` — nothing new to build. Full guides: [docs.piprail.com/integrations](https://docs.piprail.com/integrations/).
 
 ## Find & be found (discovery)
 

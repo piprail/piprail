@@ -43,6 +43,7 @@ ONLY actions are a push and one or two tags — CI does the rest. **No human-gat
 | `git push origin main` | Deploy **piprail.com** (Netlify) + **docs.piprail.com** (GitHub Pages) + IndexNow ping + run CI checks | **None** |
 | `git push origin sdk-vX.Y.Z` | `release.yml`: gate → **npm publish `@piprail/sdk`** → **cut the GitHub Release** (`--latest`) | **None** |
 | `git push origin mcp-vX.Y.Z` | `mcp-release.yml`: gate → **npm publish `@piprail/mcp`** → **cut the GitHub Release** → **publish the MCP registry via OIDC** (no secret) | **None** |
+| `clawhub skill publish …` | publish/refresh the **OpenClaw ClawHub skill** `piprail` (`clawhub install piprail`; it wraps `@piprail/mcp`) | **Manual** — re-publish when the skill or its MCP tool set changes (§8.5) |
 
 So: **GitHub Releases AND the MCP registry are now fully automatic** — CI cuts the release from the tag
 (auto-generated notes) and publishes `io.github.piprail/mcp` to the MCP registry using **GitHub Actions
@@ -51,7 +52,8 @@ namespace, so **no PAT, no device-flow login, no stored secret**). To (re)publis
 cutting a new npm release, trigger the on-demand lever: **`gh workflow run mcp-registry.yml`** (§8).
 **External repos** (the separate `piprail/.github` org-profile, awesome-x402, coinbase/x402) stay manual
 *by design* — they're third-party / cross-repo and only need touching on a **material** change (chain
-count, pitch), not a routine patch (§9).
+count, pitch), not a routine patch (§9). The **OpenClaw ClawHub skill** likewise re-publishes manually
+(`clawhub skill publish`) — re-ship it whenever the skill or the MCP tool set it wraps changes (§8.5).
 
 > **You (the agent) can run this entire deploy yourself.** With bypass permissions + `gh` auth you can
 > `git commit` / `push` / `tag` and trigger workflows (`gh workflow run`, `gh run watch`). Nothing here
@@ -69,6 +71,7 @@ count, pitch), not a routine patch (§9).
 | **A chain / family / token** | run **[`add-chain-integration`](../add-chain-integration/SKILL.md) FIRST** (it does the SDK + site), THEN this runbook for the publish + the full §3 surface sweep |
 | **Docs / README only** | still a **patch bump + republish** — npm only re-renders the README on publish |
 | **Site / docs only** | just push to `main`; Netlify + GitHub Pages auto-deploy. **No tag, no npm.** |
+| **OpenClaw integration** (`integrations/openclaw/piprail/`) — its `SKILL.md`, **or the MCP tool set it advertises** | bump the skill `--version` + **`clawhub skill publish`** under `--owner piprail` (§8.5). A stale listing shows the wrong tools/install. |
 
 SemVer: **patch** = fixes / docs, **minor** = additive & opt-in (defaults never change), **major** = a breaking change.
 Confirm what changed: `git log <last-tag>..HEAD -- sdk/` (or `-- mcp/`).
@@ -189,6 +192,54 @@ cd mcp && mcp-publisher validate && mcp-publisher login github && mcp-publisher 
 > keep public-org-membership for, and rotate. OIDC is short-lived, scoped to this repo's owner, and
 > needs nothing stored. Prefer it. (The local `mcp-publisher login github` device flow still exists for
 > off-CI publishing, but you should rarely need it.)
+
+## 8.5 OpenClaw ClawHub skill (`piprail`) — manual `clawhub skill publish`
+
+> **Full runbook: [`CLAWHUB.md`](./CLAWHUB.md)** — the exhaustive guide (identity model, the avatar/bio
+> web-form step, the auto-classified category + "API key required" badge, verification). This §8.5 is the
+> quick version.
+
+The OpenClaw integration is **also published to ClawHub** (OpenClaw's skill registry, ~250k★ community) as
+**`piprail`** (`clawhub install piprail`), owned by the **`@piprail` org publisher** — a SKILL.md listing that wraps the
+`@piprail/mcp` server. It's a **separate registry from npm**, so a `git push`/tag does **nothing** to it;
+re-publish it by hand whenever its content drifts.
+
+**Re-publish WHEN:**
+- `integrations/openclaw/piprail/SKILL.md` changed (description, config, the **7-tools table**, benefits), OR
+- the **MCP tool set / names changed** (a new `piprail_*` tool, a renamed one) — the listing's tool table goes stale, OR
+- the env/config surface changed (a new `PIPRAIL_*` var worth documenting).
+- A routine SDK/MCP patch that doesn't touch the skill's content needs **no** re-publish.
+
+**How (the CLI is `npm i -g clawhub` — NOT the PyPI `clawhub`, which is unrelated):**
+```bash
+clawhub whoami || clawhub login              # GitHub auth (browser / --device / --token); free, once
+# Published under the @piprail ORG publisher — owner + slug must BOTH be explicit now
+# (the folder is `piprail`, so the slug no longer derives from the folder name):
+clawhub skill publish integrations/openclaw/piprail \
+  --owner piprail --slug piprail --name "PipRail" --version X.Y.Z \
+  --tags latest --changelog "<what changed>"
+clawhub inspect piprail        # confirm Latest=X.Y.Z, owner=piprail, Moderation: CLEAN
+```
+- **`--owner piprail` (the org publisher) is mandatory** — without it the skill publishes under your *personal*
+  handle (the page then shows your avatar/handle, not PipRail's). The publisher was created once with
+  `clawhub publisher create piprail --display-name "PipRail"`; to move an already-personal skill, republish with
+  `--owner piprail --migrate-owner`. The publisher's **avatar/logo is a one-time web setting** on clawhub.ai
+  (no CLI flag) — set it to the PipRail mark if the page shows a placeholder.
+- **`--slug piprail`** — matches the folder name, so it's the natural default; pass it explicitly to be safe.
+  The slug is just `piprail` (ClawHub is OpenClaw-only → one PipRail skill here, no suffix needed; it also
+  **rejects** `openclaw-*`/`*-openclaw`). It lists as `clawhub install piprail`; old slugs redirect.
+- **Auto-classified (you don't set these):** ClawHub derives the **category** from the `description` (lead with
+  payments/wallet/402 language → "Payments"; mention APIs/data feeds → "Data & APIs"), and shows an **"API key
+  required" badge** whenever it auto-detects a user-supplied secret in the body (our wallet-key config). The badge
+  is honest (the MCP needs `PIPRAIL_PRIVATE_KEY`) and **can't be removed** without deleting the setup docs — we
+  accept it. Frontmatter declares only `requires.bins: [npx]` (no `requires.env`/`primaryEnv`) to avoid over-declaring. See `CLAWHUB.md` §4.
+- **Branding is web-only:** the `@piprail` publisher's **avatar URL** (`https://piprail.com/logo.png`) + **bio**
+  are set at `clawhub.ai/settings → Organizations → @piprail` — there is **no CLI/REST path** (all publisher-update
+  endpoints 404). See `CLAWHUB.md` §2.
+- Bump `--version` (semver) each publish; old slugs (`piprail`, `piprail-openclaw`) redirect.
+- ClawHub runs automated security checks on publish; `clawhub scan download piprail --version X.Y.Z` fetches the report.
+- **Verify before publishing:** `cd integrations/openclaw/piprail && node verify.mjs --live` (handshake + 7 tools + live quote + budget refusal).
+- *Future:* Vercel AI SDK / ElizaOS integrations are **not** ClawHub skills (ClawHub is OpenClaw-only) — they ship via their own ecosystems (npm tool / ElizaOS plugin registry); only this one publishes to ClawHub.
 
 ## 9. External repos (when the change is material — "auto-update the other repos")
 

@@ -10,9 +10,21 @@ import {
 const KEY = '0x' + '1'.repeat(64)
 
 describe('parseConfig — requirements & defaults', () => {
-  test('requires a wallet key', () => {
-    expect(() => parseConfig({})).toThrow(ConfigError)
-    expect(() => parseConfig({})).toThrow(/PIPRAIL_PRIVATE_KEY/)
+  test('no wallet key → READ-ONLY mode (boots, does not throw)', () => {
+    const cfg = parseConfig({})
+    expect(cfg.readOnly).toBe(true)
+    expect(cfg.walletSecret).toBeUndefined()
+    expect(cfg.chain).toBe('base') // still applies the usual defaults
+    // read-only ⇒ the SDK client options omit `wallet` entirely
+    expect(configToClientOptions(cfg).wallet).toBeUndefined()
+    expect(walletInputFor(cfg)).toBeUndefined()
+  })
+
+  test('a wallet key → NOT read-only, wallet wired through', () => {
+    const cfg = parseConfig({ PIPRAIL_PRIVATE_KEY: KEY })
+    expect(cfg.readOnly).toBe(false)
+    expect(cfg.walletSecret).toBe(KEY)
+    expect(configToClientOptions(cfg).wallet).toEqual({ privateKey: KEY })
   })
 
   test('AGENT_KEY alias alone satisfies the key requirement', () => {

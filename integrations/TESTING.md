@@ -5,7 +5,7 @@ layers** — run the automated one always; do the manual one once per framework 
 
 | Framework | Automated test | Real-app run | Status |
 |---|---|---|---|
-| **OpenClaw** | [`piprail-openclaw/verify.mjs`](./piprail-openclaw/verify.mjs) | [§ Manual OpenClaw run](#manual-openclaw-run) | ✅ passing |
+| **OpenClaw** | [`piprail/verify.mjs`](./piprail/verify.mjs) | [§ Manual OpenClaw run](#manual-openclaw-run) | ✅ passing |
 | _Vercel AI SDK · Mastra · ElizaOS_ | _add `verify.mjs` per folder_ | _per framework_ | planned |
 
 > **Pattern (so this scales):** every integration keeps its own `verify.mjs` next to its code. Adding a
@@ -21,11 +21,11 @@ it spawns the PipRail MCP server the way the framework's config spawns it (same 
 exposes works.**
 
 ```bash
-cd integrations/piprail-openclaw
+cd integrations/openclaw/piprail
 
 node verify.mjs                                    # offline: handshake + all 7 tools + read-only calls
 node verify.mjs --live                             # + quote the LIVE demo + prove the spend cap
-PIPRAIL_MCP_BIN=../../mcp/dist/bin.js node verify.mjs --live   # test the local build instead of npm
+PIPRAIL_MCP_BIN=../../../mcp/dist/bin.js node verify.mjs --live   # test the local build instead of npm
 ```
 
 What `--live` proves (no funds move — throwaway key, and it asserts a *refusal*):
@@ -49,7 +49,7 @@ wiring, the budget. The other half is Layer 2.
 
 1. **Install OpenClaw** (see [openclaw.ai](https://docs.openclaw.ai)). Confirm `openclaw --version`.
 2. **Add PipRail as an MCP server.** Edit `~/.openclaw/openclaw.json` — OpenClaw nests servers under
-   **`mcp.servers`** (see [`piprail-openclaw/openclaw.json`](./piprail-openclaw/openclaw.json)):
+   **`mcp.servers`** (see [`piprail/openclaw.json`](./piprail/openclaw.json)):
 
    ```json
    { "mcp": { "servers": { "piprail": {
@@ -58,7 +58,7 @@ wiring, the budget. The other half is Layer 2.
    } } } }
    ```
 
-   (or `openclaw mcp set` / `clawhub install piprail-openclaw`). Use a wallet with a **tiny** USDC +
+   (or `openclaw mcp set` / `clawhub install piprail`). Use a wallet with a **tiny** USDC +
    gas balance on Base for a real payment.
 3. **Restart OpenClaw** and confirm the tools loaded — `openclaw mcp list` should show `piprail`, and
    the agent's tool list should include the seven `piprail_*` tools.

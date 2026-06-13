@@ -23,8 +23,11 @@ import type {
 export interface Config {
   /** Chain selector string (EVM preset name or a non-EVM family name). */
   chain: string
-  /** The wallet key/seed/mnemonic, in the chosen chain's native format. NEVER logged. */
-  walletSecret: string
+  /** The wallet key/seed/mnemonic, in the chosen chain's native format. NEVER logged.
+   *  Absent ⇒ READ-ONLY mode: discover/quote/register/budget/guide work; paying does not. */
+  walletSecret?: string
+  /** True when no wallet secret was supplied — the server runs read-only (no key needed). */
+  readOnly: boolean
   /** Required only when `chain === 'near'`. */
   nearAccountId?: string
   /** Override the chain's default RPC. */
@@ -192,14 +195,11 @@ export function parseConfig(env: Env = process.env): Config {
     )
   }
 
-  // 2) The wallet secret is the one hard requirement.
+  // 2) The wallet secret. Optional — absent ⇒ READ-ONLY mode: the server still boots
+  //    and serves the read-only tools (discover/quote/register/budget/guide); only paying
+  //    needs a key. Supplying one is byte-identical to before.
   const key = pick(env, 'PIPRAIL_PRIVATE_KEY', 'PIPRAIL_WALLET_KEY', 'AGENT_KEY')
-  if (!key.value) {
-    throw new ConfigError(
-      'PIPRAIL_PRIVATE_KEY (alias: AGENT_KEY) is required — set it to your wallet key/seed for the chosen chain.\n' +
-        "Put it in the MCP client config's \"env\" block or export it; never pass it as a CLI argument, and never commit it."
-    )
-  }
+  const readOnly = !key.value
 
   const chain = pick(env, 'PIPRAIL_CHAIN', 'CHAIN').value ?? 'base'
 
@@ -211,7 +211,7 @@ export function parseConfig(env: Env = process.env): Config {
   // 3) Validate + coerce everything else.
   const Schema = z.object({
     chain: z.string().trim().min(1),
-    walletSecret: z.string().min(1),
+    walletSecret: z.string().min(1).optional(),
     nearAccountId: z.string().trim().min(1).optional(),
     rpcUrl: z.string().trim().url('PIPRAIL_RPC_URL must be a valid URL').optional(),
     maxAmount: decimal('PIPRAIL_MAX_AMOUNT'),
@@ -269,8 +269,8 @@ export function parseConfig(env: Env = process.env): Config {
     )
   }
 
-  // 5) NEAR needs an account id alongside the key.
-  if (parsed.chain === 'near' && !parsed.nearAccountId) {
+  // 5) NEAR needs an account id alongside the key (only when a key is set — read-only needs neither).
+  if (parsed.chain === 'near' && parsed.walletSecret && !parsed.nearAccountId) {
     throw new ConfigError(
       'chain "near" requires PIPRAIL_NEAR_ACCOUNT_ID (your NEAR account id, e.g. you.near).'
     )
@@ -306,7 +306,8 @@ export function parseConfig(env: Env = process.env): Config {
 
   return {
     chain: parsed.chain,
-    walletSecret: parsed.walletSecret,
+    ...(parsed.walletSecret ? { walletSecret: parsed.walletSecret } : {}),
+    readOnly,
     ...(parsed.nearAccountId ? { nearAccountId: parsed.nearAccountId } : {}),
     ...(parsed.rpcUrl ? { rpcUrl: parsed.rpcUrl } : {}),
     maxAmount: parsed.maxAmount,
@@ -331,21 +332,23 @@ export function parseConfig(env: Env = process.env): Config {
  *   Solana → { secretKey } · TON / Algorand → { mnemonic }
  *   Stellar → { secret } · XRPL → { seed } · NEAR → { accountId, privateKey }
  */
-export function walletInputFor(config: Config): WalletInput {
+export function walletInputFor(config: Config): WalletInput | undefined {
+  if (!config.walletSecret) return undefined // read-only client — no key supplied
+  const secret = config.walletSecret
   if (config.chain === 'near') {
-    return { accountId: config.nearAccountId as string, privateKey: config.walletSecret }
+    return { accountId: config.nearAccountId as string, privateKey: secret }
   }
   switch (WALLET_FIELD[config.chain]) {
     case 'secretKey':
-      return { secretKey: config.walletSecret }
+      return { secretKey: secret }
     case 'mnemonic':
-      return { mnemonic: config.walletSecret }
+      return { mnemonic: secret }
     case 'secret':
-      return { secret: config.walletSecret }
+      return { secret }
     case 'seed':
-      return { seed: config.walletSecret }
+      return { seed: secret }
     default:
-      return { privateKey: config.walletSecret }
+      return { privateKey: secret }
   }
 }
 
@@ -364,9 +367,11 @@ export function configToClientOptions(config: Config): PipRailClientOptions {
     ...(config.windowTotal != null ? { windowTotal: config.windowTotal } : {}),
     ...(config.windowSeconds != null ? { windowSeconds: config.windowSeconds } : {}),
   }
+  const wallet = walletInputFor(config)
   return {
     chain: config.chain as ChainSelector,
-    wallet: walletInputFor(config),
+    // Read-only mode (no key) ⇒ omit `wallet`; the SDK client is then read-only.
+    ...(wallet ? { wallet } : {}),
     policy,
     ...(config.rpcUrl ? { rpcUrl: config.rpcUrl } : {}),
     // Only set when PIPRAIL_SCHEMES was provided — otherwise omit so the SDK default

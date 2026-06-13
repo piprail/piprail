@@ -1,6 +1,6 @@
 ---
-name: piprail-openclaw
-description: Give your OpenClaw agent a budget-bound payment wallet. Pay x402-gated APIs, data feeds, and AI services across every major chain — no facilitator, no fee, funds settle straight to the provider's wallet. The agent literally cannot exceed the spend cap you set.
+name: piprail
+description: A self-custodial crypto payment wallet for your OpenClaw agent, with a hard spend cap it can't exceed. It autonomously pays x402 paywalls ('402 Payment Required') on every major chain, settling funds straight to the recipient — no facilitator, no fee, no signup.
 metadata:
   openclaw:
     emoji: "🛤️"
@@ -9,46 +9,29 @@ metadata:
       - darwin
       - linux
       - win32
-    primaryEnv: PIPRAIL_PRIVATE_KEY
     requires:
-      env:
-        - PIPRAIL_PRIVATE_KEY
       bins:
         - npx
     install:
-      - kind: node
+      - id: node
+        kind: node
         package: "@piprail/mcp"
         bins:
           - piprail-mcp
-    envVars:
-      - name: PIPRAIL_PRIVATE_KEY
-        required: true
-        description: "Funded wallet key/seed for the chosen chain (EVM 0x… hex, Solana base58 secret, or a mnemonic). NEVER commit it. Also accepted as PIPRAIL_WALLET_KEY."
-      - name: PIPRAIL_CHAIN
-        required: false
-        description: "Chain to pay on. EVM ('base' default, 'ethereum', 'polygon', 'arbitrum', 'optimism', 'avalanche', 'bnb', …) or 'solana' | 'ton' | 'tron' | 'near' | 'sui' | 'aptos' | 'algorand' | 'stellar' | 'xrpl'."
-      - name: PIPRAIL_MAX_AMOUNT
-        required: false
-        description: "Hard cap per payment, in human units (default 0.10). A 402 above this is refused before any funds move."
-      - name: PIPRAIL_MAX_TOTAL
-        required: false
-        description: "Lifetime spend cap per token, in human units (default 10.00). The agent cannot exceed it."
-      - name: PIPRAIL_TOKENS
-        required: false
-        description: "Comma-separated allow-list of tokens the agent may spend (e.g. USDC,USDT). Defaults to the chain's stablecoins."
-      - name: PIPRAIL_SCHEMES
-        required: false
-        description: "Payment schemes to settle: 'onchain-proof' (default, backendless) and/or 'exact' (the standard x402 EIP-3009 rail, lets the agent pay any standard x402 server). Comma-separated."
-      - name: PIPRAIL_RPC_URL
-        required: false
-        description: "Override the chain's default RPC endpoint (recommended in production; fold any API key into the URL)."
+        label: "Install @piprail/mcp (the PipRail MCP server)"
 ---
 
 # PipRail — Agent Payment Wallet 🛤️
 
-Give your OpenClaw agent a **budget-bound payment wallet** across every major chain. It can pay
-**x402** "402 Payment Required" APIs, data feeds, and AI services **on its own** — and it
-**cannot** spend more than the cap you set.
+Give your OpenClaw agent a **self-custodial crypto payment wallet** with a **hard spend cap** it
+can't exceed. It autonomously pays **x402** "402 Payment Required" paywalls across every major
+chain — settling funds straight to the recipient's wallet, with **no facilitator, no fee, no signup**.
+
+> **No API key. No account. No signup.** PipRail is self-custodial — you bring a wallet *you* control.
+> It even runs **read-only with zero config**: `discover`, `quote`, `register`, `budget`, and `guide`
+> work the moment it starts, no key at all. Add your own wallet key (`PIPRAIL_PRIVATE_KEY`) only when
+> the agent should actually **pay** — it's a wallet signing key you hold, never an API credential, and
+> it never leaves your machine.
 
 PipRail plugs into OpenClaw as a **standard MCP server** — the published
 **[`@piprail/mcp`](https://www.npmjs.com/package/@piprail/mcp)** (`npx -y @piprail/mcp`) over stdio —
@@ -79,39 +62,43 @@ and/or takes a cut. PipRail is different:
 | `piprail_budget` | Read remaining spend + time leash | no |
 | `piprail_guide` | Read the agent contract (how to quote → plan → pay) | no |
 
-Only `piprail_pay_request` moves funds — the other six are read-only.
+Only `piprail_pay_request` moves funds. **Five tools — `discover`, `quote`, `register`, `budget`,
+`guide` — work with no key at all**; `pay` and `plan` (it reads *your* balance) need your wallet.
 
 ## Install
 
-Discover it on ClawHub:
+Discover + install on ClawHub (either command works):
 
 ```bash
-clawhub install piprail-openclaw
+clawhub install piprail            # the ClawHub CLI
+openclaw skills install piprail     # …or OpenClaw's native command
 ```
 
 Then wire the MCP server into `~/.openclaw/openclaw.json` (this is the step that hands the agent the
-tools) — OpenClaw nests servers under `mcp.servers`:
+tools) — OpenClaw nests servers under `mcp.servers`. It needs **no key to start** (read-only); add
+`PIPRAIL_PRIVATE_KEY` — your own self-custodial wallet key — only to enable paying:
 
 ```json
 { "mcp": { "servers": { "piprail": {
   "command": "npx", "args": ["-y", "@piprail/mcp"],
-  "env": { "PIPRAIL_PRIVATE_KEY": "0xYOUR_KEY", "PIPRAIL_CHAIN": "base", "PIPRAIL_MAX_TOTAL": "5.00" }
+  "env": { "PIPRAIL_CHAIN": "base", "PIPRAIL_MAX_TOTAL": "5.00", "PIPRAIL_PRIVATE_KEY": "0xYOUR_KEY" }
 } } } }
 ```
 
-Restart OpenClaw (or run `openclaw mcp set`) and the `piprail_*` tools appear. See **Configure** below
-for the full env.
+Restart OpenClaw (or run `openclaw mcp set`) and the `piprail_*` tools appear — read-only until you add
+a key, then it can pay. See **Configure** below for the full env.
 
 ## Configure
 
 | Variable | Required | Default | Purpose |
 | --- | --- | --- | --- |
-| `PIPRAIL_PRIVATE_KEY` | ✅ | — | Funded wallet key/seed for the chain (keep it secret) |
+| `PIPRAIL_PRIVATE_KEY` | — *(only to pay)* | — | Your **self-custodial** wallet key/seed. **Omit it for read-only** (discover/quote/register/budget/guide); set it only to let the agent pay. Not an API key; never sent anywhere. |
 | `PIPRAIL_CHAIN` | — | `base` | Which chain to pay on |
 | `PIPRAIL_MAX_AMOUNT` | — | `0.10` | Max per payment |
 | `PIPRAIL_MAX_TOTAL` | — | `10.00` | Lifetime budget per token |
 | `PIPRAIL_TOKENS` | — | chain stables | Allowed tokens |
 | `PIPRAIL_SCHEMES` | — | `onchain-proof` | Add `exact` to also pay standard x402 servers |
+| `PIPRAIL_RPC_URL` | — | chain default | Custom RPC endpoint (recommended in production; fold any API key into the URL) |
 
 > **Defaults are deliberately small and safe** (0.10 per payment, 10.00 lifetime, USDC on Base).
 > Start there, raise as you trust it.

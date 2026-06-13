@@ -37,7 +37,7 @@ top-level `mcpServers`) — see [`openclaw.json`](./openclaw.json) for a copy-pa
 ```
 
 Restart OpenClaw (or `openclaw mcp set`) and the `piprail_*` tools appear. You can also discover it on
-ClawHub with `clawhub install piprail-openclaw`. The env reference is on
+ClawHub with `clawhub install piprail`. The env reference is on
 [docs.piprail.com/mcp/configuration](https://docs.piprail.com/mcp/configuration/).
 
 ## Configure
@@ -70,7 +70,7 @@ rest are read-only. Full reference: [docs.piprail.com/mcp/tools](https://docs.pi
 ```bash
 node verify.mjs                # offline: handshake + all 7 tools + read-only calls
 node verify.mjs --live         # + quote the LIVE demo + prove the budget cap refuses overspend
-PIPRAIL_MCP_BIN=../../mcp/dist/bin.js node verify.mjs --live   # test a local build
+PIPRAIL_MCP_BIN=../../../mcp/dist/bin.js node verify.mjs --live   # test a local build
 ```
 
 `--live` proves the real round-trip without spending: it quotes `piprail.com/x402/demo` (0.01 USDC on
@@ -88,15 +88,33 @@ Then the manual path:
 
 ## Publishing the skill (maintainers)
 
+The ClawHub CLI ships on **npm** (`github.com/openclaw/clawhub`, by OpenClaw's creator) — **not** the
+PyPI `clawhub` (that's an unrelated package). The skill is published under the **`@piprail` org publisher**
+(not a personal handle), so its page shows the PipRail identity. Install the CLI, log in once with GitHub
+(free), then publish from the repo root:
+
 ```bash
-clawhub skill publish . --version 1.0.0    # --version is REQUIRED (semver)
+npm i -g clawhub                              # the official OpenClaw ClawHub CLI — NOT `pip install clawhub`
+clawhub login                                 # GitHub auth: opens a browser (or `--device`, or `--token <t>`)
+clawhub publisher create piprail --display-name "PipRail"   # one-time: claim the @piprail org (skip if it exists)
+clawhub skill publish integrations/openclaw/piprail \
+  --owner piprail --slug piprail --name "PipRail" --version 1.0.3 \
+  --tags latest --changelog "…what changed…"
 ```
 
-The install **slug** derives from the folder name (`piprail-openclaw`) and matches the `name` in
-[`SKILL.md`](./SKILL.md) — so this publishes cleanly as `clawhub install piprail-openclaw`, no rename
-needed. The **actual tool wiring is the `mcp.servers` block above**; the ClawHub listing is only
-discovery. See `docs/skill-format.md` / `docs/cli.md` in
-[openclaw/clawhub](https://github.com/openclaw/clawhub) (the format evolves — re-check at publish time).
+- **`--owner piprail` is required** — it lists the skill under **@piprail**, not your personal handle. The
+  publisher must exist first (`clawhub publisher create piprail`); republish an already-personal skill with
+  `--owner piprail --migrate-owner` to move it.
+- **`--slug piprail`** — the folder is `piprail`, so the slug matches it (pass it explicitly to be safe).
+  It lists as **`clawhub install piprail`** (or `openclaw skills install piprail`); the older
+  `piprail-openclaw-skill` / `piprail-openclaw` slugs **redirect**. `--version` is optional (semver, recommended).
+- Publishing needs only a **GitHub account** (free; no paid signup). ClawHub runs **automated security
+  checks** on publish — `clawhub scan download piprail --version X.Y.Z` fetches the report,
+  `clawhub inspect piprail` confirms it's live.
+- The **actual tool wiring is the `mcp.servers` block above** — the ClawHub listing is discovery + the
+  install/instructions; OpenClaw spawns `@piprail/mcp` from the config (the canonical MCP-wrapping-skill
+  pattern, same as `openclaw/skills` `mcporter`). The CLI evolves — `clawhub skill publish --help` is the
+  source of truth at publish time.
 
 ## Links
 
