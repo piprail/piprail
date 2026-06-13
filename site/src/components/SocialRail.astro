@@ -1,0 +1,191 @@
+---
+// Global "like & share" quick-links — shown on every page via Layout.astro.
+// Two presentations, one data source, deliberately low-key:
+//   • ≥ xl (≥1280px): a slim ALWAYS-ON vertical dock pinned to the left edge,
+//     vertically centred. The content column is max-w-6xl (1152px) and centred,
+//     so there's empty margin to the left — the rail sits there, never over text.
+//   • < xl: a single round FLOATING ACTION BUTTON at the bottom-right. Tap it to
+//     pop open a labelled list of the links (and tap-away / Esc to close), so
+//     phones & tablets get one tidy affordance instead of a persistent bar.
+// Brand: dark, hairline-bordered, emerald accent ("emerald = paid").
+// (Fragment is Astro's built-in element — no import needed.)
+
+// Inline SVGs (kept local so the component has no icon-lib dependency, like Footer).
+const ICON = {
+  github:
+    '<svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.91 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222 0 1.606-.014 2.898-.014 3.293 0 .322.216.694.825.576C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"></path></svg>',
+  x:
+    '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path></svg>',
+  clawhub:
+    '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><ellipse cx="5.7" cy="10.2" rx="2" ry="2.6"></ellipse><ellipse cx="9.6" cy="6.6" rx="2.1" ry="2.8"></ellipse><ellipse cx="14.4" cy="6.6" rx="2.1" ry="2.8"></ellipse><ellipse cx="18.3" cy="10.2" rx="2" ry="2.6"></ellipse><path d="M12 12.2c2.5 0 4.7 1.9 5.2 4.4.4 2-1.2 3.7-3.2 3.7-.8 0-1.4-.3-2-.3s-1.2.3-2 .3c-2 0-3.6-1.7-3.2-3.7.5-2.5 2.7-4.4 5.2-4.4z"></path></svg>',
+  share:
+    '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>',
+  heart:
+    '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path></svg>',
+  close:
+    '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>',
+}
+
+const links = [
+  { href: 'https://github.com/piprail/piprail', label: 'Star on GitHub', icon: ICON.github },
+  { href: 'https://x.com/piprailhq', label: 'Follow @piprailhq', icon: ICON.x },
+  { href: 'https://clawhub.ai/piprail/piprail', label: 'Get it on ClawHub', icon: ICON.clawhub },
+]
+
+// — Desktop rail (xl+): icon-only buttons, name surfaced as a hover/focus tooltip.
+const railBtn =
+  'group/item relative flex h-9 w-9 items-center justify-center rounded-lg text-neutral-400 outline-none transition hover:bg-white/8 hover:text-white focus-visible:ring-2 focus-visible:ring-accent/60'
+const tip =
+  'pointer-events-none absolute left-full top-1/2 z-10 ml-2 -translate-y-1/2 whitespace-nowrap rounded-md border border-white/10 bg-neutral-900/95 px-2 py-1 text-[11px] font-medium text-neutral-200 opacity-0 shadow-lg shadow-black/40 backdrop-blur-sm transition-opacity duration-150 group-hover/item:opacity-100 group-focus-within/item:opacity-100'
+
+// — Mobile menu (< xl): a labelled row per link.
+const menuRow =
+  'flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm text-neutral-200 outline-none transition hover:bg-white/8 hover:text-white focus-visible:bg-white/8'
+const menuIcon = 'flex h-5 w-5 shrink-0 items-center justify-center text-neutral-400'
+---
+
+{/* ── Desktop: always-on vertical rail, left edge (xl and up) ───────────────── */}
+<aside
+  aria-label="Like and share PipRail"
+  class="fixed left-3 top-1/2 z-40 hidden -translate-y-1/2 print:hidden xl:block"
+>
+  <div class="rail-in flex flex-col items-center gap-1 rounded-2xl border border-white/10 bg-bg/80 p-1.5 shadow-lg shadow-black/40 backdrop-blur-md">
+    <span class="group/item relative flex items-center justify-center px-1.5 py-1">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" class="text-accent">
+        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path>
+      </svg>
+      <span class={tip} aria-hidden="true">Enjoying PipRail? Show some love</span>
+    </span>
+
+    <span class="my-0.5 h-px w-5 bg-white/10"></span>
+
+    {links.map((l) => (
+      <a href={l.href} target="_blank" rel="noopener noreferrer" aria-label={l.label} class={railBtn}>
+        <Fragment set:html={l.icon} />
+        <span class={tip} aria-hidden="true">{l.label}</span>
+      </a>
+    ))}
+
+    <button type="button" data-share aria-label="Share PipRail" class={railBtn}>
+      <Fragment set:html={ICON.share} />
+      <span class={tip} aria-hidden="true">Share PipRail</span>
+    </button>
+  </div>
+</aside>
+
+{/* ── Mobile / tablet: a FAB that pops open the list (below xl) ─────────────── */}
+<div
+  id="social-fab"
+  data-open="false"
+  class="group/fab fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 z-40 flex flex-col items-end gap-3 print:hidden xl:hidden"
+>
+  <!-- The link list — hidden until the FAB is pressed. -->
+  <div
+    id="social-fab-menu"
+    role="menu"
+    aria-label="Like and share PipRail"
+    class="pointer-events-none w-56 origin-bottom-right translate-y-2 scale-95 rounded-2xl border border-white/10 bg-bg/95 p-2 opacity-0 shadow-xl shadow-black/50 backdrop-blur-md transition duration-200 ease-out group-data-[open=true]/fab:pointer-events-auto group-data-[open=true]/fab:translate-y-0 group-data-[open=true]/fab:scale-100 group-data-[open=true]/fab:opacity-100"
+  >
+    <p class="px-2.5 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+      Like &amp; share PipRail
+    </p>
+    {links.map((l) => (
+      <a href={l.href} target="_blank" rel="noopener noreferrer" role="menuitem" class={menuRow}>
+        <span class={menuIcon}><Fragment set:html={l.icon} /></span>
+        {l.label}
+      </a>
+    ))}
+    <button type="button" data-share role="menuitem" class={`w-full text-left ${menuRow}`}>
+      <span class={menuIcon}><Fragment set:html={ICON.share} /></span>
+      Share PipRail
+    </button>
+  </div>
+
+  <!-- The button itself: emerald, heart → ✕ when open. -->
+  <button
+    id="social-fab-btn"
+    type="button"
+    aria-expanded="false"
+    aria-controls="social-fab-menu"
+    aria-label="Like &amp; share PipRail"
+    class="ml-auto flex h-12 w-12 items-center justify-center rounded-full bg-accent text-neutral-950 shadow-lg shadow-accent/25 outline-none transition hover:brightness-110 focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-bg active:scale-95"
+  >
+    <span class="group-data-[open=true]/fab:hidden"><Fragment set:html={ICON.heart} /></span>
+    <span class="hidden group-data-[open=true]/fab:block"><Fragment set:html={ICON.close} /></span>
+  </button>
+</div>
+
+<style>
+  /* Quiet entrance for the desktop rail — fades/rises in once, after the page
+     settles. Held still for reduced-motion. Only the inner card animates, so it
+     never fights the aside's centring transform. */
+  @media (prefers-reduced-motion: no-preference) {
+    .rail-in {
+      animation: rail-in 0.5s cubic-bezier(0.22, 0.7, 0.25, 1) 0.35s both;
+    }
+  }
+  @keyframes rail-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+</style>
+
+<script is:inline>
+  // Share: native share sheet where available (mobile + some desktops), else an
+  // X compose intent as a graceful fallback. Cancelling the native sheet is a
+  // no-op (we never fall through after offering it).
+  for (const btn of document.querySelectorAll('[data-share]')) {
+    btn.addEventListener('click', async () => {
+      const data = {
+        title: 'PipRail',
+        text: 'PipRail — x402 crypto payments for AI agents, on every chain. No backend, no fee.',
+        url: 'https://piprail.com',
+      }
+      if (navigator.share) {
+        try {
+          await navigator.share(data)
+        } catch {}
+        return
+      }
+      window.open(
+        'https://x.com/intent/tweet?text=' + encodeURIComponent(data.text + ' ' + data.url),
+        '_blank',
+        'noopener,noreferrer',
+      )
+    })
+  }
+
+  // FAB: toggle the pop-out list; close on tap-away, Escape, or after a choice.
+  ;(() => {
+    const fab = document.getElementById('social-fab')
+    const btn = document.getElementById('social-fab-btn')
+    if (!fab || !btn) return
+    const set = (open) => {
+      fab.dataset.open = String(open)
+      btn.setAttribute('aria-expanded', String(open))
+    }
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation()
+      set(fab.dataset.open !== 'true')
+    })
+    document.addEventListener('click', (e) => {
+      if (fab.dataset.open === 'true' && !fab.contains(e.target)) set(false)
+    })
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && fab.dataset.open === 'true') {
+        set(false)
+        btn.focus()
+      }
+    })
+    // Picking any item closes the menu (the link still navigates / share fires).
+    document.getElementById('social-fab-menu')?.addEventListener('click', (e) => {
+      if (e.target.closest('a, button')) set(false)
+    })
+  })()
+</script>

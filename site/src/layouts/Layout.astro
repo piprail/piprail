@@ -1,6 +1,7 @@
 ---
 import '../styles/global.css'
 import Analytics from '../components/Analytics.astro'
+import SocialRail from '../components/SocialRail.astro'
 
 interface Props {
   title?: string
@@ -223,6 +224,10 @@ const bingVerification = import.meta.env.PUBLIC_BING_VERIFICATION
       ))}
     </div>
     <slot />
+
+    <!-- Global "like & share" quick-links rail (GitHub · X · ClawHub · Share) —
+         a slim left dock on wide screens, a bottom pill on phones/tablets. -->
+    <SocialRail />
 
     <!-- Open every EXTERNAL link in a new tab by default, with a safe rel.
          One place, so it covers every page + any link added later. Internal
