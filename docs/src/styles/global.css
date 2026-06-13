@@ -36,6 +36,11 @@
   --piprail-font-display: 'Space Grotesk', 'Inter', ui-sans-serif, system-ui, sans-serif;
   --sl-nav-height: 4rem;
 
+  /* A more generous reading column (Starlight ships 45rem) so the content FILLS
+     the space on wide screens instead of stranding a narrow strip — matching the
+     denser docs feel of references like docs.openclaw.ai. */
+  --sl-content-width: 54rem;
+
   /* Tunable brand surfaces shared with Expressive Code (set in astro.config). */
   --piprail-code-bg: oklch(0.165 0.006 260);
   --piprail-code-chrome: oklch(0.19 0.006 260);
@@ -75,6 +80,22 @@ html {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   scroll-behavior: smooth;
+}
+
+/* ============================================================================
+   Smooth load — kill the reload "glitch". Until the first paint has settled
+   (theme applied + web fonts swapped), NO transition or animation may fire, so the
+   sidebar/content never animates or jolts into place on load — it just appears,
+   instantly and stable. A tiny inline head script (astro.config) adds `pr-js`
+   immediately and `pr-ready` once `document.fonts.ready` resolves; after that,
+   transitions return for real interactions. No-JS visitors skip the guard entirely
+   (no `pr-js`), so they still get plain, working CSS.
+   ============================================================================ */
+html.pr-js:not(.pr-ready) *,
+html.pr-js:not(.pr-ready) *::before,
+html.pr-js:not(.pr-ready) *::after {
+  transition: none !important;
+  animation: none !important;
 }
 
 ::selection {
@@ -230,9 +251,24 @@ nav.sidebar a[aria-current='page']::before {
   margin-top: 2rem;
 }
 
-/* Anchored-heading link gets an emerald glyph. */
+/* Anchored-heading link — an emerald glyph that sits a comfortable gap after the
+   heading (it used to jam right against the text), fading in on hover/focus so the
+   headings stay clean until you reach for the link. */
 .sl-markdown-content .sl-anchor-link {
   color: var(--sl-color-accent);
+  margin-inline-start: 0.45em;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.sl-markdown-content :is(h1, h2, h3, h4, h5, h6):hover .sl-anchor-link,
+.sl-markdown-content .sl-anchor-link:focus-visible {
+  opacity: 1;
+}
+/* Touch / no-hover devices can't reveal on hover — keep the anchor faintly visible. */
+@media (hover: none) {
+  .sl-markdown-content .sl-anchor-link {
+    opacity: 0.55;
+  }
 }
 
 /* Body links — emerald, with a refined underline that thickens on hover. */
@@ -347,14 +383,28 @@ nav.sidebar a[aria-current='page']::before {
 /* ============================================================================
    Tables — rounded container, tinted header row, hairline dividers.
    ============================================================================ */
+/* A wide table must SCROLL inside its column, never overflow into the page (it
+   used to slide under the fixed "On this page" panel and bleed through). `display:
+   block` turns the table itself into the scroll container — full-width when it fits,
+   horizontal scroll when its content is wider than the reading column. */
 .sl-markdown-content table {
-  display: table;
+  display: block;
   width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
   border-collapse: separate;
   border-spacing: 0;
   border: 1px solid var(--sl-color-hairline, var(--sl-color-gray-5));
   border-radius: 0.6rem;
-  overflow: hidden;
+}
+/* Thin, quiet scrollbar to match the code blocks. */
+.sl-markdown-content table::-webkit-scrollbar {
+  height: 6px;
+}
+.sl-markdown-content table::-webkit-scrollbar-thumb {
+  background: oklch(1 0 0 / 0.12);
+  border-radius: 999px;
 }
 .sl-markdown-content th {
   font-family: var(--piprail-font-display);
@@ -541,20 +591,30 @@ starlight-toc a[aria-current='true'] {
   margin-top: 3.25rem;
 }
 
-/* ---- Motion: a gentle load-in, honored only when motion is welcome. ---- */
-@media (prefers-reduced-motion: no-preference) {
-  .content-panel {
-    animation: piprail-fade-up 0.5s cubic-bezier(0.2, 0.6, 0.2, 1) both;
+/* ============================================================================
+   Ultra-wide / zoomed-out screens — cap + center the whole app (the docs.openclaw.ai
+   "doc-shell" model: it caps at ~1780px and centers). BELOW the cap the layout fills
+   the viewport normally (wide content, sidebar pinned, as on any laptop/desktop); only
+   PAST the cap do equal gutters appear so a 4K / heavily-zoomed-out screen shows a tidy
+   centered block — never a narrow strip marooned in empty space.
+   ============================================================================ */
+@media (min-width: 111rem) {
+  /* 111rem ≈ 1776px (matches OpenClaw's 1780). */
+  :root {
+    --pr-gutter: calc((100vw - 111rem) / 2);
   }
-}
-@keyframes piprail-fade-up {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
+  /* Header bar stays full-width; its content tracks the gutters to line up with the body. */
+  header.header {
+    padding-inline: calc(1rem + var(--pr-gutter));
   }
-  to {
-    opacity: 1;
-    transform: none;
+  /* Pull the fixed left rail in to the centered block's left edge. */
+  .sidebar-pane {
+    inset-inline-start: var(--pr-gutter);
+  }
+  /* Clear the moved rail + reserve the right gutter so content + TOC center in the cap. */
+  .main-frame {
+    padding-inline-start: calc(var(--sl-content-inline-start) + var(--pr-gutter));
+    padding-inline-end: var(--pr-gutter);
   }
 }
 

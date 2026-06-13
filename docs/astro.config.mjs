@@ -38,6 +38,18 @@ export default defineConfig({
       // Default to dark — PipRail is a dark-first brand.
       // (Readers can still toggle to light; we theme both.)
       head: [
+        // Smooth-load guard: suppress transitions/animations until the first paint has
+        // settled (theme applied + web fonts swapped) so nothing animates/jolts "in" on
+        // reload. Runs in <head> before <body> paints, so `pr-js` is set pre-paint;
+        // `pr-ready` flips on once fonts are ready (or a 1.2s fallback). See global.css.
+        {
+          tag: 'script',
+          content:
+            "document.documentElement.classList.add('pr-js');" +
+            "var r=function(){requestAnimationFrame(function(){document.documentElement.classList.add('pr-ready');});};" +
+            "if(document.fonts&&document.fonts.ready){document.fonts.ready.then(r);}else{r();}" +
+            "setTimeout(r,1200);",
+        },
         // Brand fonts — match the marketing site exactly.
         { tag: 'link', attrs: { rel: 'preconnect', href: 'https://fonts.googleapis.com' } },
         {
