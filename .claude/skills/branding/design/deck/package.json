@@ -1,0 +1,16 @@
+{
+  "name": "piprail-deck",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "description": "PipRail pitch deck generator — brand-accurate, editable .pptx (pptxgenjs + embedded brand fonts)",
+  "scripts": {
+    "assets": "node assets.mjs",
+    "build": "node build.mjs",
+    "embed": "node embed-fonts.mjs",
+    "all": "node assets.mjs && node build.mjs && node embed-fonts.mjs"
+  },
+  "dependencies": {
+    "pptxgenjs": "^3.12.0"
+  }
+}

@@ -1,0 +1,12 @@
+# The deck is a PUBLISHED, shareable deliverable — track the WHOLE section so it's
+# downloadable from GitHub (send links to the .pptx / .pdf) and rebuildable on clone.
+#
+# This intentionally OVERRIDES the repo-root `node_modules/` ignore for this folder only:
+# these deps are pure-JS (pptxgenjs + jszip — zero native binaries), so committing them is
+# portable and makes the folder self-contained (clone → `node build.mjs`, no npm install).
+# Nothing here is ignored. (To slim the repo later: `git rm -r --cached <this>/node_modules`.)
+!node_modules/
+!node_modules/**
+
+# OS cruft only
+.DS_Store
