@@ -26,7 +26,8 @@ export default defineConfig({
       favicon: '/favicon-32.png',
 
       // The PipRail brand applied on top of Starlight (emerald accent, dark-first,
-      // Inter + JetBrains Mono, the signature glow). See src/styles/global.css.
+      // Space Grotesk display + Inter + JetBrains Mono, the signature glow).
+      // See src/styles/global.css.
       customCss: ['./src/styles/global.css'],
 
       social: [
@@ -47,7 +48,7 @@ export default defineConfig({
           tag: 'link',
           attrs: {
             rel: 'stylesheet',
-            href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap',
+            href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap',
           },
         },
         // Default social card for pages that don't set their own.
