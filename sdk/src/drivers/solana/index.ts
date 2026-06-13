@@ -146,6 +146,19 @@ function makeSolanaNetwork(preset: SolanaPreset, rpcUrl: string): ResolvedNetwor
     },
 
     async estimateCost(accept) {
+      // Standard `exact` rail: the buyer only SIGNS; the fee payer (a facilitator like PayAI, or the
+      // merchant's relayer) broadcasts and pays the SOL fee — and the canonical exact tx creates no
+      // account — so the BUYER's gas is ~0. Report it gasless (mirrors the EVM driver) so the planner
+      // shows the rail as buyer-gasless and `autoRoute` prefers it over the gas-paying onchain-proof rail.
+      if (accept.scheme === 'exact') {
+        return nativeCost({
+          symbol: 'SOL',
+          decimals: SOL_DECIMALS,
+          fee: 0n,
+          basis: 'estimated',
+          detail: 'gasless — the fee payer (facilitator/relayer) broadcasts and pays the SOL fee',
+        })
+      }
       // The base fee is a fixed 5000 lamports per signature (1 signature here).
       // A token payment may also create the recipient's associated token account
       // (~0.00204 SOL rent) — included conservatively, as we can't tell without

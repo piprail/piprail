@@ -23,12 +23,32 @@ It calls three deeper references where you want exhaustive depth, but you don't 
 
 > **The core truth that makes deploys easy:** publishing is **tag-driven CI**, never a manual
 > `npm publish`. You bump versions + sweep the docs + push a signed `sdk-v*` / `mcp-v*` tag, and a
-> GitHub Action builds, runs the gate, and publishes. The **site + docs** auto-deploy on every push
-> to `main` (Netlify for piprail.com, GitHub Pages for docs.piprail.com) — no tag needed.
+> GitHub Action builds, runs the gate, publishes to npm, **and now also cuts the GitHub Release
+> automatically** (and refreshes the MCP registry, once its secret is set — see below). The
+> **site + docs** auto-deploy on every push to `main` (Netlify for piprail.com, GitHub Pages for
+> docs.piprail.com) — no tag needed.
 >
 > **docs.piprail.com (the `docs/` Starlight site) is the source of truth for all documentation.**
 > The READMEs are signposts to it. npm only refreshes a package's README **when you publish** — so a
 > docs-only change still needs a patch bump + republish to show up on npm.
+
+### What's automatic (read this first)
+
+The pipeline is **push-to-ship**. After you've bumped versions + swept docs + passed the gate, the
+ONLY actions are a push and one or two tags — CI does the rest:
+
+| You do this | CI does this — automatically | Manual? |
+|---|---|---|
+| `git push origin main` | Deploy **piprail.com** (Netlify) + **docs.piprail.com** (GitHub Pages) + IndexNow ping + run CI checks | **None** |
+| `git push origin sdk-vX.Y.Z` | `release.yml`: gate → **npm publish `@piprail/sdk`** → **cut the GitHub Release** (`--latest`) | **None** |
+| `git push origin mcp-vX.Y.Z` | `mcp-release.yml`: gate → **npm publish `@piprail/mcp`** → **cut the GitHub Release** → **refresh the MCP registry** (best-effort, if the `MCP_PUBLISHER_PAT` secret is set) | Registry needs a **one-time secret** (§8) — otherwise it's a clean no-op you do by hand |
+
+So: **GitHub Releases are no longer a manual step** (CI cuts them from the tag, with auto-generated
+notes). The **MCP registry** becomes automatic the moment the `MCP_PUBLISHER_PAT` repo secret exists
+(§8); until then CI prints the one manual command and the release still succeeds. **External repos**
+(the separate `piprail/.github` org-profile, awesome-x402, coinbase/x402) stay manual *by design* —
+they're third-party / cross-repo and only need touching on a **material** change (chain count, pitch),
+not a routine patch (§9).
 
 ---
 
@@ -120,37 +140,48 @@ npm view @piprail/mcp version
 ```
 If the MCP Action fails at the build step, it's almost always the **SDK-not-built-first** gotcha.
 
-## 7. GitHub Releases
+## 7. GitHub Releases — now AUTOMATIC (CI cuts them)
+
+**You don't run anything here.** `release.yml` / `mcp-release.yml` create the GitHub Release for the
+tag right after npm publish, using the built-in `GITHUB_TOKEN` (no secret) and `--generate-notes` (the
+body is auto-built from commits since the previous tag). SDK = `--latest`; MCP = `--latest=false`. The
+step is idempotent (skips if the release already exists) and runs *after* publish, so a hiccup never
+un-publishes npm.
 
 ```bash
-# GOTCHA: `gh release` needs the token in the env explicitly — `gh release create` alone can 401.
-GH_TOKEN=$(gh auth token) gh release create sdk-vX.Y.Z --verify-tag --latest \
-  --title "@piprail/sdk vX.Y.Z — <headline>" --notes "<summary; link the CHANGELOG>"
-GH_TOKEN=$(gh auth token) gh release create mcp-vX.Y.Z --verify-tag --latest=false \
-  --title "@piprail/mcp vX.Y.Z — <headline>" --notes "<summary>"
+# Just VERIFY they appeared (the run watched in §6 already includes this step):
+gh release view sdk-vX.Y.Z --json name,isLatest,url --jq '{name,isLatest,url}'
+gh release view mcp-vX.Y.Z --json name,isLatest,url --jq '{name,isLatest,url}'
 ```
-The newest **SDK** release is `--latest`; **MCP** releases use `--latest=false`.
+Only if CI's release step failed (rare), cut it by hand — `gh release create` needs the token in the
+env explicitly: `GH_TOKEN=$(gh auth token) gh release create sdk-vX.Y.Z --verify-tag --latest --generate-notes`.
 
 ## 8. MCP registry refresh (MCP releases only — `io.github.piprail/mcp`)
 
+**Automatic once the `MCP_PUBLISHER_PAT` repo secret is set** — `mcp-release.yml`'s "Publish to the MCP
+Registry" step then installs `mcp-publisher`, logs in with the PAT, and publishes `mcp/server.json` on
+every `mcp-v*` tag. It's **best-effort** (`continue-on-error`) and never fails the npm release; if the
+secret is absent it prints the one manual command and exits cleanly.
+
+**One-time setup to make it fully automatic (do this once, then forget it):**
+1. Create a **classic PAT** at <https://github.com/settings/tokens> with the **`read:org`** scope (the
+   registry's token-exchange **rejects the gh-CLI OAuth token** `gho_…` — it needs a real PAT).
+2. Make your `piprail` org membership **public** at <https://github.com/orgs/piprail/people> (else the
+   registry returns **403** at publish).
+3. Add the PAT as the repo secret **`MCP_PUBLISHER_PAT`** at
+   <https://github.com/piprail/piprail/settings/secrets/actions>. Done — every future MCP tag self-publishes to the registry.
+
+**Manual fallback** (until the secret exists, or to publish out-of-band):
 ```bash
 cd mcp
 mcp-publisher validate                 # catches the ≤100-char description + schema issues
-mcp-publisher login github             # then: mcp-publisher publish   (reads ./server.json)
+mcp-publisher login github             # interactive device flow: open github.com/login/device, enter the code
+mcp-publisher publish                  # reads ./server.json → io.github.piprail/mcp
 ```
-
-> **CREDENTIAL GOTCHA (hard-won — RELEASING.md was wrong about this):** the registry's token-exchange
-> **rejects the gh-CLI OAuth token** (`gho_…`) with a 401 "failed to get GitHub user", even though that
-> same token authenticates to GitHub's own API fine. `mcp-publisher login github -token <…>` needs a
-> **classic or fine-grained GitHub PAT** with `read:org`, **not** `$(gh auth token)`. So the two working
-> paths are:
-> 1. **Interactive device flow:** `mcp-publisher login github` → open the printed `github.com/login/device` URL, enter the code. (A human must do this — it can't be automated.)
-> 2. **A real PAT:** create one at github.com/settings/tokens (classic, `read:org`) → `mcp-publisher login github -token ghp_…`.
->
-> Then `mcp-publisher publish`. A **403** at publish = your `piprail` org membership isn't public — make it
-> public at <https://github.com/orgs/piprail/people>, then re-`login` (the token caches perms at login).
-> The registry has historically lagged npm by several versions because of this manual, login-gated step —
-> it's safe to defer, but note it as deferred so it doesn't get forgotten.
+> The interactive device flow needs a human; the PAT path (`mcp-publisher login github -token ghp_…`,
+> classic, `read:org`) is what the CI step automates. A **403** at publish = org membership not public
+> (step 2 above). Historically the registry lagged npm by several versions because of this manual step —
+> the `MCP_PUBLISHER_PAT` secret is what closes that gap for good.
 
 ## 9. External repos (when the change is material — "auto-update the other repos")
 
@@ -188,8 +219,8 @@ gh run list --limit 6   # sdk-release ✓ mcp-release ✓ site ✓ deploy-docs �
 3. **`check-sync.mjs` fails the build on `llms.txt` drift.** Bump the `SDK-Version`/`MCP-Version` headers in the **same commit** as the package bump, or the Netlify/CI build (and the release) stops.
 4. **MCP has 4 version files** (`package.json`, `src/version.ts`, `server.json` ×2, `CHANGELOG.md`) — `version.test.ts` fails the gate if they drift.
 5. **`server.json` `description` ≤ 100 chars** — the registry 422s a longer one.
-6. **`gh release create` can 401** — pass `GH_TOKEN=$(gh auth token)` explicitly.
-7. **MCP registry rejects the gh OAuth token** — needs a classic PAT or the interactive device flow (§8).
+6. **GitHub Releases are auto now** — CI cuts them from the tag (§7). Only `gh release create` by hand if CI's step failed (then pass `GH_TOKEN=$(gh auth token)` explicitly — it can 401 otherwise).
+7. **MCP registry auto-publishes only if `MCP_PUBLISHER_PAT` is set** (§8) — a classic PAT (`read:org`), org membership public. Without it CI no-ops and you publish by hand.
 8. **`dist/` is gitignored** — CI rebuilds; never commit it.
 9. **Don't sweep archival files** — `.claude/plans/**` and old `CHANGELOG` entries are point-in-time; leave them.
 10. **The org profile is a different repo** (`piprail/.github`) — this repo's push never touches it.
@@ -204,8 +235,9 @@ npm run typecheck && npm run typecheck:test -w @piprail/sdk && npm run test:sdk 
   && npm run build:sdk && npm run build:mcp && node site/scripts/check-sync.mjs && npm run build -w site
 # 5. ship:
 git commit -am "release: @piprail/sdk vX.Y.Z + @piprail/mcp vX.Y.Z" && git push origin main
-git tag -s sdk-vX.Y.Z -m "@piprail/sdk vX.Y.Z" && git push origin sdk-vX.Y.Z   # watch → npm view
-git tag -s mcp-vX.Y.Z -m "@piprail/mcp vX.Y.Z" && git push origin mcp-vX.Y.Z   # watch → npm view
-# 7. releases (GH_TOKEN=$(gh auth token) gh release create …)  ·  8. MCP registry  ·  9. external repos  ·  10. verify
+git tag -s sdk-vX.Y.Z -m "@piprail/sdk vX.Y.Z" && git push origin sdk-vX.Y.Z   # → npm + GitHub Release (auto)
+git tag -s mcp-vX.Y.Z -m "@piprail/mcp vX.Y.Z" && git push origin mcp-vX.Y.Z   # → npm + Release + registry (auto)
+# CI now auto-cuts the GitHub Releases (§7) and refreshes the MCP registry (§8, if MCP_PUBLISHER_PAT set).
+# You only: watch the runs → npm view both → verify releases (§7) → external repos if material (§9) → §10.
 ```
 ```

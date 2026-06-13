@@ -77,6 +77,16 @@ choose** (Coinbase CDP, x402.org, PayAI, or any compatible one). No relayer key,
 facilitator pays gas. Under the hood this is just two HTTP POSTs to the facilitator's
 configured URL — PipRail hosts nothing. Works on **EVM and Solana**.
 
+:::caution[A facilitator settles EIP-3009 + SVM — not Permit2]
+Third-party facilitators settle the *standard* `exact` schemes: **EIP-3009** (EVM — USDC, EURC) and
+**SVM** (Solana — any SPL token). They do **not** understand PipRail's **Permit2** payload (it settles
+through PipRail's own `x402ExactPermit2Proxy`), so a non-EIP-3009 EVM token (e.g. Binance-Peg USDC/USDT
+on BNB) **can't** go through a facilitator — it's **self-settle only** (Mode A). PipRail enforces this:
+a *forced* `method: 'permit2'` with `settle: { facilitator }` throws at setup, and an *auto*-selected
+Permit2 simply isn't advertised over the facilitator (that token falls back to `onchain-proof`). For a
+fully-gasless facilitator gate, use an **EIP-3009** token on EVM, or **any SPL token** on Solana.
+:::
+
 :::tip[Gasless settlement with a free facilitator]
 Point `facilitator` at a **free, no-auth** facilitator like **PayAI**
 (`https://facilitator.payai.network`) and the whole flow is **gasless** — the buyer only **signs**
@@ -135,6 +145,14 @@ than a misleading 402. Critically, the `paymentRequirements` sent to the facilit
 rebuilt from the gate's **trusted rail** (`payTo` / `amount` / `asset` / `network`), never the
 client's echo, so a forged payload can't redirect the settlement.
 
+On **Solana**, there's also a *challenge-time* read: the gate fetches the facilitator's fee-payer
+pubkey from its `GET /supported` (to advertise it so the buyer can build the transaction). If that's
+unreachable, the gate **drops the `exact` rail** for that chain (serving `onchain-proof`); if it was
+the only exact rail, it throws a clear error naming the cause. Pin it with `settle: { facilitator,
+feePayer }` to remove the dependency entirely. The full three-failure-point breakdown — challenge-time
+discovery, settle transport/auth (502), and a facilitator rejection (402) — is in
+[Gasless payments → When the facilitator fails](/making-payments/gasless-payments/#when-the-facilitator-fails).
+
 ## The `ExactRailOption`
 
 The `exact:` object you pass to `requirePayment` / `createPaymentGate` is an `ExactRailOption`,
@@ -146,9 +164,9 @@ import type { ExactRailOption } from '@piprail/sdk'
 
 | Field | Type | Purpose |
 | --- | --- | --- |
-| `settle` | `'self'` \| `{ facilitator: string; authHeaders?: () => Promise<Record<string, string>> }` | Pick the mode: your own relayer (`'self'`) or a facilitator URL you choose. |
+| `settle` | `'self'` \| `{ facilitator: string; authHeaders?: () => Promise<Record<string, string>>; feePayer?: string }` | Pick the mode: your own relayer (`'self'`) or a facilitator URL you choose. `feePayer` (Solana only, optional) pins the facilitator's fee-payer pubkey instead of discovering it from `GET /supported`. |
 | `relayer` | EVM `{ privateKey }` / `{ walletClient }`, or Solana `{ secretKey }` / `{ signer }` | **Required for `settle: 'self'`** — the gas-paying wallet that broadcasts the settle (EIP-3009 `transferWithAuthorization`, the Permit2 proxy `settle`, or the Solana fee-payer co-sign). Distinct from `payTo` (**must differ** on Solana). Ignored in facilitator mode. |
-| `method` | `'eip3009'` \| `'permit2'` \| `'auto'` | Which EVM transfer method to advertise. `'auto'` (default) uses EIP-3009 when the token supports it, else Permit2 (so BNB's Binance-Peg USDC "just works"). Pin one to force it. **Ignored on Solana** (always SVM). |
+| `method` | `'eip3009'` \| `'permit2'` \| `'auto'` | Which EVM transfer method to advertise. `'auto'` (default) uses EIP-3009 when the token supports it, else Permit2 (so BNB's Binance-Peg USDC "just works"). Pin one to force it. **Ignored on Solana** (always SVM). **`'permit2'` requires `settle: 'self'`** — a third-party facilitator can't settle Permit2 (see the Mode B caution above). |
 
 ## Choosing a mode
 

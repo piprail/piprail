@@ -108,10 +108,14 @@ can't finish. Backed by [`planPayment()`](/making-payments/plan-payment/).
 ## piprail_pay_request — the one tool that pays
 
 Fetches a gated URL and makes the required payment if needed, subject to the spend policy and
-the `onBeforePay` approval hook. It pays whichever rail the client is configured for — PipRail's
-backendless on-chain rail, or, when enabled, the standard
-[`exact`](/making-payments/exact-buyer/) rail. Returns the HTTP status, the response body, and a
-payment receipt if one settled.
+the `onBeforePay` approval hook. It pays whichever rail(s) the client is configured for:
+`onchain-proof` (PipRail's backendless default — the buyer broadcasts and pays gas), or — when the
+operator enables it (`schemes: ['onchain-proof', 'exact']`) — the ratified
+[`exact`](/making-payments/exact-buyer/) rail, where the buyer only **signs** and the server/facilitator
+broadcasts, so the buyer pays **zero gas** (on EVM + Solana; the method — EIP-3009/Permit2/SVM — is
+auto-selected). With [`autoRoute`](/making-payments/plan-payment/) on, it pays the cheapest settleable
+rail, which is the gasless `exact` one. Returns the HTTP status, the response body, and a payment
+receipt if one settled. The agent doesn't choose the rail or method — the client does.
 
 | Arg | Type | Purpose |
 | --- | --- | --- |

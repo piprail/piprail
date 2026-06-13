@@ -360,6 +360,56 @@ describe('exact rail — facilitator mode (Mode B)', () => {
   })
 })
 
+describe('exact rail — facilitator mode rejects Permit2 (facilitators settle EIP-3009/SVM only)', () => {
+  const relayer = { privateKey: '0x' + 'ab'.repeat(32) }
+
+  it("FORCED method:'permit2' + facilitator is a clear config error (facilitators can't settle Permit2)", async () => {
+    const gate = createPaymentGate({
+      chain: { id: 8453, rpcUrl: 'x' }, token: 'USDC', amount: '0.05', payTo: PAY_TO,
+      exact: { settle: { facilitator: 'https://x402.org/facilitator' }, method: 'permit2' },
+    })
+    // A third-party facilitator can't settle PipRail's Permit2 proxy — refuse the explicit combo.
+    await expect(gate.challenge('https://api/x')).rejects.toThrow(/permit2.*facilitator|facilitator.*Permit2/i)
+    await expect(gate.challenge('https://api/x')).rejects.toThrow(/EIP-3009|settle: 'self'/i)
+  })
+
+  it('AUTO: a non-EIP-3009 token (USDT) + facilitator drops to onchain-proof-only, with an actionable reason', async () => {
+    const gate = createPaymentGate({
+      chain: { id: 8453, rpcUrl: 'x' }, token: 'USDT', amount: '1', payTo: PAY_TO,
+      exact: { settle: { facilitator: 'https://x402.org/facilitator' } },
+    })
+    // It's the ONLY rail, so the gate refuses loudly — but the reason now names the real cause
+    // (EIP-3009 / facilitator), not a generic "unsupported".
+    await expect(gate.challenge('https://api/x')).rejects.toThrow(/none of the offered rails support it/i)
+    await expect(gate.challenge('https://api/x')).rejects.toThrow(/EIP-3009|facilitator/i)
+  })
+
+  it('MIXED [USDC, USDT] + facilitator advertises exact on the EIP-3009 token only (USDT → onchain-proof)', async () => {
+    const gate = createPaymentGate({
+      accept: [
+        { chain: { id: 8453, rpcUrl: 'x' }, token: 'USDC', amount: '0.05', payTo: PAY_TO },
+        { chain: { id: 8453, rpcUrl: 'x' }, token: 'USDT', amount: '1', payTo: PAY_TO },
+      ],
+      exact: { settle: { facilitator: 'https://x402.org/facilitator' } },
+    })
+    const { challenge } = await gate.challenge('https://api/x')
+    const exactRails = challenge.accepts.filter((a) => a.scheme === 'exact')
+    expect(exactRails).toHaveLength(1)
+    expect(exactRails[0]!.extra).toMatchObject({ assetTransferMethod: 'eip3009' })
+    // USDT still gets an onchain-proof rail — it's not dropped from the gate, just from `exact`.
+    expect(challenge.accepts.filter((a) => a.scheme === 'onchain-proof')).toHaveLength(2)
+  })
+
+  it("self-settle STILL allows Permit2 (the merchant's own relayer broadcasts the proxy settle)", async () => {
+    const gate = createPaymentGate({
+      chain: { id: 8453, rpcUrl: 'x' }, token: 'USDT', amount: '1', payTo: PAY_TO,
+      exact: { settle: 'self', relayer },
+    })
+    const { challenge } = await gate.challenge('https://api/x')
+    expect(challenge.accepts.find((a) => a.scheme === 'exact')!.extra).toMatchObject({ assetTransferMethod: 'permit2' })
+  })
+})
+
 describe('exact rail — Permit2 proxy guard (never advertise an unsettleable rail)', () => {
   afterEach(() => {
     permit2Supported = true

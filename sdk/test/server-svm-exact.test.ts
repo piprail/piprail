@@ -9,6 +9,7 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { createPaymentGate } from '../src/server.js'
 import { registerDriver } from '../src/drivers/index.js'
 import type { PaymentDriver } from '../src/drivers/types.js'
+import { SettlementError } from '../src/errors.js'
 
 const NETWORK = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp'
 const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
@@ -152,6 +153,17 @@ describe('gate — SVM facilitator mode (neither buyer nor merchant pays gas; fa
     expect(calls.some((c) => c.url.endsWith('/supported'))).toBe(false) // discovery skipped
   })
 
+  it("method:'permit2' is IGNORED on Solana (always SVM) — the EVM permit2+facilitator guard never misfires here", async () => {
+    // method is EVM-only; on Solana the driver always resolves 'svm'. The gate's permit2+facilitator
+    // refusal keys off the RESOLVED method, so it must NOT throw for a (nonsensical) permit2 hint here.
+    const gate = createPaymentGate({
+      chain: 'solana', token: 'USDC', amount: '0.05', payTo: PAY_TO,
+      exact: { settle: { facilitator: FACILITATOR }, method: 'permit2' },
+    })
+    const { challenge } = await gate.challenge('https://api/x')
+    expect(challenge.accepts[0]).toMatchObject({ scheme: 'exact', extra: { assetTransferMethod: 'svm', feePayer: FAC_FEEPAYER } })
+  })
+
   it('routes an inbound svm payment to the facilitator (/verify → /settle) → paid, txid from facilitator', async () => {
     const res = await facilitatorGate().verify(svmHeader(Buffer.from([5, 5, 5, 5]).toString('base64')))
     expect(res.kind).toBe('paid')
@@ -167,12 +179,40 @@ describe('gate — SVM facilitator mode (neither buyer nor merchant pays gas; fa
     expect(settleCall).toBeTruthy()
   })
 
-  it('if /supported is unreachable AND no feePayer override → no rail → the gate refuses loudly', async () => {
+  it('if /supported is unreachable AND no feePayer override → the gate refuses with an ACTIONABLE reason', async () => {
     globalThis.fetch = (async (input: RequestInfo | URL) => {
       const u = String(input)
       if (u.endsWith('/supported')) return new Response('err', { status: 500 })
       return new Response('{}', { status: 404 })
     }) as typeof globalThis.fetch
+    // Still refuses loudly (it was the only rail) — but the message now names the real cause:
+    // the facilitator's fee payer couldn't be read, and points at the fixes (pin feePayer / self).
     await expect(facilitatorGate().challenge()).rejects.toThrow(/none of the offered rails support it/i)
+    await expect(facilitatorGate().challenge()).rejects.toThrow(/couldn't read a fee payer|exact\.settle\.feePayer|settle: 'self'/i)
+  })
+
+  it('a facilitator transport/auth failure at settle (/verify non-200) → SettlementError (gate 5xx, never a misleading 402)', async () => {
+    // /supported + advertise succeed; the failure is at SETTLE time — a server-side fault, so the
+    // gate must throw SettlementError (→ 502), NOT a 402 that would wrongly tell the buyer to re-pay.
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const u = String(input)
+      if (u.endsWith('/supported')) return new Response(JSON.stringify({ kinds: [{ scheme: 'exact', network: NETWORK, extra: { feePayer: FAC_FEEPAYER } }] }), { status: 200 })
+      if (u.endsWith('/verify')) return new Response('upstream auth error', { status: 401 })
+      return new Response('{}', { status: 404 })
+    }) as typeof globalThis.fetch
+    await expect(facilitatorGate().verify(svmHeader(Buffer.from([7, 7, 7, 7]).toString('base64')))).rejects.toBeInstanceOf(SettlementError)
+    expect(settleSpy).not.toHaveBeenCalled() // never the merchant's own relayer
+  })
+
+  it('a facilitator client-fixable rejection (/settle success:false) → conformant 402, never a spend', async () => {
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const u = String(input)
+      if (u.endsWith('/supported')) return new Response(JSON.stringify({ kinds: [{ scheme: 'exact', network: NETWORK, extra: { feePayer: FAC_FEEPAYER } }] }), { status: 200 })
+      if (u.endsWith('/verify')) return new Response(JSON.stringify({ isValid: true }), { status: 200 })
+      if (u.endsWith('/settle')) return new Response(JSON.stringify({ success: false, errorReason: 'insufficient_funds', transaction: '', network: NETWORK }), { status: 200 })
+      return new Response('{}', { status: 404 })
+    }) as typeof globalThis.fetch
+    const res = await facilitatorGate().verify(svmHeader(Buffer.from([8, 8, 8, 8]).toString('base64')))
+    expect(res.kind).toBe('invalid') // a 402 re-challenge — the buyer can fix + retry
   })
 })

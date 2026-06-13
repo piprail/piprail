@@ -31,10 +31,13 @@ this rail existed — `exact` is strictly opt-in.
 ## How the exact rail differs
 
 With `onchain-proof`, the client broadcasts the payment itself and proves it. With `exact`, the
-buyer **signs with its own wallet** and the gate (or, on EVM, a merchant-chosen facilitator)
-broadcasts it. So the buyer spends roughly **zero gas** — only the token funds the payment — and
-PipRail hosts and settles nothing. (When an EVM merchant points settlement at a free facilitator like
-PayAI, no one runs a gas-funded key at all — settlement is fully gasless end to end.)
+buyer **signs with its own wallet** and *someone else* broadcasts it — the merchant's relayer, or a
+merchant-chosen **facilitator** (on **EVM or Solana**). So the buyer spends roughly **zero gas** — only
+the token funds the payment — and PipRail hosts and settles nothing. **The buyer is gasless either way:
+how the merchant settles (its own relayer vs a facilitator) is the merchant's call and invisible to the
+buyer.** When the merchant points settlement at a free facilitator like **PayAI**, no one runs a
+gas-funded key at all — settlement is fully gasless end to end (see
+[Gasless payments](/making-payments/gasless-payments/)).
 
 | | `onchain-proof` (default) | `exact` (opt-in) |
 | --- | --- | --- |
@@ -77,6 +80,12 @@ a Solana-bound client, is payable; an `exact` rail naming a different chain (or 
 When you enable both schemes, the client gathers `onchain-proof` rails first, so on a dual-rail
 402 the default selection is unchanged. An `exact` rail is only ever picked when the bound
 driver can actually settle it (EVM EIP-3009/Permit2, or Solana SVM).
+
+To make the client *prefer* the gasless `exact` rail when a gate offers both, enable
+[`autoRoute`](/making-payments/fetch-and-autoroute/) (`new PipRailClient({ …, autoRoute: true })`, or
+per call `fetch(url, { autoRoute: true })`): it pays the **cheapest settleable** rail, and since the
+buyer-gasless `exact` rail estimates at ~0 gas, it wins automatically. Without `autoRoute` the dual-rail
+default stays `onchain-proof`; a foreign `exact`-only server is paid over `exact` either way.
 
 ## Paying
 

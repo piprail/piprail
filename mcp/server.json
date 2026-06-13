@@ -9,12 +9,12 @@
     "source": "github",
     "subfolder": "mcp"
   },
-  "version": "0.3.2",
+  "version": "0.3.3",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@piprail/mcp",
-      "version": "0.3.2",
+      "version": "0.3.3",
       "transport": {
         "type": "stdio"
       },
@@ -52,7 +52,7 @@
         },
         {
           "name": "PIPRAIL_SCHEMES",
-          "description": "Comma-separated payment schemes to settle (default: onchain-proof). Add 'exact' (onchain-proof,exact) to also pay standard x402 servers — EVM + EIP-3009 (USDC) only.",
+          "description": "Comma-separated payment schemes to settle (default: onchain-proof). Add 'exact' (onchain-proof,exact) to also pay standard x402 servers GASLESS on EVM + Solana (method auto-selected).",
           "isRequired": false,
           "format": "string"
         }

@@ -340,6 +340,10 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     if (resolved) return resolved
     const p = (async () => {
       const accepts = normaliseAccepts(options)
+      // Actionable reasons a spec couldn't carry `exact` (facilitator unreachable, a
+      // facilitator-incompatible token). Surfaced ONLY if NOTHING carries exact — so a
+      // graceful per-rail drop stays quiet on a gate that has another working exact rail.
+      const exactSkips: string[] = []
       const specs = await Promise.all(
         accepts.map(async (a): Promise<ResolvedSpec> => {
           const net = await resolveNetwork({ chain: a.chain, rpcUrl: a.rpcUrl ?? options.rpcUrl })
@@ -354,18 +358,25 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
           const { asset, decimals, symbol } = net.resolveToken(a.token)
           const amountBase = parseUnits(a.amount, decimals)
           const spec: ResolvedSpec = { net, asset, decimals, symbol, amountBase, amountFormatted: a.amount, payTo }
-          if (options.exact) spec.exact = await resolveExactRail(net, asset)
+          if (options.exact) {
+            const outcome = await resolveExactRail(net, asset)
+            if (outcome.rail) spec.exact = outcome.rail
+            else if (outcome.skipReason) exactSkips.push(outcome.skipReason)
+          }
           return spec
         })
       )
-      // If exact was requested but NOTHING could carry it (e.g. a single non-EVM /
-      // native gate), say so loudly rather than silently shipping onchain-proof only.
+      // If exact was requested but NOTHING could carry it (e.g. a single non-EVM / native gate,
+      // or a facilitator that's unreachable), say so loudly rather than silently shipping
+      // onchain-proof only — leading with any ACTIONABLE per-rail reason we collected.
       if (options.exact && !specs.some((s) => s.exact)) {
         throw new Error(
           'requirePayment: `exact` was requested but none of the offered rails support it. ' +
-            'The standard `exact` rail is EVM ERC-20 (EIP-3009 — USDC / EURC — or Permit2, e.g. ' +
-            'Binance-Peg USDC on BNB) or a Solana SPL token (SVM) — NOT native coins, NOT families ' +
-            'without a standard `exact` scheme. Offer an EVM ERC-20 / Solana SPL token, or drop `exact`.'
+            (exactSkips.length > 0
+              ? exactSkips.join(' ')
+              : 'The standard `exact` rail is EVM ERC-20 (EIP-3009 — USDC / EURC — or Permit2, e.g. ' +
+                'Binance-Peg USDC on BNB) or a Solana SPL token (SVM) — NOT native coins, NOT families ' +
+                'without a standard `exact` scheme. Offer an EVM ERC-20 / Solana SPL token, or drop `exact`.')
         )
       }
       return specs
@@ -379,26 +390,33 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
   }
 
   /**
-   * Resolve a standard `exact` rail for one spec, or `undefined` when its family/asset can't
-   * carry one. Family-agnostic: it binds the self-settle relayer (chain-agnostic config),
-   * delegates the chain-specific "which method + what `extra`" decision to the driver's
-   * {@link ResolvedNetwork.resolveExactRail} SPI (EVM picks EIP-3009/Permit2 + reads the token's
-   * EIP-712 domain; Solana returns the SVM method + the merchant `feePayer`), then attaches the
-   * settle mode. A family that doesn't implement the SPI offers no exact rail.
+   * Resolve a standard `exact` rail for one spec. Family-agnostic: it binds the self-settle
+   * relayer (chain-agnostic config), delegates the chain-specific "which method + what `extra`"
+   * decision to the driver's {@link ResolvedNetwork.resolveExactRail} SPI (EVM picks EIP-3009/
+   * Permit2 + reads the token's EIP-712 domain; Solana returns the SVM method + the `feePayer`),
+   * then attaches the settle mode. A family that doesn't implement the SPI offers no exact rail.
+   *
+   * Returns `{ rail }` when the asset/chain CAN carry exact; `{ skipReason }` to DROP this rail to
+   * `onchain-proof`-only with an ACTIONABLE reason the gate surfaces if nothing else carries exact
+   * (so a transient facilitator outage / a facilitator-incompatible token degrades gracefully on a
+   * multi-rail gate instead of bricking it); or `{}` when the asset simply can't carry exact (a
+   * native coin, an unsupported token). THROWS only for a hard, explicit MISCONFIGURATION the
+   * developer must fix (a forced method that can't be honoured, a `settle:'self'` without a relayer).
    */
   async function resolveExactRail(
     net: ResolvedNetwork,
     asset: string
-  ): Promise<ResolvedExactRail | undefined> {
+  ): Promise<{ rail?: ResolvedExactRail; skipReason?: string }> {
     const cfg = options.exact!
-    if (!net.resolveExactRail) return undefined // family has no standard `exact` settlement
+    const settle = cfg.settle
+    if (!net.resolveExactRail) return {} // family has no standard `exact` settlement
 
     // The SVM fee payer comes from one of two places: the merchant's own relayer (self mode), or
     // — in facilitator mode — the FACILITATOR's sponsor pubkey, so neither buyer nor merchant pays
-    // gas. Bind the relayer (self) / discover the facilitator's fee payer (facilitator) up front.
+    // gas. Bind the relayer (self) / read a configured fee-payer override (facilitator) up front.
     let relayer: WalletHandle | undefined
     let feePayer: string | undefined
-    if (cfg.settle === 'self') {
+    if (settle === 'self') {
       if (cfg.relayer === undefined) {
         throw new Error(
           "requirePayment: exact `settle: 'self'` needs a `relayer` wallet (the gas-paying key that " +
@@ -407,7 +425,7 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
       }
       relayer = net.bindWallet(cfg.relayer)
     } else {
-      feePayer = cfg.settle.feePayer // a configured fee-payer override, if any
+      feePayer = settle.feePayer // a configured fee-payer override, if any
     }
 
     const method = cfg.method ?? 'auto'
@@ -415,22 +433,57 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     // Facilitator mode + the family couldn't resolve a rail WITHOUT a fee payer (Solana, no
     // override): discover the facilitator's own fee payer from its `GET /supported` and retry — so
     // neither buyer nor merchant pays gas. EVM resolves without a fee payer, so it never does this
-    // extra fetch (the discovery is lazy, only when the first resolve came back empty).
-    if (!info && cfg.settle !== 'self' && !feePayer) {
-      const discovered = await fetchFacilitatorFeePayer(cfg.settle.facilitator, net.network)
-      if (discovered) info = await net.resolveExactRail({ asset, method, relayer, feePayer: discovered })
+    // extra fetch (the discovery is lazy, only when the first resolve came back empty). Native can
+    // never carry exact, so don't waste a probe on it.
+    if (!info && settle !== 'self' && !feePayer && asset !== 'native') {
+      const discovered = await fetchFacilitatorFeePayer(settle.facilitator, net.network)
+      if (!discovered) {
+        // The facilitator's `/supported` yielded no fee payer for this network — it may be down, or
+        // may not sponsor this chain. Drop this rail (don't brick a multi-rail gate) with a clear
+        // reason; the merchant can pin it via `exact.settle.feePayer` to remove the runtime dependency.
+        return {
+          skipReason:
+            `${net.network}: couldn't read a fee payer from the facilitator (${settle.facilitator}/supported) ` +
+            `— it may be down, or may not sponsor this network. Set \`exact.settle.feePayer\` explicitly to ` +
+            `remove the runtime dependency, switch to \`settle: 'self'\` with your own relayer, or retry.`,
+        }
+      }
+      info = await net.resolveExactRail({ asset, method, relayer, feePayer: discovered })
     }
-    if (!info) return undefined // this asset/chain can't carry exact → onchain-proof only
+    if (!info) return {} // this asset/chain can't carry exact → onchain-proof only
+
+    // A third-party facilitator settles the STANDARD `exact` schemes — EIP-3009 (EVM) and SVM
+    // (Solana) — never PipRail's own Permit2-proxy method (a non-standard payload no facilitator
+    // understands). We key off the method the driver ACTUALLY resolved (so this stays family-
+    // agnostic — Solana resolves `'svm'`, never `'permit2'`, and is unaffected): a FORCED
+    // `method: 'permit2'` + facilitator is an explicit contradiction → refuse loudly; an AUTO-
+    // selected Permit2 (a non-EIP-3009 token, e.g. Binance-Peg USDC) is dropped to onchain-proof-only.
+    if (settle !== 'self' && info.method === 'permit2') {
+      if (cfg.method === 'permit2') {
+        throw new Error(
+          "requirePayment: exact `method: 'permit2'` can't be settled by a third-party facilitator — " +
+            'facilitators settle the standard EIP-3009 (EVM) / SVM (Solana) schemes, not PipRail’s ' +
+            "Permit2 proxy. Use an EIP-3009 token (USDC / EURC) with the facilitator, or `settle: 'self'` " +
+            '(your own relayer) to settle Permit2 yourself.'
+        )
+      }
+      return {
+        skipReason:
+          `${net.network}: this token isn't EIP-3009 (auto-selected Permit2), which a third-party ` +
+          `facilitator can't settle — it would serve onchain-proof only here. Use an EIP-3009 token ` +
+          `(USDC / EURC) with the facilitator, or \`settle: 'self'\` to settle Permit2 yourself.`,
+      }
+    }
 
     const mode: ResolvedExactMode =
-      cfg.settle === 'self'
+      settle === 'self'
         ? { kind: 'self', relayer: relayer! }
         : {
             kind: 'facilitator',
-            url: cfg.settle.facilitator,
-            ...(cfg.settle.authHeaders ? { authHeaders: cfg.settle.authHeaders } : {}),
+            url: settle.facilitator,
+            ...(settle.authHeaders ? { authHeaders: settle.authHeaders } : {}),
           }
-    return { method: info.method, ...(info.extra ? { extra: info.extra } : {}), mode }
+    return { rail: { method: info.method, ...(info.extra ? { extra: info.extra } : {}), mode } }
   }
 
   // Replay protection. The built-in store reserves the proof ref synchronously

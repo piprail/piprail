@@ -359,12 +359,22 @@ export async function payExactEvm(input: {
   }
 
   // Re-derive the EIP-712 domain ON-CHAIN — never trust the server's extra.{name,version}.
-  // null ⇒ not an EIP-3009 token (USDT needs Permit2; native/plain ERC-20 aren't exact-payable).
-  const domain = await readExactDomain(publicClient, accept.asset)
+  // null ⇒ not an EIP-3009 token (USDT needs Permit2; native/plain ERC-20 aren't exact-payable),
+  // OR a transient RPC read failure (readExactDomain fails closed to null on either). The gate only
+  // advertises an eip3009 rail when ITS OWN read succeeded, so a null on the BUYER side is almost
+  // always a flaky-node blip — retry once before concluding "not EIP-3009", so a rate-limited public
+  // RPC can't misreport real USDC as un-payable and block an otherwise-valid gasless payment.
+  let domain = await readExactDomain(publicClient, accept.asset)
+  if (!domain) {
+    await new Promise((r) => setTimeout(r, 300))
+    domain = await readExactDomain(publicClient, accept.asset)
+  }
   if (!domain) {
     throw new UnsupportedSchemeError(
-      `exact: ${accept.asset} on ${accept.network} isn't an EIP-3009 token ` +
-        `(USDT needs Permit2; native coin and plain ERC-20s aren't exact-payable). Pay via onchain-proof.`
+      `exact: couldn't derive the EIP-712 domain for ${accept.asset} on ${accept.network}. Either it ` +
+        `isn't an EIP-3009 token (USDT needs Permit2; native/plain ERC-20 aren't exact-payable) — pay via ` +
+        `onchain-proof — OR your RPC couldn't read it (transient): if the gate advertised eip3009, pass a ` +
+        `reliable rpcUrl and retry.`
     )
   }
 

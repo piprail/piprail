@@ -4,6 +4,38 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.21.1] — 2026-06-13 — facilitator hardening + gasless auto-routing + agent-facing docs
+
+A correctness/robustness patch over 1.21.0, after a full re-review and **live mainnet tests of the
+facilitator path on both Solana and Base (EVM)**. Opt-in surface unchanged; `onchain-proof` still the
+default everywhere.
+
+### Fixed
+- **Gasless auto-routing now works on Solana.** The Solana driver's `estimateCost` now reports the
+  `exact` rail as **~0 buyer gas** (the fee payer — a facilitator like PayAI, or your relayer —
+  broadcasts and pays the SOL fee), mirroring the EVM driver. Before, it reported the same fee as
+  `onchain-proof`, so `planPayment()`/`fetch({ autoRoute: true })` wouldn't prefer the gasless rail —
+  now they correctly pick it. (Live-proven: autoRoute chooses `exact` even when the buyer holds SOL.)
+- **Buyer EIP-3009 domain read is resilient to a flaky RPC.** `payExactEvm` now retries the on-chain
+  EIP-712 domain read once before concluding a token "isn't EIP-3009", so a rate-limited public RPC can
+  no longer misreport real USDC as un-payable and block an otherwise-valid gasless payment. The error
+  message, if it still fails, now names the transient-RPC possibility instead of asserting non-EIP-3009.
+
+### Changed
+- **Permit2 can't be facilitator-settled — the gate now says so clearly.** A third-party facilitator
+  settles the standard EIP-3009 (EVM) / SVM (Solana) schemes, not PipRail's `x402ExactPermit2Proxy`. A
+  *forced* `exact: { method: 'permit2', settle: { facilitator } }` now throws a clear config error, and
+  an *auto*-selected Permit2 token is dropped to `onchain-proof`-only over a facilitator (rather than
+  advertising a rail it could never settle). Keyed off the resolved method, so Solana (`svm`) is unaffected.
+- **Clearer facilitator-unreachable error.** When a Solana facilitator's `GET /supported` can't be read
+  at challenge time, the gate now explains the real cause (and points at `exact.settle.feePayer` / 
+  `settle: 'self'`) instead of the misleading "none of the offered rails support it".
+- **`PIPRAIL_AGENT_GUIDE` now teaches the gasless `exact` rail** — the two rails, that it's operator-opt-in,
+  that the on-chain method is auto-selected, and that on a timeout the `exact` `.ref` is an authorization
+  **nonce** (re-present the same authorization, never re-sign). Plus docs: the "whole model in 30 seconds"
+  (gas vs `onchain-proof` vs `exact`'s three methods), a "when the facilitator fails" breakdown, and
+  agent-toolkit/MCP gasless guidance.
+
 ## [1.21.0] — 2026-06-13 — standard `exact` rail on Solana (SVM) + fully-gasless facilitator mode
 
 Opt-in, defaults unchanged. `onchain-proof` stays the default on every chain and is byte-identical.

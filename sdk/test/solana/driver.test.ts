@@ -18,6 +18,27 @@ describe('solanaDriver.confirm — guards its RPC read (ConfirmationTimeoutError
   })
 })
 
+describe('solanaDriver.estimateCost — the exact rail is buyer-gasless (so autoRoute prefers it)', () => {
+  const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
+  const net = solanaDriver.resolve({ chain: 'solana' })!
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const accept = (scheme: 'onchain-proof' | 'exact'): any => ({
+    scheme, network: net.network, asset: USDC, amount: '1000', payTo: PAY_TO, maxTimeoutSeconds: 600, extra: { decimals: 6 },
+  })
+
+  it('reports ~0 buyer gas for an `exact` rail (the fee payer pays the SOL fee), basis estimated', async () => {
+    const cost = await net.estimateCost(accept('exact'))
+    expect(cost.fee).toBe('0')
+    expect(cost.feeSymbol).toBe('SOL')
+    expect(cost.basis).toBe('estimated')
+  })
+
+  it('an `onchain-proof` USDC rail still reports a real (non-zero) SOL fee — the buyer broadcasts', async () => {
+    const cost = await net.estimateCost(accept('onchain-proof'))
+    expect(BigInt(cost.fee) > 0n).toBe(true)
+  })
+})
+
 describe('solanaDriver — typed token/family errors at the throw site', () => {
   it('rejects an unknown built-in symbol with a typed UnknownTokenError', async () => {
     const gate = createPaymentGate({ chain: 'solana', token: 'DOGE', amount: '0.05', payTo: PAY_TO })

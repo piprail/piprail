@@ -5,8 +5,11 @@ name: mcp-release
 # Triggered by tag only, and gated by the package's own prepublishOnly
 # (build + typecheck + test) which runs inside the workspace on publish.
 #
-# After npm publish, the MCP Registry entry is listed/refreshed MANUALLY with the
-# `mcp-publisher` CLI (it needs interactive GitHub device auth) — see mcp/server.json.
+# After npm publish, this workflow ALSO (1) cuts the GitHub Release and (2) refreshes the MCP
+# Registry entry (io.github.piprail/mcp) — the registry step runs automatically ONLY when the
+# repo secret `MCP_PUBLISHER_PAT` is set (a classic PAT with `read:org`; the registry rejects the
+# gh OAuth token). Without that secret it's a clean no-op that prints the one manual command.
+# One-time setup to make the registry fully automatic is documented in .claude/skills/deploy/SKILL.md §8.
 on:
   push:
     tags:
@@ -16,8 +19,9 @@ jobs:
   publish:
     name: publish @piprail/mcp to npm
     runs-on: ubuntu-latest
+    # `contents: write` so the same run can also cut the GitHub Release (below).
     permissions:
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -37,3 +41,37 @@ jobs:
       - run: npm publish -w @piprail/mcp --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # Auto-cut the GitHub Release (MCP releases are NOT `--latest` — the SDK holds that).
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#mcp-v}"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME already exists — skipping."
+          else
+            gh release create "$GITHUB_REF_NAME" --verify-tag --latest=false \
+              --title "@piprail/mcp v$VERSION" --generate-notes
+          fi
+      # Refresh the MCP Registry listing (io.github.piprail/mcp). Best-effort: runs only when the
+      # PAT secret exists, and never fails the release (continue-on-error) — npm is already live.
+      # When MCP_PUBLISHER_PAT is set once, registry publishes become fully automatic on every tag.
+      - name: Publish to the MCP Registry
+        continue-on-error: true
+        env:
+          MCP_PUBLISHER_PAT: ${{ secrets.MCP_PUBLISHER_PAT }}
+        run: |
+          if [ -z "$MCP_PUBLISHER_PAT" ]; then
+            echo "::notice::MCP_PUBLISHER_PAT not set — skipping registry publish."
+            echo "To automate it, add a classic PAT (read:org) as the repo secret MCP_PUBLISHER_PAT (see deploy SKILL.md §8)."
+            echo "Until then, publish manually: cd mcp && mcp-publisher login github && mcp-publisher publish"
+            exit 0
+          fi
+          # Install the official mcp-publisher CLI (Go binary) — find the latest linux asset dynamically.
+          url=$(curl -sSL https://api.github.com/repos/modelcontextprotocol/registry/releases/latest \
+            | grep -o 'https://[^"]*mcp-publisher[^"]*linux[^"]*amd64[^"]*\.tar\.gz' | head -1)
+          if [ -z "$url" ]; then echo "::warning::could not locate the mcp-publisher linux asset — publish the registry manually."; exit 0; fi
+          curl -sSL "$url" | tar xz mcp-publisher
+          cd mcp
+          ../mcp-publisher login github --token "$MCP_PUBLISHER_PAT"
+          ../mcp-publisher publish

@@ -29,10 +29,19 @@ import { PipRailClient, paymentTools } from '@piprail/sdk'
 const client = new PipRailClient({
   chain: 'base',
   wallet: { privateKey: process.env.AGENT_KEY! },
+  schemes: ['onchain-proof', 'exact'], // pay standard x402 servers too — GASLESS for the buyer
+  autoRoute: true,                      // and auto-prefer the cheapest settleable rail (the gasless one)
   policy: { maxTotal: '5.00' },
 })
 const tools = paymentTools(client) // → AgentTool[] of length 7
 ```
+
+:::tip[Make the agent gasless]
+`schemes: ['onchain-proof', 'exact']` lets the tools pay the ratified x402 `exact` rail — the buyer
+**signs** and the server (or its facilitator, e.g. PayAI) broadcasts, so the agent spends **zero gas**
+(EVM + Solana). With `autoRoute: true` the tools then prefer that gasless rail automatically. Both are
+opt-in; the zero-config default stays `onchain-proof`. See [Gasless payments](/making-payments/gasless-payments/).
+:::
 
 The seven tools, in order:
 

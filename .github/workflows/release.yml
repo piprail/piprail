@@ -14,8 +14,10 @@ jobs:
   publish:
     name: publish @piprail/sdk to npm
     runs-on: ubuntu-latest
+    # `contents: write` so the same run can also cut the GitHub Release (below) —
+    # one tag push → npm publish AND the release, no manual step.
     permissions:
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -31,3 +33,18 @@ jobs:
       - run: npm publish -w @piprail/sdk --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # Auto-cut the GitHub Release for this tag (the SDK is the project's `--latest` release).
+      # Uses the built-in GITHUB_TOKEN — no extra secret. Notes are auto-generated from the commits
+      # since the previous tag. Runs after publish; a hiccup here never un-publishes npm. Idempotent:
+      # skips if a release for the tag already exists.
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#sdk-v}"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME already exists — skipping."
+          else
+            gh release create "$GITHUB_REF_NAME" --verify-tag --latest \
+              --title "@piprail/sdk v$VERSION" --generate-notes
+          fi

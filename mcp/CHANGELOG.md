@@ -1,5 +1,17 @@
 # @piprail/mcp changelog
 
+## 0.3.3 — 2026-06-13 — rebuilt against SDK 1.21.1 (facilitator hardening + agent guide)
+
+No MCP code change — pins `@piprail/sdk` to `^1.21.1`, which hardens the gasless `exact` rail and
+teaches the **agent guide** about it. The MCP exposes that guide (`piprail_guide` / the
+`piprail://guide` resource), so an agent now reads how the gasless rail works, that it's operator-opt-in
+(`PIPRAIL_SCHEMES=onchain-proof,exact`), and how to recover from an `exact` timeout (the `.ref` is an
+authorization nonce — re-present, never re-sign). Also: gasless auto-routing now works on Solana, a
+third-party facilitator can't settle Permit2 (clear error), and the buyer's EIP-3009 domain read
+tolerates a flaky RPC. The `PIPRAIL_SCHEMES` description is corrected (exact is gasless on **EVM +
+Solana**, method auto-selected — not "EVM + EIP-3009 only"). See
+[docs.piprail.com/mcp](https://docs.piprail.com/mcp/configuration/).
+
 ## 0.3.2 — 2026-06-13 — Solana `exact` (gasless) via the SDK
 
 No MCP code change — this pins `@piprail/sdk` to `^1.21.0`, which adds the standard x402 **`exact`**

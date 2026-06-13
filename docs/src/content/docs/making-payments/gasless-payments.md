@@ -1,6 +1,6 @@
 ---
 title: Gasless payments
-description: How gasless x402 payments work in PipRail — the exact rail (the buyer signs, zero gas), its three methods EIP-3009, Permit2, and SVM (Solana), and a clear table of exactly which chains and tokens are gasless and which aren't.
+description: How gasless x402 payments work in PipRail — the two rails (onchain-proof vs the gasless exact rail), the exact rail's three auto-selected methods (EIP-3009, Permit2, SVM), and a clear table of exactly which chains and tokens are gasless and which aren't.
 sidebar:
   order: 9
 ---
@@ -8,6 +8,37 @@ sidebar:
 This is the one page for **gasless payments**: what "gasless" means here, how PipRail does it, and a
 clear table of **which chains and tokens are gasless** — and which aren't. If the EIP-3009 / Permit2 /
 SVM / exact-rail terms have been confusing, read this top to bottom and they'll click.
+
+## The whole model in 30 seconds
+
+The terms aren't a flat list of options — they're a small **hierarchy**. Get this and everything else
+falls out:
+
+- **Gas** is the on-chain **network fee**, paid in the chain's native coin (ETH, SOL, …). It's a *cost*,
+  not a payment method. "Gasless" means *you* don't pay it — someone else does.
+- A 402 is paid over one of **two rails**:
+  - **`onchain-proof`** — PipRail's **default**. *You* broadcast the transfer, so **you pay the gas**.
+    Works on every chain. (The "with-gas" path.)
+  - **`exact`** — the ratified x402 rail (**opt-in**). You only **sign**; someone else broadcasts, so
+    **you pay zero gas**. This is the gasless rail.
+- **`exact` has three *methods*** — *how* the signature is shaped, **auto-selected** per chain + token.
+  These are children of `exact`, **not** alternatives to it:
+  - **EIP-3009** — EVM tokens with `transferWithAuthorization` (USDC, EURC). The clean path.
+  - **Permit2** — EVM tokens *without* EIP-3009 (e.g. Binance-Peg USDC on BNB). Self-settle only.
+  - **SVM** — Solana, any SPL token.
+
+So it's **not** "gas vs permit vs exact." It's: **`onchain-proof` (with-gas) vs `exact` (gasless)**, and
+**`exact` happens to be implemented three ways** (EIP-3009 / Permit2 / SVM) that the SDK picks for you.
+You never name a method by hand.
+
+```text
+  a 402 payment
+  ├── onchain-proof   ← default · you broadcast · YOU PAY GAS · every chain
+  └── exact           ← opt-in  · you only sign · ZERO gas for you · EVM + Solana
+        ├── EIP-3009   (EVM: USDC, EURC)         ┐ picked
+        ├── Permit2    (EVM: other ERC-20s)      │ automatically
+        └── SVM        (Solana: any SPL token)   ┘ per chain+token
+```
 
 ## What "gasless" means
 
@@ -37,6 +68,27 @@ PipRail offers up to two rails on a single 402; the agent picks one.
 `exact` is the gasless upgrade, and it's what the wider x402 ecosystem (Coinbase, Binance, Solana, …)
 speaks.
 
+### Is gasless automatic?
+
+**Once you opt in, yes — it just works; you never wire up the gasless mechanics by hand.** The opt-in
+itself is deliberate (and tiny), for two reasons: PipRail's zero-config default is the backendless
+`onchain-proof` rail and **defaults never change**, and PipRail can't pick a **facilitator** *for* you —
+which one to trust is your call (some need an API key). After that one flag, everything is automatic:
+
+- **Buyer** — add `'exact'` to `schemes`. The client then signs (never broadcasts), so it spends **zero
+  gas** on any `exact` rail. To make it *prefer* the gasless rail when a gate offers both, turn on
+  [`autoRoute`](/making-payments/plan-payment/) — it pays the **cheapest settleable** rail, which is the
+  gasless one. (Without `autoRoute`, a dual-rail PipRail gate defaults to `onchain-proof`; a foreign
+  `exact`-only server is paid over `exact` automatically either way.)
+- **Seller** — set `exact: { settle: { facilitator } }`. The gate discovers everything it needs (on
+  Solana, the facilitator's fee payer from `GET /supported`) and routes settlement to it — **neither
+  buyer nor merchant pays gas**. No relayer key, no manual fee-payer plumbing.
+
+**And when a rail _can't_ be gasless, PipRail falls back automatically** — it never advertises a rail it
+can't settle. A native coin, an EVM token that's neither EIP-3009 nor facilitator-settleable, or a
+family with no `exact` scheme is simply served over `onchain-proof` (the with-gas rail). You don't have
+to detect any of this; the gate does.
+
 ## Three `exact` methods: EIP-3009, Permit2, and SVM
 
 The `exact` rail works one of three ways, depending on the chain + token. **PipRail auto-selects**
@@ -47,7 +99,7 @@ The `exact` rail works one of three ways, depending on the chain + token. **PipR
 | Works on | tokens with `transferWithAuthorization` | **any** ERC-20 | **any** SPL token |
 | Examples | Circle **USDC** & **EURC**, **FDUSD**, **USD1**, PYUSD | Binance-Peg USDC/USDT on BNB | Solana **USDC** & **USDT** |
 | What the buyer signs | an EIP-3009 authorization (off-chain) | a Permit2 witness transfer (off-chain) | the SPL `TransferChecked` **transaction** (partial-sign) |
-| Who broadcasts | merchant relayer / facilitator | merchant relayer / facilitator | merchant relayer (**fee payer**) |
+| Who broadcasts | merchant relayer / **facilitator** | merchant relayer (**self-settle only**) | relayer / **facilitator** (the **fee payer**) |
 | Extra contract needed | **none** | the canonical **Permit2** + the **x402ExactPermit2Proxy** | **none** |
 | One-time setup | **none** | one `approve(Permit2)` per token (~46k gas) | **none** |
 | Per-payment buyer gas | **~0** | **~0** (after that approval) | **0** (only the fee-payer pays SOL) |
@@ -55,6 +107,16 @@ The `exact` rail works one of three ways, depending on the chain + token. **PipR
 **EIP-3009 is the cleanest EVM path** — no approval, no extra contract, the buyer needs only the
 stablecoin. **Permit2 covers the EVM gap** — tokens that *don't* implement EIP-3009 (most notably the
 Binance-Peg USDC/USDT on BNB), at the cost of one approval and a proxy.
+
+:::note[Permit2 is self-settle only]
+A third-party **facilitator** settles the *standard* `exact` schemes — **EIP-3009** (EVM) and **SVM**
+(Solana). It does **not** settle Permit2, which uses PipRail's own `x402ExactPermit2Proxy` (a payload no
+generic facilitator understands). So a Permit2 token can only be settled by **your own relayer**
+(`settle: 'self'`). PipRail enforces this: a *forced* `method: 'permit2'` with `settle: { facilitator }`
+is refused at config time, and an *auto*-selected Permit2 simply isn't offered over a facilitator (the
+token falls back to `onchain-proof` there). To go fully gasless via a facilitator, use an **EIP-3009**
+token (USDC / EURC) on EVM, or **any SPL token** on Solana.
+:::
 
 **SVM is the Solana path, and it's the simplest of the three:** there is *no per-token requirement* at
 all. Gasless-ness on Solana comes from the transaction's **fee payer** being the merchant — not from a
@@ -212,6 +274,24 @@ used-proof set plus Solana's own duplicate-signature rejection. Native **SOL** i
 
 You choose the facilitator (PipRail depends on none). PayAI is the zero-config default for a fully-gasless
 Solana gate; point `settle.facilitator` at whichever you trust.
+
+## When the facilitator fails
+
+A facilitator is a network dependency, so PipRail treats its failures the same disciplined way it treats
+its own relayer — **a server-side fault is never turned into a "re-pay" 402**, and a buyer-fixable fault
+never turns into a 5xx. There are three distinct failure points:
+
+| When | What failed | Buyer/agent sees | Gate behaviour |
+|---|---|---|---|
+| **At challenge time** (Solana only) | The gate couldn't read the facilitator's fee payer from `GET /supported` (it's down, or doesn't sponsor this network) | — | The `exact` rail is **dropped** for that chain (the gate serves `onchain-proof`); if it was the *only* exact rail, the gate throws a clear error naming the cause. **Fix:** pin `settle: { facilitator, feePayer }` to remove the runtime dependency, or use `settle: 'self'`. |
+| **At settle — transport/auth** | `/verify` or `/settle` returned a non-200, or the request itself failed (facilitator down, bad/expired auth header) | **HTTP 502** `settlement_failed` — *not* a 402 | The gate throws [`SettlementError`](/errors/error-hierarchy/); the buyer's signed authorization stays **valid + unused**, the replay claim is **released**, and the payment can be re-presented once the facilitator recovers. The buyer is told to **verify on-chain, never re-pay**. |
+| **At settle — facilitator rejection** | `/verify` returned `isValid:false`, or `/settle` returned `success:false` (insufficient funds, bad signature, expired, …) | **HTTP 402** with the mapped reason | A conformant re-challenge — the agent reads the reason (`errorReason`), fixes it, and re-presents the **same** authorization (never a fresh signature). No spend is recorded. |
+
+The split is the whole point: **"the facilitator is down" (502) and "your payment was rejected" (402)
+are different problems with different fixes**, and PipRail never blurs them. Pinning
+`settle: { facilitator, feePayer }` (Solana) removes the only *challenge-time* dependency on the
+facilitator, so a `/supported` blip can't even affect serving the challenge. Self-settle has the exact
+same error contract — substitute "your relayer" for "the facilitator".
 
 ## How the Permit2 method stays safe
 

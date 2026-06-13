@@ -40,4 +40,17 @@ describe('PIPRAIL_AGENT_GUIDE', () => {
       expect(PIPRAIL_AGENT_GUIDE).toContain(phrase)
     }
   })
+
+  it('explains the gasless `exact` rail + that it is operator-opt-in', () => {
+    for (const phrase of [
+      'onchain-proof', // the default with-gas rail
+      'exact', // the gasless rail
+      'ZERO gas', // the agent-facing payoff
+      'PIPRAIL_SCHEMES=onchain-proof,exact', // the exact opt-in the operator sets
+    ]) {
+      expect(PIPRAIL_AGENT_GUIDE).toContain(phrase)
+    }
+    // The nonce-recovery distinction for exact timeouts (never re-sign).
+    expect(PIPRAIL_AGENT_GUIDE).toContain('authorization NONCE')
+  })
 })

@@ -26,6 +26,18 @@ straight from your wallet to the server; PipRail custodies nothing. Follow this.
    and return the result.
 Always plan before you pay so you never commit to a payment you cannot finish.
 
+## Gasless — the exact rail (zero gas for you)
+A 402 may offer up to two rails; you don't choose per payment — the client does, automatically:
+- onchain-proof (PipRail's default): you broadcast the payment yourself and pay the network gas
+  (the native coin — ETH/SOL/…). Works on every chain.
+- exact (the ratified x402 rail, opt-in): you only SIGN; the server — or a facilitator it chose
+  (e.g. PayAI) — broadcasts it, so you pay ZERO gas (you need only the token, no native coin). It
+  works on EVM + Solana, and the on-chain method (EIP-3009 / Permit2 / SVM) is picked automatically.
+When the exact scheme is enabled AND balance-aware routing is on, paying picks the cheapest
+settleable rail — i.e. the gasless exact one. Nothing changes in your loop: quote → plan → pay is
+identical. The exact scheme is OPT-IN by the operator (MCP: PIPRAIL_SCHEMES=onchain-proof,exact);
+you can't enable it yourself, but you can report when a 402 needs it (see UNSUPPORTED_SCHEME below).
+
 ## Reading a refusal — never crash, never double-spend
 A failed pay returns a STRUCTURED object, never a thrown error you must catch:
   { ok:false, code, reason, explain, ref?, reasonCode?, declined? }
@@ -43,9 +55,13 @@ Branch on \`code\` (always reliable). Key cases:
 - code:'INSUFFICIENT_FUNDS' — top up the wallet (token and/or native gas), retry.
 - code:'PAYMENT_TIMEOUT' / 'MAX_RETRIES_EXCEEDED' / 'CONFIRMATION_TIMEOUT' — the
   payment may ALREADY be on-chain. Recover using the proof on \`.ref\` (re-verify
-  or re-submit it); never re-pay — a fresh payment would double-spend.
+  or re-submit it); never re-pay — a fresh payment would double-spend. On a gasless
+  exact rail \`.ref\` is the authorization NONCE, not a tx hash: re-present the SAME
+  signed authorization, never sign a fresh one (that would risk a double-spend).
 - code:'NO_COMPATIBLE_ACCEPT' / 'UNSUPPORTED_SCHEME' — the 402 isn't payable on
   your chain/scheme; \`explain\` says whether it's the wrong chain or a scheme to enable.
+  If it's a standard x402 server offering an exact rail, that's a config fix the operator makes
+  once (enable the exact scheme); report it, don't retry the same call blindly.
 
 ## Knowing your leash — call piprail_budget
 piprail_budget tells you how much budget and time you have left, per
