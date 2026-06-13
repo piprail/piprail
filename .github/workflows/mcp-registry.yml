@@ -1,0 +1,33 @@
+name: mcp-registry
+
+# Publish / refresh the MCP Registry listing (io.github.piprail/mcp) ON DEMAND, via GitHub Actions
+# OIDC — NO stored secret. Authenticates with the runner's OIDC token (trusted by the registry for
+# the io.github.piprail namespace, matched by repository_owner), so there is no PAT and no manual
+# device-flow login.
+#
+# `mcp-release.yml` already runs this same publish automatically on every `mcp-v*` tag. THIS workflow
+# is the manual re-run lever — (re)publish the CURRENT mcp/server.json without cutting a new npm
+# release. Run it from a shell (you need only `gh` auth, no extra token):
+#
+#     gh workflow run mcp-registry.yml
+#
+on:
+  workflow_dispatch:
+
+jobs:
+  publish:
+    name: publish io.github.piprail/mcp to the MCP registry (OIDC)
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # GitHub OIDC → registry auth (no stored secret)
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install mcp-publisher
+        run: curl -sSL https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz | tar xz mcp-publisher
+      - name: Validate + publish (OIDC)
+        run: |
+          cd mcp
+          ../mcp-publisher validate
+          ../mcp-publisher login github-oidc
+          ../mcp-publisher publish
