@@ -9,20 +9,20 @@
     "source": "github",
     "subfolder": "mcp"
   },
-  "version": "0.4.0",
+  "version": "0.4.1",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@piprail/mcp",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "transport": {
         "type": "stdio"
       },
       "environmentVariables": [
         {
           "name": "PIPRAIL_PRIVATE_KEY",
-          "description": "Your wallet's private key/seed for the chosen chain. Stays on your machine; the spend policy caps every payment.",
-          "isRequired": true,
+          "description": "Your wallet's private key/seed for the chosen chain. Optional: omit it to run read-only (discover/quote/register/budget/guide); set it to let the agent pay. Stays on your machine; the spend policy caps every payment.",
+          "isRequired": false,
           "isSecret": true,
           "format": "string"
         },

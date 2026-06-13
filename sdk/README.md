@@ -55,6 +55,12 @@ The same app can **take** payments and **make** them. → [Making payments](http
 | **[MCP server](https://docs.piprail.com/mcp/overview/)** | Give any AI agent a budget-bound wallet |
 | **[Reference](https://docs.piprail.com/reference/api/)** | The complete API surface |
 
+## Spread the word
+
+PipRail is free, open-source, and has no backend to sell you. If it saved you from building a payments backend, help other developers (and their agents) find it:
+
+⭐ **[Star on GitHub](https://github.com/piprail/piprail)** &nbsp;·&nbsp; 𝕏 **[Follow @piprailhq](https://x.com/piprailhq)** &nbsp;·&nbsp; 🌐 **[piprail.com](https://piprail.com)** &nbsp;·&nbsp; 📖 **[docs.piprail.com](https://docs.piprail.com)**
+
 ## License & trademark
 
 The code is **MIT** — use it, fork it, ship it. **PipRail™**, the logo, and the `@piprail` npm scope are trademarks of the PipRail project: build on the code freely, but please don't call a fork "PipRail" or imply it's official. See [TRADEMARK.md](https://github.com/piprail/piprail/blob/main/TRADEMARK.md).

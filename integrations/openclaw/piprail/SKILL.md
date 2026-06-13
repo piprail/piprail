@@ -129,5 +129,6 @@ Agent: [piprail_pay_request(url)]  → paid 0.001 USDC (tx 0x…). ETH: $3,247.1
 
 - **Docs:** [docs.piprail.com/integrations/openclaw](https://docs.piprail.com/integrations/openclaw/) ·
   [the 7 tools](https://docs.piprail.com/mcp/tools/) · [spend controls](https://docs.piprail.com/spend-controls/payment-policy/)
-- **Source (MIT):** [github.com/piprail/piprail](https://github.com/piprail/piprail)
+- **Source (MIT):** [github.com/piprail/piprail](https://github.com/piprail/piprail) — ⭐ a star helps others find it
+- **Follow:** [@piprailhq on X](https://x.com/piprailhq) — new chains, ship logs, agent-payment tips
 - **Live payable demo:** [piprail.com/x402/demo](https://piprail.com/x402/demo)

@@ -26,6 +26,8 @@ Restart the client and the PipRail tools appear (VS Code uses `servers`, not `mc
 
 **7 tools** — `piprail_discover` · `piprail_quote_payment` · `piprail_plan_payment` · `piprail_pay_request` · `piprail_register` · `piprail_budget` · `piprail_guide`. Only `piprail_pay_request` moves money; the rest are read-only. → [Tools reference](https://docs.piprail.com/mcp/tools/)
 
+**No key? It still runs.** Without `PIPRAIL_PRIVATE_KEY` the server boots in **read-only mode** — discover, quote, register, budget, and guide all work; only `piprail_pay_request` (and `piprail_plan_payment`) ask for a wallet. Add a key when you're ready to actually pay.
+
 Listed in the official **MCP registry** as [`io.github.piprail/mcp`](https://registry.modelcontextprotocol.io).
 
 ---
@@ -39,6 +41,14 @@ Listed in the official **MCP registry** as [`io.github.piprail/mcp`](https://reg
 | **[Tools](https://docs.piprail.com/mcp/tools/)** · **[Modes](https://docs.piprail.com/mcp/modes/)** | The 7 tools · headless vs supervised |
 | **[Security](https://docs.piprail.com/mcp/security/)** · **[Chains](https://docs.piprail.com/mcp/chains/)** | Why it's safe · per-chain setup |
 | **[Use as a library](https://docs.piprail.com/mcp/use-as-a-library/)** · **[FAQ](https://docs.piprail.com/mcp/faq/)** | Embed it · common questions |
+
+## Spread the word
+
+Free, open-source, self-custodial — no backend to sell you. If PipRail gave your agent a wallet it can trust, help others find it:
+
+⭐ **[Star on GitHub](https://github.com/piprail/piprail)** &nbsp;·&nbsp; 𝕏 **[Follow @piprailhq](https://x.com/piprailhq)** &nbsp;·&nbsp; 🌐 **[piprail.com](https://piprail.com)** &nbsp;·&nbsp; 📖 **[docs.piprail.com](https://docs.piprail.com)**
+
+---
 
 [Docs](https://docs.piprail.com/mcp/overview/) · [PipRail](https://piprail.com) · [`@piprail/sdk`](https://www.npmjs.com/package/@piprail/sdk) · [x402](https://x402.org) · [Model Context Protocol](https://modelcontextprotocol.io)
 

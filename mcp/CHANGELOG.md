@@ -1,5 +1,13 @@
 # @piprail/mcp changelog
 
+## 0.4.1 — 2026-06-13 — docs: document read-only mode + community links
+
+Docs/manifest patch — **no runtime code change** (byte-identical to 0.4.0). The README now documents
+the key-less **read-only mode** (boots with no `PIPRAIL_PRIVATE_KEY`; only `piprail_pay_request` /
+`piprail_plan_payment` need a wallet) and adds a "Spread the word" section (GitHub · X · piprail.com ·
+docs). The registry manifest (`server.json`) is corrected to mark `PIPRAIL_PRIVATE_KEY` **optional**,
+matching the read-only behavior shipped in 0.4.0. Still on `@piprail/sdk@^1.22.0`.
+
 ## 0.4.0 — 2026-06-13 — read-only mode (runs with no wallet key)
 
 **`PIPRAIL_PRIVATE_KEY` is now optional.** With no key the server **boots read-only** instead of

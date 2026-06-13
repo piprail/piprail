@@ -11,6 +11,8 @@
 [![license](https://img.shields.io/github/license/piprail/piprail.svg?color=2ee6a6)](LICENSE)
 [![x402 v2](https://img.shields.io/badge/x402-v2-6e56cf.svg)](https://x402.org)
 [![chains](https://img.shields.io/badge/chains-29%20across%2010%20families-2ee6a6.svg)](https://docs.piprail.com/chains/overview/)
+[![GitHub stars](https://img.shields.io/github/stars/piprail/piprail?style=flat&logo=github&label=Star&color=2ee6a6)](https://github.com/piprail/piprail)
+[![Follow @piprailhq](https://img.shields.io/badge/Follow-%40piprailhq-1d9bf0?logo=x&logoColor=white)](https://x.com/piprailhq)
 
 **Let any HTTP endpoint charge for itself, and any agent pay for itself — across every major chain, in a couple of lines.**
 
@@ -31,6 +33,7 @@ PipRail implements the open [x402](https://x402.org) **"402 Payment Required"** 
 |---|---|
 | **[`@piprail/sdk`](https://www.npmjs.com/package/@piprail/sdk)** | The TypeScript SDK — accept & make x402 payments. The product. |
 | **[`@piprail/mcp`](https://www.npmjs.com/package/@piprail/mcp)** | An MCP server giving any AI agent a budget-bound wallet ([`io.github.piprail/mcp`](https://registry.modelcontextprotocol.io)). |
+| **[`integrations/`](integrations)** | First-party agent-framework integrations — e.g. the **OpenClaw** skill, `clawhub install piprail`. Each wraps `@piprail/mcp`; nothing new to build. |
 | **[`site/`](site)** · **[`docs/`](docs)** · **[`examples/`](examples)** | [piprail.com](https://piprail.com) · the [docs.piprail.com](https://docs.piprail.com) source · runnable demos. |
 
 ## Quick taste
@@ -54,8 +57,17 @@ That route now costs **0.05 USDC on Base**, paid straight to your wallet. Point 
 
 - **[docs.piprail.com](https://docs.piprail.com)** — the complete manual (source of truth)
 - **[MCP server](https://docs.piprail.com/mcp/overview/)** · **[Discovery](https://docs.piprail.com/discovery/discover-and-register/)** · **[Supported chains](https://docs.piprail.com/chains/overview/)**
+- **[Integrations](https://docs.piprail.com/integrations/)** — drop PipRail into agent frameworks ([OpenClaw](integrations/openclaw/piprail) today, more coming)
 - **[Runnable examples](examples)** — merchant + agent demos, a live Anvil end-to-end, and the [`why-402`](examples/why-402/) teardown
 - **[Releasing](RELEASING.md)** (tag-driven CI) · **[Contributing](CONTRIBUTING.md)** (DCO)
+
+## Spread the word
+
+PipRail is free, open-source, and has no backend to sell you — so word of mouth is how it grows. If it saved you from building a payments backend, the best way to give back is to help other developers (and their agents) find it:
+
+- ⭐ **[Star PipRail on GitHub](https://github.com/piprail/piprail)** — the #1 way to help others discover it
+- 𝕏 **[Follow @piprailhq](https://x.com/piprailhq)** — new chains, ship logs, and agent-payment tips
+- 🌐 **[piprail.com](https://piprail.com)** · 📖 **[docs.piprail.com](https://docs.piprail.com)**
 
 ## License & trademark
 

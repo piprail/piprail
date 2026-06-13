@@ -90,3 +90,9 @@ no real keys; the live settlement tests use a local Anvil fork of Base with fake
 - **MCP setup:** [docs.piprail.com/mcp](https://docs.piprail.com/mcp/overview/) — per-client config, all chains, wallet formats.
 
 Each example targets **Base + USDC** with a placeholder `payTo` — set your own wallet, then `npm install && npm start` in the folder.
+
+## Spread the word
+
+PipRail is free, open-source, and backendless. If an example here saved you a payments backend, help others find it:
+
+⭐ **[Star on GitHub](https://github.com/piprail/piprail)** &nbsp;·&nbsp; 𝕏 **[Follow @piprailhq](https://x.com/piprailhq)** &nbsp;·&nbsp; 🌐 **[piprail.com](https://piprail.com)** &nbsp;·&nbsp; 📖 **[docs.piprail.com](https://docs.piprail.com)**

@@ -4,6 +4,13 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.22.1] — 2026-06-13 — docs: community links + integrations signposting
+
+Docs-only patch — **no code change** (the SDK is byte-identical to 1.22.0). Refreshes the README:
+adds a "Spread the word" section (GitHub · X · piprail.com · docs) and surfaces the first-party
+integrations (the OpenClaw skill, `clawhub install piprail`) from the repo. Published so the npm
+package page carries the updated front door.
+
 ## [1.22.0] — 2026-06-13 — optional wallet (read-only client)
 
 A purely **additive, opt-in** feature: `PipRailClient`'s `wallet` is now **optional**. Omit it for a

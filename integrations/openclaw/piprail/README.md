@@ -121,3 +121,4 @@ clawhub skill publish integrations/openclaw/piprail \
 - **Integration docs:** [docs.piprail.com/integrations/openclaw](https://docs.piprail.com/integrations/openclaw/)
 - **MCP server:** [`@piprail/mcp`](https://www.npmjs.com/package/@piprail/mcp) · [docs](https://docs.piprail.com/mcp/overview/)
 - **PipRail:** [piprail.com](https://piprail.com) · [github.com/piprail/piprail](https://github.com/piprail/piprail) (MIT)
+- **Follow along:** ⭐ [Star on GitHub](https://github.com/piprail/piprail) · 𝕏 [@piprailhq](https://x.com/piprailhq)

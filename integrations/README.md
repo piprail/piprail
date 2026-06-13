@@ -24,6 +24,12 @@ Each framework gets its own folder under `integrations/<framework>/`, with PipRa
 
 Full guides live on the docs: **[docs.piprail.com/integrations](https://docs.piprail.com/integrations/)**.
 
+## Spread the word
+
+Building an integration for a framework we haven't covered yet? Open a PR. And to help others find PipRail:
+
+⭐ **[Star on GitHub](https://github.com/piprail/piprail)** &nbsp;·&nbsp; 𝕏 **[Follow @piprailhq](https://x.com/piprailhq)** &nbsp;·&nbsp; 🌐 **[piprail.com](https://piprail.com)** &nbsp;·&nbsp; 📖 **[docs.piprail.com](https://docs.piprail.com)**
+
 ---
 
 *These are standalone packages — not part of the npm workspace. Each folder is publishable on its own
