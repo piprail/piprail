@@ -111,8 +111,9 @@ release CI — it **fails the build** on drift, so you literally can't ship them
 ## 4. The verification gate (must be GREEN — see [`verify-gate`](../verify-gate/SKILL.md))
 
 ```bash
-npm run typecheck                                   # sdk + mcp
-npm run typecheck:test -w @piprail/sdk              # src + tests together
+npm run typecheck                                   # sdk + mcp (SRC only — does NOT include tests)
+npm run typecheck:test -w @piprail/sdk              # SDK src + tests together
+npm run typecheck:test -w @piprail/mcp              # MCP src + tests — the `mcp` CI runs THIS; root typecheck does NOT (a missed fixture field reddens CI)
 npm run test:sdk                                    # (and: npm run test:mcp  if releasing the MCP)
 npm run build:sdk                                   # (and: npm run build:mcp)
 grep -E "from ?['\"]@(solana|ton|stellar|aptos|mysten|near|tronweb|xrpl)" sdk/dist/index.js \
@@ -289,7 +290,8 @@ gh run list --limit 6   # sdk-release ✓ mcp-release ✓ site ✓ deploy-docs �
 # 2. bump: sdk/package.json + sdk/CHANGELOG.md ; mcp/{package.json,src/version.ts,server.json,CHANGELOG.md}
 # 3. sweep: site/public/llms.txt + llms-full.txt headers (SDK-Version / MCP-Version / Last-Updated)
 # 4. gate:
-npm run typecheck && npm run typecheck:test -w @piprail/sdk && npm run test:sdk && npm run test:mcp \
+npm run typecheck && npm run typecheck:test -w @piprail/sdk && npm run typecheck:test -w @piprail/mcp \
+  && npm run test:sdk && npm run test:mcp \
   && npm run build:sdk && npm run build:mcp && node site/scripts/check-sync.mjs && npm run build -w site
 # 5. ship:
 git commit -am "release: @piprail/sdk vX.Y.Z + @piprail/mcp vX.Y.Z" && git push origin main
