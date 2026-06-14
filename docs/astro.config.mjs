@@ -11,9 +11,28 @@ import starlightLlmsTxt from 'starlight-llms-txt'
 export default defineConfig({
   site: 'https://docs.piprail.com',
 
-  // The chain-specific "Permit2 & BNB Chain" page was consolidated into the broader
-  // "Gasless payments" page — keep the old URL alive.
+  // Redirects. A bare section path (e.g. /mcp/) has NO index page in this IA, so it would
+  // 404 — send each section root to its first page. Also back the friendly /paying vanity
+  // link that the SDK bakes into every self-describing 402 + landing page (selfdescribe.ts
+  // BRAND.payDocs), and keep the consolidated permit2 page alive. Keys use a trailing slash;
+  // GitHub Pages 301s the no-slash form (e.g. /mcp, /paying) onto it.
   redirects: {
+    // Section roots → first page (no section has an index page).
+    '/getting-started/': '/getting-started/introduction/',
+    '/concepts/': '/concepts/the-x402-flow/',
+    '/accepting-payments/': '/accepting-payments/require-payment-and-gate/',
+    '/making-payments/': '/making-payments/piprail-client/',
+    '/spend-controls/': '/spend-controls/payment-policy/',
+    '/agent-toolkit/': '/agent-toolkit/payment-tools/',
+    '/discovery/': '/discovery/self-describing-endpoints/',
+    '/chains/': '/chains/overview/',
+    '/errors/': '/errors/error-model/',
+    '/mcp/': '/mcp/overview/',
+    '/testing/': '/testing/local-verification/',
+    '/reference/': '/reference/api/',
+    // Friendly short link shipped in the SDK self-describe block + rendered landing page.
+    '/paying/': '/making-payments/piprail-client/',
+    // The chain-specific "Permit2 & BNB Chain" page was consolidated into "Gasless payments".
     '/making-payments/permit2-and-bnb/': '/making-payments/gasless-payments/',
   },
 
