@@ -14,6 +14,13 @@ export const PIPRAIL_AGENT_GUIDE = `# Paying with PipRail — the agent contract
 You can pay for x402 "402 Payment Required" resources autonomously. Money moves
 straight from your wallet to the server; PipRail custodies nothing. Follow this.
 
+## Landing cold — read the self-description
+Every PipRail 402 self-describes. Read challenge.extensions.piprail for { name, what, pay[]
+(each rail's how-to-pay), sdk.install, mcp, docs } — never guess what an endpoint is. If your
+tooling can't pay a rail (e.g. a stock x402 client can't pay the onchain-proof scheme), the
+block says how: install @piprail/sdk (npm i @piprail/sdk) or run the MCP (npx -y @piprail/mcp)
+and pay with the tools below.
+
 ## The loop: quote → plan → pay
 1. piprail_quote_payment(url) — PRICE it. Returns the amount, token, chain, and
    whether it is within your spend policy. No funds move. Use it to decide if a

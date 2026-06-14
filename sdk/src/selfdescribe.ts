@@ -95,14 +95,17 @@ function howFor(scheme: 'onchain-proof' | 'exact'): string {
 }
 
 function railOf(a: X402AnyAccept): SelfDescribeRail {
+  // `extra` is required by the type, but guard anyway — this builder is exported and may
+  // be handed a foreign/odd accept; missing fields degrade, they never throw.
+  const extra: { amountFormatted?: string; symbol?: string } = a.extra ?? {}
   return {
     scheme: a.scheme,
     network: a.network,
     asset: a.asset,
     payTo: a.payTo,
     amount: a.amount,
-    ...(a.extra.amountFormatted ? { amountFormatted: a.extra.amountFormatted } : {}),
-    ...(a.extra.symbol ? { symbol: a.extra.symbol } : {}),
+    ...(extra.amountFormatted ? { amountFormatted: extra.amountFormatted } : {}),
+    ...(extra.symbol ? { symbol: extra.symbol } : {}),
     how: howFor(a.scheme),
   }
 }

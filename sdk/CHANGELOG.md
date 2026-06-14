@@ -6,15 +6,28 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-### Added
-- **Self-describe builder** (discoverability plan, Phase 1 — pure, **not yet wired**). New
-  `buildSelfDescription({ accepts })` produces the inert `extensions.piprail` self-description block
-  (identity · per-rail how-to-pay · `npm i @piprail/sdk` + a paste-ready snippet · `npx -y @piprail/mcp`
-  · docs + discovery pointers); `describeChallenge(challenge)` renders a one-line human/agent summary;
-  and `BRAND` is the single source of truth for the install/snippet/docs strings. The point: even an
-  `onchain-proof`-only 402 a stock x402 client can't pay becomes self-announcing and actionable
-  (install the SDK and pay). **No wire change** — exported + tested only; the gate wires it on by
-  default in a later phase. Purely-additive: the zero-config pay path is byte-identical.
+### Added — self-describing, more discoverable endpoints (discoverability plan: Phases 1, 2, 4, 5)
+
+- **Self-describing 402s, ON by default.** Every challenge a gate builds now carries an
+  `extensions.piprail` block — identity, per-rail how-to-pay, `npm i @piprail/sdk` + a paste-ready
+  snippet, the MCP command, and docs + discovery pointers — so any human, AI agent, or crawler that
+  lands on a gated endpoint (even the `onchain-proof` scheme a stock x402 client can't pay) knows what
+  it is and how to pay it. **Purely-additive** metadata in the spec-opaque `extensions` bag: the pay
+  path, `accepts[]`, headers, and status are byte-identical (a rejection's `{code,detail}` are deep-merged
+  as siblings and still win). Opt out with `requirePayment({ selfDescribe: false })`. New exports:
+  `buildSelfDescription`, `describeChallenge`, `BRAND`.
+- **Human landing page + HTTP pointers.** `gate.landingPage(challenge)` / `renderLandingPage()` render a
+  tiny, HTML-escaped 402 page for a browser (serve it on `Accept: text/html`; agents/crawlers keep the
+  JSON 402). `discoveryHeaders()` + `POWERED_BY` emit a `Link` (rel `service-desc` / `x402-discovery`) +
+  `x-powered-by` header bag to spread on every response. The SDK serves nothing — the merchant does.
+- **Facilitator-coverage map.** `KNOWN_FACILITATORS` (+ `knownFacilitatorsFor` /
+  `firstKeylessFacilitator`) — shipped data of which keyless facilitators settle `exact` on which
+  networks (seeded: PayAI on Base + Solana, dated-verified). `facilitatorCoverage(url)` /
+  `parseFacilitatorSupported(body)` read a facilitator's live `GET /supported` (best-effort, never throw).
+- **Agent guide** gained a "landing cold — read the self-description" section (surfaced over the MCP).
+
+All of the above is additive + opt-in; the zero-config pay path is byte-identical to before. New pure
+modules (`selfdescribe.ts`, `landing.ts`, `facilitators.ts`) join the viem-free protocol-layer grep.
 
 ## [1.22.1] — 2026-06-13 — docs: community links + integrations signposting
 

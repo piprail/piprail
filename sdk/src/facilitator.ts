@@ -64,6 +64,59 @@ export async function fetchFacilitatorFeePayer(
   }
 }
 
+/** One (scheme, network) pair a facilitator's `GET /supported` advertises. */
+export interface FacilitatorSupportedKind {
+  scheme: string
+  /** As the facilitator reports it — a CAIP-2 id or a slug. */
+  network: string
+  /** The fee-payer pubkey when the kind carries one (SVM rails). */
+  feePayer?: string
+}
+
+/**
+ * Parse a facilitator `/supported` body into its advertised (scheme, network) kinds.
+ * PURE + tolerant: a malformed body yields `[]`. Mirrors the `{ kinds: [...] }` shape
+ * {@link fetchFacilitatorFeePayer} reads. Useful for verifying coverage before wiring a gate,
+ * and for generating the coverage doc from live reads.
+ */
+export function parseFacilitatorSupported(body: unknown): FacilitatorSupportedKind[] {
+  const kinds = (body as { kinds?: unknown } | null)?.kinds
+  if (!Array.isArray(kinds)) return []
+  const out: FacilitatorSupportedKind[] = []
+  for (const k of kinds) {
+    if (!k || typeof k !== 'object') continue
+    const o = k as { scheme?: unknown; network?: unknown; extra?: { feePayer?: unknown } }
+    if (typeof o.scheme !== 'string' || typeof o.network !== 'string') continue
+    const fp = o.extra?.feePayer
+    out.push({ scheme: o.scheme, network: o.network, ...(typeof fp === 'string' ? { feePayer: fp } : {}) })
+  }
+  return out
+}
+
+/**
+ * Read a facilitator's LIVE coverage from `GET /supported`. Best-effort + bounded (an
+ * `AbortController` timeout): NEVER throws — returns `[]` on any failure (same posture as
+ * {@link fetchFacilitatorFeePayer}). Lets an operator/agent ask "does this facilitator
+ * cover my network?" before wiring a gate. Pure `fetch`, no chain libraries (STANDARDS §1).
+ */
+export async function facilitatorCoverage(
+  url: string,
+  timeoutMs = 8000
+): Promise<FacilitatorSupportedKind[]> {
+  const base = url.replace(/\/+$/, '')
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs)
+  try {
+    const res = await fetch(`${base}/supported`, { signal: ctrl.signal })
+    if (!res.ok) return []
+    return parseFacilitatorSupported(await res.json())
+  } catch {
+    return []
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 /** A merchant-chosen facilitator: its base URL + optional per-request auth headers. */
 export interface FacilitatorConfig {
   /** Base URL, e.g. 'https://x402.org/facilitator' (trailing slash stripped). */

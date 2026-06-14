@@ -210,3 +210,61 @@ describe('gate discovery option — extensions.bazaar (opt-in, x402scan-listable
     expect(input.queryParams).toEqual({ page: { type: 'integer' } })
   })
 })
+
+describe('x402 self-describing 402 — extensions.piprail (discoverability Phase 5, default-ON)', () => {
+  const mk = (extra: object = {}) =>
+    createPaymentGate({
+      chain: { id: 8453, rpcUrl: 'https://base.example/rpc' },
+      token: { address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', decimals: 6, symbol: 'USDC' },
+      amount: '0.05',
+      payTo: PAY_TO,
+      ...extra,
+    })
+
+  it('default-ON: a fresh challenge carries extensions.piprail (identity + pay[] + sdk install)', async () => {
+    const { challenge } = await mk().challenge('https://api/x')
+    const pr = (challenge.extensions as { piprail?: Record<string, any> } | undefined)?.piprail
+    expect(pr).toBeDefined()
+    expect(pr!.name).toBe('PipRail')
+    expect(pr!.protocol).toBe('x402')
+    expect(Array.isArray(pr!.pay)).toBe(true)
+    expect(pr!.pay.length).toBeGreaterThanOrEqual(1)
+    expect(pr!.pay[0].scheme).toBe('onchain-proof')
+    expect(pr!.sdk.install).toBe('npm i @piprail/sdk')
+    expect(pr!.discovery).toEqual({ openapi: '/openapi.json', wellKnown: '/.well-known/x402' })
+    // the :179 invariant STILL holds — a fresh challenge omits `error` with self-describe on
+    expect('error' in challenge).toBe(false)
+  })
+
+  it('selfDescribe:false → no extensions.piprail, and no extensions at all without discovery (byte-identical)', async () => {
+    const { challenge } = await mk({ selfDescribe: false }).challenge('https://api/x')
+    expect((challenge.extensions as { piprail?: unknown } | undefined)?.piprail).toBeUndefined()
+    expect(challenge.extensions).toBeUndefined()
+  })
+
+  it('the pay path is byte-identical with the block on vs off (accepts unchanged)', async () => {
+    const on = (await mk().challenge('https://api/x')).challenge.accepts[0]!
+    const off = (await mk({ selfDescribe: false }).challenge('https://api/x')).challenge.accepts[0]!
+    for (const k of ['scheme', 'network', 'asset', 'payTo', 'amount'] as const) {
+      expect((on as unknown as Record<string, unknown>)[k]).toEqual((off as unknown as Record<string, unknown>)[k])
+    }
+  })
+
+  it('MERGE-ORDER: a rejection keeps {code,detail} (wins) AND the self-describe siblings AND bazaar', async () => {
+    const gate = mk({ discovery: true, isUsed: () => true, markUsed: () => {} })
+    const accepted = (await gate.challenge()).challenge.accepts[0]!
+    const header = buildSignatureHeader({
+      x402Version: 2,
+      accepted: accepted as never,
+      payload: { nonce: 'n', txHash: `0x${'a'.repeat(64)}` },
+    })
+    const res = await gate.verify(header)
+    expect(res.kind).toBe('invalid')
+    if (res.kind !== 'invalid') return
+    const ext = res.challenge.extensions as { piprail?: Record<string, any>; bazaar?: unknown }
+    expect(ext.piprail!.code).toBe('tx_already_used') // rejection reason survived (client.ts reads this)
+    expect(ext.piprail!.name).toBe('PipRail') // self-describe sibling present (not clobbered)
+    expect(ext.bazaar).toBeDefined() // the discovery block survived the merge
+    expect(res.challenge.error).toContain('tx_already_used')
+  })
+})

@@ -22,6 +22,9 @@ import { resolveNetwork } from './drivers/index.js'
 import type { ResolvedNetwork, TokenInput, ChainSelector, WalletHandle } from './drivers/types.js'
 import { buildBazaarExtension } from './discovery.js'
 import type { ResourceDescription, PaymentRail, DiscoveryDescriptor } from './discovery.js'
+import { describeChallenge } from './render.js'
+import { buildSelfDescription } from './selfdescribe.js'
+import { renderLandingPage } from './landing.js'
 import { SettlementError } from './errors.js'
 import { settleViaFacilitator, fetchFacilitatorFeePayer } from './facilitator.js'
 import {
@@ -194,6 +197,17 @@ export interface RequirePaymentOptions {
    * challenge byte-identical to before.
    */
   discovery?: boolean | DiscoveryDescriptor
+  /**
+   * Self-describe every 402 — stamp an `extensions.piprail` block (identity · per-rail
+   * how-to-pay · `npm i @piprail/sdk` + snippet · MCP · docs + discovery pointers) so the
+   * instant any human, AI agent, or crawler lands on this endpoint — even the default
+   * `onchain-proof` scheme a stock x402 client can't pay — it knows what it is and how to
+   * pay it. **Default `true`.** It is purely-additive metadata a standard client ignores
+   * (the spec treats `extensions` as opaque), so the pay path, `accepts[]`, headers, and
+   * status are byte-identical. Set `false` to omit the block entirely (the literal
+   * byte-identical default of before this feature). See {@link buildSelfDescription}.
+   */
+  selfDescribe?: boolean
 }
 
 export type VerifyPaymentResult =
@@ -261,6 +275,13 @@ export interface PaymentGate {
    * discovery metadata is long-lived. Read-only — moves nothing on-chain.
    */
   describe(resourceUrl?: string): Promise<ResourceDescription>
+  /**
+   * Render a self-describing HTML page for a challenge — for the HUMAN who opens the gated
+   * URL in a browser. Pass the challenge you already built with {@link PaymentGate.challenge};
+   * serve the result with `content-type: text/html` when the request's `Accept` is `text/html`.
+   * The SDK never serves it itself (headless by charter). Agents/crawlers keep the JSON 402.
+   */
+  landingPage(challenge: X402Challenge): string
 }
 
 /** The settle config for a resolved `exact` rail: self (own relayer) or a facilitator. */
@@ -611,14 +632,37 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     const bazaar = options.discovery
       ? { bazaar: buildBazaarExtension(options.discovery === true ? {} : options.discovery) }
       : undefined
-    const extensions = { ...bazaar, ...opts?.extensions }
+    const accepts = buildAccepts(specs, nonce)
+    // Self-describe block (default-ON; opt out with `selfDescribe: false`). Additive metadata
+    // in the spec-opaque `extensions` bag — a standard client ignores it; the pay path,
+    // accepts[], headers, and status stay byte-identical. Even an onchain-proof-only 402 a
+    // stock client can't pay becomes self-announcing + actionable (install the SDK and pay).
+    const selfDescribe =
+      options.selfDescribe === false
+        ? undefined
+        : buildSelfDescription({
+            accepts,
+            instruction: describeChallenge({ x402Version: 2, resource: { url: resourceUrl }, accepts }),
+          })
+    // DEEP-MERGE the `piprail` key: a rejection's { code, detail } (from opts.extensions) and
+    // the self-describe fields must coexist as SIBLINGS, and the rejection keys WIN on any
+    // collision — `client.ts` `readInvalidReason` reads `extensions.piprail.code`, so a naive
+    // top-level spread (one piprail object replacing the other) would silently null every
+    // rejection reason on the wire. `bazaar` is left untouched.
+    const rejectionExt = opts?.extensions ?? {}
+    const mergedPiprail: Record<string, unknown> = {
+      ...(selfDescribe ?? {}),
+      ...((rejectionExt.piprail as Record<string, unknown> | undefined) ?? {}),
+    }
+    const hasPiprail = Object.keys(mergedPiprail).length > 0
+    const extensions = { ...bazaar, ...rejectionExt, ...(hasPiprail ? { piprail: mergedPiprail } : {}) }
     const challenge: X402Challenge = {
       x402Version: 2,
       resource: {
         url: resourceUrl,
         ...(options.description ? { description: options.description } : {}),
       },
-      accepts: buildAccepts(specs, nonce),
+      accepts,
       ...(opts?.error ? { error: opts.error } : {}),
       ...(Object.keys(extensions).length > 0 ? { extensions } : {}),
     }
@@ -627,6 +671,17 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
 
   async function challenge(resourceUrl = '') {
     return makeChallenge(resourceUrl)
+  }
+
+  /**
+   * A self-describing HTML page for a 402 (the merchant serves it when the request's
+   * `Accept` is `text/html`). Derived from the SAME challenge the merchant already built —
+   * pure + sync; the SDK serves nothing. See `renderLandingPage` / `buildSelfDescription`.
+   */
+  function landingPage(ch: X402Challenge): string {
+    return renderLandingPage(
+      buildSelfDescription({ accepts: ch.accepts, instruction: describeChallenge(ch) })
+    )
   }
 
   async function asChallenge(): Promise<VerifyPaymentResult> {
@@ -916,7 +971,7 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     return asChallenge()
   }
 
-  return { challenge, verify, describe }
+  return { challenge, verify, describe, landingPage }
 }
 
 /* ----------------------------- Express middleware ----------------------------- */

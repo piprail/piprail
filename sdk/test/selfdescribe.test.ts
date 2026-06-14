@@ -117,4 +117,20 @@ describe('buildSelfDescription', () => {
     expect(sd.pay[0]!.symbol).toBeUndefined()
     expect('instruction' in sd).toBe(false) // none passed → omitted
   })
+
+  it('does not throw on an accept missing `extra` (foreign/odd input — bug-hunt hardening)', () => {
+    const bad = {
+      scheme: 'onchain-proof',
+      network: 'eip155:1',
+      amount: '5',
+      asset: 'native',
+      payTo: '0xX',
+      maxTimeoutSeconds: 600,
+    } as unknown as X402AcceptEntry // deliberately no `extra`
+    const sd = buildSelfDescription({ accepts: [bad] })
+    expect(sd.pay).toHaveLength(1)
+    expect(sd.pay[0]).toMatchObject({ scheme: 'onchain-proof', amount: '5', asset: 'native' })
+    expect(sd.pay[0]!.amountFormatted).toBeUndefined()
+    expect(sd.pay[0]!.symbol).toBeUndefined()
+  })
 })

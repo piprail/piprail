@@ -103,8 +103,11 @@ export function describeChallenge(challenge: X402Challenge): string {
   if (!first) {
     return `${BRAND.name} x402 payment endpoint. Pay with @piprail/sdk (${BRAND.sdkInstall}). Docs: ${BRAND.home}.`
   }
-  const amount = first.extra.amountFormatted ?? first.amount
-  const token = first.extra.symbol ?? first.asset
+  // Guard `extra` — describeChallenge is exported and may be handed a foreign challenge
+  // whose accepts lack PipRail's extra shape; fall back to base-unit amount + raw asset.
+  const extra: { amountFormatted?: string; symbol?: string } = first.extra ?? {}
+  const amount = extra.amountFormatted ?? first.amount
+  const token = extra.symbol ?? first.asset
   const hasExact = challenge.accepts.some((a) => a.scheme === 'exact')
   const standard = hasExact ? '; or any standard x402 client (an exact rail is offered)' : ''
   return (

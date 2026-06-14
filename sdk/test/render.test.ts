@@ -147,4 +147,16 @@ describe('describeChallenge', () => {
     expect(line).toContain('xrpl:0')
     expect(line).toContain('rPay')
   })
+
+  it('does not throw on an accept missing `extra` (bug-hunt hardening)', () => {
+    const line = describeChallenge(
+      mk([{ scheme: 'onchain-proof', network: 'eip155:1', amount: '5', asset: 'native', payTo: '0xX', maxTimeoutSeconds: 600 }])
+    )
+    expect(line).toContain('5 native')
+    expect(line).toContain('eip155:1')
+  })
+
+  it('degrades to a generic pointer on an empty accepts[]', () => {
+    expect(describeChallenge(mk([]))).toContain('npm i @piprail/sdk')
+  })
 })

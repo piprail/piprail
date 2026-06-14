@@ -81,12 +81,17 @@ export type {
 // Delegate a standard `exact` payment's verify+settle to a THIRD-PARTY facilitator
 // the MERCHANT chooses (Coinbase CDP, x402.org, …). Pure fetch — PipRail hosts
 // nothing. `createPaymentGate({ exact: { settle: { facilitator } } })` uses this.
-export { settleViaFacilitator } from './facilitator.js'
+export { settleViaFacilitator, parseFacilitatorSupported, facilitatorCoverage } from './facilitator.js'
 export type {
   FacilitatorConfig,
   FacilitatorPaymentRequirements,
   SettleViaFacilitatorInput,
+  FacilitatorSupportedKind,
 } from './facilitator.js'
+// Facilitator-coverage DATA map (discoverability plan Phase 4) — which keyless facilitators
+// settle `exact` on which networks; powers the `exact: true` shorthand (Phase 7). Pure data.
+export { KNOWN_FACILITATORS, knownFacilitatorsFor, firstKeylessFacilitator } from './facilitators.js'
+export type { KnownFacilitator } from './facilitators.js'
 
 /* --------------------- reliable receipt delivery (server side) --------------------- */
 
@@ -254,6 +259,10 @@ export {
 //   DISCOVER client.discover({ query }) → read CDP Bazaar + 402 Index (free).
 // The piprail_discover / piprail_register agent tools expose this to an LLM/MCP.
 export { buildOpenApi, buildWellKnownX402, buildX402DnsTxt, buildBazaarExtension, GENERATOR } from './discovery.js'
+// Self-describing HTTP surfaces (discoverability plan Phase 2): the Link/x-powered-by header
+// bag + the human HTML landing page. Pure — the merchant serves them; the SDK serves nothing.
+export { discoveryHeaders, POWERED_BY } from './discovery.js'
+export { renderLandingPage } from './landing.js'
 export type {
   PaymentRail,
   ResourceDescription,
