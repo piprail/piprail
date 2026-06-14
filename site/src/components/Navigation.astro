@@ -5,7 +5,7 @@
 // full-height slide-in overlay (backdrop + right panel). CSS does the slide
 // (keyed on data-open); a tiny progressive script toggles it + locks scroll +
 // closes on backdrop / link / Escape.
-import { ArrowRight, Play, Menu, X } from 'lucide-astro'
+import { ArrowRight, Play, Menu, X, BookText, Package, Plug, Link2, Compass, Handshake, Github } from 'lucide-astro'
 
 interface Props {
   path?: string
@@ -17,27 +17,27 @@ const onDemo = path === '/demo' || path === '/demo/'
 const isActive = (p: string) => path === p || path === `${p}/`
 const linkCls = (p: string) =>
   isActive(p)
-    ? 'hidden rounded-lg px-3 py-1.5 text-sm font-medium text-neutral-100 lg:inline-flex'
-    : 'hidden rounded-lg px-3 py-1.5 text-sm text-muted transition hover:text-neutral-100 lg:inline-flex'
+    ? 'hidden items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-neutral-100 lg:inline-flex'
+    : 'hidden items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-muted transition hover:bg-white/5 hover:text-neutral-100 lg:inline-flex'
 
 // Every secondary link, in one list — rendered in the desktop bar and/or the
 // mobile overlay, so the two can never drift. `mobileOnly` keeps the desktop bar
 // uncrowded (Partners lives in the overlay + footer, not the inline bar).
 const navLinks = [
-  { href: 'https://docs.piprail.com', label: 'Docs' },
-  { href: '/sdk', label: 'SDK' },
-  { href: '/mcp', label: 'MCP' },
-  { href: '/chains', label: 'Chains' },
-  { href: '/discovery', label: 'Discovery', mobileOnly: true },
-  { href: '/partners', label: 'Partners', mobileOnly: true },
-  { href: 'https://github.com/piprail/piprail', label: 'GitHub' },
+  { href: 'https://docs.piprail.com', label: 'Docs', icon: BookText },
+  { href: '/sdk', label: 'SDK', icon: Package },
+  { href: '/mcp', label: 'MCP', icon: Plug },
+  { href: '/chains', label: 'Chains', icon: Link2 },
+  { href: '/discovery', label: 'Discovery', mobileOnly: true, icon: Compass },
+  { href: '/partners', label: 'Partners', mobileOnly: true, icon: Handshake },
+  { href: 'https://github.com/piprail/piprail', label: 'GitHub', icon: Github },
 ]
 const desktopLinks = navLinks.filter((l) => !l.mobileOnly)
 // Mobile-overlay link styling (active vs idle).
 const mobileLinkCls = (href: string) =>
   isActive(href)
-    ? 'rounded-lg px-3 py-2.5 text-[15px] font-medium text-neutral-100 bg-white/5'
-    : 'rounded-lg px-3 py-2.5 text-[15px] text-neutral-300 transition hover:bg-white/5 hover:text-neutral-100'
+    ? 'flex items-center gap-3 rounded-lg px-3 py-2.5 text-[15px] font-medium text-neutral-100 bg-white/5'
+    : 'flex items-center gap-3 rounded-lg px-3 py-2.5 text-[15px] text-neutral-300 transition hover:bg-white/5 hover:text-neutral-100'
 ---
 
 <header class="sticky top-0 z-50 border-b border-white/5 bg-bg/70 backdrop-blur-md">
@@ -61,9 +61,14 @@ const mobileLinkCls = (href: string) =>
       >
         <Play size={13} aria-hidden="true" fill="currentColor" /> Demo
       </a>
-      {desktopLinks.map((l) => (
-        <a href={l.href} class={linkCls(l.href)} aria-current={isActive(l.href) ? 'page' : undefined}>{l.label}</a>
-      ))}
+      {desktopLinks.map((l) => {
+        const Icon = l.icon
+        return (
+          <a href={l.href} class={linkCls(l.href)} aria-current={isActive(l.href) ? 'page' : undefined}>
+            <Icon size={14} aria-hidden="true" class="opacity-80" /> {l.label}
+          </a>
+        )
+      })}
 
       <!-- Hamburger — tablet & mobile only. Opens the slide-in overlay below. -->
       <button
@@ -122,9 +127,14 @@ const mobileLinkCls = (href: string) =>
       >
         <Play size={14} fill="currentColor" aria-hidden="true" /> Demo
       </a>
-      {navLinks.map((l) => (
-        <a href={l.href} aria-current={isActive(l.href) ? 'page' : undefined} class={mobileLinkCls(l.href)}>{l.label}</a>
-      ))}
+      {navLinks.map((l) => {
+        const Icon = l.icon
+        return (
+          <a href={l.href} aria-current={isActive(l.href) ? 'page' : undefined} class={mobileLinkCls(l.href)}>
+            <Icon size={17} aria-hidden="true" class="shrink-0 text-neutral-400" /> {l.label}
+          </a>
+        )
+      })}
     </nav>
 
     <div class="border-t border-white/10 p-4">
