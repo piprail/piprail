@@ -16,6 +16,7 @@
  */
 import type { VerifyResult, VerifyErrorCode, X402Receipt, Caip2, AssetId, AddressId } from './x402.js'
 import { SettlementError } from './errors.js'
+import { normalizeNetwork } from './indexes.js'
 
 /** Standard x402 `exact` PaymentRequirements, built from the gate's TRUSTED rail. `extra`
  *  carries the scheme's chain-specific fields: EVM EIP-3009 → `{ name, version }` (the token's
@@ -54,7 +55,11 @@ export async function fetchFacilitatorFeePayer(
     if (!res.ok) return undefined
     const body = (await res.json()) as { kinds?: Array<{ scheme?: string; network?: string; extra?: Record<string, unknown> }> }
     const kinds = Array.isArray(body?.kinds) ? body.kinds : []
-    const kind = kinds.find((k) => k?.scheme === 'exact' && k?.network === network)
+    // Match on the NORMALIZED network so a facilitator that reports a slug ("solana") or a CAIP-2
+    // id both resolve — a strict `===` would silently miss a slug-reporting facilitator and drop
+    // the Solana exact rail. normalizeNetwork passes a CAIP-2 id through unchanged.
+    const want = normalizeNetwork(network)
+    const kind = kinds.find((k) => k?.scheme === 'exact' && normalizeNetwork(String(k?.network ?? '')) === want)
     const fp = kind?.extra?.feePayer
     return typeof fp === 'string' ? fp : undefined
   } catch {

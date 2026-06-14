@@ -81,9 +81,10 @@ chainIdForExactNetwork('arbitrum')  // → 42161
 chainIdForExactNetwork('zksync')    // → null — not in the map
 ```
 
-The shipped set is `ethereum`, `base`, `base-sepolia`, `arbitrum`, `optimism`, `polygon`,
+The shipped set is `ethereum`, `base`, `arbitrum`, `optimism`, `polygon`,
 `avalanche`, `bnb`, and the EIP-3009-verified chains `sonic`, `linea`, `celo`, `unichain`,
-`worldchain`, `sei`, `hyperevm`, `monad`, `zksync`, `injective`. (It's a reference helper, not the
+`worldchain`, `sei`, `hyperevm`, `monad`, `zksync`, `injective` (mainnets only — no testnet
+presets). (It's a reference helper, not the
 gate — the `exact` rail is offered on **any** EVM chain whose token is EIP-3009 or whose chain has
 the Permit2 proxy.)
 

@@ -267,4 +267,49 @@ describe('x402 self-describing 402 — extensions.piprail (discoverability Phase
     expect(ext.bazaar).toBeDefined() // the discovery block survived the merge
     expect(res.challenge.error).toContain('tx_already_used')
   })
+
+  it('a fresh single-rail header has NO extensions (PAYMENT-REQUIRED byte-identical default)', async () => {
+    const { requiredHeader } = await mk().challenge('https://api/x')
+    const decoded = JSON.parse(Buffer.from(requiredHeader, 'base64').toString('utf8'))
+    expect('extensions' in decoded).toBe(false) // self-describe is body-only; header unchanged
+  })
+
+  it('the self-describe block is BODY-only — the header stays slim on a many-rail gate', async () => {
+    const ids = [8453, 56, 42161, 10, 137, 43114]
+    const gate = createPaymentGate({
+      accept: ids.map((id) => ({
+        chain: { id, rpcUrl: `https://rpc-${id}.example/rpc` },
+        token: { address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', decimals: 6, symbol: 'USDC' },
+        amount: '0.05',
+      })),
+      payTo: PAY_TO,
+    })
+    const { challenge, requiredHeader } = await gate.challenge('https://api/x')
+    // BODY carries the full self-describe block (one rail per chain)
+    const bodyPr = (challenge.extensions as { piprail: { name: string; pay: unknown[] } }).piprail
+    expect(bodyPr.name).toBe('PipRail')
+    expect(bodyPr.pay.length).toBe(6)
+    // HEADER carries the accepts[] (the pay path) but NOT the self-describe block, so it can't
+    // blow past proxy/CDN header caps (~8KB). This is the P1 regression guard.
+    const decoded = JSON.parse(Buffer.from(requiredHeader, 'base64').toString('utf8'))
+    expect(decoded.accepts.length).toBe(6)
+    expect(decoded.extensions?.piprail).toBeUndefined()
+    expect(requiredHeader.length).toBeLessThan(8192)
+  })
+
+  it('selfDescribe:false rejection keeps the machine code, with no self-describe block', async () => {
+    const gate = mk({ selfDescribe: false, isUsed: () => true, markUsed: () => {} })
+    const accepted = (await gate.challenge()).challenge.accepts[0]!
+    const header = buildSignatureHeader({
+      x402Version: 2,
+      accepted: accepted as never,
+      payload: { nonce: 'n', txHash: `0x${'a'.repeat(64)}` },
+    })
+    const res = await gate.verify(header)
+    expect(res.kind).toBe('invalid')
+    if (res.kind !== 'invalid') return
+    const ext = res.challenge.extensions as { piprail?: Record<string, unknown> }
+    expect(ext.piprail!.code).toBe('tx_already_used')
+    expect(ext.piprail!.name).toBeUndefined() // no self-describe block when opted out
+  })
 })

@@ -52,7 +52,6 @@ import type { ExactRailInfo } from '../types.js'
 export const EXACT_NETWORK_SLUGS: Readonly<Record<string, number>> = {
   ethereum: 1,
   base: 8453,
-  'base-sepolia': 84532,
   arbitrum: 42161,
   optimism: 10,
   polygon: 137,

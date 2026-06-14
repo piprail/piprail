@@ -15,8 +15,11 @@ pay* (the amount, token, chain, and recipient), and *how to pay it programmatica
 @piprail/sdk` or the MCP, with a paste-ready snippet) — plus where the discovery docs live.
 
 This is **on by default** and **purely additive**: it lives in the x402 v2 `extensions` bag, which the
-spec treats as opaque, so a standard client ignores it. The pay path, `accepts[]`, headers, and status
-are byte-identical to a gate without it — you can prove that by turning it off (below).
+spec treats as opaque, so a standard client ignores it. The block rides in the **response body** only —
+the base64 `payment-required` **header stays slim** (just `accepts[]` + a small `bazaar`/rejection block),
+so it never bloats past a proxy's header limit on a many-rail gate. The pay path, `accepts[]`, the
+`payment-required` header, and status are byte-identical to a gate without it — you can prove that by
+turning it off (below).
 
 :::note
 The point is reach: even an `onchain-proof`-only endpoint that stock tooling *cannot pay* is no longer
@@ -117,9 +120,13 @@ throws).
 ## The human landing page
 
 Agents and crawlers want the JSON 402; a **human** who opens the URL in a browser wants a readable
-page. `gate.landingPage(challenge)` returns a tiny, self-contained HTML document (the instruction, a
-per-rail table, the install + snippet, the MCP command, and links to the docs + `/openapi.json`). The
-SDK never serves it — you opt in by branching on the request's `Accept` header:
+page. `gate.landingPage(challenge)` returns a tiny, self-contained HTML document. It leads with the
+primary action — **how to pay** (the install + snippet + MCP command) — and a prominent **caution**:
+payment must go through an x402 client, so the address is shown only as *"what the client pays, NOT a
+manual-send address"*. That matters because a human who sends funds straight to the address from an
+ordinary wallet would reach the merchant but **not** unlock the resource or get matched to their request
+(there's no custody and no manual-payment desk) — the page makes that unmistakable. The
+SDK never serves the page — you opt in by branching on the request's `Accept` header:
 
 ```ts
 const { challenge, requiredHeader } = await gate.challenge(url)

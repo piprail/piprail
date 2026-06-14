@@ -34,6 +34,16 @@ describe('renderLandingPage', () => {
     expect(html).toContain('npx -y @piprail/mcp')
   })
 
+  it('warns clearly that a manual send to the address does NOT unlock the resource', () => {
+    const html = renderLandingPage(buildSelfDescription({ accepts: [onchainProof] }))
+    expect(html).toMatch(/not by hand/i)
+    expect(html).toMatch(/will NOT unlock/i)
+    expect(html).toMatch(/x402 client/i)
+    // the address column is reframed away from "Pay to" (a manual-send cue)
+    expect(html).toContain('Settles to')
+    expect(html).not.toContain('<th>Pay to</th>')
+  })
+
   it('HTML-escapes every interpolated field (XSS gate)', () => {
     const hostile: X402AcceptEntry = {
       ...onchainProof,
@@ -54,6 +64,12 @@ describe('renderLandingPage', () => {
     expect(html).toContain('&quot;')
     expect(html).toContain('&#39;')
   })
+
+  it('never throws on a rail missing amount/asset (never-throw contract — bug-hunt P3)', () => {
+    const bad = { scheme: 'onchain-proof', network: 'eip155:1', payTo: '0xX' } as unknown as X402AcceptEntry
+    const sd = buildSelfDescription({ accepts: [bad] })
+    expect(() => renderLandingPage(sd)).not.toThrow()
+  })
 })
 
 describe('discoveryHeaders / POWERED_BY', () => {
@@ -71,6 +87,11 @@ describe('discoveryHeaders / POWERED_BY', () => {
     const h = discoveryHeaders({ attribution: false })
     expect('x-powered-by' in h).toBe(false)
     expect(h.link).toContain('service-desc')
+  })
+
+  it('x-powered-by is pure ASCII (Node setHeader is latin1 — no mangled middot — bug-hunt P2)', () => {
+    expect(/^[\x20-\x7e]*$/.test(POWERED_BY)).toBe(true)
+    expect(discoveryHeaders()['x-powered-by']).toBe(POWERED_BY)
   })
 })
 

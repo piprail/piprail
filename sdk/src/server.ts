@@ -633,10 +633,10 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
       ? { bazaar: buildBazaarExtension(options.discovery === true ? {} : options.discovery) }
       : undefined
     const accepts = buildAccepts(specs, nonce)
-    // Self-describe block (default-ON; opt out with `selfDescribe: false`). Additive metadata
-    // in the spec-opaque `extensions` bag — a standard client ignores it; the pay path,
-    // accepts[], headers, and status stay byte-identical. Even an onchain-proof-only 402 a
-    // stock client can't pay becomes self-announcing + actionable (install the SDK and pay).
+    // Self-describe block (default-ON; opt out with `selfDescribe: false`). It rides in the
+    // response BODY only — additive metadata in the spec-opaque `extensions` bag a standard
+    // client ignores. Even an onchain-proof-only 402 a stock client can't pay becomes
+    // self-announcing + actionable (install the SDK and pay).
     const selfDescribe =
       options.selfDescribe === false
         ? undefined
@@ -644,18 +644,28 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
             accepts,
             instruction: describeChallenge({ x402Version: 2, resource: { url: resourceUrl }, accepts }),
           })
-    // DEEP-MERGE the `piprail` key: a rejection's { code, detail } (from opts.extensions) and
-    // the self-describe fields must coexist as SIBLINGS, and the rejection keys WIN on any
-    // collision — `client.ts` `readInvalidReason` reads `extensions.piprail.code`, so a naive
-    // top-level spread (one piprail object replacing the other) would silently null every
-    // rejection reason on the wire. `bazaar` is left untouched.
+    // DEEP-MERGE the `piprail` key: a rejection's { code, detail } (from opts.extensions) and the
+    // self-describe fields coexist as SIBLINGS, rejection keys WINNING on collision — `client.ts`
+    // `readInvalidReason` reads `extensions.piprail.code`, so a naive top-level spread (one piprail
+    // object replacing the other) would silently null every rejection reason on the wire.
     const rejectionExt = opts?.extensions ?? {}
-    const mergedPiprail: Record<string, unknown> = {
-      ...(selfDescribe ?? {}),
-      ...((rejectionExt.piprail as Record<string, unknown> | undefined) ?? {}),
+    const rejectionPiprail = (rejectionExt.piprail as Record<string, unknown> | undefined) ?? {}
+    // BODY extensions: the FULL block (self-describe + the rejection reason as siblings) + bazaar.
+    const bodyPiprail: Record<string, unknown> = { ...(selfDescribe ?? {}), ...rejectionPiprail }
+    const bodyExtensions = {
+      ...bazaar,
+      ...rejectionExt,
+      ...(Object.keys(bodyPiprail).length > 0 ? { piprail: bodyPiprail } : {}),
     }
-    const hasPiprail = Object.keys(mergedPiprail).length > 0
-    const extensions = { ...bazaar, ...rejectionExt, ...(hasPiprail ? { piprail: mergedPiprail } : {}) }
+    // HEADER extensions: SLIM. The base64 PAYMENT-REQUIRED header is size-sensitive (proxy/CDN
+    // ~8KB caps; Node's 16KB budget) and a client needs only `accepts[]` to pay, so the big
+    // self-describe block is OMITTED from the header (it lives in the body). Keep the small
+    // `bazaar` block (x402scan reads discovery from the HEADER) + the rejection `{code,detail}`
+    // (a client reads the reason) — so the zero-config-path header stays byte-identical.
+    const headerExtensions = {
+      ...bazaar,
+      ...(Object.keys(rejectionPiprail).length > 0 ? { piprail: rejectionPiprail } : {}),
+    }
     const challenge: X402Challenge = {
       x402Version: 2,
       resource: {
@@ -664,9 +674,14 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
       },
       accepts,
       ...(opts?.error ? { error: opts.error } : {}),
-      ...(Object.keys(extensions).length > 0 ? { extensions } : {}),
+      ...(Object.keys(bodyExtensions).length > 0 ? { extensions: bodyExtensions } : {}),
     }
-    return { challenge, requiredHeader: buildChallengeHeader(challenge) }
+    // The PAYMENT-REQUIRED header carries the slim challenge — the self-describe block is body-only.
+    const headerChallenge: X402Challenge = {
+      ...challenge,
+      ...(Object.keys(headerExtensions).length > 0 ? { extensions: headerExtensions } : { extensions: undefined }),
+    }
+    return { challenge, requiredHeader: buildChallengeHeader(headerChallenge) }
   }
 
   async function challenge(resourceUrl = '') {

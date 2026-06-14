@@ -88,6 +88,11 @@ describe('chainIdForExactNetwork', () => {
     expect(chainIdForExactNetwork('zksync')).toBe(324)
     expect(chainIdForExactNetwork('injective')).toBe(1776)
   })
+
+  it('is mainnet-only — the base-sepolia testnet entry is gone (no testnet presets)', () => {
+    expect(chainIdForExactNetwork('base-sepolia')).toBeNull()
+    expect(isPermit2ProxyChain(84532)).toBe(false) // Base Sepolia not in the Permit2 proxy set
+  })
 })
 
 describe('isPermit2ProxyChain', () => {
