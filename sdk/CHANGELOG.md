@@ -4,6 +4,18 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **Self-describe builder** (discoverability plan, Phase 1 — pure, **not yet wired**). New
+  `buildSelfDescription({ accepts })` produces the inert `extensions.piprail` self-description block
+  (identity · per-rail how-to-pay · `npm i @piprail/sdk` + a paste-ready snippet · `npx -y @piprail/mcp`
+  · docs + discovery pointers); `describeChallenge(challenge)` renders a one-line human/agent summary;
+  and `BRAND` is the single source of truth for the install/snippet/docs strings. The point: even an
+  `onchain-proof`-only 402 a stock x402 client can't pay becomes self-announcing and actionable
+  (install the SDK and pay). **No wire change** — exported + tested only; the gate wires it on by
+  default in a later phase. Purely-additive: the zero-config pay path is byte-identical.
+
 ## [1.22.1] — 2026-06-13 — docs: community links + integrations signposting
 
 Docs-only patch — **no code change** (the SDK is byte-identical to 1.22.0). Refreshes the README:

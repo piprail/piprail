@@ -49,10 +49,14 @@ export type { AgentTool, ToolAnnotations } from './agent.js'
 // Pure, chain-free helpers that make a bound client legible to an autonomous LLM:
 // one-line plan/decline/spend renderers, the cross-tool contract string, and a
 // 402 scheme/chain triage. The MCP wires these into its tool outputs + a prompt.
-export { summarizePlan, explainDecline, formatSpendReport } from './render.js'
+export { summarizePlan, explainDecline, formatSpendReport, describeChallenge } from './render.js'
 export { PIPRAIL_AGENT_GUIDE, agentGuide } from './agentGuide.js'
 export { classifyChallenge } from './classify.js'
 export type { ChallengeTriage, ChallengeVerdict } from './classify.js'
+// Self-description — the pure builder for the `extensions.piprail` block + the brand
+// single-source-of-truth (discoverability plan Phase 1; wired into the gate in Phase 5).
+export { buildSelfDescription, BRAND } from './selfdescribe.js'
+export type { SelfDescription, SelfDescribeRail } from './selfdescribe.js'
 
 /* --------------------------- accept (server side) --------------------------- */
 

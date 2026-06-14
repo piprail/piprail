@@ -3,6 +3,7 @@ import {
   summarizePlan,
   explainDecline,
   formatSpendReport,
+  describeChallenge,
   PaymentDeclinedError,
   PaymentTimeoutError,
   MaxRetriesExceededError,
@@ -11,6 +12,7 @@ import {
   NoCompatibleAcceptError,
   type PaymentPlan,
   type SpendSummary,
+  type X402Challenge,
 } from '../src/index.js'
 
 const payablePlan = {
@@ -97,5 +99,52 @@ describe('formatSpendReport', () => {
     const out = formatSpendReport(two)
     expect(out).toBe('0.12 USDC on eip155:8453 (2 payments); 0.05 USDC on solana:x (1 payment)')
     expect(out).not.toContain('0.17') // no cross-token aggregate
+  })
+})
+
+describe('describeChallenge', () => {
+  const mk = (accepts: unknown[]): X402Challenge =>
+    ({ x402Version: 2, resource: { url: 'https://api/x' }, accepts } as unknown as X402Challenge)
+
+  it('onchain-proof-only EVM: names amount/token/chain/payTo + the SDK, no standard-client note', () => {
+    const line = describeChallenge(
+      mk([
+        {
+          scheme: 'onchain-proof',
+          network: 'eip155:8453',
+          amount: '10000',
+          asset: '0xabc',
+          payTo: '0xPay',
+          maxTimeoutSeconds: 600,
+          extra: { nonce: 'n', decimals: 6, minConfirmations: 1, amountFormatted: '0.01', symbol: 'USDC' },
+        },
+      ])
+    )
+    expect(line).toContain('0.01 USDC')
+    expect(line).toContain('eip155:8453')
+    expect(line).toContain('0xPay')
+    expect(line).toContain('npm i @piprail/sdk')
+    expect(line).not.toMatch(/standard x402 client/i) // no exact rail offered
+  })
+
+  it('dual-rail: mentions the standard-client option', () => {
+    const line = describeChallenge(
+      mk([
+        { scheme: 'exact', network: 'eip155:8453', amount: '10000', asset: '0xabc', payTo: '0xPay', maxTimeoutSeconds: 600, extra: { assetTransferMethod: 'eip3009', amountFormatted: '0.01', symbol: 'USDC' } },
+        { scheme: 'onchain-proof', network: 'eip155:8453', amount: '10000', asset: '0xabc', payTo: '0xPay', maxTimeoutSeconds: 600, extra: { nonce: 'n', decimals: 6, minConfirmations: 1, amountFormatted: '0.01', symbol: 'USDC' } },
+      ])
+    )
+    expect(line).toMatch(/standard x402 client/i)
+  })
+
+  it('non-EVM native coin: uses the coin symbol + chain', () => {
+    const line = describeChallenge(
+      mk([
+        { scheme: 'onchain-proof', network: 'xrpl:0', amount: '10000', asset: 'native', payTo: 'rPay', maxTimeoutSeconds: 600, extra: { nonce: 'n', decimals: 6, minConfirmations: 1, amountFormatted: '0.01', symbol: 'XRP' } },
+      ])
+    )
+    expect(line).toContain('0.01 XRP')
+    expect(line).toContain('xrpl:0')
+    expect(line).toContain('rPay')
   })
 })
