@@ -15,5 +15,6 @@ These pages cover **first-party integrations** that drop PipRail into the framew
 | Integration | What it gives you |
 | --- | --- |
 | [OpenClaw](/integrations/openclaw/) | A ClawHub skill that hands an OpenClaw agent the 7 PipRail tools (budget-bound), via [`@piprail/mcp`](/mcp/overview/). |
+| [Hermes](/integrations/hermes/) | A Hermes MCP catalog entry (and Skills Hub skill) — add one `mcp_servers` block and the agent gets the 7 PipRail tools, budget-bound. |
 
 More framework integrations are on the way. Any MCP client can use PipRail today via the [MCP server](/mcp/overview/) — see [Client setup](/mcp/client-setup/).
