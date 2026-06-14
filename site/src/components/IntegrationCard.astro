@@ -1,0 +1,93 @@
+---
+// One live framework integration, shown on / and /mcp. Data: src/data/integrations.ts.
+// The install command WRAPS (never overflows) and has a click-to-copy button.
+import { Copy, Check, ArrowRight } from 'lucide-astro'
+import type { Integration } from '../data/integrations'
+
+type Props = Integration
+const { name, logo, tag, blurb, cmd, href } = Astro.props
+---
+
+<article class="lift group relative overflow-hidden rounded-2xl border border-accent/20 bg-neutral-950/80 p-6 transition-colors hover:border-accent/35 sm:p-7">
+  <div class="pointer-events-none absolute -right-24 -top-28 h-64 w-64 rounded-full bg-accent/10 blur-3xl"></div>
+
+  <!-- header: logo stacks ABOVE the text on mobile (full-width, not squashed); row from sm up -->
+  <div class="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5">
+    <img
+      src={logo}
+      alt={`${name} logo`}
+      width="64"
+      height="64"
+      loading="lazy"
+      class="h-14 w-14 shrink-0 rounded-2xl border border-white/10 object-cover shadow-lg shadow-black/30 sm:h-16 sm:w-16"
+    />
+    <div class="min-w-0 flex-1">
+      <div class="flex flex-wrap items-center gap-2.5">
+        <h3 class="text-lg font-semibold tracking-tight text-neutral-100 sm:text-xl">{name}</h3>
+        <span class="rounded-full border border-accent/25 bg-accent/10 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-accent">{tag}</span>
+      </div>
+      <p class="mt-2 leading-relaxed text-neutral-400">{blurb}</p>
+    </div>
+  </div>
+
+  <!-- copyable install command — wraps, never overflows -->
+  {cmd && (
+    <div class="relative mt-5">
+      <div class="flex items-start gap-2 rounded-lg border border-white/10 bg-black/40 py-2.5 pl-3 pr-12 font-mono text-[13px] leading-relaxed text-neutral-300">
+        <span class="select-none text-accent" aria-hidden="true">$</span>
+        <code class="min-w-0 wrap-break-word">{cmd}</code>
+      </div>
+      <button
+        type="button"
+        data-copy={cmd}
+        aria-label={`Copy command: ${cmd}`}
+        class="copy-btn absolute right-1.5 top-1.5 inline-flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-white/5 text-neutral-400 transition hover:border-accent/40 hover:bg-accent/10 hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
+      >
+        <Copy class="copy-i h-4 w-4" aria-hidden="true" />
+        <Check class="check-i hidden h-4 w-4 text-accent" aria-hidden="true" />
+        <span class="copied-label pointer-events-none absolute -top-9 right-0 hidden rounded-md bg-accent px-2 py-1 text-[11px] font-semibold text-neutral-950 shadow-lg shadow-black/30">Copied!</span>
+      </button>
+    </div>
+  )}
+
+  <!-- CTA → the integration's docs setup guide -->
+  {href && (
+    <div class="relative mt-5">
+      <a
+        href={href}
+        class="inline-flex w-full items-center justify-center gap-2 cta-glow rounded-xl bg-accent px-6 py-3 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto"
+      >
+        Set it up <ArrowRight class="h-4 w-4" aria-hidden="true" />
+      </a>
+    </div>
+  )}
+</article>
+
+<script>
+  // Click-to-copy for every IntegrationCard command — one delegated listener, bundled once.
+  document.addEventListener('click', async (e) => {
+    const target = e.target
+    if (!(target instanceof Element)) return
+    const btn = target.closest('.copy-btn')
+    if (!btn) return
+    const text = btn.getAttribute('data-copy') || ''
+    try {
+      await navigator.clipboard.writeText(text)
+    } catch {
+      return
+    }
+    const copyI = btn.querySelector('.copy-i')
+    const checkI = btn.querySelector('.check-i')
+    const label = btn.querySelector('.copied-label')
+    copyI?.classList.add('hidden')
+    checkI?.classList.remove('hidden')
+    label?.classList.remove('hidden')
+    btn.setAttribute('aria-label', 'Copied!')
+    window.setTimeout(() => {
+      copyI?.classList.remove('hidden')
+      checkI?.classList.add('hidden')
+      label?.classList.add('hidden')
+      btn.setAttribute('aria-label', 'Copy command')
+    }, 1600)
+  })
+</script>

@@ -5,7 +5,9 @@ import Footer from '../components/Footer.astro'
 import CodeWindow from '../components/CodeWindow.astro'
 import SectionHeading from '../components/SectionHeading.astro'
 import Breadcrumbs from '../components/Breadcrumbs.astro'
+import IntegrationCard from '../components/IntegrationCard.astro'
 import { mcpConfigCode } from '../data/snippets'
+import { liveIntegrations, comingSoon } from '../data/integrations'
 import { Wallet, ShieldCheck, Terminal, ArrowRight, ChevronDown, Code2, Sparkles, Plug } from 'lucide-astro'
 
 const title = '@piprail/mcp — budget-bound x402 payment wallet for AI agents (Claude, Cursor, Code)'
@@ -21,22 +23,6 @@ const tools = [
   { name: 'piprail_register', d: 'List an endpoint you run so other agents find it.' },
   { name: 'piprail_budget', d: 'Read remaining spend + time leash.' },
   { name: 'piprail_guide', d: 'Read the agent contract (quote → plan → pay).' },
-]
-
-// First-party framework integrations — wrap this same MCP server.
-const frameworks = [
-  { name: 'OpenClaw', tag: 'Live', logo: '/integrations/openclaw.webp', live: true,
-    d: 'Hand an OpenClaw agent a budget-bound wallet. Install the ClawHub skill or add one mcp.servers entry — the seven piprail_* tools appear, capped by a spend policy.',
-    cmd: 'clawhub install piprail',
-    href: 'https://docs.piprail.com/integrations/openclaw/' },
-  { name: 'Hermes', tag: 'Live', logo: '/integrations/hermes.webp', live: true,
-    d: 'Hand a Hermes agent a budget-bound wallet. One command (or one mcp_servers entry) and the seven piprail_* tools appear, capped by a spend policy.',
-    cmd: 'hermes mcp add piprail --command npx --args -y @piprail/mcp',
-    href: 'https://docs.piprail.com/integrations/hermes/' },
-  { name: 'Vercel AI SDK', tag: 'Coming soon', logo: '/integrations/vercel.webp', live: false,
-    d: 'paymentTools() dropped straight in as Vercel AI SDK tools — your app’s agent pays x402 APIs inside the same generateText loop.' },
-  { name: 'ElizaOS', tag: 'Coming soon', logo: '/integrations/elizaos.webp', live: false,
-    d: 'A PipRail plugin so ElizaOS agents pay for the data, compute, and services they use — self-custodial, no facilitator.' },
 ]
 
 // Trimmed to the trust + decision questions (the how-to lives in the docs). Keeps the FAQ schema.
@@ -139,31 +125,16 @@ const faqLd = {
       <SectionHeading title="Drop it into your framework.">
         First-party integrations wrap this same MCP server — the agent gets all seven tools, budget-bound, with no config wrangling.
       </SectionHeading>
+      <!-- live integrations — the same reusable component as the home page (src/components/IntegrationCard.astro) -->
       <div class="space-y-4">
-        {frameworks.map((f) => (
-          <div class={`relative overflow-hidden rounded-2xl border p-6 sm:p-7 ${f.live ? 'border-accent/25 bg-linear-to-br from-accent/8 via-transparent to-transparent' : 'border-white/10 bg-neutral-950/60'}`}>
-            {f.live && <div class="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-accent/10 blur-3xl"></div>}
-            <div class="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-7">
-              <img src={f.logo} alt={f.name} width="72" height="72" class={`h-16 w-16 shrink-0 rounded-2xl border border-white/10 object-cover shadow-lg shadow-black/40 sm:h-18 sm:w-18 ${f.live ? '' : 'opacity-90'}`} loading="lazy" />
-              <div class="min-w-0 flex-1">
-                <div class="flex flex-wrap items-center gap-2.5">
-                  <h3 class="text-lg font-semibold tracking-tight text-neutral-100">{f.name}</h3>
-                  <span class={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${f.live ? 'border border-accent/30 bg-accent/10 text-accent' : 'border border-white/10 bg-white/5 text-neutral-500'}`}>{f.tag}</span>
-                </div>
-                <p class="mt-2 max-w-2xl text-sm leading-relaxed text-neutral-400">{f.d}</p>
-                {f.cmd && (
-                  <div class="mt-3.5 flex max-w-full items-center gap-2 overflow-x-auto rounded-lg border border-white/10 bg-black/40 px-3 py-2 font-mono text-[13px] text-neutral-300">
-                    <span class="text-accent" aria-hidden="true">$</span> <span class="whitespace-nowrap">{f.cmd}</span>
-                  </div>
-                )}
-              </div>
-              <div class="shrink-0">
-                {f.live
-                  ? <a href={f.href} class="inline-flex w-full items-center justify-center gap-2 cta-glow rounded-xl bg-accent px-5 py-3 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto">Setup guide <ArrowRight size={15} aria-hidden="true" /></a>
-                  : <span class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-medium text-neutral-500 sm:w-auto">Coming soon</span>}
-              </div>
-            </div>
-          </div>
+        {liveIntegrations.map((i) => <IntegrationCard {...i} />)}
+      </div>
+
+      <!-- roadmap -->
+      <div class="mt-4 flex flex-wrap items-center gap-3">
+        <span class="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">More coming</span>
+        {comingSoon.map((n) => (
+          <span class="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-neutral-400">{n}</span>
         ))}
       </div>
       <p class="mt-5 text-sm text-neutral-500">Building on a framework that isn’t here yet? It already works as a raw MCP server. <a href="https://docs.piprail.com/integrations/" class="font-medium text-accent transition hover:underline">All integrations →</a></p>
