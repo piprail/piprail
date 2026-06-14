@@ -1,6 +1,6 @@
 ---
 title: PipRailError hierarchy
-description: Every error the SDK throws — the abstract PipRailError base, its sixteen typed subclasses, each stable .code, and what to do about it.
+description: Every error the SDK throws — the abstract PipRailError base, its seventeen typed subclasses, each stable .code, and what to do about it.
 sidebar:
   order: 2
 ---
@@ -33,7 +33,7 @@ try {
 }
 ```
 
-The base [`PipRailError`](/errors/error-model/) **and every one of the sixteen concrete
+The base [`PipRailError`](/errors/error-model/) **and every one of the seventeen concrete
 subclasses below is a named export** from `@piprail/sdk`, so you can either branch on
 `err.code` after a broad `instanceof PipRailError` catch, or `import` the specific class and
 narrow on it directly (`err instanceof PaymentDeclinedError`).
@@ -51,7 +51,7 @@ abstract class PipRailError extends Error {
 }
 ```
 
-## The sixteen subclasses
+## The seventeen subclasses
 
 Every class below is exported from the package root and is caught by
 `err instanceof PipRailError`. The `.code` is the stable string to branch on.
@@ -74,6 +74,7 @@ Every class below is exported from the package root and is caught by
 | `UnsupportedSchemeError` | `UNSUPPORTED_SCHEME` | Asked to pay a scheme the bound family / asset / signer can't settle, with no fallback rail. |
 | `NonReplayableBodyError` | `NON_REPLAYABLE_BODY` | `init.body` was provided but isn't replayable (e.g. a one-shot `ReadableStream`). |
 | `SettlementError` | `SETTLEMENT_FAILED` | An `exact`-rail payment was valid but settlement failed **server-side** — the gate throws this so the adapter returns 5xx, never 402. |
+| `WalletRequiredError` | `WALLET_REQUIRED` | A wallet-bound op (pay / plan / sign) was called on a **read-only** client built with no `wallet`. The read-only methods (quote / discover / register / budget) still work. |
 
 ## Affordability always converges — `InsufficientFundsError`
 

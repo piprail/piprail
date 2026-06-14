@@ -77,7 +77,7 @@ needs to retry. (The legacy `toInvalidBody` helper omits it and is deprecated.)
 
 ## The PaymentGate object
 
-`createPaymentGate` returns a `PaymentGate` with three methods — all driven by you, none of
+`createPaymentGate` returns a `PaymentGate` with four methods — all driven by you, none of
 which move anything on-chain except an actual verified payment:
 
 | Method | Returns | Use |
@@ -85,6 +85,7 @@ which move anything on-chain except an actual verified payment:
 | `gate.verify(header)` | `Promise<VerifyPaymentResult>` | Verify the inbound `payment-signature` header on each request. |
 | `gate.challenge(url?)` | `Promise<{ challenge, requiredHeader }>` | Mint a fresh 402 challenge (new nonce) for a URL — when you issue the 402 yourself. |
 | `gate.describe(url?)` | `Promise<ResourceDescription>` | Static, nonce-free metadata for discovery emitters (no nonce minted). |
+| `gate.landingPage(challenge)` | `string` | Render the self-describing HTML landing page for a human who opens the gated URL in a browser (from a `challenge`). |
 
 `requirePayment` is just `createPaymentGate` wrapped in an Express adapter — it builds one gate
 per gated route and reuses it (the gate's in-memory used-proof set is what stops a proof being

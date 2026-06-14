@@ -170,6 +170,8 @@ target is 402 Index — no auth, no signature, no payment. Moves no funds; nothi
 | `name` | string | Display name (defaults to the host). |
 | `description` | string | What the resource offers. |
 | `priceUsd` | number | Advertised price (metadata). |
+| `network` | string | Network slug to advertise, e.g. `'base'` (defaults to the paying chain) — set it when registering from a multi-chain (`PIPRAIL_CHAINS`) wallet. |
+| `asset` | string | Payment asset symbol, e.g. `'USDC'` (metadata). |
 
 Returns `{ outcomes[] }` — one `{ source, ok, detail, visibility, note }` per index; a step the
 chain can't satisfy comes back `ok: false` with the reason.

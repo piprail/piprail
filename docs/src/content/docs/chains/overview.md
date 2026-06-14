@@ -67,7 +67,7 @@ for (const [name, preset] of Object.entries(CHAINS)) {
   console.log(name, preset.chain.id, Object.keys(preset.tokens))
 }
 // → base 8453 [ 'USDC', 'EURC' ]
-// → bnb 56 [ 'USDC', 'USDT' ]
+// → bnb 56 [ 'USDC', 'USDT', 'FDUSD', 'USD1' ]
 // → … one line per built-in chain
 ```
 

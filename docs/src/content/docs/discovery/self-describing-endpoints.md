@@ -55,7 +55,7 @@ the gate already resolved (no new data):
   "mcp": { "run": "npx -y @piprail/mcp", "tool": "piprail_pay_request" },
   "docs": { "home": "https://piprail.com", "agents": "https://docs.piprail.com", "pay": "https://docs.piprail.com/paying" },
   "discovery": { "openapi": "/openapi.json", "wellKnown": "/.well-known/x402" },
-  "instruction": "PipRail x402 payment endpoint — pay 0.01 USDC on Base (eip155:8453) to 0xYourWallet. Programmatic: npm i @piprail/sdk then client.fetch(url). Docs: piprail.com."
+  "instruction": "PipRail x402 payment endpoint — pay 0.01 USDC on eip155:8453 to 0xYourWallet. Programmatic: npm i @piprail/sdk then client.fetch(url). Docs: https://piprail.com."
 }
 ```
 
@@ -110,8 +110,8 @@ used as the block's `instruction` and as a landing page's headline.
 import { describeChallenge } from '@piprail/sdk'
 
 describeChallenge(challenge)
-// → 'PipRail x402 payment endpoint — pay 0.01 USDC on Base (eip155:8453) to 0xYourWallet.
-//    Programmatic: npm i @piprail/sdk then client.fetch(url). Docs: piprail.com.'
+// → 'PipRail x402 payment endpoint — pay 0.01 USDC on eip155:8453 to 0xYourWallet.
+//    Programmatic: npm i @piprail/sdk then client.fetch(url). Docs: https://piprail.com.'
 ```
 
 It degrades gracefully (a foreign challenge with no PipRail `extra`, or an empty `accepts[]`, never
@@ -155,7 +155,7 @@ import { discoveryHeaders, POWERED_BY } from '@piprail/sdk'
 discoveryHeaders()
 // → {
 //     link: '</openapi.json>; rel="service-desc", </.well-known/x402>; rel="x402-discovery"',
-//     'x-powered-by': 'PipRail x402 · https://piprail.com',
+//     'x-powered-by': 'PipRail x402 | https://piprail.com',
 //   }
 
 discoveryHeaders({ attribution: false }) // omit x-powered-by, keep the Link pointers

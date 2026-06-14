@@ -53,9 +53,9 @@ Restart OpenClaw and the `piprail_*` tools appear. You can also **discover** Pip
 setup.
 
 :::danger
-Never commit your key. Keep it in the `env` block (or your shell) — treat that file as a secret.
-OpenClaw passes ordinary credential env vars through to the server, but strips interpreter-startup vars
-(`NODE_OPTIONS`, etc.).
+Never commit your key. Put it in the server's `env` block and treat that config file as a secret —
+the spawned MCP server gets its environment from that block, so the key has to live there (or be
+interpolated in from a secret store, where your client supports it).
 :::
 
 ## Configure

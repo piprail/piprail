@@ -157,6 +157,8 @@ chain can't satisfy comes back `ok: false` with the reason.
 | `name` | string | Display name (defaults to the host). |
 | `description` | string | What the resource offers. |
 | `priceUsd` | number | Advertised price in USD (metadata). |
+| `network` | string | Network slug to advertise, e.g. `'base'` (defaults to the paying chain) — set it when registering from a multi-chain wallet so the listing names the right chain. |
+| `asset` | string | Payment asset symbol, e.g. `'USDC'` (metadata). |
 
 Writes a listing to an external index but moves no funds and hosts nothing on PipRail's side
 (`destructiveHint: false`).

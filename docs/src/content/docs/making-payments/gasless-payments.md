@@ -97,7 +97,7 @@ The `exact` rail works one of three ways, depending on the chain + token. **PipR
 | | **EIP-3009** (EVM, gold path) | **Permit2** (EVM) | **SVM** (Solana) |
 |---|---|---|---|
 | Works on | tokens with `transferWithAuthorization` | **any** ERC-20 | **any** SPL token |
-| Examples | Circle **USDC** & **EURC**, **FDUSD**, **USD1**, PYUSD | Binance-Peg USDC/USDT on BNB | Solana **USDC** & **USDT** |
+| Examples (built-in presets) | Circle **USDC** & **EURC**, **FDUSD**, **USD1** | Binance-Peg USDC/USDT on BNB | Solana **USDC** & **USDT** |
 | What the buyer signs | an EIP-3009 authorization (off-chain) | a Permit2 witness transfer (off-chain) | the SPL `TransferChecked` **transaction** (partial-sign) |
 | Who broadcasts | merchant relayer / **facilitator** | merchant relayer (**self-settle only**) | relayer / **facilitator** (the **fee payer**) |
 | Extra contract needed | **none** | the canonical **Permit2** + the **x402ExactPermit2Proxy** | **none** |

@@ -137,10 +137,12 @@ once the server's node catches up. The client uses more patient retries after th
 
 ## When a payment fails
 
-`payment-failed` fires only after the transaction was broadcast and the flow then gave up
-(the server kept returning 402, or a facilitator rejected the `exact` authorization). The
-matching `MaxRetriesExceededError` thrown to the caller carries `.ref` — re-verify or
-re-submit, **never re-pay**.
+`payment-failed` fires when the flow gives up. On the **onchain-proof** rail that's only after
+the transaction was broadcast and the server kept returning 402 — the matching
+`MaxRetriesExceededError` carries `.ref`, so re-verify or re-submit, **never re-pay**. On the
+**exact** rail it can also fire with *no* broadcast at all (the buyer only signs an
+authorization): a facilitator rejection or a server-side settle failure ends the flow before
+anything settles, so there's nothing to recover — safe to retry from scratch.
 
 ```ts
 onEvent: (e) => {

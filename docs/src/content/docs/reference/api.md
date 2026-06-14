@@ -46,13 +46,16 @@ See [requirePayment & createPaymentGate](/accepting-payments/require-payment-and
 ## Pay (agent side)
 
 The client. One `PipRailClient` binds a chain + wallet and exposes the read-only trio
-(`quote` → `estimateCost` → `planPayment`) plus `fetch`.
+(`quote` → `estimateCost` → `planPayment`) plus `fetch`. `MultiChainPayer` carries one wallet
+per chain and auto-routes a 402 to whichever chain can settle it.
 
 | Export | Kind | Marked |
 | --- | --- | --- |
 | `PipRailClient` | class | **Headline** |
-| `planAcross` | fn | **Headline** |
-| `PipRailClientOptions`, `WalletInput`, `PaymentScheme` | type | — |
+| `MultiChainPayer` | class | **Headline** — one buyer, a wallet per chain |
+| `planAcross`, `fetchAcross` | fn | plan / pay across an array of single-chain clients |
+| `PipRailClientOptions`, `MultiChainPayerOptions`, `WalletInput`, `PaymentScheme` | type | — |
+| `PayingClient` | type | the read-+-pay surface both `PipRailClient` and `MultiChainPayer` satisfy |
 | `PipRailQuote`, `PipRailCostQuote`, `PipRailEvent` | type | — |
 | `PaymentPlan`, `PayOption`, `PayBlocker`, `PayWarning` | type | — |
 | `SessionBudget`, `SpendRemaining` | type | — |
@@ -60,6 +63,7 @@ The client. One `PipRailClient` binds a chain + wallet and exposes the read-only
 See [Quote](/making-payments/quote/), [Estimate cost](/making-payments/estimate-cost/),
 [planPayment()](/making-payments/plan-payment/),
 [fetch & autoRoute](/making-payments/fetch-and-autoroute/),
+[Multi-chain buying](/making-payments/multi-chain/),
 [Events](/making-payments/events/), and [Wallets by family](/making-payments/wallets-by-family/).
 
 ## Spend controls
@@ -87,10 +91,12 @@ make a bound client legible to the model.
 | --- | --- | --- |
 | `paymentTools` | fn | **Headline** |
 | `AgentTool`, `ToolAnnotations` | type | — |
-| `summarizePlan`, `explainDecline`, `formatSpendReport` | fn | — |
+| `summarizePlan`, `explainDecline`, `formatSpendReport`, `describeChallenge` | fn | — |
 | `PIPRAIL_AGENT_GUIDE`, `agentGuide` | const / fn | — |
 | `classifyChallenge` | fn | — |
 | `ChallengeTriage`, `ChallengeVerdict` | type | — |
+| `buildSelfDescription`, `BRAND` | fn / const | the `extensions.piprail` self-description builder + brand single-source-of-truth |
+| `SelfDescription`, `SelfDescribeRail` | type | — |
 
 See [Payment tools](/agent-toolkit/payment-tools/), [The 7 tools](/agent-toolkit/the-7-tools/),
 [Renderers](/agent-toolkit/renderers/), [Agent guide](/agent-toolkit/agent-guide/), and
@@ -118,9 +124,11 @@ free public directories.
 | Export | Kind |
 | --- | --- |
 | `buildOpenApi`, `buildWellKnownX402`, `buildX402DnsTxt`, `buildBazaarExtension`, `GENERATOR` | fn / const |
+| `discoveryHeaders`, `POWERED_BY`, `renderLandingPage` | fn / const | self-describing HTTP surfaces — the Link/`x-powered-by` header bag + the human HTML landing page |
 | `searchOpenIndexes`, `register402Index`, `registerX402Scan` | fn |
 | `claim402IndexDomain`, `verify402IndexDomain` | fn |
 | `normalizeNetwork`, `getDirectoryInfo`, `decorateOutcome`, `DIRECTORY_INFO` | fn / const |
+| `appendAttribution`, `REGISTER_ATTRIBUTION` | fn / const | the opt-in `· Built with @piprail/sdk` listing marker |
 | `PaymentRail`, `ResourceDescription`, `ManifestInput` | type |
 | `OpenApiDocument`, `OpenApiOperation`, `WellKnownX402`, `X402DnsRecord` | type |
 | `DiscoveryDescriptor`, `BazaarExtension` | type |
@@ -145,7 +153,7 @@ Every thrown error is a typed `PipRailError` subclass with a stable `.code`.
 | `MissingDriverError`, `UnsupportedNetworkError`, `UnsupportedSchemeError` | class |
 | `PaymentTimeoutError`, `ConfirmationTimeoutError`, `MaxRetriesExceededError` | class |
 | `PaymentDeclinedError`, `InvalidEnvelopeError`, `NoCompatibleAcceptError` | class |
-| `NonReplayableBodyError`, `SettlementError` | class |
+| `NonReplayableBodyError`, `SettlementError`, `WalletRequiredError` | class |
 | `toInsufficientFundsError` | fn |
 | `DeclineReasonCode` | type |
 
@@ -203,11 +211,14 @@ verify + settle to a third-party facilitator you choose. PipRail hosts nothing.
 | Export | Kind | Note |
 | --- | --- | --- |
 | `settleViaFacilitator` | fn | Run the two-POST verify→settle contract against a facilitator URL. |
+| `parseFacilitatorSupported`, `facilitatorCoverage` | fn | Read a facilitator's `GET /supported` → which (scheme, network) pairs it settles (never throws). |
+| `KNOWN_FACILITATORS`, `knownFacilitatorsFor`, `firstKeylessFacilitator` | const / fn | The keyless-facilitator coverage data map (which keyless facilitator settles `exact` on a network). |
 | `FacilitatorConfig` | type | The facilitator's base `url` + optional `authHeaders` provider. |
 | `FacilitatorPaymentRequirements` | type | The trusted `exact` requirements posted to the facilitator. |
-| `SettleViaFacilitatorInput` | type | Full input to `settleViaFacilitator` (config + payload + receipt fields). |
+| `SettleViaFacilitatorInput`, `FacilitatorSupportedKind`, `KnownFacilitator` | type | input to `settleViaFacilitator`; the `/supported` kinds; a coverage-map entry. |
 
-See the [exact rail (seller)](/accepting-payments/exact-rail-seller/) page for how to wire it.
+See the [exact rail (seller)](/accepting-payments/exact-rail-seller/) page for how to wire it, and
+[Facilitator coverage](/accepting-payments/facilitator-coverage/) for the keyless-facilitator data map.
 
 See [Low-level exact](/reference/exact-lowlevel/),
 [exact rail (seller)](/accepting-payments/exact-rail-seller/), and

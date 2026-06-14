@@ -198,8 +198,14 @@ mcp_servers:
 
 ## More than one chain
 
-Each server instance is **one wallet on one chain**. To give an agent several rails, register
-the server once per chain — each entry is namespaced, so the agent gets all of them:
+There are two ways. The simplest is **one server, several chains**: set `PIPRAIL_CHAINS` and give
+each chain its own `PIPRAIL_<CHAIN>_KEY` — `piprail_pay_request` then pays whichever chain a 402
+asks for (the first you listed that can settle), under one shared budget. See
+[Configuration → pay on several chains](/mcp/configuration/#pay-on-several-chains-from-one-server).
+
+Prefer **separate per-chain instances** when you want an independent budget (or token allowlist, or
+confirm mode) per chain — register the server once per chain, each entry namespaced so the agent
+gets all of them:
 
 ```json
 {

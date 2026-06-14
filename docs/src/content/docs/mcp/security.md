@@ -83,7 +83,7 @@ variable, naming the offender and listing the valid ones:
 
 ```text
 Unknown PipRail config var(s): PIPRAIL_MAX_AMUONT.
-Valid vars: PIPRAIL_PRIVATE_KEY, PIPRAIL_WALLET_KEY, PIPRAIL_CHAIN, PIPRAIL_RPC_URL, PIPRAIL_MAX_AMOUNT, …
+Valid vars: PIPRAIL_PRIVATE_KEY, PIPRAIL_WALLET_KEY, PIPRAIL_CHAIN, PIPRAIL_CHAINS, PIPRAIL_RPC_URL, PIPRAIL_MAX_AMOUNT, …
 ```
 
 It fails loudly instead of running with a budget that isn't the one you meant. The same fail-fast

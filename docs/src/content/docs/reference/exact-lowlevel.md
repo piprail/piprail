@@ -78,7 +78,7 @@ import { chainIdForExactNetwork } from '@piprail/sdk'
 
 chainIdForExactNetwork('base')      // → 8453
 chainIdForExactNetwork('arbitrum')  // → 42161
-chainIdForExactNetwork('zksync')    // → null — not in the map
+chainIdForExactNetwork('mantle')    // → null — an EVM preset, but not in the `exact` set
 ```
 
 The shipped set is `ethereum`, `base`, `arbitrum`, `optimism`, `polygon`,
