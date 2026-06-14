@@ -177,7 +177,7 @@ The Hermes integration shipped (`integrations/hermes/piprail/`, live on piprail.
 Base mainnet). These **external submissions are open and out of our hands** — periodically check whether
 they merged/landed. *(Manual reminder; nothing is scheduled. Delete an entry once it lands.)*
 
-- **MCP catalog (primary)** → [NousResearch/hermes-agent#45962](https://github.com/NousResearch/hermes-agent/pull/45962) — when merged, **`hermes mcp install piprail`** works natively for every Hermes user. ⏳ open
+- **MCP catalog (primary)** → [NousResearch/hermes-agent#45962](https://github.com/NousResearch/hermes-agent/pull/45962) — when merged, **`hermes mcp install piprail`** works natively for every Hermes user. ⏳ open. **When it lands, swap the site install chips** (`hermes mcp add piprail --command npx --args -y @piprail/mcp`, in `site/src/pages/index.astro` + `mcp.astro`) to the cleaner `hermes mcp install piprail`, and tighten the docs Setup `hermes.md`.
 - **Awesome list** → [SamurAIGPT/awesome-hermes-agent#61](https://github.com/SamurAIGPT/awesome-hermes-agent/pull/61). ⏳ open
 - **Hermes Atlas** (hermesatlas.com) → [ksimback/hermes-ecosystem#374](https://github.com/ksimback/hermes-ecosystem/issues/374). ⏳ open
 - **Skills tap** → [github.com/piprail/skills](https://github.com/piprail/skills) — `hermes skills tap add piprail/skills`. ✅ live (ours)

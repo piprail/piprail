@@ -27,8 +27,16 @@ provider's wallet, verified locally against **your own RPC**.
 
 ## Setup
 
-Add PipRail to `~/.hermes/config.yaml`. Hermes nests MCP servers under the top-level **`mcp_servers`**
-key:
+**Quickest — one command.** Adds the server and (after a quick "enable all 7 tools?" prompt) saves it to
+`~/.hermes/config.yaml`:
+
+```bash
+hermes mcp add piprail --command npx --args -y @piprail/mcp
+```
+
+Once the [catalog entry](#discover--publish) lands it gets shorter still — `hermes mcp install piprail`.
+Or wire it by hand — Hermes nests MCP servers under the top-level **`mcp_servers`** key in
+`~/.hermes/config.yaml`:
 
 ```yaml
 mcp_servers:
@@ -59,6 +67,13 @@ Hermes expands `${VAR}` but **not** bare `$VAR`. Never commit the key.
 
 **Read-only first run:** omit the key and PipRail boots key-less — discover/quote/register/budget/guide
 all work; only pay/plan need the wallet.
+
+:::note[There's also a skill]
+Beyond the MCP server (which is what actually pays), PipRail ships a small Hermes **skill** — usage
+guidance for the agent. It's discoverable with `hermes skills search piprail`, or add the tap directly:
+`hermes skills tap add piprail/skills`. The skill only teaches the quote → plan → pay workflow —
+**install the MCP server above to get the tools.**
+:::
 
 ## Configure
 

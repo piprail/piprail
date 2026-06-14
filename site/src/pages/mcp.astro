@@ -30,7 +30,8 @@ const frameworks = [
     cmd: 'clawhub install piprail',
     href: 'https://docs.piprail.com/integrations/openclaw/' },
   { name: 'Hermes', tag: 'Live', logo: '/integrations/hermes.webp', live: true,
-    d: 'Hand a Hermes agent a budget-bound wallet. Add one mcp_servers entry to ~/.hermes/config.yaml — the seven piprail_* tools appear, capped by a spend policy.',
+    d: 'Hand a Hermes agent a budget-bound wallet. One command (or one mcp_servers entry) and the seven piprail_* tools appear, capped by a spend policy.',
+    cmd: 'hermes mcp add piprail --command npx --args -y @piprail/mcp',
     href: 'https://docs.piprail.com/integrations/hermes/' },
   { name: 'Vercel AI SDK', tag: 'Coming soon', logo: '/integrations/vercel.webp', live: false,
     d: 'paymentTools() dropped straight in as Vercel AI SDK tools — your app’s agent pays x402 APIs inside the same generateText loop.' },
@@ -151,8 +152,8 @@ const faqLd = {
                 </div>
                 <p class="mt-2 max-w-2xl text-sm leading-relaxed text-neutral-400">{f.d}</p>
                 {f.cmd && (
-                  <div class="mt-3.5 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-black/40 px-3 py-2 font-mono text-[13px] text-neutral-300">
-                    <span class="text-accent" aria-hidden="true">$</span> {f.cmd}
+                  <div class="mt-3.5 flex max-w-full items-center gap-2 overflow-x-auto rounded-lg border border-white/10 bg-black/40 px-3 py-2 font-mono text-[13px] text-neutral-300">
+                    <span class="text-accent" aria-hidden="true">$</span> <span class="whitespace-nowrap">{f.cmd}</span>
                   </div>
                 )}
               </div>
