@@ -36,25 +36,49 @@ export interface KnownFacilitator {
  * facilitator (verified), not a mainnet rail; seeding it would be a false coverage claim.
  */
 export const KNOWN_FACILITATORS: Readonly<Record<Caip2, ReadonlyArray<KnownFacilitator>>> = {
-  // PayAI — keyless (no API key), sponsors the gas. Verified 2026-06-14 against
-  // https://facilitator.payai.network/supported (exact · eip155:8453) + the live demo.
+  // Base (eip155:8453). Every entry is keyless and LIVE-settled by us (a real EIP-3009
+  // exact payment, buyer paid zero ETH) — not just a /supported read — on the dated day.
   'eip155:8453': [
     {
       url: 'https://facilitator.payai.network',
       keyless: true,
       schemes: ['exact'],
       settles: ['eip3009'],
-      note: 'PayAI — keyless, sponsors gas (Base USDC EIP-3009)',
+      note: 'PayAI — keyless, sponsors gas (Base USDC EIP-3009). Verified 2026-06-14 (/supported + live demo).',
+    },
+    {
+      url: 'https://facilitator.xpay.sh',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['eip3009'],
+      note: 'xpay — keyless, zero-fee, sponsors gas. LIVE-settled on Base 2026-06-15 (tx 0x2273d5…).',
     },
   ],
-  // PayAI on Solana — keyless fee-payer sponsor for the SVM exact rail. Verified 2026-06-14.
+  // Solana (mainnet-beta). Keyless fee-payer sponsors for the SVM exact rail, each LIVE-settled
+  // by us (a real SPL TransferChecked, buyer paid zero SOL) on the dated day — beyond a /supported
+  // read. Daydreams + Questflow are intentionally ABSENT: their /supported is public but /verify
+  // returns 401 (an API key is required), so they are not keyless for settlement.
   'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp': [
     {
       url: 'https://facilitator.payai.network',
       keyless: true,
       schemes: ['exact'],
       settles: ['svm'],
-      note: 'PayAI — keyless fee-payer sponsor (Solana SPL SVM)',
+      note: 'PayAI — keyless fee-payer sponsor (Solana SPL SVM). LIVE-settled 2026-06-14 (tx 4dL8jRKH…).',
+    },
+    {
+      url: 'https://pay.openfacilitator.io',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['svm'],
+      note: 'OpenFacilitator — keyless (no signup), fee-payer sponsor. LIVE-settled on Solana 2026-06-15 (tx 5BabDtX…).',
+    },
+    {
+      url: 'https://facilitator.corbits.dev',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['svm'],
+      note: 'Corbits — keyless, Solana-first fee-payer sponsor. LIVE-settled on Solana 2026-06-15 (tx BCreYer…).',
     },
   ],
 }
