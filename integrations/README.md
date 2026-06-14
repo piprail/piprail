@@ -10,6 +10,7 @@ Each framework gets its own folder under `integrations/<framework>/`, with PipRa
 | Integration | Folder | What it gives you | Status |
 |---|---|---|---|
 | **OpenClaw** 🦞 | [`openclaw/piprail/`](./openclaw/piprail) | A [ClawHub](https://github.com/openclaw/clawhub) skill (published under **@piprail**) that hands an OpenClaw agent the 7 PipRail tools, budget-bound — via `@piprail/mcp` as an MCP server. `clawhub install piprail`. | ✅ built + tested |
+| **Hermes** 🛤️ | [`hermes/piprail/`](./hermes/piprail) | A [Hermes](https://github.com/NousResearch/hermes-agent) MCP catalog entry (`manifest.yaml`) + Skills Hub skill — add one `mcp_servers` block to `~/.hermes/config.yaml` and the agent gets the 7 PipRail tools, budget-bound. | ✅ built + tested |
 | _Vercel AI SDK · Mastra_ | _`vercel/piprail/` (soon)_ | `paymentTools()` as Vercel AI SDK / Mastra tools. | planned |
 | _ElizaOS_ | _`elizaos/piprail/` (soon)_ | A PipRail plugin + an MCP-monetization guide. | planned |
 

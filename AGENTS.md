@@ -30,7 +30,7 @@ sdk/        @piprail/sdk — the product (the only npm-published package)
   test/                 Vitest — the contract
   README.md ERRORS.md STANDARDS.md
 examples/   teaching code (standalone): express/ next-app-router/ agent/ mcp/ + README.md + CONCEPTS.md
-integrations/ first-party framework integrations (one folder per framework, standalone + publishable): openclaw/piprail/ (ClawHub skill @piprail, + verify.mjs) + README.md + TESTING.md
+integrations/ first-party framework integrations (one folder per framework, standalone + publishable): openclaw/piprail/ (ClawHub skill @piprail) + hermes/piprail/ (Hermes MCP catalog manifest + Skills Hub skill); each + verify.mjs; + README.md + TESTING.md
 site/       piprail.com — Astro 5 + Tailwind v4 (deploys to Netlify)
 ```
 

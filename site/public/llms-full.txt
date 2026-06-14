@@ -199,7 +199,7 @@ Seven tools appear: `piprail_discover` (find payable x402 endpoints on the open 
 
 ## Integrations
 
-Integrations with other agent frameworks and payment protocols are coming soon.
+PipRail drops into the frameworks where agents already live by wrapping the published @piprail/mcp server — there's no new code to build, just one config entry. Live today: **OpenClaw** (a ClawHub skill — `clawhub install piprail` — that hands an OpenClaw agent the 7 piprail_* tools, budget-bound, via one mcp.servers entry) and **Hermes** (NousResearch's agent runtime — add one mcp_servers block to ~/.hermes/config.yaml, or the Hermes MCP catalog entry `hermes mcp install piprail`, and the agent gets the same 7 tools, capped by a spend policy). More frameworks (Vercel AI SDK, Mastra, ElizaOS) are on the way. Any MCP client can use PipRail today — see https://docs.piprail.com/integrations/
 
 ## 60-second walkthrough: give your agent a wallet
 

@@ -5,11 +5,12 @@ layers** — run the automated one always; do the manual one once per framework 
 
 | Framework | Automated test | Real-app run | Status |
 |---|---|---|---|
-| **OpenClaw** | [`piprail/verify.mjs`](./piprail/verify.mjs) | [§ Manual OpenClaw run](#manual-openclaw-run) | ✅ passing |
+| **OpenClaw** | [`openclaw/piprail/verify.mjs`](./openclaw/piprail/verify.mjs) | [§ Manual OpenClaw run](#manual-openclaw-run) | ✅ passing |
+| **Hermes** | [`hermes/piprail/verify.mjs`](./hermes/piprail/verify.mjs) | [§ Manual Hermes run](#manual-hermes-run) | ✅ passing |
 | _Vercel AI SDK · Mastra · ElizaOS_ | _add `verify.mjs` per folder_ | _per framework_ | planned |
 
 > **Pattern (so this scales):** every integration keeps its own `verify.mjs` next to its code. Adding a
-> framework = add `integrations/<framework>/verify.mjs` + a row above. Tests live with what they test.
+> framework = add `integrations/<framework>/piprail/verify.mjs` + a row above. Tests live with what they test.
 
 ---
 
@@ -21,7 +22,7 @@ it spawns the PipRail MCP server the way the framework's config spawns it (same 
 exposes works.**
 
 ```bash
-cd integrations/openclaw/piprail
+cd integrations/openclaw/piprail   # or: cd integrations/hermes/piprail — same harness, same 7 tools
 
 node verify.mjs                                    # offline: handshake + all 7 tools + read-only calls
 node verify.mjs --live                             # + quote the LIVE demo + prove the spend cap
@@ -76,6 +77,48 @@ wiring, the budget. The other half is Layer 2.
 
 - [ ] `node verify.mjs --live` passes (protocol + live quote + budget refusal).
 - [ ] OpenClaw lists the 7 tools after adding the `mcp.servers` entry.
+- [ ] The agent quotes, plans, and **pays the live demo** end-to-end (real tx on Base).
+- [ ] A below-price cap makes the agent refuse — no funds move.
+
+<a id="manual-hermes-run"></a>
+### Manual Hermes run
+
+1. **Install Hermes** (see [hermes-agent.nousresearch.com](https://hermes-agent.nousresearch.com/)).
+   Confirm `hermes --version`.
+2. **Add PipRail as an MCP server.** Edit `~/.hermes/config.yaml` — Hermes nests servers under the
+   top-level **`mcp_servers`** key (see [`hermes/piprail/config.yaml`](./hermes/piprail/config.yaml)):
+
+   ```yaml
+   mcp_servers:
+     piprail:
+       command: "npx"
+       args: ["-y", "@piprail/mcp"]
+       env:
+         PIPRAIL_PRIVATE_KEY: "${PIPRAIL_PRIVATE_KEY}"
+         PIPRAIL_CHAIN: "base"
+         PIPRAIL_MAX_TOTAL: "5.00"
+         PIPRAIL_TOKENS: "USDC"
+   ```
+
+   Put the real key in `~/.hermes/.env` (chmod 600) as `PIPRAIL_PRIVATE_KEY=…` — Hermes expands
+   `${VAR}` and does **not** inherit your shell env. Use a wallet with a **tiny** USDC + gas balance on
+   Base. (Or `hermes mcp add piprail --command npx --args -y @piprail/mcp`.)
+3. **Load the tools** — run `/reload-mcp` (or start a new session). The seven tools appear namespaced as
+   `mcp_piprail_*`.
+4. **Drive the agent** (the real test):
+   - *"What's the price of `https://piprail.com/x402/demo`?"* → it calls `piprail_quote_payment` and
+     reports **0.01 USDC on Base**.
+   - *"Can I afford it?"* → `piprail_plan_payment` reports payable + remaining budget.
+   - *"Pay for it and show me the result."* → `piprail_pay_request` settles on-chain and returns the
+     200 body + a receipt (tx hash). Verify on [basescan.org](https://basescan.org).
+   - *"What's my budget?"* → `piprail_budget` shows the spend so far.
+5. **Prove the cap in-app** — set `PIPRAIL_MAX_TOTAL` below the demo price, `/reload-mcp`, and ask it to
+   pay: it should refuse, no funds moved. (Layer 1 already proves this automatically.)
+
+### Sign-off checklist
+
+- [ ] `node verify.mjs --live` passes (protocol + live quote + budget refusal).
+- [ ] Hermes lists the 7 `mcp_piprail_*` tools after adding the `mcp_servers` entry + `/reload-mcp`.
 - [ ] The agent quotes, plans, and **pays the live demo** end-to-end (real tx on Base).
 - [ ] A below-price cap makes the agent refuse — no funds move.
 

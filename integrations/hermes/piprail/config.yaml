@@ -1,0 +1,34 @@
+# Add PipRail to Hermes as an MCP server. Merge this into ~/.hermes/config.yaml.
+#
+# Hermes nests MCP servers under the top-level `mcp_servers:` key. After editing, run
+# `/reload-mcp` in a session (or start a new one). You can also add it from the CLI with
+# `hermes mcp add`, or — once the catalog PR (manifest.yaml) merges — `hermes mcp install piprail`.
+#
+# Keep your key secret: put the literal value in ~/.hermes/.env (chmod 600) and reference it as
+# ${PIPRAIL_PRIVATE_KEY} below. Hermes substitutes ${VAR} (bare $VAR is NOT expanded) and does NOT
+# inherit your shell env into the subprocess — the key MUST be in this `env:` block to reach PipRail.
+mcp_servers:
+  piprail:
+    command: "npx"
+    args: ["-y", "@piprail/mcp"]
+    enabled: true
+    env:
+      # Self-custodial WALLET key, not an API key. OMIT this whole `env:` block for read-only mode
+      # (discover/quote/register/budget/guide work key-less; pay/plan return WALLET_REQUIRED).
+      PIPRAIL_PRIVATE_KEY: "${PIPRAIL_PRIVATE_KEY}"
+      PIPRAIL_CHAIN: "base"
+      PIPRAIL_MAX_AMOUNT: "0.10"
+      PIPRAIL_MAX_TOTAL: "5.00"
+      PIPRAIL_TOKENS: "USDC"
+    tools:
+      # All seven tools. To let the agent read/plan but never auto-spend, drop piprail_pay_request.
+      include:
+        - piprail_discover
+        - piprail_quote_payment
+        - piprail_plan_payment
+        - piprail_pay_request
+        - piprail_register
+        - piprail_budget
+        - piprail_guide
+      prompts: false      # PipRail is tools-only
+      resources: false    # PipRail is tools-only

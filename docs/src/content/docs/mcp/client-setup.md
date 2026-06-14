@@ -45,6 +45,7 @@ the raw key into the config file — treat that file as a secret.
 | VS Code (Copilot) | `.vscode/mcp.json` | **`servers`** | Yes |
 | Cline | `cline_mcp_settings.json` (edited from the MCP Servers panel) | `mcpServers` | Yes |
 | OpenClaw | `~/.openclaw/openclaw.json` | **`mcp.servers`** (nested) | **No** — file is a secret |
+| Hermes | `~/.hermes/config.yaml` (**YAML**) | **`mcp_servers`** | Yes — `${VAR}` from `~/.hermes/.env` |
 
 ## Claude Desktop
 
@@ -175,6 +176,24 @@ guide: the [OpenClaw integration](/integrations/openclaw/).
     }
   }
 }
+```
+
+## Hermes
+
+[Hermes](https://github.com/NousResearch/hermes-agent) nests MCP servers under the top-level
+**`mcp_servers`** key in `~/.hermes/config.yaml` — and it's **YAML**, not JSON. Hermes expands
+`${VAR}` (but not bare `$VAR`) from `~/.hermes/.env`, and does **not** inherit your shell env into the
+server, so the key must live in the `env:` block. After editing, run `/reload-mcp`. Full guide: the
+[Hermes integration](/integrations/hermes/).
+
+```yaml
+mcp_servers:
+  piprail:
+    command: "npx"
+    args: ["-y", "@piprail/mcp"]
+    env:
+      PIPRAIL_PRIVATE_KEY: "${PIPRAIL_PRIVATE_KEY}"
+      PIPRAIL_CHAIN: "base"
 ```
 
 ## More than one chain

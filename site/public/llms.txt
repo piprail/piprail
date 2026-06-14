@@ -45,7 +45,7 @@ Full pitch + all code inline: [llms-full.txt](https://piprail.com/llms-full.txt)
 
 ## Integrations
 
-- Integrations with other agent frameworks and payment protocols are coming soon.
+- PipRail drops into agent frameworks by wrapping the published @piprail/mcp server — no new code, just one config entry. Live: **OpenClaw** (a ClawHub skill — `clawhub install piprail`) and **Hermes** (NousResearch's agent runtime — add one `mcp_servers` block to `~/.hermes/config.yaml`). Each gives the agent the 7 piprail_* tools, budget-bound. Vercel AI SDK, Mastra, and ElizaOS are next. Any MCP client can use PipRail today. See https://docs.piprail.com/integrations/
 
 ## Chains
 
