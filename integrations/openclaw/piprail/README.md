@@ -48,7 +48,8 @@ Copy [`.env.example`](./.env.example) and fill in a **funded** wallet key. The f
 | --- | --- | --- | --- |
 | `PIPRAIL_PRIVATE_KEY` | ✅ | — | Funded wallet key/seed for the chain (EVM `0x…`, Solana base58, or a mnemonic). **Never commit it.** |
 | `PIPRAIL_CHAIN` | — | `base` | Chain to pay on (any EVM, or `solana`/`ton`/`tron`/`near`/`sui`/`aptos`/`algorand`/`stellar`/`xrpl`) |
-| `PIPRAIL_MAX_AMOUNT` | — | `0.10` | Max per payment (human units) |
+| `PIPRAIL_CHAINS` | — | — | **Multi-chain** — comma-separated chains; each takes its own `PIPRAIL_<CHAIN>_KEY`. Pays whichever chain a 402 asks for. ([docs](https://docs.piprail.com/mcp/configuration/#pay-on-several-chains-from-one-server)) |
+| `PIPRAIL_MAX_AMOUNT` | — | `0.10` | Max per payment, in the **token's units** (≈ $ for USDC/USDT; native units for a coin) |
 | `PIPRAIL_MAX_TOTAL` | — | `10.00` | Lifetime budget per token |
 | `PIPRAIL_TOKENS` | — | chain stables | Allowed tokens, comma-separated |
 | `PIPRAIL_SCHEMES` | — | `onchain-proof` | Add `exact` to also pay standard x402 servers |

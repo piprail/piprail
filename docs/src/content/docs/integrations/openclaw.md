@@ -64,8 +64,9 @@ OpenClaw passes ordinary credential env vars through to the server, but strips i
 | --- | --- | --- | --- |
 | `PIPRAIL_PRIVATE_KEY` | only to **pay** | — | Self-custodial wallet key/seed (EVM `0x…`, Solana base58, or a mnemonic). **Omit it for read-only** — discover/quote/register/budget/guide still work. Not an API key. |
 | `PIPRAIL_CHAIN` | — | `base` | Which chain to pay on — any EVM, or `solana`/`ton`/`tron`/`near`/`sui`/`aptos`/`algorand`/`stellar`/`xrpl` |
-| `PIPRAIL_MAX_AMOUNT` | — | `0.10` | Max per payment (human units) |
-| `PIPRAIL_MAX_TOTAL` | — | `10.00` | Lifetime budget per token |
+| `PIPRAIL_CHAINS` | — | — | **Pay across several chains** (instead of `PIPRAIL_CHAIN`) — e.g. `base,polygon,solana`, each with its own `PIPRAIL_<CHAIN>_KEY`; pays whichever chain a 402 asks for. See [Configuration](/mcp/configuration/#pay-on-several-chains-from-one-server). |
+| `PIPRAIL_MAX_AMOUNT` | — | `0.10` | Max per payment, in the **token's units** (≈ $ for USDC/USDT; native-coin units on a `native` rail) |
+| `PIPRAIL_MAX_TOTAL` | — | `10.00` | Lifetime budget per (chain, token) |
 | `PIPRAIL_TOKENS` | — | chain stables | Allowed tokens, comma-separated |
 | `PIPRAIL_SCHEMES` | — | `onchain-proof` | Add `exact` to also pay standard x402 servers |
 | `PIPRAIL_RPC_URL` | — | chain default | Custom RPC (recommended in production) |

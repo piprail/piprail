@@ -28,6 +28,18 @@ Restart the client and the PipRail tools appear (VS Code uses `servers`, not `mc
 
 **No key? It still runs.** Without `PIPRAIL_PRIVATE_KEY` the server boots in **read-only mode** — discover, quote, register, budget, and guide all work; only `piprail_pay_request` (and `piprail_plan_payment`) ask for a wallet. Add a key when you're ready to actually pay.
 
+**Pay across chains?** List several chains and give each its own key — the tools then pay whichever chain a 402 asks for (one server, one budget):
+
+```jsonc
+"env": {
+  "PIPRAIL_CHAINS": "base,polygon,solana",
+  "PIPRAIL_BASE_KEY": "0x…", "PIPRAIL_POLYGON_KEY": "0x…", "PIPRAIL_SOLANA_KEY": "<base58-secret>",
+  "PIPRAIL_MAX_AMOUNT": "1.00"
+}
+```
+
+One EVM key works on every EVM chain; non-EVM families each need their own key (and that family's peer libs). A chain with no key is read-only. → [Configuration](https://docs.piprail.com/mcp/configuration/)
+
 Listed in the official **MCP registry** as [`io.github.piprail/mcp`](https://registry.modelcontextprotocol.io).
 
 ---

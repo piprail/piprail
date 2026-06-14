@@ -9,12 +9,12 @@
     "source": "github",
     "subfolder": "mcp"
   },
-  "version": "0.4.1",
+  "version": "0.5.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@piprail/mcp",
-      "version": "0.4.1",
+      "version": "0.5.0",
       "transport": {
         "type": "stdio"
       },
@@ -29,6 +29,12 @@
         {
           "name": "PIPRAIL_CHAIN",
           "description": "Chain to pay on (default: base).",
+          "isRequired": false,
+          "format": "string"
+        },
+        {
+          "name": "PIPRAIL_CHAINS",
+          "description": "Pay across several chains (instead of PIPRAIL_CHAIN): a comma-separated list, e.g. base,polygon,solana. Give each its own PIPRAIL_<CHAIN>_KEY (+ optional PIPRAIL_<CHAIN>_RPC_URL). The agent pays whichever chain a 402 asks for — the first listed that can settle — under one shared budget.",
           "isRequired": false,
           "format": "string"
         },

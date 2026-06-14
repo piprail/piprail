@@ -36,7 +36,8 @@ banner names which env var supplied it (`PIPRAIL_PRIVATE_KEY` / `PIPRAIL_WALLET_
 | Variable | Alias | Required | Default | Meaning |
 | --- | --- | --- | --- | --- |
 | `PIPRAIL_PRIVATE_KEY` | `PIPRAIL_WALLET_KEY`, `AGENT_KEY` | only to **pay** | — | Wallet key/seed/mnemonic in the chain's native format (see below). **Omit it** to run read-only (discover/quote/register/budget/guide work; pay/plan need it). |
-| `PIPRAIL_CHAIN` | `CHAIN` | no | `base` | EVM preset name or non-EVM family — one wallet on one chain. |
+| `PIPRAIL_CHAIN` | `CHAIN` | no | `base` | EVM preset name or non-EVM family — one wallet on one chain. (Single-chain mode.) |
+| `PIPRAIL_CHAINS` | — | no | — | **Multi-chain mode** — comma-separated chains (e.g. `base,polygon,solana`). Each takes its own `PIPRAIL_<CHAIN>_KEY` (+ optional `PIPRAIL_<CHAIN>_RPC_URL`); the server pays whichever chain a 402 asks for. Mutually exclusive with `PIPRAIL_CHAIN`/`PIPRAIL_PRIVATE_KEY`/`PIPRAIL_RPC_URL`. See [below](#pay-on-several-chains-from-one-server). |
 | `PIPRAIL_MAX_AMOUNT` | `MAX_AMOUNT` | no | `0.10` | Ceiling **per payment**, human units. |
 | `PIPRAIL_MAX_TOTAL` | `MAX_TOTAL` | no | `10.00` | Lifetime ceiling **per distinct token**, human units. |
 | `PIPRAIL_TOKENS` | `TOKENS` | no | `USDC` *(USDT on Tron/TON)* | Comma-separated allowed token symbols, plus `native` for the chain's coin. |
@@ -55,6 +56,36 @@ banner names which env var supplied it (`PIPRAIL_PRIVATE_KEY` / `PIPRAIL_WALLET_
 Boolean knobs (`PIPRAIL_ALLOW_UNKNOWN_TOKENS`, `PIPRAIL_CONFIRM`, `PIPRAIL_GUIDE`) accept
 `1`, `true`, or `yes` (case-insensitive) as true; anything else is false.
 
+## Pay on several chains from one server
+
+Set `PIPRAIL_CHAINS` to a comma-separated list and give each chain its own key — the server
+then pays whichever chain a 402 asks for, from **one process, under one shared budget**:
+
+```jsonc
+"env": {
+  "PIPRAIL_CHAINS": "base,polygon,solana",
+  "PIPRAIL_BASE_KEY": "0xYOUR_EVM_KEY",        // one EVM key works on every EVM chain
+  "PIPRAIL_POLYGON_KEY": "0xYOUR_EVM_KEY",
+  "PIPRAIL_SOLANA_KEY": "YOUR_BASE58_SECRET",  // needs the Solana peer libs (see Chains)
+  "PIPRAIL_MAX_AMOUNT": "1.00"
+}
+```
+
+- **Per-chain key:** `PIPRAIL_<CHAIN>_KEY` in that chain's native format (uppercase the chain;
+  a hyphen becomes `_`). A chain with **no key is read-only** — it can plan/quote, not pay.
+- **Per-chain RPC:** `PIPRAIL_<CHAIN>_RPC_URL` (optional, per chain).
+- **NEAR** still uses the single `PIPRAIL_NEAR_ACCOUNT_ID`.
+- **Shared budget:** `PIPRAIL_MAX_AMOUNT` / `PIPRAIL_MAX_TOTAL` / `PIPRAIL_TOKENS` (defaults to the
+  **union** of each chain's stablecoin) apply to every chain; each chain keeps its own per-token
+  ledger (no cross-token sum).
+- **One mode at a time:** mixing `PIPRAIL_CHAINS` with the single-chain `PIPRAIL_CHAIN` /
+  `PIPRAIL_PRIVATE_KEY` / `PIPRAIL_RPC_URL` is rejected at startup.
+
+The tools, budget, and guide are identical to single-chain mode — `piprail_pay_request` just
+gains the ability to route across your funded chains. It pays the **first chain you list** that
+can settle the 402 (your preference order — there's no oracle to compare gas across different
+coins); within a chain it picks the cheapest-gas rail. List your preferred chain first.
+
 ## The budget — the spend policy
 
 `PIPRAIL_MAX_AMOUNT`, `PIPRAIL_MAX_TOTAL`, `PIPRAIL_TOKENS`, and `PIPRAIL_HOSTS` become the
@@ -64,12 +95,16 @@ The model cannot exceed it even if it tries.
 ```jsonc
 "env": {
   "PIPRAIL_PRIVATE_KEY": "0xYOUR_PRIVATE_KEY",
-  "PIPRAIL_MAX_AMOUNT": "0.25",      // up to 0.25 per payment
-  "PIPRAIL_MAX_TOTAL": "5.00",       // 5.00 lifetime, per token
+  "PIPRAIL_MAX_AMOUNT": "0.25",      // per payment, in the TOKEN's units
+  "PIPRAIL_MAX_TOTAL": "5.00",       // lifetime, per (chain, token)
   "PIPRAIL_TOKENS": "USDC,native",   // USDC or the chain's coin
   "PIPRAIL_HOSTS": "*.example.com"   // only this domain
 }
 ```
+
+> The caps are in the **paid token's units** — so `0.25` is ~25¢ for USDC, but with `native`
+> allowed it's `0.25` of the chain's coin (e.g. 0.25 ETH ≈ \$1000s), since there's no price
+> oracle. Keep `PIPRAIL_TOKENS` to ≈\$1 stablecoins if you want the cap to read as dollars.
 
 `PIPRAIL_TOKENS` takes token **symbols** (`USDC`, `USDT`, `EURC`, …) plus the chain-agnostic
 alias **`native`** — the chain's own coin (ETH on Base, TRX on Tron, XLM on Stellar) without

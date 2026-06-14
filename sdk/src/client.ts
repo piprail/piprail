@@ -422,6 +422,23 @@ export interface RegisterOptions {
   attribution?: boolean
 }
 
+/**
+ * The read-+-pay surface an agent toolkit needs — the methods {@link paymentTools}
+ * calls. BOTH {@link PipRailClient} (one chain) and {@link MultiChainPayer} (many
+ * chains, one per wallet) satisfy it, so `paymentTools` wraps either unchanged:
+ * point an MCP/LLM at one wallet or at a whole bundle without touching the tools.
+ */
+export interface PayingClient {
+  discover(opts?: DiscoverOptions): Promise<DiscoveredResource[]>
+  quote(url: string, init?: RequestInit): Promise<PipRailQuote | null>
+  planPayment(url: string, init?: RequestInit): Promise<PaymentPlan | null>
+  get(url: string, init?: RequestInit): Promise<Response>
+  fetch(url: string, init?: RequestInit): Promise<Response>
+  register(url: string, opts?: RegisterOptions): Promise<RegisterOutcome[]>
+  spent(): SpendSummary
+  budget(): SessionBudget
+}
+
 export class PipRailClient {
   private readonly opts: PipRailClientOptions
   private readonly maxRetries: number
@@ -1690,6 +1707,77 @@ function rankOptions(options: PayOption[]): PayOption[] {
   })
 }
 
+/**
+ * Merge already-within-chain-ranked plans across clients into one ordered list.
+ * Each plan's `options` are ALREADY ranked on their own (single) native coin —
+ * payable-first, cheapest-gas first ({@link rankOptions} in `planFromChallenge`). We
+ * concatenate them in CLIENT order, then stable-partition by state only. We never
+ * compare gas fees ACROSS coins — base-unit magnitudes aren't comparable between
+ * different native coins (and there's no price oracle), so doing so would let a
+ * small-base-unit coin win regardless of real cost. The result: `best` is the
+ * FIRST chain you listed that can settle (your preference), and within a chain the
+ * cheapest-gas rail. A valid, transitive comparator (state rank only) → stable.
+ */
+function rankAcross(plans: PaymentPlan[]): PayOption[] {
+  const rank = { payable: 0, unknown: 1, blocked: 2 } as const
+  return plans.flatMap((p) => p.options).sort((a, b) => rank[a.state] - rank[b.state])
+}
+
+/**
+ * Plan a URL on every client, KEEPING the client↔plan association. Distinguishes a
+ * PER-CLIENT failure (one chain's RPC is down → swallowed, contributes nothing) from
+ * a TOTAL outage (every client threw and none returned) — the latter is RE-THROWN, so
+ * `canAfford`/`quote` surface a real error instead of a false "affordable"/"not-gated"
+ * (a single client throws on a dead RPC; the across-helpers must too). A client that
+ * returns `null` (a clean non-402) counts as a reachable "not gated" answer.
+ */
+async function planEachClient(
+  clients: PipRailClient[],
+  url: string,
+  init?: RequestInit
+): Promise<{ client: PipRailClient; plan: PaymentPlan }[]> {
+  const settled = await Promise.allSettled(clients.map((c) => c.planPayment(url, init)))
+  const live: { client: PipRailClient; plan: PaymentPlan }[] = []
+  let anyReached = false
+  let firstError: unknown
+  settled.forEach((s, i) => {
+    if (s.status === 'fulfilled') {
+      anyReached = true // reached the server (a plan, or null = not gated)
+      if (s.value != null) live.push({ client: clients[i]!, plan: s.value })
+    } else if (firstError === undefined) {
+      firstError = s.reason
+    }
+  })
+  // Every client threw (e.g. total RPC/network outage) ⇒ propagate, don't fake "not gated".
+  if (live.length === 0 && !anyReached) {
+    throw firstError ?? new Error('planAcross: every client failed to reach the resource.')
+  }
+  return live
+}
+
+/**
+ * Merge several single-chain plans' funding hints into ONE clear cross-chain decline
+ * message — used when NO funded chain can settle (multi-chain `planAcross`/`fetchAcross`).
+ * The single-chain `buildFundingHint` already names its own chain in each sentence; this
+ * just decides which to show so an agent (or human) sees exactly what's blocking EVERY
+ * funded chain, not only the first:
+ *   - If any funded chain actually OFFERED a rail but couldn't settle it (insufficient
+ *     token/gas, recipient-not-ready, outside-policy), show ALL of those — deduped, joined
+ *     with ` · ` — so the reader sees each chain to top up and by how much. The bare
+ *     "not offered on this chain" notes from chains the 402 never listed are dropped as
+ *     noise (they aren't actionable when another chain is close).
+ *   - If NO funded chain even offered a rail (the 402 wants chains you don't hold), fall
+ *     back to those "payable on: …" notes (deduped) so the reader learns which chains the
+ *     402 actually accepts.
+ */
+function mergeDeclineHint(plans: PaymentPlan[]): string | null {
+  const actionable = plans
+    .filter((p) => p.options.length > 0 && p.fundingHint)
+    .map((p) => p.fundingHint as string)
+  const chosen = actionable.length ? actionable : plans.map((p) => p.fundingHint).filter(Boolean)
+  return chosen.length ? [...new Set(chosen)].join(' · ') : null
+}
+
 /** One actionable, human sentence on exactly what to do when no rail is payable —
  *  built from the least-blocked option (the closest to settleable). */
 function buildFundingHint(options: PayOption[], chainLabel: string): string | null {
@@ -1727,21 +1815,24 @@ function buildFundingHint(options: PayOption[], chainLabel: string): string | nu
  * A {@link PipRailClient} is bound to one chain (its wallet); give this one client
  * per chain the agent funds and it runs each client's {@link PipRailClient.planPayment}
  * in parallel and merges the rails into one plan, ranked payable-first. `best` is a
- * payable rail; across different native coins there's no oracle to pick the
- * fiat-cheapest, so the tiebreak is the order `clients` were given (the agent's own
- * chain preference). Returns `null` only if the URL isn't gated for any client.
+ * payable rail. Across different native coins there's no oracle to compare gas costs,
+ * so it does NOT rank chains by fee against each other: `best` is the FIRST chain you
+ * pass in `clients` that can settle (your preference order); within a single chain it
+ * still prefers the cheapest-gas rail. Returns `null` only if the URL isn't gated for
+ * any client. Throws only if EVERY client fails to reach the resource (a total outage),
+ * mirroring a single client — a single chain being down just drops that chain.
  */
 export async function planAcross(
   clients: PipRailClient[],
   url: string,
   init?: RequestInit
 ): Promise<PaymentPlan | null> {
-  const plans = await Promise.all(clients.map((c) => c.planPayment(url, init).catch(() => null)))
-  const live = plans.filter((p): p is PaymentPlan => p != null)
+  if (clients.length === 0) return null
+  const live = (await planEachClient(clients, url, init)).map((p) => p.plan)
   if (live.length === 0) return null
-  // Concatenate options in client order, then re-rank payable-first (stable keeps
-  // the agent's client preference as the cross-coin tiebreak).
-  const options = rankOptions(live.flatMap((p) => p.options))
+  // Concatenate options in client order, then partition by state only (NEVER compare
+  // gas fees across coins — see rankAcross). `best` = first-listed chain that can settle.
+  const options = rankAcross(live)
   const best = options.find((o) => o.state === 'payable') ?? null
   const status: PaymentPlan['status'] = best
     ? 'ready'
@@ -1755,9 +1846,70 @@ export async function planAcross(
     payable: best !== null,
     best,
     options,
-    // First non-null hint across clients — each already names its chain.
-    fundingHint: best ? null : (live.map((p) => p.fundingHint).find(Boolean) ?? null),
+    // Merge EVERY funded chain's blocker into one clear sentence (not just the first) —
+    // see mergeDeclineHint. `null` when a rail is payable.
+    fundingHint: best ? null : mergeDeclineHint(live),
   }
+}
+
+/**
+ * PAY across several single-chain clients — the EXECUTION counterpart to
+ * {@link planAcross}. Plans the URL on every client in parallel (keeping which
+ * client owns which rail), picks the rail `planAcross` names as `best` (the first
+ * funded chain you listed that can settle RIGHT NOW), and pays it on its owning
+ * client. So an agent that holds one wallet
+ * per chain pays whichever chain/token the merchant's 402 asks for — with no
+ * manual routing — while every payment still goes through that client's own
+ * spend policy, `onBeforePay` hook, retries, and replay-protection (this just
+ * calls the chosen client's {@link PipRailClient.fetch}).
+ *
+ * - A URL that needs no payment (no 402) is returned straight through.
+ * - When NO funded chain can settle it, throws {@link PaymentDeclinedError} with a
+ *   merged, per-chain funding hint — BEFORE any on-chain send.
+ *
+ * Selection matches {@link planAcross}: payable-first, and across different native
+ * coins (no price oracle) the FIRST chain you pass in `clients` that can settle wins
+ * (your preference); within a chain, the cheapest-gas rail. It normally pays the rail
+ * `planAcross` reports as `best`, but on a BEST-EFFORT basis — the owning client
+ * re-reads its balances/gas at pay time, so a change between planning and paying (a
+ * concurrent payment, RPC drift, the merchant returning a different 402) can make it
+ * pick another settleable rail ON THE SAME CHAIN, or decline; its spend policy +
+ * `onBeforePay` still gate whatever is actually paid. For the ergonomic object form,
+ * see {@link MultiChainPayer}.
+ *
+ * NOTE: this PROBES the URL with the caller's `init` (method + body) on each client to
+ * read the 402, so prefer it for GET / idempotent requests — a non-idempotent POST is
+ * sent once per client before the pay leg (the x402 gate returns 402 without acting,
+ * but the body is re-sent).
+ */
+export async function fetchAcross(
+  clients: PipRailClient[],
+  url: string,
+  init?: RequestInit
+): Promise<Response> {
+  if (clients.length === 0) {
+    throw new TypeError('fetchAcross needs at least one PipRailClient.')
+  }
+  // Plan on each client, KEEPING the client↔plan association (planAcross discards it).
+  // A read-only / single-chain-down client contributes nothing; a TOTAL outage throws.
+  const live = await planEachClient(clients, url, init)
+  // Not gated for ANY reachable client ⇒ a free resource: pass it straight through.
+  if (live.length === 0) return clients[0]!.fetch(url, init)
+  // Merge across chains EXACTLY as planAcross does (state-stable, client order — never a
+  // cross-coin fee compare); `best` is reference-identical to a rail in one client's own
+  // plan, so it maps straight back to the client that owns it.
+  const best = rankAcross(live.map((p) => p.plan)).find((o) => o.state === 'payable')
+  if (!best) {
+    // Same clear, every-chain decline message planAcross reports — names what's blocking
+    // each funded chain (top up X here, add gas there), not just the first.
+    const hint = mergeDeclineHint(live.map((p) => p.plan))
+    throw new PaymentDeclinedError(hint || 'No funded chain can settle this payment right now.')
+  }
+  const owner = live.find((p) => p.plan.options.includes(best))!.client
+  // Pay on the owning client. `autoRoute` re-selects the cheapest settleable rail on its
+  // own chain — normally `best` (it lives on this client) — running the client's full
+  // policy / approval / retry / replay path against the rail it actually pays.
+  return owner.fetch(url, { ...(init ?? {}), autoRoute: true })
 }
 
 /**

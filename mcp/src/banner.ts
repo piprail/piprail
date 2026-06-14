@@ -25,20 +25,26 @@ const row = (label: string, value: string): string => `  ${label.padEnd(15)}${va
 /**
  * Advisory, non-fatal setup notes for chains with caveats — shown in the banner
  * (stderr). The SDK has no separate API-key field; keys are folded into the RPC URL.
+ * Iterates every configured chain (one in single mode, N in multi-chain mode).
  */
 export function chainWarnings(config: Config): string[] {
+  const accounts = config.chains ?? [{ chain: config.chain, rpcUrl: config.rpcUrl }]
+  const rpcVar = (chain: string) =>
+    config.chains ? `PIPRAIL_${chain.toUpperCase().replace(/[^A-Z0-9]/g, '_')}_RPC_URL` : 'PIPRAIL_RPC_URL'
   const notes: string[] = []
-  if (config.chain === 'ton' && !config.rpcUrl) {
-    notes.push(
-      'TON: the keyless public RPC is rate-limited (~1 req/s) and can stall verification. ' +
-        'Set PIPRAIL_RPC_URL to a keyed toncenter endpoint (fold ?api_key=… into the URL).'
-    )
-  }
-  if (config.chain === 'tron' && !config.rpcUrl) {
-    notes.push(
-      "Tron: the default public RPC (TronGrid) is rate-limited. For production set " +
-        'PIPRAIL_RPC_URL to your own endpoint (no separate API-key field — fold any key into the URL).'
-    )
+  for (const a of accounts) {
+    if (a.chain === 'ton' && !a.rpcUrl) {
+      notes.push(
+        'TON: the keyless public RPC is rate-limited (~1 req/s) and can stall verification. ' +
+          `Set ${rpcVar('ton')} to a keyed toncenter endpoint (fold ?api_key=… into the URL).`
+      )
+    }
+    if (a.chain === 'tron' && !a.rpcUrl) {
+      notes.push(
+        "Tron: the default public RPC (TronGrid) is rate-limited. For production set " +
+          `${rpcVar('tron')} to your own endpoint (no separate API-key field — fold any key into the URL).`
+      )
+    }
   }
   return notes
 }
@@ -48,7 +54,9 @@ export function formatBanner(config: Config): string {
   const lines = [
     `PipRail MCP server v${VERSION} — ready on stdio${config.readOnly ? ' (READ-ONLY — no wallet key)' : ''}`,
     ``,
-    row('chain', config.chain),
+    config.chains
+      ? row('chains', config.chains.map((a) => a.chain).join(', '))
+      : row('chain', config.chain),
     row('per-payment', config.maxAmount),
     row('lifetime/token', config.maxTotal),
     row('tokens', config.tokens.join(', ')),
@@ -74,16 +82,25 @@ export function formatBanner(config: Config): string {
   if (config.allowUnknownTokens) {
     lines.push(row('unknown tokens', 'ALLOWED — unpriced, risk accepted'))
   }
-  lines.push(
-    ``,
-    config.readOnly
-      ? row(
-          'wallet key',
-          'NONE — read-only mode. discover/quote/register/budget/guide work; set PIPRAIL_PRIVATE_KEY to pay.'
-        )
-      : row('wallet key', `set via ${config.keySource}`),
-    row('tools', TOOL_NAMES.join(', '))
-  )
+  lines.push(``)
+  if (config.chains) {
+    // Multi-chain: one wallet per chain — show each chain's key status (never the key).
+    lines.push(row('wallet keys', config.readOnly ? 'NONE — read-only mode' : 'one per chain:'))
+    for (const a of config.chains) {
+      const status = a.readOnly ? 'read-only (no key)' : `set via ${a.keySource}`
+      lines.push(`    - ${a.chain.padEnd(10)} ${status}${a.rpcUrl ? ' · custom rpc' : ''}`)
+    }
+  } else {
+    lines.push(
+      config.readOnly
+        ? row(
+            'wallet key',
+            'NONE — read-only mode. discover/quote/register/budget/guide work; set PIPRAIL_PRIVATE_KEY to pay.'
+          )
+        : row('wallet key', `set via ${config.keySource}`)
+    )
+  }
+  lines.push(row('tools', TOOL_NAMES.join(', ')))
   const notes = chainWarnings(config)
   if (notes.length) {
     lines.push(``, `  ⚠ notes:`)

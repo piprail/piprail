@@ -45,6 +45,7 @@ If a payer just sends a raw transfer to your wallet, you can't discover the pric
 | What | Folder |
 |---|---|
 | An agent that auto-pays a `402` (+ a spend policy) | [`agent/`](./agent) |
+| **Pay across chains** — one buyer, a wallet per chain, auto-route to whichever the 402 asks for (`MultiChainPayer`) | [`multi-chain/`](./multi-chain) |
 | Expose payment as MCP tools — **build your own** server | [`mcp/`](./mcp) |
 
 > **Most agents write no code.** The published [`@piprail/mcp`](../mcp) server gives any MCP client (Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, Cline) all **seven** tools (discover · quote · plan · pay · register · budget · guide), budget-capped — just `npx -y @piprail/mcp` with your key + chain in `env`. The [`mcp/`](./mcp) folder is the minimal from-scratch version, for when you want to embed or customize it.

@@ -14,9 +14,11 @@ export { createMcpServer } from './server.js'
 export {
   parseConfig,
   configToClientOptions,
+  configToClientOptionsList,
   walletInputFor,
   ConfigError,
   type Config,
+  type ChainAccount,
 } from './config.js'
 export { formatBanner, printBanner, chainWarnings, TOOL_NAMES } from './banner.js'
 export { startServer } from './start.js'

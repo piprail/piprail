@@ -1,5 +1,24 @@
 # @piprail/mcp changelog
 
+## [0.5.0] — 2026-06-14 — multi-chain mode (one server, a wallet per chain)
+
+**`PIPRAIL_CHAINS` adds multi-chain paying.** List several chains (e.g.
+`PIPRAIL_CHAINS=base,polygon,solana`) and give each its own `PIPRAIL_<CHAIN>_KEY` (+ optional
+`PIPRAIL_<CHAIN>_RPC_URL`); the server builds a `MultiChainPayer` over them so `piprail_pay_request`
+pays whichever chain a 402 asks for — **one server, one shared spend policy, every chain you funded.**
+A chain with no key is read-only (plan/quote only). NEAR shares `PIPRAIL_NEAR_ACCOUNT_ID`. Mixing
+`PIPRAIL_CHAINS` with the single-chain `PIPRAIL_CHAIN`/`PIPRAIL_PRIVATE_KEY`/`PIPRAIL_RPC_URL` is
+rejected loudly. The 7 tools and the budget/guide surfaces are identical. New exports:
+`configToClientOptionsList`, `ChainAccount`. Built on the SDK's new `MultiChainPayer`. **Single-chain
+mode (`PIPRAIL_CHAIN` + `PIPRAIL_PRIVATE_KEY`) is byte-identical to before.**
+
+Hardening in the same change: the default token now tracks what each chain actually ships (Kaia →
+USD₮, data-driven from the SDK presets, so a USDC-only default can't silently block every payment);
+`PIPRAIL_CHAIN` is case-normalized like `PIPRAIL_CHAINS` (`Base` → `base`); per-chain and scalar RPC
+URLs must be `http(s)`/`ws(s)` (a parseable-but-unusable `mailto:`/`ftp:` is rejected at startup);
+and `configToClientOptions()` now throws on a multi-chain config instead of silently dropping the
+other accounts (use `configToClientOptionsList()`).
+
 ## 0.4.1 — 2026-06-13 — docs: document read-only mode + community links
 
 Docs/manifest patch — **no runtime code change** (byte-identical to 0.4.0). The README now documents
