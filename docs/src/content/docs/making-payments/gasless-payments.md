@@ -275,6 +275,59 @@ used-proof set plus Solana's own duplicate-signature rejection. Native **SOL** i
 You choose the facilitator (PipRail depends on none). PayAI is the zero-config default for a fully-gasless
 Solana gate; point `settle.facilitator` at whichever you trust.
 
+## Who pays — and is any of this a fee?
+
+There are three separate things here, and only one of them is ever a real cost:
+
+| Layer | Cost | Who pays |
+|---|---|---|
+| **PipRail** (the SDK + the rail) | **always $0** | nobody. PipRail is open-source, takes **no cut**, runs **no server**, and holds **no key** — it's a library you `npm install`. See [piprail.com](https://piprail.com). |
+| **The payment** | the token amount (e.g. `0.01` USDC) | the **buyer** |
+| **The network gas** | sub-cent | on the gasless `exact` rail, **whoever settles**: a **facilitator** (e.g. PayAI) or, in self-settle, **your own relayer**. **Never the buyer.** |
+
+So "gasless" isn't PipRail absorbing a cost — it's the **settler** paying the tiny network fee instead of the
+buyer. With a keyless facilitator like **[PayAI](https://facilitator.payai.network/)** the facilitator pays
+it, so **neither the buyer nor the merchant pays gas**.
+
+**Is PayAI itself free?** PayAI advertises a **Free Forever ($0), keyless tier** — and that keyless tier is
+exactly what the SDK uses (no API key). It sponsors the gas to grow x402 adoption. The free tier has **rate
+limits** (settlement volume / requests-per-second); only very high volume moves you onto PayAI's paid plans —
+and that is **your relationship with PayAI**, never a per-payment gas charge and never anything paid to
+PipRail. Check [facilitator.payai.network](https://facilitator.payai.network/) for current tiers.
+
+### What the SDK actually does
+
+When a gate is configured with `settle: { facilitator }`, the SDK does just two things over plain HTTP — it
+**hosts nothing**:
+
+1. **Discovers the sponsor** — reads the facilitator's `GET /supported` to learn its **fee-payer pubkey**
+   (Solana) and advertises it on the `exact` rail, so the buyer builds the transaction against it.
+2. **Settles** — POSTs the buyer's signed authorization to the facilitator's `/verify`, then `/settle`; the
+   facilitator co-signs as fee payer, broadcasts, and **pays the gas**. The receipt returns with the
+   on-chain `transaction` id.
+
+Every checked field (amount, recipient, mint) is re-derived from the gate's **own trusted rail**, never the
+client echo — the facilitator only broadcasts; it never gets to redefine the payment. You can verify any
+facilitator's coverage yourself with `facilitatorCoverage(url)` — see
+[Facilitator coverage](/accepting-payments/facilitator-coverage/).
+
+## Keep PayAI, or swap it
+
+PayAI is a **default, not a dependency** — the SDK depends on no facilitator, so swapping is one config line
+and nothing else changes. Pick whichever fits:
+
+| You want… | Use | Who pays the gas | Config |
+|---|---|---|---|
+| **Fully gasless, zero setup** (keep the default) | **PayAI** (keyless) | PayAI | `exact: { settle: { facilitator: 'https://facilitator.payai.network' } }` |
+| **No third party at all** | **Self-settle** with your own relayer | your relayer (sub-cent) | `exact: { settle: 'self', relayer: { secretKey: … } }` — fee payer ≠ `payTo` |
+| **A different facilitator** | **Coinbase CDP** (Base + Solana) / **Kora** (self-host) | them / you | `exact: { settle: { facilitator, authHeaders } }` (CDP passes auth) |
+| **No gasless rail** | the **`onchain-proof` default** | the buyer (tiny) | omit `exact` entirely — works on every chain |
+
+Swapping is intentionally trivial: keep the buyer side identical, change only the seller's `settle`. If PayAI
+is ever down the gate **degrades gracefully** (it never turns a facilitator outage into a bogus "re-pay" 402
+— see below), and you can pin `settle: { facilitator, feePayer }` to drop even the `/supported` lookup. Full
+seller walkthrough: [the exact rail (seller)](/accepting-payments/exact-rail-seller/).
+
 ## When the facilitator fails
 
 A facilitator is a network dependency, so PipRail treats its failures the same disciplined way it treats
