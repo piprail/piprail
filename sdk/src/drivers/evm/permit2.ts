@@ -69,7 +69,6 @@ export const X402_EXACT_PERMIT2_PROXY = '0x402085c248EeA27D92E8b30b2C58ed07f9E20
 export const PERMIT2_PROXY_CHAIN_IDS: ReadonlySet<number> = new Set([
   1, // Ethereum
   8453, // Base
-  84532, // Base Sepolia
   42161, // Arbitrum
   10, // Optimism
   137, // Polygon

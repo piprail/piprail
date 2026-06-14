@@ -11,8 +11,10 @@
  * with plain literals and stay on the viem-free protocol-layer grep.
  */
 import { PipRailError } from './errors.js'
+import { BRAND } from './selfdescribe.js'
 import type { PaymentPlan } from './client.js'
 import type { SpendSummary } from './ledger.js'
+import type { X402Challenge } from './x402.js'
 
 /**
  * One line summarising a {@link PaymentPlan} for a model: what's payable, on which
@@ -86,4 +88,30 @@ export function formatSpendReport(summary: SpendSummary): string {
         `(${a.count} payment${a.count === 1 ? '' : 's'})`
     )
     .join('; ')
+}
+
+/**
+ * One line a human or model can act on for a 402 challenge: what it is, the first
+ * rail's amount/token/chain + recipient, and how to pay it programmatically. Composes
+ * only shipped challenge fields (same `amountFormatted ?? amount` / `symbol ?? asset`
+ * convention as the renderers above) — pure, no I/O. Used as the human `instruction`
+ * inside the self-describe block and as a landing page's headline. An empty `accepts`
+ * (shouldn't happen for a valid v2 challenge) degrades to a generic pointer.
+ */
+export function describeChallenge(challenge: X402Challenge): string {
+  const first = challenge.accepts[0]
+  if (!first) {
+    return `${BRAND.name} x402 payment endpoint. Pay with @piprail/sdk (${BRAND.sdkInstall}). Docs: ${BRAND.home}.`
+  }
+  // Guard `extra` — describeChallenge is exported and may be handed a foreign challenge
+  // whose accepts lack PipRail's extra shape; fall back to base-unit amount + raw asset.
+  const extra: { amountFormatted?: string; symbol?: string } = first.extra ?? {}
+  const amount = extra.amountFormatted ?? first.amount
+  const token = extra.symbol ?? first.asset
+  const hasExact = challenge.accepts.some((a) => a.scheme === 'exact')
+  const standard = hasExact ? '; or any standard x402 client (an exact rail is offered)' : ''
+  return (
+    `${BRAND.name} x402 payment endpoint — pay ${amount} ${token} on ${first.network} to ${first.payTo}. ` +
+    `Programmatic: ${BRAND.sdkInstall} then client.fetch(url)${standard}. Docs: ${BRAND.home}.`
+  )
 }

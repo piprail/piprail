@@ -85,6 +85,33 @@ export interface ManifestInput {
 /** What `x-generator` stamps when attribution is on — see {@link ManifestInput.attribution}. */
 export const GENERATOR = '@piprail/sdk · https://piprail.com'
 
+/**
+ * The "powered by" marker for the `x-powered-by` HTTP header — the response-side twin of the
+ * `/openapi.json` {@link GENERATOR} stamp. Inert metadata; opt out with `attribution:false`.
+ * **ASCII-only on purpose:** this is an HTTP header value, and Node's `setHeader` writes header
+ * values as latin1 — a non-ASCII separator (e.g. `·` U+00B7) would arrive mangled (`Â·`) and is
+ * RFC-7230-discouraged. {@link GENERATOR} keeps its `·` because it only lands in UTF-8 JSON bodies.
+ */
+export const POWERED_BY = 'PipRail x402 | https://piprail.com'
+
+/**
+ * Machine-readable discovery pointers for a gated endpoint's HTTP responses — a `Link` header
+ * (RFC 8288) pointing crawlers/agents at the discovery docs, plus a tasteful `x-powered-by`
+ * marker. Spread the result into BOTH the 402 challenge response AND the 200 settlement
+ * response, so a payer / agent / crawler learns what served them on every hit (this is also
+ * how the 200 "receipt" self-advertises — no change to the `X402Receipt` body needed). PURE —
+ * returns a header bag the merchant sets; the SDK serves nothing. `attribution:false` omits
+ * `x-powered-by` (parity with the `x-generator` opt-out on the OpenAPI doc). If you already set
+ * a `Link` header, comma-merge it with this one rather than blindly spreading (object spread
+ * would replace it).
+ */
+export function discoveryHeaders(opts: { attribution?: boolean } = {}): Record<string, string> {
+  return {
+    link: '</openapi.json>; rel="service-desc", </.well-known/x402>; rel="x402-discovery"',
+    ...(opts.attribution === false ? {} : { 'x-powered-by': POWERED_BY }),
+  }
+}
+
 /** A minimal, valid OpenAPI 3.1 document carrying `x-payment-info` per paid op. */
 export interface OpenApiDocument {
   openapi: '3.1.0'
@@ -216,6 +243,9 @@ export function buildOpenApi(input: ManifestInput): OpenApiDocument {
         accepts: r.accepts,
       },
     }
+    // OpenAPI keys an operation by (path, method): if two resources resolve to the same pathname
+    // AND method (e.g. two query-string variants of `GET /search`), the later one's `x-payment-info`
+    // overwrites the earlier — give same-path resources distinct methods or paths to list both.
     paths[path] = { ...(paths[path] ?? {}), [method]: op }
   }
   return {

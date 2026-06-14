@@ -4,6 +4,46 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.23.0] — 2026-06-14 — self-describing endpoints + discovery reach
+
+### Added — self-describing, more discoverable endpoints (discoverability plan: Phases 1, 2, 4, 5)
+
+- **Self-describing 402s, ON by default.** Every challenge a gate builds now carries an
+  `extensions.piprail` block — identity, per-rail how-to-pay, `npm i @piprail/sdk` + a paste-ready
+  snippet, the MCP command, and docs + discovery pointers — so any human, AI agent, or crawler that
+  lands on a gated endpoint (even the `onchain-proof` scheme a stock x402 client can't pay) knows what
+  it is and how to pay it. **Purely-additive** metadata in the spec-opaque `extensions` bag, and it
+  rides in the response **body** only — the base64 `payment-required` **header stays slim** (just
+  `accepts[]` + a small `bazaar`/rejection block), so the header, pay path, `accepts[]`, and status are
+  byte-identical (a rejection's `{code,detail}` are deep-merged as siblings and still win). Opt out with
+  `requirePayment({ selfDescribe: false })`. New exports: `buildSelfDescription`, `describeChallenge`, `BRAND`.
+- **Human landing page + HTTP pointers.** `gate.landingPage(challenge)` / `renderLandingPage()` render a
+  tiny, HTML-escaped 402 page for a browser (serve it on `Accept: text/html`; agents/crawlers keep the
+  JSON 402). It leads with **how to pay** and a clear **caution** that a manual send to the address won't
+  unlock the resource (pay via an x402 client — no custody, no manual-payment desk). `discoveryHeaders()`
+  + `POWERED_BY` emit a `Link` (rel `service-desc` / `x402-discovery`) + `x-powered-by` header bag to
+  spread on every response. The SDK serves nothing — the merchant does.
+- **Facilitator-coverage map.** `KNOWN_FACILITATORS` (+ `knownFacilitatorsFor` /
+  `firstKeylessFacilitator`) — shipped data of which keyless facilitators settle `exact` on which
+  networks (seeded: PayAI on Base + Solana, dated-verified). `facilitatorCoverage(url)` /
+  `parseFacilitatorSupported(body)` read a facilitator's live `GET /supported` (best-effort, never throw).
+- **Agent guide** gained a "landing cold — read the self-description" section (surfaced over the MCP).
+
+All of the above is additive + opt-in; the zero-config pay path is byte-identical to before. New pure
+modules (`selfdescribe.ts`, `landing.ts`, `facilitators.ts`) join the viem-free protocol-layer grep.
+
+### Removed
+- **`base-sepolia` (84532) testnet entry** from `EXACT_NETWORK_SLUGS` and the Permit2 proxy chain-id set
+  — mainnets only, no testnet presets (it was dead reference data; nothing settles on a testnet).
+
+### Fixed
+- **`x-powered-by` is now ASCII** (`PipRail x402 | https://piprail.com`) — the previous non-ASCII middot
+  mangled to `Â·` over Node's latin1 header transport. `GENERATOR` keeps its `·` (JSON body only).
+- **`renderLandingPage` never throws** on a rail missing `amount`/`asset` (matches the module's
+  never-throw contract).
+- **`fetchFacilitatorFeePayer` matches the network normalized** (CAIP-2 *or* slug) so a slug-reporting
+  facilitator's Solana exact fee-payer is found instead of silently dropped.
+
 ## [1.22.1] — 2026-06-13 — docs: community links + integrations signposting
 
 Docs-only patch — **no code change** (the SDK is byte-identical to 1.22.0). Refreshes the README:

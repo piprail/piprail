@@ -49,10 +49,14 @@ export type { AgentTool, ToolAnnotations } from './agent.js'
 // Pure, chain-free helpers that make a bound client legible to an autonomous LLM:
 // one-line plan/decline/spend renderers, the cross-tool contract string, and a
 // 402 scheme/chain triage. The MCP wires these into its tool outputs + a prompt.
-export { summarizePlan, explainDecline, formatSpendReport } from './render.js'
+export { summarizePlan, explainDecline, formatSpendReport, describeChallenge } from './render.js'
 export { PIPRAIL_AGENT_GUIDE, agentGuide } from './agentGuide.js'
 export { classifyChallenge } from './classify.js'
 export type { ChallengeTriage, ChallengeVerdict } from './classify.js'
+// Self-description — the pure builder for the `extensions.piprail` block + the brand
+// single-source-of-truth (discoverability plan Phase 1; wired into the gate in Phase 5).
+export { buildSelfDescription, BRAND } from './selfdescribe.js'
+export type { SelfDescription, SelfDescribeRail } from './selfdescribe.js'
 
 /* --------------------------- accept (server side) --------------------------- */
 
@@ -77,12 +81,17 @@ export type {
 // Delegate a standard `exact` payment's verify+settle to a THIRD-PARTY facilitator
 // the MERCHANT chooses (Coinbase CDP, x402.org, …). Pure fetch — PipRail hosts
 // nothing. `createPaymentGate({ exact: { settle: { facilitator } } })` uses this.
-export { settleViaFacilitator } from './facilitator.js'
+export { settleViaFacilitator, parseFacilitatorSupported, facilitatorCoverage } from './facilitator.js'
 export type {
   FacilitatorConfig,
   FacilitatorPaymentRequirements,
   SettleViaFacilitatorInput,
+  FacilitatorSupportedKind,
 } from './facilitator.js'
+// Facilitator-coverage DATA map (discoverability plan Phase 4) — which keyless facilitators
+// settle `exact` on which networks; powers the `exact: true` shorthand (Phase 7). Pure data.
+export { KNOWN_FACILITATORS, knownFacilitatorsFor, firstKeylessFacilitator } from './facilitators.js'
+export type { KnownFacilitator } from './facilitators.js'
 
 /* --------------------- reliable receipt delivery (server side) --------------------- */
 
@@ -250,6 +259,10 @@ export {
 //   DISCOVER client.discover({ query }) → read CDP Bazaar + 402 Index (free).
 // The piprail_discover / piprail_register agent tools expose this to an LLM/MCP.
 export { buildOpenApi, buildWellKnownX402, buildX402DnsTxt, buildBazaarExtension, GENERATOR } from './discovery.js'
+// Self-describing HTTP surfaces (discoverability plan Phase 2): the Link/x-powered-by header
+// bag + the human HTML landing page. Pure — the merchant serves them; the SDK serves nothing.
+export { discoveryHeaders, POWERED_BY } from './discovery.js'
+export { renderLandingPage } from './landing.js'
 export type {
   PaymentRail,
   ResourceDescription,

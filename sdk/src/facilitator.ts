@@ -16,6 +16,7 @@
  */
 import type { VerifyResult, VerifyErrorCode, X402Receipt, Caip2, AssetId, AddressId } from './x402.js'
 import { SettlementError } from './errors.js'
+import { normalizeNetwork } from './indexes.js'
 
 /** Standard x402 `exact` PaymentRequirements, built from the gate's TRUSTED rail. `extra`
  *  carries the scheme's chain-specific fields: EVM EIP-3009 → `{ name, version }` (the token's
@@ -54,11 +55,68 @@ export async function fetchFacilitatorFeePayer(
     if (!res.ok) return undefined
     const body = (await res.json()) as { kinds?: Array<{ scheme?: string; network?: string; extra?: Record<string, unknown> }> }
     const kinds = Array.isArray(body?.kinds) ? body.kinds : []
-    const kind = kinds.find((k) => k?.scheme === 'exact' && k?.network === network)
+    // Match on the NORMALIZED network so a facilitator that reports a slug ("solana") or a CAIP-2
+    // id both resolve — a strict `===` would silently miss a slug-reporting facilitator and drop
+    // the Solana exact rail. normalizeNetwork passes a CAIP-2 id through unchanged.
+    const want = normalizeNetwork(network)
+    const kind = kinds.find((k) => k?.scheme === 'exact' && normalizeNetwork(String(k?.network ?? '')) === want)
     const fp = kind?.extra?.feePayer
     return typeof fp === 'string' ? fp : undefined
   } catch {
     return undefined
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/** One (scheme, network) pair a facilitator's `GET /supported` advertises. */
+export interface FacilitatorSupportedKind {
+  scheme: string
+  /** As the facilitator reports it — a CAIP-2 id or a slug. */
+  network: string
+  /** The fee-payer pubkey when the kind carries one (SVM rails). */
+  feePayer?: string
+}
+
+/**
+ * Parse a facilitator `/supported` body into its advertised (scheme, network) kinds.
+ * PURE + tolerant: a malformed body yields `[]`. Mirrors the `{ kinds: [...] }` shape
+ * {@link fetchFacilitatorFeePayer} reads. Useful for verifying coverage before wiring a gate,
+ * and for generating the coverage doc from live reads.
+ */
+export function parseFacilitatorSupported(body: unknown): FacilitatorSupportedKind[] {
+  const kinds = (body as { kinds?: unknown } | null)?.kinds
+  if (!Array.isArray(kinds)) return []
+  const out: FacilitatorSupportedKind[] = []
+  for (const k of kinds) {
+    if (!k || typeof k !== 'object') continue
+    const o = k as { scheme?: unknown; network?: unknown; extra?: { feePayer?: unknown } }
+    if (typeof o.scheme !== 'string' || typeof o.network !== 'string') continue
+    const fp = o.extra?.feePayer
+    out.push({ scheme: o.scheme, network: o.network, ...(typeof fp === 'string' ? { feePayer: fp } : {}) })
+  }
+  return out
+}
+
+/**
+ * Read a facilitator's LIVE coverage from `GET /supported`. Best-effort + bounded (an
+ * `AbortController` timeout): NEVER throws — returns `[]` on any failure (same posture as
+ * {@link fetchFacilitatorFeePayer}). Lets an operator/agent ask "does this facilitator
+ * cover my network?" before wiring a gate. Pure `fetch`, no chain libraries (STANDARDS §1).
+ */
+export async function facilitatorCoverage(
+  url: string,
+  timeoutMs = 8000
+): Promise<FacilitatorSupportedKind[]> {
+  const base = url.replace(/\/+$/, '')
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs)
+  try {
+    const res = await fetch(`${base}/supported`, { signal: ctrl.signal })
+    if (!res.ok) return []
+    return parseFacilitatorSupported(await res.json())
+  } catch {
+    return []
   } finally {
     clearTimeout(timer)
   }
