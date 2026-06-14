@@ -6,13 +6,16 @@
  * LangChain in a couple of lines (see examples/agent-tools.mjs).
  *
  * The model can't bypass the budget — `policy` / `onBeforePay` live on the
- * PipRailClient these tools wrap, so every payment goes through the same guard.
+ * {@link PayingClient} these tools wrap, so every payment goes through the same
+ * guard. That client is a single-chain {@link PipRailClient} OR a
+ * {@link MultiChainPayer} (one wallet per chain, auto-routing to whichever chain
+ * the 402 asks for) — the tools are identical either way.
  */
 import { parseReceipt } from './x402.js'
 import { PaymentDeclinedError, PipRailError } from './errors.js'
 import { summarizePlan, explainDecline, formatSpendReport } from './render.js'
 import { PIPRAIL_AGENT_GUIDE } from './agentGuide.js'
-import type { PipRailClient, DiscoverOptions, RegisterOptions } from './client.js'
+import type { PayingClient, DiscoverOptions, RegisterOptions } from './client.js'
 
 /**
  * MCP-style tool annotations — optional, advisory hints that let an MCP client or
@@ -86,7 +89,7 @@ async function readBody(res: Response): Promise<unknown> {
  * declined? }`) — never a thrown error — so the model reasons about it (and never
  * re-pays a broadcast-but-unconfirmed payment) instead of crashing.
  */
-export function paymentTools(client: PipRailClient): AgentTool[] {
+export function paymentTools(client: PayingClient): AgentTool[] {
   return [
     {
       name: 'piprail_discover',
@@ -323,6 +326,13 @@ export function paymentTools(client: PipRailClient): AgentTool[] {
           name: { type: 'string', description: 'Display name (defaults to the host).' },
           description: { type: 'string', description: 'What the resource offers.' },
           priceUsd: { type: 'number', description: 'Advertised price in USD (metadata).' },
+          network: {
+            type: 'string',
+            description:
+              "Network slug to advertise, e.g. 'base' (defaults to the paying chain). Set it " +
+              'when registering from a multi-chain wallet so the listing names the right chain.',
+          },
+          asset: { type: 'string', description: "Payment asset symbol, e.g. 'USDC' (metadata)." },
         },
         required: ['url'],
         additionalProperties: false,
@@ -332,6 +342,8 @@ export function paymentTools(client: PipRailClient): AgentTool[] {
         if (typeof args.name === 'string') opts.name = args.name
         if (typeof args.description === 'string') opts.description = args.description
         if (typeof args.priceUsd === 'number') opts.priceUsd = args.priceUsd
+        if (typeof args.network === 'string') opts.network = args.network
+        if (typeof args.asset === 'string') opts.asset = args.asset
         const outcomes = await client.register(String(args.url), opts)
         return { outcomes }
       },

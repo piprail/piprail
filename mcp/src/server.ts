@@ -27,7 +27,7 @@ import {
   ListResourcesRequestSchema,
   ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js'
-import { PipRailClient, paymentTools, PIPRAIL_AGENT_GUIDE } from '@piprail/sdk'
+import { PipRailClient, MultiChainPayer, paymentTools, PIPRAIL_AGENT_GUIDE } from '@piprail/sdk'
 import type { PipRailClientOptions } from '@piprail/sdk'
 import { VERSION } from './version.js'
 import { buildConfirmHook } from './confirm.js'
@@ -42,13 +42,24 @@ export interface McpServerOptions {
   guide?: boolean
 }
 
-/** Build a configured PipRail MCP server (and its client) ready to connect to a transport. */
+/** Build a configured PipRail MCP server (and its paying client) ready to connect to a
+ *  transport. Pass ONE {@link PipRailClientOptions} for the single-chain server
+ *  (byte-identical to before), or an ARRAY (one per chain) for a multi-chain server —
+ *  the tools then auto-route a 402 to whichever chain can settle it. */
 export function createMcpServer(
   clientOptions: PipRailClientOptions,
   opts?: McpServerOptions
+): { server: Server; client: PipRailClient }
+export function createMcpServer(
+  clientOptions: PipRailClientOptions[],
+  opts?: McpServerOptions
+): { server: Server; client: MultiChainPayer }
+export function createMcpServer(
+  clientOptions: PipRailClientOptions | PipRailClientOptions[],
+  opts?: McpServerOptions
 ): {
   server: Server
-  client: PipRailClient
+  client: PipRailClient | MultiChainPayer
 } {
   const guideOn = opts?.guide !== false // default ON (additive — only ADDS a prompt/resource)
 
@@ -57,16 +68,22 @@ export function createMcpServer(
   // Safe because PipRailClient's constructor never invokes onBeforePay — only
   // authorize() does, at pay-time, long after `server` is assigned and connected.
   let server: Server
-  const effectiveOptions: PipRailClientOptions = opts?.confirm
-    ? {
-        ...clientOptions,
-        // An embedder-supplied hook wins; otherwise our elicitation hook.
-        onBeforePay:
-          clientOptions.onBeforePay ?? buildConfirmHook(() => server, opts.confirmTimeoutMs),
-      }
-    : clientOptions
+  const withConfirm = (o: PipRailClientOptions): PipRailClientOptions =>
+    opts?.confirm
+      ? {
+          ...o,
+          // An embedder-supplied hook wins; otherwise our elicitation hook.
+          onBeforePay: o.onBeforePay ?? buildConfirmHook(() => server, opts.confirmTimeoutMs),
+        }
+      : o
 
-  const client = new PipRailClient(effectiveOptions)
+  // Single chain ⇒ ONE PipRailClient (unchanged). Multi-chain ⇒ one client PER chain
+  // behind a MultiChainPayer that auto-routes a 402 to whichever chain can settle it.
+  // Both satisfy PayingClient, so paymentTools wraps either identically — same 7 tools.
+  const client: PipRailClient | MultiChainPayer = Array.isArray(clientOptions)
+    ? new MultiChainPayer(clientOptions.map((o) => new PipRailClient(withConfirm(o))))
+    : new PipRailClient(withConfirm(clientOptions))
+
   const tools = paymentTools(client) // 7 tools (discover · quote · plan · pay · register · budget · guide)
 
   // Elicitation is a CLIENT capability — the server only declares tools (+ the

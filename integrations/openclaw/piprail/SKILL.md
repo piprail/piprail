@@ -103,8 +103,9 @@ Restart OpenClaw (or run `openclaw mcp set`) and the `piprail_*` tools appear. S
 | --- | --- | --- | --- |
 | `PIPRAIL_PRIVATE_KEY` | — *(only to pay)* | — | Your **self-custodial** wallet key/seed. **Omit it for read-only** (discover/quote/register/budget/guide); set it only to let the agent pay. Not an API key; never sent anywhere. |
 | `PIPRAIL_CHAIN` | — | `base` | Which chain to pay on |
-| `PIPRAIL_MAX_AMOUNT` | — | `0.10` | Max per payment |
-| `PIPRAIL_MAX_TOTAL` | — | `10.00` | Lifetime budget per token |
+| `PIPRAIL_CHAINS` | — | — | **Pay across several chains** (instead of `PIPRAIL_CHAIN`) — e.g. `base,polygon,solana`; give each its own `PIPRAIL_<CHAIN>_KEY`. The agent pays whichever chain a 402 asks for (the first you listed that can settle), under one shared budget. |
+| `PIPRAIL_MAX_AMOUNT` | — | `0.10` | Max per payment, in the **token's units** (≈ $ for USDC/USDT; native-coin units on a `native` rail) |
+| `PIPRAIL_MAX_TOTAL` | — | `10.00` | Lifetime budget per (chain, token) |
 | `PIPRAIL_TOKENS` | — | chain stables | Allowed tokens |
 | `PIPRAIL_SCHEMES` | — | `onchain-proof` | Add `exact` to also pay standard x402 servers |
 | `PIPRAIL_RPC_URL` | — | chain default | Custom RPC endpoint (recommended in production; fold any API key into the URL) |

@@ -1,0 +1,17 @@
+{
+  "name": "@piprail/example-multi-chain",
+  "private": true,
+  "type": "module",
+  "version": "0.0.1",
+  "description": "PipRail multi-chain buyer — one wallet per chain, pay whichever the 402 asks for.",
+  "scripts": {
+    "merchant": "node merchant.mjs",
+    "buyer": "node buyer.mjs",
+    "pay": "node buyer.mjs http://127.0.0.1:3000/api/report --pay"
+  },
+  "dependencies": {
+    "@piprail/sdk": "^1.24.0",
+    "express": "^4"
+  },
+  "comment": "Cross-FAMILY chains need their peer libs too — add as needed: @solana/web3.js @solana/spl-token bs58 (Solana), xrpl (XRP Ledger), @stellar/stellar-sdk (Stellar), etc."
+}

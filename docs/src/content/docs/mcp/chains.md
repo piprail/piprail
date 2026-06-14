@@ -7,10 +7,11 @@ sidebar:
 
 ## Introduction
 
-The MCP server pays on whatever chain you name in `PIPRAIL_CHAIN`. EVM presets run with
-nothing extra; non-EVM families need their SDK peer library available alongside the server.
-Each instance is **one wallet on one chain** — to give an agent several rails, you run the
-server once per chain.
+The MCP server pays on the chain(s) you name: set **`PIPRAIL_CHAIN`** for one wallet on one
+chain, or **`PIPRAIL_CHAINS`** to fund several chains in one process (a key each) and let it
+pay whichever chain a 402 asks for — see [Paying on multiple chains at once](#paying-on-multiple-chains-at-once).
+EVM presets run with nothing extra; non-EVM families need their SDK peer library available
+alongside the server.
 
 The chain you pick also decides the wallet format you supply in `PIPRAIL_PRIVATE_KEY` (see
 [Configuration](/mcp/configuration/)) and the default token (see below).
@@ -57,7 +58,7 @@ pass the same set after the `-p` flags for whichever family you're running.
 USDC-only policy would silently block every payment). Override it anytime:
 
 ```jsonc
-"PIPRAIL_TOKENS": "USDC,native"   // also allow the chain's own coin
+"PIPRAIL_TOKENS": "USDC,native"   // also allow the chain's own coin (NOTE: PIPRAIL_MAX_AMOUNT is then 1.0 of that coin, not ~$1)
 ```
 
 The allowlist takes token **symbols** (`USDC`, `USDT`, `EURC`, …) plus the chain-agnostic alias
@@ -83,8 +84,30 @@ list lives under [Chains](/chains/overview/), where each family has its own page
 
 ## Paying on multiple chains at once
 
-Each server instance is one wallet on one chain. To give an agent several rails, register the
-server once per chain — each MCP entry is namespaced, so the agent gets all of them:
+The simplest way is **one server, several chains**: set `PIPRAIL_CHAINS` and give each chain its
+own key. `piprail_pay_request` then pays whichever chain a 402 asks for (the first chain you
+listed that can settle it), under one shared budget — full details in [Configuration](/mcp/configuration/#pay-on-several-chains-from-one-server):
+
+```json
+{
+  "mcpServers": {
+    "piprail": {
+      "command": "npx", "args": ["-y", "@piprail/mcp"],
+      "env": {
+        "PIPRAIL_CHAINS": "base,solana,tron",
+        "PIPRAIL_BASE_KEY": "${env:EVM_KEY}",
+        "PIPRAIL_SOLANA_KEY": "${env:SOLANA_SECRET}",
+        "PIPRAIL_TRON_KEY": "${env:TRON_KEY}",
+        "PIPRAIL_TRON_RPC_URL": "https://api.trongrid.io"
+      }
+    }
+  }
+}
+```
+
+Prefer **separate per-chain instances** when you want an independent budget (or token allowlist,
+or confirm mode) per chain — register the server once per chain, each MCP entry namespaced so the
+agent gets all of them:
 
 ```json
 {
@@ -96,24 +119,16 @@ server once per chain — each MCP entry is namespaced, so the agent gets all of
     "piprail-solana": {
       "command": "npx", "args": ["-y", "@piprail/mcp"],
       "env": { "PIPRAIL_PRIVATE_KEY": "${env:SOLANA_SECRET}", "PIPRAIL_CHAIN": "solana" }
-    },
-    "piprail-tron": {
-      "command": "npx", "args": ["-y", "@piprail/mcp"],
-      "env": {
-        "PIPRAIL_PRIVATE_KEY": "${env:TRON_KEY}",
-        "PIPRAIL_CHAIN": "tron",
-        "PIPRAIL_RPC_URL": "https://api.trongrid.io"
-      }
     }
   }
 }
 ```
 
 :::caution
-Each `PIPRAIL_PRIVATE_KEY` above must be the right format for **its** chain — a `0x…` hex key for
-Base/Tron, a base58 secret for Solana (see the [wallet key formats](/mcp/configuration/)). Never
-paste a raw key into the config file: keep it in an env var and interpolate with `${env:…}` where
-your client supports it, or treat the config file as a secret (Claude Desktop has no interpolation).
+Each key above must be the right format for **its** chain — a `0x…` hex key for Base/Tron, a base58
+secret for Solana (see the [wallet key formats](/mcp/configuration/)). Never paste a raw key into the
+config file: keep it in an env var and interpolate with `${env:…}` where your client supports it, or
+treat the config file as a secret (Claude Desktop has no interpolation).
 :::
 
 :::note

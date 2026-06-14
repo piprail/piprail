@@ -4,6 +4,48 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.24.0] — 2026-06-14 — multi-chain buying (one buyer, a wallet per chain)
+
+### Added — pay a 402 on whichever chain it asks for
+
+- **`MultiChainPayer`** — a `PipRailClient` is bound to ONE chain + ONE wallet (an EVM key can't sign a
+  Solana tx). `MultiChainPayer.fromWallets({ wallets: { base: { privateKey }, solana: { secretKey }, … }, policy })`
+  carries one wallet per chain and exposes a single `fetch`/`get`/`post`/`planPayment`/`canAfford`/`quote`/
+  `discover`/`register`/`spent`/`budget`. On a 402 it surveys every funded chain and pays the FIRST chain
+  you listed that can actually settle — through each client's own spend policy, `onBeforePay`, retries, and
+  replay-protection. No price oracle, no backend, no custody; across coins the order you list the chains is
+  the preference (within a chain, the cheapest-gas rail). Also `new MultiChainPayer([...clients])` for full
+  control (e.g. custom-EVM viem `Chain`s). `schemes` (incl. the gasless `exact` rail) propagates to every
+  chain's client.
+- **`fetchAcross(clients, url, init?)`** — the EXECUTION counterpart to `planAcross`: plan across an array
+  of single-chain clients and pay, on its owning client, the rail `planAcross` reports as `best` (the first
+  funded chain that can settle). Throws `PaymentDeclinedError` with a merged, per-chain funding hint when
+  no chain can settle.
+- **`PayingClient`** — the shared read-+-pay interface `paymentTools` now accepts; both `PipRailClient` and
+  `MultiChainPayer` satisfy it, so the agent toolkit (and the MCP) wrap either unchanged.
+- **`piprail_register` agent tool** gains optional `network` + `asset` params, so a multi-chain agent can
+  advertise a listing on a specific chain instead of defaulting to the first wallet's chain.
+
+### Changed
+
+- **Cross-chain `best` selection is now your PREFERENCE order, not raw gas magnitude.** `planAcross` /
+  `fetchAcross` no longer compare gas fees across different native coins (base units aren't comparable —
+  e.g. EVM wei vs Solana lamports — and there's no oracle), which previously let a small-base-unit coin
+  win regardless of real cost. They now pay the FIRST chain you list that can settle (within a chain, the
+  cheapest-gas rail still wins) — matching the documented contract. Single-chain `PipRailClient` ranking is
+  unchanged.
+- **`planAcross` now propagates a TOTAL outage.** If EVERY client fails to reach the resource it throws
+  (like a single client) instead of returning `null` — so `canAfford`/`quote` can't report a false
+  "affordable"/"not-gated". A single chain being down still just drops that chain.
+- **Clearer multi-chain decline message.** When no funded chain can settle, `planAcross`'s `fundingHint`
+  (and the `PaymentDeclinedError` `fetchAcross` throws) now names EVERY funded chain's own blocker — "top up
+  X USDC on base · add ~Y POL gas on polygon" — instead of only the first. Chains the 402 never offered are
+  dropped as noise when another chain is close; if none of your chains are offered, it says where the 402
+  IS payable. Per-rail `blockers`/`warnings` stay machine-readable for agents that branch programmatically.
+
+Single-chain `PipRailClient` behaviour is byte-identical. Examples: `examples/multi-chain` (routing + a
+live gasless-`exact` BNB Permit2 settlement through `MultiChainPayer`).
+
 ## [1.23.0] — 2026-06-14 — self-describing endpoints + discovery reach
 
 ### Added — self-describing, more discoverable endpoints (discoverability plan: Phases 1, 2, 4, 5)
@@ -1022,6 +1064,7 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[1.24.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.15.1]: https://www.npmjs.com/package/@piprail/sdk
 [1.15.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.14.0]: https://www.npmjs.com/package/@piprail/sdk

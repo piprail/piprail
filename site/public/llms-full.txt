@@ -1,6 +1,6 @@
 # PipRail — full reference for agents
 
-> Last-Updated: 2026-06-14 · SDK-Version: 1.23.0 · MCP-Version: 0.4.1 · Type: APIService · License: MIT
+> Last-Updated: 2026-06-14 · SDK-Version: 1.24.0 · MCP-Version: 0.5.0 · Type: APIService · License: MIT
 
 > Accept and make x402 "402 Payment Required" crypto payments from any HTTP request, across 29 chains in 10 families, with no backend, no database, no account, and no fee. Payments settle straight into your own wallet, verified locally against your own RPC. `@piprail/sdk` is an open-source (MIT) TypeScript SDK that runs headless or in the browser. This file is the everything-in-one-fetch version: the pitch, real code, the chain list, and the error model.
 
@@ -100,6 +100,8 @@ const data = await res.json()
 ```
 
 On a `402`, the client reads the challenge, sends the payment on-chain, waits for confirmation, and retries with proof — all inside `client.fetch`. The same app can take payments with `requirePayment`/`createPaymentGate` and make them with `PipRailClient`.
+
+**Pay across chains — one wallet per chain (`MultiChainPayer`).** A `PipRailClient` is bound to ONE chain + ONE wallet (an EVM key can't sign a Solana tx). To pay a 402 on whatever chain it asks for, give a `MultiChainPayer` one wallet per chain: `MultiChainPayer.fromWallets({ wallets: { base: { privateKey }, solana: { secretKey }, xrpl: { seed } }, policy })`. It exposes the same `fetch`/`get`/`post`/`planPayment`/`canAfford`/`quote`/`discover`/`register`/`spent`/`budget` and satisfies the same `PayingClient` interface, so the agent toolkit and the MCP wrap it unchanged. On a 402 it surveys every funded chain and pays the FIRST chain you listed that can settle (your preference order — there is no oracle to compare gas across different native coins; within a chain it picks the cheapest-gas rail). `schemes` (incl. the gasless `exact` rail) propagates to every chain. When no chain can settle, the merged `fundingHint` (and the `PaymentDeclinedError`) names every funded chain's own blocker — "top up X USDC on base · add ~Y POL gas on polygon" — with per-rail machine-readable `blockers`. Built on the exported `planAcross(clients, url)` / `fetchAcross(clients, url)` primitives. In the MCP server it's zero-code: set `PIPRAIL_CHAINS=base,polygon,solana` with a `PIPRAIL_<CHAIN>_KEY` each. Caps (`maxAmount`/`maxTotal`) are in the token's true decimals (≈ $ for USDC/USDT; native-coin units on a `native` rail) and `maxTotal` is per-(chain, token).
 
 **Pay any standard x402 server (opt-in).** By default the client pays PipRail's backendless `onchain-proof` rail. Add `schemes: ['onchain-proof', 'exact']` and it ALSO pays the standard, ratified x402 `exact` rail (EIP-3009) — so a PipRail agent can transact with any standard x402 server (the dominant `exact`-on-Base-via-CDP web), not just PipRail's own gates. The agent signs the EIP-3009 authorization with its own wallet (the token's EIP-712 domain re-derived on-chain) and the server/facilitator broadcasts it, so the buyer pays ~0 gas; the same spend `policy` gates it before any signature. EVM only — EIP-3009 (USDC; EURC on Ethereum/Base/Avalanche) or Permit2 (any ERC-20 without EIP-3009, e.g. Binance-Peg USDC on BNB Chain, settled via the canonical x402ExactPermit2Proxy). Proven on Base mainnet (EIP-3009) and BNB mainnet (Permit2).
 

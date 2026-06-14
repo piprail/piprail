@@ -13,7 +13,7 @@
 
 /* ----------------------------- pay (agent side) ----------------------------- */
 
-export { PipRailClient, planAcross } from './client.js'
+export { PipRailClient, planAcross, fetchAcross } from './client.js'
 export type {
   PipRailClientOptions,
   PipRailEvent,
@@ -27,7 +27,14 @@ export type {
   PayWarning,
   SessionBudget,
   SpendRemaining,
+  PayingClient,
 } from './client.js'
+
+// Multi-chain buying: one buyer, one wallet per chain, auto-route to whichever
+// chain/token the 402 asks for. A thin, chain-agnostic wrapper over planAcross +
+// fetchAcross; satisfies PayingClient so the agent toolkit + MCP wrap it unchanged.
+export { MultiChainPayer } from './payer.js'
+export type { MultiChainPayerOptions } from './payer.js'
 
 /* ---------------------- agent spend controls (Tier 1) ---------------------- */
 

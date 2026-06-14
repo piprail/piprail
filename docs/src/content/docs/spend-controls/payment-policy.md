@@ -67,13 +67,23 @@ client. Both are human-readable strings, floored to the token's true decimals.
 policy: { maxAmount: '0.25', maxTotal: '5.00' }
 ```
 
+:::caution[The cap is in the paid token's units, not dollars]
+Because the cap is floored to the **token's** true decimals, `'1.00'` means 1 USDC on a USDC
+rail (≈ \$1) but **1 whole native coin** on a `native` rail — ~\$1000s for ETH, not \$1. There's
+no price oracle. So a small dollar-looking cap combined with `'native'` in `tokens` does **not**
+bound the dollar value of a native-coin payment. Keep `tokens` to ≈\$1 stablecoins (USDC/USDT/EURC)
+if you want the cap to read as dollars.
+:::
+
 `maxTotal` is tracked **per distinct asset** (network + asset), not summed across tokens —
 adding 1 USDC to 1 SOL is unit-meaningless without a price oracle, which the SDK deliberately
-doesn't ship. Each token gets its own running cap. For a single-currency budget, pair `maxTotal`
-with a one-token allowlist:
+doesn't ship. Each token gets its own running cap. One consequence for multi-chain: the **same
+token across N chains gets N independent caps** — `maxTotal: '20.00'` with USDC on Base *and*
+Polygon allows up to 20 USDC on each (40 total). To bound spend regardless of chain, constrain to
+a single chain. For a single-currency budget, pair `maxTotal` with a one-token allowlist:
 
 ```ts
-policy: { maxTotal: '20.00', tokens: ['USDC'] }   // 20 USDC, full stop
+policy: { maxTotal: '20.00', tokens: ['USDC'] }   // 20 USDC per chain, full stop
 ```
 
 The running totals live in the [spend ledger](/spend-controls/spend-ledger/), which is

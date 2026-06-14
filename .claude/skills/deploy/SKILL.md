@@ -44,6 +44,7 @@ ONLY actions are a push and one or two tags — CI does the rest. **No human-gat
 | `git push origin sdk-vX.Y.Z` | `release.yml`: gate → **npm publish `@piprail/sdk`** → **cut the GitHub Release** (`--latest`) | **None** |
 | `git push origin mcp-vX.Y.Z` | `mcp-release.yml`: gate → **npm publish `@piprail/mcp`** → **cut the GitHub Release** → **publish the MCP registry via OIDC** (no secret) | **None** |
 | `clawhub skill publish …` | publish/refresh the **OpenClaw ClawHub skill** `piprail` (`clawhub install piprail`; it wraps `@piprail/mcp`) | **Manual** — re-publish when the skill or its MCP tool set changes (§8.5) |
+| `hermes skills publish …` | publish/refresh the **Hermes skills tap** `piprail/skills` (`hermes skills tap add piprail/skills`; it wraps `@piprail/mcp`) | **Manual** — re-publish when the skill or its MCP tool set changes (§8.6) |
 
 So: **GitHub Releases AND the MCP registry are now fully automatic** — CI cuts the release from the tag
 (auto-generated notes) and publishes `io.github.piprail/mcp` to the MCP registry using **GitHub Actions
@@ -52,8 +53,15 @@ namespace, so **no PAT, no device-flow login, no stored secret**). To (re)publis
 cutting a new npm release, trigger the on-demand lever: **`gh workflow run mcp-registry.yml`** (§8).
 **External repos** (the separate `piprail/.github` org-profile, awesome-x402, coinbase/x402) stay manual
 *by design* — they're third-party / cross-repo and only need touching on a **material** change (chain
-count, pitch), not a routine patch (§9). The **OpenClaw ClawHub skill** likewise re-publishes manually
-(`clawhub skill publish`) — re-ship it whenever the skill or the MCP tool set it wraps changes (§8.5).
+count, pitch), not a routine patch (§9). The **integration skill registries** likewise re-publish manually
+— the **OpenClaw ClawHub skill** (`clawhub skill publish`, §8.5) and the **Hermes skills tap**
+(`hermes skills publish`, §8.6) — re-ship each whenever its `SKILL.md` or the MCP tool set it wraps changes.
+
+> **RULE — every integration is a deploy lane.** Each folder under `integrations/*` MUST have its publish
+> steps documented in this runbook (a `§8.x` entry + a `CLAWHUB.md`/`HERMES.md`-style runbook) and a row
+> in the §0 table below. **Adding a new integration isn't "done" until it's wired into this deploy** — so a
+> future deploy can't silently skip it. When you add one, add: (1) a §0 row, (2) the automatic-lanes row
+> above if it has a publish command, (3) a `§8.x` quick section, and (4) a `<NAME>.md` full runbook.
 
 > **You (the agent) can run this entire deploy yourself.** With bypass permissions + `gh` auth you can
 > `git commit` / `push` / `tag` and trigger workflows (`gh workflow run`, `gh run watch`). Nothing here
@@ -72,6 +80,7 @@ count, pitch), not a routine patch (§9). The **OpenClaw ClawHub skill** likewis
 | **Docs / README only** | still a **patch bump + republish** — npm only re-renders the README on publish |
 | **Site / docs only** | just push to `main`; Netlify + GitHub Pages auto-deploy. **No tag, no npm.** |
 | **OpenClaw integration** (`integrations/openclaw/piprail/`) — its `SKILL.md`, **or the MCP tool set it advertises** | bump the skill `--version` + **`clawhub skill publish`** under `--owner piprail` (§8.5). A stale listing shows the wrong tools/install. |
+| **Hermes integration** (`integrations/hermes/piprail/`) — its `SKILL.md`, **or the MCP tool set/config it advertises** | bump the skill `version:` + **`hermes skills publish … --repo piprail/skills`** (§8.6). The universal `hermes mcp add` path is always-current; only the tap listing goes stale. |
 
 SemVer: **patch** = fixes / docs, **minor** = additive & opt-in (defaults never change), **major** = a breaking change.
 Confirm what changed: `git log <last-tag>..HEAD -- sdk/` (or `-- mcp/`).
@@ -241,6 +250,34 @@ clawhub inspect piprail        # confirm Latest=X.Y.Z, owner=piprail, Moderation
 - ClawHub runs automated security checks on publish; `clawhub scan download piprail --version X.Y.Z` fetches the report.
 - **Verify before publishing:** `cd integrations/openclaw/piprail && node verify.mjs --live` (handshake + 7 tools + live quote + budget refusal).
 - *Future:* Vercel AI SDK / ElizaOS integrations are **not** ClawHub skills (ClawHub is OpenClaw-only) — they ship via their own ecosystems (npm tool / ElizaOS plugin registry); only this one publishes to ClawHub.
+
+## 8.6 Hermes skills tap (`piprail/skills`) — manual `hermes skills publish`
+
+> **Full runbook: [`HERMES.md`](./HERMES.md)** — the three distribution lanes, the tap publish command,
+> the external-PR tracking. This §8.6 is the quick version.
+
+The Hermes integration (`integrations/hermes/piprail/`) wraps the same `@piprail/mcp` server for **Hermes
+Agent** users, via three lanes: a **skills tap we own** (`piprail/skills` — the manual lane), the
+always-works **`hermes mcp add`** path (nothing to deploy), and a **native MCP-catalog PR** (external,
+pending). Like ClawHub it's a **separate registry from npm** — a `git push`/tag does nothing to it.
+
+**Re-publish the tap WHEN:** `integrations/hermes/piprail/SKILL.md` (or `config.yaml`/`manifest.yaml`)
+changed · the MCP tool set/names changed · the env/config surface changed (e.g. a new `PIPRAIL_*` var).
+A routine SDK/MCP patch that doesn't touch the skill content needs **no** re-publish.
+
+**How (the Hermes Agent CLI):**
+```bash
+hermes --version || echo "install Hermes Agent first"
+# bump the SKILL.md frontmatter `version:` first, then push to the tap we own:
+hermes skills publish integrations/hermes/piprail --to github --repo piprail/skills
+# users then: hermes skills tap add piprail/skills   (the universal `hermes mcp add piprail …` always works too)
+```
+- **`--repo piprail/skills`** is our tap; pushing there refreshes the listing (needs push rights). If the
+  `hermes` CLI isn't handy, the tap is just a git repo — clone `piprail/skills`, copy the updated folder in, commit, push.
+- **Verify before publishing:** `cd integrations/hermes/piprail && node verify.mjs --live` (handshake + 7 tools + live quote + budget refusal).
+- **External PRs** (native `hermes mcp install piprail` catalog, awesome-hermes-agent, Hermes Atlas) are
+  out of our hands and tracked in the root `CLAUDE.md` — they never block a release; swap the site install
+  chips to `hermes mcp install piprail` once the catalog PR merges.
 
 ## 9. External repos (when the change is material — "auto-update the other repos")
 

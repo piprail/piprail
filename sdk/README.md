@@ -36,6 +36,33 @@ const client = new PipRailClient({ chain: 'base', wallet: { privateKey: process.
 const res = await client.fetch('https://api.example.com/report') // hits the 402, pays it, retries with proof
 ```
 
+## Pay across chains — one buyer, a wallet per chain
+
+A client is bound to one chain (an EVM key can't sign a Solana tx). To pay a 402
+on **whatever chain it asks for**, give a `MultiChainPayer` one wallet per chain —
+it surveys every chain you hold and pays the **first one you listed** that can settle
+(your preference; within a chain, the cheapest-gas rail — there's no oracle to compare
+gas across coins):
+
+```ts
+import { MultiChainPayer } from '@piprail/sdk'
+
+const payer = MultiChainPayer.fromWallets({
+  wallets: {
+    base:   { privateKey: process.env.EVM_KEY },     // one EVM key works on every EVM chain
+    solana: { secretKey:  process.env.SOLANA_KEY },
+    xrpl:   { seed:       process.env.XRPL_SEED },
+  },
+  policy: { maxAmount: '1.00', maxTotal: '10.00', tokens: ['USDC', 'USDT'] }, // one budget, every chain
+})
+
+await payer.planPayment(url) // read-only: every chain ranked, payable-first in your listed order
+const res = await payer.get(url) // pays on the first chain that can settle — same spend policy, no manual routing
+```
+
+Built on `planAcross` / `fetchAcross` (the same composable primitives, for when you
+already hold an array of clients). See [`examples/multi-chain`](../examples/multi-chain).
+
 The same app can **take** payments and **make** them. → [Making payments](https://docs.piprail.com/making-payments/piprail-client/)
 
 ---
@@ -46,7 +73,7 @@ The same app can **take** payments and **make** them. → [Making payments](http
 |---|---|
 | **[Getting started](https://docs.piprail.com/getting-started/introduction/)** | Install · quickstart · how it works |
 | **[Accepting payments](https://docs.piprail.com/accepting-payments/require-payment-and-gate/)** | `requirePayment` · `createPaymentGate` · the `exact` rail |
-| **[Making payments](https://docs.piprail.com/making-payments/piprail-client/)** | `PipRailClient` · `quote` · `estimateCost` · `planPayment` · auto-route |
+| **[Making payments](https://docs.piprail.com/making-payments/piprail-client/)** | `PipRailClient` · `quote` · `estimateCost` · `planPayment` · auto-route · `MultiChainPayer` |
 | **[Spend controls](https://docs.piprail.com/spend-controls/payment-policy/)** | Budgets · time envelope · the spend ledger |
 | **[Agent toolkit](https://docs.piprail.com/agent-toolkit/payment-tools/)** | `paymentTools` · the agent guide · NL renderers |
 | **[Discovery](https://docs.piprail.com/discovery/discover-and-register/)** | Find & be found on the open x402 indexes ($0, no backend) |

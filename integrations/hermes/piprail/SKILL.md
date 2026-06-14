@@ -48,6 +48,11 @@ Add it to `~/.hermes/config.yaml` under `mcp_servers` (see this folder's `config
 
 Set `PIPRAIL_PRIVATE_KEY` to enable pay/plan; without it, the read-only tools still work.
 
+**Pay across several chains** (optional): set `PIPRAIL_CHAINS=base,polygon,solana` (instead of
+`PIPRAIL_CHAIN`) and give each its own `PIPRAIL_<CHAIN>_KEY`; the agent then pays whichever chain a
+402 asks for — the first you listed that can settle — under one shared budget. `PIPRAIL_MAX_AMOUNT` /
+`PIPRAIL_MAX_TOTAL` are in the **token's units** (≈ $ for USDC/USDT; native-coin units on a `native` rail).
+
 ## The workflow
 
 **discover → quote → plan → pay.** Quote a URL's price, plan that you can afford it (balance + gas +
