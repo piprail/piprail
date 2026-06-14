@@ -4,6 +4,25 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.25.0] — 2026-06-15 — more keyless facilitators (live-verified)
+
+### Added — `KNOWN_FACILITATORS` grows beyond PayAI
+
+- **`KNOWN_FACILITATORS`** now seeds three more keyless facilitators, each **live-settled** on mainnet
+  through PipRail (a real `exact` payment, buyer paid zero gas), not just read from `/supported`:
+  **xpay** on Base (EIP-3009), and **OpenFacilitator** + **Corbits** on Solana (SVM). So
+  `firstKeylessFacilitator()` / the `exact: true` shorthand can resolve a keyless sponsor on more
+  networks, with redundancy beyond PayAI.
+- **Daydreams** and **Questflow** are deliberately **not** seeded: their `/supported` is public but
+  `/verify` returns `401` (an API key is required), so they aren't keyless for *settlement*. A public
+  `/supported` is not proof of keyless settlement — every seeded entry carries a dated, live-verified note.
+
+### Notes
+
+- Pure data + comments; **no behaviour change** to existing rails or defaults. The full, current provider
+  matrix (incl. key-required and self-host options, with on-chain tx proofs) lives in the docs:
+  [Facilitator coverage](https://docs.piprail.com/accepting-payments/facilitator-coverage/).
+
 ## [1.24.0] — 2026-06-14 — multi-chain buying (one buyer, a wallet per chain)
 
 ### Added — pay a 402 on whichever chain it asks for
@@ -1064,6 +1083,7 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[1.25.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.24.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.15.1]: https://www.npmjs.com/package/@piprail/sdk
 [1.15.0]: https://www.npmjs.com/package/@piprail/sdk
