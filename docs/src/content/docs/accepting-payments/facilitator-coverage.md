@@ -16,6 +16,46 @@ front.
 This is the honesty layer under the upcoming `exact: true` shorthand: it resolves a known keyless
 facilitator for your gate's network from this map, or fails with a clear message when none is known.
 
+## Live-verified facilitators
+
+The third-party x402 facilitators below were **probed live on 2026-06-15** — each one's `GET /supported`
+was read, and every row marked ✅ was then settled with a **real mainnet `exact` payment through
+PipRail**, where the **buyer paid zero gas**. "Keyless" means it settles with **no API key**, so the
+facilitator sponsors the network fee for the buyer *and* the merchant. You point a gate at any of them
+with `exact: { settle: { facilitator: '<facilitator url>' } }` — see
+[the exact rail seller guide](/accepting-payments/exact-rail-seller/).
+
+| Facilitator | Facilitator URL | Mainnet `exact` networks | Keyless? | PipRail live-tested |
+|---|---|---|---|---|
+| **[PayAI](https://facilitator.payai.network/)** | `https://facilitator.payai.network` | Base, Solana, Avalanche, Polygon, Arbitrum, Sei, IoTeX, peaq, X Layer, SKALE, KiteAI *(30 rails)* | ✅ keyless | ✅ **Solana + Base** |
+| **[Corbits](https://corbits.dev/)** | `https://facilitator.corbits.dev` | Solana *(first-class)*, Base, Polygon, Monad *(42 rails)* | ✅ keyless | ✅ **Solana** |
+| **[OpenFacilitator](https://www.openfacilitator.io/)** | `https://pay.openfacilitator.io` | Base, Solana, Stacks | ✅ keyless *(no signup)* | ✅ **Solana** |
+| **[xpay](https://www.xpay.sh/)** | `https://facilitator.xpay.sh` | Base | ✅ keyless, zero-fee | ✅ **Base** |
+| **[Daydreams](https://daydreams.systems/)** | `https://facilitator.daydreams.systems` | Ethereum, Base, Solana | 🔑 **API key** | `/verify` → 401 |
+| **[Questflow](https://questflow.ai/)** | `https://facilitator.questflow.ai` | Base | 🔑 **API key** | `/verify` → 401 |
+| **[Coinbase CDP](https://docs.cdp.coinbase.com/)** | `https://api.cdp.coinbase.com/platform/v2/x402` | Base, Solana | 🔑 **CDP auth** | `/supported` → 401 |
+| **[Kora](https://github.com/solana-foundation/kora)** | *self-host* | Solana | *self-host (you sponsor)* | — run your own |
+
+:::caution[A public `/supported` is NOT proof of keyless settlement]
+Daydreams and Questflow both expose a public `GET /supported`, but their `/verify` returns **401 — an
+API key is required** — so they are **not** keyless for *settlement*. We mark a facilitator "keyless ✅"
+only after a real payment settled with **no key**. That's exactly why PipRail's `KNOWN_FACILITATORS`
+seed map (below) lists **only the live-confirmed keyless** ones.
+:::
+
+Live settlement proofs (real mainnet, sub-cent amounts): PayAI Solana
+[`4dL8jRKH…`](https://solscan.io/tx/4dL8jRKHfGdt2zCD8CXLFuNxwTcJjyftAb3GbAffCG5YUX5LUfdH5VQy4itcfmWMXhAtNhpPaZwwM7YqjdWJNwXm) ·
+OpenFacilitator Solana
+[`5BabDtX…`](https://solscan.io/tx/5BabDtXnzk4o6hkCix1iF5SreWjJ62Yzfe57ANwhRVTmxv1MDdCJj2UqssiZcAVrBmVP7PBL6cwFy8RhvgLhGnpM) ·
+Corbits Solana
+[`BCreYer…`](https://solscan.io/tx/BCreYerDkQQykiZ1qLbvo9P4cGwhh2Gestc8sft8X7cmcQHdxi1SUDz6vcxu1vcKKhvprCjsgX5rfgbtEhrXHdU) ·
+xpay Base
+[`0x2273d5…`](https://basescan.org/tx/0x2273d5855a180002c6999ddf9fd26b03f62ae9ee0214983efddaefc1d42125d3).
+
+You're never locked to any of them — keep one, swap it, or run your own (self-settle / Kora). See
+[keep PayAI, or swap it](/making-payments/gasless-payments/#keep-payai-or-swap-it). **PipRail depends on
+no facilitator.**
+
 ## `KNOWN_FACILITATORS` — the seed map
 
 A `Record<Caip2, KnownFacilitator[]>` mapping a CAIP-2 network to the facilitators known to settle
@@ -25,12 +65,12 @@ after a live `/supported` read confirms a new pair.
 ```ts
 import { KNOWN_FACILITATORS, knownFacilitatorsFor, firstKeylessFacilitator } from '@piprail/sdk'
 
-knownFacilitatorsFor('eip155:8453')
-// → [{ url: 'https://facilitator.payai.network', keyless: true, schemes: ['exact'],
-//      settles: ['eip3009'], note: 'PayAI — keyless, sponsors gas (Base USDC EIP-3009)' }]
+knownFacilitatorsFor('eip155:8453') // Base — both live-verified keyless on 2026-06-15
+// → [{ url: 'https://facilitator.payai.network', keyless: true, settles: ['eip3009'], … },
+//    { url: 'https://facilitator.xpay.sh',       keyless: true, settles: ['eip3009'], … }]
 
-firstKeylessFacilitator('eip155:8453', 'eip3009')?.url
-// → 'https://facilitator.payai.network'
+firstKeylessFacilitator('solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', 'svm')?.url
+// → 'https://facilitator.payai.network'  (first of PayAI · OpenFacilitator · Corbits)
 
 firstKeylessFacilitator('eip155:999999') // unknown network
 // → undefined
@@ -41,11 +81,12 @@ facilitator sponsors gas), the `schemes` it settles (today `'exact'`), the exact
 methods (`'eip3009' | 'permit2' | 'svm'`), and an optional `note`.
 
 :::caution
-**What's seeded, and what isn't.** PayAI (`https://facilitator.payai.network`) is seeded keyless for
-Base (`eip3009`) and Solana (`svm`), verified against its live `/supported`. `x402.org/facilitator` is
-**not** seeded — it is a Base *Sepolia* testnet facilitator, not a mainnet rail, so listing it would be
-a false coverage claim. On a network not in the map, pass an explicit
-`exact: { settle: { facilitator } }`.
+**What's seeded, and what isn't.** The map carries only **live-confirmed keyless** entries: **Base** →
+PayAI + xpay (`eip3009`); **Solana** → PayAI + OpenFacilitator + Corbits (`svm`) — each settled a real
+payment with no key (see [Live-verified facilitators](#live-verified-facilitators)). **Daydreams** and
+**Questflow** are deliberately **omitted** — their `/supported` is public but `/verify` needs an API key.
+`x402.org/facilitator` is **not** seeded either — it's a Base *Sepolia* testnet facilitator, not a
+mainnet rail. On a network not in the map, pass an explicit `exact: { settle: { facilitator } }`.
 :::
 
 ## Reading a facilitator's live `/supported`
