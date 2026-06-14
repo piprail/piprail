@@ -353,6 +353,35 @@ are different problems with different fixes**, and PipRail never blurs them. Pin
 facilitator, so a `/supported` blip can't even affect serving the challenge. Self-settle has the exact
 same error contract — substitute "your relayer" for "the facilitator".
 
+## If every facilitator fails — the onchain-proof floor
+
+The single most important guarantee: **`onchain-proof` needs no facilitator, works on every chain, and
+is always offered alongside `exact`.** It is the floor under everything — if every facilitator on earth
+went down, an agent can still pay (it broadcasts the transfer itself and pays the sub-cent gas). Gasless
+is an *upgrade*, never a single point of failure.
+
+Here is **every failure mode**, what the caller sees, and what to do. Each row is **live-verified on
+Solana mainnet** (and the contract is identical on EVM):
+
+| What fails | Behaviour | What the caller gets | Fallback / fix |
+|---|---|---|---|
+| A facilitator is down **at challenge time** — *multi-rail* gate | The exact rail for that chain is **dropped**; the gate still serves `onchain-proof` (+ any working rails) | — *(challenge still succeeds)* | **Automatic** — the buyer pays `onchain-proof`. |
+| The **only** exact rail's facilitator is unreachable at challenge — *single-rail* gate, no pinned fee payer | The gate **fails loud** — it won't silently downgrade your stated gasless intent | `requirePayment: exact was requested but none of the offered rails support it … couldn't read a fee payer from (…/supported) … Set exact.settle.feePayer, switch to settle:'self', or retry.` | Pin `settle:{facilitator,feePayer}`, use `settle:'self'`, add a 2nd rail, or drop `exact` (the `onchain-proof` default always works). |
+| The facilitator **errors at settle** (down / 401 / timeout) | The signed authorization stays **valid + unused** — no double-spend | **HTTP 502** `SettlementError: exact settle (facilitator …): /verify returned HTTP 401 (transport/auth error)` | Re-present the **same** payment when it recovers, **or** pay `onchain-proof` on the same endpoint *(verified: 502 → onchain-proof → 200)*. |
+| The facilitator **rejects** the payment (bad sig / expired / insufficient) | A conformant re-challenge — **no spend recorded** | **HTTP 402** + a mapped `VerifyErrorCode` and `Facilitator rejected the payment: <reason>` | The agent reads the reason, fixes it, re-presents the **same** authorization. |
+| **Everything** — facilitator down **and** the buyer can't afford `onchain-proof` either (no token / no gas / recipient not ready / outside policy) | The client **refuses before sending anything** — no signature, no broadcast, nothing spent | `PaymentDeclinedError: Can't settle on solana: top up 0.001 USDC (to pay 0.001 USDC).` + per-rail `planPayment()` blockers (`INSUFFICIENT_TOKEN`, `INSUFFICIENT_GAS`, `RECIPIENT_NOT_READY`, `OUTSIDE_POLICY`) | Read `planPayment(url).fundingHint`, top up the named amount, retry. `canAfford(url)` is the boolean. |
+
+So *"what if they all fail?"* is answered in layers, and **no layer ever loses money**:
+
+1. **Prefer gasless** — once you opt in, the SDK pays the cheapest *settleable* rail, which is the gasless `exact` one.
+2. **Fall back to `onchain-proof`** — needs no facilitator; the buyer broadcasts and pays sub-cent gas. Always available, every chain.
+3. **If even that can't settle** — the client **refuses up front** with a typed `PaymentDeclinedError` and an exact funding hint, having spent **nothing**.
+
+Every failure is a **typed error** — a [`PipRailError`](/errors/error-hierarchy/) subclass with a stable
+`.code`, or a [`VerifyErrorCode`](/errors/verify-error-code/) — with a message written for an agent *and* a
+human (see [Why payments fail](/errors/why-payments-fail/)). The golden rule on any facilitator/relayer
+fault: **verify on-chain, never blindly re-pay** — a 502 means "settlement is unconfirmed", not "it failed".
+
 ## How the Permit2 method stays safe
 
 The buyer signs a `PermitWitnessTransferFrom` whose `spender` is the canonical **x402ExactPermit2Proxy**
