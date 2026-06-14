@@ -1,7 +1,7 @@
 ---
 name: piprail
 description: "Pay x402 paywalled URLs from a budget-bound, self-custodial crypto wallet across 10+ chains."
-version: 1.0.0
+version: 1.1.0
 author: PipRail (@piprail)
 license: MIT
 platforms: [linux, macos, windows]
