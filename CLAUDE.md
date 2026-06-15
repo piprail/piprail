@@ -178,7 +178,7 @@ Base mainnet). These **external submissions are open and out of our hands** — 
 they merged/landed. *(Manual reminder; nothing is scheduled. Delete an entry once it lands.)*
 
 - **MCP catalog (primary)** → [NousResearch/hermes-agent#45962](https://github.com/NousResearch/hermes-agent/pull/45962) — when merged, **`hermes mcp install piprail`** works natively for every Hermes user. ⏳ open. **When it lands, swap the site install chips** (`hermes mcp add piprail --command npx --args -y @piprail/mcp`, in `site/src/pages/index.astro` + `mcp.astro`) to the cleaner `hermes mcp install piprail`, and tighten the docs Setup `hermes.md`.
-- **Awesome list** → [SamurAIGPT/awesome-hermes-agent#61](https://github.com/SamurAIGPT/awesome-hermes-agent/pull/61). ⏳ open
+- **Awesome list** → [SamurAIGPT/awesome-hermes-agent#61](https://github.com/SamurAIGPT/awesome-hermes-agent/pull/61). ✅ merged 2026-06-14 (listed `[production]`; install via `npx -y @piprail/mcp` = always-latest, no version to sync)
 - **Hermes Atlas** (hermesatlas.com) → [ksimback/hermes-ecosystem#374](https://github.com/ksimback/hermes-ecosystem/issues/374). ⏳ open
 - **Skills tap** → [github.com/piprail/skills](https://github.com/piprail/skills) — `hermes skills tap add piprail/skills`. ✅ live (ours)
 - **Follow-up (not done):** publish to skills.sh / officialskills.sh, then PR [VoltAgent/awesome-agent-skills](https://github.com/VoltAgent/awesome-agent-skills) (~25K★) for the bigger Skills-Hub reach.
@@ -190,3 +190,7 @@ re-test recipe: `.claude/plans/framework-integrations/04-hermes.md` + `07-hermes
 ---
 
 *Keep it a tool, not a platform. The simplicity is the product — protect it.*
+
+*Positioning north-star: **the open, self-custody, any-chain rail — the tool you own, not the platform
+you join.** Stand in the open lane with conviction, never by attacking. Full statement +
+voice: [`.claude/skills/content-studio/BRAND.md`](.claude/skills/content-studio/BRAND.md).*
