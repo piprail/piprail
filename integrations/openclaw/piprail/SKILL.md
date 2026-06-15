@@ -56,11 +56,11 @@ and/or takes a cut. PipRail is different:
 
 | Tool | What it does | Moves money? |
 | --- | --- | --- |
-| `piprail_discover` | Find payable x402 APIs on the open indexes | no |
+| `piprail_discover` | Find payable x402 APIs on the open indexes — filter by category/asset/reliability, sort by price or uptime | no |
 | `piprail_quote_payment` | Get a URL's price without paying | no |
 | `piprail_plan_payment` | Check you can afford it (balance + gas + recipient-ready) | no |
 | `piprail_pay_request` | Pay the 402 and return the resource | **yes** |
-| `piprail_register` | List your own x402 API so other agents find it | no |
+| `piprail_register` | List your own x402 API so other agents find it — add a category + tags for findability | no |
 | `piprail_budget` | Read remaining spend + time leash | no |
 | `piprail_guide` | Read the agent contract (how to quote → plan → pay) | no |
 

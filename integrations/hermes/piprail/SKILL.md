@@ -1,7 +1,7 @@
 ---
 name: piprail
 description: "Pay x402 paywalled URLs from a budget-bound, self-custodial crypto wallet across 10+ chains."
-version: 1.1.1
+version: 1.1.2
 author: PipRail (@piprail)
 license: MIT
 platforms: [linux, macos, windows]
@@ -45,6 +45,8 @@ Add it to `~/.hermes/config.yaml` under `mcp_servers` (see this folder's `config
 
 `piprail_discover` · `piprail_quote_payment` · `piprail_plan_payment` · **`piprail_pay_request`** ·
 `piprail_register` · `piprail_budget` · `piprail_guide`. Only `piprail_pay_request` moves money.
+`piprail_discover` filters by category/asset/reliability and sorts by price or uptime; `piprail_register`
+takes a category + tags so other agents find your endpoint.
 
 Set `PIPRAIL_PRIVATE_KEY` to enable pay/plan; without it, the read-only tools still work.
 
