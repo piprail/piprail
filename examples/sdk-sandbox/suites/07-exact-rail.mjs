@@ -130,7 +130,7 @@ export async function run() {
     const app = express()
     app.get('/paid', requirePayment({
       chain: 'base', token: 'USDC', amount: '0.01', payTo: merchant, rpcUrl: ANVIL_URL,
-      exact: { settle: 'self', relayer: { privateKey: relayerKey } },
+      exact: { settle: 'self', relayer: { key: relayerKey } },
     }), (_q, r) => r.json({ unlocked: true }))
     const srv = await new Promise((res) => { const s = app.listen(0, '127.0.0.1', () => res(s)) }); servers.push(srv)
     const url = `http://127.0.0.1:${srv.address().port}/paid`
@@ -165,7 +165,7 @@ export async function run() {
       // standard exact rail. The payer holds USDC + ZERO ETH, so this also proves the
       // gasless buyer model under real on-chain settlement.
       const m0 = await usdcBal(merchant), p0 = await usdcBal(payer.address)
-      const buyer = new PipRailClient({ chain: base, wallet: { privateKey: payerKey }, schemes: ['exact'], rpcUrl: ANVIL_URL })
+      const buyer = new PipRailClient({ chain: base, wallet: { key: payerKey }, schemes: ['exact'], rpcUrl: ANVIL_URL })
       const events = []
       const res = await buyer.fetch(url, { schemes: ['exact'] }).catch((e) => e)
       const body = res instanceof Error ? {} : await res.json().catch(() => ({}))
@@ -235,7 +235,7 @@ export async function run() {
       const app2 = express()
       app2.get('/paid', requirePayment({
         chain: 'base', token: 'USDC', amount: '0.01', payTo: merchant2, rpcUrl: ANVIL_URL,
-        exact: { settle: 'self', relayer: { privateKey: relayer2Key } },
+        exact: { settle: 'self', relayer: { key: relayer2Key } },
       }), (_q, r) => r.json({ unlocked: true }))
       const s2 = await new Promise((res) => { const s = app2.listen(0, '127.0.0.1', () => res(s)) }); servers.push(s2)
       const url2 = `http://127.0.0.1:${s2.address().port}/paid`
@@ -253,7 +253,7 @@ export async function run() {
       await test.setBalance({ address: cp.address, value: 10n ** 18n })
       await dealUsdc(test, pub, cp.address, 50_000000n)
       const m0 = await usdcBal(merchant)
-      const client = new PipRailClient({ chain: 'base', wallet: { privateKey: cpKey }, rpcUrl: ANVIL_URL, policy: { maxAmount: '0.05', tokens: ['USDC'] } })
+      const client = new PipRailClient({ chain: 'base', wallet: { key: cpKey }, rpcUrl: ANVIL_URL, policy: { maxAmount: '0.05', tokens: ['USDC'] } })
       const res = await client.fetch(url)
       check('PipRail client pays the onchain-proof rail on the dual-rail gate → 200', res.status === 200)
       check('merchant received another 0.01 via onchain-proof', (await usdcBal(merchant)) - m0 === 10_000n)

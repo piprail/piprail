@@ -23,13 +23,13 @@ const doPay = process.argv.includes('--pay')
 //    works on EVERY EVM chain (same address); non-EVM families each need their own.
 const wallets = {}
 if (process.env.EVM_KEY) {
-  wallets.base = { privateKey: process.env.EVM_KEY }
-  wallets.polygon = { privateKey: process.env.EVM_KEY }
-  wallets.arbitrum = { privateKey: process.env.EVM_KEY }
+  wallets.base = { key: process.env.EVM_KEY }
+  wallets.polygon = { key: process.env.EVM_KEY }
+  wallets.arbitrum = { key: process.env.EVM_KEY }
 }
-if (process.env.SOLANA_KEY) wallets.solana = { secretKey: process.env.SOLANA_KEY } // needs @solana/web3.js + @solana/spl-token + bs58
-if (process.env.XRPL_SEED) wallets.xrpl = { seed: process.env.XRPL_SEED } // needs xrpl
-// (also: ton { mnemonic } · stellar { secret } · near { accountId, privateKey } · …)
+if (process.env.SOLANA_KEY) wallets.solana = { key: process.env.SOLANA_KEY } // needs @solana/web3.js + @solana/spl-token + bs58
+if (process.env.XRPL_SEED) wallets.xrpl = { key: process.env.XRPL_SEED } // needs xrpl
+// (every chain takes the same field: { key } — near also needs accountId: { accountId, key })
 
 if (Object.keys(wallets).length === 0) {
   console.error(

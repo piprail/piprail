@@ -20,20 +20,20 @@ is dynamic, fired the first time you name the chain.
 
 ## Wallet
 
-A Stellar wallet is an `{ secret }` (an `S…` Ed25519 secret seed) or a ready `{ keypair }` (a
-stellar-sdk `Keypair` you built yourself). `payTo` is a `G…` account address.
+A Stellar wallet is `{ key }`, where `key` is an `S…` Ed25519 secret seed — or a ready
+`{ keypair }` (a stellar-sdk `Keypair` you built yourself). `payTo` is a `G…` account address.
 
 ```ts
 import { PipRailClient } from '@piprail/sdk'
 
 const client = new PipRailClient({
   chain: 'stellar',
-  wallet: { secret: process.env.STELLAR_SECRET },  // 'S…' seed
+  wallet: { key: process.env.STELLAR_SECRET },  // 'S…' seed
 })
 ```
 
-Pass anything that looks like another family's wallet — `privateKey`, `secretKey`, `signer`,
-`mnemonic` — and it's rejected up front with a [`WrongFamilyError`](/errors/error-hierarchy/).
+Pass anything that looks like another family's wallet — a `signer`, a `keyPair`, an `account`, or
+an `accountId` — and it's rejected up front with a [`WrongFamilyError`](/errors/error-hierarchy/).
 See [Wallets by family](/making-payments/wallets-by-family/) for the full set of shapes.
 
 ## Tokens
@@ -89,7 +89,7 @@ import { PipRailClient } from '@piprail/sdk'
 
 const client = new PipRailClient({
   chain: 'stellar',
-  wallet: { secret: process.env.STELLAR_SECRET },  // 'S…' seed
+  wallet: { key: process.env.STELLAR_SECRET },  // 'S…' seed
 })
 
 const url = 'https://api.example.com/report'

@@ -17,7 +17,7 @@ import { PipRailClient } from '@piprail/sdk'
 
 const client = new PipRailClient({
   chain: 'base',
-  wallet: { privateKey: process.env.AGENT_KEY },  // 0x… hex, EVM
+  wallet: { key: process.env.AGENT_KEY },  // 0x… hex, EVM
 })
 
 const res = await client.fetch('https://api.example.com/report')  // 402 → pay → 200
@@ -71,7 +71,7 @@ Set it on the client, or per call:
 ```ts
 const client = new PipRailClient({
   chain: 'base',
-  wallet: { privateKey: process.env.AGENT_KEY },
+  wallet: { key: process.env.AGENT_KEY },
   autoRoute: true,
 })
 // or override per call:
@@ -104,7 +104,7 @@ a short backoff, before giving up.
 ```ts
 new PipRailClient({
   chain: 'base',
-  wallet: { privateKey: process.env.AGENT_KEY },
+  wallet: { key: process.env.AGENT_KEY },
   maxPaymentRetries: 5,
   retryTimeoutMs: 45_000,
 })

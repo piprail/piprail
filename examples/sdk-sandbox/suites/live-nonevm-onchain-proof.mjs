@@ -13,9 +13,9 @@ import { group, check, note, summarize } from '../lib/report.mjs'
 const AMOUNT = '0.001' // USDC
 
 const FAMILIES = [
-  { chain: 'solana', wallet: (w) => ({ secretKey: w.secretKey }), payTo: (w) => w.merchant?.address ?? w.merchantAddress, template: 'B (digest)' },
-  { chain: 'aptos', wallet: (w) => ({ privateKey: w.privateKey }), payTo: (w) => w.merchantAddress, template: 'B (digest)' },
-  { chain: 'algorand', wallet: (w) => ({ mnemonic: w.mnemonic }), payTo: (w) => w.merchantAddress, template: 'A (memo/nonce)' },
+  { chain: 'solana', wallet: (w) => ({ key: w.secretKey }), payTo: (w) => w.merchant?.address ?? w.merchantAddress, template: 'B (digest)' },
+  { chain: 'aptos', wallet: (w) => ({ key: w.privateKey }), payTo: (w) => w.merchantAddress, template: 'B (digest)' },
+  { chain: 'algorand', wallet: (w) => ({ key: w.mnemonic }), payTo: (w) => w.merchantAddress, template: 'A (memo/nonce)' },
 ]
 
 function loadWallet(family) {

@@ -111,7 +111,7 @@ deliberately do **not** appear here — pass them as the second argument to `cre
 
 ```ts
 const clientOptions = configToClientOptions(config)
-// → PipRailClientOptions { chain: 'base', wallet: { privateKey: '…' },
+// → PipRailClientOptions { chain: 'base', wallet: { key: '…' },
 //     policy: { maxAmount: '0.10', maxTotal: '10.00', tokens: ['USDC'], … } }
 ```
 

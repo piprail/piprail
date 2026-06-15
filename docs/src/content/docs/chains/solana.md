@@ -40,7 +40,7 @@ import { PipRailClient } from '@piprail/sdk'
 
 const client = new PipRailClient({
   chain: 'solana',
-  wallet: { secretKey: process.env.AGENT_KEY }, // base58 string or Uint8Array
+  wallet: { key: process.env.AGENT_KEY }, // base58 string or Uint8Array
 })
 
 const res = await client.fetch('https://api.example.com/report')
@@ -50,13 +50,13 @@ const report = await res.json()
 
 ## The wallet shape
 
-Solana wallets are `{ secretKey }` or a ready `{ signer }`. The `secretKey` may be a
+Solana wallets are `{ key }` or a ready `{ signer }`. The `key` may be a
 `Uint8Array` or a base58 string; the SDK wraps it into a `Keypair`. Passing an EVM wallet shape
-(`{ privateKey }` or `{ walletClient }`) throws a clear
+(a viem `{ walletClient }`) throws a clear
 [`WrongFamilyError`](/errors/error-hierarchy/) on first use.
 
 ```ts
-new PipRailClient({ chain: 'solana', wallet: { secretKey: process.env.AGENT_KEY } }) // base58 or Uint8Array
+new PipRailClient({ chain: 'solana', wallet: { key: process.env.AGENT_KEY } }) // base58 or Uint8Array
 new PipRailClient({ chain: 'solana', wallet: { signer: keypair } })                  // a @solana/web3.js Keypair
 ```
 
@@ -100,7 +100,7 @@ requirePayment({
 })
 
 // Or self-settle with your own relayer (fee payer ≠ payTo) — your relayer pays the sub-cent fee:
-//   exact: { settle: 'self', relayer: { secretKey: process.env.SOLANA_RELAYER_KEY } }
+//   exact: { settle: 'self', relayer: { key: process.env.SOLANA_RELAYER_KEY } }
 
 // Buyer — opt in; the client signs the transfer, the sponsor pays the fee.
 new PipRailClient({ chain: 'solana', wallet, schemes: ['onchain-proof', 'exact'] })

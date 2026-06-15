@@ -16,7 +16,7 @@ export async function run() {
   const evil = await startHostile({
     '/solana-only': { accepts: [{ network: SOLANA, asset: USDC_SOLANA, payTo: SOLANA_PAYTO, amount: 50_000, decimals: 6, amountFormatted: '0.05', symbol: 'USDC' }] },
   })
-  const client = new PipRailClient({ chain: 'base', wallet: { privateKey: KEY }, rpcUrl: DEAD, policy: { maxAmount: '0.10', tokens: ['USDC'] } })
+  const client = new PipRailClient({ chain: 'base', wallet: { key: KEY }, rpcUrl: DEAD, policy: { maxAmount: '0.10', tokens: ['USDC'] } })
   const u = (p) => `${m.url}${p}`
 
   try {

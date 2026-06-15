@@ -211,7 +211,7 @@ const gate = createPaymentGate({
   token: 'USDC',
   amount: '0.10',
   payTo: '0xYourWallet',
-  exact: { settle: 'self', relayer: { privateKey: process.env.AGENT_KEY } },
+  exact: { settle: 'self', relayer: { key: process.env.AGENT_KEY } },
 })
 
 let result

@@ -55,7 +55,7 @@ import { PipRailClient } from '@piprail/sdk'
 
 const client = new PipRailClient({
   chain: 'aptos',
-  wallet: { privateKey: process.env.AGENT_KEY! }, // ed25519-priv-0x… or a raw 0x… 32-byte hex key
+  wallet: { key: process.env.AGENT_KEY! }, // ed25519-priv-0x… or a raw 0x… 32-byte hex key
 })
 
 const url = 'https://api.example.com/report'
@@ -66,13 +66,13 @@ const report = await res.json()
 
 ## Wallet shape
 
-An Aptos wallet is `{ privateKey }` — an **AIP-80** `ed25519-priv-0x…` secret, or a raw `0x…`
+An Aptos wallet is `{ key }` — an **AIP-80** `ed25519-priv-0x…` secret, or a raw `0x…`
 32-byte hex key. If you built one yourself, pass a ready `{ account }` (an
 `@aptos-labs/ts-sdk` `Account`) instead:
 
 | Field | Type | Notes |
 | --- | --- | --- |
-| `privateKey` | `string` | An AIP-80 `ed25519-priv-0x…` secret, or a raw `0x…` hex key. |
+| `key` | `string` | An AIP-80 `ed25519-priv-0x…` secret, or a raw `0x…` hex key. |
 | `account` | `Account` | A ready `@aptos-labs/ts-sdk` `Account`, if you built it yourself. |
 
 ```ts
@@ -88,10 +88,10 @@ const wallet = {
 See [wallets by family](/making-payments/wallets-by-family/) for every family's wallet shape.
 
 :::caution
-`privateKey` is shared by name with EVM/Tron/Sui, but `chain: 'aptos'` routes here and the value
+`key` is shared by name with EVM/Tron/Sui, but `chain: 'aptos'` routes here and the value
 is validated as an `Ed25519PrivateKey`. An EVM `0x…` key is the wrong length and surfaces a clear
-`WrongFamilyError`; another family's wallet shape (`secretKey`, `seed`, `accountId`, a viem
-`walletClient`, …) is rejected the same way.
+`WrongFamilyError`; another family's wallet shape (`accountId`, a viem `walletClient`, a `keypair`,
+…) is rejected the same way.
 :::
 
 ## Tokens

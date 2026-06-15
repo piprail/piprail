@@ -78,7 +78,7 @@ import { PipRailClient, PaymentDeclinedError } from '@piprail/sdk'
 
 const client = new PipRailClient({
   chain: 'base',
-  wallet: { privateKey: process.env.AGENT_KEY },
+  wallet: { key: process.env.AGENT_KEY },
   policy: { maxAmount: '0.10', maxTotal: '5.00', tokens: ['USDC'], hosts: ['*.example.com'] },
   onBeforePay: (quote) => quote.withinPolicy, // final say
 })

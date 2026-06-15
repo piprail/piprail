@@ -78,7 +78,7 @@ function stubFetch(serverSymbol = 'XLM', onProof = () => new Response(JSON.strin
 }
 
 const newClient = (over: Partial<PipRailClientOptions> = {}) =>
-  new PipRailClient({ chain: 'stellar', wallet: { secret: 'x' }, ...over })
+  new PipRailClient({ chain: 'stellar', wallet: { key: 'x' }, ...over })
 
 describe('quote() — price without paying', () => {
   it('returns the quote and never sends', async () => {

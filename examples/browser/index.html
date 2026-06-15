@@ -215,7 +215,7 @@
         ? new Response(JSON.stringify(challenge), { status: 402, headers: { 'payment-required': requiredHeader, 'content-type': 'application/json' } })
         : realFetch(u)
       // throwaway key — quoting NEVER signs or sends; it only reads + prices the 402.
-      const client = new sdk.PipRailClient({ chain, wallet: { privateKey: '0x' + '1'.repeat(64) }, policy: { maxAmount: '1.00' } })
+      const client = new sdk.PipRailClient({ chain, wallet: { key: '0x' + '1'.repeat(64) }, policy: { maxAmount: '1.00' } })
       const q = await client.quote('https://piprail-demo/report')
       window.fetch = realFetch
 

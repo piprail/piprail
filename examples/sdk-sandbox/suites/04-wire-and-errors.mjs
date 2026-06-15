@@ -46,7 +46,7 @@ export async function run() {
       '/unparseable': { unparseable: true },
       '/solana-only': { accepts: [{ network: SOLANA, asset: USDC_SOLANA, payTo: SOLANA_PAYTO, amount: 50_000, decimals: 6, amountFormatted: '0.05', symbol: 'USDC' }] },
     })
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: KEY }, rpcUrl: DEAD, policy: { tokens: ['USDC'] } })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: KEY }, rpcUrl: DEAD, policy: { tokens: ['USDC'] } })
     const codeOf = async (fn) => { try { await fn(); return '(no throw)' } catch (e) { return e.code ?? e.name } }
 
     check('INVALID_ENVELOPE — malformed amount in the challenge',

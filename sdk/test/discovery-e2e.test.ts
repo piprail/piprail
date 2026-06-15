@@ -101,14 +101,14 @@ describe('discovery — the real merchant→agent loop', () => {
         },
       ],
     })
-    const agent = new PipRailClient({ chain: 'base', wallet: { privateKey: TEST_KEY } })
+    const agent = new PipRailClient({ chain: 'base', wallet: { key: TEST_KEY } })
     const found = await agent.discover({ query: 'acme' })
     expect(found.map((f) => f.resource)).toContain('https://api.acme.com/report')
     expect(found[0]!.rails[0]).toMatchObject({ network: 'eip155:8453', amount: '50000' })
   })
 
   it('the real EVM signer produces an ownership proof that recovers to the wallet', async () => {
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: TEST_KEY } })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: TEST_KEY } })
     const signer = await client.discoverySigner()
     expect(signer).not.toBeNull()
     const origin = 'https://api.acme.com'
@@ -150,7 +150,7 @@ describe('discovery works on EVERY chain — agent on its own chain (self)', () 
         { url: 'https://other.example.com/x', protocol: 'x402', payment_network: 'eip155:1' }, // off-chain → excluded
       ],
     })
-    const client = new PipRailClient({ chain: chain as never, wallet: { privateKey: TEST_KEY } as never })
+    const client = new PipRailClient({ chain: chain as never, wallet: { key: TEST_KEY } as never })
     const found = await client.discover() // default network:'self'
     const urls = found.map((r) => r.resource)
     expect(urls).toContain(`https://${slug}.example.com/x`)
@@ -165,7 +165,7 @@ describe('discovery works on EVERY chain — agent on its own chain (self)', () 
         { url: 'https://base.example.com/x', protocol: 'x402', payment_network: 'base' }, // eip155:8453 → excluded
       ],
     })
-    const client = new PipRailClient({ chain: { id, rpcUrl: 'https://aurora.invalid/rpc' }, wallet: { privateKey: TEST_KEY } })
+    const client = new PipRailClient({ chain: { id, rpcUrl: 'https://aurora.invalid/rpc' }, wallet: { key: TEST_KEY } })
     const found = await client.discover()
     expect(found.map((r) => r.resource)).toEqual(['https://aurora.example.com/x'])
   })
@@ -180,7 +180,7 @@ describe('discovery works on EVERY chain — explicit CAIP-2 scope (no driver ne
       ],
     })
     // a base client, filtering explicitly to another chain — proves the slug→CAIP-2 map alone.
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: TEST_KEY } })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: TEST_KEY } })
     const urls = (await client.discover({ network: caip2 as never })).map((r) => r.resource)
     expect(urls).toContain(`https://${slug}.example.com/x`) // resolved + matched
     expect(urls).not.toContain('https://off.example.com/x') // a non-matching rail IS filtered out
@@ -195,7 +195,7 @@ describe('discovery works on EVERY chain — explicit CAIP-2 scope (no driver ne
       return new Response('{}', { status: 200 })
     }) as typeof fetch
     for (const f of FAMILIES) {
-      const client = new PipRailClient({ chain: f.chain as never, wallet: { privateKey: TEST_KEY } as never })
+      const client = new PipRailClient({ chain: f.chain as never, wallet: { key: TEST_KEY } as never })
       const [outcome] = await client.register(`https://${f.slug}.example.com/x`)
       expect(outcome!.ok).toBe(true) // 402 Index lists every chain, no signature
       expect(body.protocol).toBe('x402')
@@ -258,7 +258,7 @@ describe('discovery — pushed to the limit', () => {
         : { url: `https://svc${i}.example.com/x`, name: `svc ${i}`, protocol: i % 3 === 0 ? 'l402' : 'x402', payment_network: 'base' }
     )
     stub({ services })
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: TEST_KEY } })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: TEST_KEY } })
     const found = await client.discover({ network: 'any' })
     expect(found.length).toBeGreaterThan(0)
     expect(found.every((r) => r.resource.startsWith('https://svc'))).toBe(true) // only valid x402 kept
@@ -266,7 +266,7 @@ describe('discovery — pushed to the limit', () => {
 
   it('many concurrent discover()/register() calls all resolve (no shared-state races)', async () => {
     stub({ services: [{ url: 'https://c.example.com/x', protocol: 'x402', payment_network: 'base' }] })
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: TEST_KEY } })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: TEST_KEY } })
     // network:'self' on purpose — it contends on the memoized network bind (this.bound).
     const results = await Promise.all([
       ...Array.from({ length: 25 }, () => client.discover({ network: 'self' })),

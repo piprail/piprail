@@ -65,7 +65,7 @@ const gate = () =>
     token: 'USDC',
     amount: '0.05',
     payTo: PAY_TO,
-    exact: { settle: 'self', relayer: { secretKey: new Uint8Array(64) } },
+    exact: { settle: 'self', relayer: { key: new Uint8Array(64) } },
   })
 
 describe('gate — SVM exact dual-advertise + settle routing', () => {

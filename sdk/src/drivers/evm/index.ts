@@ -25,6 +25,7 @@ import {
   toInsufficientFundsError,
 } from '../../errors.js'
 import { rejectForeignToken } from '../shared.js'
+import { assertNoLegacyWalletKey } from '../wallet-migrate.js'
 import { nativeCost } from '../../util/cost.js'
 import type {
   PaymentDriver,
@@ -130,13 +131,15 @@ function makeEvmNetwork(resolved: ResolvedChain): ResolvedNetwork {
     },
 
     bindWallet(wallet: unknown): WalletHandle {
-      if (
-        typeof wallet !== 'object' ||
-        wallet === null ||
-        (!('privateKey' in wallet) && !('walletClient' in wallet))
-      ) {
+      if (typeof wallet !== 'object' || wallet === null) {
         throw new WrongFamilyError(
-          `chain ${network} is EVM; wallet must be { privateKey } or { walletClient }.`
+          `chain ${network} is EVM; wallet must be { key } (0x… hex) or { walletClient }.`
+        )
+      }
+      assertNoLegacyWalletKey(wallet, 'EVM')
+      if (!('key' in wallet) && !('walletClient' in wallet)) {
+        throw new WrongFamilyError(
+          `chain ${network} is EVM; wallet must be { key } (0x… hex) or { walletClient }.`
         )
       }
       return { _native: createWalletAdapter(wallet as WalletConfig, resolved) }

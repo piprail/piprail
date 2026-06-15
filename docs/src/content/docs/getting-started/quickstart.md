@@ -56,7 +56,7 @@ import { PipRailClient } from '@piprail/sdk'
 
 const client = new PipRailClient({
   chain: 'base',
-  wallet: { privateKey: process.env.AGENT_KEY }, // a 0x-hex key, from the environment
+  wallet: { key: process.env.AGENT_KEY }, // a 0x-hex key, from the environment
 })
 
 const res = await client.fetch('http://localhost:3000/report')
@@ -111,7 +111,7 @@ curl -i https://piprail.com/x402/demo      # see a real 402 challenge + the acce
 
 ```ts
 // Pay it from a client (needs ~$0.01 USDC + a little ETH for gas on Base):
-const client = new PipRailClient({ chain: 'base', wallet: { privateKey: process.env.AGENT_KEY } })
+const client = new PipRailClient({ chain: 'base', wallet: { key: process.env.AGENT_KEY } })
 const res = await client.fetch('https://piprail.com/x402/demo')   // 402 → pay → 200
 ```
 
@@ -132,8 +132,8 @@ import { MultiChainPayer } from '@piprail/sdk'
 
 const agent = MultiChainPayer.fromWallets({
   wallets: {
-    base:   { privateKey: process.env.EVM_KEY },    // one EVM key works on every EVM chain
-    solana: { secretKey:  process.env.SOLANA_KEY }, // each non-EVM family gets its own key
+    base:   { key: process.env.EVM_KEY },    // one EVM key works on every EVM chain
+    solana: { key: process.env.SOLANA_KEY }, // every chain takes the same field: { key }
   },
   // ONE policy caps every chain — the agent can never exceed it, whatever chain it pays on.
   policy: { maxAmount: '1.00', maxTotal: '10.00', tokens: ['USDC'] },

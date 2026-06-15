@@ -20,13 +20,12 @@ import { PipRailClient } from '@piprail/sdk'
 
 const client = new PipRailClient({
   chain: 'base',
-  wallet: { privateKey: process.env.AGENT_KEY },
+  wallet: { key: process.env.AGENT_KEY },
 })
 ```
 
-The `wallet` shape depends on the family — `{ privateKey }` for EVM/Tron/Sui/Aptos,
-`{ secretKey }` for Solana, `{ mnemonic }` for TON/Algorand, `{ secret }` for Stellar,
-`{ seed }` for XRPL, `{ accountId, privateKey }` for NEAR. You can also pass a viem
+The `wallet` is `{ key }` on every chain (the chain's secret as a string); NEAR also needs
+`{ accountId }`. You can also pass a viem
 `{ walletClient }` to use an injected browser wallet. See [Wallets by
 family](/making-payments/wallets-by-family/).
 

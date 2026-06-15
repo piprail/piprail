@@ -89,7 +89,7 @@ async function exerciseTools(label, client) {
   check('piprail_pay_request → { status, ok, body, receipt } on success', pay && pay.status === 200 && pay.ok === true)
 
   // Decline path: cap below price → structured refusal, never a throw.
-  const declined = paymentTools(stubIndexes(new PipRailClient({ chain: 'base', wallet: { privateKey: '0x' + '1'.repeat(64) }, policy: { maxAmount: '0.0001', tokens: ['ETH'] } })))
+  const declined = paymentTools(stubIndexes(new PipRailClient({ chain: 'base', wallet: { key: '0x' + '1'.repeat(64) }, policy: { maxAmount: '0.0001', tokens: ['ETH'] } })))
   stub402(paid200)
   const dr = await byName(declined).piprail_pay_request.invoke({ url: URL })
   check('piprail_pay_request decline → structured { ok:false, declined/code, explain } (no throw)', dr && dr.ok === false && (dr.declined || dr.code) && !!dr.explain, dr?.code ?? dr?.reason)
@@ -99,9 +99,9 @@ export async function run() {
   const realFetch = globalThis.fetch
   registerFake() // register the fake EVM driver now (run time), after the real-driver suites
   try {
-    await exerciseTools('PipRailClient (single chain)', new PipRailClient({ chain: 'base', wallet: { privateKey: '0x' + '1'.repeat(64) } }))
+    await exerciseTools('PipRailClient (single chain)', new PipRailClient({ chain: 'base', wallet: { key: '0x' + '1'.repeat(64) } }))
     net = mkNet()
-    await exerciseTools('MultiChainPayer (one wallet per chain)', MultiChainPayer.fromWallets({ wallets: { base: { privateKey: '0x' + '1'.repeat(64) } } }))
+    await exerciseTools('MultiChainPayer (one wallet per chain)', MultiChainPayer.fromWallets({ wallets: { base: { key: '0x' + '1'.repeat(64) } } }))
     note('all 7 tools exercised identically on PipRailClient AND MultiChainPayer')
   } finally {
     globalThis.fetch = realFetch

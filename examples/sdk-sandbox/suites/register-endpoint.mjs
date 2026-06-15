@@ -22,7 +22,7 @@ group(`register · ${URL}`)
 if (!fs.existsSync(secretsPath)) { note('SKIPPED — no .secrets wallet (x402scan needs an EVM signer)'); summarize(); process.exit(0) }
 const PAYER = JSON.parse(fs.readFileSync(secretsPath, 'utf8')).privateKey
 
-const client = new PipRailClient({ chain: 'base', wallet: { privateKey: PAYER }, rpcUrl: 'https://mainnet.base.org' })
+const client = new PipRailClient({ chain: 'base', wallet: { key: PAYER }, rpcUrl: 'https://mainnet.base.org' })
 
 const outcomes = await client.register(URL, {
   name: 'PipRail x402 demo',

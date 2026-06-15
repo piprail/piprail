@@ -79,14 +79,14 @@ describe('cross-family guards (loud, on first use)', () => {
 })
 
 describe('Solana wallet binding (driver bindWallet → toKeypair)', () => {
-  it('accepts { signer } and a raw { secretKey }, rejects an EVM wallet', () => {
+  it('accepts { signer } and { key }, rejects a legacy/EVM wallet', () => {
     const net = solanaDriver.resolve({ chain: 'solana' })!
     const kp = Keypair.generate()
     // a ready Keypair signer
     expect(() => net.bindWallet({ signer: kp })).not.toThrow()
-    // a raw 64-byte secret key
-    expect(() => net.bindWallet({ secretKey: kp.secretKey })).not.toThrow()
-    // an EVM wallet on a Solana chain → WrongFamilyError (message mentions Solana)
+    // a raw 64-byte secret key passed as { key }
+    expect(() => net.bindWallet({ key: kp.secretKey })).not.toThrow()
+    // a pre-v2 field name → WrongFamilyError (message mentions Solana + the { key } fix)
     expect(() => net.bindWallet({ privateKey: `0x${'1'.repeat(64)}` })).toThrow(/Solana/)
   })
 })

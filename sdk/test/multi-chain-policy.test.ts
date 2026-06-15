@@ -27,8 +27,8 @@ const USDC_EVM = '0xUSDConBase'
 const USDT_EVM = '0xUSDTonBase'
 const USDC_SOL = 'UsdcMintSol'
 
-const EVM_WALLET = { privateKey: '0x' + '1'.repeat(64) }
-const SOL_WALLET = { secretKey: 'x' }
+const EVM_WALLET = { key: '0x' + '1'.repeat(64) }
+const SOL_WALLET = { key: 'x' }
 
 let sends = 0 // every fake `send()` bumps this — proves a veto did NOT broadcast
 

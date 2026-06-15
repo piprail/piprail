@@ -32,7 +32,7 @@ async function run() {
   try {
     const client = new PipRailClient({
       chain: 'base',
-      wallet: { privateKey: PAYER },
+      wallet: { key: PAYER },
       rpcUrl: 'https://mainnet.base.org',
       onEvent: (e) => note(`  · ${e.type}${e.detail ? ' — ' + e.detail : ''}`),
     })

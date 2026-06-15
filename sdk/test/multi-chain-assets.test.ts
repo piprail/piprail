@@ -83,7 +83,7 @@ const paid200 = () => new Response(JSON.stringify({ ok: true }), { status: 200 }
 
 const payer = (over = {}) =>
   MultiChainPayer.fromWallets({
-    wallets: { bnb: { privateKey: '0x' + '1'.repeat(64) }, solana: { secretKey: 'x' } },
+    wallets: { bnb: { key: '0x' + '1'.repeat(64) }, solana: { key: 'x' } },
     policy: { maxAmount: '1.00', maxTotal: '5.00', tokens: ['USDC', 'USDT', 'native'] },
     ...over,
   })
@@ -219,7 +219,7 @@ describe('insufficient funds vs gas, across asset types', () => {
   it('a read-only chain in the bundle contributes nothing but never breaks the funded one', async () => {
     // solana wallet omitted ⇒ that client is read-only; bnb still pays.
     const p = MultiChainPayer.fromWallets({
-      wallets: { bnb: { privateKey: '0x' + '1'.repeat(64) } },
+      wallets: { bnb: { key: '0x' + '1'.repeat(64) } },
       policy: { tokens: ['USDC'], maxAmount: '1.00' },
     })
     stub402([usdc(BNB, '0.05'), usdc(SOL, '0.05')], paid200) // offers both, buyer only holds BNB

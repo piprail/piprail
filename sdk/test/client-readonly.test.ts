@@ -102,7 +102,7 @@ describe('read-only client (no wallet supplied)', () => {
 
   it('discoverySigner() returns null with no wallet (and a signer WITH one)', async () => {
     expect(await new PipRailClient({ chain: 'base' }).discoverySigner()).toBeNull()
-    const signer = await new PipRailClient({ chain: 'base', wallet: { privateKey: '0x1' } }).discoverySigner()
+    const signer = await new PipRailClient({ chain: 'base', wallet: { key: '0x1' } }).discoverySigner()
     expect(signer?.address).toBe('0xPAYER') // the guard, not a missing method, is what nulls it
   })
 
@@ -126,7 +126,7 @@ describe('read-only client (no wallet supplied)', () => {
 
   it('REGRESSION: WITH a wallet, quote + a bound wallet are unchanged', async () => {
     stub402()
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: '0x1' } })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' } })
     expect((await client.quote(URL))?.amount).toBe('50000')
     expect(bindWalletCalls).toBe(1) // the wallet IS bound exactly as before
   })

@@ -87,7 +87,7 @@ that assume Node and are **server-side only**. Pay on those from a backend.
 :::
 
 :::danger
-`{ privateKey }` (and the other raw-key wallet shapes) are for **server-side use only** — never
+The raw-key wallet shape `{ key }` is for **server-side use only** — never
 ship a private key to the browser. In a page, always use an injected `{ walletClient }` as
 shown above so the key never leaves the user's wallet.
 :::

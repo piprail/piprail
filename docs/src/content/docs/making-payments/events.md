@@ -24,7 +24,7 @@ import { PipRailClient } from '@piprail/sdk'
 
 const client = new PipRailClient({
   chain: 'base',
-  wallet: { privateKey: process.env.AGENT_KEY! },
+  wallet: { key: process.env.AGENT_KEY! },
   onEvent: (e) => console.log(e.kind, 'ref' in e ? e.ref : ''),
 })
 

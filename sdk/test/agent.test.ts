@@ -72,7 +72,7 @@ function stubFetch(onProof: () => Response) {
   }) as typeof fetch
 }
 
-const client = (over = {}) => new PipRailClient({ chain: 'stellar', wallet: { secret: 'x' }, ...over })
+const client = (over = {}) => new PipRailClient({ chain: 'stellar', wallet: { key: 'x' }, ...over })
 
 describe('paymentTools — framework-agnostic descriptors', () => {
   it('exposes the 7 tools (first 5 byte-identical in order; budget + guide appended last)', () => {

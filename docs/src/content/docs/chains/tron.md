@@ -26,14 +26,14 @@ That single dynamic `import()` is what keeps non-Tron installs lean. See the
 
 ## The wallet
 
-A Tron wallet is `{ privateKey }` — a 32-byte hex key (Tron uses secp256k1, the same key format
+A Tron wallet is `{ key }` — a 32-byte hex key (Tron uses secp256k1, the same key format
 as EVM). The `chain: 'tron'` selector is what routes to the Tron driver.
 
 ```ts
 import { PipRailClient } from '@piprail/sdk'
 
 const client = new PipRailClient({
-  wallet: { privateKey: process.env.AGENT_KEY }, // 32-byte hex, with or without 0x
+  wallet: { key: process.env.AGENT_KEY }, // 32-byte hex, with or without 0x
   chain: 'tron',
 })
 ```

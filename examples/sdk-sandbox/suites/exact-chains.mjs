@@ -53,19 +53,19 @@ export async function run() {
   group('EXACT rail · correctly UNAVAILABLE where it can\'t apply')
   {
     // USDT is not EIP-3009 → exact must refuse it.
-    const usdtGate = createPaymentGate({ chain: 'ethereum', token: 'USDT', amount: '0.001', payTo: '0x1111111111111111111111111111111111111111', exact: { settle: 'self', relayer: { privateKey: '0x' + 'ab'.repeat(32) } } })
+    const usdtGate = createPaymentGate({ chain: 'ethereum', token: 'USDT', amount: '0.001', payTo: '0x1111111111111111111111111111111111111111', exact: { settle: 'self', relayer: { key: '0x' + 'ab'.repeat(32) } } })
     let usdtErr = null
     try { await usdtGate.challenge() } catch (e) { usdtErr = e.message }
     check('exact on USDT (not EIP-3009) → clear config error', /EIP-3009/.test(usdtErr ?? ''), usdtErr?.slice(0, 80))
 
     // native coin → exact must refuse it.
-    const nativeGate = createPaymentGate({ chain: 'base', token: 'native', amount: '0.0001', payTo: '0x1111111111111111111111111111111111111111', exact: { settle: 'self', relayer: { privateKey: '0x' + 'ab'.repeat(32) } } })
+    const nativeGate = createPaymentGate({ chain: 'base', token: 'native', amount: '0.0001', payTo: '0x1111111111111111111111111111111111111111', exact: { settle: 'self', relayer: { key: '0x' + 'ab'.repeat(32) } } })
     let nativeErr = null
     try { await nativeGate.challenge() } catch (e) { nativeErr = e.message }
     check('exact on the native coin → clear config error', /exact|EIP-3009/.test(nativeErr ?? ''), nativeErr?.slice(0, 80))
 
     // A non-EVM chain → exact must refuse (it's EVM/EIP-3009 only); onchain-proof remains.
-    const solGate = createPaymentGate({ chain: 'solana', token: 'USDC', amount: '0.001', payTo: '11111111111111111111111111111112', exact: { settle: 'self', relayer: { privateKey: '0x' + 'ab'.repeat(32) } } })
+    const solGate = createPaymentGate({ chain: 'solana', token: 'USDC', amount: '0.001', payTo: '11111111111111111111111111111112', exact: { settle: 'self', relayer: { key: '0x' + 'ab'.repeat(32) } } })
     let solErr = null
     try { await solGate.challenge() } catch (e) { solErr = e.message }
     check('exact on a non-EVM chain (Solana) → clear config error', /EVM|EIP-3009|exact/.test(solErr ?? ''), solErr?.slice(0, 80))

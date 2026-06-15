@@ -93,31 +93,34 @@ export type PipRailEvent =
   | { kind: 'payment-failed'; reason: string }
 
 /**
- * Wallet for the chosen chain family (the `chain` selector routes; each driver
- * validates its own key format):
- *   - EVM     → `{ privateKey }` (0x… hex) or a viem `{ walletClient }`
- *   - Tron    → `{ privateKey }` (32-byte hex — secp256k1, like EVM)
- *   - Sui     → `{ privateKey }` (suiprivkey1… bech32) or a ready `{ keypair }`
- *   - Solana  → `{ secretKey }` (Uint8Array | base58) or `{ signer }`
- *   - TON     → `{ mnemonic }` (24 words) or a ready `{ keyPair }`
- *   - Stellar → `{ secret }` (S… seed) or a ready `{ keypair }`
- *   - XRPL    → `{ seed }` (s… seed) or a ready `{ wallet }`
- *   - NEAR    → `{ accountId, privateKey }` (privateKey = ed25519:… secret)
- *   - Aptos   → `{ privateKey }` (AIP-80 `ed25519-priv-0x…` / raw `0x…` hex) or `{ account }`
- *   - Algorand→ `{ mnemonic }` (25 words) or a ready `{ account }`
+ * Wallet for the chosen chain family. **One field, every chain: `{ key }`** — the
+ * chain's secret as a string (the `chain` selector routes; each driver validates the
+ * format). NEAR also needs `{ accountId }`. What `key` is, per chain:
+ *   - EVM / Tron     → a 0x… hex private key (secp256k1)
+ *   - Sui            → a `suiprivkey1…` bech32 secret
+ *   - Aptos          → an AIP-80 `ed25519-priv-0x…` (or raw `0x…`) secret
+ *   - Solana         → a base58 secret key (or a `Uint8Array`)
+ *   - TON            → a 24-word mnemonic  (optional `version: 'v4' | 'v5r1'`, default v4)
+ *   - Algorand       → a 25-word mnemonic
+ *   - Stellar        → an `S…` secret seed
+ *   - XRPL           → an `s…` secret seed
+ *   - NEAR           → `{ accountId, key }`, where `key` is an `ed25519:…` secret
+ *
+ * Advanced (bring your own native signer object — type-specific): EVM `{ walletClient }`,
+ * Solana `{ signer }`, TON `{ keyPair }`, Stellar/Sui `{ keypair }`, XRPL `{ wallet }`,
+ * Aptos/Algorand `{ account }`.
  */
 export type WalletInput =
-  | { privateKey: string }
-  | { walletClient: unknown }
-  | { secretKey: Uint8Array | string }
-  | { signer: unknown }
-  | { mnemonic: string | string[]; version?: 'v4' | 'v5r1' }
-  | { keyPair: unknown; version?: 'v4' | 'v5r1' }
-  | { secret: string }
-  | { keypair: unknown }
-  | { seed: string }
-  | { wallet: unknown }
-  | { accountId: string; privateKey: string }
+  // The simple, universal way — the chain's secret as a string. NEAR also needs `accountId`.
+  | { key: string; version?: 'v4' | 'v5r1' } // `version` applies to TON only (wallet contract version)
+  | { accountId: string; key: string } // NEAR (an account id can't be derived from the key)
+  // Advanced: bring your own native signer object (type-specific to each family).
+  | { walletClient: unknown } // EVM (a viem WalletClient with an attached account)
+  | { signer: unknown } // Solana (a @solana/web3.js Keypair)
+  | { keyPair: unknown; version?: 'v4' | 'v5r1' } // TON (@ton/crypto KeyPair)
+  | { keypair: unknown } // Stellar / Sui
+  | { wallet: unknown } // XRPL (an xrpl.js Wallet)
+  | { account: unknown } // Aptos / Algorand
 
 /**
  * A priced payment requirement — what `client.quote(url)` returns and what an

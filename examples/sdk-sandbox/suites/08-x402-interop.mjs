@@ -100,7 +100,7 @@ export async function run() {
     const app = express()
     app.get('/paid', requirePayment({
       chain: 'base', token: 'USDC', amount: '0.01', payTo: merchant, rpcUrl: ANVIL_URL,
-      exact: { settle: 'self', relayer: { privateKey: relayerKey } },
+      exact: { settle: 'self', relayer: { key: relayerKey } },
     }), (_q, r) => r.json({ unlocked: true }))
     const srv = await new Promise((res) => { const s = app.listen(0, '127.0.0.1', () => res(s)) }); servers.push(srv)
     const url = `http://127.0.0.1:${srv.address().port}/paid`

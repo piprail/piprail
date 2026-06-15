@@ -26,7 +26,7 @@ import { PipRailClient } from '@piprail/sdk'
 
 const client = new PipRailClient({
   chain: 'base',
-  wallet: { privateKey: process.env.AGENT_KEY! },
+  wallet: { key: process.env.AGENT_KEY! },
   policy: {
     maxAmount: '0.50',          // per payment
     maxTotal: '10.00',          // lifetime, per asset
@@ -256,7 +256,7 @@ It runs **after** the policy passes but **before** any send, receiving the price
 ```ts
 const client = new PipRailClient({
   chain: 'base',
-  wallet: { privateKey: process.env.AGENT_KEY! },
+  wallet: { key: process.env.AGENT_KEY! },
   policy: { maxAmount: '0.50' },
   // amountFormatted is a string — compare it as a number, not lexicographically.
   onBeforePay: (quote) => Number(quote.amountFormatted) <= 0.1,
@@ -277,7 +277,7 @@ const MAX_PER_PAYMENT: Record<string, number> = { USDC: 5, USDT: 1, ETH: 0.001 }
 
 const client = new PipRailClient({
   chain: 'base',
-  wallet: { privateKey: process.env.AGENT_KEY! },
+  wallet: { key: process.env.AGENT_KEY! },
   policy: { tokens: ['USDC', 'USDT', 'native'], maxAmount: '5.00' }, // coarse: allowed tokens + ceiling
   onBeforePay: (q) => {                                              // fine: a different cap per token
     const cap = MAX_PER_PAYMENT[q.symbol ?? '']

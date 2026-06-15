@@ -83,7 +83,7 @@ function stub402(accepts, onProof) {
 }
 const paid200 = () => new Response(JSON.stringify({ ok: true }), { status: 200 })
 const wallets = (chains) =>
-  Object.fromEntries(chains.map((c) => [c, c === 'solana' ? { secretKey: 'x' } : c === 'xrpl' ? { seed: 'sx' } : { privateKey: '0x' + '1'.repeat(64) }]))
+  Object.fromEntries(chains.map((c) => [c, c === 'solana' ? { key: 'x' } : c === 'xrpl' ? { key: 'sx' } : { key: '0x' + '1'.repeat(64) }]))
 const payer = (chains = ['base', 'solana', 'xrpl'], over = {}) =>
   MultiChainPayer.fromWallets({ wallets: wallets(chains), ...over })
 
@@ -124,8 +124,8 @@ export async function run() {
     {
       stub402([accept(BASE, 'ETH'), accept(SOL, 'SOL')], paid200)
       const clients = [
-        new PipRailClient({ chain: 'base', wallet: { privateKey: '0x' + '1'.repeat(64) } }),
-        new PipRailClient({ chain: 'solana', wallet: { secretKey: 'x' } }),
+        new PipRailClient({ chain: 'base', wallet: { key: '0x' + '1'.repeat(64) } }),
+        new PipRailClient({ chain: 'solana', wallet: { key: 'x' } }),
       ]
       const plan = await planAcross(clients, URL)
       check('planAcross merges rails across chains', plan?.options.length === 2, `${plan?.options.length} options`)

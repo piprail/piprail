@@ -71,9 +71,9 @@ describe('cross-family guards (loud, on first use)', () => {
 })
 
 describe('TON wallet binding (driver bindWallet → assertTonWallet)', () => {
-  it('accepts { mnemonic } and { keyPair }, rejects an EVM wallet', () => {
+  it('accepts { key } (mnemonic) and { keyPair }, rejects a legacy/EVM wallet', () => {
     const net = tonDriver.resolve({ chain: 'ton' })!
-    expect(() => net.bindWallet({ mnemonic: Array(24).fill('abandon') })).not.toThrow()
+    expect(() => net.bindWallet({ key: Array(24).fill('abandon') })).not.toThrow()
     expect(() => net.bindWallet({ keyPair: { publicKey: Buffer.alloc(32), secretKey: Buffer.alloc(64) } })).not.toThrow()
     expect(() => net.bindWallet({ privateKey: `0x${'1'.repeat(64)}` })).toThrow(/TON/)
     expect(() => net.bindWallet({ secretKey: new Uint8Array(64) })).toThrow(/TON/)

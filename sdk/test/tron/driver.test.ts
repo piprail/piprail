@@ -96,10 +96,10 @@ describe('cross-family guards (loud, on first use)', () => {
 })
 
 describe('Tron wallet binding (driver bindWallet → assertTronWallet)', () => {
-  it('accepts { privateKey }, rejects viem/Solana/TON/Stellar/XRPL wallets', () => {
+  it('accepts { key } (32-byte hex), rejects legacy/other wallets', () => {
     const net = tronDriver.resolve({ chain: 'tron' })!
-    expect(() => net.bindWallet({ privateKey: `0x${'1'.repeat(64)}` })).not.toThrow()
-    expect(() => net.bindWallet({ privateKey: '1'.repeat(64) })).not.toThrow()
+    expect(() => net.bindWallet({ key: `0x${'1'.repeat(64)}` })).not.toThrow()
+    expect(() => net.bindWallet({ key: '1'.repeat(64) })).not.toThrow()
     expect(() => net.bindWallet({ walletClient: {} })).toThrow(/Tron/)
     expect(() => net.bindWallet({ secretKey: new Uint8Array(64) })).toThrow(/Tron/)
     expect(() => net.bindWallet({ mnemonic: Array(24).fill('abandon') })).toThrow(/Tron/)

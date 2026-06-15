@@ -1,16 +1,17 @@
 /**
  * ── ALGORAND SECTION: wallet ──
  * Validate + wrap the agent's wallet config (mirrors the other families).
- * Accepts `{ mnemonic }` (a 25-word Algorand recovery phrase) or a ready
- * `{ account }` (an algosdk `{ addr, sk }`). Rejects EVM / Solana / TON / Stellar /
- * XRPL / Tron / Sui / NEAR / Aptos wallet shapes with a clear WrongFamilyError.
+ * Accepts `{ key }` (a 25-word Algorand recovery phrase) or a ready
+ * `{ account }` (an algosdk `{ addr, sk }`). Rejects pre-v2 wallet shapes with a
+ * clear WrongFamilyError.
  *
- * `mnemonic` is shared with TON by name, but the `chain: 'algorand'` selector
- * routes here and the phrase is validated by `mnemonicToSecretKey` — a 24-word TON
- * mnemonic is the wrong length and surfaces a clear error.
+ * The `chain: 'algorand'` selector routes here and the phrase is validated by
+ * `mnemonicToSecretKey` — a 24-word TON mnemonic is the wrong length and surfaces
+ * a clear error.
  */
 import algosdk from 'algosdk'
 import { WrongFamilyError } from '../../errors.js'
+import { assertNoLegacyWalletKey } from '../wallet-migrate.js'
 
 /** A resolved Algorand signer — the 58-char address + the 64-byte secret key. */
 export interface AlgorandSigner {
@@ -20,7 +21,7 @@ export interface AlgorandSigner {
 
 export interface AlgorandWalletConfig {
   /** A 25-word Algorand mnemonic (the account's recovery phrase). */
-  mnemonic?: string
+  key?: string
   /** A ready algosdk account `{ addr, sk }`, if you built it yourself. */
   account?: { addr: unknown; sk: Uint8Array }
 }
@@ -32,30 +33,13 @@ export function assertAlgorandWallet(
 ): AlgorandWalletConfig {
   if (typeof wallet !== 'object' || wallet === null) {
     throw new WrongFamilyError(
-      `chain ${network} is Algorand; wallet must be { mnemonic } (25 words) or { account }.`
+      `chain ${network} is Algorand; wallet must be { key } (25-word mnemonic) or { account }.`
     )
   }
-  if ('privateKey' in wallet || 'walletClient' in wallet) {
+  assertNoLegacyWalletKey(wallet, 'Algorand')
+  if (!('key' in wallet) && !('account' in wallet)) {
     throw new WrongFamilyError(
-      `chain ${network} is Algorand; an EVM/Aptos wallet can't be used — pass { mnemonic } (25 words) or { account }.`
-    )
-  }
-  if (
-    'secretKey' in wallet ||
-    'signer' in wallet ||
-    'secret' in wallet ||
-    'keypair' in wallet ||
-    'keyPair' in wallet ||
-    'seed' in wallet ||
-    'accountId' in wallet
-  ) {
-    throw new WrongFamilyError(
-      `chain ${network} is Algorand; that looks like another family's wallet — pass { mnemonic } (25 words) or { account }.`
-    )
-  }
-  if (!('mnemonic' in wallet) && !('account' in wallet)) {
-    throw new WrongFamilyError(
-      `chain ${network} is Algorand; wallet must be { mnemonic } (25 words) or { account }.`
+      `chain ${network} is Algorand; wallet must be { key } (25-word mnemonic) or { account }.`
     )
   }
   return wallet as AlgorandWalletConfig
@@ -66,16 +50,16 @@ export function resolveAlgorandWallet(config: AlgorandWalletConfig): AlgorandSig
   if (config.account) {
     return { addr: String(config.account.addr), sk: config.account.sk }
   }
-  if (config.mnemonic != null) {
+  if (config.key != null) {
     try {
-      const { addr, sk } = algosdk.mnemonicToSecretKey(config.mnemonic)
+      const { addr, sk } = algosdk.mnemonicToSecretKey(config.key)
       return { addr: addr.toString(), sk }
     } catch (cause) {
       throw new WrongFamilyError(
-        'Algorand wallet { mnemonic } is not a valid 25-word Algorand mnemonic.',
+        'Algorand wallet { key } is not a valid 25-word Algorand mnemonic.',
         { cause }
       )
     }
   }
-  throw new WrongFamilyError('Algorand wallet needs { mnemonic } (25 words) or { account }.')
+  throw new WrongFamilyError('Algorand wallet needs { key } (25-word mnemonic) or { account }.')
 }

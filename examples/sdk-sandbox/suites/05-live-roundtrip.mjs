@@ -96,7 +96,7 @@ export async function run() {
     const srv = await new Promise((res) => { const s = app.listen(0, '127.0.0.1', () => res(s)) }); servers.push(srv)
     const url = (p) => `http://127.0.0.1:${srv.address().port}${p}`
 
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: payerKey }, rpcUrl: ANVIL_URL, policy: { maxAmount: '0.05', maxTotal: '0.10', tokens: ['USDC', 'native'] } })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: payerKey }, rpcUrl: ANVIL_URL, policy: { maxAmount: '0.05', maxTotal: '0.10', tokens: ['USDC', 'native'] } })
 
     group('05 · USDC round-trip: fetch → real transfer → gate verifies → 200')
     {
@@ -144,7 +144,7 @@ export async function run() {
     {
       const broke = privateKeyToAccount('0x' + 'd4'.repeat(32))
       await test.setBalance({ address: broke.address, value: 10n ** 18n }) // ETH for gas, but 0 USDC
-      const brokeClient = new PipRailClient({ chain: 'base', wallet: { privateKey: '0x' + 'd4'.repeat(32) }, rpcUrl: ANVIL_URL, policy: { maxAmount: '0.05', tokens: ['USDC'] } })
+      const brokeClient = new PipRailClient({ chain: 'base', wallet: { key: '0x' + 'd4'.repeat(32) }, rpcUrl: ANVIL_URL, policy: { maxAmount: '0.05', tokens: ['USDC'] } })
       let code = null
       try { await brokeClient.fetch(url('/usdc')) } catch (e) { code = e.code ?? e.name }
       check('paying 0.01 USDC with a 0-USDC wallet → InsufficientFundsError', code === 'INSUFFICIENT_FUNDS' || code === InsufficientFundsError.name, `code=${code}`)
@@ -152,7 +152,7 @@ export async function run() {
 
     group('05 · lifetime cap holds across REAL settlements')
     {
-      const capped = new PipRailClient({ chain: 'base', wallet: { privateKey: payerKey }, rpcUrl: ANVIL_URL, policy: { maxAmount: '0.01', maxTotal: '0.02', tokens: ['USDC'] } })
+      const capped = new PipRailClient({ chain: 'base', wallet: { key: payerKey }, rpcUrl: ANVIL_URL, policy: { maxAmount: '0.01', maxTotal: '0.02', tokens: ['USDC'] } })
       const m0 = await usdcBal(merchantAddr)
       const r1 = await capped.fetch(url('/usdc')); check('payment #1 settles', r1.status === 200)
       const r2 = await capped.fetch(url('/usdc')); check('payment #2 settles (total 0.02 == cap)', r2.status === 200)

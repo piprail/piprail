@@ -4,6 +4,25 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.0.0] — 2026-06-15 — one wallet field: `key` (BREAKING)
+
+### Changed — the wallet secret is a single `key` field on every chain (BREAKING)
+
+- **`WalletInput` is unified.** Every chain now takes `wallet: { key }` — the chain's secret as a
+  string. NEAR also keeps `accountId`: `{ accountId, key }`. The per-chain secret field names
+  (`privateKey` · `secretKey` · `seed` · `secret` · `mnemonic`) are **removed**.
+- **Migration** — rename the field; the *value* is unchanged:
+  `{ privateKey } → { key }`, `{ secretKey } → { key }`, `{ seed } → { key }`,
+  `{ secret } → { key }`, `{ mnemonic } → { key }`, `{ accountId, privateKey } → { accountId, key }`.
+  Passing a pre-2.0 field name throws a `WrongFamilyError` whose message names the exact `{ key }` fix.
+- **Bring-your-own native signer objects are unchanged** — EVM `{ walletClient }`, Solana `{ signer }`,
+  TON `{ keyPair }`, Stellar/Sui `{ keypair }`, XRPL `{ wallet }`, Aptos/Algorand `{ account }`.
+- **Why** — one obvious shape across every chain, the whole point of "name a chain, add a wallet."
+  See [Wallets by family](https://docs.piprail.com/making-payments/wallets-by-family/).
+
+Nothing else changed: the protocol, drivers, schemes, discovery, spend policy, and every other API
+are identical. Live-verified across 11 mainnet chains with the new `{ key }` shape.
+
 ## [1.25.0] — 2026-06-15 — more keyless facilitators (live-verified)
 
 ### Added — `KNOWN_FACILITATORS` grows beyond PayAI
@@ -1083,6 +1102,7 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[2.0.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.25.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.24.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.15.1]: https://www.npmjs.com/package/@piprail/sdk

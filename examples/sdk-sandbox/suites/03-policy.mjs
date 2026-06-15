@@ -27,7 +27,7 @@ const ROUTES = {
 export async function run() {
   const evil = await startHostile(ROUTES)
   const honest = await startMerchant()
-  const client = new PipRailClient({ chain: 'base', wallet: { privateKey: KEY }, rpcUrl: DEAD, policy: { maxAmount: '0.10', tokens: ['USDC'] } })
+  const client = new PipRailClient({ chain: 'base', wallet: { key: KEY }, rpcUrl: DEAD, policy: { maxAmount: '0.10', tokens: ['USDC'] } })
   const x = (p) => `${evil.url}${p}`
 
   try {
@@ -57,12 +57,12 @@ export async function run() {
 
     group('03 · onBeforePay hook is the final say')
     {
-      const denier = new PipRailClient({ chain: 'base', wallet: { privateKey: KEY }, rpcUrl: DEAD, policy: { maxAmount: '0.10', tokens: ['USDC'] }, onBeforePay: () => false })
+      const denier = new PipRailClient({ chain: 'base', wallet: { key: KEY }, rpcUrl: DEAD, policy: { maxAmount: '0.10', tokens: ['USDC'] }, onBeforePay: () => false })
       let r1 = null
       try { await denier.fetch(`${honest.url}/cheap`) } catch (e) { r1 = e instanceof PaymentDeclinedError }
       check('onBeforePay → false declines an in-policy payment', r1 === true)
 
-      const thrower = new PipRailClient({ chain: 'base', wallet: { privateKey: KEY }, rpcUrl: DEAD, policy: { maxAmount: '0.10', tokens: ['USDC'] }, onBeforePay: () => { throw new Error('nope') } })
+      const thrower = new PipRailClient({ chain: 'base', wallet: { key: KEY }, rpcUrl: DEAD, policy: { maxAmount: '0.10', tokens: ['USDC'] }, onBeforePay: () => { throw new Error('nope') } })
       let r2 = null
       try { await thrower.fetch(`${honest.url}/cheap`) } catch (e) { r2 = e instanceof PaymentDeclinedError }
       check('a THROWING onBeforePay fails safe (declines, never pays)', r2 === true)

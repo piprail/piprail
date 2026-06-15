@@ -83,7 +83,7 @@ describe('parseConfig — multi-chain mode (PIPRAIL_CHAINS)', () => {
       PIPRAIL_NEAR_ACCOUNT_ID: 'agent.near',
     })
     expect(cfg.chains![0]).toMatchObject({ chain: 'near', nearAccountId: 'agent.near' })
-    expect(walletInputFor(cfg.chains![0]!)).toEqual({ accountId: 'agent.near', privateKey: 'ed25519:secret' })
+    expect(walletInputFor(cfg.chains![0]!)).toEqual({ accountId: 'agent.near', key: 'ed25519:secret' })
   })
 
   test('dedupes a repeated chain', () => {
@@ -138,8 +138,8 @@ describe('configToClientOptionsList', () => {
     })
     const list = configToClientOptionsList(cfg)
     expect(list).toHaveLength(2)
-    expect(list[0]).toMatchObject({ chain: 'base', wallet: { privateKey: EVM_KEY } })
-    expect(list[1]).toMatchObject({ chain: 'solana', wallet: { secretKey: SOL_KEY } })
+    expect(list[0]).toMatchObject({ chain: 'base', wallet: { key: EVM_KEY } })
+    expect(list[1]).toMatchObject({ chain: 'solana', wallet: { key: SOL_KEY } })
     expect(list[0]!.policy!.maxAmount).toBe('1.00')
     expect(list[1]!.policy!.maxAmount).toBe('1.00') // same policy on every chain
   })

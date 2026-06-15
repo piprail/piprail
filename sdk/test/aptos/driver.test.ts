@@ -104,10 +104,10 @@ describe('cross-family guards (loud, on first use)', () => {
 })
 
 describe('Aptos wallet binding (driver bindWallet → assertAptosWallet)', () => {
-  it('accepts { privateKey } and { account }, rejects other families', () => {
+  it('accepts { key } and { account }, rejects legacy/other families', () => {
     const net = aptosDriver.resolve({ chain: 'aptos' })!
     const acct = Account.generate()
-    expect(() => net.bindWallet({ privateKey: acct.privateKey.toString() })).not.toThrow()
+    expect(() => net.bindWallet({ key: acct.privateKey.toString() })).not.toThrow()
     expect(() => net.bindWallet({ account: acct })).not.toThrow()
     expect(() => net.bindWallet({ walletClient: {} })).toThrow(/Aptos/)
     expect(() => net.bindWallet({ secretKey: new Uint8Array(64) })).toThrow(/Aptos/)

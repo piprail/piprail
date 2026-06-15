@@ -84,10 +84,10 @@ describe('cross-family guards (loud, on first use)', () => {
 })
 
 describe('Sui wallet binding (driver bindWallet → assertSuiWallet)', () => {
-  it('accepts { privateKey } and { keypair }, rejects other families', () => {
+  it('accepts { key } and { keypair }, rejects legacy/other families', () => {
     const net = suiDriver.resolve({ chain: 'sui' })!
     const kp = new Ed25519Keypair()
-    expect(() => net.bindWallet({ privateKey: kp.getSecretKey() })).not.toThrow()
+    expect(() => net.bindWallet({ key: kp.getSecretKey() })).not.toThrow()
     expect(() => net.bindWallet({ keypair: kp })).not.toThrow()
     expect(() => net.bindWallet({ walletClient: {} })).toThrow(/Sui/)
     expect(() => net.bindWallet({ secretKey: new Uint8Array(64) })).toThrow(/Sui/)

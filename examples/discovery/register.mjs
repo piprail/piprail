@@ -16,7 +16,7 @@ const URL = process.env.URL ?? 'https://example.com'
 
 const client = new PipRailClient({
   chain: 'base',
-  wallet: { privateKey: '0x' + '1'.repeat(64) }, // registration signs nothing on 402 Index
+  wallet: { key: '0x' + '1'.repeat(64) }, // registration signs nothing on 402 Index
 })
 
 console.log(`register(${JSON.stringify(URL)}) → 402 Index (no auth, any chain)…\n`)

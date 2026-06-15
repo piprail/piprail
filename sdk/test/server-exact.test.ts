@@ -97,7 +97,7 @@ const v1Header = (network: string, authorization: unknown, signature = '0xsig') 
 const exactGate = (over = {}) =>
   createPaymentGate({
     chain: { id: 8453, rpcUrl: 'x' }, token: 'USDC', amount: '0.05', payTo: PAY_TO,
-    exact: { settle: 'self', relayer: { privateKey: '0x' + 'ab'.repeat(32) } },
+    exact: { settle: 'self', relayer: { key: '0x' + 'ab'.repeat(32) } },
     ...over,
   })
 
@@ -130,7 +130,7 @@ describe('exact rail — dual-advertise', () => {
 
 describe('exact rail — config validation', () => {
   it('advertises a PERMIT2 rail for a non-EIP-3009 ERC-20 (USDT) — auto-fallback, not a throw', async () => {
-    const gate = createPaymentGate({ chain: { id: 8453, rpcUrl: 'x' }, token: 'USDT', amount: '1', payTo: PAY_TO, exact: { settle: 'self', relayer: { privateKey: '0x' + 'ab'.repeat(32) } } })
+    const gate = createPaymentGate({ chain: { id: 8453, rpcUrl: 'x' }, token: 'USDT', amount: '1', payTo: PAY_TO, exact: { settle: 'self', relayer: { key: '0x' + 'ab'.repeat(32) } } })
     const { challenge } = await gate.challenge('https://api/x')
     const exact = challenge.accepts.find((a) => a.scheme === 'exact')
     expect(exact?.extra).toMatchObject({ assetTransferMethod: 'permit2' })
@@ -138,12 +138,12 @@ describe('exact rail — config validation', () => {
   })
 
   it("still throws for `method:'eip3009'` FORCED on a non-EIP-3009 token", async () => {
-    const gate = createPaymentGate({ chain: { id: 8453, rpcUrl: 'x' }, token: 'USDT', amount: '1', payTo: PAY_TO, exact: { settle: 'self', relayer: { privateKey: '0x' + 'ab'.repeat(32) }, method: 'eip3009' } })
+    const gate = createPaymentGate({ chain: { id: 8453, rpcUrl: 'x' }, token: 'USDT', amount: '1', payTo: PAY_TO, exact: { settle: 'self', relayer: { key: '0x' + 'ab'.repeat(32) }, method: 'eip3009' } })
     await expect(gate.challenge()).rejects.toThrow(/EIP-3009/)
   })
 
   it('throws when exact is requested on the native coin', async () => {
-    const gate = createPaymentGate({ chain: { id: 8453, rpcUrl: 'x' }, token: 'native', amount: '0.01', payTo: PAY_TO, exact: { settle: 'self', relayer: { privateKey: '0x' + 'ab'.repeat(32) } } })
+    const gate = createPaymentGate({ chain: { id: 8453, rpcUrl: 'x' }, token: 'native', amount: '0.01', payTo: PAY_TO, exact: { settle: 'self', relayer: { key: '0x' + 'ab'.repeat(32) } } })
     await expect(gate.challenge()).rejects.toThrow(/exact|EIP-3009/)
   })
 
@@ -171,7 +171,7 @@ describe('exact rail — v1 routing safety', () => {
         { chain: { id: 1, rpcUrl: 'x' }, token: 'USDC', amount: '0.05', payTo: PAY_TO },
         { chain: { id: 8453, rpcUrl: 'y' }, token: 'USDC', amount: '0.05', payTo: PAY_TO },
       ],
-      exact: { settle: 'self', relayer: { privateKey: '0x' + 'ab'.repeat(32) } },
+      exact: { settle: 'self', relayer: { key: '0x' + 'ab'.repeat(32) } },
     })
     const res = await gate.verify(v1Header('ethereum', AUTH()))
     expect(res).toMatchObject({ kind: 'invalid', error: 'transfer_not_found' })
@@ -235,7 +235,7 @@ describe('exact rail — permit2 variant (non-EIP-3009 tokens, e.g. BNB)', () =>
   const permit2Gate = () =>
     createPaymentGate({
       chain: { id: 56, rpcUrl: 'x' }, token: 'USDT', amount: '1', payTo: PAY_TO,
-      exact: { settle: 'self', relayer: { privateKey: '0x' + 'ab'.repeat(32) } },
+      exact: { settle: 'self', relayer: { key: '0x' + 'ab'.repeat(32) } },
     })
   const PA = (over: Record<string, unknown> = {}) => ({
     permitted: { token: '0xusdt', amount: '1000000' },
@@ -361,7 +361,7 @@ describe('exact rail — facilitator mode (Mode B)', () => {
 })
 
 describe('exact rail — facilitator mode rejects Permit2 (facilitators settle EIP-3009/SVM only)', () => {
-  const relayer = { privateKey: '0x' + 'ab'.repeat(32) }
+  const relayer = { key: '0x' + 'ab'.repeat(32) }
 
   it("FORCED method:'permit2' + facilitator is a clear config error (facilitators can't settle Permit2)", async () => {
     const gate = createPaymentGate({
@@ -414,7 +414,7 @@ describe('exact rail — Permit2 proxy guard (never advertise an unsettleable ra
   afterEach(() => {
     permit2Supported = true
   })
-  const relayer = { privateKey: '0x' + 'ab'.repeat(32) }
+  const relayer = { key: '0x' + 'ab'.repeat(32) }
 
   it('auto: a non-EIP-3009 token on a proxy-less chain carries no exact rail (→ the existing "none support it" guard)', async () => {
     permit2Supported = false

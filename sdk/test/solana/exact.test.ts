@@ -318,7 +318,7 @@ describe('SVM exact — gate advertisement (offline; resolveExactRail tolerates 
       token: 'USDC',
       amount: '0.05',
       payTo,
-      exact: { settle: 'self', relayer: { secretKey: relayer.secretKey } },
+      exact: { settle: 'self', relayer: { key: relayer.secretKey } },
     })
     const { challenge } = await gate.challenge('https://api/x')
     expect(challenge.accepts).toHaveLength(2)
@@ -336,7 +336,7 @@ describe('SVM exact — gate advertisement (offline; resolveExactRail tolerates 
       token: 'native',
       amount: '0.01',
       payTo,
-      exact: { settle: 'self', relayer: { secretKey: relayer.secretKey } },
+      exact: { settle: 'self', relayer: { key: relayer.secretKey } },
     })
     await expect(gate.challenge()).rejects.toThrow(/none of the offered rails support it/i)
   })

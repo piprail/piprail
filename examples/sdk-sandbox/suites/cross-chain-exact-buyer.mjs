@@ -81,13 +81,13 @@ export async function run() {
       const app = express()
       app.get('/paid', requirePayment({
         chain: c.preset, token: 'USDC', amount: '0.02', payTo: merchant, rpcUrl: anvil.url,
-        exact: { settle: 'self', relayer: { privateKey: relayerKey } },
+        exact: { settle: 'self', relayer: { key: relayerKey } },
       }), (_q, r) => r.json({ unlocked: true }))
       const srv = await new Promise((res) => { const s = app.listen(0, '127.0.0.1', () => res(s)) }); servers.push(srv)
       const url = `http://127.0.0.1:${srv.address().port}/paid`
 
       const m0 = await usdcBal(merchant)
-      const buyer = new PipRailClient({ chain: c.preset, wallet: { privateKey: payerKey }, schemes: ['exact'], rpcUrl: anvil.url })
+      const buyer = new PipRailClient({ chain: c.preset, wallet: { key: payerKey }, schemes: ['exact'], rpcUrl: anvil.url })
       const res = await buyer.fetch(url).catch((e) => e)
       const ok = !(res instanceof Error) && res.status === 200
       check(`PipRailClient({schemes:['exact']}) settled on ${c.preset} → 200`, ok, res instanceof Error ? res.message : `status=${res.status}`)

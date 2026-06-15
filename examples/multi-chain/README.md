@@ -9,9 +9,9 @@ You give the buyer **one wallet per chain** and let `MultiChainPayer` route.
 
 ```
             ┌─────────────────────────  MultiChainPayer  ─────────────────────────┐
-            │  base   → PipRailClient({ chain:'base',   wallet:{ privateKey }})    │
-   one  ───▶│  polygon→ PipRailClient({ chain:'polygon',wallet:{ privateKey }})    │
-   buyer    │  solana → PipRailClient({ chain:'solana', wallet:{ secretKey  }})    │
+            │  base   → PipRailClient({ chain:'base',   wallet:{ key }})           │
+   one  ───▶│  polygon→ PipRailClient({ chain:'polygon',wallet:{ key }})           │
+   buyer    │  solana → PipRailClient({ chain:'solana', wallet:{ key }})           │
             └──────────────────────────────────┬──────────────────────────────────┘
                                                 │  payer.get(url)
                                                 ▼

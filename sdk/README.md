@@ -31,7 +31,7 @@ That route now costs **0.05 USDC on Base**, paid straight to your wallet. One pa
 ```ts
 import { PipRailClient } from '@piprail/sdk'
 
-const client = new PipRailClient({ chain: 'base', wallet: { privateKey: process.env.AGENT_KEY } })
+const client = new PipRailClient({ chain: 'base', wallet: { key: process.env.AGENT_KEY } })
 
 const res = await client.fetch('https://api.example.com/report') // hits the 402, pays it, retries with proof
 ```
@@ -49,9 +49,9 @@ import { MultiChainPayer } from '@piprail/sdk'
 
 const payer = MultiChainPayer.fromWallets({
   wallets: {
-    base:   { privateKey: process.env.EVM_KEY },     // one EVM key works on every EVM chain
-    solana: { secretKey:  process.env.SOLANA_KEY },
-    xrpl:   { seed:       process.env.XRPL_SEED },
+    base:   { key: process.env.EVM_KEY },     // one EVM key works on every EVM chain
+    solana: { key: process.env.SOLANA_KEY },
+    xrpl:   { key: process.env.XRPL_SEED },
   },
   policy: { maxAmount: '1.00', maxTotal: '10.00', tokens: ['USDC', 'USDT'] }, // one budget, every chain
 })

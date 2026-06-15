@@ -98,11 +98,11 @@ describe('cross-family guards (loud, on first use)', () => {
 })
 
 describe('Algorand wallet binding (driver bindWallet → assertAlgorandWallet)', () => {
-  it('accepts { mnemonic } and { account }, rejects other families', () => {
+  it('accepts { key } (mnemonic) and { account }, rejects legacy/other families', () => {
     const net = algorandDriver.resolve({ chain: 'algorand' })!
     const acct = algosdk.generateAccount()
     const mnemonic = algosdk.secretKeyToMnemonic(acct.sk)
-    expect(() => net.bindWallet({ mnemonic })).not.toThrow()
+    expect(() => net.bindWallet({ key: mnemonic })).not.toThrow()
     expect(() => net.bindWallet({ account: acct })).not.toThrow()
     expect(() => net.bindWallet({ privateKey: `0x${'1'.repeat(64)}` })).toThrow(/Algorand/)
     expect(() => net.bindWallet({ secretKey: new Uint8Array(64) })).toThrow(/Algorand/)

@@ -45,8 +45,8 @@ import type { DiscoveredResource, RegisterOutcome } from './indexes.js'
  * `'solana'|'ton'|'tron'|'near'|'sui'|'aptos'|'algorand'|'stellar'|'xrpl'`); the
  * VALUE is that family's {@link WalletInput}:
  *
- *   base/bnb/… → { privateKey }   solana → { secretKey }   ton/algorand → { mnemonic }
- *   stellar → { secret }   xrpl → { seed }   near → { accountId, privateKey }
+ *   every chain → { key }   ·   near → { accountId, key }
+ *   (`key` is that chain's secret string — see {@link WalletInput} for the per-chain format)
  *
  * One key per family — this map is how a single buyer carries the keys for every
  * chain it's willing to pay on. (For a CUSTOM EVM chain configured by a viem
@@ -101,9 +101,9 @@ export class MultiChainPayer implements PayingClient {
    * ```ts
    * const payer = MultiChainPayer.fromWallets({
    *   wallets: {
-   *     base:    { privateKey: process.env.EVM_KEY! },
-   *     solana:  { secretKey:  process.env.SOLANA_SECRET! },
-   *     xrpl:    { seed:       process.env.XRPL_SEED! },
+   *     base:    { key: process.env.EVM_KEY! },
+   *     solana:  { key: process.env.SOLANA_SECRET! },
+   *     xrpl:    { key: process.env.XRPL_SEED! },
    *   },
    *   policy: { maxAmount: '1.00', maxTotal: '20.00', tokens: ['USDC', 'USDT'] },
    * })

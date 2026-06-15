@@ -26,7 +26,7 @@ import { PipRailClient, PipRailError } from '@piprail/sdk'
 
 const client = new PipRailClient({
   chain: 'base',
-  wallet: { privateKey: process.env.AGENT_KEY! },
+  wallet: { key: process.env.AGENT_KEY! },
 })
 
 const url = 'https://api.example.com/report'

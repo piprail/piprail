@@ -66,7 +66,7 @@ async function connect(opts?: {
   onElicit?: (req: { params: { message: string } }) => Promise<unknown>
 }) {
   const { server, client } = createMcpServer(
-    { chain: 'base', wallet: { privateKey: KEY }, policy: { tokens: ['USDC'], maxAmount: '0.10' }, ...opts?.clientOptions },
+    { chain: 'base', wallet: { key: KEY }, policy: { tokens: ['USDC'], maxAmount: '0.10' }, ...opts?.clientOptions },
     opts?.serverOpts
   )
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
@@ -184,7 +184,7 @@ describe('createMcpServer — the agent guide (prompts + resources)', () => {
 
 describe('Mode B — ask-before-pay over a real InMemoryTransport (E2E)', () => {
   const payOpts = {
-    clientOptions: { chain: 'stellar' as const, wallet: { secret: 'x' }, policy: { maxAmount: '1.00' } },
+    clientOptions: { chain: 'stellar' as const, wallet: { key: 'x' }, policy: { maxAmount: '1.00' } },
     serverOpts: { confirm: true },
     clientCapabilities: { elicitation: { form: {} } },
   }
@@ -220,7 +220,7 @@ describe('Mode B — ask-before-pay over a real InMemoryTransport (E2E)', () => 
   test('a non-eliciting client (confirm on) still pays — silent Mode-A fallback', async () => {
     stellarPayStub()
     const { mcp } = await connect({
-      clientOptions: { chain: 'stellar', wallet: { secret: 'x' }, policy: { maxAmount: '1.00' } },
+      clientOptions: { chain: 'stellar', wallet: { key: 'x' }, policy: { maxAmount: '1.00' } },
       serverOpts: { confirm: true },
       clientCapabilities: {}, // no elicitation capability
     })

@@ -18,7 +18,7 @@ import { PipRailClient, paymentTools } from '@piprail/sdk'
 // The client's policy IS the budget — the model literally cannot overspend.
 const client = new PipRailClient({
   chain: 'base',
-  wallet: { privateKey: process.env.AGENT_KEY },
+  wallet: { key: process.env.AGENT_KEY },
   policy: {
     maxAmount: '0.10', // per call
     maxTotal: '5.00', // lifetime, per token

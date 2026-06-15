@@ -16,9 +16,9 @@ import { group, check, note, summarize } from '../lib/report.mjs'
 const AMOUNT = '0.001' // USDC settled on the success path
 
 const FAMILIES = [
-  { chain: 'solana', wallet: (w) => ({ secretKey: w.secretKey }), payTo: (w) => w.merchant?.address ?? w.merchantAddress },
-  { chain: 'aptos', wallet: (w) => ({ privateKey: w.privateKey }), payTo: (w) => w.merchantAddress },
-  { chain: 'algorand', wallet: (w) => ({ mnemonic: w.mnemonic }), payTo: (w) => w.merchantAddress },
+  { chain: 'solana', wallet: (w) => ({ key: w.secretKey }), payTo: (w) => w.merchant?.address ?? w.merchantAddress },
+  { chain: 'aptos', wallet: (w) => ({ key: w.privateKey }), payTo: (w) => w.merchantAddress },
+  { chain: 'algorand', wallet: (w) => ({ key: w.mnemonic }), payTo: (w) => w.merchantAddress },
 ]
 
 const loadWallet = (family) => {
