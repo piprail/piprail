@@ -113,6 +113,55 @@ read-only chain use the [array constructor](#the-primitives-underneath) with a w
 For a custom EVM chain configured by a viem `Chain` object, build the client yourself and
 use the array form: `new MultiChainPayer([clientA, clientB, …])` (order = preference).
 
+## A different policy per chain
+
+`fromWallets` applies **one** shared `policy` to every chain. When you want a *different* policy
+per chain — generous caps on your main rail, a tight leash on a hot key — build each
+[`PipRailClient`](/making-payments/piprail-client/) yourself (each with its own `policy`,
+`onBeforePay`, `schemes`, …) and pass them to the **array constructor**. `MultiChainPayer` stores
+them verbatim; every payment runs through *its owning client's own* policy and hooks:
+
+```ts
+import { PipRailClient, MultiChainPayer } from '@piprail/sdk'
+
+const payer = new MultiChainPayer([
+  // Base — your main rail, generous caps
+  new PipRailClient({
+    chain: 'base',
+    wallet: { privateKey: process.env.EVM_KEY! },
+    policy: { maxAmount: '5.00', maxTotal: '100.00', tokens: ['USDC'] },
+  }),
+  // Solana — a hot key on a tight leash
+  new PipRailClient({
+    chain: 'solana',
+    wallet: { secretKey: process.env.SOLANA_KEY! },
+    policy: { maxAmount: '0.25', maxTotal: '5.00', tokens: ['USDC'] },
+  }),
+])
+// Array ORDER is still your chain preference; spent()/budget() still aggregate across both.
+```
+
+For a *per-token* cap within a single chain (USDC ≤ 5 but native ≤ 0.001, say), use that client's
+[`onBeforePay`](/spend-controls/payment-policy/#different-limits-per-token) hook.
+
+### Policy refusals reroute; `onBeforePay` vetoes don't
+
+A subtlety worth internalising, because the two gates behave differently when more than one chain
+could pay:
+
+- A per-chain **policy** refusal is a **plan signal**. `planPayment` evaluates each client's policy,
+  so a chain whose policy refuses surfaces as `state: 'blocked'` with an `OUTSIDE_POLICY` blocker —
+  **not payable** — and routing simply **skips it and settles on the next chain** that can. (So a
+  chain you cap out, or list last, won't be auto-charged while another rail is viable.)
+- An **`onBeforePay`** veto is a **pay-time gate on the chosen chain only**. `best` is chosen from
+  the policy-aware plan *first*, then the owning client runs its hook; if it returns `false`, the
+  payment is **declined outright** ([`PaymentDeclinedError`](/errors/error-model/),
+  `reasonCode: 'APPROVAL'`) — the payer does **not** silently fall back to another chain.
+
+Rule of thumb: use **`policy`** (`maxAmount`/`tokens`/…) for *which chain may pay and how much*
+(it's routing-aware), and **`onBeforePay`** for a last-mile yes/no on the rail that was actually
+chosen.
+
 ## How a rail is chosen — the exact rule
 
 This is the one thing to internalise, because it's *not* "cheapest across chains":

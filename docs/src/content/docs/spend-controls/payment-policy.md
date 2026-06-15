@@ -262,3 +262,40 @@ const client = new PipRailClient({
   onBeforePay: (quote) => Number(quote.amountFormatted) <= 0.1,
 })
 ```
+
+### Different limits per token
+
+A `PaymentPolicy` has **one** `maxAmount`/`maxTotal` pair — on its own it can't express a different
+ceiling per token (`tokens` is an allow/deny list, not a per-token cap map). When you want, say,
+"USDC up to 5, USDT up to 1, the native coin up to 0.001," put the **coarse** gate in `policy`
+(which tokens are allowed at all, plus an absolute ceiling) and the **fine**, per-token rule in
+`onBeforePay`, branching on `quote.symbol`:
+
+```ts
+// per-payment ceiling, keyed by the REAL ticker (the native coin shows as its symbol — ETH on Base)
+const MAX_PER_PAYMENT: Record<string, number> = { USDC: 5, USDT: 1, ETH: 0.001 }
+
+const client = new PipRailClient({
+  chain: 'base',
+  wallet: { privateKey: process.env.AGENT_KEY! },
+  policy: { tokens: ['USDC', 'USDT', 'native'], maxAmount: '5.00' }, // coarse: allowed tokens + ceiling
+  onBeforePay: (q) => {                                              // fine: a different cap per token
+    const cap = MAX_PER_PAYMENT[q.symbol ?? '']
+    return cap != null && Number(q.amountFormatted) <= cap
+  },
+})
+```
+
+The hook receives the [`PipRailQuote`](/making-payments/quote/), so you can branch on `q.symbol`
+(the SDK's *verified* ticker — the native coin surfaces as `ETH`/`SOL`/…, and `q.asset === 'native'`
+is the robust native check), `q.amountFormatted`, `q.network`, or anything else on the quote.
+
+:::note[`onBeforePay` is per-payment, not cumulative]
+The hook is a yes/no on **this** payment — it doesn't track a running total. For a *different
+lifetime cap per token*, read [`client.spent()`](/spend-controls/spend-ledger/) inside the hook
+(its `byAsset` rows are per-`(network, asset)`) and compare. Assign the client to a variable first
+so the closure can reach it — the hook only runs at pay time, after construction.
+:::
+
+Want a different policy **per chain** (not per token)? Build one client per chain and use the
+[multi-chain array constructor](/making-payments/multi-chain/#a-different-policy-per-chain).
