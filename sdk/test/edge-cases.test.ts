@@ -63,7 +63,7 @@ function stub(body = challengeBody()) {
 }
 
 const newClient = (over: Partial<PipRailClientOptions> = {}) =>
-  new PipRailClient({ chain: 'stellar', wallet: { secret: 'x' }, ...over })
+  new PipRailClient({ chain: 'stellar', wallet: { key: 'x' }, ...over })
 
 describe('maxTotal accumulates across real payments (sequential)', () => {
   it('allows up to the per-asset cap, then declines', async () => {

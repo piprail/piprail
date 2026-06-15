@@ -29,15 +29,15 @@ npm install xrpl
 
 ## The wallet
 
-An XRPL wallet is `{ seed }` (an `s…` family secret seed) or a ready `{ wallet }` (an xrpl.js
-`Wallet`, if you built it yourself). `payTo` is a classic `r…` address.
+An XRPL wallet is `{ key }`, where `key` is an `s…` family secret seed — or a ready `{ wallet }`
+(an xrpl.js `Wallet`, if you built it yourself). `payTo` is a classic `r…` address.
 
 ```ts
 import { PipRailClient } from '@piprail/sdk'
 
 const client = new PipRailClient({
   chain: 'xrpl',
-  wallet: { seed: process.env.XRPL_SEED },  // 's…' secret seed
+  wallet: { key: process.env.XRPL_SEED },  // 's…' secret seed
 })
 ```
 
@@ -159,7 +159,7 @@ requirePayment({ chain: 'xrpl', token: 'USDC', amount: '0.10', payTo: 'r…', rp
 
 const client = new PipRailClient({
   chain: 'xrpl',
-  wallet: { seed: process.env.XRPL_SEED },
+  wallet: { key: process.env.XRPL_SEED },
   rpcUrl: 'https://your-xrpl-node/',
 })
 ```

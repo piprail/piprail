@@ -27,17 +27,17 @@ npm install @ton/ton @ton/core @ton/crypto
 
 ## The wallet
 
-A TON wallet is a 24-word `{ mnemonic }` (a `string[]` or one space-separated string) or a ready
-`{ keyPair }`. The wallet contract defaults to `v4`; pass `version: 'v5r1'` for a W5 wallet — it
-**must match** the version your funded address was created with.
+A TON wallet is `{ key }`, where `key` is a 24-word mnemonic (a `string[]` or one space-separated
+string) — or a ready `{ keyPair }`. The wallet contract defaults to `v4`; pass `version: 'v5r1'`
+for a W5 wallet — it **must match** the version your funded address was created with.
 
 ```ts
 import { PipRailClient } from '@piprail/sdk'
 
 const mnemonic = process.env.TON_MNEMONIC // 24 words, space-separated or a string[]
 
-const client = new PipRailClient({ chain: 'ton', wallet: { mnemonic } })
-// W5 wallet: new PipRailClient({ chain: 'ton', wallet: { mnemonic, version: 'v5r1' } })
+const client = new PipRailClient({ chain: 'ton', wallet: { key: mnemonic } })
+// W5 wallet: new PipRailClient({ chain: 'ton', wallet: { key: mnemonic, version: 'v5r1' } })
 ```
 
 The shape is checked synchronously at bind time, so passing an EVM or Solana wallet fails fast
@@ -54,7 +54,7 @@ const rpcUrl = `https://toncenter.com/api/v2/jsonRPC?api_key=${process.env.TONCE
 const payTo = 'EQ…' // your bounceable TON address (EQ… or UQ…)
 
 requirePayment({ chain: 'ton', token: 'USDT', amount: '0.10', payTo, rpcUrl })
-new PipRailClient({ chain: 'ton', wallet: { mnemonic }, rpcUrl })
+new PipRailClient({ chain: 'ton', wallet: { key: mnemonic }, rpcUrl })
 ```
 
 :::tip

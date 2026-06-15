@@ -80,7 +80,7 @@ export async function run() {
   const app = express()
   app.get('/paid', requirePayment({
     chain: 'base', token: 'USDC', amount: AMOUNT, payTo: merchant, rpcUrl: RPC,
-    exact: { settle: 'self', relayer: { privateKey: relayerHex } },
+    exact: { settle: 'self', relayer: { key: relayerHex } },
   }), (_q, r) => r.json({ unlocked: true }))
   const srv = await new Promise((res) => { const s = app.listen(0, '127.0.0.1', () => res(s)) })
   const url = `http://127.0.0.1:${srv.address().port}/paid`

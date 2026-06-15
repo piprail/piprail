@@ -105,8 +105,8 @@ export interface ExactRailOption {
          *  discovers it automatically (e.g. PayAI). Ignored on EVM. */
         feePayer?: string
       }
-  /** Required for `settle: 'self'` — the gas-paying relayer wallet: EVM `{ privateKey }` /
-   *  `{ walletClient }`, or Solana `{ secretKey }` / `{ signer }`. (Distinct from `payTo`, the
+  /** Required for `settle: 'self'` — the gas-paying relayer wallet: a `{ key }` (or a
+   *  bring-your-own EVM `{ walletClient }` / Solana `{ signer }`). (Distinct from `payTo`, the
    *  receive address — on Solana they MUST be different keys, a scheme MUST-rule.) */
   relayer?: unknown
   /** Which exact transfer method to advertise (EVM). `'auto'` (default) uses EIP-3009 when the
@@ -441,7 +441,7 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
       if (cfg.relayer === undefined) {
         throw new Error(
           "requirePayment: exact `settle: 'self'` needs a `relayer` wallet (the gas-paying key that " +
-            'broadcasts the settle), e.g. exact: { settle: ' + "'self', relayer: { privateKey } }."
+            'broadcasts the settle), e.g. exact: { settle: ' + "'self', relayer: { key } }."
         )
       }
       relayer = net.bindWallet(cfg.relayer)

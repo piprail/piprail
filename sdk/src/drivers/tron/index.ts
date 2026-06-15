@@ -153,7 +153,7 @@ function makeTronNetwork(preset: TronPreset, rpcUrl: string): ResolvedNetwork {
       const privateKey = resolveTronPrivateKey(wallet._native as TronWalletConfig)
       const from = tronWeb.address.fromPrivateKey(privateKey)
       if (!from) {
-        throw new WrongFamilyError('Tron wallet { privateKey } could not derive an address.')
+        throw new WrongFamilyError('Tron wallet { key } could not derive an address.')
       }
       if (accept.asset === 'native') {
         return payTronNative({ client: tronWeb as unknown as TronPayClient, from, privateKey, accept })

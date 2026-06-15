@@ -184,7 +184,7 @@ import { PipRailClient } from '@piprail/sdk'
 
 const client = new PipRailClient({
   chain: 'base',
-  wallet: { privateKey: process.env.AGENT_KEY }, // needs the stablecoin; ~no gas for exact
+  wallet: { key: process.env.AGENT_KEY }, // needs the stablecoin; ~no gas for exact
   schemes: ['onchain-proof', 'exact'],           // exact is opt-in
 })
 await client.fetch('https://any-x402-endpoint/api/data') // pays the cheapest settleable rail
@@ -198,7 +198,7 @@ import { requirePayment } from '@piprail/sdk'
 
 requirePayment({
   chain: 'base', token: 'USDC', amount: '0.05', payTo: '0xYourWallet',
-  exact: { settle: 'self', relayer: { privateKey: process.env.RELAYER_KEY } }, // or { settle: { facilitator } }
+  exact: { settle: 'self', relayer: { key: process.env.RELAYER_KEY } }, // or { settle: { facilitator } }
 })
 ```
 
@@ -219,7 +219,7 @@ keypair, distinct from `payTo`) if you'd rather not use a third party — then y
 sub-cent SOL fee:
 
 ```ts
-exact: { settle: 'self', relayer: { secretKey: process.env.SOLANA_RELAYER_KEY } } // fee payer ≠ payTo
+exact: { settle: 'self', relayer: { key: process.env.SOLANA_RELAYER_KEY } } // fee payer ≠ payTo
 ```
 
 With a **facilitator** (EVM EIP-3009, or Solana), **neither side pays gas**. See the full how-tos:
@@ -326,7 +326,7 @@ and nothing else changes. Pick whichever fits:
 | You want… | Use | Who pays the gas | Config |
 |---|---|---|---|
 | **Fully gasless, zero setup** (keep the default) | **PayAI** (keyless) | PayAI | `exact: { settle: { facilitator: 'https://facilitator.payai.network' } }` |
-| **No third party at all** | **Self-settle** with your own relayer | your relayer (sub-cent) | `exact: { settle: 'self', relayer: { secretKey: … } }` — fee payer ≠ `payTo` |
+| **No third party at all** | **Self-settle** with your own relayer | your relayer (sub-cent) | `exact: { settle: 'self', relayer: { key: … } }` — fee payer ≠ `payTo` |
 | **A different facilitator** | **Coinbase CDP** (Base + Solana) / **Kora** (self-host) | them / you | `exact: { settle: { facilitator, authHeaders } }` (CDP passes auth) |
 | **No gasless rail** | the **`onchain-proof` default** | the buyer (tiny) | omit `exact` entirely — works on every chain |
 

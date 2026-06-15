@@ -18,7 +18,7 @@ export const payCode = `<span class="tok-kw">import</span> { PipRailClient } <sp
 
 <span class="tok-kw">const</span> client = <span class="tok-kw">new</span> <span class="tok-fn">PipRailClient</span>({
   chain: <span class="tok-chain">'bnb'</span>,
-  wallet: { privateKey: process.env.KEY },
+  wallet: { key: process.env.KEY },
 })
 
 <span class="tok-com">// On a 402: pays, then retries.</span>

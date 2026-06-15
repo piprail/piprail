@@ -116,15 +116,15 @@ describe('cross-family guards (loud, on first use)', () => {
 })
 
 describe('XRPL wallet binding (driver bindWallet → assertXrplWallet)', () => {
-  it('accepts { seed } and { wallet }, rejects EVM / Solana / TON / Stellar wallets', () => {
+  it('accepts { key } (seed) and { wallet }, rejects legacy/other wallets', () => {
     const net = xrplDriver.resolve({ chain: 'xrpl' })!
     const w = Wallet.generate()
-    expect(() => net.bindWallet({ seed: w.seed })).not.toThrow()
+    expect(() => net.bindWallet({ key: w.seed })).not.toThrow()
     expect(() => net.bindWallet({ wallet: w })).not.toThrow()
     expect(() => net.bindWallet({ privateKey: `0x${'1'.repeat(64)}` })).toThrow(/XRPL/)
     expect(() => net.bindWallet({ secretKey: new Uint8Array(64) })).toThrow(/XRPL/)
     expect(() => net.bindWallet({ mnemonic: Array(24).fill('abandon') })).toThrow(/XRPL/)
-    // a Stellar { secret } wallet must not be accepted on XRPL
+    // a pre-v2 { secret } field now gives a clear migration error
     expect(() => net.bindWallet({ secret: 'SABC' })).toThrow(/XRPL/)
   })
 })

@@ -87,7 +87,7 @@ describe('confirm-timeout never discards the proof (double-pay safety)', () => {
     let unconfirmedRef: string | undefined
     const client = new PipRailClient({
       chain: 'stellar',
-      wallet: { secret: 'x' },
+      wallet: { key: 'x' },
       onEvent: (e) => {
         kinds.push(e.kind)
         if (e.kind === 'payment-unconfirmed') unconfirmedRef = e.ref
@@ -107,7 +107,7 @@ describe('confirm-timeout never discards the proof (double-pay safety)', () => {
   it('carries .ref on MaxRetriesExceededError so the caller re-verifies, never re-pays', async () => {
     // confirmed path (confirm OK), but the server keeps rejecting the proof.
     stubFetch(() => new Response(JSON.stringify({ status: 'invalid', error: 'tx_not_found', detail: 'not seen yet' }), { status: 402 }))
-    const client = new PipRailClient({ chain: 'stellar', wallet: { secret: 'x' }, maxPaymentRetries: 1, retryTimeoutMs: 500 })
+    const client = new PipRailClient({ chain: 'stellar', wallet: { key: 'x' }, maxPaymentRetries: 1, retryTimeoutMs: 500 })
     const err = await client.get(RESOURCE).catch((e) => e)
     expect(err).toBeInstanceOf(MaxRetriesExceededError)
     expect(err.code).toBe('MAX_RETRIES_EXCEEDED')
@@ -125,7 +125,7 @@ describe('confirm-timeout never discards the proof (double-pay safety)', () => {
         proofCalls += 1
         return new Response(JSON.stringify({ status: 'invalid', error: 'tx_not_found', detail: 'x' }), { status: 402 })
       })
-      const client = new PipRailClient({ chain: 'stellar', wallet: { secret: 'x' }, maxPaymentRetries: 1 })
+      const client = new PipRailClient({ chain: 'stellar', wallet: { key: 'x' }, maxPaymentRetries: 1 })
       const settle = client.get(RESOURCE).then(() => null, (e) => e)
       await vi.runAllTimersAsync() // flush the (patient) backoff timers
       const err = await settle
@@ -142,7 +142,7 @@ describe('confirm-timeout never discards the proof (double-pay safety)', () => {
   it('regression: confirm OK → payment-confirmed fires, no unconfirmed event', async () => {
     stubFetch(() => new Response(JSON.stringify({ ok: true }), { status: 200 }))
     const kinds: string[] = []
-    const client = new PipRailClient({ chain: 'stellar', wallet: { secret: 'x' }, onEvent: (e) => kinds.push(e.kind) })
+    const client = new PipRailClient({ chain: 'stellar', wallet: { key: 'x' }, onEvent: (e) => kinds.push(e.kind) })
     const res = await client.get(RESOURCE)
     expect(res.status).toBe(200)
     expect(kinds).toContain('payment-confirmed')

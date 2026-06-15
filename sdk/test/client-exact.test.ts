@@ -133,7 +133,7 @@ const settle200 = (tx = '0xSETTLE') =>
 describe('schemes gating', () => {
   it('REGRESSION: default client (no schemes) on an exact-only challenge → NoCompatibleAcceptError', async () => {
     stub([exactAccept()], () => settle200())
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: '0x1' } })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' } })
     await expect(client.fetch(URL)).rejects.toBeInstanceOf(NoCompatibleAcceptError)
     expect(payExactCalls).toBe(0)
   })
@@ -147,7 +147,7 @@ describe('schemes gating', () => {
     const events: string[] = []
     const client = new PipRailClient({
       chain: 'base',
-      wallet: { privateKey: '0x1' },
+      wallet: { key: '0x1' },
       schemes: ['exact'],
       onEvent: (e) => events.push(e.kind),
     })
@@ -169,7 +169,7 @@ describe('schemes gating', () => {
 
   it('per-call fetch(url,{schemes:["exact"]}) overrides — and does NOT leak into later calls', async () => {
     stub([exactAccept()], () => settle200())
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: '0x1' } }) // default onchain-proof
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' } }) // default onchain-proof
     const res = await client.fetch(URL, { schemes: ['exact'] })
     expect(res.status).toBe(200)
     expect(payExactCalls).toBe(1)
@@ -179,7 +179,7 @@ describe('schemes gating', () => {
 
   it('mixed dual-rail (onchain-proof + exact) on one chain → pays ONCHAIN-PROOF (bucket order), exactly one rail', async () => {
     stub([onchainAccept(), exactAccept()], () => settle200())
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: '0x1' }, schemes: ['onchain-proof', 'exact'] })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['onchain-proof', 'exact'] })
     const res = await client.fetch(URL)
     expect(res.status).toBe(200)
     expect(sendCalls).toBe(1) // onchain-proof paid …
@@ -188,7 +188,7 @@ describe('schemes gating', () => {
 
   it('exact rail on an UNRECOGNISED token is not gathered → NoCompatibleAcceptError (no fallback)', async () => {
     stub([exactAccept({ asset: UNKNOWN })], () => settle200())
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: '0x1' }, schemes: ['exact'] })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
     await expect(client.fetch(URL)).rejects.toBeInstanceOf(NoCompatibleAcceptError)
     expect(payExactCalls).toBe(0)
   })
@@ -196,12 +196,12 @@ describe('schemes gating', () => {
   it('a family without payExact, exact-only + no fallback → UnsupportedSchemeError; WITH a fallback → pays onchain-proof', async () => {
     net = makeNet({ withExact: false })
     stub([exactAccept()], () => settle200())
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: '0x1' }, schemes: ['exact'] })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
     await expect(client.fetch(URL)).rejects.toBeInstanceOf(UnsupportedSchemeError)
 
     net = makeNet({ withExact: false })
     stub([exactAccept(), onchainAccept()], () => settle200())
-    const client2 = new PipRailClient({ chain: 'base', wallet: { privateKey: '0x1' }, schemes: ['onchain-proof', 'exact'] })
+    const client2 = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['onchain-proof', 'exact'] })
     const res = await client2.fetch(URL)
     expect(res.status).toBe(200)
     expect(sendCalls).toBe(1)
@@ -215,7 +215,7 @@ describe('exact pay path — correctness invariants', () => {
       sigs.push(sig)
       return n === 1 ? new Response('still verifying', { status: 402 }) : settle200()
     })
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: '0x1' }, schemes: ['exact'], retryTimeoutMs: 1000 })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'], retryTimeoutMs: 1000 })
     const res = await client.fetch(URL)
     expect(res.status).toBe(200)
     expect(payExactCalls).toBe(1) // signed once
@@ -227,7 +227,7 @@ describe('exact pay path — correctness invariants', () => {
     const h = stub([exactAccept()], () => {
       throw new Error('socket hang up')
     })
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: '0x1' }, schemes: ['exact'] })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
     const err = await client.fetch(URL).catch((e) => e)
     expect(err).toBeInstanceOf(PaymentTimeoutError)
     expect(err.ref).toMatch(/^0x[0-9a-f]{64}$/) // the authorization nonce
@@ -242,14 +242,14 @@ describe('exact pay path — correctness invariants', () => {
         headers: { 'payment-response': Buffer.from(JSON.stringify({ success: false, errorReason: 'insufficient_funds', transaction: '' }), 'utf8').toString('base64') },
       })
     )
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: '0x1' }, schemes: ['exact'] })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
     await expect(client.fetch(URL)).rejects.toBeInstanceOf(MaxRetriesExceededError)
     expect(client.spent().count).toBe(0) // the phantom-spend guard
   })
 
   it('BLOCKER #3: an affirmative settle records the spend EXACTLY once, ref = the settle tx', async () => {
     stub([exactAccept()], () => settle200('0xDEADBEEF'))
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: '0x1' }, schemes: ['exact'] })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
     await client.fetch(URL)
     const spend = client.spent()
     expect(spend.count).toBe(1)
@@ -259,7 +259,7 @@ describe('exact pay path — correctness invariants', () => {
 
   it('a 5xx (server settle failure) is returned as-is — no spend, not MaxRetriesExceededError', async () => {
     stub([exactAccept()], () => new Response('relayer down', { status: 502 }))
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: '0x1' }, schemes: ['exact'] })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
     const res = await client.fetch(URL)
     expect(res.status).toBe(502)
     expect(client.spent().count).toBe(0)
@@ -267,7 +267,7 @@ describe('exact pay path — correctness invariants', () => {
 
   it('persistent 402 → MaxRetriesExceededError telling the caller to re-present the SAME authorization', async () => {
     stub([exactAccept()], () => new Response('rejected', { status: 402 }))
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: '0x1' }, schemes: ['exact'], maxPaymentRetries: 1 })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'], maxPaymentRetries: 1 })
     const err = await client.fetch(URL).catch((e) => e)
     expect(err).toBeInstanceOf(MaxRetriesExceededError)
     expect(err.message).toMatch(/re-present the SAME authorization/i)
@@ -277,7 +277,7 @@ describe('exact pay path — correctness invariants', () => {
 
   it('over-budget exact is refused BEFORE signing (PaymentDeclinedError; payExact not called)', async () => {
     stub([exactAccept()], () => settle200())
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: '0x1' }, schemes: ['exact'], policy: { maxAmount: '0.01' } })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'], policy: { maxAmount: '0.01' } })
     await expect(client.fetch(URL)).rejects.toBeInstanceOf(PaymentDeclinedError)
     expect(payExactCalls).toBe(0) // authorize() refuses before any signature
     expect(client.spent().count).toBe(0)
@@ -288,7 +288,7 @@ describe('planPayment + exact — the gasless affordability model', () => {
   it('an exact rail on a token-funded, ZERO-native wallet is payable with fee 0', async () => {
     stub([exactAccept()], () => settle200())
     net.balanceOf = async () => ({ token: 1_000_000n, native: 0n })
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: '0x1' }, schemes: ['exact'] })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
     const plan = await client.planPayment(URL)
     expect(plan!.payable).toBe(true)
     expect(plan!.best!.cost.fee).toBe('0')
@@ -299,7 +299,7 @@ describe('planPayment + exact — the gasless affordability model', () => {
   it('contrast: an onchain-proof token rail with zero native → INSUFFICIENT_GAS (proves exact is gasless)', async () => {
     stub([onchainAccept()], () => settle200())
     net.balanceOf = async () => ({ token: 1_000_000n, native: 0n })
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: '0x1' } })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' } })
     const plan = await client.planPayment(URL)
     expect(plan!.options[0]!.blockers).toContain('INSUFFICIENT_GAS')
   })
@@ -307,7 +307,7 @@ describe('planPayment + exact — the gasless affordability model', () => {
   it('under-funded exact → INSUFFICIENT_TOKEN with a token-only shortfall (never gas)', async () => {
     stub([exactAccept()], () => settle200())
     net.balanceOf = async () => ({ token: 10n, native: 0n })
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: '0x1' }, schemes: ['exact'] })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
     const opt = (await client.planPayment(URL))!.options[0]!
     expect(opt.blockers).toContain('INSUFFICIENT_TOKEN')
     expect(opt.blockers).not.toContain('INSUFFICIENT_GAS')
@@ -317,13 +317,13 @@ describe('planPayment + exact — the gasless affordability model', () => {
 
   it('over-budget exact → OUTSIDE_POLICY', async () => {
     stub([exactAccept()], () => settle200())
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: '0x1' }, schemes: ['exact'], policy: { maxAmount: '0.01' } })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'], policy: { maxAmount: '0.01' } })
     expect((await client.planPayment(URL))!.options[0]!.blockers).toContain('OUTSIDE_POLICY')
   })
 
   it('estimateCost(url) on an exact rail → fee 0, basis estimated', async () => {
     stub([exactAccept()], () => settle200())
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: '0x1' }, schemes: ['exact'] })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
     const est = await client.estimateCost(URL)
     expect(est!.cost.fee).toBe('0')
     expect(est!.cost.basis).toBe('estimated')
@@ -344,7 +344,7 @@ describe('exact pay path — spec failure shapes', () => {
     const h = stub([exactAccept()], () =>
       settleResp(402, { success: false, errorReason: 'insufficient_funds', transaction: '', network: NET, payer: '0xPAYER' })
     )
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: '0x1' }, schemes: ['exact'] })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
     const err = await client.fetch(URL).catch((e) => e)
     expect(err).toBeInstanceOf(MaxRetriesExceededError)
     expect(err.message).toMatch(/insufficient_funds/)
@@ -354,7 +354,7 @@ describe('exact pay path — spec failure shapes', () => {
 
   it('a 5xx carrying success:false is a SERVER settle failure — returned as-is, no spend, not MaxRetries', async () => {
     stub([exactAccept()], () => settleResp(503, { success: false, errorReason: 'relayer_down', transaction: '', network: NET }))
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: '0x1' }, schemes: ['exact'] })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
     const res = await client.fetch(URL)
     expect(res.status).toBe(503)
     expect(client.spent().count).toBe(0)
@@ -362,7 +362,7 @@ describe('exact pay path — spec failure shapes', () => {
 
   it('a receipt-less 200 settles once with an eip3009-nonce: audit ref', async () => {
     stub([exactAccept()], () => new Response('{}', { status: 200 })) // NO payment-response header
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: '0x1' }, schemes: ['exact'] })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
     await client.fetch(URL)
     expect(client.spent().count).toBe(1)
     expect(client.spent().records[0]!.ref).toMatch(/^eip3009-nonce:0x[0-9a-f]{64}$/)
@@ -370,7 +370,7 @@ describe('exact pay path — spec failure shapes', () => {
 
   it('a 200 with transaction:"" falls back to the nonce ref, never an empty ref', async () => {
     stub([exactAccept()], () => settleResp(200, { success: true, transaction: '', network: NET }))
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: '0x1' }, schemes: ['exact'] })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
     await client.fetch(URL)
     expect(client.spent().records[0]!.ref).toMatch(/^eip3009-nonce:/)
   })
@@ -378,7 +378,7 @@ describe('exact pay path — spec failure shapes', () => {
   it('payment-settled carries the conformant settle outcome (transaction) on facilitator interop', async () => {
     stub([exactAccept()], () => settleResp(200, { success: true, transaction: '0xSETTLED', network: NET }))
     let ev: { settle?: { transaction?: string } } | null = null
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: '0x1' }, schemes: ['exact'], onEvent: (e) => { if (e.kind === 'payment-settled') ev = e } })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'], onEvent: (e) => { if (e.kind === 'payment-settled') ev = e } })
     await client.fetch(URL)
     expect(ev!.settle!.transaction).toBe('0xSETTLED')
   })
@@ -387,14 +387,14 @@ describe('exact pay path — spec failure shapes', () => {
 describe('exact pay path — safety, abort & malformed rails', () => {
   it('flags symbolMismatch when an exact rail lies about the token symbol', async () => {
     stub([exactAccept({ extra: { assetTransferMethod: 'eip3009', name: 'USD Coin', version: '2', decimals: 6, symbol: 'USDT' } })], () => settle200())
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: '0x1' }, schemes: ['exact'] })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
     expect((await client.quote(URL))!.symbolMismatch).toBe(true)
     expect((await client.planPayment(URL))!.options[0]!.warnings).toContain('SYMBOL_MISMATCH')
   })
 
   it('a default client on an exact-only-but-PAYABLE EVM 402 gets a one-line enable-schemes hint', async () => {
     stub([exactAccept()], () => settle200())
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: '0x1' } }) // default schemes
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' } }) // default schemes
     const err = await client.fetch(URL).catch((e) => e)
     expect(err).toBeInstanceOf(NoCompatibleAcceptError)
     expect(err.message).toMatch(/schemes/)
@@ -405,7 +405,7 @@ describe('exact pay path — safety, abort & malformed rails', () => {
     stub([exactAccept()], () => settle200())
     const ac = new AbortController()
     ac.abort()
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: '0x1' }, schemes: ['exact'] })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
     const err = await client.fetch(URL, { signal: ac.signal }).catch((e) => e)
     expect(err?.name).toBe('AbortError')
     expect(payExactCalls).toBe(0)
@@ -413,7 +413,7 @@ describe('exact pay path — safety, abort & malformed rails', () => {
 
   it('a mid/post-flight transport drop → PaymentTimeoutError(nonce) — verify on-chain, never re-pay', async () => {
     stub([exactAccept()], () => { throw new DOMException('aborted', 'AbortError') })
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: '0x1' }, schemes: ['exact'] })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
     const err = await client.fetch(URL).catch((e) => e)
     expect(err).toBeInstanceOf(PaymentTimeoutError)
     expect(err.ref).toMatch(/^0x[0-9a-f]{64}$/)
@@ -425,7 +425,7 @@ describe('exact pay path — safety, abort & malformed rails', () => {
   ])('a foreign exact rail whose maxTimeoutSeconds is %s is dropped — a typed error, never a raw SyntaxError', async (_label, bad) => {
     const rail = { ...exactAccept(), maxTimeoutSeconds: bad } as unknown as X402ExactAcceptEntry
     stub([rail], () => settle200())
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: '0x1' }, schemes: ['exact'] })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
     const err = await client.fetch(URL).catch((e) => e)
     expect(err).toBeInstanceOf(PipRailError)
     expect(err).not.toBeInstanceOf(SyntaxError)
@@ -446,7 +446,7 @@ describe('exact pay path — safety, abort & malformed rails', () => {
         init?.signal?.addEventListener('abort', () => { clearTimeout(t); rej(new DOMException('aborted', 'AbortError')) })
       })
     }) as typeof fetch
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: '0x1' }, schemes: ['exact'] })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
     const start = Date.now()
     const err = await client.fetch(URL).catch((e) => e)
     expect(err).toBeInstanceOf(PaymentTimeoutError)
@@ -458,7 +458,7 @@ describe('exact pay path — safety, abort & malformed rails', () => {
     const acc = exactAccept()
     ;(acc.extra as Record<string, unknown>).someFacilitatorKey = 'keep-me'
     stub([acc], (sig) => { sentSig = sig; return settle200() })
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: '0x1' }, schemes: ['exact'] })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
     await client.fetch(URL)
     const decoded = JSON.parse(Buffer.from(sentSig, 'base64').toString('utf8'))
     expect(decoded.accepted.extra.someFacilitatorKey).toBe('keep-me')
@@ -469,7 +469,7 @@ describe('exact routing — autoRoute & planAcross', () => {
   it('autoRoute pays the fee-0 exact rail on a mixed challenge when native gas is 0', async () => {
     net.balanceOf = async () => ({ token: 1_000_000n, native: 0n }) // onchain-proof would be gas-blocked
     stub([onchainAccept(), exactAccept()], () => settle200())
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: '0x1' }, schemes: ['onchain-proof', 'exact'], autoRoute: true })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['onchain-proof', 'exact'], autoRoute: true })
     const res = await client.fetch(URL)
     expect(res.status).toBe(200)
     expect(payExactCalls).toBe(1) // the gasless exact rail …
@@ -478,7 +478,7 @@ describe('exact routing — autoRoute & planAcross', () => {
 
   it('planAcross surfaces an exact rail and can pick it as best', async () => {
     stub([exactAccept()], () => settle200())
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: '0x1' }, schemes: ['exact'] })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
     const plan = await planAcross([client], URL)
     expect(plan).not.toBeNull()
     expect(plan!.options.some((o) => o.accept.scheme === 'exact')).toBe(true)

@@ -12,7 +12,7 @@ import {
 
 const NETWORK = 'stellar:pubnet'
 const RESOURCE = 'https://api.example.com/report'
-const KEY = { secret: 'x' }
+const KEY = { key: 'x' }
 
 // A fake driver whose `send` is spied so we can assert NO funds move on a refusal.
 const sendSpy = vi.fn(async () => 'ref')

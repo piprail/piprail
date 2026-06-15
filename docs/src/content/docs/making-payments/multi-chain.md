@@ -26,9 +26,9 @@ primitives you can already call by hand.
 ```text
                  ┌──────────────────────────────────────────────┐
    one 402  ───▶ │  MultiChainPayer                             │
-                 │   ├─ PipRailClient(base)    ← { privateKey }  │
-                 │   ├─ PipRailClient(solana)  ← { secretKey  }  │
-                 │   └─ PipRailClient(xrpl)    ← { seed       }  │
+                 │   ├─ PipRailClient(base)    ← { key }        │
+                 │   ├─ PipRailClient(solana)  ← { key }        │
+                 │   └─ PipRailClient(xrpl)    ← { key }        │
                  └──────────────────────────────────────────────┘
                         │  plan on every client in parallel
                         ▼
@@ -51,10 +51,10 @@ import { MultiChainPayer } from '@piprail/sdk'
 
 const payer = MultiChainPayer.fromWallets({
   wallets: {
-    base:    { privateKey: process.env.EVM_KEY },    // one EVM key works on every EVM chain
-    polygon: { privateKey: process.env.EVM_KEY },
-    solana:  { secretKey:  process.env.SOLANA_KEY },
-    xrpl:    { seed:       process.env.XRPL_SEED },
+    base:    { key: process.env.EVM_KEY },    // one EVM key works on every EVM chain
+    polygon: { key: process.env.EVM_KEY },
+    solana:  { key: process.env.SOLANA_KEY }, // every chain takes the same field: { key }
+    xrpl:    { key: process.env.XRPL_SEED },
   },
   // ONE spend policy guards every chain — the buyer can never exceed it, whatever chain it pays on.
   policy: { maxAmount: '1.00', maxTotal: '10.00', tokens: ['USDC', 'USDT'] },
@@ -67,17 +67,15 @@ const plan = await payer.planPayment('https://api.example.com/report')
 const res = await payer.get('https://api.example.com/report')
 ```
 
-The wallet **value** is the same shape each chain's client expects (see
-[Wallets by family](/making-payments/wallets-by-family/)):
+Every wallet value is the same shape — **`{ key }`** (the chain's secret as a string) — with NEAR
+also taking an `accountId`. The `key` holds that chain's standard secret (0x-hex, base58, an `s…`
+seed, a 24-word mnemonic, …); see [Wallets by family](/making-payments/wallets-by-family/) for the
+per-chain format:
 
 | Families | Wallet shape |
 |---|---|
-| EVM (`base`, `bnb`, `polygon`, …), `tron`, `sui`, `aptos` | `{ privateKey }` |
-| `solana` | `{ secretKey }` |
-| `ton`, `algorand` | `{ mnemonic }` |
-| `stellar` | `{ secret }` |
-| `xrpl` | `{ seed }` |
-| `near` | `{ accountId, privateKey }` |
+| Every chain (EVM, `solana`, `ton`, `tron`, `sui`, `aptos`, `algorand`, `stellar`, `xrpl`) | `{ key }` |
+| `near` | `{ accountId, key }` |
 
 **One key per family** — this map is just how a single buyer carries the keys for every
 chain it's willing to pay on. (A single EVM key is reused across every EVM chain; it's the
@@ -128,13 +126,13 @@ const payer = new MultiChainPayer([
   // Base — your main rail, generous caps
   new PipRailClient({
     chain: 'base',
-    wallet: { privateKey: process.env.EVM_KEY! },
+    wallet: { key: process.env.EVM_KEY! },
     policy: { maxAmount: '5.00', maxTotal: '100.00', tokens: ['USDC'] },
   }),
   // Solana — a hot key on a tight leash
   new PipRailClient({
     chain: 'solana',
-    wallet: { secretKey: process.env.SOLANA_KEY! },
+    wallet: { key: process.env.SOLANA_KEY! },
     policy: { maxAmount: '0.25', maxTotal: '5.00', tokens: ['USDC'] },
   }),
 ])
@@ -244,7 +242,7 @@ facilitator submits and pays the gas) — is applied to **every** chain in the b
 
 ```ts
 const payer = MultiChainPayer.fromWallets({
-  wallets: { base: { privateKey: EVM_KEY }, bnb: { privateKey: EVM_KEY } },
+  wallets: { base: { key: EVM_KEY }, bnb: { key: EVM_KEY } },
   schemes: ['onchain-proof', 'exact'], // every chain may now settle the gasless exact rail
   policy: { maxAmount: '1.00', tokens: ['USDC'] },
 })
@@ -293,8 +291,8 @@ hold an array of single-chain clients and want to skip the wrapper:
 import { PipRailClient, planAcross, fetchAcross } from '@piprail/sdk'
 
 const clients = [
-  new PipRailClient({ chain: 'base', wallet: { privateKey: EVM_KEY } }),
-  new PipRailClient({ chain: 'solana', wallet: { secretKey: SOLANA_KEY } }),
+  new PipRailClient({ chain: 'base', wallet: { key: EVM_KEY } }),
+  new PipRailClient({ chain: 'solana', wallet: { key: SOLANA_KEY } }),
 ]
 const plan = await planAcross(clients, url) // read-only survey (Base preferred — listed first)
 const res = await fetchAcross(clients, url) // pay the winner on its owning client

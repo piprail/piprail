@@ -53,7 +53,7 @@ async function handleRequest(req, res) {
 async function agentPays() {
   const client = new PipRailClient({
     chain: 'base',
-    wallet: { privateKey: process.env.AGENT_KEY },
+    wallet: { key: process.env.AGENT_KEY },
     // optional guardrails enforced BEFORE any on-chain send:
     policy: { maxAmount: '0.10', maxTotal: '5.00', tokens: ['USDC'] },
   })

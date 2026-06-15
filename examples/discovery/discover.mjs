@@ -15,7 +15,7 @@ const NETWORK = process.env.NETWORK ?? 'any' // 'self' | 'any' | a CAIP-2 id lik
 // No funds needed for a read — a throwaway key is fine; discovery never pays.
 const client = new PipRailClient({
   chain: 'base',
-  wallet: { privateKey: '0x' + '1'.repeat(64) },
+  wallet: { key: '0x' + '1'.repeat(64) },
 })
 
 console.log(`discover({ query: ${JSON.stringify(QUERY)}, network: ${JSON.stringify(NETWORK)} }) — reading the open indexes…\n`)

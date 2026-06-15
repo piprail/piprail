@@ -103,7 +103,7 @@ function stubIndexes(opts?: { dead402?: boolean }) {
 describe('client.discover() — federate the open indexes', () => {
   it('merges + dedupes by resource URL (first source wins)', async () => {
     stubIndexes()
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: TEST_KEY } })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: TEST_KEY } })
     const found = await client.discover({ network: 'any' })
     const urls = found.map((r) => r.resource)
     // weather is in both → appears once, from the Bazaar (first source)
@@ -115,14 +115,14 @@ describe('client.discover() — federate the open indexes', () => {
 
   it('drops non-x402 protocols (L402/MPP)', async () => {
     stubIndexes()
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: TEST_KEY } })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: TEST_KEY } })
     const found = await client.discover({ network: 'any' })
     expect(found.some((r) => r.resource.includes('ln.example.com'))).toBe(false)
   })
 
   it("network:'self' keeps only resources payable on the client's chain", async () => {
     stubIndexes()
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: TEST_KEY } })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: TEST_KEY } })
     const found = await client.discover() // default network:'self' → eip155:8453
     const urls = found.map((r) => r.resource)
     expect(urls).toContain('https://weather.example.com/now') // base
@@ -132,14 +132,14 @@ describe('client.discover() — federate the open indexes', () => {
 
   it('query filters by name/description/resource', async () => {
     stubIndexes()
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: TEST_KEY } })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: TEST_KEY } })
     const found = await client.discover({ query: 'headlines', network: 'any' })
     expect(found.map((r) => r.resource)).toEqual(['https://news.example.com/headlines'])
   })
 
   it('maxPrice drops results advertised above it (unknown price passes)', async () => {
     stubIndexes()
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: TEST_KEY } })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: TEST_KEY } })
     const found = await client.discover({ network: 'any', maxPrice: 0.05 })
     expect(found.some((r) => r.resource.includes('news.example.com'))).toBe(false) // 0.5 > 0.05
     expect(found.some((r) => r.resource.includes('weather.example.com'))).toBe(true) // bazaar, no price
@@ -147,7 +147,7 @@ describe('client.discover() — federate the open indexes', () => {
 
   it("network: an explicit CAIP-2 id keeps only that chain", async () => {
     stubIndexes()
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: TEST_KEY } })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: TEST_KEY } })
     const found = await client.discover({ network: 'eip155:8453' })
     const urls = found.map((r) => r.resource)
     expect(urls).toContain('https://weather.example.com/now') // base
@@ -156,7 +156,7 @@ describe('client.discover() — federate the open indexes', () => {
 
   it('network: a chain SLUG (not just CAIP-2) is normalized before matching', async () => {
     stubIndexes()
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: TEST_KEY } })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: TEST_KEY } })
     // 'base' is a slug, not a CAIP-2 — it must resolve to eip155:8453 and match.
     const found = await client.discover({ network: 'base' as never })
     const urls = found.map((r) => r.resource)
@@ -176,14 +176,14 @@ describe('client.discover() — federate the open indexes', () => {
       }
       return new Response(JSON.stringify({ items: [] }), { status: 200 })
     }) as typeof fetch
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: TEST_KEY } })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: TEST_KEY } })
     const found = await client.discover() // default self
     expect(found.map((r) => r.resource)).toContain('https://mystery/x')
   })
 
   it('a dead index never sinks the others (no throw)', async () => {
     stubIndexes({ dead402: true })
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: TEST_KEY } })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: TEST_KEY } })
     const found = await client.discover({ network: 'any' })
     // 402index 500s → only the Bazaar contributes; the call still resolves
     expect(found.length).toBeGreaterThan(0)
@@ -245,7 +245,7 @@ describe('client.discover() — federate the open indexes', () => {
       return new Response(JSON.stringify({ items: [] }), { status: 200 }) // bazaar
     }) as typeof fetch
 
-    const client = new PipRailClient({ chain: 'stellar', wallet: { secret: 'x' } })
+    const client = new PipRailClient({ chain: 'stellar', wallet: { key: 'x' } })
     const found = await client.discover() // default network:'self' → stellar:pubnet
     // before the fix this returned [] (the slug 'stellar' never matched)
     expect(found.map((r) => r.resource)).toContain('https://xlm.example.com/data')

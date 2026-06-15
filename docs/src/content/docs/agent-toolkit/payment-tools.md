@@ -32,7 +32,7 @@ import { PipRailClient, paymentTools } from '@piprail/sdk'
 
 const client = new PipRailClient({
   chain: 'base',
-  wallet: { privateKey: process.env.AGENT_KEY! },
+  wallet: { key: process.env.AGENT_KEY! },
   schemes: ['onchain-proof', 'exact'], // pay standard x402 servers too — GASLESS for the buyer
   autoRoute: true,                      // and auto-prefer the cheapest settleable rail (the gasless one)
   policy: { maxTotal: '5.00' },
@@ -142,7 +142,7 @@ passes through `policy` and `onBeforePay`, and `piprail_budget` reads back what'
 ```ts
 const client = new PipRailClient({
   chain: 'base',
-  wallet: { privateKey: process.env.AGENT_KEY! },
+  wallet: { key: process.env.AGENT_KEY! },
   policy: { maxAmount: '1.00', maxTotal: '20.00' }, // per-payment + lifetime ceilings
   onBeforePay: async (q) => q.withinPolicy, // final auto-approval gate
 })

@@ -24,7 +24,7 @@ describe('parseConfig — requirements & defaults', () => {
     const cfg = parseConfig({ PIPRAIL_PRIVATE_KEY: KEY })
     expect(cfg.readOnly).toBe(false)
     expect(cfg.walletSecret).toBe(KEY)
-    expect(configToClientOptions(cfg).wallet).toEqual({ privateKey: KEY })
+    expect(configToClientOptions(cfg).wallet).toEqual({ key: KEY })
   })
 
   test('AGENT_KEY alias alone satisfies the key requirement', () => {
@@ -127,26 +127,15 @@ describe('walletInputFor — per-family mapping', () => {
     ...extra,
   })
 
-  test('EVM / Tron / Sui / Aptos → { privateKey }', () => {
-    for (const c of ['base', 'ethereum', 'tron', 'sui', 'aptos']) {
-      expect(walletInputFor(mk(c))).toEqual({ privateKey: 'SECRET' })
+  test('every chain → { key } (the unified v2 wallet field)', () => {
+    for (const c of ['base', 'ethereum', 'tron', 'sui', 'aptos', 'solana', 'ton', 'algorand', 'stellar', 'xrpl']) {
+      expect(walletInputFor(mk(c))).toEqual({ key: 'SECRET' })
     }
   })
-  test('Solana → { secretKey }', () => {
-    expect(walletInputFor(mk('solana'))).toEqual({ secretKey: 'SECRET' })
-  })
-  test('TON / Algorand → { mnemonic }', () => {
-    expect(walletInputFor(mk('ton'))).toEqual({ mnemonic: 'SECRET' })
-    expect(walletInputFor(mk('algorand'))).toEqual({ mnemonic: 'SECRET' })
-  })
-  test('Stellar → { secret }, XRPL → { seed }', () => {
-    expect(walletInputFor(mk('stellar'))).toEqual({ secret: 'SECRET' })
-    expect(walletInputFor(mk('xrpl'))).toEqual({ seed: 'SECRET' })
-  })
-  test('NEAR → { accountId, privateKey }', () => {
+  test('NEAR → { accountId, key }', () => {
     expect(walletInputFor(mk('near', { nearAccountId: 'you.near' }))).toEqual({
       accountId: 'you.near',
-      privateKey: 'SECRET',
+      key: 'SECRET',
     })
   })
 })
@@ -163,7 +152,7 @@ describe('configToClientOptions', () => {
     })
     const opts = configToClientOptions(cfg)
     expect(opts.chain).toBe('base')
-    expect(opts.wallet).toEqual({ privateKey: KEY })
+    expect(opts.wallet).toEqual({ key: KEY })
     expect(opts.policy).toEqual({
       maxAmount: '0.5',
       maxTotal: '20',

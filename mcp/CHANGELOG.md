@@ -1,5 +1,13 @@
 # @piprail/mcp changelog
 
+## [0.6.0] — 2026-06-15 — on `@piprail/sdk` 2.0.0 (unified `{ key }` wallet)
+
+Re-pins to **`@piprail/sdk` ^2.0.0**, which unifies the SDK wallet shape to a single `{ key }` field.
+**The MCP's own interface is unchanged** — the env vars (`PIPRAIL_PRIVATE_KEY`, `PIPRAIL_<CHAIN>_KEY`),
+the 7 `piprail_*` tools, the spend-policy guarantees, and read-only key-less boot are all identical.
+Internally, `walletInputFor` now emits `{ key }` (NEAR `{ accountId, key }`) instead of the old
+per-family field names. No config or behaviour change for users.
+
 ## [0.5.1] — 2026-06-15 — refresh on `@piprail/sdk` 1.25.0
 
 Maintenance release — **no behaviour change**. Re-pins the SDK floor to `^1.25.0` so the server ships

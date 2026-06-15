@@ -41,15 +41,15 @@ import { requirePayment } from '@piprail/sdk'
 
 const gate = requirePayment({
   chain: 'base', token: 'USDC', amount: '0.10', payTo: '0xYourWallet',
-  exact: { settle: 'self', relayer: { privateKey: process.env.RELAYER_KEY } },
+  exact: { settle: 'self', relayer: { key: process.env.RELAYER_KEY } },
 })
 // → Express/Connect middleware: drop it in front of a route and the route is paid-only.
 //   The gate dual-advertises `exact` + `onchain-proof` in every 402.
 ```
 
 The `relayer` is the gas-paying wallet that broadcasts the settle — **distinct from `payTo`, the
-receive address**. On EVM pass `{ privateKey }` or bring your own viem signer with `{ walletClient }`;
-on **Solana** pass `{ secretKey }` (a `Uint8Array` or base58 string) or `{ signer }`. It broadcasts
+receive address**. Pass `{ key }` or bring your own viem signer with `{ walletClient }`;
+on **Solana** pass `{ key }` (a `Uint8Array` or base58 string) or `{ signer }`. It broadcasts
 EIP-3009's `transferWithAuthorization` (USDC/EURC), the Permit2 proxy's `settle` (e.g. BNB), or — on
 Solana — **co-signs the buyer's `TransferChecked` as the fee payer** and submits it. Either way the
 signature binds the recipient (`to` / `witness.to` = `payTo`, or the recomputed recipient ATA on
@@ -165,7 +165,7 @@ import type { ExactRailOption } from '@piprail/sdk'
 | Field | Type | Purpose |
 | --- | --- | --- |
 | `settle` | `'self'` \| `{ facilitator: string; authHeaders?: () => Promise<Record<string, string>>; feePayer?: string }` | Pick the mode: your own relayer (`'self'`) or a facilitator URL you choose. `feePayer` (Solana only, optional) pins the facilitator's fee-payer pubkey instead of discovering it from `GET /supported`. |
-| `relayer` | EVM `{ privateKey }` / `{ walletClient }`, or Solana `{ secretKey }` / `{ signer }` | **Required for `settle: 'self'`** — the gas-paying wallet that broadcasts the settle (EIP-3009 `transferWithAuthorization`, the Permit2 proxy `settle`, or the Solana fee-payer co-sign). Distinct from `payTo` (**must differ** on Solana). Ignored in facilitator mode. |
+| `relayer` | a `{ key }` (or a bring-your-own `{ walletClient }` / `{ signer }`) | **Required for `settle: 'self'`** — the gas-paying wallet that broadcasts the settle (EIP-3009 `transferWithAuthorization`, the Permit2 proxy `settle`, or the Solana fee-payer co-sign). Distinct from `payTo` (**must differ** on Solana). Ignored in facilitator mode. |
 | `method` | `'eip3009'` \| `'permit2'` \| `'auto'` | Which EVM transfer method to advertise. `'auto'` (default) uses EIP-3009 when the token supports it, else Permit2 (so BNB's Binance-Peg USDC "just works"). Pin one to force it. **Ignored on Solana** (always SVM). **`'permit2'` requires `settle: 'self'`** — a third-party facilitator can't settle Permit2 (see the Mode B caution above). |
 
 ## Choosing a mode
@@ -219,7 +219,7 @@ hooks as `onchain-proof`. A settled `exact` payment fires the same
 ```ts
 const gate = requirePayment({
   chain: 'base', token: 'USDC', amount: '0.10', payTo: '0xYourWallet',
-  exact: { settle: 'self', relayer: { privateKey: process.env.RELAYER_KEY } },
+  exact: { settle: 'self', relayer: { key: process.env.RELAYER_KEY } },
   onPaid: (receipt) => {
     console.log(receipt.scheme, receipt.transaction)
     // → 'exact' '0x9f…'   (the settle tx your relayer broadcast)

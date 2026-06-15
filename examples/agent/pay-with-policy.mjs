@@ -11,7 +11,7 @@ const URL = process.env.URL ?? 'https://api.example.com/report'
 
 const client = new PipRailClient({
   chain: 'base',
-  wallet: { privateKey: process.env.AGENT_KEY },
+  wallet: { key: process.env.AGENT_KEY },
   policy: {
     maxAmount: '0.10', // never pay more than $0.10 for one call
     maxTotal: '5.00', // never spend more than $5 total (per token)

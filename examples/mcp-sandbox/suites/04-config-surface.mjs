@@ -40,7 +40,7 @@ export async function run() {
   group('04 · Fail-fast validation')
   {
     const throws = (fn, re) => { try { fn(); return false } catch (e) { return e instanceof ConfigError && re.test(e.message) } }
-    check('missing key throws ConfigError', throws(() => parseConfig({}), /PIPRAIL_PRIVATE_KEY/))
+    check('missing key → read-only mode (boots key-less, no throw)', parseConfig({}).readOnly === true)
     check('typo in a PIPRAIL_ var throws', throws(() => parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_MAX_AMONT: '1' }), /Unknown PipRail config var/))
     check('non-decimal budget throws', throws(() => parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_MAX_AMOUNT: 'lots' }), /decimal/))
     check('bad RPC URL throws', throws(() => parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_RPC_URL: 'not-a-url' }), /URL/))
@@ -56,9 +56,10 @@ export async function run() {
     let ok = 0
     for (const c of presets) {
       const cfg = parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_CHAIN: c })
-      if (cfg.chain === c && JSON.stringify(cfg.tokens) === '["USDC"]') ok++
+      // default stablecoin is the chain's own — USDC where it exists, else USDT (e.g. a USDC-less preset)
+      if (cfg.chain === c && (cfg.tokens[0] === 'USDC' || cfg.tokens[0] === 'USDT')) ok++
     }
-    check(`all ${presets.length} EVM presets accepted with USDC default`, ok === presets.length, `${ok}/${presets.length}`)
+    check(`all ${presets.length} EVM presets accepted with a stablecoin default`, ok === presets.length, `${ok}/${presets.length}`)
   }
 
   group('04 · Every non-EVM family is accepted, with the right default token')
@@ -76,19 +77,16 @@ export async function run() {
   group('04 · Wallet-format mapping for every family (walletInputFor)')
   {
     const w = (chain, extra = {}) => walletInputFor({ chain, walletSecret: 'S', maxAmount: '0.1', maxTotal: '10', tokens: ['USDC'], allowUnknownTokens: false, keySource: 'x', ...extra })
-    check('EVM/Tron/Sui/Aptos → { privateKey }',
-      ['base', 'ethereum', 'tron', 'sui', 'aptos'].every((c) => JSON.stringify(w(c)) === '{"privateKey":"S"}'))
-    check('Solana → { secretKey }', JSON.stringify(w('solana')) === '{"secretKey":"S"}')
-    check('TON/Algorand → { mnemonic }', JSON.stringify(w('ton')) === '{"mnemonic":"S"}' && JSON.stringify(w('algorand')) === '{"mnemonic":"S"}')
-    check('Stellar → { secret }, XRPL → { seed }', JSON.stringify(w('stellar')) === '{"secret":"S"}' && JSON.stringify(w('xrpl')) === '{"seed":"S"}')
-    check('NEAR → { accountId, privateKey }', JSON.stringify(w('near', { nearAccountId: 'you.near' })) === '{"accountId":"you.near","privateKey":"S"}')
+    check('every chain → { key } (the unified v2 wallet field)',
+      ['base', 'ethereum', 'tron', 'sui', 'aptos', 'solana', 'ton', 'algorand', 'stellar', 'xrpl'].every((c) => JSON.stringify(w(c)) === '{"key":"S"}'))
+    check('NEAR → { accountId, key }', JSON.stringify(w('near', { nearAccountId: 'you.near' })) === '{"accountId":"you.near","key":"S"}')
   }
 
   group('04 · Budget → spend policy (configToClientOptions)')
   {
     const cfg = parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_CHAIN: 'base', PIPRAIL_MAX_AMOUNT: '0.5', PIPRAIL_MAX_TOTAL: '20', PIPRAIL_TOKENS: 'USDC,USDT', PIPRAIL_HOSTS: 'api.x.com', PIPRAIL_RPC_URL: 'https://rpc.example.com' })
     const opts = configToClientOptions(cfg)
-    check('chain + wallet mapped onto client options', opts.chain === 'base' && JSON.stringify(opts.wallet) === `{"privateKey":"${KEY}"}`)
+    check('chain + wallet mapped onto client options', opts.chain === 'base' && JSON.stringify(opts.wallet) === `{"key":"${KEY}"}`)
     check('budget became the PaymentPolicy (amount/total/tokens/hosts/unknown)',
       opts.policy.maxAmount === '0.5' && opts.policy.maxTotal === '20' &&
         JSON.stringify(opts.policy.tokens) === '["USDC","USDT"]' && JSON.stringify(opts.policy.hosts) === '["api.x.com"]' &&
@@ -134,7 +132,7 @@ export async function run() {
     check('TOOL_NAMES is exactly the 7 piprail tools', JSON.stringify([...TOOL_NAMES].sort()) === JSON.stringify([...TOOLS].sort()))
 
     // paymentTools() is the SDK export the MCP turns into MCP tools.
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: KEY }, policy: { tokens: ['USDC'] } })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: KEY }, policy: { tokens: ['USDC'] } })
     const tools = paymentTools(client)
     check('SDK paymentTools(client) → 7 AgentTools (name/description/object-params/invoke)',
       tools.length === 7 && tools.every((t) => t.name && t.description && t.parameters?.type === 'object' && typeof t.invoke === 'function'))

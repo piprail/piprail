@@ -20,7 +20,7 @@ import { PipRailClient } from '@piprail/sdk'
 
 const client = new PipRailClient({
   chain: 'base',
-  wallet: { privateKey: process.env.AGENT_KEY! },
+  wallet: { key: process.env.AGENT_KEY! },
   policy: {
     maxAmount: '0.10', maxTotal: '5.00', tokens: ['USDC'],
     ttlSeconds: 3600,                          // the whole session expires in 1h
@@ -71,7 +71,7 @@ import { PipRailClient, PaymentDeclinedError } from '@piprail/sdk'
 
 const client = new PipRailClient({
   chain: 'base',
-  wallet: { privateKey: process.env.AGENT_KEY! },
+  wallet: { key: process.env.AGENT_KEY! },
   policy: { ttlSeconds: 3600 },
 })
 const url = 'https://api.example.com/report'

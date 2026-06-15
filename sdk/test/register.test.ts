@@ -25,7 +25,7 @@ afterEach(() => {
 })
 
 function evmClient() {
-  return new PipRailClient({ chain: 'base', wallet: { privateKey: TEST_KEY } })
+  return new PipRailClient({ chain: 'base', wallet: { key: TEST_KEY } })
 }
 
 describe('client.register() — 402 Index (no auth, the default)', () => {
@@ -71,7 +71,7 @@ describe('client.register() — 402 Index (no auth, the default)', () => {
     }) as typeof fetch
     const client = new PipRailClient({
       chain: { id: 8453, rpcUrl: 'https://example.invalid' },
-      wallet: { privateKey: TEST_KEY },
+      wallet: { key: TEST_KEY },
     })
     await client.register('https://api.example.com/report')
     expect('payment_network' in body).toBe(false) // can't fabricate a slug from a chain id
@@ -400,7 +400,7 @@ describe('client.register() — honest refusals (no silent failure)', () => {
       return new Response('{}', { status: 200 })
     }) as typeof fetch
 
-    const client = new PipRailClient({ chain: 'stellar', wallet: { secret: 'x' } })
+    const client = new PipRailClient({ chain: 'stellar', wallet: { key: 'x' } })
     const outcomes = await client.register('https://api.example.com/report', { targets: ['x402scan'] })
     expect(outcomes[0]!.ok).toBe(false)
     expect(outcomes[0]!.detail).toMatch(/signer/i)

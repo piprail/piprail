@@ -112,9 +112,9 @@ describe('cross-family guards (loud, on first use)', () => {
 })
 
 describe('Stellar wallet binding (driver bindWallet → assertStellarWallet)', () => {
-  it('accepts { secret } and { keypair }, rejects EVM / Solana / TON wallets', () => {
+  it('accepts { key } and { keypair }, rejects legacy/other wallets', () => {
     const net = stellarDriver.resolve({ chain: 'stellar' })!
-    expect(() => net.bindWallet({ secret: Keypair.random().secret() })).not.toThrow()
+    expect(() => net.bindWallet({ key: Keypair.random().secret() })).not.toThrow()
     expect(() => net.bindWallet({ keypair: Keypair.random() })).not.toThrow()
     expect(() => net.bindWallet({ privateKey: `0x${'1'.repeat(64)}` })).toThrow(/Stellar/)
     expect(() => net.bindWallet({ secretKey: new Uint8Array(64) })).toThrow(/Stellar/)

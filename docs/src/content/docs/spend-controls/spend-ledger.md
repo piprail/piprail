@@ -31,7 +31,7 @@ import { PipRailClient } from '@piprail/sdk'
 
 const client = new PipRailClient({
   chain: 'base',
-  wallet: { privateKey: process.env.AGENT_KEY! },
+  wallet: { key: process.env.AGENT_KEY! },
 })
 
 // …after three payments of 0.10 USDC each…

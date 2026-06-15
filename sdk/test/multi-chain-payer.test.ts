@@ -114,7 +114,7 @@ const paid200 = () => new Response(JSON.stringify({ ok: true }), { status: 200 }
 const payer = (chains: string[] = ['base', 'solana', 'xrpl'], over = {}) =>
   MultiChainPayer.fromWallets({
     wallets: Object.fromEntries(
-      chains.map((c) => [c, c === 'solana' ? { secretKey: 'x' } : c === 'xrpl' ? { seed: 'sx' } : { privateKey: '0x' + '1'.repeat(64) }])
+      chains.map((c) => [c, c === 'solana' ? { key: 'x' } : c === 'xrpl' ? { key: 'sx' } : { key: '0x' + '1'.repeat(64) }])
     ),
     ...over,
   })
@@ -139,7 +139,7 @@ describe('MultiChainPayer / fetchAcross — pay whichever chain the 402 asks for
 
   it('fetchAcross pays the very rail planAcross names as `best` (consistency)', async () => {
     stub402([accept(BASE, 'ETH'), accept(SOL, 'SOL')], paid200)
-    const clients = [new PipRailClient({ chain: 'base', wallet: { privateKey: '0x' + '1'.repeat(64) } }), new PipRailClient({ chain: 'solana', wallet: { secretKey: 'x' } })]
+    const clients = [new PipRailClient({ chain: 'base', wallet: { key: '0x' + '1'.repeat(64) } }), new PipRailClient({ chain: 'solana', wallet: { key: 'x' } })]
     const plan = (await planAcross(clients, URL))!
     expect(plan.best!.accept.network).toBe(BASE) // first-listed payable
     const res = await fetchAcross(clients, URL)
@@ -344,7 +344,7 @@ describe('MultiChainPayer — agent toolkit + guards', () => {
 
   it('fromWallets builds one client per chain, in order', () => {
     const p = MultiChainPayer.fromWallets({
-      wallets: { base: { privateKey: '0x' + '1'.repeat(64) }, solana: { secretKey: 'x' } },
+      wallets: { base: { key: '0x' + '1'.repeat(64) }, solana: { key: 'x' } },
     })
     expect(p.clients.length).toBe(2)
   })

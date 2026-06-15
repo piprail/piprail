@@ -167,7 +167,7 @@ import { createPaymentGate, SettlementError, type VerifyPaymentResult } from '@p
 
 const gate = createPaymentGate({
   chain: 'base', token: 'USDC', amount: '0.10', payTo: '0xYourWallet',
-  exact: { settle: 'self', relayer: { privateKey: process.env.AGENT_KEY } },
+  exact: { settle: 'self', relayer: { key: process.env.AGENT_KEY } },
 })
 
 export async function GET(req: Request) {

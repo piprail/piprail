@@ -81,7 +81,7 @@ describe('PipRailClient — surfaces the server rejection reason to the agent', 
     const failures: string[] = []
     const client = new PipRailClient({
       chain: 'stellar',
-      wallet: { secret: 'x' },
+      wallet: { key: 'x' },
       maxPaymentRetries: 1,
       retryTimeoutMs: 1000,
       onEvent: (e) => {
@@ -99,7 +99,7 @@ describe('PipRailClient — surfaces the server rejection reason to the agent', 
 
   it('returns the 200 response once the proof is accepted', async () => {
     stubFetch(() => new Response(JSON.stringify({ ok: true }), { status: 200 }))
-    const client = new PipRailClient({ chain: 'stellar', wallet: { secret: 'x' }, maxPaymentRetries: 2 })
+    const client = new PipRailClient({ chain: 'stellar', wallet: { key: 'x' }, maxPaymentRetries: 2 })
     const res = await client.get(RESOURCE)
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ ok: true })
@@ -111,7 +111,7 @@ describe('PipRailClient — surfaces the server rejection reason to the agent', 
       proofCalls += 1
       return new Response('{}', { status: 200 })
     })
-    const client = new PipRailClient({ chain: 'stellar', wallet: { secret: 'x' } })
+    const client = new PipRailClient({ chain: 'stellar', wallet: { key: 'x' } })
     const est = await client.estimateCost(RESOURCE)
     expect(est).not.toBeNull()
     // the payment (what leaves the wallet) …
@@ -128,7 +128,7 @@ describe('PipRailClient — surfaces the server rejection reason to the agent', 
 
   it('estimateCost(url) returns null when the URL is not payment-gated', async () => {
     globalThis.fetch = (async () => new Response('{}', { status: 200 })) as typeof fetch
-    const client = new PipRailClient({ chain: 'stellar', wallet: { secret: 'x' } })
+    const client = new PipRailClient({ chain: 'stellar', wallet: { key: 'x' } })
     expect(await client.estimateCost(RESOURCE)).toBeNull()
   })
 
@@ -146,7 +146,7 @@ describe('PipRailClient — surfaces the server rejection reason to the agent', 
         status: 402,
         headers: { 'payment-required': buildChallengeHeader(multi) },
       })) as typeof fetch
-    const client = new PipRailClient({ chain: 'stellar', wallet: { secret: 'x' } })
+    const client = new PipRailClient({ chain: 'stellar', wallet: { key: 'x' } })
     const est = await client.estimateCost(RESOURCE)
     expect(est).not.toBeNull()
     expect(est!.quote.network).toBe('stellar:pubnet') // picked its own chain, not the EVM option
@@ -158,7 +158,7 @@ describe('PipRailClient — surfaces the server rejection reason to the agent', 
     let calls = 0
     const client = new PipRailClient({
       chain: 'stellar',
-      wallet: { secret: 'x' },
+      wallet: { key: 'x' },
       onEvent: () => {
         calls += 1
         throw new Error('handler boom')

@@ -127,20 +127,6 @@ const KNOWN_PIPRAIL_VARS = [
 /** The payment schemes the MCP may enable via PIPRAIL_SCHEMES. */
 const VALID_SCHEMES = ['onchain-proof', 'exact'] as const
 
-/**
- * Non-EVM families whose wallet secret is NOT a plain `privateKey`. Tron, Sui,
- * Aptos and every EVM chain use `{ privateKey }` (the default), so they're absent
- * here. NEAR is special-cased (it also needs an accountId). Keep in sync with the
- * SDK's {@link WalletInput} when a family is added (see add-chain-integration skill).
- */
-const WALLET_FIELD: Record<string, 'secretKey' | 'mnemonic' | 'secret' | 'seed'> = {
-  solana: 'secretKey',
-  ton: 'mnemonic',
-  algorand: 'mnemonic',
-  stellar: 'secret',
-  xrpl: 'seed',
-}
-
 /** Non-EVM family selectors the SDK accepts as a `chain` string. */
 const NON_EVM_CHAINS = [
   'solana',
@@ -474,10 +460,9 @@ export function parseConfig(env: Env = process.env): Config {
 }
 
 /**
- * Map a chain + its secret to the SDK's per-family {@link WalletInput}:
- *   EVM / Tron / Sui / Aptos → { privateKey }
- *   Solana → { secretKey } · TON / Algorand → { mnemonic }
- *   Stellar → { secret } · XRPL → { seed } · NEAR → { accountId, privateKey }
+ * Map a chain + its secret to the SDK's {@link WalletInput}. Every chain takes a
+ * single `{ key }` (the secret string, in that chain's native format); NEAR also
+ * needs `{ accountId }`.
  *
  * Takes just the chain + secret (+ NEAR account id), so it serves BOTH the single
  * {@link Config} and each multi-chain {@link ChainAccount}.
@@ -488,27 +473,15 @@ export function walletInputFor(account: {
   nearAccountId?: string
 }): WalletInput | undefined {
   if (!account.walletSecret) return undefined // read-only — no key supplied
-  const secret = account.walletSecret
   if (account.chain === 'near') {
     // The parse layer already enforces this (parseConfig / parseChainAccounts), but guard
     // locally too — walletInputFor is a public export, so don't trust a non-local invariant.
     if (!account.nearAccountId) {
       throw new ConfigError('NEAR wallet needs an accountId (PIPRAIL_NEAR_ACCOUNT_ID).')
     }
-    return { accountId: account.nearAccountId, privateKey: secret }
+    return { accountId: account.nearAccountId, key: account.walletSecret }
   }
-  switch (WALLET_FIELD[account.chain]) {
-    case 'secretKey':
-      return { secretKey: secret }
-    case 'mnemonic':
-      return { mnemonic: secret }
-    case 'secret':
-      return { secret }
-    case 'seed':
-      return { seed: secret }
-    default:
-      return { privateKey: secret }
-  }
+  return { key: account.walletSecret }
 }
 
 /** The shared spend policy — the budget knobs every chain's client enforces (each

@@ -23,7 +23,7 @@ export async function run() {
   // policy cap is a hard safety belt: this can never spend more than $0.05 on a payment.
   const client = new PipRailClient({
     chain: 'base',
-    wallet: { privateKey: w.privateKey },
+    wallet: { key: w.privateKey },
     schemes: ['exact'], // pay ONLY the standard exact rail → exercises the PayAI facilitator
     policy: { maxAmount: '0.05', tokens: ['USDC'] },
     onEvent: (e) => { if (e.kind === 'payment-settled' && e.settle) note(`settle tx: ${e.settle.transaction} (payer ${e.settle.payer ?? '—'})`) },

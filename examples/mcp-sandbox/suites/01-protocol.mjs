@@ -75,8 +75,9 @@ export async function run() {
 
   group('01 · Config validation — bad config exits non-zero with a clear message')
   {
+    // NB: a MISSING key is NOT a fatal error — the server boots in read-only mode (see the
+    // read-only boot test below). These cases are genuine misconfigurations that must exit 1.
     const cases = [
-      ['missing key', {}, /PIPRAIL_PRIVATE_KEY/],
       ['unknown chain', { PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_CHAIN: 'dogecoin' }, /Unknown chain/],
       ['typo in a PIPRAIL_ var', { PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_MAX_AMONT: '1' }, /Unknown PipRail config var/],
       ['non-decimal budget', { PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_MAX_AMOUNT: 'lots' }, /decimal/],

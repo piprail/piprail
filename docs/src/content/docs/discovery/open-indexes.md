@@ -171,7 +171,7 @@ import { PipRailClient, registerX402Scan } from '@piprail/sdk'
 
 const client = new PipRailClient({
   chain: 'base',
-  wallet: { privateKey: process.env.AGENT_KEY! },
+  wallet: { key: process.env.AGENT_KEY! },
 })
 
 // A DiscoverySigner = { address, signMessage } — the bound EVM wallet exposes one.

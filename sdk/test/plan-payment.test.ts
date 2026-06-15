@@ -61,7 +61,7 @@ function baseNet(over: NetOver = {}): ResolvedNetwork {
 }
 let net = baseNet()
 registerDriver({ family: 'stellar', resolve: () => net })
-const client = (over = {}) => new PipRailClient({ chain: 'stellar', wallet: { secret: 'x' }, ...over })
+const client = (over = {}) => new PipRailClient({ chain: 'stellar', wallet: { key: 'x' }, ...over })
 
 function nativeAccept(o: Partial<X402AcceptEntry> = {}): X402AcceptEntry {
   return {

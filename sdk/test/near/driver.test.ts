@@ -90,14 +90,16 @@ describe('cross-family guards (loud, on first use)', () => {
 })
 
 describe('NEAR wallet binding (driver bindWallet → assertNearWallet)', () => {
-  it('accepts { accountId, privateKey }, rejects a bare key + other families', () => {
+  it('accepts { accountId, key }, rejects a bare key + legacy fields', () => {
     const net = nearDriver.resolve({ chain: 'near' })!
-    expect(() => net.bindWallet({ accountId: 'alice.near', privateKey: KEY })).not.toThrow()
-    // a bare { privateKey } (no accountId) is not enough for NEAR
-    expect(() => net.bindWallet({ privateKey: KEY })).toThrow(/NEAR/)
+    expect(() => net.bindWallet({ accountId: 'alice.near', key: KEY })).not.toThrow()
+    // a bare { key } (no accountId) is not enough for NEAR
+    expect(() => net.bindWallet({ key: KEY })).toThrow(/NEAR/)
     expect(() => net.bindWallet({ walletClient: {} })).toThrow(/NEAR/)
-    expect(() => net.bindWallet({ secretKey: new Uint8Array(64) })).toThrow(/NEAR/)
-    expect(() => net.bindWallet({ seed: 'sABC' })).toThrow(/NEAR/)
+    // pre-v2 field names now give a clear migration error (mentions key)
+    expect(() => net.bindWallet({ accountId: 'alice.near', privateKey: KEY })).toThrow(/key/)
+    expect(() => net.bindWallet({ secretKey: new Uint8Array(64) })).toThrow(/key/)
+    expect(() => net.bindWallet({ seed: 'sABC' })).toThrow(/key/)
   })
 })
 

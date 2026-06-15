@@ -31,7 +31,7 @@ requirePayment({ chain: 'sui', token: 'USDC', amount: '0.10', payTo: '0x…' })
 
 const client = new PipRailClient({
   chain: 'sui',
-  wallet: { privateKey: process.env.AGENT_KEY },  // suiprivkey1…
+  wallet: { key: process.env.AGENT_KEY },  // suiprivkey1…
 })
 ```
 
@@ -40,18 +40,18 @@ never holds funds. See [PipRailClient](/making-payments/piprail-client/) for the
 
 ## The wallet
 
-A Sui wallet is `{ privateKey }` — a `suiprivkey1…` bech32 secret, or the raw 32-byte secret as a
+A Sui wallet is `{ key }` — a `suiprivkey1…` bech32 secret, or the raw 32-byte secret as a
 `Uint8Array` — or a ready `{ keypair }` you built yourself (an `Ed25519Keypair` from
 `@mysten/sui`):
 
 ```ts
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519'
 
-new PipRailClient({ wallet: { privateKey: process.env.AGENT_KEY }, chain: 'sui' })  // suiprivkey1…
+new PipRailClient({ wallet: { key: process.env.AGENT_KEY }, chain: 'sui' })  // suiprivkey1…
 new PipRailClient({ wallet: { keypair: Ed25519Keypair.generate() }, chain: 'sui' })
 ```
 
-The field is named `privateKey` (shared with EVM/Tron), but the `chain: 'sui'` selector routes
+The field is named `key` (shared with EVM/Tron), but the `chain: 'sui'` selector routes
 here and the format is validated by `Ed25519Keypair` — a hex `0x…` EVM key won't parse and
 surfaces a clear `WrongFamilyError`. See [wallets by family](/making-payments/wallets-by-family/)
 for every family's shape.
@@ -162,7 +162,7 @@ the same one line as on Node, Bun, Deno, or Workers. The lazy import means a pag
 name `'sui'` never downloads `@mysten/sui`.
 
 :::caution
-A bare `{ privateKey }` is for server-side and trusted-agent use — never ship a real secret to a
+A bare `{ key }` is for server-side and trusted-agent use — never ship a real secret to a
 browser. In the browser, build an `Ed25519Keypair` from a key the user controls and pass
 `{ keypair }` instead.
 :::

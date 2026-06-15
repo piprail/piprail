@@ -25,15 +25,15 @@ npm install near-api-js
 
 ## Wallet shape
 
-A NEAR wallet is `{ accountId, privateKey }` — NEAR signing needs *both* an account id and an
-`ed25519:…` secret key (not just a private key). The presence of `accountId` is what tells the
-SDK this is a NEAR wallet.
+A NEAR wallet is `{ accountId, key }`, where `key` is an `ed25519:…` secret key — NEAR signing
+needs *both* an account id and the secret key (not just a private key). The presence of
+`accountId` is what tells the SDK this is a NEAR wallet.
 
 ```ts
 import { PipRailClient } from '@piprail/sdk'
 
 const client = new PipRailClient({
-  wallet: { accountId: 'agent.near', privateKey: process.env.AGENT_KEY }, // ed25519:… secret
+  wallet: { accountId: 'agent.near', key: process.env.AGENT_KEY }, // ed25519:… secret
   chain: 'near',
 })
 ```

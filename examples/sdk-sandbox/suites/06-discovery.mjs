@@ -68,7 +68,7 @@ export async function run() {
 
   group('06 · discoverySigner — ownership proof recovers to the wallet (EVM)')
   {
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: KEY }, rpcUrl: 'http://127.0.0.1:1' })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: KEY }, rpcUrl: 'http://127.0.0.1:1' })
     const signer = await client.discoverySigner()
     check('client.discoverySigner() returns { address, signMessage }', !!signer && typeof signer.signMessage === 'function')
     const origin = 'https://api.acme.com'
@@ -103,7 +103,7 @@ export async function run() {
 
   group('06 · LIVE — client.discover() federates the open indexes')
   {
-    const client = new PipRailClient({ chain: 'base', wallet: { privateKey: KEY }, rpcUrl: 'http://127.0.0.1:1' })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: KEY }, rpcUrl: 'http://127.0.0.1:1' })
     const any = await client.discover({ query: 'api', network: 'any', limit: 12 })
     check('discover({network:"any"}) returns an array (no throw)', Array.isArray(any))
     note(`discover(any) live: ${any.length} resource(s) from ${[...new Set(any.map((r) => r.source))].join(' + ') || 'none'}`)

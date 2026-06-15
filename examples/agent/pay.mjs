@@ -11,7 +11,7 @@ const URL = process.env.URL ?? 'https://api.example.com/report'
 
 const client = new PipRailClient({
   chain: 'base',
-  wallet: { privateKey: process.env.AGENT_KEY }, // a funded Base key: USDC + a little ETH for gas
+  wallet: { key: process.env.AGENT_KEY }, // a funded Base key: USDC + a little ETH for gas
   onEvent: (e) => {
     if (e.kind === 'payment-required') console.log(`• 402 — price ${e.accept.extra.amountFormatted} ${e.accept.extra.symbol ?? ''}`)
     if (e.kind === 'payment-broadcast') console.log(`• paying — ${e.ref}`)

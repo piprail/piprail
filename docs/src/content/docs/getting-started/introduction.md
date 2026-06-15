@@ -56,7 +56,7 @@ import { requirePayment, PipRailClient } from '@piprail/sdk'
 const middleware = requirePayment({ chain: 'base', token: 'USDC', amount: '0.10', payTo: '0xYourWallet' })
 
 // PAY (agent side) — a fetch that pays 402s itself.
-const client = new PipRailClient({ chain: 'base', wallet: { privateKey: process.env.AGENT_KEY } })
+const client = new PipRailClient({ chain: 'base', wallet: { key: process.env.AGENT_KEY } })
 
 const res = await client.fetch('https://api.example.com/report') // pays the 402, then returns the page
 const report = await res.json()

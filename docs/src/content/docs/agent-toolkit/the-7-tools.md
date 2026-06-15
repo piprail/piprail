@@ -22,7 +22,7 @@ import { PipRailClient, paymentTools } from '@piprail/sdk'
 
 const client = new PipRailClient({
   chain: 'base',
-  wallet: { privateKey: process.env.AGENT_KEY! },
+  wallet: { key: process.env.AGENT_KEY! },
 })
 
 const tools = paymentTools(client) // → seven AgentTool descriptors, ready to register

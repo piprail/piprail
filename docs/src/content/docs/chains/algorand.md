@@ -25,14 +25,14 @@ npm install algosdk
 
 ## Wallet shape
 
-An Algorand wallet is `{ mnemonic }` — a 25-word Algorand recovery phrase — or a ready
+An Algorand wallet is `{ key }`, where `key` is a 25-word Algorand recovery phrase — or a ready
 `{ account }` (an algosdk `{ addr, sk }`, if you built the signer yourself):
 
 ```ts
 import { PipRailClient } from '@piprail/sdk'
 
 const client = new PipRailClient({
-  wallet: { mnemonic: process.env.ALGORAND_MNEMONIC! },  // 25 words
+  wallet: { key: process.env.ALGORAND_MNEMONIC! },  // 25 words
   chain: 'algorand',
 })
 ```
