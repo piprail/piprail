@@ -177,7 +177,7 @@
 
   let sdk
   try {
-    sdk = await import('https://cdn.jsdelivr.net/npm/@piprail/sdk@1/+esm')
+    sdk = await import('https://cdn.jsdelivr.net/npm/@piprail/sdk@2/+esm')
     $('status').innerHTML = '✅ <b>@piprail/sdk</b> loaded from jsDelivr — live, in your browser.'
     $('ver').textContent = 'running @piprail/sdk via jsDelivr +esm'
     $('run').disabled = false

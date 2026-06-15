@@ -10,7 +10,7 @@
  * (mnemonic → key uses PBKDF2), so it's deferred to `resolveTonWallet`, called
  * from the driver's async `send()`.
  */
-import { mnemonicToWalletKey, type KeyPair } from '@ton/crypto'
+import { mnemonicToWalletKey, mnemonicValidate, type KeyPair } from '@ton/crypto'
 import { WalletContractV4, WalletContractV5R1 } from '@ton/ton'
 import { WrongFamilyError } from '../../errors.js'
 import { assertNoLegacyWalletKey } from '../wallet-migrate.js'
@@ -54,7 +54,22 @@ export async function resolveTonWallet(config: TonWalletConfig): Promise<TonWall
 
   let keyPair: KeyPair
   if (config.key) {
+    if (typeof config.key !== 'string' && !Array.isArray(config.key)) {
+      throw new WrongFamilyError(
+        'chain is TON; the wallet { key } must be a 24-word mnemonic (a string or string[]).'
+      )
+    }
     const words = Array.isArray(config.key) ? config.key : config.key.trim().split(/\s+/)
+    // @ton/crypto derives a key from ARBITRARY words (PBKDF2), so a typo'd / wrong-length
+    // mnemonic would silently bind the WRONG wallet and only error much later at the
+    // network. Validate up front for a clear, immediate WrongFamilyError (mirrors
+    // Algorand's algosdk.mnemonicToSecretKey check).
+    if (!(await mnemonicValidate(words))) {
+      throw new WrongFamilyError(
+        'chain is TON; the wallet { key } is not a valid TON mnemonic ' +
+          '(expected 24 words from the TON/BIP-39 wordlist).'
+      )
+    }
     keyPair = await mnemonicToWalletKey(words)
   } else if (config.keyPair) {
     keyPair = config.keyPair

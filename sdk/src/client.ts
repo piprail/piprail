@@ -461,7 +461,29 @@ export class PipRailClient {
     this.maxRetries = Math.max(1, opts.maxPaymentRetries ?? 3)
     this.retryTimeoutMs = opts.retryTimeoutMs ?? 30_000
     this.onEvent = opts.onEvent ?? (() => undefined)
+    this.assertPolicyAmountCaps(opts.policy)
     this.assertPolicyTimeOptions(opts.policy)
+  }
+
+  /**
+   * Fail LOUDLY at construction on a malformed amount cap — a security boundary
+   * must never silently half-arm, and a misconfigured cap is a programmer error
+   * (→ `TypeError`, no new SDK code). Each cap (`maxAmount` / `maxTotal` /
+   * `windowTotal`) must be a non-negative decimal STRING (the same grammar
+   * {@link floorUnits} accepts), so a typo like `'0.01abc'` fails fast here instead
+   * of lazily throwing a raw `floorUnits` error out of the never-throw read methods.
+   */
+  private assertPolicyAmountCaps(policy: PaymentPolicy | undefined): void {
+    if (!policy) return
+    for (const field of ['maxAmount', 'maxTotal', 'windowTotal'] as const) {
+      const v = policy[field]
+      if (v === undefined) continue
+      if (typeof v !== 'string' || !/^\d+(\.\d+)?$/.test(v)) {
+        throw new TypeError(
+          `policy.${field} must be a non-negative decimal string (e.g. '0.10'); got ${JSON.stringify(v)}.`
+        )
+      }
+    }
   }
 
   /**
@@ -1239,27 +1261,41 @@ export class PipRailClient {
     url: string,
     description?: string
   ): PipRailQuote {
-    // A base-unit amount must be a non-negative integer string. A malformed one
+    // A base-unit amount must be a non-negative integer STRING. A malformed one
     // (a buggy/hostile server) becomes a typed InvalidEnvelopeError, never a raw
-    // BigInt SyntaxError leaking out of quote()/fetch().
-    if (!/^\d+$/.test(accept.amount)) {
+    // BigInt SyntaxError — or a number leaking into the `string` amount field
+    // (RegExp.test coerces to string, so a numeric amount would otherwise pass).
+    if (typeof accept.amount !== 'string' || !/^\d+$/.test(accept.amount)) {
       throw new InvalidEnvelopeError(
-        `challenge amount "${accept.amount}" is not a base-unit integer.`
+        `challenge amount "${String(accept.amount)}" is not a base-unit integer string.`
+      )
+    }
+    // `asset` is the on-chain token id every downstream step keys on; a structurally
+    // incomplete accept (no/blank/non-string asset) can't be priced or paid.
+    if (typeof accept.asset !== 'string' || accept.asset.length === 0) {
+      throw new InvalidEnvelopeError(
+        `challenge on ${accept.network} states no (string) asset — refusing to price it.`
       )
     }
     const amountBase = BigInt(accept.amount)
     const described = net.describeAsset(accept.asset)
     // onchain-proof always carries extra.decimals; an exact rail's is optional but is
     // only ever gathered when describeAsset recognises the token (so `described` is
-    // non-null there). Guard the residual undefined so a price is never mis-rendered.
-    const decimals = described?.decimals ?? accept.extra.decimals
-    if (decimals === undefined) {
+    // non-null there). A hostile/buggy 402 may omit `extra` entirely — optional-chain
+    // it so a missing block routes to the typed InvalidEnvelopeError below (when the
+    // token is also unrecognised), never a raw `Cannot read properties of undefined`.
+    const decimals = described?.decimals ?? accept.extra?.decimals
+    // For a RECOGNISED token `decimals` is the SDK's trusted number. For an UNRECOGNISED
+    // token it's whatever the server put in `extra.decimals` — validate it's a real
+    // non-negative integer so a string like "6" can't corrupt formatUnits (→ a wildly
+    // wrong amountFormatted) or leak a non-number into the `decimals: number` quote field.
+    if (typeof decimals !== 'number' || !Number.isInteger(decimals) || decimals < 0) {
       throw new InvalidEnvelopeError(
-        `challenge for ${accept.asset} on ${accept.network} states no decimals and the SDK ` +
+        `challenge for ${accept.asset} on ${accept.network} states no valid decimals and the SDK ` +
           `doesn't recognise the token — refusing to price it.`
       )
     }
-    const symbol = described?.symbol ?? accept.extra.symbol
+    const symbol = described?.symbol ?? accept.extra?.symbol
     // Derive the human amount from the amount + the decimals we TRUST (the SDK's
     // own when recognised), so a server can't display a misleading amountFormatted
     // for a token we know. For an honest server this equals extra.amountFormatted.
@@ -1303,7 +1339,7 @@ export class PipRailClient {
       this.ledger.totalFor(accept.network, accept.asset),
       ctx
     )
-    const serverSymbol = accept.extra.symbol
+    const serverSymbol = accept.extra?.symbol
     const symbolMismatch =
       intent.recognized &&
       !!serverSymbol &&
@@ -1399,7 +1435,7 @@ export class PipRailClient {
     this.safeEmit({ kind: 'payment-broadcast', ref })
 
     try {
-      const { height } = await net.confirm(ref, accept.extra.minConfirmations ?? 1)
+      const { height } = await net.confirm(ref, accept.extra?.minConfirmations ?? 1)
       this.safeEmit({
         kind: 'payment-confirmed',
         ref,
@@ -1435,7 +1471,7 @@ export class PipRailClient {
     const signature: X402PaymentSignature = {
       x402Version: 2,
       accepted: accept,
-      payload: { nonce: accept.extra.nonce, txHash: ref },
+      payload: { nonce: accept.extra?.nonce, txHash: ref },
     }
 
     const headers = new Headers(originalInit?.headers)

@@ -61,6 +61,8 @@ describe('toInsufficientFundsError — one affordability error for every chain',
     'tx failed: op_underfunded',
     'account has low_reserve',
     'not enough XLM to cover the fee',
+    // viem/geth gas-estimation shortfall on a no-native-balance wallet
+    'Execution reverted ... gas required exceeds allowance (0)',
   ]
   it.each(mapped)('maps %j → InsufficientFundsError', (msg) => {
     const e = toInsufficientFundsError(new Error(msg))
@@ -74,6 +76,8 @@ describe('toInsufficientFundsError — one affordability error for every chain',
     expect(toInsufficientFundsError(new Error('429 Too Many Requests'))).toBeNull()
     expect(toInsufficientFundsError('a bare string')).toBeNull()
     expect(toInsufficientFundsError(undefined)).toBeNull()
+    // an ERC-20 *approve* "insufficient allowance" is NOT a funds shortfall — must NOT be mis-mapped
+    expect(toInsufficientFundsError(new Error('ERC20: insufficient allowance'))).toBeNull()
   })
 
   it('preserves the original error as `cause`', () => {

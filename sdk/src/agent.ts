@@ -71,6 +71,33 @@ async function readBody(res: Response): Promise<unknown> {
 }
 
 /**
+ * Funnel an EXPECTED SDK failure from a read-only tool into a STRUCTURED result so
+ * an agent can branch on it instead of getting an opaque error — mirrors the pay
+ * tool's funnel. A typed PipRailError (e.g. WalletRequiredError → `WALLET_REQUIRED`
+ * on a read-only client, or a NoCompatibleAcceptError) becomes
+ * `{ ok:false, code, reason, explain }`. A genuine, non-SDK error (a bug, a raw
+ * network `fetch failed`) is RE-THROWN — by design, exactly like pay_request — so
+ * the runtime surfaces it (the MCP server turns it into an `isError` result) rather
+ * than masking it as a normal tool reply.
+ */
+function toToolError(err: unknown): Record<string, unknown> {
+  if (!(err instanceof PipRailError)) throw err
+  const out: Record<string, unknown> = {
+    ok: false,
+    code: err.code,
+    reason: err.message,
+    explain: explainDecline(err),
+  }
+  if (err instanceof PaymentDeclinedError) {
+    out.declined = true
+    if (err.reasonCode) out.reasonCode = err.reasonCode
+  }
+  const ref = (err as { ref?: string }).ref
+  if (typeof ref === 'string') out.ref = ref
+  return out
+}
+
+/**
  * Seven tools wrapping a configured {@link PipRailClient}:
  *   - `piprail_discover(query?)` — FIND payable resources on the open x402
  *     indexes, WITHOUT paying (the phone book — solves "what can I buy?").
@@ -118,22 +145,26 @@ export function paymentTools(client: PayingClient): AgentTool[] {
         additionalProperties: false,
       },
       invoke: async (args) => {
-        const opts: DiscoverOptions = {}
-        if (typeof args.query === 'string') opts.query = args.query
-        if (typeof args.network === 'string') opts.network = args.network
-        if (typeof args.maxPrice === 'number') opts.maxPrice = args.maxPrice
-        if (typeof args.limit === 'number') opts.limit = args.limit
-        const found = await client.discover(opts)
-        return {
-          count: found.length,
-          resources: found.map((r) => ({
-            resource: r.resource,
-            name: r.name,
-            description: r.description,
-            source: r.source,
-            priceUsd: r.priceUsd,
-            networks: [...new Set(r.rails.map((rail) => rail.network))],
-          })),
+        try {
+          const opts: DiscoverOptions = {}
+          if (typeof args.query === 'string') opts.query = args.query
+          if (typeof args.network === 'string') opts.network = args.network
+          if (typeof args.maxPrice === 'number') opts.maxPrice = args.maxPrice
+          if (typeof args.limit === 'number') opts.limit = args.limit
+          const found = await client.discover(opts)
+          return {
+            count: found.length,
+            resources: found.map((r) => ({
+              resource: r.resource,
+              name: r.name,
+              description: r.description,
+              source: r.source,
+              priceUsd: r.priceUsd,
+              networks: [...new Set(r.rails.map((rail) => rail.network))],
+            })),
+          }
+        } catch (err) {
+          return toToolError(err)
         }
       },
     },
@@ -159,8 +190,12 @@ export function paymentTools(client: PayingClient): AgentTool[] {
       },
       outputSchema: OPEN_OBJECT,
       invoke: async (args) => {
-        const quote = await client.quote(String(args.url))
-        return quote ? { gated: true, ...quote } : { gated: false, url: String(args.url) }
+        try {
+          const quote = await client.quote(String(args.url))
+          return quote ? { gated: true, ...quote } : { gated: false, url: String(args.url) }
+        } catch (err) {
+          return toToolError(err)
+        }
       },
     },
     {
@@ -186,6 +221,7 @@ export function paymentTools(client: PayingClient): AgentTool[] {
       },
       outputSchema: OPEN_OBJECT,
       invoke: async (args) => {
+       try {
         const plan = await client.planPayment(String(args.url))
         if (plan == null) return { gated: false, url: String(args.url) }
         return {
@@ -216,6 +252,9 @@ export function paymentTools(client: PayingClient): AgentTool[] {
           // The session's time leash, present only when a time policy is configured.
           ...(plan.session ? { session: plan.session } : {}),
         }
+       } catch (err) {
+         return toToolError(err)
+       }
       },
     },
     {
@@ -338,14 +377,18 @@ export function paymentTools(client: PayingClient): AgentTool[] {
         additionalProperties: false,
       },
       invoke: async (args) => {
-        const opts: RegisterOptions = {}
-        if (typeof args.name === 'string') opts.name = args.name
-        if (typeof args.description === 'string') opts.description = args.description
-        if (typeof args.priceUsd === 'number') opts.priceUsd = args.priceUsd
-        if (typeof args.network === 'string') opts.network = args.network
-        if (typeof args.asset === 'string') opts.asset = args.asset
-        const outcomes = await client.register(String(args.url), opts)
-        return { outcomes }
+        try {
+          const opts: RegisterOptions = {}
+          if (typeof args.name === 'string') opts.name = args.name
+          if (typeof args.description === 'string') opts.description = args.description
+          if (typeof args.priceUsd === 'number') opts.priceUsd = args.priceUsd
+          if (typeof args.network === 'string') opts.network = args.network
+          if (typeof args.asset === 'string') opts.asset = args.asset
+          const outcomes = await client.register(String(args.url), opts)
+          return { outcomes }
+        } catch (err) {
+          return toToolError(err)
+        }
       },
     },
     {
@@ -363,13 +406,17 @@ export function paymentTools(client: PayingClient): AgentTool[] {
       parameters: { type: 'object', properties: {}, additionalProperties: false },
       outputSchema: OPEN_OBJECT,
       invoke: async () => {
-        const spent = client.spent()
-        const budget = client.budget()
-        return {
-          spent,
-          remaining: budget.byAsset,
-          session: budget.session,
-          report: formatSpendReport(spent),
+        try {
+          const spent = client.spent()
+          const budget = client.budget()
+          return {
+            spent,
+            remaining: budget.byAsset,
+            session: budget.session,
+            report: formatSpendReport(spent),
+          }
+        } catch (err) {
+          return toToolError(err)
         }
       },
     },

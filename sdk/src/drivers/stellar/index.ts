@@ -75,7 +75,10 @@ export const stellarDriver: PaymentDriver = {
 }
 
 function makeStellarNetwork(preset: StellarPreset, rpcUrl: string): ResolvedNetwork {
-  const server = new Horizon.Server(rpcUrl)
+  // Horizon.Server throws synchronously on a non-https URL unless allowHttp is set.
+  // Honour an explicit http:// endpoint (a local/internal/proxied Horizon) so a Stellar
+  // client doesn't break the never-throw read-only contract just by being configured with one.
+  const server = new Horizon.Server(rpcUrl, { allowHttp: rpcUrl.startsWith('http://') })
   const network = preset.caip2
 
   // Adapt the fluent Horizon API to the narrow reader the verifier needs, so

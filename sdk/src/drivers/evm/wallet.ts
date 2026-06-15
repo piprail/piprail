@@ -42,7 +42,28 @@ export function createWalletAdapter(
 ): WalletAdapter {
   assertNoLegacyWalletKey(config, 'EVM')
   if ('key' in config) {
-    const account = privateKeyToAccount(config.key as Hex)
+    const key = config.key
+    // Validate the shape before viem so a wrong-family / fat-fingered key gives a
+    // clear typed WrongFamilyError, not a raw viem "invalid private key" leak
+    // (mirrors solana/wallet.ts, near/wallet.ts).
+    if (typeof key !== 'string' || !/^0x[0-9a-fA-F]{64}$/.test(key)) {
+      const hint =
+        typeof key === 'string' && !key.startsWith('0x')
+          ? " (got a non-0x string — a base58/seed key belongs to another family; pass { key } as the EVM chain's 0x… hex secret)."
+          : ' (expected 0x followed by 64 hex characters).'
+      throw new WrongFamilyError(
+        `chain is EVM; the wallet { key } is not a valid 0x… 32-byte hex private key${hint}`
+      )
+    }
+    let account
+    try {
+      account = privateKeyToAccount(key as Hex)
+    } catch (err) {
+      throw new WrongFamilyError(
+        'chain is EVM; the wallet { key } is not a valid 0x… 32-byte hex private key: ' +
+          `${err instanceof Error ? err.message : String(err)}.`
+      )
+    }
     const transport: Transport = http(resolved.rpcUrl)
     const walletClient = createWalletClient({ account, chain: resolved.chain, transport })
     return { account, walletClient }

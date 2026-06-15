@@ -37,6 +37,9 @@ export function resolveTronPrivateKey(config: TronWalletConfig): string {
   if (!config.key) {
     throw new WrongFamilyError('Tron wallet needs { key } (32-byte hex).')
   }
+  if (typeof config.key !== 'string') {
+    throw new WrongFamilyError('Tron wallet { key } must be a 32-byte hex string.')
+  }
   const hex = config.key.replace(/^0x/i, '').toLowerCase()
   if (!/^[0-9a-f]{64}$/.test(hex)) {
     throw new WrongFamilyError(

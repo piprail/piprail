@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { Address } from '@ton/core'
-import { createPaymentGate } from '../../src/index.js'
+import { createPaymentGate, WrongFamilyError } from '../../src/index.js'
 import { tonDriver } from '../../src/drivers/ton/index.js'
+import { resolveTonWallet } from '../../src/drivers/ton/wallet.js'
 
 const PAY_TO = new Address(0, Buffer.alloc(32, 3)).toString() // a valid TON address
 const USDT_MASTER = 'EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs'
@@ -77,6 +78,27 @@ describe('TON wallet binding (driver bindWallet → assertTonWallet)', () => {
     expect(() => net.bindWallet({ keyPair: { publicKey: Buffer.alloc(32), secretKey: Buffer.alloc(64) } })).not.toThrow()
     expect(() => net.bindWallet({ privateKey: `0x${'1'.repeat(64)}` })).toThrow(/TON/)
     expect(() => net.bindWallet({ secretKey: new Uint8Array(64) })).toThrow(/TON/)
+  })
+})
+
+describe('resolveTonWallet — validates the mnemonic (no silent wrong-wallet derivation)', () => {
+  // @ton/crypto derives a key from ARBITRARY words; without validation a typo'd
+  // mnemonic would bind the WRONG wallet and only fail later at the network.
+  it('rejects a garbage / wrong-length mnemonic with a clear WrongFamilyError', async () => {
+    await expect(resolveTonWallet({ key: 'not a real ton mnemonic zzz totally bogus' })).rejects.toBeInstanceOf(
+      WrongFamilyError
+    )
+    await expect(resolveTonWallet({ key: Array(24).fill('abandon') })).rejects.toThrow(/mnemonic/i)
+  })
+
+  it('rejects a non-string / non-array key (number/boolean) with WrongFamilyError, not a raw TypeError', async () => {
+    await expect(resolveTonWallet({ key: true as never })).rejects.toBeInstanceOf(WrongFamilyError)
+    await expect(resolveTonWallet({ key: 12345 as never })).rejects.toBeInstanceOf(WrongFamilyError)
+  })
+
+  it('accepts a ready { keyPair } without mnemonic validation', async () => {
+    const keyPair = { publicKey: Buffer.alloc(32), secretKey: Buffer.alloc(64) }
+    await expect(resolveTonWallet({ keyPair })).resolves.toBeTruthy()
   })
 })
 

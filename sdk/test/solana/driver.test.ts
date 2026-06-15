@@ -59,3 +59,34 @@ describe('solanaDriver — typed token/family errors at the throw site', () => {
     expect(err.code).toBe('WRONG_FAMILY')
   })
 })
+
+describe('Solana wallet binding (driver bindWallet → toKeypair)', () => {
+  it('accepts { key } (Uint8Array secret) and { signer }, rejects legacy/other wallets', () => {
+    const net = solanaDriver.resolve({ chain: 'solana' })!
+    const kp = Keypair.generate()
+    expect(() => net.bindWallet({ key: kp.secretKey })).not.toThrow()
+    expect(() => net.bindWallet({ signer: kp })).not.toThrow()
+    // a pre-v2 { secretKey } field now gives a clear migration error
+    expect(() => net.bindWallet({ secretKey: kp.secretKey })).toThrow(/Solana/)
+    expect(() => net.bindWallet({ walletClient: {} })).toThrow(/Solana/)
+  })
+
+  it('rejects a 0x… EVM hex key with a clear wrong-family error (not a raw bs58 leak)', () => {
+    const net = solanaDriver.resolve({ chain: 'solana' })!
+    let err: any
+    try { net.bindWallet({ key: `0x${'11'.repeat(32)}` }) } catch (e) { err = e }
+    expect(err).toBeInstanceOf(WrongFamilyError)
+    expect(err.code).toBe('WRONG_FAMILY')
+    expect(err.message).toMatch(/EVM/)
+    expect(err.message).not.toMatch(/Non-base58 character/)
+  })
+
+  it('rejects a malformed (non-base58) key with a clear WrongFamilyError', () => {
+    const net = solanaDriver.resolve({ chain: 'solana' })!
+    let err: any
+    try { net.bindWallet({ key: 'not valid base58 !!! 0OIl' }) } catch (e) { err = e }
+    expect(err).toBeInstanceOf(WrongFamilyError)
+    expect(err.message).toMatch(/Solana/)
+    expect(err.message).not.toMatch(/^Non-base58 character$/)
+  })
+})

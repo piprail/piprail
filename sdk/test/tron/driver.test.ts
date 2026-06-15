@@ -2,6 +2,18 @@ import { describe, it, expect } from 'vitest'
 import { TronWeb } from 'tronweb'
 import { createPaymentGate, UnknownTokenError, WrongFamilyError } from '../../src/index.js'
 import { tronDriver } from '../../src/drivers/tron/index.js'
+import { resolveTronPrivateKey } from '../../src/drivers/tron/wallet.js'
+
+describe('resolveTronPrivateKey — typed error for a non-string / malformed key', () => {
+  it('accepts a 32-byte hex string', () => {
+    expect(() => resolveTronPrivateKey({ key: `0x${'1'.repeat(64)}` })).not.toThrow()
+  })
+  it('rejects a non-string key (number/boolean) with WrongFamilyError, not a raw TypeError', () => {
+    for (const bad of [12345, true, {}, []] as unknown[]) {
+      expect(() => resolveTronPrivateKey({ key: bad as never })).toThrow(WrongFamilyError)
+    }
+  })
+})
 
 const tw = new TronWeb({ fullHost: 'https://api.trongrid.io' })
 const PAY_TO = tw.address.fromPrivateKey('11'.repeat(32)) as string // a valid Tron T… address (offline)

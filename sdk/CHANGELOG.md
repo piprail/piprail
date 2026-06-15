@@ -4,6 +4,35 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.0.1] — 2026-06-15 — clearer typed errors (robustness; no API change)
+
+A patch release hardening error reporting at every wrong-input boundary — found by a
+repo-wide adversarial fuzzing pass. **No behaviour change for correct input**, no API change;
+every fix turns a raw/cryptic library error into a typed `PipRailError` per [`ERRORS.md`](ERRORS.md).
+
+### Fixed
+
+- **Wallet `{ key }` validation is now uniform + typed.** A malformed or wrong-family key throws a
+  clear `WrongFamilyError` instead of leaking a library error:
+  - **EVM** — a non-`0x…`/short/garbage key (e.g. a base58 secret, or one missing `0x`) →
+    `WrongFamilyError` (was viem's raw `invalid private key, expected hex or 32 bytes`).
+  - **Solana** — a `0x…` EVM key or non-base58 secret → `WrongFamilyError` (was `Non-base58 character`).
+  - **TON** — an invalid/typo'd mnemonic → `WrongFamilyError` at use (was a silent **wrong-wallet**
+    derivation that only failed later as an opaque network error); now validated via `mnemonicValidate`.
+- **A malformed 402 challenge yields a typed `InvalidEnvelopeError`, never a raw `TypeError`.** An
+  `accepts[]` entry missing its `extra` block (on an unrecognised token), or a non-string `amount`,
+  is now rejected cleanly across `quote` / `estimateCost` / `planPayment` / `canAfford` / `fetch`
+  (a recognised token still prices gracefully from the SDK's own decimals).
+- **Read-only agent tools funnel expected errors into a structured result.** `piprail_quote_payment`,
+  `piprail_plan_payment`, `piprail_discover`, `piprail_register`, and `piprail_budget` now return
+  `{ ok:false, code, reason, explain }` for a typed SDK error (e.g. `WALLET_REQUIRED` on a read-only
+  client) — mirroring `piprail_pay_request` — instead of an opaque error; a genuine non-SDK error is
+  still re-thrown.
+- **A no-gas wallet's settlement failure maps to `InsufficientFundsError`.** viem's gas-estimation
+  shortfall phrasing (`gas required exceeds allowance`) is now classified as `INSUFFICIENT_FUNDS`
+  (was a raw multi-line viem dump); an ERC-20 `insufficient allowance` (approve) is deliberately NOT
+  mis-classified.
+
 ## [2.0.0] — 2026-06-15 — one wallet field: `key` (BREAKING)
 
 ### Changed — the wallet secret is a single `key` field on every chain (BREAKING)
@@ -1102,6 +1131,7 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[2.0.1]: https://www.npmjs.com/package/@piprail/sdk
 [2.0.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.25.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.24.0]: https://www.npmjs.com/package/@piprail/sdk

@@ -312,3 +312,24 @@ describe('paymentTools — framework-agnostic descriptors', () => {
     expect(calls).toBe(1) // one register POST, no payment flow
   })
 })
+
+describe('paymentTools — read-only tools FUNNEL errors into a structured result (never a raw throw)', () => {
+  const roClient = () => new PipRailClient({ chain: 'stellar' }) // no wallet → read-only
+
+  it('plan_payment on a read-only client → { ok:false, code:WALLET_REQUIRED } (not a raw thrown error)', async () => {
+    stubFetch(() => new Response(JSON.stringify({ ok: true }), { status: 200 }))
+    const plan = paymentTools(roClient()).find((t) => t.name === 'piprail_plan_payment')!
+    const res: any = await plan.invoke({ url: RESOURCE })
+    expect(res.ok).toBe(false)
+    expect(res.code).toBe('WALLET_REQUIRED')
+    expect(typeof res.reason).toBe('string')
+  })
+
+  it('a read-only tool RE-THROWS a genuine non-SDK error (the runtime surfaces it as isError), like pay_request', async () => {
+    globalThis.fetch = (async () => {
+      throw new TypeError('fetch failed')
+    }) as typeof fetch
+    const quote = paymentTools(client()).find((t) => t.name === 'piprail_quote_payment')!
+    await expect(quote.invoke({ url: 'http://127.0.0.1:1/x' })).rejects.toThrow(/fetch failed/)
+  })
+})

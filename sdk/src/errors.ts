@@ -83,8 +83,12 @@ export function toInsufficientFundsError(
   err: unknown
 ): InsufficientFundsError | null {
   const message = err instanceof Error ? err.message : String(err)
+  // The last alternative catches viem/geth's gas-estimation shortfall phrasing
+  // ("gas required exceeds allowance (0)") — a no-native-balance wallet can't pay
+  // gas. Kept specific to the full "gas required exceeds allowance" phrase so it
+  // never matches an ERC-20 "allowance" (approve/Permit2) error.
   if (
-    /insufficient (funds|balance|lamports|fee)|not enough|exceeds (the )?balance|underfunded|low[_ ]?reserve|debit the account/i.test(
+    /insufficient (funds|balance|lamports|fee)|not enough|exceeds (the )?balance|underfunded|low[_ ]?reserve|debit the account|gas required exceeds (the )?allowance/i.test(
       message
     )
   ) {

@@ -1,5 +1,16 @@
 # @piprail/mcp changelog
 
+## [0.6.1] — 2026-06-15 — on `@piprail/sdk` 2.0.1 (clearer typed errors)
+
+Re-pins to **`@piprail/sdk` ^2.0.1**, a robustness patch that turns raw library errors into typed
+`PipRailError`s. **The MCP's own interface is unchanged** — same env vars, the 7 `piprail_*` tools,
+the spend-policy guarantees, and read-only key-less boot. User-visible improvements that flow through:
+the read-only tools (`piprail_plan_payment`, `piprail_quote_payment`, `piprail_discover`,
+`piprail_register`, `piprail_budget`) now return a **structured** `{ ok:false, code, reason }` for an
+expected SDK error (e.g. `WALLET_REQUIRED` on a key-less boot) — matching `piprail_pay_request` —
+instead of an opaque error string; and a no-gas wallet's settlement failure now reports
+`INSUFFICIENT_FUNDS` rather than a raw chain dump.
+
 ## [0.6.0] — 2026-06-15 — on `@piprail/sdk` 2.0.0 (unified `{ key }` wallet)
 
 Re-pins to **`@piprail/sdk` ^2.0.0**, which unifies the SDK wallet shape to a single `{ key }` field.

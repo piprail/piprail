@@ -16,7 +16,7 @@ It pulls the SDK from jsDelivr at runtime, so the only requirement is a network 
 
 ## What it demonstrates (all live, on the page)
 
-- **The SDK loads from a CDN** (`https://cdn.jsdelivr.net/npm/@piprail/sdk@1/+esm`) and runs in the browser — the status line shows it resolve.
+- **The SDK loads from a CDN** (`https://cdn.jsdelivr.net/npm/@piprail/sdk@2/+esm`) and runs in the browser — the status line shows it resolve.
 - **The merchant side builds a real `402` challenge from your wallet address alone** — no private key. Pick a chain/token/amount and watch PipRail generate the actual x402 envelope in-browser.
 - **The payer side quotes it** — `PipRailClient.quote()` parses the challenge and prices the payment (amount, chain, token, recipient, "within budget"), the same code that runs against any live gated URL.
 - **A real on-chain payment** was made *from a browser* with this exact flow during testing — the page links the [proof tx](https://bscscan.com/tx/0x3ca933a1c2eba019c580e70ab0311c6995dba96f7c10fb2af1f89abb78053bce).
@@ -27,7 +27,7 @@ Any npm-mirroring CDN works — pick one:
 
 ```js
 import { PipRailClient } from 'https://esm.sh/@piprail/sdk'              // esm.sh
-import { PipRailClient } from 'https://cdn.jsdelivr.net/npm/@piprail/sdk@1/+esm'  // jsDelivr
+import { PipRailClient } from 'https://cdn.jsdelivr.net/npm/@piprail/sdk@2/+esm'  // jsDelivr
 ```
 
 Both resolve `viem` (and any chain lib the SDK lazy-imports) automatically — you don't add a second `<script>` for the chain library; the SDK pulls it from the same CDN on first use, only for the chain you actually name.

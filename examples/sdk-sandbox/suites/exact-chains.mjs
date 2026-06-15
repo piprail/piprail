@@ -50,25 +50,28 @@ export async function run() {
     ok.filter((o) => ['base', 'ethereum', 'arbitrum', 'optimism', 'polygon', 'avalanche'].includes(o.name)).every((o) => o.domain.name === 'USD Coin' && o.domain.version === '2'),
     JSON.stringify(ok.map((o) => `${o.name}:${o.domain.name}/${o.domain.version}`)))
 
-  group('EXACT rail · correctly UNAVAILABLE where it can\'t apply')
+  group('EXACT rail · availability (Permit2 fallback + SVM) and clear errors')
   {
-    // USDT is not EIP-3009 → exact must refuse it.
-    const usdtGate = createPaymentGate({ chain: 'ethereum', token: 'USDT', amount: '0.001', payTo: '0x1111111111111111111111111111111111111111', exact: { settle: 'self', relayer: { key: '0x' + 'ab'.repeat(32) } } })
-    let usdtErr = null
-    try { await usdtGate.challenge() } catch (e) { usdtErr = e.message }
-    check('exact on USDT (not EIP-3009) → clear config error', /EIP-3009/.test(usdtErr ?? ''), usdtErr?.slice(0, 80))
-
-    // native coin → exact must refuse it.
+    // native coin → no exact rail anywhere; refused with a clear, actionable message.
     const nativeGate = createPaymentGate({ chain: 'base', token: 'native', amount: '0.0001', payTo: '0x1111111111111111111111111111111111111111', exact: { settle: 'self', relayer: { key: '0x' + 'ab'.repeat(32) } } })
     let nativeErr = null
     try { await nativeGate.challenge() } catch (e) { nativeErr = e.message }
-    check('exact on the native coin → clear config error', /exact|EIP-3009/.test(nativeErr ?? ''), nativeErr?.slice(0, 80))
+    check('exact on the native coin → clear config error (no native exact)', /exact|EIP-3009/.test(nativeErr ?? ''), nativeErr?.slice(0, 80))
 
-    // A non-EVM chain → exact must refuse (it's EVM/EIP-3009 only); onchain-proof remains.
+    // USDT is NOT EIP-3009, but Ethereum DOES have the x402 Permit2 proxy → exact is offered via
+    // the Permit2 auto-fallback (a shipped feature). It must be advertised, not refused.
+    const usdtGate = createPaymentGate({ chain: 'ethereum', token: 'USDT', amount: '0.001', payTo: '0x1111111111111111111111111111111111111111', exact: { settle: 'self', relayer: { key: '0x' + 'ab'.repeat(32) } } })
+    let usdtSchemes = []
+    try { usdtSchemes = (await usdtGate.challenge()).challenge.accepts.map((a) => a.scheme) } catch (e) { usdtSchemes = [`THREW:${e.message}`] }
+    check('exact on USDT on a Permit2-proxy chain (Ethereum) → offered via Permit2 fallback', usdtSchemes.includes('exact'), JSON.stringify(usdtSchemes))
+
+    // Solana SPL USDC supports the SVM `exact` scheme now (no longer EVM-only). Requesting it with
+    // a 0x… (EVM) relayer key must surface a CLEAR wrong-family error — never a raw bs58 leak.
     const solGate = createPaymentGate({ chain: 'solana', token: 'USDC', amount: '0.001', payTo: '11111111111111111111111111111112', exact: { settle: 'self', relayer: { key: '0x' + 'ab'.repeat(32) } } })
     let solErr = null
     try { await solGate.challenge() } catch (e) { solErr = e.message }
-    check('exact on a non-EVM chain (Solana) → clear config error', /EVM|EIP-3009|exact/.test(solErr ?? ''), solErr?.slice(0, 80))
+    check('Solana exact with an EVM 0x relayer key → clear wrong-family error (not "Non-base58 character")',
+      /EVM|base58|Solana/.test(solErr ?? '') && !/Non-base58 character/.test(solErr ?? ''), solErr?.slice(0, 90))
 
     // ...and that SAME Solana gate WITHOUT exact still issues an onchain-proof challenge.
     const solProof = createPaymentGate({ chain: 'solana', token: 'USDC', amount: '0.001', payTo: '11111111111111111111111111111112' })
@@ -76,7 +79,7 @@ export async function run() {
     check('Solana gate (no exact) still offers onchain-proof', ch.challenge.accepts[0]?.scheme === 'onchain-proof')
   }
 
-  note(`exact rail offerable on ${ok.length} built-in EVM USDC chain(s); ${degraded.length} degrade to onchain-proof (bridged USDC); non-EVM/native/USDT correctly excluded.`)
+  note(`exact rail offerable on ${ok.length} built-in EVM USDC chain(s) via EIP-3009; ${degraded.length} bridged USDC degrade to onchain-proof; non-EIP-3009 ERC-20s (e.g. USDT) use the Permit2 fallback where the proxy is deployed; Solana via the SVM scheme; native coins have no exact rail.`)
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

@@ -129,4 +129,11 @@ describe('stellarDriver.resolve — only claims the "stellar" selector', () => {
     expect(stellarDriver.resolve({ chain: 'ton' })).toBeNull()
     expect(stellarDriver.resolve({ chain: 'stellar' })).not.toBeNull()
   })
+
+  it('does NOT throw when configured with an http:// Horizon (honours allowHttp — never-throw contract)', () => {
+    // Horizon.Server throws synchronously on a non-https URL unless allowHttp is set;
+    // resolve() builds the server eagerly, so this would otherwise break read-only methods.
+    expect(() => stellarDriver.resolve({ chain: 'stellar', rpcUrl: 'http://127.0.0.1:8000/h' })).not.toThrow()
+    expect(() => stellarDriver.resolve({ chain: 'stellar', rpcUrl: 'https://horizon.stellar.org' })).not.toThrow()
+  })
 })

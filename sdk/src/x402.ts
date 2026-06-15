@@ -622,6 +622,11 @@ function isValidChallenge(value: unknown): value is X402Challenge {
   const v = value as Record<string, unknown>
   if (v.x402Version !== 2) return false
   if (!Array.isArray(v.accepts) || v.accepts.length === 0) return false
+  // Every accepts[] entry must be a non-null OBJECT — a hostile/buggy server sending
+  // `accepts: [null, …]` (or a string/number entry) would otherwise reach an unchecked
+  // `.scheme` deref in the client + pickAccept and crash with a raw TypeError. A malformed
+  // entry makes the whole challenge unparseable → the caller raises InvalidEnvelopeError.
+  if (!v.accepts.every((a) => a !== null && typeof a === 'object')) return false
   if (!v.resource || typeof v.resource !== 'object') return false
   return true
 }

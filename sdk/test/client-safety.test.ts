@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import {
   PipRailClient,
   PaymentDeclinedError,
+  InvalidEnvelopeError,
   registerDriver,
   buildChallengeHeader,
   type PipRailClientOptions,
@@ -231,5 +232,79 @@ describe('spend ledger', () => {
     const client = newClient({ maxPaymentRetries: 1, retryTimeoutMs: 500 })
     await client.get(RESOURCE).catch(() => {})
     expect(client.spent().count).toBe(0)
+  })
+})
+
+describe('hostile/malformed 402 accept — typed InvalidEnvelopeError, never a raw TypeError', () => {
+  // Serve a single hand-crafted accept (mirrors a buggy/hostile foreign x402 server).
+  function stub402(accept: Record<string, unknown>) {
+    const body = { x402Version: 2 as const, error: null, resource: { url: RESOURCE }, accepts: [accept] }
+    globalThis.fetch = (async (_url: unknown, init?: RequestInit) => {
+      const hasProof = !!new Headers(init?.headers ?? {}).get('payment-signature')
+      if (hasProof) return new Response(JSON.stringify({ ok: true }), { status: 200 })
+      return new Response(JSON.stringify(body), {
+        status: 402,
+        headers: { 'payment-required': Buffer.from(JSON.stringify(body)).toString('base64') },
+      })
+    }) as typeof fetch
+  }
+  const base = { scheme: 'onchain-proof', network: NETWORK, amount: '500000', payTo: 'GMERCHANT', maxTimeoutSeconds: 600 }
+
+  it('a 402 whose accept OMITS `extra` on an UNRECOGNISED token → InvalidEnvelopeError across the read surface', async () => {
+    stub402({ ...base, asset: 'UNKNOWN-ASSET' }) // describeAsset → null, and no extra → decimals unknown
+    const c = newClient()
+    for (const m of ['quote', 'estimateCost', 'planPayment', 'canAfford'] as const) {
+      await expect(c[m](RESOURCE), `${m} must throw InvalidEnvelopeError`).rejects.toBeInstanceOf(InvalidEnvelopeError)
+    }
+  })
+
+  it('a 402 missing `extra` on a RECOGNISED token still prices gracefully (SDK decimals, no TypeError)', async () => {
+    stub402({ ...base, asset: 'native' }) // describeAsset → XLM/7dp; no extra needed
+    const q = await newClient().quote(RESOURCE)
+    expect(q).not.toBeNull()
+    expect(q!.symbol).toBe('XLM')
+    expect(q!.decimals).toBe(7)
+  })
+
+  it('a numeric (non-string) amount is rejected as InvalidEnvelopeError (no number leaks into quote.amount)', async () => {
+    stub402({ ...base, asset: 'native', amount: 500000, extra: { nonce: 'n', decimals: 7, symbol: 'XLM' } })
+    await expect(newClient().quote(RESOURCE)).rejects.toBeInstanceOf(InvalidEnvelopeError)
+  })
+})
+
+describe('hostile 402 — deeper accept-entry validation (round 2)', () => {
+  const realF = globalThis.fetch
+  afterEach(() => { globalThis.fetch = realF })
+  function serve(accepts: unknown[]) {
+    const body = { x402Version: 2 as const, error: null, resource: { url: RESOURCE }, accepts }
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify(body), { status: 402, headers: { 'payment-required': Buffer.from(JSON.stringify(body)).toString('base64') } })) as typeof fetch
+  }
+  const good = { scheme: 'onchain-proof', network: NETWORK, amount: '500000', asset: 'native', payTo: 'GMERCHANT', maxTimeoutSeconds: 600, extra: { nonce: 'n', decimals: 7, symbol: 'XLM' } }
+
+  it('a null entry in accepts[] → InvalidEnvelopeError (not a raw TypeError on .scheme)', async () => {
+    serve([null, good])
+    await expect(newClient().quote(RESOURCE)).rejects.toBeInstanceOf(InvalidEnvelopeError)
+  })
+
+  it('a non-number extra.decimals (string "7") on an UNRECOGNISED token → InvalidEnvelopeError', async () => {
+    serve([{ ...good, asset: 'UNKNOWN-ASSET', extra: { decimals: '7', symbol: 'X' } }])
+    await expect(newClient().quote(RESOURCE)).rejects.toBeInstanceOf(InvalidEnvelopeError)
+  })
+
+  it('an accept with NO asset field → InvalidEnvelopeError (never priced with asset:undefined)', async () => {
+    serve([{ scheme: 'onchain-proof', network: NETWORK, amount: '500000', payTo: 'GMERCHANT', maxTimeoutSeconds: 600, extra: { decimals: 7 } }])
+    await expect(newClient().quote(RESOURCE)).rejects.toBeInstanceOf(InvalidEnvelopeError)
+  })
+})
+
+describe('policy amount caps — fail fast at construction (round 2)', () => {
+  it('a malformed policy.maxAmount/maxTotal/windowTotal throws TypeError at construction', () => {
+    for (const policy of [{ maxAmount: '0.01abc' }, { maxTotal: 'NaN' }, { maxAmount: '' }, { maxAmount: '1e-2' }, { windowTotal: '0x1', windowSeconds: 60 }]) {
+      expect(() => newClient({ policy }), JSON.stringify(policy)).toThrow(TypeError)
+    }
+  })
+  it('well-formed decimal caps construct fine', () => {
+    expect(() => newClient({ policy: { maxAmount: '0.10', maxTotal: '10', windowTotal: '1.5', windowSeconds: 60 } })).not.toThrow()
   })
 })

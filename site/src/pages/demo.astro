@@ -318,7 +318,7 @@ const matrix = [
 
     let sdk
     try {
-      sdk = await import('https://esm.sh/@piprail/sdk@1?external=viem,@solana/web3.js,@solana/spl-token,bs58,@mysten/sui,near-api-js')
+      sdk = await import('https://esm.sh/@piprail/sdk@2?external=viem,@solana/web3.js,@solana/spl-token,bs58,@mysten/sui,near-api-js')
       $('sdk-status').innerHTML = '✅ <span class="text-accent">@piprail/sdk</span> loaded from a CDN — live, in your browser. <span class="text-neutral-400">Pick any chain below.</span>'
       $('d-run').disabled = false
     } catch (e) {
