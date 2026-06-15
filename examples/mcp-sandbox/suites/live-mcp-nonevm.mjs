@@ -11,7 +11,7 @@ import { group, check, note, summarize } from '../lib/report.mjs'
 
 const AMOUNT = '0.001' // USDC
 
-// PIPRAIL_PRIVATE_KEY is mapped per family by the MCP (aptos → privateKey, algorand → mnemonic).
+// PIPRAIL_PRIVATE_KEY is mapped to the unified { key } wallet input by the MCP for every family (NEAR adds { accountId }).
 const FAMILIES = [
   { chain: 'aptos', secret: (w) => w.privateKey, payTo: (w) => w.merchantAddress },
   { chain: 'algorand', secret: (w) => w.mnemonic, payTo: (w) => w.merchantAddress },

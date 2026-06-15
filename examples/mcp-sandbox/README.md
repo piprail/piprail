@@ -147,7 +147,7 @@ Drives the **public exports** of `@piprail/mcp` + `@piprail/sdk` to prove
 everything the MCP grabs from the SDK is wired right: **every** EVM preset in
 `CHAINS` and **every** non-EVM family is accepted with the correct chain-aware
 default token; **every** wallet format maps correctly
-(`{privateKey}`/`{secretKey}`/`{mnemonic}`/`{secret}`/`{seed}`/`{accountId,…}`);
+(every chain → `{key}`; NEAR → `{accountId, key}`);
 the budget → `PaymentPolicy` mapping; banner formatting with secret + RPC
 redaction; chain warnings (TON/Tron); the `VERSION` single-source-of-truth
 (`version.ts` == `package.json` == `server.json`); and the SDK's
