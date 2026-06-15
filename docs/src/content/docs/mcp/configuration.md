@@ -33,25 +33,27 @@ banner names which env var supplied it (`PIPRAIL_PRIVATE_KEY` / `PIPRAIL_WALLET_
 
 ## Every variable
 
-| Variable | Alias | Required | Default | Meaning |
-| --- | --- | --- | --- | --- |
-| `PIPRAIL_PRIVATE_KEY` | `PIPRAIL_WALLET_KEY`, `AGENT_KEY` | only to **pay** | — | Wallet key/seed/mnemonic in the chain's native format (see below). **Omit it** to run read-only (discover/quote/register/budget/guide work; pay/plan need it). |
-| `PIPRAIL_CHAIN` | `CHAIN` | no | `base` | EVM preset name or non-EVM family — one wallet on one chain. (Single-chain mode.) |
-| `PIPRAIL_CHAINS` | — | no | — | **Multi-chain mode** — comma-separated chains (e.g. `base,polygon,solana`). Each takes its own `PIPRAIL_<CHAIN>_KEY` (+ optional `PIPRAIL_<CHAIN>_RPC_URL`); the server pays whichever chain a 402 asks for. Mutually exclusive with `PIPRAIL_CHAIN`/`PIPRAIL_PRIVATE_KEY`/`PIPRAIL_RPC_URL`. See [below](#pay-on-several-chains-from-one-server). |
-| `PIPRAIL_MAX_AMOUNT` | `MAX_AMOUNT` | no | `0.10` | Ceiling **per payment**, human units. |
-| `PIPRAIL_MAX_TOTAL` | `MAX_TOTAL` | no | `10.00` | Lifetime ceiling **per distinct token**, human units. |
-| `PIPRAIL_TOKENS` | `TOKENS` | no | `USDC` *(USDT on Tron/TON)* | Comma-separated allowed token symbols, plus `native` for the chain's coin. |
-| `PIPRAIL_SCHEMES` | — | no | `onchain-proof` | Comma-separated payment schemes (see below). |
-| `PIPRAIL_HOSTS` | `HOSTS` | no | (any) | Comma-separated host allowlist — exact (`api.example.com`) or wildcard (`*.example.com`). |
-| `PIPRAIL_RPC_URL` | `RPC_URL` | no | chain default | Override the RPC endpoint; fold any API key into the URL. |
-| `PIPRAIL_ALLOW_UNKNOWN_TOKENS` | — | no | `false` | Pay tokens the SDK can't price? Keep `false`. |
-| `PIPRAIL_TTL` | — | no | (none) | Session deadline in seconds — terminal once past. |
-| `PIPRAIL_WINDOW_TOTAL` | — | no | (none) | Rolling-window budget, human units. Set **with** `PIPRAIL_WINDOW_SECONDS` or neither. |
-| `PIPRAIL_WINDOW_SECONDS` | — | no | (none) | Rolling-window width in seconds. |
-| `PIPRAIL_CONFIRM` | — | no | `false` | Mode B — ask the human to approve each payment via elicitation. |
-| `PIPRAIL_CONFIRM_TIMEOUT_MS` | — | no | `55000` | Approval window in ms; keep below your client's request timeout (≈60000). |
-| `PIPRAIL_GUIDE` | — | no | `true` | Expose the agent-guide prompt + the guide/budget resources. |
-| `PIPRAIL_NEAR_ACCOUNT_ID` | `NEAR_ACCOUNT_ID` | only on NEAR | — | Your NEAR account id (e.g. `you.near`). |
+Each variable also accepts the shorter **alias** shown under its name.
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `PIPRAIL_PRIVATE_KEY`<br/><small>aka `PIPRAIL_WALLET_KEY` · `AGENT_KEY`</small> | only to **pay** | — | Wallet key/seed/mnemonic in the chain's native format (see below). **Omit it** to run read-only (discover/quote/register/budget/guide work; pay/plan need it). |
+| `PIPRAIL_CHAIN`<br/><small>aka `CHAIN`</small> | no | `base` | EVM preset name or non-EVM family — one wallet on one chain. (Single-chain mode.) |
+| `PIPRAIL_CHAINS` | no | — | **Multi-chain mode** — comma-separated chains (e.g. `base,polygon,solana`). Each takes its own `PIPRAIL_<CHAIN>_KEY` (+ optional `PIPRAIL_<CHAIN>_RPC_URL`); the server pays whichever chain a 402 asks for. Mutually exclusive with `PIPRAIL_CHAIN`/`PIPRAIL_PRIVATE_KEY`/`PIPRAIL_RPC_URL`. See [below](#pay-on-several-chains-from-one-server). |
+| `PIPRAIL_MAX_AMOUNT`<br/><small>aka `MAX_AMOUNT`</small> | no | `0.10` | Ceiling **per payment**, human units. |
+| `PIPRAIL_MAX_TOTAL`<br/><small>aka `MAX_TOTAL`</small> | no | `10.00` | Lifetime ceiling **per distinct token**, human units. |
+| `PIPRAIL_TOKENS`<br/><small>aka `TOKENS`</small> | no | `USDC` *(USDT on Tron/TON)* | Comma-separated allowed token symbols, plus `native` for the chain's coin. |
+| `PIPRAIL_SCHEMES` | no | `onchain-proof` | Comma-separated payment schemes (see below). |
+| `PIPRAIL_HOSTS`<br/><small>aka `HOSTS`</small> | no | (any) | Comma-separated host allowlist — exact (`api.example.com`) or wildcard (`*.example.com`). |
+| `PIPRAIL_RPC_URL`<br/><small>aka `RPC_URL`</small> | no | chain default | Override the RPC endpoint; fold any API key into the URL. |
+| `PIPRAIL_ALLOW_UNKNOWN_TOKENS` | no | `false` | Pay tokens the SDK can't price? Keep `false`. |
+| `PIPRAIL_TTL` | no | (none) | Session deadline in seconds — terminal once past. |
+| `PIPRAIL_WINDOW_TOTAL` | no | (none) | Rolling-window budget, human units. Set **with** `PIPRAIL_WINDOW_SECONDS` or neither. |
+| `PIPRAIL_WINDOW_SECONDS` | no | (none) | Rolling-window width in seconds. |
+| `PIPRAIL_CONFIRM` | no | `false` | Mode B — ask the human to approve each payment via elicitation. |
+| `PIPRAIL_CONFIRM_TIMEOUT_MS` | no | `55000` | Approval window in ms; keep below your client's request timeout (≈60000). |
+| `PIPRAIL_GUIDE` | no | `true` | Expose the agent-guide prompt + the guide/budget resources. |
+| `PIPRAIL_NEAR_ACCOUNT_ID`<br/><small>aka `NEAR_ACCOUNT_ID`</small> | only on NEAR | — | Your NEAR account id (e.g. `you.near`). |
 
 Boolean knobs (`PIPRAIL_ALLOW_UNKNOWN_TOKENS`, `PIPRAIL_CONFIRM`, `PIPRAIL_GUIDE`) accept
 `1`, `true`, or `yes` (case-insensitive) as true; anything else is false.

@@ -381,12 +381,18 @@ nav.sidebar a[aria-current='page']::before {
 }
 
 /* ============================================================================
-   Tables — rounded container, tinted header row, hairline dividers.
+   Tables — rounded container, tinted header row, hairline dividers, zebra rows.
+
+   Design rules that keep every table pristine:
+   • The table is its own horizontal scroll container (`display:block` +
+     `overflow-x:auto`) — full-width when it fits, a clean horizontal scroll when
+     a genuinely wide table can't, so it NEVER bleeds under the "On this page" panel.
+   • Cells top-align and wrap normally, but long unbreakable tokens (URLs, chain
+     addresses, inline code) break instead of ballooning one column and crushing
+     its neighbours — the squashing we used to see.
+   • A per-cell `min-width` floor stops auto-layout from crushing a column to a
+     useless sliver; past that the table simply scrolls.
    ============================================================================ */
-/* A wide table must SCROLL inside its column, never overflow into the page (it
-   used to slide under the fixed "On this page" panel and bleed through). `display:
-   block` turns the table itself into the scroll container — full-width when it fits,
-   horizontal scroll when its content is wider than the reading column. */
 .sl-markdown-content table {
   display: block;
   width: 100%;
@@ -397,6 +403,7 @@ nav.sidebar a[aria-current='page']::before {
   border-spacing: 0;
   border: 1px solid var(--sl-color-hairline, var(--sl-color-gray-5));
   border-radius: 0.6rem;
+  font-size: 0.94rem;
 }
 /* Thin, quiet scrollbar to match the code blocks. */
 .sl-markdown-content table::-webkit-scrollbar {
@@ -411,17 +418,50 @@ nav.sidebar a[aria-current='page']::before {
   font-weight: 600;
   font-size: 0.92em;
   text-align: start;
+  white-space: nowrap; /* short headers read best on one line */
   background: color-mix(in oklch, var(--sl-color-accent) 8%, var(--sl-color-gray-6));
   border-bottom: 1px solid var(--sl-color-hairline, var(--sl-color-gray-5));
 }
 .sl-markdown-content :is(th, td) {
-  padding: 0.6rem 0.9rem;
+  padding: 0.62rem 0.9rem;
+  vertical-align: top;
+  min-width: 7ch; /* no razor-thin crushed columns; wider tables scroll instead */
+  overflow-wrap: break-word; /* break a long word/URL rather than balloon the column */
+}
+/* Inline code in a cell (URLs, addresses, mints) must wrap inside its column,
+   never force the whole table wide. */
+.sl-markdown-content :is(th, td) code {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+/* …EXCEPT the first column, which is nearly always a short identifier (an env var,
+   a field, a function, a token symbol). Keep those whole on one line — auto-layout
+   then grants the name its width and the prose column absorbs the wrapping — so we
+   never see `PIPRAIL_PRIVA`↵`TE_KEY` broken mid-name. */
+.sl-markdown-content :is(th, td):first-child code {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+/* A secondary line inside a cell (e.g. an env-var alias under its name): muted + smaller. */
+.sl-markdown-content :is(td, th) small {
+  display: inline-block;
+  margin-top: 0.2rem;
+  font-size: 0.82em;
+  color: var(--sl-color-gray-3);
+}
+.sl-markdown-content :is(td, th) small code {
+  font-size: 0.95em;
+}
+
+/* Zebra striping + hover — quiet, for scan-ability on long tables. */
+.sl-markdown-content tbody tr:nth-child(2n) td {
+  background: color-mix(in oklch, var(--sl-color-gray-1) 2.5%, transparent);
 }
 .sl-markdown-content tbody tr:not(:last-child) td {
-  border-bottom: 1px solid color-mix(in oklch, var(--sl-color-hairline, var(--sl-color-gray-5)) 60%, transparent);
+  border-bottom: 1px solid color-mix(in oklch, var(--sl-color-hairline, var(--sl-color-gray-5)) 55%, transparent);
 }
 .sl-markdown-content tbody tr:hover td {
-  background: color-mix(in oklch, var(--sl-color-gray-1) 4%, transparent);
+  background: color-mix(in oklch, var(--sl-color-accent) 5%, transparent);
 }
 
 /* ============================================================================

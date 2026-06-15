@@ -25,16 +25,19 @@ facilitator sponsors the network fee for the buyer *and* the merchant. You point
 with `exact: { settle: { facilitator: '<facilitator url>' } }` — see
 [the exact rail seller guide](/accepting-payments/exact-rail-seller/).
 
-| Facilitator | Facilitator URL | Mainnet `exact` networks | Keyless? | PipRail live-tested |
-|---|---|---|---|---|
-| **[PayAI](https://facilitator.payai.network/)** | `https://facilitator.payai.network` | Base, Solana, Avalanche, Polygon, Arbitrum, Sei, IoTeX, peaq, X Layer, SKALE, KiteAI *(30 rails)* | ✅ keyless | ✅ **Solana + Base** |
-| **[Corbits](https://corbits.dev/)** | `https://facilitator.corbits.dev` | Solana *(first-class)*, Base, Polygon, Monad *(42 rails)* | ✅ keyless | ✅ **Solana** |
-| **[OpenFacilitator](https://www.openfacilitator.io/)** | `https://pay.openfacilitator.io` | Base, Solana, Stacks | ✅ keyless *(no signup)* | ✅ **Solana** |
-| **[xpay](https://www.xpay.sh/)** | `https://facilitator.xpay.sh` | Base | ✅ keyless, zero-fee | ✅ **Base** |
-| **[Daydreams](https://daydreams.systems/)** | `https://facilitator.daydreams.systems` | Ethereum, Base, Solana | 🔑 **API key** | `/verify` → 401 |
-| **[Questflow](https://questflow.ai/)** | `https://facilitator.questflow.ai` | Base | 🔑 **API key** | `/verify` → 401 |
-| **[Coinbase CDP](https://docs.cdp.coinbase.com/)** | `https://api.cdp.coinbase.com/platform/v2/x402` | Base, Solana | 🔑 **CDP auth** | `/supported` → 401 |
-| **[Kora](https://github.com/solana-foundation/kora)** | *self-host* | Solana | *self-host (you sponsor)* | — run your own |
+| Facilitator | Keyless? | PipRail live-tested | Mainnet `exact` networks |
+|---|---|---|---|
+| **[PayAI](https://facilitator.payai.network/)** | ✅ keyless | ✅ Solana + Base | Base, Solana, Avalanche, Polygon, Arbitrum, Sei +24 |
+| **[Corbits](https://corbits.dev/)** | ✅ keyless | ✅ Solana | Solana, Base, Polygon, Monad +38 |
+| **[OpenFacilitator](https://www.openfacilitator.io/)** | ✅ keyless | ✅ Solana | Base, Solana, Stacks |
+| **[xpay](https://www.xpay.sh/)** | ✅ zero-fee | ✅ Base | Base |
+| **[Daydreams](https://daydreams.systems/)** | 🔑 API key | — | Ethereum, Base, Solana |
+| **[Questflow](https://questflow.ai/)** | 🔑 API key | — | Base |
+| **[Coinbase CDP](https://docs.cdp.coinbase.com/)** | 🔑 CDP auth | — | Base, Solana |
+| **[Kora](https://github.com/solana-foundation/kora)** | self-host | — | Solana |
+
+**Base URLs** (pass to `exact: { settle: { facilitator } }`) — the keyless ones, live-proven:
+`https://facilitator.payai.network` · `https://facilitator.corbits.dev` · `https://pay.openfacilitator.io` · `https://facilitator.xpay.sh`.
 
 :::caution[A public `/supported` is NOT proof of keyless settlement]
 Daydreams and Questflow both expose a public `GET /supported`, but their `/verify` returns **401 — an
