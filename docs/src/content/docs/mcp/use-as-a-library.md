@@ -17,10 +17,18 @@ flow. For full control, the lower-level pieces are also exported: `parseConfig` 
 `configToClientOptionsList` (multi-chain config → an array of SDK client options), and
 `createMcpServer` (client options → `{ server, client }`). None of them touch the network or a chain.
 
+A few more primitives are exported for embedders: **`walletInputFor`** (a `{ chain, walletSecret?,
+nearAccountId? }` → the SDK's `WalletInput` — shape a wallet from your own config), **`TOOL_NAMES`**
+(the frozen list of the 7 `piprail_*` tool names), **`VERSION`** (the package version string), the
+boot-banner helpers **`formatBanner`** / **`printBanner`** / **`chainWarnings`** (the stderr banner +
+per-chain caveats), and the **`ConfigError`** class + **`Config`** / **`ChainAccount`** types.
+
 ```ts
 import {
   startServer, createMcpServer, parseConfig,
   configToClientOptions, configToClientOptionsList,
+  walletInputFor, TOOL_NAMES, VERSION,
+  formatBanner, printBanner, chainWarnings,
 } from '@piprail/mcp'
 ```
 

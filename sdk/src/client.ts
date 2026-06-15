@@ -96,7 +96,7 @@ export type PipRailEvent =
  * Wallet for the chosen chain family. **One field, every chain: `{ key }`** — the
  * chain's secret as a string (the `chain` selector routes; each driver validates the
  * format). NEAR also needs `{ accountId }`. What `key` is, per chain:
- *   - EVM / Tron     → a 0x… hex private key (secp256k1)
+ *   - EVM / Tron     → a 0x… hex private key (secp256k1; Tron also accepts it without the 0x prefix)
  *   - Sui            → a `suiprivkey1…` bech32 secret
  *   - Aptos          → an AIP-80 `ed25519-priv-0x…` (or raw `0x…`) secret
  *   - Solana         → a base58 secret key (or a `Uint8Array`)

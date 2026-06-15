@@ -54,8 +54,8 @@ pass the same set after the `-p` flags for whichever family you're running.
 ## The default token is chain-aware
 
 `PIPRAIL_TOKENS` defaults to the canonical stablecoin that actually **exists** on the chain:
-**USDC** everywhere, but **USDT** on **Tron** and **TON** (native USDC doesn't exist there, so a
-USDC-only policy would silently block every payment). Override it anytime:
+**USDC** where it exists, else **USDT** on any chain without native USDC (**Tron**, **TON**, and the
+**Kaia** EVM preset — a USDC-only policy would otherwise silently block every payment). Override it anytime:
 
 ```jsonc
 "PIPRAIL_TOKENS": "USDC,native"   // also allow the chain's own coin (NOTE: PIPRAIL_MAX_AMOUNT is then 1.0 of that coin, not ~$1)

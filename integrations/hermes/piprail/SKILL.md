@@ -1,7 +1,7 @@
 ---
 name: piprail
 description: "Pay x402 paywalled URLs from a budget-bound, self-custodial crypto wallet across 10+ chains."
-version: 1.1.0
+version: 1.1.1
 author: PipRail (@piprail)
 license: MIT
 platforms: [linux, macos, windows]
@@ -41,7 +41,7 @@ PipRail ships as a published MCP server — Hermes runs it over stdio:
 
 Add it to `~/.hermes/config.yaml` under `mcp_servers` (see this folder's `config.yaml`), or
 `hermes mcp add piprail --command npx --args -y @piprail/mcp`. The seven tools surface as
-`mcp_piprail_*` (e.g. `mcp_piprail_piprail_pay_request`):
+`mcp_piprail_*` (e.g. `mcp_piprail_pay_request`):
 
 `piprail_discover` · `piprail_quote_payment` · `piprail_plan_payment` · **`piprail_pay_request`** ·
 `piprail_register` · `piprail_budget` · `piprail_guide`. Only `piprail_pay_request` moves money.

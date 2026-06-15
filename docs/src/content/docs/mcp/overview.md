@@ -74,9 +74,10 @@ there. Never pass it as a CLI argument, and never commit it.
 | `piprail_budget` | Read remaining budget + time leash + spend-so-far. |
 | `piprail_guide` | Read the agent contract — the quote → plan → pay loop and the never-re-pay rule. |
 
-Only `piprail_pay_request` ever moves money; everything else is read-only, and each tool carries
-MCP annotations so your client can show the right consent. The spend policy — not the annotations
-— is the real boundary. See the [Tools reference](/mcp/tools/) for inputs, outputs, and errors.
+Only `piprail_pay_request` ever moves money; `piprail_register` writes a listing to an external
+index (so it isn't flagged read-only) but moves none, and the other five are read-only. Each tool
+carries MCP annotations so your client can show the right consent. The spend policy — not the
+annotations — is the real boundary. See the [Tools reference](/mcp/tools/) for inputs, outputs, and errors.
 
 ## Two modes
 

@@ -42,7 +42,7 @@ Each variable also accepts the shorter **alias** shown under its name.
 | `PIPRAIL_CHAINS` | no | — | **Multi-chain mode** — comma-separated chains (e.g. `base,polygon,solana`). Each takes its own `PIPRAIL_<CHAIN>_KEY` (+ optional `PIPRAIL_<CHAIN>_RPC_URL`); the server pays whichever chain a 402 asks for. Mutually exclusive with `PIPRAIL_CHAIN`/`PIPRAIL_PRIVATE_KEY`/`PIPRAIL_RPC_URL`. See [below](#pay-on-several-chains-from-one-server). |
 | `PIPRAIL_MAX_AMOUNT`<br/><small>aka `MAX_AMOUNT`</small> | no | `0.10` | Ceiling **per payment**, human units. |
 | `PIPRAIL_MAX_TOTAL`<br/><small>aka `MAX_TOTAL`</small> | no | `10.00` | Lifetime ceiling **per distinct token**, human units. |
-| `PIPRAIL_TOKENS`<br/><small>aka `TOKENS`</small> | no | `USDC` *(USDT on Tron/TON)* | Comma-separated allowed token symbols, plus `native` for the chain's coin. |
+| `PIPRAIL_TOKENS`<br/><small>aka `TOKENS`</small> | no | `USDC` *(USDT on any chain without native USDC — Tron, TON, Kaia)* | Comma-separated allowed token symbols, plus `native` for the chain's coin. |
 | `PIPRAIL_SCHEMES` | no | `onchain-proof` | Comma-separated payment schemes (see below). |
 | `PIPRAIL_HOSTS`<br/><small>aka `HOSTS`</small> | no | (any) | Comma-separated host allowlist — exact (`api.example.com`) or wildcard (`*.example.com`). |
 | `PIPRAIL_RPC_URL`<br/><small>aka `RPC_URL`</small> | no | chain default | Override the RPC endpoint; fold any API key into the URL. |
@@ -110,9 +110,9 @@ The model cannot exceed it even if it tries.
 
 `PIPRAIL_TOKENS` takes token **symbols** (`USDC`, `USDT`, `EURC`, …) plus the chain-agnostic
 alias **`native`** — the chain's own coin (ETH on Base, TRX on Tron, XLM on Stellar) without
-naming the ticker. The default tracks what actually exists on the chain: USDC everywhere, but
-**USDT on Tron and TON**, where native USDC doesn't exist (so a USDC-only policy would silently
-block every payment). See [Chains](/mcp/chains/) for the full per-chain token story.
+naming the ticker. The default is data-driven — it tracks what actually exists on the chain: USDC
+where it exists, else **USDT on any chain without native USDC** (Tron, TON, and the Kaia EVM preset),
+so a USDC-only policy would never silently block every payment. See [Chains](/mcp/chains/) for the full per-chain token story.
 
 ## The time envelope
 

@@ -4,6 +4,24 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.0.2] — 2026-06-15 — docs/JSDoc accuracy (no code change)
+
+A documentation-accuracy patch from a final repo-wide doc↔source sweep. **No behaviour or API
+change** — published purely to refresh the shipped TypeScript JSDoc + npm README.
+
+### Fixed
+
+- **`payExact` SPI JSDoc** (`drivers/types.ts`) said "EVM + EIP-3009 only" — corrected to
+  "EVM EIP-3009/Permit2 + Solana SVM", matching the shipped Solana `exact` buyer rail.
+- **`WalletInput` JSDoc** notes Tron accepts its hex `key` with or without the `0x` prefix.
+- **`ERRORS.md`**: added the `WALLET_REQUIRED` / `WalletRequiredError` row to §2; included Aptos in
+  the no-receive-prerequisite list (§6.1); and corrected `UNSUPPORTED_SCHEME` to reflect that
+  `exact` now ships on **EVM + Solana** (not EVM-only).
+
+(Docs-site + `llms.txt` accuracy fixes — TON `estimateCost` `cost` fields, the MCP read-only tool
+count, the `paymentTools` 7-tool list, the Kaia USDT default, and the additional `@piprail/mcp`
+library exports — shipped in the same sweep via the docs/site deploy.)
+
 ## [2.0.1] — 2026-06-15 — clearer typed errors (robustness; no API change)
 
 A patch release hardening error reporting at every wrong-input boundary — found by a
@@ -1131,6 +1149,7 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[2.0.2]: https://www.npmjs.com/package/@piprail/sdk
 [2.0.1]: https://www.npmjs.com/package/@piprail/sdk
 [2.0.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.25.0]: https://www.npmjs.com/package/@piprail/sdk

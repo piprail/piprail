@@ -9,9 +9,11 @@ sidebar:
 
 The PipRail MCP server advertises **seven tools**, built by the SDK's
 [`paymentTools(client)`](/agent-toolkit/payment-tools/) and dropped straight onto the wire — the
-SDK descriptors carry draft-07 JSON Schema, so the server forwards them untouched. Six are
-read-only; exactly one moves funds. Every result is emitted **both** as a text block and as
-`structuredContent`, so a client that ignores structured output still reads the text.
+SDK descriptors carry draft-07 JSON Schema, so the server forwards them untouched. Only
+`piprail_pay_request` moves funds; `piprail_register` writes a listing to an external index
+(so it's not flagged read-only) but moves none; the other five are read-only. Every result is
+emitted **both** as a text block and as `structuredContent`, so a client that ignores structured
+output still reads the text.
 
 ```jsonc
 // every tool, in advertised order

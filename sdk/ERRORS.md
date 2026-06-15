@@ -55,13 +55,14 @@ Base class [`PipRailError`](src/errors.ts) (abstract; `.name` = the subclass nam
 | `INSUFFICIENT_FUNDS` | `InsufficientFundsError` | the **payer** can't cover the transfer (+ fees / reserve / its own trustline) | every driver (`send`) — see §6 |
 | `RECIPIENT_NOT_READY` | `RecipientNotReadyError` | the **recipient** (`payTo`) isn't set up to receive on this chain — XRPL not activated (needs ≥1 XRP base reserve); Stellar account missing / no trustline; NEAR not `storage_deposit`-registered | Stellar / XRPL / NEAR drivers (`send`) — see §6.1 |
 | `WRONG_CHAIN` | `WrongChainError` | a bring-your-own `walletClient` is on a different chain than configured | EVM wallet adapter; client pre-send guard |
+| `WALLET_REQUIRED` | `WalletRequiredError` | a wallet-bound op (`fetch`/pay, `planPayment`, `discoverySigner`) was called on a **read-only** client built with no `wallet` | client |
 | `CONFIRMATION_TIMEOUT` | `ConfirmationTimeoutError` | broadcast OK but the tx didn't confirm within the driver's window (re-check the ref) | every driver (`confirm`) |
 | `PAYMENT_TIMEOUT` | `PaymentTimeoutError` | the **server** didn't respond within `retryTimeoutMs` *after* broadcast — **carries `.ref`** | client |
 | `MAX_RETRIES_EXCEEDED` | `MaxRetriesExceededError` | server kept returning 402 after broadcast — **message embeds the last server `error — detail`, and carries `.ref`** | client |
 | `PAYMENT_DECLINED` | `PaymentDeclinedError` | the client refused to pay BEFORE any send — over the spend `policy` (amount/total/chain/token/host), or an `onBeforePay` hook returned false / threw | client |
 | `INVALID_ENVELOPE` | `InvalidEnvelopeError` | a 402 had no parseable x402 challenge | client |
 | `NO_COMPATIBLE_ACCEPT` | `NoCompatibleAcceptError` | the challenge offered no `accepts[]` entry the client can pay on its network + enabled `schemes` (message names the enabled schemes) | client |
-| `UNSUPPORTED_SCHEME` | `UnsupportedSchemeError` | asked to pay a scheme the bound family/asset/signer can't settle, with no fallback: `exact` on a non-EVM family, a non-EIP-3009 token (USDT/native/plain ERC-20), or a contract / EIP-1271 / EIP-7702 signer | client / EVM `exact` (`payExact`) |
+| `UNSUPPORTED_SCHEME` | `UnsupportedSchemeError` | asked to pay a scheme the bound family/asset/signer can't settle, with no fallback: `exact` on a family without a `payExact` driver (i.e. not EVM or Solana), a non-EIP-3009 token (native/plain ERC-20) on a proxy-less chain, or a contract / EIP-1271 / EIP-7702 signer | client / EVM + Solana `exact` (`payExact`) |
 | `NON_REPLAYABLE_BODY` | `NonReplayableBodyError` | `init.body` isn't replayable (e.g. a one-shot stream) | client |
 | `MISSING_DRIVER` | `MissingDriverError` | a family's **optional peer deps aren't installed** (the lazy `import()` failed) — message names the exact `npm install` and sets `{ cause }` | registry loaders |
 | `UNSUPPORTED_NETWORK` | `UnsupportedNetworkError` | no driver for the family, or the driver's `resolve()` returned `null` (unrecognised `chain`) | registry |
@@ -240,7 +241,7 @@ to **`RecipientNotReadyError`** (`RECIPIENT_NOT_READY`), distinct from `Insuffic
 human or an AI agent can act on it, and **echo the raw chain code** in the message (e.g.
 `(XRPL: tecNO_DST_INSUF_XRP)`); (2) preserve the untouched chain error on `.cause`. Clarity for
 the reader, full raw detail for the debugger — both, always. Chains with no receive prerequisite
-(EVM, Solana, Sui, Tron, native TON/NEAR) never throw `RecipientNotReadyError`.
+(EVM, Solana, Sui, Aptos, Tron, native TON/NEAR) never throw `RecipientNotReadyError`.
 
 ---
 

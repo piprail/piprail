@@ -330,7 +330,7 @@ export interface ResolvedNetwork {
   ): Promise<{ ready: boolean | 'n/a' | 'unknown'; reason?: RecipientReason }>
 
   /**
-   * OPTIONAL (EVM + EIP-3009 only) — the BUYER counterpart to {@link settleExactSelf}.
+   * OPTIONAL (EVM EIP-3009/Permit2 + Solana SVM) — the BUYER counterpart to {@link settleExactSelf}.
    * Build + EIP-712-sign an EIP-3009 `transferWithAuthorization` for a standard x402
    * `exact` rail, so a PipRail agent can PAY any standard x402 server (not just PipRail's
    * own `onchain-proof` gates). The client frames the returned `payload` + `accepted` echo
