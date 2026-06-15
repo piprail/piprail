@@ -94,10 +94,10 @@ to actually pay it.
 | `minReliability` | — | Drop results whose reliability score (0–100) is below this. Unscored results (e.g. from Bazaar) pass through. |
 | `verified` | — | Prefer verified listings (402 Index server-side only). Its `verified` flag differs from the per-record `domain_verified`, so it is **not** re-filtered client-side — inspect `result.verified` for the per-record signal. |
 | `paymentValid` | — | Restrict to listings 402 Index confirmed are payable x402 (its `payment_valid` flag). |
-| `sort` | `'relevance'`\* | `'relevance'` \| `'reliability'` \| `'price'` \| `'uptime'` \| `'latency'` \| `'name'` (type `DiscoverySort`). \*Defaults to `'relevance'` when a `query` is given, else first-seen order. |
+| `sort` | `'relevance'`\* | `'relevance'` \| `'reliability'` \| `'price'` \| `'uptime'` \| `'name'` (type `DiscoverySort`). \*Defaults to `'relevance'` when a `query` is given, else first-seen order. |
 | `order` | `'desc'` | Direction for a **non-relevance** `sort`. |
 | `sources` | `['bazaar', '402index']` | Which open indexes to read. |
-| `limit` | `20` | Max results per source before merge. |
+| `limit` | `20` | Max results to fetch per index request (default 20) — a multi-word query fans out into several, so the merged total before dedupe can exceed it. |
 
 `network: 'self'` is the useful default: it returns only what this wallet can actually pay,
 matched via the bound driver's own `supports()` so it works on every family, including custom

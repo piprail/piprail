@@ -117,10 +117,10 @@ The options object is the exported `SearchOpenIndexesOptions`:
 | `minReliability` | — | Drop results scored below this (0–100); unscored results pass. |
 | `verified` | — | Prefer verified listings (402 Index server-side; not re-filtered client-side). |
 | `paymentValid` | — | Restrict to 402-Index-confirmed-payable listings. |
-| `sort` | `'relevance'`\* | `DiscoverySort` — `'relevance'` \| `'reliability'` \| `'price'` \| `'uptime'` \| `'latency'` \| `'name'`. \*Relevance by default with a query, else first-seen order. |
+| `sort` | `'relevance'`\* | `DiscoverySort` — `'relevance'` \| `'reliability'` \| `'price'` \| `'uptime'` \| `'name'`. \*Relevance by default with a query, else first-seen order. |
 | `order` | `'desc'` | Direction for a non-relevance `sort`. |
 | `sources` | `['bazaar', '402index']` | Which indexes to read (both free). |
-| `limit` | `20` | Max results per source, before dedupe. |
+| `limit` | `20` | Max results to fetch per index request; the fan-out can issue several, so the merged total before dedupe can exceed it. |
 | `signal` | — | An `AbortSignal` to cancel the reads. |
 
 Each `DiscoveredResource` is normalized to one shape across sources. Its `rails` are

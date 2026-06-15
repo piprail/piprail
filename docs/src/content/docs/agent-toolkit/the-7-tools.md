@@ -53,12 +53,18 @@ wallet's own chain.
 | --- | --- | --- |
 | `query` | string | Free-text topic to search for (optional). |
 | `network` | string | CAIP-2 id, `'self'` (your chain — default), or `'any'` (all chains). |
+| `category` | string | Keep **only** this category (strict — uncategorized results are dropped). |
+| `asset` | string | Keep only resources paying in this token symbol, e.g. `'USDC'`. |
 | `maxPrice` | number | Drop results advertised above this USD price. |
+| `minReliability` | number | Drop results below this health score (0–100); unscored results pass through. |
+| `verified` | boolean | Prefer verified listings. |
+| `sort` | string | `'relevance'` \| `'reliability'` \| `'price'` \| `'uptime'` \| `'name'`. |
 | `limit` | number | Max results per index (default 20). |
 
 Read-only, open-world (it reaches external indexes). The result is
 `{ count, resources }`, where each resource carries `resource`, `name`, `description`, `source`,
-`priceUsd`, and `networks`. Results are cross-scheme, so always `piprail_quote_payment` a chosen
+`priceUsd`, `category`, `reliabilityScore`, `health`, `verified`, and `networks`. Results are
+cross-scheme, so always `piprail_quote_payment` a chosen
 resource — which re-checks the live price — before paying. See
 [Discover & register](/discovery/discover-and-register/).
 
@@ -156,9 +162,13 @@ chain can't satisfy comes back `ok: false` with the reason.
 | `url` | string | Full URL of the resource to list (required). |
 | `name` | string | Display name (defaults to the host). |
 | `description` | string | What the resource offers. |
+| `category` | string | **The top findability lever** — most listings have none. A real category (`'ai'`, `'finance'`, …) makes a listing rank + filter. |
+| `tags` | string[] | Keywords — folded into the description for search **and** sent as a `tags` field. |
 | `priceUsd` | number | Advertised price in USD (metadata). |
 | `network` | string | Network slug to advertise, e.g. `'base'` (defaults to the paying chain) — set it when registering from a multi-chain wallet so the listing names the right chain. |
 | `asset` | string | Payment asset symbol, e.g. `'USDC'` (metadata). |
+| `provider` | string | Who runs the resource (provider/org name). |
+| `contactEmail` | string | Contact email for the listing (also used by the domain claim). |
 
 Writes a listing to an external index but moves no funds and hosts nothing on PipRail's side
 (`destructiveHint: false`).

@@ -93,7 +93,7 @@ export interface RegisterOutcome {
 /** How to order results. `'relevance'` (the default when a {@link SearchOpenIndexesOptions.query}
  *  is given) ranks by query match via {@link rankResources}; the rest sort by a single field
  *  (descending unless `order:'asc'`), using each index's reported value (unknowns sort last). */
-export type DiscoverySort = 'relevance' | 'reliability' | 'price' | 'uptime' | 'latency' | 'name'
+export type DiscoverySort = 'relevance' | 'reliability' | 'price' | 'uptime' | 'name'
 
 export interface SearchOpenIndexesOptions {
   /**
@@ -521,7 +521,7 @@ function sortResources(items: DiscoveredResource[], sort: DiscoverySort, order: 
         ? r.priceUsd
         : sort === 'name'
           ? (r.name ?? r.resource).toLowerCase()
-          : undefined // 'latency' isn't normalized onto the result — leaves order unchanged
+          : undefined // exhaustive over DiscoverySort's non-relevance members; defensive fallback
   return items
     .map((r, i) => ({ r, i }))
     .sort((a, b) => {

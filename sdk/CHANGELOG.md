@@ -4,6 +4,25 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.1.1] — 2026-06-15 — discoverability polish (post-2.1.0 audit)
+
+A consistency patch from a deep docs↔source audit of the 2.1.0 discoverability surface. No
+behaviour change to any working feature.
+
+### Changed
+
+- **`DiscoverySort` drops the `'latency'` member** (now `'relevance' | 'reliability' | 'price' |
+  'uptime' | 'name'`). It was a no-op client-side (no latency field is surfaced on a result) and
+  was absent from the `piprail_discover` MCP tool enum — removing it makes the type, the tool, and
+  the docs agree. Sort by `'reliability'`/`'uptime'` for endpoint health instead.
+
+### Docs
+
+- Completed the `piprail_discover` / `piprail_register` argument + result tables on the MCP-tools
+  and agent-toolkit reference pages with the 2.1.0 params/fields; added `summary` to the
+  `DiscoveryDescriptor` table; clarified that `limit` is a per-index-*request* fetch cap (a
+  multi-word query fans out into several). Added a committed discoverability sandbox suite.
+
 ## [2.1.0] — 2026-06-15 — discoverability: pinpoint search, richer registration, self-describing endpoints
 
 A major upgrade to the discovery surface — making `discover()` find the right resource, `register()`
@@ -1177,6 +1196,7 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[2.1.1]: https://www.npmjs.com/package/@piprail/sdk
 [2.1.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.0.2]: https://www.npmjs.com/package/@piprail/sdk
 [2.0.1]: https://www.npmjs.com/package/@piprail/sdk

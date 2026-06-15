@@ -14,7 +14,9 @@ spend more than the cap you set.
 
 PipRail plugs into Hermes as a **standard MCP server** — the published
 **[`@piprail/mcp`](/mcp/overview/)** (`npx -y @piprail/mcp`). Hermes spawns it over stdio, the agent
-gets all **[7 tools](/mcp/tools/)** (namespaced `mcp_piprail_*`, e.g. `mcp_piprail_piprail_pay_request`), and a spend policy the model
+gets all **[7 tools](/mcp/tools/)** (namespaced `mcp_piprail_*`, e.g. `mcp_piprail_piprail_pay_request` —
+Hermes prefixes the server name, so the `piprail_pay_request` tool surfaces as
+`mcp_piprail_piprail_pay_request`; the doubled prefix is expected, not a typo), and a spend policy the model
 **cannot exceed** is baked in. There's no bespoke plugin to build — Hermes is Python and
 `@piprail/sdk` is TypeScript, so the MCP server *is* the integration, plus one config entry.
 

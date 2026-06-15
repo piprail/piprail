@@ -25,7 +25,7 @@
   },
   "comment": "Suites 07/08/exact-chains/live-exact import the LOCAL ../../../sdk/dist (run `npm run build` in sdk/ first), so they test working-tree code. 07 (Anvil) + 08 (@x402 reference client) need Foundry's anvil; live-exact needs ../../../.secrets and spends real Base USDC (tiny).",
   "dependencies": {
-    "@piprail/sdk": "^2.0.0",
+    "@piprail/sdk": "^2.1.0",
     "@x402/evm": "^2.14.0",
     "@x402/fetch": "^2.14.0",
     "express": "^5.0.0",

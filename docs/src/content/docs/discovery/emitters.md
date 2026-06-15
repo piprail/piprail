@@ -176,6 +176,7 @@ The `DiscoveryDescriptor` fields:
 
 | Field | Purpose |
 | --- | --- |
+| `summary` | One human sentence: what the endpoint does. Feeds `extensions.piprail.endpoint.summary` (overrides the gate `description`). |
 | `method` | HTTP method the resource answers. Default `'GET'`. |
 | `queryParams` | Query params as a JSON-Schema `properties` object (name → schema). Default `{}`. |
 | `output` | Optional output hint (`type` / `example`) for a richer listing. |
