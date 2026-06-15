@@ -1059,7 +1059,7 @@ export class PipRailClient {
       // Distinguish "this family can't pay the only scheme offered" (a scheme gap)
       // from "no rail for this network at all" — different fixes for the agent.
       const exactOnNet = challenge.accepts.some(
-        (a) => a.scheme === 'exact' && net.supports(a.network)
+        (a) => a.scheme === 'exact' && this.supportsNetwork(net, a.network)
       )
       if (schemes.includes('exact') && exactOnNet && typeof net.payExact !== 'function') {
         throw new UnsupportedSchemeError(
@@ -1071,7 +1071,7 @@ export class PipRailClient {
       // 402 it COULD pay — point it straight at the one-line remedy instead of a dead end.
       if (!schemes.includes('exact') && exactOnNet && typeof net.payExact === 'function') {
         const payable = challenge.accepts.some(
-          (a) => a.scheme === 'exact' && net.supports(a.network) && net.describeAsset(a.asset) != null
+          (a) => a.scheme === 'exact' && this.supportsNetwork(net, a.network) && net.describeAsset(a.asset) != null
         )
         if (payable) {
           throw new NoCompatibleAcceptError(
@@ -1098,6 +1098,18 @@ export class PipRailClient {
     return { net, wallet, accept: chosen.accept, challenge, quote: chosen.quote }
   }
 
+  /** Match a foreign-supplied network string against the bound driver, tolerating a
+   *  SLUG ('bsc', 'base', '56') the SAME way discovery's `railOnNetwork` already does —
+   *  normalize to CAIP-2 first, since a foreign/AEON/community 402 may label the network
+   *  with a slug (AEON serves v1 duplicate kinds '56'/'bsc'). ADDITIVE: a value that's
+   *  already CAIP-2 passes through `normalizeNetwork` UNCHANGED, so every existing
+   *  exact-CAIP-2 match is byte-identical; only slugs resolving to the bound chain become
+   *  newly matchable (an unknown slug stays unresolved → still unmatched; a different
+   *  chain's slug resolves elsewhere → still unmatched). */
+  private supportsNetwork(net: ResolvedNetwork, network: string): boolean {
+    return net.supports(normalizeNetwork(network))
+  }
+
   /** The candidate accepts this client could pay, on the bound network. Always the
    *  backendless `onchain-proof` rails; PLUS standard `exact` rails when `schemes`
    *  enables them AND the driver can settle them (EVM `payExact` + a recognised
@@ -1114,7 +1126,7 @@ export class PipRailClient {
     if (schemes.includes('onchain-proof')) {
       out.push(
         ...challenge.accepts.filter(
-          (a): a is X402AcceptEntry => a.scheme === 'onchain-proof' && net.supports(a.network)
+          (a): a is X402AcceptEntry => a.scheme === 'onchain-proof' && this.supportsNetwork(net, a.network)
         )
       )
     }
@@ -1127,7 +1139,7 @@ export class PipRailClient {
         ...challenge.accepts.filter(
           (a): a is X402ExactAcceptEntry =>
             a.scheme === 'exact' &&
-            net.supports(a.network) &&
+            this.supportsNetwork(net, a.network) &&
             typeof net.payExact === 'function' &&
             net.describeAsset(a.asset) != null &&
             // a foreign rail's maxTimeoutSeconds must be a usable positive integer, or
@@ -1469,7 +1481,7 @@ export class PipRailClient {
     wallet: WalletHandle,
     accept: X402AcceptEntry
   ): Promise<{ ref: string; confirmed: boolean }> {
-    if (!net.supports(accept.network)) {
+    if (!this.supportsNetwork(net, accept.network)) {
       throw new WrongChainError(
         `Challenge expects ${accept.network} but client is on ${net.network}.`
       )

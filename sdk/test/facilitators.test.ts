@@ -71,6 +71,25 @@ describe('parseFacilitatorSupported', () => {
     expect(kinds[1]).toMatchObject({ scheme: 'exact', network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', feePayer: 'Fee111' })
   })
 
+  it('reads optional x402Version (top-level) + extra.assetTransferMethod when present (additive)', () => {
+    const body = {
+      kinds: [
+        { x402Version: 2, scheme: 'exact', network: 'eip155:56' }, // AEON-shaped BNB kind
+        { scheme: 'exact', network: 'eip155:8453', extra: { assetTransferMethod: 'eip3009' } },
+      ],
+    }
+    const kinds = parseFacilitatorSupported(body)
+    expect(kinds[0]).toMatchObject({ scheme: 'exact', network: 'eip155:56', x402Version: 2 })
+    expect(kinds[1]).toMatchObject({ scheme: 'exact', network: 'eip155:8453', assetTransferMethod: 'eip3009' })
+  })
+
+  it('omits x402Version / assetTransferMethod ENTIRELY when absent (no undefined keys leak)', () => {
+    const [k] = parseFacilitatorSupported({ kinds: [{ scheme: 'exact', network: 'eip155:8453' }] })
+    expect(k).toEqual({ scheme: 'exact', network: 'eip155:8453' }) // strict — additive, no extra keys
+    expect('x402Version' in k!).toBe(false)
+    expect('assetTransferMethod' in k!).toBe(false)
+  })
+
   it('returns [] (never throws) on malformed / empty bodies', () => {
     expect(parseFacilitatorSupported(null)).toEqual([])
     expect(parseFacilitatorSupported({})).toEqual([])

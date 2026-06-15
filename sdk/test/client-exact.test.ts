@@ -485,3 +485,45 @@ describe('exact routing — autoRoute & planAcross', () => {
     expect(plan!.best?.accept.scheme).toBe('exact')
   })
 })
+
+describe('B: slug-network normalization on the BUYER pay path (BNB / AEON interop)', () => {
+  // The buyer's rail-match used to require the LITERAL CAIP-2 ('eip155:8453'); a foreign
+  // 402 (AEON serves v1 duplicate kinds '56'/'bsc'; community facilitators emit 'bsc')
+  // that labelled the SAME chain with a slug was silently skipped. The pay path now
+  // normalizes the rail's network the SAME way discovery's railOnNetwork already does.
+  // ADDITIVE: a CAIP-2 value passes through normalizeNetwork unchanged (every existing
+  // test above still pins the CAIP-2 path), so only slugs resolving to the BOUND chain
+  // become newly payable — never a different chain.
+  // The slug networks below are intentionally NOT CAIP-2 — widen past the `Caip2` field type.
+  const slug = (n: string) => n as X402ExactAcceptEntry['network']
+
+  it('pays an EXACT rail whose network is a SLUG ("base") resolving to the bound chain', async () => {
+    stub([exactAccept({ network: slug('base') })], () => settle200())
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
+    const res = await client.fetch(URL)
+    expect(res.status).toBe(200)
+    expect(payExactCalls).toBe(1)
+  })
+
+  it('pays an ONCHAIN-PROOF rail whose network is a SLUG ("base") — gather + payAndConfirm both normalize', async () => {
+    stub([onchainAccept({ network: slug('base') })], () => settle200())
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' } })
+    const res = await client.fetch(URL)
+    expect(res.status).toBe(200)
+    expect(sendCalls).toBe(1)
+  })
+
+  it('REGRESSION: a slug for a DIFFERENT chain ("polygon") is NOT matched by a base client', async () => {
+    stub([exactAccept({ network: slug('polygon') })], () => settle200())
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
+    await expect(client.fetch(URL)).rejects.toBeInstanceOf(NoCompatibleAcceptError)
+    expect(payExactCalls).toBe(0)
+  })
+
+  it('REGRESSION: an unrecognised network slug stays UNmatched (no false positive)', async () => {
+    stub([exactAccept({ network: slug('not-a-chain') })], () => settle200())
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
+    await expect(client.fetch(URL)).rejects.toBeInstanceOf(NoCompatibleAcceptError)
+    expect(payExactCalls).toBe(0)
+  })
+})

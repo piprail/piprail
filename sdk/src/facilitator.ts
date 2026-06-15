@@ -76,6 +76,14 @@ export interface FacilitatorSupportedKind {
   network: string
   /** The fee-payer pubkey when the kind carries one (SVM rails). */
   feePayer?: string
+  /** The kind's x402 envelope version when the facilitator reports it per-kind — e.g.
+   *  AEON's `/supported` serves `{ x402Version, scheme, network }`, letting a reader tell
+   *  a v1 from a v2 BNB rail. Optional — absent when the facilitator doesn't advertise it. */
+  x402Version?: number
+  /** The EVM exact transfer method (`eip3009` / `permit2`) when the facilitator advertises
+   *  it in the kind's `extra` — so coverage can tell whether a BNB exact kind is gasless
+   *  EIP-3009 or Permit2. Optional — most facilitators (AEON included) omit it. */
+  assetTransferMethod?: string
 }
 
 /**
@@ -90,10 +98,23 @@ export function parseFacilitatorSupported(body: unknown): FacilitatorSupportedKi
   const out: FacilitatorSupportedKind[] = []
   for (const k of kinds) {
     if (!k || typeof k !== 'object') continue
-    const o = k as { scheme?: unknown; network?: unknown; extra?: { feePayer?: unknown } }
+    const o = k as {
+      scheme?: unknown
+      network?: unknown
+      x402Version?: unknown
+      extra?: { feePayer?: unknown; assetTransferMethod?: unknown }
+    }
     if (typeof o.scheme !== 'string' || typeof o.network !== 'string') continue
     const fp = o.extra?.feePayer
-    out.push({ scheme: o.scheme, network: o.network, ...(typeof fp === 'string' ? { feePayer: fp } : {}) })
+    const ver = o.x402Version
+    const method = o.extra?.assetTransferMethod
+    out.push({
+      scheme: o.scheme,
+      network: o.network,
+      ...(typeof fp === 'string' ? { feePayer: fp } : {}),
+      ...(typeof ver === 'number' ? { x402Version: ver } : {}),
+      ...(typeof method === 'string' ? { assetTransferMethod: method } : {}),
+    })
   }
   return out
 }
