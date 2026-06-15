@@ -120,8 +120,39 @@ It's a real, backendless endpoint — dual-rail (PipRail's `onchain-proof` **and
 Prefer to watch the round-trip in your browser first? Try the interactive demo at
 [piprail.com/demo](https://piprail.com/demo).
 
+## One agent, every chain (multi-wallet)
+
+A `PipRailClient` is bound to **one chain**. But a merchant might demand Base today and Solana
+tomorrow — or list both in the same 402. Instead of wiring up routing yourself, give a
+**`MultiChainPayer`** one wallet per chain and it pays whichever chain the 402 asks for,
+under **one shared budget**:
+
+```ts
+import { MultiChainPayer } from '@piprail/sdk'
+
+const agent = MultiChainPayer.fromWallets({
+  wallets: {
+    base:   { privateKey: process.env.EVM_KEY },    // one EVM key works on every EVM chain
+    solana: { secretKey:  process.env.SOLANA_KEY }, // each non-EVM family gets its own key
+  },
+  // ONE policy caps every chain — the agent can never exceed it, whatever chain it pays on.
+  policy: { maxAmount: '1.00', maxTotal: '10.00', tokens: ['USDC'] },
+})
+
+// Same fetch/get/post/quote/planPayment as a single client — just across all your chains.
+const res = await agent.get('https://api.example.com/report')
+//    ^ settles on the first funded chain (in the order you listed) that can afford it
+```
+
+It surveys every funded chain when it hits the 402, then settles on the **first one you
+listed** that can pay — no oracle, no backend, no manual routing. The
+[agent toolkit](/agent-toolkit/payment-tools/) and the [MCP server](/mcp/overview/) wrap it
+**unchanged**, so an LLM with a multi-chain bundle uses the exact same tools. Full reference:
+[Multi-chain buying](/making-payments/multi-chain/).
+
 ## Next steps
 
 - Add **spend caps** so an agent can't overspend — [Spend Controls](/spend-controls/payment-policy/).
-- Offer **several chains at once** in one challenge — [Defining Accepts](/accepting-payments/defining-accepts/).
+- Pay a 402 on **whichever chain it asks for** — [Multi-chain buying](/making-payments/multi-chain/).
+- Offer **several chains at once** in one challenge (seller side) — [Defining Accepts](/accepting-payments/defining-accepts/).
 - Hand the whole thing to an LLM — the [MCP server](/mcp/overview/).

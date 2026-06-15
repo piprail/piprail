@@ -151,7 +151,7 @@ These are configuration, not funds:
 | Code | Class | Thrown when |
 | --- | --- | --- |
 | `WRONG_FAMILY` | `WrongFamilyError` | A wallet / `payTo` / token in another family's shape. |
-| `WRONG_CHAIN` | `WrongChainError` | A bring-your-own `walletClient` is on a different chain than configured. |
+| `WRONG_CHAIN` | `WrongChainError` | The 402 challenge demands a network the client isn't on, or a bring-your-own `walletClient` is on a different chain than configured. |
 | `UNKNOWN_TOKEN` | `UnknownTokenError` | A built-in symbol the chain doesn't ship (e.g. `token: 'DOGE'`) — use a symbol the chain ships, `'native'`, or pass the token by full descriptor. |
 | `MISSING_DRIVER` | `MissingDriverError` | A non-EVM family's optional peer deps aren't installed; the message names the exact `npm install`. |
 | `UNSUPPORTED_NETWORK` | `UnsupportedNetworkError` | No driver recognised the `chain` value. |

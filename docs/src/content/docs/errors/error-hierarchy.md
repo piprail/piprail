@@ -60,7 +60,7 @@ Every class below is exported from the package root and is caught by
 | --- | --- | --- |
 | `InsufficientFundsError` | `INSUFFICIENT_FUNDS` | The **payer** can't cover the transfer plus fees / reserve / its own trustline. |
 | `RecipientNotReadyError` | `RECIPIENT_NOT_READY` | The **recipient** (`payTo`) isn't set up to receive on this chain (not activated / no trustline / not registered / not opted-in). |
-| `WrongChainError` | `WRONG_CHAIN` | A bring-your-own `walletClient` is on a different chain than configured. |
+| `WrongChainError` | `WRONG_CHAIN` | The chain doesn't match — the 402 challenge demands a network the client isn't on, or a bring-your-own `walletClient` is on a different chain than configured. |
 | `WrongFamilyError` | `WRONG_FAMILY` | The wallet, `payTo`, or token was given in another family's shape (e.g. an `0x…` address on Solana). |
 | `UnknownTokenError` | `UNKNOWN_TOKEN` | A built-in token symbol the chosen chain doesn't ship (e.g. `token: 'DOGE'`). |
 | `MissingDriverError` | `MISSING_DRIVER` | A family's optional peer deps aren't installed — message names the exact `npm install`. |

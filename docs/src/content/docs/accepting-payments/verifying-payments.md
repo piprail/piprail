@@ -137,7 +137,7 @@ the code, `result.detail` the human text) and stamps it into the re-challenge's
 | `payment_expired` | Older than `maxTimeoutSeconds` — outside the recency window. |
 | `tx_already_used` | The proof was already redeemed (replay) — emitted by the gate. |
 | `no_meta` | The tx carries no metadata to inspect (Solana). |
-| `signature_invalid` | `exact` rail only: the EIP-712 authorization didn't recover to the payer. |
+| `signature_invalid` | `exact` rail only: the authorization is invalid — on EVM the EIP-712 signature didn't recover to the payer; on Solana the SVM transaction's signer or structure is wrong. |
 
 Some codes are family-specific by design (account-watch chains collapse "wrong recipient" into
 `transfer_not_found`; `insufficient_confirmations` needs a discrete confirmation count). The full

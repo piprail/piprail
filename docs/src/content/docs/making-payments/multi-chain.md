@@ -88,6 +88,28 @@ can settle, the *first one you listed* wins. There's no oracle to compare gas ac
 different native coins, so the SDK never guesses which is "cheaper" in dollars — you decide
 by ordering. List your preferred chain first, or fund only it.
 
+### Every option
+
+`wallets` is the only required field. Everything else is **one setting that fans out to every
+chain's client identically** — so you configure spend caps, the gasless rail, approval, and
+retries *once* and they apply across the whole bundle:
+
+| Option | Type | Default | What it does |
+|---|---|---|---|
+| `wallets` *(required)* | `Record<string, WalletInput>` | — | One wallet per chain, keyed by chain selector. Iteration order = your chain preference (first that can settle wins). |
+| `policy` | [`PaymentPolicy`](/spend-controls/payment-policy/) | none (unbounded) | One spend policy applied to **every** chain's client — the buyer can never exceed it whatever chain it pays on. Each client still keeps its own per-(network, asset) ledger (no cross-token sum — there's no price oracle). |
+| `schemes` | [`PaymentScheme[]`](/making-payments/exact-buyer/) | `['onchain-proof']` | Which rails every client may settle. Add `'exact'` to enable the [gasless rail](/making-payments/gasless-payments/) on every chain that supports it. |
+| `rpcUrls` | `Record<string, string>` | public presets | Per-chain RPC overrides, keyed by the **same chain selector as `wallets`**. Pass your own for anything serious — the public presets are rate-limited. |
+| `onBeforePay` | `(quote) => boolean \| Promise<boolean>` | always allow | Final approval hook on every client; fires **after** the policy passes and **before** any send. Return `false` (or throw) to veto. |
+| `onEvent` | `(event) => void` | none | Observability hook on every client — receives each [`PipRailEvent`](/making-payments/events/) (quote, pay, verify, retry…). |
+| `maxPaymentRetries` | `number` | `3` | Retry budget for the post-broadcast leg, per client. |
+| `retryTimeoutMs` | `number` | `30000` | Timeout (ms) for the retry leg, per client. |
+
+A chain you only want to **read** from (`quote`/`estimateCost`/`discover`, never pay) just
+needs its wallet omitted — but `fromWallets` always builds a paying client per key, so for a
+read-only chain use the [array constructor](#the-primitives-underneath) with a wallet-less
+`PipRailClient`.
+
 For a custom EVM chain configured by a viem `Chain` object, build the client yourself and
 use the array form: `new MultiChainPayer([clientA, clientB, …])` (order = preference).
 
@@ -252,7 +274,8 @@ can pick another settleable rail *on the same chain*, or decline — its spend p
   the **first chain you list** that can settle. Within a single chain it still prefers the
   cheapest-gas rail. List your preferred chain first (or fund only it).
 - **Read-only chains are fine.** A client with no wallet contributes nothing to paying (it
-  can still plan/quote/discover). The payer pays on whichever funded chain wins.
+  can still `quote`/`estimateCost`/`discover` — `planPayment` needs a wallet, since it reads
+  *your* balance). The payer pays on whichever funded chain wins.
 - **Total outage propagates; one chain down doesn't.** If a single chain's RPC is
   unreachable it's dropped from the plan; if *every* chain is unreachable, `planPayment` /
   `canAfford` throw rather than falsely reporting "free" or "affordable".
