@@ -194,7 +194,7 @@ family](/making-payments/wallets-by-family/) for details.
 
 :::note
 `chain: 'near'` is the one chain that needs a second var: `PIPRAIL_NEAR_ACCOUNT_ID` (your
-`you.near`). The server refuses to start without it.
+`you.near`). It's required alongside a NEAR key — a read-only (key-less) NEAR server boots without it.
 :::
 
 ## RPC and API keys

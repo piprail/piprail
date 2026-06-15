@@ -147,8 +147,9 @@ pair. A never-spent token simply isn't a row yet.
 ## How it feeds the lifetime cap
 
 The ledger isn't only a report — it's the running total the policy checks against. Before any
-on-chain send, [`evaluatePolicy()`](/spend-controls/evaluate-policy/) reads the per-asset total
-from the ledger; if the new payment would push it past `policy.maxTotal`, the client refuses with
+on-chain send, the client reads the per-asset total from the ledger (`ledger.totalFor`) and passes
+it to [`evaluatePolicy()`](/spend-controls/evaluate-policy/) as `spentForAssetBase`; if the new
+payment would push it past `policy.maxTotal`, the client refuses with
 [`PaymentDeclinedError`](/errors/error-hierarchy/) and no funds move. The same totals back the
 rolling-window check ([`windowSeconds` + `windowTotal`](/spend-controls/time-envelope/)), which
 scans only records inside the window.

@@ -168,7 +168,9 @@ if (!quote) {
 [`planPayment()`](/making-payments/plan-payment/) folds the same verdict into its per-rail
 analysis — a policy breach shows as the `OUTSIDE_POLICY` blocker (or `OUTSIDE_WINDOW` for the
 time envelope). And [`client.budget()`](/spend-controls/spend-ledger/) reports the remaining
-allowance per asset plus any time leash, so a Mode-A agent can see how much room it has left.
+allowance per asset plus any time leash, so a Mode-A agent can see how much room it has left
+(per-asset rows only appear after the first payment on a pair — see the
+[spend-ledger caution](/spend-controls/spend-ledger/)).
 
 ## Refusal codes
 
@@ -195,7 +197,7 @@ session-global: an expired session always reports expiry, not whichever cap also
 
 When a payment actually breaches the policy, the client throws
 [`PaymentDeclinedError`](/errors/error-hierarchy/) **before any on-chain send** — `.code` is
-always `'PAYMENT_DECLINED'`, and `.reasonCode` is a typed [`DeclineReasonCode`](/errors/error-model/)
+always `'PAYMENT_DECLINED'`, and `.reasonCode` is a typed [`DeclineReasonCode`](/errors/error-hierarchy/)
 an agent can branch on without parsing the message.
 
 ```ts

@@ -43,6 +43,7 @@ mcp_servers:
   piprail:
     command: "npx"
     args: ["-y", "@piprail/mcp"]
+    enabled: true
     env:
       PIPRAIL_PRIVATE_KEY: "${PIPRAIL_PRIVATE_KEY}"   # from ~/.hermes/.env
       PIPRAIL_CHAIN: "base"
@@ -52,11 +53,17 @@ mcp_servers:
     tools:
       prompts: false
       resources: false
+      include:
+        - piprail_discover
+        - piprail_quote_payment
+        - piprail_plan_payment
+        - piprail_pay_request
+        - piprail_register
+        - piprail_budget
+        - piprail_guide
 ```
 
-Run **`/reload-mcp`** in a session (or start a new one) and the `mcp_piprail_*` tools appear. You can
-also add it from the CLI — `hermes mcp add piprail --command npx --args -y @piprail/mcp` — or, once the
-[MCP catalog entry](#discover--publish) merges, simply **`hermes mcp install piprail`**.
+Run **`/reload-mcp`** in a session (or start a new one) and the `mcp_piprail_*` tools appear.
 
 :::danger
 **Two secret gotchas.** Hermes does **not** inherit your shell environment into the subprocess, so
@@ -80,10 +87,10 @@ guidance for the agent. It's discoverable with `hermes skills search piprail`, o
 | Variable | Required | Default | Purpose |
 | --- | --- | --- | --- |
 | `PIPRAIL_PRIVATE_KEY` | only to **pay** | — | Self-custodial wallet key/seed (EVM `0x…`, Solana base58, or a mnemonic). **Omit it for read-only** — discover/quote/register/budget/guide still work. Not an API key. |
-| `PIPRAIL_CHAIN` | — | `base` | Which chain to pay on — any EVM, or `solana`/`ton`/`tron`/`near`/`sui`/`aptos`/`algorand`/`stellar`/`xrpl` |
+| `PIPRAIL_CHAIN` | — | `base` | Which chain to pay on — any EVM, or `solana`/`ton`/`tron`/`near`/`sui`/`aptos`/`algorand`/`stellar`/`xrpl`. NEAR also requires `PIPRAIL_NEAR_ACCOUNT_ID` to pay (e.g. you.near). |
 | `PIPRAIL_CHAINS` | — | — | **Pay across several chains** (instead of `PIPRAIL_CHAIN`) — e.g. `base,polygon,solana`, each with its own `PIPRAIL_<CHAIN>_KEY`; pays whichever chain a 402 asks for. See [Configuration](/mcp/configuration/#pay-on-several-chains-from-one-server). |
 | `PIPRAIL_MAX_AMOUNT` | — | `0.10` | Max per payment, in the **token's units** (≈ $ for USDC/USDT; native-coin units on a `native` rail) |
-| `PIPRAIL_MAX_TOTAL` | — | `10.00` | Lifetime budget per (chain, token) |
+| `PIPRAIL_MAX_TOTAL` | — | `10.00` | Lifetime budget per token; in multi-chain mode, per chain+token |
 | `PIPRAIL_TOKENS` | — | chain stables | Allowed tokens, comma-separated |
 | `PIPRAIL_SCHEMES` | — | `onchain-proof` | Add `exact` to also pay standard x402 servers |
 | `PIPRAIL_RPC_URL` | — | chain default | Custom RPC (recommended in production) |

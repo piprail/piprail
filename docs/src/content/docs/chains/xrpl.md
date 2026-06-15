@@ -65,7 +65,8 @@ import { requirePayment } from '@piprail/sdk'
 // A custom issued currency is { issuer, currencyHex, decimals }:
 requirePayment({
   chain: 'xrpl',
-  token: { issuer: 'r…', currencyHex: '5553444300000000000000000000000000000000', decimals: 6 },
+  // 160-bit hex for a 4+ char code, e.g. 'MYTKN':
+  token: { issuer: 'r…', currencyHex: '4D59544B4E000000000000000000000000000000', decimals: 6 },
   amount: '0.10',
   payTo: 'r…',
 })

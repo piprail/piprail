@@ -126,7 +126,7 @@ never sums USDC and SOL into one figure.
 import { formatSpendReport } from '@piprail/sdk'
 
 console.log(formatSpendReport(client.spent()))
-// → "0.30 USDC on eip155:8453 (3 payments); 0.05 USDC on solana:mainnet (1 payment)"
+// → "0.30 USDC on eip155:8453 (3 payments); 0.05 USDC on solana:5eykt4Us… (1 payment)"
 ```
 
 A ledger with `count === 0` renders `No payments yet.`; otherwise each `byAsset` row becomes

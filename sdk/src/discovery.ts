@@ -65,7 +65,8 @@ export interface ManifestInput {
    * Optional ownership proofs — each a signature of the BARE ORIGIN STRING by a
    * `payTo` key (EVM: eip191 hex). A trust badge on indexes that verify it
    * (x402scan: `recoverMessageAddress(origin, sig) === payTo`); never required to
-   * be listed. Produce one with the driver's `signMessage(wallet, origin)`.
+   * be listed. Produce one via `client.discoverySigner()`, then `signer.signMessage(origin)`
+   * (single-arg — it signs the bare origin string).
    */
   ownershipProofs?: string[]
   /** OpenAPI `info.title`. Default 'PipRail x402 resources'. */

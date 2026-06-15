@@ -109,7 +109,7 @@ reports `0.10` as `"100000"`. The wire receipt is deliberately exact — but the
 your `onPaid` hook receives also carries the display fields, so you rarely touch base units.
 :::
 
-### The `PaidReceipt` (what `onPaid` receives)
+### The `PaidReceipt`
 
 `onPaid` and `onPaidError` get a `PaidReceipt` — every `X402Receipt` field **plus** the
 merchant-facing extras the gate already resolved for the challenge, so a receipt handler never
@@ -175,7 +175,8 @@ On your receiver: verify the `piprail-signature` (HMAC-SHA256 of the raw body wi
 and **upsert on the `idempotency-key` header** — `deliverReceipt`'s retries and at-least-once
 `onPaid` both mean the same receipt may arrive more than once.
 
-It retries `408`/`429`/`5xx` and transport errors; a permanent `4xx` stops immediately. Tune it
+It retries `408`/`429`/`5xx` and transport errors; a permanent `4xx` stops immediately. By default
+`retries: 5` (up to 6 POSTs) with a 10s per-attempt timeout. Tune it
 with `retries`, `timeoutMs`, `backoff`, `headers`, and observe each try with `onAttempt`:
 
 ```ts

@@ -195,8 +195,9 @@ app.get('/report', async (c) => {
 ## Verifying the exact rail
 
 If you opted into the standard [`exact` rail](/accepting-payments/exact-rail-seller/), the same
-`verify()` call also handles inbound EIP-3009 payments — it parses either the v2
-`payment-signature` or the legacy v1 `x-payment` header and routes accordingly. You don't change
+`verify()` call also handles inbound EIP-3009 payments — the gate parses both the v2 and v1 inner
+payload shapes; pass it whichever header your client sent — the `requirePayment` middleware reads
+`payment-signature` then falls back to `x-payment`. You don't change
 how you call it. One extra failure mode applies: when a valid, simulated `exact` payment can't be
 **settled** server-side (your relayer is out of gas, or a chosen facilitator is down), `verify()`
 throws a `SettlementError` instead of returning `'invalid'`. That's not the payer's fault — their

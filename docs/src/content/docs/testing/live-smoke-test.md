@@ -122,7 +122,7 @@ if (!plan) {
   console.log('not payment-gated — nothing to fund')
 } else if (!plan.payable) {
   console.log(plan.fundingHint)
-  // → "Have the USDC, but need ~0.000021 ETH for gas on base (have 0)."
+  // → "Can't settle on base: add ~0.000021 ETH for gas (to pay 0.10 USDC)."
 }
 ```
 
@@ -155,9 +155,17 @@ itself fake USDC by writing contract storage, and skips cleanly if Anvil isn't i
 it's a regression gate that costs nothing.
 
 ```bash
+cd examples/sdk-sandbox && npm install   # suite 05 imports the installed @piprail/sdk
+node run-all.mjs                          # suite 05 is the live on-chain round-trip
+```
+
+Suite 05 runs against the installed `@piprail/sdk` (a real `node_modules` dir), and `examples/`
+isn't a root workspace member — so `npm run build:sdk` doesn't reach it; you `npm install` instead.
+To exercise **working-tree** SDK code (it imports `../../../sdk/dist`), build first and run suite 07:
+
+```bash
 npm run build:sdk
-cd examples/sdk-sandbox
-node run-all.mjs   # suite 05 is the live on-chain round-trip
+node examples/sdk-sandbox/suites/07-exact-rail.mjs
 ```
 
 Use the fork to prove the *shape* of the loop, and a funded mainnet wallet to prove the *chain*.

@@ -53,7 +53,7 @@ import { requirePayment, PipRailClient } from '@piprail/sdk'
 
 // ACCEPT (server side) — turn a route paid-only.
 // requirePayment(...) returns an Express-style middleware: drop it in front of a handler.
-const gate = requirePayment({ chain: 'base', token: 'USDC', amount: '0.10', payTo: '0xYourWallet' })
+const middleware = requirePayment({ chain: 'base', token: 'USDC', amount: '0.10', payTo: '0xYourWallet' })
 
 // PAY (agent side) — a fetch that pays 402s itself.
 const client = new PipRailClient({ chain: 'base', wallet: { privateKey: process.env.AGENT_KEY } })
@@ -62,9 +62,9 @@ const res = await client.fetch('https://api.example.com/report') // pays the 402
 const report = await res.json()
 ```
 
-The same app can both **take** payments (`gate`) and **make** them (`client`). From here,
-[`PipRailClient`](/making-payments/piprail-client/) is the buyer's whole surface — `quote`,
-`estimateCost`, `planPayment`, and `fetch`.
+The same app can both **take** payments (`middleware`) and **make** them (`client`). From here,
+[`PipRailClient`](/making-payments/piprail-client/) is the buyer's core surface — `quote`,
+`estimateCost`, `planPayment`, and `fetch` (plus `discover`/`register`/`canAfford`/`spent`/`budget`).
 
 :::note
 The protocol layer is **chain-agnostic**. Naming a non-EVM chain lazily imports only that

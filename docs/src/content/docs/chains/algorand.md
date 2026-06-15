@@ -60,13 +60,16 @@ Name a token by symbol, `'native'`, or a custom ASA:
 ```ts
 import { requirePayment } from '@piprail/sdk'
 
-const accept = requirePayment({
-  chain: 'algorand',
-  token: 'USDC',
-  amount: '0.10',
-  payTo: 'YourAlgoAddr',  // 58-char Algorand address
-})
-// → an X402Accept describing the rail (scheme, network, amount in base units, asset, payTo)
+app.get(
+  '/report',
+  requirePayment({
+    chain: 'algorand',
+    token: 'USDC',
+    amount: '0.10',
+    payTo: 'YourAlgoAddr',  // 58-char Algorand address
+  }),
+  (req, res) => res.json({ ok: true }),
+)
 ```
 
 :::note
@@ -83,12 +86,16 @@ charge on Algorand: name the chain, name the amount, get paid.
 ```ts
 import { requirePayment } from '@piprail/sdk'
 
-const accept = requirePayment({
-  chain: 'algorand',
-  token: 'native',
-  amount: '0.10',
-  payTo: 'YourAlgoAddr',
-})
+app.get(
+  '/report',
+  requirePayment({
+    chain: 'algorand',
+    token: 'native',
+    amount: '0.10',
+    payTo: 'YourAlgoAddr',
+  }),
+  (req, res) => res.json({ ok: true }),
+)
 ```
 
 ALGO is the volatile gas coin, so for stable pricing pay in USDC; for no-setup flows, native

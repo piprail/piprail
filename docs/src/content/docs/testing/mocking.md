@@ -70,7 +70,8 @@ stay trivial. These are the ones the protocol layer calls:
 | `verify(ref, accept)` | a `VerifyResult` — `{ ok: true, receipt }` or `{ ok: false, error, detail }` | the gate, on the paid retry |
 | `send(wallet, accept)` | the proof ref (tx hash / signature) | the client, when it pays |
 | `confirm(ref, n)` | `{ height }` once confirmed | the client, after `send` |
-| `resolveToken` / `describeAsset` | the asset's `{ asset, decimals, symbol }` | budget + symbol checks |
+| `resolveToken` | the asset's `{ asset, decimals, symbol? }` | budget + symbol checks |
+| `describeAsset` | `{ symbol?, decimals } \| null` (null = the SDK doesn't recognise the asset) | budget + symbol checks |
 | `balanceOf` / `recipientReady` / `estimateCost` | balances, readiness, gas | [`planPayment()`](/making-payments/plan-payment/) |
 
 `verify` **returns** a `VerifyResult` and never throws for a transient read — so to simulate a
@@ -201,6 +202,9 @@ When you want to prove the *real* chain path end to end instead, drop the mock a
 
 The same SPI is how you'd add a genuine new chain family rather than a fake one: implement every
 required `ResolvedNetwork` method for your chain, return it from a `PaymentDriver.resolve()`, and
-call `registerDriver`. The optional methods (`payExact`, `discoverySigner`, `exactDomain`,
-`settleExactSelf`) are EVM-only today and may be omitted. The full contract — every method's
-error behaviour and which are optional — is the [Driver SPI reference](/reference/driver-spi/).
+call `registerDriver`. There are six optional methods, all of which may be omitted:
+`resolveExactRail`, `payExact`, `settleExactSelf`, `exactDomain`, `exactPermit2Supported`, and
+`discoverySigner`. The exact-rail methods (`resolveExactRail` / `payExact` / `settleExactSelf`)
+are implemented by EVM and Solana today, while `exactDomain` / `exactPermit2Supported` are
+EVM-specific. The full contract — every method's error behaviour and which are optional — is the
+[Driver SPI reference](/reference/driver-spi/).

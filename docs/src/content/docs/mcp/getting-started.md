@@ -8,7 +8,8 @@ sidebar:
 ## Introduction
 
 The MCP server is `@piprail/sdk` wrapped as a [Model Context Protocol](https://modelcontextprotocol.io)
-server, so any MCP client — Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, Cline — can
+server, so any MCP client (Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, Cline, and more —
+see [Client setup](/mcp/client-setup/)) can
 pay [x402](https://x402.org)-gated URLs **on its own**, capped by a spend policy the model
 **cannot exceed**. You don't write code: you add an `npx` command and an env block, restart your
 client, and the `piprail_*` tools appear.

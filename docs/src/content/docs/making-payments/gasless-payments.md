@@ -77,7 +77,7 @@ which one to trust is your call (some need an API key). After that one flag, eve
 
 - **Buyer** — add `'exact'` to `schemes`. The client then signs (never broadcasts), so it spends **zero
   gas** on any `exact` rail. To make it *prefer* the gasless rail when a gate offers both, turn on
-  [`autoRoute`](/making-payments/plan-payment/) — it pays the **cheapest settleable** rail, which is the
+  [`autoRoute`](/making-payments/fetch-and-autoroute/) — it pays the **cheapest settleable** rail, which is the
   gasless one. (Without `autoRoute`, a dual-rail PipRail gate defaults to `onchain-proof`; a foreign
   `exact`-only server is paid over `exact` automatically either way.)
 - **Seller** — set `exact: { settle: { facilitator } }`. The gate discovers everything it needs (on
@@ -135,10 +135,10 @@ Read this as: *"on chain X, token Y is gasless via Z."* Anything not listed pays
 | Token | Gasless on |
 |---|---|
 | **USDC** (native Circle) | Ethereum · Base · Arbitrum · Optimism · Polygon · Avalanche · **Sonic · Linea · Celo · Unichain · World Chain · Sei · HyperEVM · Monad · zkSync Era · Injective** |
-| **EURC** | Ethereum · Base · Avalanche · World Chain |
+| **EURC** | Ethereum · Base · Avalanche |
 | **FDUSD**, **USD1** | BNB Chain |
 
-*(**17 chains, and counting.** Every native Circle USDC is the same Circle FiatToken contract that
+*(**17 EIP-3009-gasless chains (the 16 native-USDC chains above plus BNB via FDUSD/USD1), and counting.** Every native Circle USDC is the same Circle FiatToken contract that
 implements EIP-3009 — so naming the chain is all it takes, no proxy and no approval. Each chain above
 was verified on-chain before shipping: `authorizationState` present, EIP-712 domain `version` 2, and the
 chain's real `eth_chainId` matched. The list grows as Circle issues native USDC on more chains.)*

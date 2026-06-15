@@ -64,7 +64,7 @@ facilitator) on Solana for a _fully_ gasless gate** — then neither you nor the
 :::
 
 :::caution
-`settle: 'self'` requires `relayer`. Omit it and the gate throws at setup. Keep the relayer
+`settle: 'self'` requires `relayer`. Omit it and the gate throws on the first request. Keep the relayer
 funded with native coin: if it can't broadcast, the gate returns **5xx** (a `SettlementError`,
 emitted as HTTP `502`), never a 402 — the payer's signed authorization stays valid and unused,
 so they can retry once you top it up.
@@ -73,7 +73,7 @@ so they can retry once you top it up.
 ## Mode B — delegate to a facilitator (EVM **and** Solana)
 
 Instead of running a relayer, delegate verify + settle to a third-party x402 facilitator **you
-choose** (Coinbase CDP, x402.org, PayAI, or any compatible one). No relayer key, and the
+choose** (Coinbase CDP, PayAI, or any compatible one). No relayer key, and the
 facilitator pays gas. Under the hood this is just two HTTP POSTs to the facilitator's
 configured URL — PipRail hosts nothing. Works on **EVM and Solana**.
 
@@ -82,7 +82,7 @@ Third-party facilitators settle the *standard* `exact` schemes: **EIP-3009** (EV
 **SVM** (Solana — any SPL token). They do **not** understand PipRail's **Permit2** payload (it settles
 through PipRail's own `x402ExactPermit2Proxy`), so a non-EIP-3009 EVM token (e.g. Binance-Peg USDC/USDT
 on BNB) **can't** go through a facilitator — it's **self-settle only** (Mode A). PipRail enforces this:
-a *forced* `method: 'permit2'` with `settle: { facilitator }` throws at setup, and an *auto*-selected
+a *forced* `method: 'permit2'` with `settle: { facilitator }` throws on the first request, and an *auto*-selected
 Permit2 simply isn't advertised over the facilitator (that token falls back to `onchain-proof`). For a
 fully-gasless facilitator gate, use an **EIP-3009** token on EVM, or **any SPL token** on Solana.
 :::
@@ -113,7 +113,7 @@ too, where the payer broadcasts and pays their own gas.
 ```ts
 const gate = requirePayment({
   chain: 'base', token: 'USDC', amount: '0.10', payTo: '0xYourWallet',
-  exact: { settle: { facilitator: 'https://x402.org/facilitator' } },
+  exact: { settle: { facilitator: 'https://facilitator.payai.network' } },
 })
 ```
 
@@ -202,7 +202,7 @@ broadcasts.
 
 :::tip
 If you request `exact` but none of your offered rails can carry it (a single native-coin gate, or a
-family without an `exact` scheme), the gate throws a clear error at setup rather than silently shipping
+family without an `exact` scheme), the gate throws a clear error on the first request rather than silently shipping
 `onchain-proof` only. Offer an EVM ERC-20 (EIP-3009 USDC/EURC, or any token via Permit2) or a Solana
 SPL token, or drop `exact`.
 :::

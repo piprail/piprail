@@ -108,7 +108,7 @@ same helper as a backstop, so the two paths can't drift in vocabulary.
 :::tip
 Don't confuse it with [`RecipientNotReadyError`](/errors/error-hierarchy/) (`RECIPIENT_NOT_READY`).
 That's a chain-*state* problem on the receiving side — XRPL not activated, a missing Stellar
-trustline, an unregistered NEAR account — and the fix is the opposite: set up the *recipient*, not
+trustline, an unregistered NEAR account, a missing Algorand ASA opt-in — and the fix is the opposite: set up the *recipient*, not
 fund the *payer*. PipRail keeps the two distinct on purpose.
 :::
 
@@ -179,9 +179,11 @@ genuine non-`PipRailError` bug rethrows.
 
 ## Where read-only methods sit
 
-The read-only completion of the trio — `balanceOf`, `recipientReady`,
-[`estimateCost()`](/making-payments/estimate-cost/), and the composed
-[`planPayment()`](/making-payments/plan-payment/) — deliberately **never throw**. Like `verify()`,
+The read-only completion of the trio — [`planPayment()`](/making-payments/plan-payment/) (and its
+inputs [`estimateCost()`](/making-payments/estimate-cost/), plus the drivers' `balanceOf` /
+`recipientReady` SPI it composes) — deliberately **never throw**. The driver-SPI `balanceOf` /
+`recipientReady` are surfaced only via `planPayment().options[].balance` / `.recipient`, never as
+client methods. Like `verify()`,
 they *return* their outcome: a transient read becomes a rail in `state: 'unknown'` with a warning,
 an unsettleable rail carries typed `blockers`, and a missing field comes back `null` (never a false
 `0`). The only throw on that path is `InvalidEnvelopeError` on an unparseable challenge — and

@@ -92,7 +92,7 @@ interface DiscoveredResource {
 :::caution
 Results are **cross-scheme** — the open indexes mostly carry the mainstream `exact` scheme, not
 PipRail's `onchain-proof`. `fetch()` pays `onchain-proof` rails by default; to pay a standard
-`exact` rail (EVM + EIP-3009 — USDC/EURC) opt in with `schemes: ['onchain-proof', 'exact']`. The
+`exact` rail (EVM via EIP-3009/Permit2, plus Solana SVM) opt in with `schemes: ['onchain-proof', 'exact']`. The
 advertised `priceUsd` is a coarse pre-filter; always re-confirm with `quote()` before paying.
 :::
 

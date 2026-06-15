@@ -102,7 +102,7 @@ The payer needs a little **NEAR for gas** either way — native or token.
 ## When a payment can't go through
 
 `client.fetch(url)` pays the cheapest settleable rail. If the wallet or recipient isn't ready it
-throws a typed [`PipRailError`](/errors/error-model/) — branch on the stable `.code` rather than
+throws a typed [`PipRailError`](/errors/error-hierarchy/) — branch on the stable `.code` rather than
 the message. On NEAR the two you'll meet are `RECIPIENT_NOT_READY` (the `payTo` account isn't
 `storage_deposit`-registered on the token) and `INSUFFICIENT_FUNDS` (the payer is short on the
 token or on NEAR for gas):

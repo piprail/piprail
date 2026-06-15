@@ -73,8 +73,9 @@ collapse into a single entry. Each paid op carries `x-payment-info` with `x402Ve
 the resource's `accepts[]` (a `PaymentRail[]`).
 
 Each per-method operation object inside the document is typed as `OpenApiOperation` (exported
-from `@piprail/sdk`) — the `{ responses, 'x-payment-info' }` value under a path's `get`/`post`
-key. You rarely reference it directly; it's there for typing a hand-built document.
+from `@piprail/sdk`) — the `{ summary?, responses, 'x-payment-info' }` value under a path's
+`get`/`post` key (the optional `summary` comes from the resource's `description`). You rarely
+reference it directly; it's there for typing a hand-built document.
 
 ### The `x-generator` stamp
 
@@ -104,8 +105,10 @@ console.log(GENERATOR)
 | `attribution` | Stamp `x-generator`. Default `true`; set `false` to omit. |
 
 When you pass `ownershipProofs`, `buildOpenApi` adds them at `x-agentcash-provenance` — the
-provenance block the open indexes read. Produce one with the driver's `signMessage(wallet,
-origin)` (via [`client.discoverySigner()`](/making-payments/piprail-client/)); see [Domain
+provenance block the open indexes read. Produce one by getting the signer and signing the bare
+origin string with its single-arg `signMessage` — `const signer = await client.discoverySigner();
+const proof = await signer.signMessage(origin)` (see
+[`client.discoverySigner()`](/making-payments/piprail-client/)); see [Domain
 verification](/discovery/domain-verification/).
 
 ## `buildWellKnownX402` — the compatibility breadcrumb

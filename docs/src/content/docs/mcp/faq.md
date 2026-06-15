@@ -8,9 +8,9 @@ sidebar:
 ## Can I use PipRail with Claude Desktop?
 
 Yes. `@piprail/mcp` is a [Model Context Protocol](https://modelcontextprotocol.io) server, so it
-runs in any MCP client — Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, and Cline. Add
-one entry to your client's config with your wallet key and spend limits, restart, and the tools
-appear in the agent's tool list. No code, no backend.
+runs in any MCP client (Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, Cline, and more —
+see [Client setup](/mcp/client-setup/)). Add one entry to your client's config with your wallet
+key and spend limits, restart, and the tools appear in the agent's tool list. No code, no backend.
 
 ```bash
 npx -y @piprail/mcp        # speaks MCP over stdio
@@ -78,13 +78,15 @@ Point the agent at [`piprail_plan_payment`](/mcp/tools/) first. It reports per-r
 
 ## Which AI clients and chains does it support?
 
-Any MCP client — Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, and Cline. For chains, all
+Any MCP client (Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, Cline, and more — see
+[Client setup](/mcp/client-setup/)). For chains, all
 of the ones PipRail supports: every EVM mainnet plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand,
 Stellar, and the XRP Ledger. EVM works out of the box (the server ships with `viem`); non-EVM
 chains pull their SDK peer library on demand. See [Chains](/mcp/chains/).
 
-Each server instance is **one wallet on one chain** — register it once per chain to give an agent
-several rails.
+A server instance can be a single wallet on one chain, OR fund several chains in one process with
+`PIPRAIL_CHAINS` — it then pays whichever chain a 402 asks for, under one shared budget. For an
+independent budget per chain, register it once per chain. See Configuration → Pay on several chains.
 
 ## Does it take custody of my funds or run a backend?
 

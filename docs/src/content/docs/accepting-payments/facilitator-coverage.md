@@ -18,7 +18,7 @@ facilitator for your gate's network from this map, or fails with a clear message
 
 ## Live-verified facilitators
 
-The third-party x402 facilitators below were **probed live on 2026-06-15** — each one's `GET /supported`
+The third-party x402 facilitators below were **probed live on 2026-06-14/15** — each one's `GET /supported`
 was read, and every row marked ✅ was then settled with a **real mainnet `exact` payment through
 PipRail**, where the **buyer paid zero gas**. "Keyless" means it settles with **no API key**, so the
 facilitator sponsors the network fee for the buyer *and* the merchant. You point a gate at any of them
@@ -68,7 +68,7 @@ after a live `/supported` read confirms a new pair.
 ```ts
 import { KNOWN_FACILITATORS, knownFacilitatorsFor, firstKeylessFacilitator } from '@piprail/sdk'
 
-knownFacilitatorsFor('eip155:8453') // Base — both live-verified keyless on 2026-06-15
+knownFacilitatorsFor('eip155:8453') // Base — both live-verified keyless (PayAI 2026-06-14, xpay 2026-06-15)
 // → [{ url: 'https://facilitator.payai.network', keyless: true, settles: ['eip3009'], … },
 //    { url: 'https://facilitator.xpay.sh',       keyless: true, settles: ['eip3009'], … }]
 

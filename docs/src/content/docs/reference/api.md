@@ -199,9 +199,10 @@ See [Gasless payments](/making-payments/gasless-payments/).
 | `readExactDomain`, `eip3009Abi` | fn / const | reads/uses a token's true on-chain EIP-712 domain (EVM) |
 | `EXACT_NETWORK_SLUGS`, `EIP3009_TYPES` | const | — |
 | `PERMIT2_ADDRESS`, `X402_EXACT_PERMIT2_PROXY`, `PERMIT2_WITNESS_TYPES` | const | Permit2 method: the canonical Permit2 + x402ExactPermit2Proxy + witness types |
+| `PERMIT2_PROXY_CHAIN_IDS`, `isPermit2ProxyChain` | const / fn | EVM chains where the x402 Permit2 proxy is deployed (where the Permit2 exact method can settle) |
 | `buildExactAuthorization` | fn | Deprecated — trusts the server-supplied domain |
 | `ExactAccept`, `ExactAuthorization`, `BuildExactParams` | type | — |
-| `Permit2Authorization`, `Permit2PaymentPayload`, `ExactSvmPaymentPayload`, `ExactPaymentPayloadAny` | type | the per-method wire payloads (EIP-3009 / Permit2 / SVM); `ParsedExactPayment` is a union on `method` (`'eip3009'`/`'permit2'`/`'svm'`) |
+| `Permit2Authorization`, `Permit2PaymentPayload`, `ExactPaymentPayloadAny` | type | the per-method wire payloads (EIP-3009 / Permit2 / SVM); `ParsedExactPayment` is a union on `method` (`'eip3009'`/`'permit2'`/`'svm'`) |
 
 ## Advanced: exact facilitator (Mode B) — `facilitator.js`
 

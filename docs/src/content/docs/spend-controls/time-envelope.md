@@ -146,7 +146,7 @@ refusal is specific. Session expiry runs **first** because it's session-global, 
 an expired session always reports expiry, never some other gate that happens to also fail.
 
 ```text
-session expiry → chains → hosts → unknown-token → tokens → maxAmount → maxTotal → window
+session expiry → chains → hosts → unknown-token → tokens → maxAmount → maxTotal → windowTotal
 ```
 
 Both time guards collapse to a single decline `reasonCode` on the client, distinct from the
@@ -159,12 +159,14 @@ amount-based codes:
 
 :::note
 That `reasonCode` is the *coarse* code a `catch` sees on `PaymentDeclinedError` (a
-[`DeclineReasonCode`](/errors/error-model/)). The read-only `quote.policyCode` (a finer
+[`DeclineReasonCode`](/errors/error-hierarchy/)). The read-only `quote.policyCode` (a finer
 [`PolicyDenyCode`](/spend-controls/evaluate-policy/)) names the exact guard: `SESSION_EXPIRED`
 passes through unchanged, while the rolling window's `WINDOW_TOTAL` maps to `OUTSIDE_WINDOW`.
 :::
 
 See [Evaluate policy](/spend-controls/evaluate-policy/) for the pure decision function behind
 these checks, and [Why payments fail](/errors/why-payments-fail/) for branching on every
-`reasonCode`. The MCP exposes the relative `PIPRAIL_TTL` knob and a `piprail_budget` tool — see
-[MCP modes](/mcp/modes/).
+`reasonCode`. The MCP exposes the relative `PIPRAIL_TTL` knob, the rolling window via
+`PIPRAIL_WINDOW_TOTAL` + `PIPRAIL_WINDOW_SECONDS` (set both together or neither), and a
+`piprail_budget` tool — see [MCP modes](/mcp/modes/). Only `expiresAt` is genuinely SDK-only
+(no MCP env knob).

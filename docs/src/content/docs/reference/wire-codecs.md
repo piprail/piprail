@@ -181,13 +181,13 @@ The codecs are typed by a small set of interfaces, all exported as `type`s:
 | `X402PaymentSignature` | the client's proof: `accepted` + `{ nonce, txHash }` |
 | `X402Receipt` | the settled receipt on a 200 (the wire shape) |
 | `X402ResourceObject` | the gated resource: `url`, optional `description` / `mimeType` |
+| `Caip2` | a CAIP-2 network id, e.g. `eip155:8453` |
+| `AssetId` | a chain-specific asset id, or `'native'` |
+| `AddressId` | a chain-specific account id |
 
 The wire receipt is `X402Receipt`. A gate's [`onPaid`](/accepting-payments/receipts-and-onpaid/#the-paidreceipt)
 hook receives a **`PaidReceipt`** — the same fields plus `decimals` / `symbol` / `amountFormatted` /
 `idempotencyKey` — but that enrichment never goes on the wire; the `payment-response` header stays `X402Receipt`.
-| `Caip2` | a CAIP-2 network id, e.g. `eip155:8453` |
-| `AssetId` | a chain-specific asset id, or `'native'` |
-| `AddressId` | a chain-specific account id |
 
 `VerifyResult` and [`VerifyErrorCode`](/errors/verify-error-code/) — the shape every driver's
 `verify()` returns — are exported here too. `VerifyResult` is the union
@@ -230,7 +230,6 @@ here's the map:
 | `ParsedExactPayment` | what `parseExactPaymentHeader` returns — a union discriminated on `method` (`'eip3009'` / `'permit2'` / `'svm'`) |
 | `ExactPaymentPayload` / `ExactAuthorizationWire` | the EVM EIP-3009 `{ signature, authorization }` payload |
 | `Permit2PaymentPayload` | the EVM Permit2 `{ signature, permit2Authorization }` payload |
-| `ExactSvmPaymentPayload` | the Solana `{ transaction }` payload — a base64 partial-signed transaction |
 
 `parseExactPaymentHeader` tolerates both the v2 `payment-signature` and the v1 `X-PAYMENT`
 shapes, and discriminates the three payload shapes on `method` (`'eip3009'` → `authorization`,

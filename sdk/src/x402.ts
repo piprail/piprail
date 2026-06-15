@@ -325,7 +325,7 @@ export type VerifyErrorCode =
   | 'transfer_not_found' // no matching transfer (asset/amount/nonce) to payTo — definitive
   | 'payment_expired' // older than maxTimeoutSeconds (replay window) — definitive
   | 'tx_already_used' // proof already redeemed (replay) — definitive (gate-enforced)
-  | 'signature_invalid' // exact rail: the EIP-712 authorization signature didn't recover to the payer — definitive (EVM exact)
+  | 'signature_invalid' // exact rail: the authorization is invalid — EVM: the EIP-712 signature didn't recover to the payer; Solana: the SVM tx signer/structure is invalid — definitive
 
 /** The shape every driver's `verify()` returns. Shared by drivers + protocol. */
 export type VerifyResult =

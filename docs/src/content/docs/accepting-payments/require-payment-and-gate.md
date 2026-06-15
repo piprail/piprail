@@ -148,6 +148,7 @@ never break the request (route them to `onPaidError`). It's fire-and-forget by d
 | `generateNonce` | Custom per-challenge nonce generator. Default `crypto.randomUUID()`. |
 | `isUsed` / `markUsed` | Pluggable replay store for multi-instance deploys. |
 | `exact` | Also accept the standard `exact` scheme (Mode A self-settle, or Mode B facilitator). |
+| `selfDescribe` | Self-describe every 402 with an [`extensions.piprail`](/discovery/self-describing-endpoints/) block. Default `true`; set `false` to omit. |
 | `discovery` | Emit the discovery manifest so crawlers can find this endpoint. |
 
 Full reference: the [API page](/reference/api/). Standard-`exact` selling is covered on the

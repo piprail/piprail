@@ -18,6 +18,10 @@ The toolkit ships **zero dependencies**: it's plain data plus an `invoke` closur
 that client, the model can't bypass it — every payment goes through the same `policy` and
 `onBeforePay` guard.
 
+`paymentTools()` accepts any `PayingClient` — a single-chain `PipRailClient` **or** a
+[`MultiChainPayer`](/making-payments/multi-chain/) (one wallet per chain, auto-routing to
+whichever chain the 402 asks for). The seven tools are identical either way.
+
 ## Basic use
 
 Build a client with a wallet and a [spend policy](/spend-controls/payment-policy/), then derive
@@ -119,9 +123,10 @@ interface ToolAnnotations {
 }
 ```
 
-The only tool with `readOnlyHint: false` is `piprail_pay_request` — it carries
-`destructiveHint: true` and `idempotentHint: false` because a payment moves value and paying
-twice means two payments. Every other tool is `readOnlyHint: true`.
+Two tools are `readOnlyHint: false`: `piprail_pay_request` and `piprail_register`. Only
+`piprail_pay_request` is `destructiveHint: true` with `idempotentHint: false` (it moves value,
+and paying twice means two payments); `piprail_register` is `destructiveHint: false` (it writes
+a listing to an external index but moves no funds). The other five tools are `readOnlyHint: true`.
 
 :::caution
 `readOnlyHint`, `destructiveHint`, and friends are advisory. A client must never gate a payment

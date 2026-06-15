@@ -59,7 +59,7 @@ Every class below is exported from the package root and is caught by
 | Class | `.code` | Meaning |
 | --- | --- | --- |
 | `InsufficientFundsError` | `INSUFFICIENT_FUNDS` | The **payer** can't cover the transfer plus fees / reserve / its own trustline. |
-| `RecipientNotReadyError` | `RECIPIENT_NOT_READY` | The **recipient** (`payTo`) isn't set up to receive on this chain (not activated / no trustline / not registered). |
+| `RecipientNotReadyError` | `RECIPIENT_NOT_READY` | The **recipient** (`payTo`) isn't set up to receive on this chain (not activated / no trustline / not registered / not opted-in). |
 | `WrongChainError` | `WRONG_CHAIN` | A bring-your-own `walletClient` is on a different chain than configured. |
 | `WrongFamilyError` | `WRONG_FAMILY` | The wallet, `payTo`, or token was given in another family's shape (e.g. an `0x…` address on Solana). |
 | `UnknownTokenError` | `UNKNOWN_TOKEN` | A built-in token symbol the chosen chain doesn't ship (e.g. `token: 'DOGE'`). |
@@ -112,7 +112,7 @@ try {
 :::tip
 `INSUFFICIENT_FUNDS` and `RECIPIENT_NOT_READY` are deliberately distinct because the fix is
 opposite: fund the **payer** vs. set up the **recipient** (activate the account, add a
-trustline, `storage_deposit`-register). The recipient error states the requirement in plain
+trustline, `storage_deposit`-register, or opt into the ASA). The recipient error states the requirement in plain
 language and echoes the raw chain code (e.g. `(XRPL: tecNO_DST_INSUF_XRP)`).
 :::
 

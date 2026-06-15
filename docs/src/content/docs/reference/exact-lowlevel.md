@@ -82,9 +82,9 @@ chainIdForExactNetwork('mantle')    // → null — an EVM preset, but not in th
 ```
 
 The shipped set is `ethereum`, `base`, `arbitrum`, `optimism`, `polygon`,
-`avalanche`, `bnb`, and the EIP-3009-verified chains `sonic`, `linea`, `celo`, `unichain`,
-`worldchain`, `sei`, `hyperevm`, `monad`, `zksync`, `injective` (mainnets only — no testnet
-presets). (It's a reference helper, not the
+`avalanche`, `bnb` (with `bsc` as an alias — both → `56`), and the EIP-3009-verified chains
+`sonic`, `linea`, `celo`, `unichain`, `worldchain`, `sei`, `hyperevm`, `monad`, `zksync`,
+`injective` (mainnets only — no testnet presets). (It's a reference helper, not the
 gate — the `exact` rail is offered on **any** EVM chain whose token is EIP-3009 or whose chain has
 the Permit2 proxy.)
 

@@ -35,7 +35,7 @@ family uses the same code for the same condition. An agent branches on `error`; 
 | `transfer_not_found` | No matching transfer (asset / amount / nonce) to `payTo`. | definitive |
 | `payment_expired` | Older than `maxTimeoutSeconds` (the replay window). | definitive |
 | `tx_already_used` | This proof was already redeemed — a replay. | definitive |
-| `signature_invalid` | The `exact`-rail EIP-712 authorization didn't recover to the payer. | definitive |
+| `signature_invalid` | The `exact`-rail authorization is invalid: on EVM the EIP-712 signature didn't recover to the payer; on Solana the SVM transaction's signer/structure is invalid. | definitive |
 
 ## Transient vs definitive
 
@@ -58,7 +58,7 @@ read the transfer, check it was unused.
 - **`tx_not_found`** — the only transient that all drivers emit. The proof ref didn't resolve to
   a transaction on the merchant's RPC: it hasn't landed yet, or the read itself failed.
 - **`insufficient_confirmations`** — the tx is mined but not yet `minConfirmations` deep. Emitted
-  by families with a discrete confirmation count (EVM); the client retries after the backoff.
+  by families with a discrete confirmation depth (EVM and XRPL); the client retries after the backoff.
 - **`tx_reverted`** — the transaction exists on chain but its execution failed, so nothing settled.
 - **`no_meta`** — Solana-specific: the transaction returned no metadata to inspect, so the transfer
   can't be read.
@@ -68,10 +68,12 @@ read the transfer, check it was unused.
   `payTo`. On account-watch chains this also absorbs "wrong recipient" (see below).
 - **`payment_expired`** — the proof is older than the rail's `maxTimeoutSeconds` recency window. On
   the `exact` rail, this is also an expired or not-yet-valid EIP-3009 authorization.
-- **`tx_already_used`** — the proof was already redeemed. This is the one verify-style code emitted
-  by the **gate**, not a driver, because only the gate owns the [used-proof set](/accepting-payments/replay-protection/).
-- **`signature_invalid`** — `exact`-rail only: the EIP-712 authorization signature didn't recover
-  to the claimed payer. See [the exact rail](/accepting-payments/exact-rail-seller/).
+- **`tx_already_used`** — the verify-style code the gate emits for the onchain-proof replay set — and
+  that the EVM `exact` / Permit2 driver also returns via the token's on-chain `authorizationState` /
+  Permit2 nonce check.
+- **`signature_invalid`** — `exact`-rail only: the authorization is invalid. On EVM the EIP-712
+  signature didn't recover to the claimed payer; on Solana the SVM transaction's signer/structure
+  is invalid. See [the exact rail](/accepting-payments/exact-rail-seller/).
 
 ## Family-specificity is structural, not drift
 
@@ -81,7 +83,7 @@ because of inconsistency.
 | Behaviour | Why |
 | --- | --- |
 | `no_meta` is Solana-only | Only Solana exposes a "no transaction metadata" condition. |
-| `insufficient_confirmations` is EVM-style | It needs a discrete confirmation count. |
+| `insufficient_confirmations` is EVM/XRPL-style | It needs a discrete confirmation count. |
 | Account-watch chains (TON, Stellar) never say `wrong_recipient` | They scan the merchant account, so "wrong recipient" and "no payment" both collapse to `transfer_not_found`. |
 | EVM / Solana digest verifiers report a short token payment as `transfer_not_found` | The digest path has no nonce binding to anchor an `amount_too_low`; nonce-bound chains (TON, Stellar) can say `amount_too_low`. |
 

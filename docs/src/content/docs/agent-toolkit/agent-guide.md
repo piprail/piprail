@@ -119,6 +119,7 @@ string is exposed two ways, so any MCP client can pull it into context:
 | --- | --- |
 | Prompt | `piprail_agent_guide` |
 | Resource | `piprail://guide` (`text/markdown`) |
+| Resource | `piprail://budget` (`application/json`) — also gated behind the `guide`/`PIPRAIL_GUIDE` flag, serving the live spend budget. |
 
 A headless, non-MCP agent doesn't need either — import `PIPRAIL_AGENT_GUIDE` directly and prepend
 it to the system prompt.

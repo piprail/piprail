@@ -1,6 +1,6 @@
 # @piprail/mcp
 
-**Hand any AI agent a budget-bound payment wallet.** An [MCP](https://modelcontextprotocol.io) server wrapping [`@piprail/sdk`](https://www.npmjs.com/package/@piprail/sdk) so any MCP client — Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, Cline — can pay [x402](https://x402.org) URLs **on its own**, capped by a spend policy the model **cannot exceed**. Runs locally with **your** wallet and **your** limits — no backend, no custody, no facilitator.
+**Hand any AI agent a budget-bound payment wallet.** An [MCP](https://modelcontextprotocol.io) server wrapping [`@piprail/sdk`](https://www.npmjs.com/package/@piprail/sdk) so any MCP client — Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, Cline, OpenClaw, Hermes — can pay [x402](https://x402.org) URLs **on its own**, capped by a spend policy the model **cannot exceed**. Runs locally with **your** wallet and **your** limits — no backend, no custody, no facilitator.
 
 ```bash
 npx -y @piprail/mcp        # speaks MCP over stdio

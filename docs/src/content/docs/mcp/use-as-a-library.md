@@ -13,11 +13,15 @@ custom transport, you can construct the server yourself and own the connection.
 
 For the common case there's a single turnkey entry — **`startServer`** — that runs the whole boot
 flow. For full control, the lower-level pieces are also exported: `parseConfig` (env →
-[`Config`](/mcp/configuration/)), `configToClientOptions` (config → SDK client options), and
+[`Config`](/mcp/configuration/)), `configToClientOptions` (config → SDK client options),
+`configToClientOptionsList` (multi-chain config → an array of SDK client options), and
 `createMcpServer` (client options → `{ server, client }`). None of them touch the network or a chain.
 
 ```ts
-import { startServer, createMcpServer, parseConfig, configToClientOptions } from '@piprail/mcp'
+import {
+  startServer, createMcpServer, parseConfig,
+  configToClientOptions, configToClientOptionsList,
+} from '@piprail/mcp'
 ```
 
 ## The quickest path — `startServer`
@@ -55,6 +59,18 @@ const { server } = createMcpServer(configToClientOptions(config), {
 })
 
 await server.connect(new StdioServerTransport())
+```
+
+For a **multi-chain** config (`PIPRAIL_CHAINS`), use `configToClientOptionsList` instead — it
+returns an array of client options, one per funded chain, that `createMcpServer` accepts to build
+the multi-chain payer. `configToClientOptions(config)` throws a `ConfigError` on a multi-chain
+config, so reach for the list form whenever `PIPRAIL_CHAINS` may be set:
+
+```ts
+const { server } = createMcpServer(configToClientOptionsList(config), {
+  confirm: config.confirm,
+  guide: config.guide,
+})
 ```
 
 `createMcpServer` returns a low-level `Server` from `@modelcontextprotocol/sdk` with all seven

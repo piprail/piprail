@@ -11,7 +11,8 @@ PipRail has no server, no database, and no facilitator — yet a gate still has 
 payment really happened. It does that **locally**: when a proof arrives, `verify()` does a
 targeted lookup on **your own RPC**, confirms the transaction succeeded and moved the required
 amount of the right token to `payTo`, checks it's recent enough, and checks it hasn't been
-redeemed before. All synchronous, all in-process.
+redeemed before. All in-process — no facilitator round-trip — a single targeted read against
+your own RPC.
 
 ```ts
 import { createPaymentGate } from '@piprail/sdk'
@@ -87,7 +88,7 @@ createPaymentGate({
 Full treatment on the [Replay protection](/accepting-payments/replay-protection/) page.
 
 :::note
-Verification **fails closed**. If the RPC read fails, the gate returns `transfer_not_found` →
+Verification **fails closed**. If the RPC read fails, the gate returns `tx_not_found` →
 `402`, never `paid` — an outage can't be exploited for free access. On failure it also **releases
 the replay claim**, so the same proof can be re-submitted once the RPC recovers; the proof isn't
 burned.

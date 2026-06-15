@@ -94,7 +94,7 @@ register — `planPayment()` won't raise `RECIPIENT_NOT_READY` for TON. The paye
 
 ```ts
 const { quote, cost } = await client.estimateCost('https://api.example.com/report')
-// → { quote: { amountFormatted: '0.10', symbol: 'USDT', … }, cost: { amountFormatted: '0.0…', symbol: 'TON', basis: 'estimated' } }
+// → { quote: { amountFormatted: '0.10', symbol: 'USDT', … }, cost: { amountFormatted: '0.0…', symbol: 'TON', basis: 'heuristic' } }
 // cost is the network fee in TON (the native gas coin), separate from the USD₮ payment
 ```
 

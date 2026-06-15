@@ -7,8 +7,9 @@ sidebar:
 
 ## Introduction
 
-`@piprail/mcp` is a Model Context Protocol server that wraps the SDK and hands any MCP client —
-Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, Cline — a **budget-bound wallet**. The
+`@piprail/mcp` is a Model Context Protocol server that wraps the SDK and hands any MCP client
+(Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, Cline, and more — see
+[Client setup](/mcp/client-setup/)) a **budget-bound wallet**. The
 agent can discover, quote, plan, and pay x402 URLs on its own, but only within a spend policy you
 set in environment variables — a cap the model cannot exceed.
 

@@ -23,7 +23,7 @@ is the canonical, atomic choice:
 requirePayment({
   chain: 'base', token: 'USDC', amount: '0.05', payTo: '0xYourWallet',
   isUsed:   (ref) => redis.exists(`piprail:proof:${ref}`).then(Boolean),
-  markUsed: (ref) => { redis.set(`piprail:proof:${ref}`, '1', { EX: 900 }) },  // ~recency window
+  markUsed: (ref) => { redis.set(`piprail:proof:${ref}`, '1', { EX: 900 }) },  // >= the gate's maxTimeoutSeconds (default 600s)
 })
 ```
 
@@ -78,7 +78,8 @@ token — miss it and payments fail at settle, not at quote:
 - **Algorand** — an ASA opt-in for the token (native ALGO is zero-setup).
 - **Solana / Aptos / Sui** — the recipient's token account exists once it has held the token.
 
-The client surfaces this read-only via `recipientReady` / `planPayment`; the
+The client surfaces this read-only via `planPayment()` — each rail's `options[].recipient` reports
+`ready` plus a `fix` hint; the
 [chains catalog](/chains/overview/) lists every caveat. Native coin is payable on every family with
 no prerequisite.
 

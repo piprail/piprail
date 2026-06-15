@@ -161,6 +161,10 @@ discoveryHeaders()
 discoveryHeaders({ attribution: false }) // omit x-powered-by, keep the Link pointers
 ```
 
+If a response already carries a `Link` header, comma-merge the two values rather than
+object-spreading `discoveryHeaders()` over your existing headers — an object spread silently
+replaces your existing `Link` with PipRail's discovery pointers.
+
 `POWERED_BY` is the response-side twin of the `/openapi.json` [`GENERATOR`](/discovery/emitters/) stamp.
 
 ## How an AI agent uses it

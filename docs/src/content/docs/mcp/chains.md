@@ -75,7 +75,7 @@ one: the SDK has **no separate API-key field** — fold any key into the `PIPRAI
 | --- | --- |
 | **TON** | A keyed RPC is effectively required — the keyless public endpoint is rate-limited (~1 req/s) and stalls verification. Use `PIPRAIL_RPC_URL=https://toncenter.com/api/v2/jsonRPC?api_key=YOUR_KEY`. Pays **USDT**; key is a 24-word mnemonic. |
 | **Tron** | The default public RPC (TronGrid) is rate-limited; point `PIPRAIL_RPC_URL` at a higher-limit endpoint (URL-embedded key, no header field). Gas is real **TRX**, so the wallet needs TRX as well as USDT. Pays **USDT**; key is a `0x…` 32-byte hex private key. |
-| **NEAR** | Set `PIPRAIL_NEAR_ACCOUNT_ID` (your `merchant.near`) alongside the `ed25519:…` key — startup fails without it. |
+| **NEAR** | Set `PIPRAIL_NEAR_ACCOUNT_ID` (your `you.near`) alongside the `ed25519:…` key — required when a NEAR key is present (a read-only, key-less NEAR server boots without it). |
 | **Stellar / XRPL / Algorand** | Receiving needs a one-time trustline/opt-in on the *recipient* side. |
 
 For the recipient-readiness caveats, `piprail_plan_payment` reports `recipientReady` so the agent
