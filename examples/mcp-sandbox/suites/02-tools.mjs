@@ -113,10 +113,11 @@ export async function run() {
       const mplan = (await plan(x('/x-multi'))).json
       check('multi-rail plan: only the base rail is analysed', mplan.options.length === 1 && mplan.options[0].network === BASE)
 
-      // No compatible rail: quote THROWS (isError), plan degrades gracefully.
+      // No compatible rail: quote returns a STRUCTURED { ok:false, code } (an expected SDK
+      // error, funnelled like pay_request — not an opaque isError); plan degrades gracefully.
       const qSol = await quote(x('/x-solana-only'))
-      check('off-chain-only 402: quote → isError (no rail on this client\'s chain)',
-        qSol.isError === true && /No accepts|eip155:8453/i.test(qSol.text), qSol.text.slice(0, 120))
+      check('off-chain-only 402: quote → structured { ok:false, code } (no rail on this client\'s chain)',
+        !qSol.isError && qSol.json?.ok === false && /NO_COMPATIBLE|COMPATIBLE/i.test(String(qSol.json?.code)), JSON.stringify(qSol.json).slice(0, 140))
       const pSol = (await plan(x('/x-solana-only'))).json
       check('off-chain-only 402: plan → graceful { gated:true, payable:false } + a hint',
         pSol.gated === true && pSol.payable === false && /isn't offered on your chain/i.test(pSol.fundingHint ?? ''),
@@ -126,8 +127,9 @@ export async function run() {
     group('02 · Defensive parsing & wallet validation (reached via the tools)')
     {
       const mal = await quote(x('/malformed-amount'))
-      check('malformed amount → typed envelope error (isError), not a raw crash',
-        mal.isError === true && /integer|amount|envelope/i.test(mal.text), mal.text.slice(0, 120))
+      check('malformed amount → structured { ok:false, code:INVALID_ENVELOPE }, not a raw crash',
+        !mal.isError && mal.json?.ok === false && /INVALID_ENVELOPE/i.test(String(mal.json?.code)) && /integer|amount/i.test(String(mal.json?.reason)),
+        JSON.stringify(mal.json).slice(0, 140))
     }
   } finally {
     await s.close()
@@ -186,8 +188,8 @@ export async function run() {
     })
     try {
       const res = await callTool(bad.client, 'piprail_quote_payment', { url: `${honest2.url}/cheap` })
-      check('bad key → tool isError (SDK wallet validation surfaced through MCP)',
-        res.isError === true && res.text.length > 0, res.text.slice(0, 120))
+      check('bad key → structured { ok:false, code:WRONG_FAMILY } (SDK wallet validation surfaced through MCP)',
+        !res.isError && /WRONG_FAMILY/.test(res.text) && /EVM/.test(res.text), res.text.slice(0, 120))
     } finally {
       await bad.close()
       await honest2.close()
