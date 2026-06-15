@@ -98,9 +98,10 @@ export async function run() {
     check('banner announces the server', /PipRail MCP server/.test(stderr))
     check('banner shows chain + budget + tokens',
       /base/.test(stderr) && /0\.25/.test(stderr) && /12\.50/.test(stderr) && /USDC, USDT/.test(stderr))
-    check('banner lists all 5 tools',
+    check('banner lists all 7 tools',
       /piprail_discover/.test(stderr) && /piprail_quote_payment/.test(stderr) && /piprail_plan_payment/.test(stderr) &&
-        /piprail_pay_request/.test(stderr) && /piprail_register/.test(stderr))
+        /piprail_pay_request/.test(stderr) && /piprail_register/.test(stderr) &&
+        /piprail_budget/.test(stderr) && /piprail_guide/.test(stderr))
     check('banner reports the key SOURCE, never the value',
       /set via PIPRAIL_PRIVATE_KEY/.test(stderr) && !stderr.includes(KEY))
     check('a custom RPC URL is redacted to "(custom)"', /\(custom\)/.test(stderr) && !stderr.includes(DEAD_RPC))

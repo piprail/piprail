@@ -71,18 +71,25 @@ export async function callTool(client, name, args = {}) {
  * separately, then kill it. Proves the banner lands on stderr and stdout stays a
  * pristine protocol channel (a single stray stdout byte corrupts MCP framing).
  */
-export function bootSnapshot(env = {}, ms = 600) {
+export function bootSnapshot(env = {}, ms = 6000) {
   assertBinBuilt()
   return new Promise((resolvePromise, reject) => {
     const child = spawn(process.execPath, [BIN], {
       env: { PATH: process.env.PATH, HOME: process.env.HOME, ...env },
       stdio: ['ignore', 'pipe', 'pipe'],
     })
-    let stdout = '', stderr = ''
+    let stdout = '', stderr = '', done = false
+    const finish = () => { if (done) return; done = true; child.kill('SIGKILL'); resolvePromise({ stdout, stderr }) }
     child.stdout.on('data', (c) => (stdout += c.toString()))
-    child.stderr.on('data', (c) => (stderr += c.toString()))
+    child.stderr.on('data', (c) => {
+      stderr += c.toString()
+      // Resolve as soon as the banner has fully printed (its last line) — robust under
+      // heavy machine load (a fixed short window used to miss the banner and flake), and
+      // still fast when the box is idle. The hard `ms` is just a backstop.
+      if (stderr.includes('custodies nothing')) finish()
+    })
     child.on('error', reject)
-    setTimeout(() => { child.kill('SIGKILL'); resolvePromise({ stdout, stderr }) }, ms)
+    setTimeout(finish, ms)
   })
 }
 
