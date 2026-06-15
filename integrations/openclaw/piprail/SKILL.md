@@ -1,6 +1,6 @@
 ---
 name: piprail
-description: A self-custodial crypto payment wallet for your OpenClaw agent, with a hard spend cap it can't exceed. It autonomously pays x402 paywalls ('402 Payment Required') on every major chain, settling funds straight to the recipient — no facilitator, no fee, no signup.
+description: A self-custodial crypto payment wallet for your OpenClaw agent, with a hard spend cap it can't exceed. It autonomously pays x402 paywalls ('402 Payment Required') on every major chain, settling funds straight to the recipient — no facilitator, no fee, no signup. Runs read-only with no key (discover/quote/plan before you add a wallet); add a key only to let the agent pay, optionally gaslessly via the standard x402 'exact' rail.
 metadata:
   openclaw:
     emoji: "🛤️"
@@ -47,6 +47,8 @@ and/or takes a cut. PipRail is different:
 - **Self-custodial** — your key, your machine. PipRail hosts and holds nothing.
 - **Every major chain** — EVM (Base, Ethereum, Polygon, Arbitrum, Optimism, Avalanche, BNB…), Solana,
   TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, XRPL — one `PIPRAIL_CHAIN` param picks everything.
+- **Gasless when you want it** — opt into the standard x402 `exact` rail (`PIPRAIL_SCHEMES=exact`) and the
+  agent pays **zero gas**: it signs the transfer (EIP-3009/Permit2 on EVM, SVM on Solana) and the server settles.
 - **A hard spend cap the model can't cross** — `PIPRAIL_MAX_TOTAL=5.00` and that's the ceiling, enforced
   in the SDK before any on-chain send. MIT open source.
 
