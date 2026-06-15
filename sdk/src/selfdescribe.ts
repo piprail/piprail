@@ -59,6 +59,27 @@ export interface SelfDescribeRail {
   how: string
 }
 
+/**
+ * What the endpoint DOES — the agent-readability payload. Present only when the merchant
+ * described their resource (a `description`/`mimeType` on the gate, or a `discovery`
+ * descriptor with a `summary`/`queryParams`/`output`); absent on a zero-config gate, so
+ * the default 402 stays byte-identical. Lets an AI agent understand the endpoint's purpose,
+ * inputs, and output shape from the 402 alone — no paid call to find out what it returns.
+ */
+export interface SelfDescribeEndpoint {
+  /** One human sentence: what this endpoint does. */
+  summary?: string
+  /** HTTP method it answers on. */
+  method?: string
+  /** The response content-type, e.g. 'application/json'. */
+  mimeType?: string
+  /** Query params it reads, as a JSON-Schema `properties` object (name → schema). */
+  input?: Record<string, unknown>
+  /** Output hint — shape/type and a concrete example (examples ground an LLM far better
+   *  than a schema alone). */
+  output?: { type?: string; example?: unknown }
+}
+
 /** The `extensions.piprail` self-description block. Inert, purely-additive metadata. */
 export interface SelfDescription {
   name: 'PipRail'
@@ -66,6 +87,9 @@ export interface SelfDescription {
   version: '2'
   /** One sentence: what this endpoint is. */
   what: string
+  /** What the endpoint DOES (purpose · inputs · output) — see {@link SelfDescribeEndpoint}.
+   *  Only present when the merchant described the resource; absent on a zero-config gate. */
+  endpoint?: SelfDescribeEndpoint
   /** Every rail the 402 offers, in the same order as `accepts[]`. */
   pay: SelfDescribeRail[]
   /** How to pay programmatically with the SDK. */
@@ -119,12 +143,17 @@ function railOf(a: X402AnyAccept): SelfDescribeRail {
 export function buildSelfDescription(input: {
   accepts: X402AnyAccept[]
   instruction?: string
+  /** What the endpoint DOES — included only when non-empty (keeps the zero-config 402
+   *  byte-identical). Built from the gate's `description`/`mimeType`/`discovery` descriptor
+   *  via {@link buildEndpointInfo}. */
+  endpoint?: SelfDescribeEndpoint
 }): SelfDescription {
   return {
     name: 'PipRail',
     protocol: 'x402',
     version: '2',
     what: WHAT,
+    ...(input.endpoint && Object.keys(input.endpoint).length > 0 ? { endpoint: input.endpoint } : {}),
     pay: input.accepts.map(railOf),
     sdk: { install: BRAND.sdkInstall, snippet: BRAND.sdkSnippet },
     mcp: { run: BRAND.mcpRun, tool: 'piprail_pay_request' },
@@ -132,4 +161,29 @@ export function buildSelfDescription(input: {
     discovery: { openapi: '/openapi.json', wellKnown: '/.well-known/x402' },
     ...(input.instruction ? { instruction: input.instruction } : {}),
   }
+}
+
+/**
+ * Assemble a {@link SelfDescribeEndpoint} from the pieces a gate knows — its
+ * `description`/`mimeType` and an optional `discovery` descriptor. Pure. Returns
+ * `undefined` when nothing was described, so the self-describe block (and thus the 402)
+ * stays byte-identical on a zero-config gate. The descriptor's `summary` wins over the
+ * gate `description` for the one-line "what it does".
+ */
+export function buildEndpointInfo(input: {
+  description?: string
+  mimeType?: string
+  descriptor?: { summary?: string; method?: string; queryParams?: Record<string, unknown>; output?: { type?: string; example?: unknown } }
+}): SelfDescribeEndpoint | undefined {
+  const d = input.descriptor
+  const summary = d?.summary ?? input.description
+  const hasInput = d?.queryParams && Object.keys(d.queryParams).length > 0
+  const endpoint: SelfDescribeEndpoint = {
+    ...(summary ? { summary } : {}),
+    ...(d?.method ? { method: d.method.toUpperCase() } : {}),
+    ...(input.mimeType ? { mimeType: input.mimeType } : {}),
+    ...(hasInput ? { input: d!.queryParams } : {}),
+    ...(d?.output ? { output: d.output } : {}),
+  }
+  return Object.keys(endpoint).length > 0 ? endpoint : undefined
 }

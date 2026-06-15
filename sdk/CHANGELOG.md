@@ -4,6 +4,34 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.1.0] — 2026-06-15 — discoverability: pinpoint search, richer registration, self-describing endpoints
+
+A major upgrade to the discovery surface — making `discover()` find the right resource, `register()`
+make yours findable, and every 402 self-explain to an AI agent. All additive and backward-compatible
+(defaults unchanged); the zero-config 402 stays byte-identical.
+
+### Added
+
+- **Pinpoint `discover()`.** Multi-word queries now work: the query is **fanned out per word** to 402
+  Index (whose `?q=` is AND-tokenized and would otherwise miss them, capped at 5 requests) and the
+  merged results are **ranked client-side by relevance** (name > category/tags > URL path >
+  description, with a complete-match bonus). A query like `"crypto price feed"` now lands on the
+  right resource where it previously returned nothing. Exposed as `rankResources` / `scoreResource`.
+- **Server-side filters on `discover()`** — `category` (strict), `asset`, `maxPrice`, `minReliability`,
+  `verified`, `paymentValid`, `sort` (`DiscoverySort`: `relevance`/`reliability`/`price`/`uptime`/`name`)
+  + `order` — pushed to 402 Index where supported, applied client-side where not.
+- **Richer `DiscoveredResource`** — `tags`, `reliabilityScore`, `health`, `verified`, and `score`
+  (relevance) so an agent can prefer healthy, verified, on-topic endpoints.
+- **Richer `register()`** — `category` (the top findability lever; most of 402 Index is
+  `uncategorized`), `tags` (folded into the description as a searchable keyword tail via the new
+  `appendKeywords` helper, since index search is literal), `provider`, `contactEmail`, `probeBody`.
+- **Self-describing endpoints** — the default-on `extensions.piprail` block gains an optional
+  `endpoint` (summary · method · mimeType · input schema · output example) so an AI agent understands
+  what an endpoint does, its inputs, and an example output **from the 402 alone, no paid call**. A new
+  gate `mimeType` option emits the v2 root `resource.mimeType`; the `discovery` descriptor gains
+  `summary` and now lights up BOTH the index-facing `extensions.bazaar` block and the agent-facing
+  `extensions.piprail.endpoint`. `gate.describe()` carries `mimeType`. Exposed as `buildEndpointInfo`.
+
 ## [2.0.2] — 2026-06-15 — docs/JSDoc accuracy (no code change)
 
 A documentation-accuracy patch from a final repo-wide doc↔source sweep. **No behaviour or API
@@ -1149,6 +1177,7 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[2.1.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.0.2]: https://www.npmjs.com/package/@piprail/sdk
 [2.0.1]: https://www.npmjs.com/package/@piprail/sdk
 [2.0.0]: https://www.npmjs.com/package/@piprail/sdk

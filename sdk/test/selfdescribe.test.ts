@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   buildSelfDescription,
+  buildEndpointInfo,
   BRAND,
   type X402AcceptEntry,
   type X402ExactAcceptEntry,
@@ -132,5 +133,62 @@ describe('buildSelfDescription', () => {
     expect(sd.pay[0]).toMatchObject({ scheme: 'onchain-proof', amount: '5', asset: 'native' })
     expect(sd.pay[0]!.amountFormatted).toBeUndefined()
     expect(sd.pay[0]!.symbol).toBeUndefined()
+  })
+
+  it('omits `endpoint` by default (zero-config 402 stays byte-identical)', () => {
+    const sd = buildSelfDescription({ accepts: [onchainProof] })
+    expect('endpoint' in sd).toBe(false)
+  })
+
+  it('includes an `endpoint` block when one is provided (agent-readability)', () => {
+    const sd = buildSelfDescription({
+      accepts: [onchainProof],
+      endpoint: {
+        summary: 'Current USD price for any crypto ticker',
+        method: 'GET',
+        mimeType: 'application/json',
+        input: { symbol: { type: 'string' } },
+        output: { type: 'json', example: { symbol: 'ETH', usd: 3247.18 } },
+      },
+    })
+    expect(sd.endpoint).toMatchObject({
+      summary: 'Current USD price for any crypto ticker',
+      method: 'GET',
+      mimeType: 'application/json',
+      input: { symbol: { type: 'string' } },
+      output: { type: 'json', example: { symbol: 'ETH', usd: 3247.18 } },
+    })
+  })
+})
+
+describe('buildEndpointInfo — assemble what-the-endpoint-does', () => {
+  it('returns undefined when nothing was described (byte-identical default)', () => {
+    expect(buildEndpointInfo({})).toBeUndefined()
+    expect(buildEndpointInfo({ descriptor: {} })).toBeUndefined()
+  })
+
+  it('uses the gate description as the summary', () => {
+    expect(buildEndpointInfo({ description: 'Weather by lat/lon' })).toEqual({ summary: 'Weather by lat/lon' })
+  })
+
+  it('a descriptor summary overrides the gate description; method is upper-cased', () => {
+    const ep = buildEndpointInfo({
+      description: 'fallback',
+      mimeType: 'application/json',
+      descriptor: { summary: 'precise', method: 'post', queryParams: { q: { type: 'string' } }, output: { type: 'json', example: { ok: true } } },
+    })
+    expect(ep).toEqual({
+      summary: 'precise',
+      method: 'POST',
+      mimeType: 'application/json',
+      input: { q: { type: 'string' } },
+      output: { type: 'json', example: { ok: true } },
+    })
+  })
+
+  it('omits empty input (a no-param GET descriptor)', () => {
+    const ep = buildEndpointInfo({ descriptor: { method: 'GET', queryParams: {} } })
+    expect(ep).toEqual({ method: 'GET' })
+    expect(ep && 'input' in ep).toBe(false)
   })
 })

@@ -23,7 +23,7 @@ import type { ResolvedNetwork, TokenInput, ChainSelector, WalletHandle } from '.
 import { buildBazaarExtension } from './discovery.js'
 import type { ResourceDescription, PaymentRail, DiscoveryDescriptor } from './discovery.js'
 import { describeChallenge } from './render.js'
-import { buildSelfDescription } from './selfdescribe.js'
+import { buildSelfDescription, buildEndpointInfo } from './selfdescribe.js'
 import { renderLandingPage } from './landing.js'
 import { SettlementError } from './errors.js'
 import { settleViaFacilitator, fetchFacilitatorFeePayer } from './facilitator.js'
@@ -149,8 +149,12 @@ export interface RequirePaymentOptions {
    *  G… Stellar, r… XRPL, T… Tron, account id on NEAR, 0x… Aptos, base32 Algorand).
    *  Required for the single form; the per-option fallback for the multi form. */
   payTo?: AddressId
-  /** Shown to the agent in the challenge. */
+  /** Shown to the agent in the challenge. Also the one-line "what this endpoint does"
+   *  in the self-describe block (a `discovery` descriptor's `summary` overrides it). */
   description?: string
+  /** Response content-type, e.g. 'application/json'. Emitted at the v2 root `resource.mimeType`
+   *  and in the self-describe `endpoint` so an agent knows how to parse the paid response. */
+  mimeType?: string
   /** Confirmations required before access is granted. Default 1. */
   minConfirmations?: number
   /** Max age of an accepted payment, in seconds. Default 600. */
@@ -637,12 +641,21 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     // response BODY only — additive metadata in the spec-opaque `extensions` bag a standard
     // client ignores. Even an onchain-proof-only 402 a stock client can't pay becomes
     // self-announcing + actionable (install the SDK and pay).
+    // What the endpoint DOES (agent-readability) — derived from the gate's description /
+    // mimeType / discovery descriptor. `undefined` on a zero-config gate, so the
+    // self-describe block (and the 402) stays byte-identical there.
+    const endpointInfo = buildEndpointInfo({
+      ...(options.description ? { description: options.description } : {}),
+      ...(options.mimeType ? { mimeType: options.mimeType } : {}),
+      ...(typeof options.discovery === 'object' ? { descriptor: options.discovery } : {}),
+    })
     const selfDescribe =
       options.selfDescribe === false
         ? undefined
         : buildSelfDescription({
             accepts,
             instruction: describeChallenge({ x402Version: 2, resource: { url: resourceUrl }, accepts }),
+            ...(endpointInfo ? { endpoint: endpointInfo } : {}),
           })
     // DEEP-MERGE the `piprail` key: a rejection's { code, detail } (from opts.extensions) and the
     // self-describe fields coexist as SIBLINGS, rejection keys WINNING on collision — `client.ts`
@@ -671,6 +684,7 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
       resource: {
         url: resourceUrl,
         ...(options.description ? { description: options.description } : {}),
+        ...(options.mimeType ? { mimeType: options.mimeType } : {}),
       },
       accepts,
       ...(opts?.error ? { error: opts.error } : {}),
@@ -797,6 +811,7 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     return {
       url: resourceUrl,
       ...(options.description ? { description: options.description } : {}),
+      ...(options.mimeType ? { mimeType: options.mimeType } : {}),
       accepts,
     }
   }

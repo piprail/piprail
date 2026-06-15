@@ -134,13 +134,28 @@ export function paymentTools(client: PayingClient): AgentTool[] {
       parameters: {
         type: 'object',
         properties: {
-          query: { type: 'string', description: 'Free-text topic to search for (optional).' },
+          query: {
+            type: 'string',
+            description:
+              'Free-text topic to search for (optional). Multi-word queries are fanned out per word and ' +
+              'results are ranked by relevance, so "crypto price feed" finds the best matches even when no ' +
+              'single listing contains that exact phrase.',
+          },
           network: {
             type: 'string',
             description: "CAIP-2 id, 'self' (your chain — default), or 'any' (all chains).",
           },
+          category: { type: 'string', description: "Keep ONLY this category, e.g. 'ai', 'finance', 'data' (strict)." },
+          asset: { type: 'string', description: "Keep only resources paying in this token symbol, e.g. 'USDC'." },
           maxPrice: { type: 'number', description: 'Drop results advertised above this USD price.' },
-          limit: { type: 'number', description: 'Max results per index (default 20).' },
+          minReliability: { type: 'number', description: 'Drop results below this health score (0–100); unscored pass.' },
+          verified: { type: 'boolean', description: 'Prefer verified listings (402 Index).' },
+          sort: {
+            type: 'string',
+            enum: ['relevance', 'reliability', 'price', 'uptime', 'name'],
+            description: "Ordering. Default 'relevance' with a query, else first-seen.",
+          },
+          limit: { type: 'number', description: 'Max results to fetch per index (default 20).' },
         },
         additionalProperties: false,
       },
@@ -149,7 +164,12 @@ export function paymentTools(client: PayingClient): AgentTool[] {
           const opts: DiscoverOptions = {}
           if (typeof args.query === 'string') opts.query = args.query
           if (typeof args.network === 'string') opts.network = args.network
+          if (typeof args.category === 'string') opts.category = args.category
+          if (typeof args.asset === 'string') opts.asset = args.asset
           if (typeof args.maxPrice === 'number') opts.maxPrice = args.maxPrice
+          if (typeof args.minReliability === 'number') opts.minReliability = args.minReliability
+          if (typeof args.verified === 'boolean') opts.verified = args.verified
+          if (typeof args.sort === 'string') opts.sort = args.sort as DiscoverOptions['sort']
           if (typeof args.limit === 'number') opts.limit = args.limit
           const found = await client.discover(opts)
           return {
@@ -159,7 +179,11 @@ export function paymentTools(client: PayingClient): AgentTool[] {
               name: r.name,
               description: r.description,
               source: r.source,
+              category: r.category,
               priceUsd: r.priceUsd,
+              reliabilityScore: r.reliabilityScore,
+              health: r.health,
+              verified: r.verified,
               networks: [...new Set(r.rails.map((rail) => rail.network))],
             })),
           }
@@ -363,7 +387,14 @@ export function paymentTools(client: PayingClient): AgentTool[] {
         properties: {
           url: { type: 'string', description: 'Full URL of the resource to list.' },
           name: { type: 'string', description: 'Display name (defaults to the host).' },
-          description: { type: 'string', description: 'What the resource offers.' },
+          description: {
+            type: 'string',
+            description:
+              'What the resource offers. Pack the words agents will search for INTO this text — index search ' +
+              'is literal, so a keyword that isn\'t in the name/description won\'t be found.',
+          },
+          category: { type: 'string', description: "A category, e.g. 'ai', 'finance', 'data' — the top findability field (most listings have none)." },
+          tags: { type: 'array', items: { type: 'string' }, description: 'Keywords; folded into the description so they\'re searchable.' },
           priceUsd: { type: 'number', description: 'Advertised price in USD (metadata).' },
           network: {
             type: 'string',
@@ -372,6 +403,8 @@ export function paymentTools(client: PayingClient): AgentTool[] {
               'when registering from a multi-chain wallet so the listing names the right chain.',
           },
           asset: { type: 'string', description: "Payment asset symbol, e.g. 'USDC' (metadata)." },
+          provider: { type: 'string', description: 'Who runs the resource (provider/org name).' },
+          contactEmail: { type: 'string', description: 'Contact email for the listing.' },
         },
         required: ['url'],
         additionalProperties: false,
@@ -381,9 +414,13 @@ export function paymentTools(client: PayingClient): AgentTool[] {
           const opts: RegisterOptions = {}
           if (typeof args.name === 'string') opts.name = args.name
           if (typeof args.description === 'string') opts.description = args.description
+          if (typeof args.category === 'string') opts.category = args.category
+          if (Array.isArray(args.tags)) opts.tags = args.tags.filter((t): t is string => typeof t === 'string')
           if (typeof args.priceUsd === 'number') opts.priceUsd = args.priceUsd
           if (typeof args.network === 'string') opts.network = args.network
           if (typeof args.asset === 'string') opts.asset = args.asset
+          if (typeof args.provider === 'string') opts.provider = args.provider
+          if (typeof args.contactEmail === 'string') opts.contactEmail = args.contactEmail
           const outcomes = await client.register(String(args.url), opts)
           return { outcomes }
         } catch (err) {

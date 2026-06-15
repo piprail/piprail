@@ -39,8 +39,24 @@ export interface DiscoveredResource {
   name?: string
   description?: string
   category?: string
+  /** Free-text tags/keywords, when the index reports them. */
+  tags?: string[]
   /** Advertised price in USD, when the index reports one (402 Index). */
   priceUsd?: number
+  /** Health/uptime score 0–100, when the index reports one (402 Index `reliability_score`).
+   *  Higher = a more reliable, consistently-probeable endpoint — sort/filter on it to
+   *  skip flaky resources. Absent for indexes that don't measure it (Bazaar). */
+  reliabilityScore?: number
+  /** Liveness as the index last probed it, e.g. `'healthy'` / `'degraded'` / `'down'`
+   *  (402 Index `health_status`). Absent where unmeasured. */
+  health?: string
+  /** Whether the listing's domain is verified at the index (402 Index `domain_verified`).
+   *  A verified resource is a stronger trust + relevance signal. Absent where the index
+   *  has no such concept (Bazaar). */
+  verified?: boolean
+  /** Relevance score for the active query (set by {@link rankResources}); higher ranks
+   *  first. Absent when no query was given (results keep first-seen / sort order). */
+  score?: number
   /** The payment options the index advertises (best-effort, cross-scheme). */
   rails: DiscoveredRail[]
 }
@@ -74,14 +90,59 @@ export interface RegisterOutcome {
   note?: string
 }
 
+/** How to order results. `'relevance'` (the default when a {@link SearchOpenIndexesOptions.query}
+ *  is given) ranks by query match via {@link rankResources}; the rest sort by a single field
+ *  (descending unless `order:'asc'`), using each index's reported value (unknowns sort last). */
+export type DiscoverySort = 'relevance' | 'reliability' | 'price' | 'uptime' | 'latency' | 'name'
+
 export interface SearchOpenIndexesOptions {
-  /** Free-text query (filtered client-side against name/description/resource). */
+  /**
+   * Free-text query. Tokenized and matched across name / description / category / URL:
+   * 402 Index is searched server-side (one request per token, unioned — so a multi-word
+   * query like `"piprail demo"` still finds a resource that matches each word, which the
+   * index's own AND-tokenized `?q=` would miss), the Bazaar list is filtered client-side,
+   * and the merged set is ranked by relevance ({@link rankResources}).
+   */
   query?: string
   /** Which indexes to read. Default `['bazaar', '402index']` (both free). */
   sources?: DiscoverySource[]
-  /** Max results per source before dedupe. Default 20. */
+  /** Max results to FETCH per index request. Default 20. */
   limit?: number
+  /** Keep ONLY this category (prefix match, case-insensitive) — strict: a resource the
+   *  index didn't categorize is dropped (pushed to 402 Index server-side too). */
+  category?: string
+  /** Keep only resources paying in this asset symbol, e.g. `'USDC'` (pushed to 402 Index;
+   *  applied client-side elsewhere, keeping items whose asset the index didn't report). */
+  asset?: string
+  /** Drop results advertised above this USD price (results with no advertised price pass). */
+  maxPrice?: number
+  /** Drop results whose reliability score is BELOW this (0–100). Results with no reported
+   *  score pass through — use {@link DiscoveredResource.reliabilityScore} to inspect. */
+  minReliability?: number
+  /** Prefer verified listings (402 Index `verified=true`, server-side). NOTE: 402 Index's
+   *  `verified` flag and its per-record `domain_verified` differ, so this is applied at the
+   *  index, not re-filtered client-side; sources without a verified concept pass through.
+   *  Inspect {@link DiscoveredResource.verified} for the per-record ownership signal. */
+  verified?: boolean
+  /** Restrict to listings the index confirmed are payable x402 (402 Index `payment_valid=true`). */
+  paymentValid?: boolean
+  /** Result ordering — see {@link DiscoverySort}. Default `'relevance'` with a query, else
+   *  first-seen order (source priority). */
+  sort?: DiscoverySort
+  /** Sort direction for a non-relevance {@link sort}. Default `'desc'`. */
+  order?: 'asc' | 'desc'
   signal?: AbortSignal
+}
+
+/** Server-side filters 402 Index understands (a subset of {@link SearchOpenIndexesOptions}). */
+interface Index402Filters {
+  category?: string
+  asset?: string
+  maxPrice?: number
+  verified?: boolean
+  paymentValid?: boolean
+  sort?: DiscoverySort
+  order?: 'asc' | 'desc'
 }
 
 /** What a merchant submits to register one resource on the open indexes. */
@@ -96,6 +157,28 @@ export interface RegisterInput {
   network?: string
   /** HTTP method the resource answers on. Default 'GET'. */
   method?: string
+  /**
+   * A category for the listing, e.g. `'ai'`, `'finance'`, `'data'`. The single
+   * highest-leverage field for findability: most of 402 Index's catalog is
+   * `uncategorized`, so a real category makes a resource rank + filter where almost
+   * nothing else does. Free-text; pick the obvious bucket for what the endpoint does.
+   */
+  category?: string
+  /**
+   * Keywords for the listing. 402 Index search is literal (a term must appear in the
+   * name or description to match), so these are folded into the description as a compact
+   * keyword tail — making the resource findable by each term — and also sent as a `tags`
+   * field for any index that indexes them natively. Skipped if already present / over the
+   * length cap (same tasteful rules as the attribution suffix).
+   */
+  tags?: string[]
+  /** Who runs the resource (provider/org name) — 402 Index `provider` metadata. */
+  provider?: string
+  /** Contact email for the listing (402 Index `contact_email`) — also used by domain claim. */
+  contactEmail?: string
+  /** A JSON request body 402 Index should send when health-checking a POST/PUT resource
+   *  (402 Index `probe_body`), so probes succeed and the reliability score stays high. */
+  probeBody?: unknown
   /**
    * Attribute the listing to PipRail. **Default ON** (set `false` to opt out). When on, the
    * payload gets a `via: '@piprail/sdk'` provenance field AND a compact `· Built with
@@ -269,23 +352,189 @@ export function normalizeNetwork(network: string): string {
 /* ----------------------------- read (search) ----------------------------- */
 
 /**
- * Search the open indexes for payable resources, in parallel, and merge them
- * (deduped by resource URL — the first source in `sources` wins). NEVER throws:
- * any index that errors, times out, or changes shape contributes `[]`.
+ * Search the open indexes for payable resources, in parallel, and merge them into
+ * one ranked list (deduped by resource URL — the first source in `sources` wins).
+ * NEVER throws: any index that errors, times out, or changes shape contributes `[]`.
+ *
+ * Pipeline: fetch (402 Index server-side, with a per-token fan-out for multi-word
+ * queries + server-side filters; Bazaar list, filtered client-side) → merge + dedupe
+ * → client-side filters ({@link SearchOpenIndexesOptions.maxPrice}/`category`/`asset`/
+ * `minReliability`, all keeping items the index didn't annotate) → rank/sort.
  */
 export async function searchOpenIndexes(
   opts: SearchOpenIndexesOptions = {}
 ): Promise<DiscoveredResource[]> {
   const sources = opts.sources ?? ['bazaar', '402index']
   const limit = opts.limit ?? 20
+  const filters: Index402Filters = {
+    ...optionalRaw('category', opts.category),
+    ...optionalRaw('asset', opts.asset),
+    ...optionalRaw('maxPrice', opts.maxPrice),
+    ...optionalRaw('verified', opts.verified),
+    ...optionalRaw('paymentValid', opts.paymentValid),
+    ...optionalRaw('sort', opts.sort),
+    ...optionalRaw('order', opts.order),
+  }
   const results = await Promise.all(
     sources.map((source) => {
       if (source === 'bazaar') return safeSearch(() => searchBazaar(opts.query, limit, opts.signal))
-      if (source === '402index') return safeSearch(() => search402Index(opts.query, limit, opts.signal))
+      if (source === '402index') return safeSearch(() => search402Index(opts.query, limit, filters, opts.signal))
       return Promise.resolve<DiscoveredResource[]>([]) // x402scan reads are paid — off by default here
     })
   )
-  return dedupeByResource(results.flat())
+  const merged = applyClientFilters(dedupeByResource(results.flat()), opts)
+  // Order: relevance when a query is present (unless overridden), else first-seen — or a
+  // requested field sort. Relevance ranking adds a `score`; field sorts are stable.
+  const wantRelevance = opts.query !== undefined && (opts.sort ?? 'relevance') === 'relevance'
+  if (wantRelevance) return rankResources(merged, opts.query)
+  if (opts.sort && opts.sort !== 'relevance') return sortResources(merged, opts.sort, opts.order ?? 'desc')
+  return merged
+}
+
+/** A `{ [field]: value }` spread only when `value` is defined (any type — keeps the
+ *  filter object tidy without coercing falsy-but-valid values like `0`). */
+function optionalRaw<T>(field: string, value: T | undefined): Record<string, T> {
+  return value !== undefined ? { [field]: value } : {}
+}
+
+/**
+ * Client-side filters applied to the MERGED set:
+ *  - **`category` is STRICT:** asking for a category means you want exactly that, so a
+ *    resource the index didn't categorize is DROPPED (otherwise un-categorized Bazaar
+ *    listings, which carry no category, drown the real matches).
+ *  - **`asset` / `maxPrice` / `minReliability` KEEP the un-annotated** (the "never hide an
+ *    unresolved field" rule used for networks): a missing price/asset/score is "unknown",
+ *    not "fails", so it passes and the agent confirms with `quote()`/`planPayment()`.
+ *  - **`verified` is NOT filtered here** — it's pushed to 402 Index server-side only,
+ *    because that index's `verified` flag and its per-record `domain_verified` field don't
+ *    align (a server-"verified" listing can still report `domain_verified:0`), so a
+ *    client-side strict check would wrongly drop everything. {@link DiscoveredResource.verified}
+ *    remains the honest per-record ownership signal to inspect.
+ */
+function applyClientFilters(items: DiscoveredResource[], opts: SearchOpenIndexesOptions): DiscoveredResource[] {
+  let out = items
+  if (opts.category) {
+    const want = opts.category.toLowerCase()
+    out = out.filter((r) => r.category !== undefined && r.category.toLowerCase().startsWith(want)) // strict
+  }
+  if (opts.maxPrice !== undefined) {
+    const max = opts.maxPrice
+    out = out.filter((r) => r.priceUsd === undefined || r.priceUsd <= max)
+  }
+  if (opts.asset) {
+    const want = opts.asset.toLowerCase()
+    out = out.filter((r) => {
+      const known = r.rails.map((x) => x.symbol ?? x.asset).filter((a): a is string => !!a)
+      return known.length === 0 || known.some((a) => a.toLowerCase() === want)
+    })
+  }
+  if (opts.minReliability !== undefined) {
+    const min = opts.minReliability
+    out = out.filter((r) => r.reliabilityScore === undefined || r.reliabilityScore >= min)
+  }
+  return out
+}
+
+/* ----------------------------- relevance ranking ----------------------------- */
+
+/** Split text into lowercase alphanumeric tokens (the unit both the ranker and the
+ *  402 Index fan-out work in). Empty/whitespace → `[]`. */
+function tokenize(s: string | undefined): string[] {
+  return (s ?? '').toLowerCase().match(/[a-z0-9]+/g) ?? []
+}
+
+/** Per-field weights — a query term in the NAME is worth far more than one buried in a
+ *  long description. Host+path catch domain-y queries (`"weather"` → `weather.example.com`). */
+const FIELD_WEIGHTS = { name: 6, category: 4, tags: 4, path: 3, description: 2 } as const
+
+/** The searchable token sets of one resource, paired with their weights. */
+function fieldTokens(r: DiscoveredResource): Array<[string[], number]> {
+  let pathText = r.resource
+  try {
+    const u = new URL(r.resource)
+    pathText = `${u.hostname} ${u.pathname}`
+  } catch {
+    /* keep the raw string if it isn't a full URL */
+  }
+  return [
+    [tokenize(r.name), FIELD_WEIGHTS.name],
+    [tokenize(r.category), FIELD_WEIGHTS.category],
+    [tokenize((r.tags ?? []).join(' ')), FIELD_WEIGHTS.tags],
+    [tokenize(pathText), FIELD_WEIGHTS.path],
+    [tokenize(r.description), FIELD_WEIGHTS.description],
+  ]
+}
+
+/** Relevance score of one resource for a tokenized query. Exact token hits score full
+ *  weight; a substring/prefix hit scores a fraction (only for tokens ≥4 chars, so short
+ *  words like "ai"/"for" don't fuzz-match noise). A resource matching EVERY query token
+ *  gets a big "complete match" bonus (this is what makes multi-word queries pinpoint).
+ *  Returns 0 when nothing matched (the caller drops those). */
+export function scoreResource(r: DiscoveredResource, queryTokens: string[]): number {
+  if (queryTokens.length === 0) return 0
+  const fields = fieldTokens(r)
+  let score = 0
+  let matched = 0
+  for (const qt of queryTokens) {
+    let hit = false
+    for (const [toks, w] of fields) {
+      if (toks.includes(qt)) {
+        score += w
+        hit = true
+      } else if (qt.length >= 4 && toks.some((t) => t.startsWith(qt) || (t.length >= 4 && qt.startsWith(t)))) {
+        score += w * 0.4
+        hit = true
+      }
+    }
+    if (hit) matched++
+  }
+  if (matched === 0) return 0
+  if (matched === queryTokens.length) score += 8 // complete-match bonus → pinpoint multi-word results
+  // Tiny tie-breaker nudge from health, so equally-relevant results favour reliable endpoints.
+  if (r.reliabilityScore !== undefined) score += r.reliabilityScore / 1000
+  return score
+}
+
+/**
+ * Rank resources by relevance to `query`, dropping non-matches and stamping each kept
+ * resource with its `score` (descending). Pure + stable: equal scores keep input order
+ * (so the dedupe's source priority survives a tie). No query → returned unchanged.
+ */
+export function rankResources(items: DiscoveredResource[], query: string | undefined): DiscoveredResource[] {
+  const qTokens = tokenize(query)
+  if (qTokens.length === 0) return items
+  return items
+    .map((r, i) => ({ r, i, s: scoreResource(r, qTokens) }))
+    .filter((x) => x.s > 0)
+    .sort((a, b) => b.s - a.s || a.i - b.i)
+    .map((x) => ({ ...x.r, score: x.s }))
+}
+
+/** Stable sort by a single reported field (unknowns last). Used when an explicit
+ *  non-relevance {@link DiscoverySort} is requested. */
+function sortResources(items: DiscoveredResource[], sort: DiscoverySort, order: 'asc' | 'desc'): DiscoveredResource[] {
+  const dir = order === 'asc' ? 1 : -1
+  const key = (r: DiscoveredResource): number | string | undefined =>
+    sort === 'reliability' || sort === 'uptime'
+      ? r.reliabilityScore
+      : sort === 'price'
+        ? r.priceUsd
+        : sort === 'name'
+          ? (r.name ?? r.resource).toLowerCase()
+          : undefined // 'latency' isn't normalized onto the result — leaves order unchanged
+  return items
+    .map((r, i) => ({ r, i }))
+    .sort((a, b) => {
+      const ka = key(a.r)
+      const kb = key(b.r)
+      if (ka === undefined && kb === undefined) return a.i - b.i
+      if (ka === undefined) return 1 // unknowns last regardless of direction
+      if (kb === undefined) return -1
+      if (ka < kb) return -1 * dir
+      if (ka > kb) return 1 * dir
+      return a.i - b.i
+    })
+    .map((x) => x.r)
 }
 
 async function safeSearch(
@@ -324,6 +573,9 @@ async function searchBazaar(
   const body = (await res.json()) as { items?: unknown }
   const items = Array.isArray(body.items) ? body.items : []
   const mapped = items.map(mapBazaarItem).filter((r): r is DiscoveredResource => r !== null)
+  // Bazaar's server-side search is unusable without a CDP key (its /search endpoint
+  // answers 200 but returns nothing), so we filter its LIST locally: a loose any-token
+  // pre-filter for recall, then the merged-set ranker handles precision + ordering.
   return query ? mapped.filter((r) => matchesQuery(r, query)) : mapped
 }
 
@@ -343,13 +595,49 @@ function mapBazaarItem(raw: unknown): DiscoveredResource | null {
   }
 }
 
+/**
+ * Search 402 Index — server-side, with a per-token FAN-OUT and server-side filters.
+ *
+ * 402 Index's `?q=` is AND-tokenized: a multi-word query only matches resources that
+ * contain EVERY word together, so `"piprail demo"` returns nothing even though both words
+ * are in our listing's name. To fix that without a backend we issue the full phrase PLUS
+ * one request per token (capped, in parallel), union the results, and let the merged-set
+ * ranker order by how many tokens each resource matched. Filters (`category`/`asset`/
+ * `max_price_usd`/`verified`/`payment_valid`/`sort`) ride on every request.
+ */
 async function search402Index(
   query: string | undefined,
   limit: number,
+  filters: Index402Filters,
+  signal?: AbortSignal
+): Promise<DiscoveredResource[]> {
+  // Query strings to fan out over: the full phrase first (most precise AND-match), then
+  // each distinct token. Capped at 5 requests so a long query can't storm the index.
+  const tokens = tokenize(query)
+  const queries: Array<string | undefined> =
+    query && tokens.length > 1 ? [...new Set([query, ...tokens])].slice(0, 5) : [query]
+  const pages = await Promise.all(queries.map((q) => safeSearch(() => fetch402Page(q, limit, filters, signal))))
+  return dedupeByResource(pages.flat())
+}
+
+/** Fetch + map ONE 402 Index page for a single query string (or none) + filters. */
+async function fetch402Page(
+  query: string | undefined,
+  limit: number,
+  filters: Index402Filters,
   signal?: AbortSignal
 ): Promise<DiscoveredResource[]> {
   const qs = new URLSearchParams({ limit: String(limit) })
   if (query) qs.set('q', query)
+  if (filters.category) qs.set('category', filters.category)
+  if (filters.asset) qs.set('payment_asset', filters.asset)
+  if (filters.maxPrice !== undefined) qs.set('max_price_usd', String(filters.maxPrice))
+  if (filters.verified) qs.set('verified', 'true')
+  if (filters.paymentValid) qs.set('payment_valid', 'true')
+  if (filters.sort && filters.sort !== 'relevance') {
+    qs.set('sort', filters.sort)
+    qs.set('order', filters.order ?? 'desc')
+  }
   const res = await fetch(`${INDEX402_SEARCH}?${qs.toString()}`, {
     headers: clientHeaders({ accept: 'application/json' }),
     ...(signal ? { signal } : {}),
@@ -375,15 +663,29 @@ function map402IndexItem(raw: unknown): DiscoveredResource | null {
     ? mapRails(o.accepts)
     : railFrom402IndexFields(o)
   const priceUsd = pickNumber(o, 'price_usd', 'priceUsd', 'price')
+  const reliabilityScore = pickNumber(o, 'reliability_score', 'reliabilityScore')
+  const tags = pickStringArray(o, 'tags', 'keywords')
   return {
     resource,
     source: '402index',
     rails,
     ...(priceUsd !== undefined ? { priceUsd } : {}),
+    ...(reliabilityScore !== undefined ? { reliabilityScore } : {}),
+    ...(tags ? { tags } : {}),
     ...optionalString('name', pickString(o, 'name', 'title')),
     ...optionalString('description', pickString(o, 'description')),
     ...optionalString('category', pickString(o, 'category', 'tag')),
+    ...optionalString('health', pickString(o, 'health_status', 'health')),
+    // 402 Index reports domain_verified as 0/1; surface a boolean only when the field is present.
+    ...(o.domain_verified !== undefined || o.verified !== undefined
+      ? { verified: isTruthyFlag(o.domain_verified) || isTruthyFlag(o.verified) }
+      : {}),
   }
+}
+
+/** Coerce a 402 Index 0/1/`'true'`/boolean flag to a clean boolean. */
+function isTruthyFlag(v: unknown): boolean {
+  return v === 1 || v === true || v === '1' || v === 'true'
 }
 
 /** 402 Index often flattens payment into top-level fields rather than accepts[]. */
@@ -418,7 +720,10 @@ export async function register402Index(input: RegisterInput): Promise<RegisterOu
     // PipRail-registered listing is visibly "built with PipRail" as it spreads. See STANDARDS §
     // attribution — it's metadata only and never alters how the resource is paid or ranked.
     const attributionOn = input.attribution !== false
-    const description = attributionOn ? appendAttribution(input.description) : input.description
+    // Fold keyword tags into the description FIRST (so they're searchable on a literal
+    // index), then the attribution suffix — both tasteful, capped, never double-stamping.
+    const withTags = appendKeywords(input.description, input.tags)
+    const description = attributionOn ? appendAttribution(withTags) : withTags
     const payload: Record<string, unknown> = {
       url: input.url,
       name: input.name ?? hostOf(input.url),
@@ -428,6 +733,11 @@ export async function register402Index(input: RegisterInput): Promise<RegisterOu
       ...(input.asset ? { payment_asset: input.asset } : {}),
       ...(input.network ? { payment_network: input.network } : {}),
       ...(input.method ? { http_method: input.method.toUpperCase() } : {}),
+      ...(input.category ? { category: input.category } : {}),
+      ...(input.tags && input.tags.length > 0 ? { tags: input.tags } : {}),
+      ...(input.provider ? { provider: input.provider } : {}),
+      ...(input.contactEmail ? { contact_email: input.contactEmail } : {}),
+      ...(input.probeBody !== undefined ? { probe_body: input.probeBody } : {}),
       ...(attributionOn ? { via: '@piprail/sdk' } : {}),
     }
     const res = await fetch(INDEX402_REGISTER, {
@@ -763,13 +1073,35 @@ function mapRails(accepts: unknown): DiscoveredRail[] {
   return out
 }
 
+/** A loose recall pre-filter for client-side sources (Bazaar): keep a resource if ANY
+ *  query token appears in its searchable text. The ranker handles precision afterwards;
+ *  this only avoids dragging an index's entire catalog into the merge. A whole-phrase
+ *  substring also counts (so "weather forecast" still matches a literal "weather forecast"). */
 function matchesQuery(r: DiscoveredResource, query: string): boolean {
-  const q = query.toLowerCase()
-  return (
-    r.resource.toLowerCase().includes(q) ||
-    (r.name?.toLowerCase().includes(q) ?? false) ||
-    (r.description?.toLowerCase().includes(q) ?? false)
-  )
+  const haystack = [r.name, r.description, r.category, (r.tags ?? []).join(' '), r.resource]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+  if (haystack.includes(query.toLowerCase())) return true
+  const qTokens = tokenize(query)
+  const hayTokens = new Set(tokenize(haystack))
+  return qTokens.some((t) => hayTokens.has(t))
+}
+
+/** First string-array value among `keys` (filters to non-empty strings). 402 Index may
+ *  report tags as an array; tolerate a comma/space string too. */
+function pickStringArray(o: Record<string, unknown>, ...keys: string[]): string[] | undefined {
+  for (const k of keys) {
+    const v = o[k]
+    if (Array.isArray(v)) {
+      const arr = v.filter((x): x is string => typeof x === 'string' && x.length > 0)
+      if (arr.length) return arr
+    } else if (typeof v === 'string' && v.trim()) {
+      const arr = v.split(/[,\s]+/).filter((x) => x.length > 0)
+      if (arr.length) return arr
+    }
+  }
+  return undefined
 }
 
 /** First string value present among `keys` on `o`. */
@@ -841,6 +1173,25 @@ export function appendAttribution(description: string | undefined): string | und
   if (!description) return description
   if (/piprail/i.test(description)) return description
   const next = `${description.trimEnd()} ${REGISTER_ATTRIBUTION}`
+  return next.length <= 500 ? next : description
+}
+
+/**
+ * Fold keyword tags into a description as a compact, searchable tail — `desc · Keywords:
+ * a, b, c` — because 402 Index search is literal (a term must appear in the name or
+ * description to match). Pure + tasteful: drops tags already present in the text
+ * (case-insensitive, no duplication), no-ops when there are no tags, and returns the
+ * description unchanged rather than overflow a sane listing cap (≤ 500 chars). When the
+ * description is empty it still seeds one from the tags (so they're not lost). */
+export function appendKeywords(description: string | undefined, tags: string[] | undefined): string | undefined {
+  const clean = (tags ?? []).map((t) => t.trim()).filter((t) => t.length > 0)
+  if (clean.length === 0) return description
+  const have = (description ?? '').toLowerCase()
+  const fresh = [...new Set(clean.filter((t) => !have.includes(t.toLowerCase())))]
+  if (fresh.length === 0) return description
+  const tail = `Keywords: ${fresh.join(', ')}`
+  if (!description) return tail
+  const next = `${description.trimEnd()} · ${tail}`
   return next.length <= 500 ? next : description
 }
 

@@ -62,6 +62,94 @@ the gate already resolved (no new data):
 When a gate dual-advertises a standard [`exact` rail](/accepting-payments/exact-rail-seller/), `pay[]`
 carries that rail too, with a `how` that tells a stock client it can pay it directly.
 
+### `endpoint` — what the resource *does* (agent-readable)
+
+The block above answers *"how do I pay?"* The optional **`endpoint`** sub-block answers the other
+half — *"what does this endpoint do, what does it take, and what comes back?"* — so an AI agent can
+decide whether a resource is worth paying for **from the 402 alone, with no paid call**:
+
+```jsonc
+{
+  // … the extensions.piprail block above …
+  "endpoint": {
+    "summary": "Current USD price for any crypto ticker.",
+    "method": "GET",
+    "mimeType": "application/json",
+    "input": { "ticker": { "type": "string", "description": "e.g. BTC" } },
+    "output": { "type": "object", "example": { "ticker": "BTC", "usd": 64210.5 } }
+  }
+}
+```
+
+It's **present only when the merchant described the resource** — via the gate's `description` /
+`mimeType`, or a [`discovery` descriptor](#one-descriptor-lights-up-both-blocks). On a zero-config
+gate it's **absent entirely**, so the default 402 stays byte-identical (prove it by [turning
+self-describe off](#turning-it-off) — but `endpoint` simply never appears unless you describe
+something). The `example` matters: a concrete sample grounds an LLM far better than a bare schema,
+so it can reason about the response shape before spending.
+
+To populate it, describe the gate:
+
+```ts
+import { createPaymentGate } from '@piprail/sdk'
+
+const gate = createPaymentGate({
+  chain: 'base',
+  token: 'USDC',
+  amount: '0.01',
+  payTo: '0xYourWallet',
+  description: 'Current USD price for any crypto ticker.', // → endpoint.summary
+  mimeType: 'application/json',                            // → resource.mimeType + endpoint.mimeType
+})
+```
+
+### `resource.mimeType` — at the v2 root too
+
+The gate also stamps the response content-type on the v2 `resource` object in the 402 body, so the
+standard ResourceInfo shape carries it for any client that reads the root rather than the extension:
+
+```jsonc
+{
+  "x402Version": 2,
+  "resource": {
+    "url": "https://api.example.com/price",
+    "description": "Current USD price for any crypto ticker.", // from the gate `description`
+    "mimeType": "application/json"                             // from the gate `mimeType`
+  },
+  "accepts": [ /* … */ ]
+}
+```
+
+Both `resource.description` and `resource.mimeType` are present only when you set them on the gate
+— omit them and the `resource` object is just `{ url }`, byte-identical to before.
+
+### One descriptor lights up both blocks
+
+If you're already emitting the index-facing [`extensions.bazaar`](/discovery/emitters/) block by
+passing a `discovery` [`DiscoveryDescriptor`](/discovery/discover-and-register/), that **same
+descriptor** now populates the human/agent-facing `endpoint` too — one description, two audiences
+(the open indexes *and* any agent reading the live 402). The descriptor gained a `summary` field
+for exactly this:
+
+```ts
+const gate = createPaymentGate({
+  chain: 'base',
+  token: 'USDC',
+  amount: '0.01',
+  payTo: '0xYourWallet',
+  discovery: {
+    summary: 'Current USD price for any crypto ticker.',  // → endpoint.summary (one human sentence)
+    method: 'GET',
+    queryParams: { ticker: { type: 'string', description: 'e.g. BTC' } }, // → endpoint.input
+    output: { type: 'object', example: { ticker: 'BTC', usd: 64210.5 } }, // → endpoint.output
+  },
+})
+// the descriptor feeds BOTH extensions.bazaar (for indexes) AND extensions.piprail.endpoint (for agents)
+```
+
+A descriptor `summary` **wins over** the gate `description` for the endpoint's one-line "what it
+does"; `queryParams` becomes `endpoint.input`; `output` carries straight through.
+
 ### Turning it off
 
 It's on by default. Pass `selfDescribe: false` to restore the literal byte-identical 402:
@@ -92,14 +180,24 @@ The gate wires this for you; call it directly only when you assemble a challenge
 it imports no chain library and does no I/O.
 
 ```ts
-import { buildSelfDescription } from '@piprail/sdk'
+import { buildSelfDescription, buildEndpointInfo } from '@piprail/sdk'
 
 const block = buildSelfDescription({
   accepts: challenge.accepts, // the rails your 402 offers
   instruction: 'optional one-line human summary',
+  // optional: the `endpoint` sub-block. Assemble it from what you know with buildEndpointInfo
+  // (pure; returns undefined when nothing was described, so the block stays byte-identical):
+  endpoint: buildEndpointInfo({
+    description: 'Current USD price for any crypto ticker.',
+    mimeType: 'application/json',
+  }),
 })
-// → the extensions.piprail object above
+// → the extensions.piprail object above (with the endpoint sub-block when described)
 ```
+
+`buildEndpointInfo({ description?, mimeType?, descriptor? })` → `SelfDescribeEndpoint | undefined`
+is the same pure helper the gate uses; the `descriptor` is a `DiscoveryDescriptor`-shaped
+`{ summary?, method?, queryParams?, output? }` whose `summary` wins over `description`.
 
 ## `describeChallenge` — the one-line summary
 
@@ -172,7 +270,9 @@ replaces your existing `Link` with PipRail's discovery pointers.
 The cold-start loop the [agent guide](/agent-toolkit/agent-guide/) teaches:
 
 1. The agent fetches a gated URL and gets a 402 it can't pay with stock tooling.
-2. It reads `challenge.extensions.piprail` → identity, per-rail `how`, `sdk.install`, `docs`.
+2. It reads `challenge.extensions.piprail` → identity, per-rail `how`, `sdk.install`, `docs` —
+   and, when the merchant described the resource, `endpoint.{summary,input,output}` so it knows
+   **what the endpoint does and returns before paying a cent**.
 3. It installs `@piprail/sdk` (or runs `npx -y @piprail/mcp`) and pays via the
    [payment tools](/agent-toolkit/the-7-tools/).
 

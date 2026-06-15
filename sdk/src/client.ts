@@ -19,6 +19,7 @@ import {
   type DiscoveredResource,
   type DiscoveredRail,
   type DiscoverySource,
+  type DiscoverySort,
   type RegisterOutcome,
   type DomainClaim,
   type DomainVerification,
@@ -389,9 +390,30 @@ export interface DiscoverOptions {
    * figure before paying.
    */
   maxPrice?: number
+  /** Keep ONLY this category, e.g. `'ai'` (prefix match) — strict: results the index
+   *  didn't categorize are dropped, so real category matches aren't drowned by un-tagged ones. */
+  category?: string
+  /** Keep only resources paying in this asset symbol, e.g. `'USDC'` (keeps results whose
+   *  asset the index didn't report — confirm with `quote()`). */
+  asset?: string
+  /** Drop results whose reliability score (0–100) is below this. Results with no reported
+   *  score pass through (Bazaar doesn't measure it); inspect `result.reliabilityScore`. */
+  minReliability?: number
+  /** Prefer verified listings (402 Index server-side). Its `verified` flag differs from the
+   *  per-record `domain_verified`, so it's applied at the index; inspect `result.verified`. */
+  verified?: boolean
+  /** Restrict to listings the index confirmed are payable x402 (402 Index `payment_valid`). */
+  paymentValid?: boolean
+  /**
+   * Result ordering. Default `'relevance'` when a `query` is given (best matches first),
+   * else first-seen order. `'reliability'`/`'price'`/`'uptime'`/`'name'` sort by that field.
+   */
+  sort?: DiscoverySort
+  /** Direction for a non-relevance `sort`. Default `'desc'`. */
+  order?: 'asc' | 'desc'
   /** Which open indexes to read. Default `['bazaar', '402index']` (both free). */
   sources?: DiscoverySource[]
-  /** Max results per source before merge. Default 20. */
+  /** Max results to fetch per index request. Default 20. */
   limit?: number
 }
 
@@ -408,6 +430,23 @@ export interface RegisterOptions {
   network?: string
   /** HTTP method the resource answers on. Default 'GET'. */
   method?: string
+  /**
+   * A category for the listing, e.g. `'ai'`, `'finance'`, `'data'`. The highest-leverage
+   * findability field — most of 402 Index's catalog is `uncategorized`, so a real category
+   * makes a resource rank + filter where almost nothing else does.
+   */
+  category?: string
+  /**
+   * Keywords for the listing. Folded into the description as a searchable tail (402 Index
+   * search is literal — a term must appear in the text to match) and sent as a `tags` field.
+   */
+  tags?: string[]
+  /** Who runs the resource (provider/org name). */
+  provider?: string
+  /** Contact email for the listing. */
+  contactEmail?: string
+  /** A JSON request body the index should send when health-checking a POST/PUT resource. */
+  probeBody?: unknown
   /**
    * Which open indexes to list on. Default `['402index']` — no auth, no
    * signature. Add `'x402scan'` for the SIWX path (needs an EVM `discoverySigner`
@@ -771,30 +810,34 @@ export class PipRailClient {
    *   with `schemes: ['onchain-proof', 'exact']` (EVM EIP-3009/Permit2 + Solana SVM).
    */
   async discover(opts: DiscoverOptions = {}): Promise<DiscoveredResource[]> {
+    // searchOpenIndexes does the fan-out, server-side + client-side filters, and ranking;
+    // the client only adds the chain-aware `network` scoping it alone can resolve.
     const found = await searchOpenIndexes({
       ...(opts.query !== undefined ? { query: opts.query } : {}),
       ...(opts.sources ? { sources: opts.sources } : {}),
       ...(opts.limit !== undefined ? { limit: opts.limit } : {}),
+      ...(opts.maxPrice !== undefined ? { maxPrice: opts.maxPrice } : {}),
+      ...(opts.category ? { category: opts.category } : {}),
+      ...(opts.asset ? { asset: opts.asset } : {}),
+      ...(opts.minReliability !== undefined ? { minReliability: opts.minReliability } : {}),
+      ...(opts.verified !== undefined ? { verified: opts.verified } : {}),
+      ...(opts.paymentValid !== undefined ? { paymentValid: opts.paymentValid } : {}),
+      ...(opts.sort ? { sort: opts.sort } : {}),
+      ...(opts.order ? { order: opts.order } : {}),
     })
     const scope = opts.network ?? 'self'
-    let out = found
+    if (scope === 'any') return found
     if (scope === 'self') {
       // Match via the bound driver's own `supports()` — robust on EVERY chain family,
       // including custom chains. `railOnNetwork` keeps any rail whose network we can't
       // resolve (see below), so discovery is never silently empty on an unmapped chain.
       const { net } = await this.ensure()
-      out = out.filter((r) => r.rails.some((rail) => railOnNetwork(rail, (n) => net.supports(n))))
-    } else if (scope !== 'any') {
-      // Normalize the scope too, so a slug ('base') matches a rail that resolves to
-      // the same CAIP-2 — honoring the JSDoc and the every-chain "never hide" intent.
-      const target = normalizeNetwork(scope)
-      out = out.filter((r) => r.rails.some((rail) => railOnNetwork(rail, (n) => n === target)))
+      return found.filter((r) => r.rails.some((rail) => railOnNetwork(rail, (n) => net.supports(n))))
     }
-    if (opts.maxPrice !== undefined) {
-      const max = opts.maxPrice
-      out = out.filter((r) => r.priceUsd === undefined || r.priceUsd <= max)
-    }
-    return out
+    // Normalize the scope too, so a slug ('base') matches a rail that resolves to
+    // the same CAIP-2 — honoring the JSDoc and the every-chain "never hide" intent.
+    const target = normalizeNetwork(scope)
+    return found.filter((r) => r.rails.some((rail) => railOnNetwork(rail, (n) => n === target)))
   }
 
   /**
@@ -837,6 +880,11 @@ export class PipRailClient {
             ...(opts.asset ? { asset: opts.asset } : {}),
             ...(networkSlug ? { network: networkSlug } : {}),
             ...(opts.method ? { method: opts.method } : {}),
+            ...(opts.category ? { category: opts.category } : {}),
+            ...(opts.tags ? { tags: opts.tags } : {}),
+            ...(opts.provider ? { provider: opts.provider } : {}),
+            ...(opts.contactEmail ? { contactEmail: opts.contactEmail } : {}),
+            ...(opts.probeBody !== undefined ? { probeBody: opts.probeBody } : {}),
             // Attribution is default-ON; forward an explicit opt-out, else let register402Index default it.
             ...(opts.attribution === false ? { attribution: false } : {}),
           })

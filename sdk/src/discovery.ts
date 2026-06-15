@@ -51,6 +51,8 @@ export interface ResourceDescription {
   method?: string
   /** Human description (shown to agents browsing an index). */
   description?: string
+  /** Response content-type, e.g. 'application/json' (v2 ResourceInfo `mimeType`). */
+  mimeType?: string
   /** The payment options the gate offers (its resolved `accepts`, nonce-free). */
   accepts: PaymentRail[]
 }
@@ -149,6 +151,10 @@ export interface WellKnownX402 {
  * block in the 402 challenge) or build it directly with {@link buildBazaarExtension}.
  */
 export interface DiscoveryDescriptor {
+  /** One human sentence: WHAT this endpoint does (e.g. "Current USD price for any
+   *  crypto ticker"). Surfaced in the `extensions.piprail` self-describe block so an
+   *  agent understands the endpoint at a glance, without a paid call. */
+  summary?: string
   /** HTTP method the resource answers. Default `'GET'`. */
   method?: string
   /** Query params the resource reads, as a JSON-Schema `properties` object

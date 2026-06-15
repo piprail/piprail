@@ -29,7 +29,7 @@ the same logic, framework-free.
 | `createPaymentGate` | fn | **Headline** |
 | `deliverReceipt` | fn | Reliable receipt webhook — signed + retried POST to **your** endpoint |
 | `toInvalidBody` | fn | Deprecated |
-| `RequirePaymentOptions`, `AcceptOption`, `ExactRailOption` | type | carries `onPaid` / `onPaidError` / `awaitOnPaid` |
+| `RequirePaymentOptions`, `AcceptOption`, `ExactRailOption` | type | carries `onPaid` / `onPaidError` / `awaitOnPaid`; `mimeType` (→ v2 `resource.mimeType` + the self-describe `endpoint`) |
 | `ChainSelector`, `TokenInput` | type | — |
 | `PaymentGate`, `VerifyPaymentResult` | type | — |
 | `PaidReceipt` | type | The enriched receipt `onPaid` receives |
@@ -95,8 +95,8 @@ make a bound client legible to the model.
 | `PIPRAIL_AGENT_GUIDE`, `agentGuide` | const / fn | — |
 | `classifyChallenge` | fn | — |
 | `ChallengeTriage`, `ChallengeVerdict` | type | — |
-| `buildSelfDescription`, `BRAND` | fn / const | the `extensions.piprail` self-description builder + brand single-source-of-truth |
-| `SelfDescription`, `SelfDescribeRail` | type | — |
+| `buildSelfDescription`, `buildEndpointInfo`, `BRAND` | fn / const | the `extensions.piprail` self-description builder, the `endpoint` sub-block assembler, + brand single-source-of-truth |
+| `SelfDescription`, `SelfDescribeRail`, `SelfDescribeEndpoint` | type | the self-describe block, a rail in it, and the agent-readable `endpoint` (summary/input/output) |
 
 See [Payment tools](/agent-toolkit/payment-tools/), [The 7 tools](/agent-toolkit/the-7-tools/),
 [Renderers](/agent-toolkit/renderers/), [Agent guide](/agent-toolkit/agent-guide/), and
@@ -128,14 +128,16 @@ free public directories.
 | `searchOpenIndexes`, `register402Index`, `registerX402Scan` | fn |
 | `claim402IndexDomain`, `verify402IndexDomain` | fn |
 | `normalizeNetwork`, `getDirectoryInfo`, `decorateOutcome`, `DIRECTORY_INFO` | fn / const |
+| `rankResources`, `scoreResource` | fn | client-side relevance ranking of merged results (the engine behind a multi-word `discover()` query) |
+| `appendKeywords` | fn | fold `tags` into a description as a searchable `· Keywords: …` tail (402 Index search is literal) |
 | `appendAttribution`, `REGISTER_ATTRIBUTION` | fn / const | the opt-in `· Built with @piprail/sdk` listing marker |
-| `PaymentRail`, `ResourceDescription`, `ManifestInput` | type |
+| `PaymentRail`, `ResourceDescription`, `ManifestInput` | type | `ResourceDescription` carries an optional `mimeType` (v2 ResourceInfo) |
 | `OpenApiDocument`, `OpenApiOperation`, `WellKnownX402`, `X402DnsRecord` | type |
-| `DiscoveryDescriptor`, `BazaarExtension` | type |
-| `DiscoverySource`, `DiscoveredRail`, `DiscoveredResource` | type |
-| `RegisterOutcome`, `RegisterInput`, `SearchOpenIndexesOptions` | type |
+| `DiscoveryDescriptor`, `BazaarExtension` | type | `DiscoveryDescriptor` gained `summary` — feeds both `extensions.bazaar` and `extensions.piprail.endpoint` |
+| `DiscoverySource`, `DiscoverySort`, `DiscoveredRail`, `DiscoveredResource` | type | `DiscoveredResource` gained `tags` / `reliabilityScore` / `health` / `verified` / `score` |
+| `RegisterOutcome`, `RegisterInput`, `SearchOpenIndexesOptions` | type | `RegisterInput` + `SearchOpenIndexesOptions` gained the category / tags / asset / reliability / sort fields |
 | `DirectoryInfo`, `ListingVisibility`, `DomainClaim`, `DomainVerification` | type |
-| `DiscoverOptions`, `RegisterOptions` | type |
+| `DiscoverOptions`, `RegisterOptions` | type | `DiscoverOptions` gained category / asset / minReliability / verified / paymentValid / sort / order; `RegisterOptions` gained category / tags / provider / contactEmail / probeBody |
 
 See [Discover & register](/discovery/discover-and-register/),
 [Open indexes](/discovery/open-indexes/), [Emitters](/discovery/emitters/), and

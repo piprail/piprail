@@ -50,6 +50,34 @@ for (const r of found) {
 }
 ```
 
+### Pinpoint search — fan-out + relevance ranking
+
+A multi-word query used to return nothing. 402 Index's own `?q=` is **AND-tokenized** — it
+matches only listings whose text contains every word verbatim — so a query like `'crypto price
+feed'` missed a "Live BTC/USD oracle" listing that obviously answers it. `discover()` now closes
+that gap in three moves, so a natural-language query lands on the right resource:
+
+1. **Fan-out.** For a multi-word query it issues **one request per word** to 402 Index (plus the
+   full phrase), capped at **5 requests**, and unions the hits — so a listing that matches each
+   word *somewhere* is found even though no single field contains the exact phrase.
+2. **Relevance ranking.** The merged set is ranked client-side by a weighted score
+   (**name > category/tags > URL path > description**, with a big bonus when **all** query tokens
+   match), so the most relevant resource sorts first. The score lands on each result as
+   `result.score` (present only when a query was given).
+3. **Server-side filters.** The `category` / `asset` / `verified` / `paymentValid` filters below
+   are pushed to 402 Index so the index does the narrowing where it can.
+
+```ts
+// Multi-word, filtered, sorted — pinpoint a reliable finance feed:
+const feeds = await client.discover({
+  query: 'crypto price feed',
+  category: 'finance',
+  minReliability: 80,
+  sort: 'reliability',
+})
+// → DiscoveredResource[] ranked by reliability, only finance-categorized, ≥ 80 health
+```
+
 Then pipe a result into [`quote()`](/making-payments/quote/) →
 [`planPayment()`](/making-payments/plan-payment/) → [`fetch()`](/making-payments/fetch-and-autoroute/)
 to actually pay it.
@@ -58,9 +86,16 @@ to actually pay it.
 
 | Option | Default | Purpose |
 | --- | --- | --- |
-| `query` | — | Free-text, matched against name / description / resource URL. |
+| `query` | — | Free-text. Tokenized + matched against name / category / tags / URL path / description; a multi-word query fans out across 402 Index (one request per word) and the merged set is relevance-ranked. |
 | `network` | `'self'` | `'self'` (this client's chain), `'any'` (every chain), or a CAIP-2 id / chain slug like `'base'`. |
+| `category` | — | Keep **only** this category (prefix match, e.g. `'ai'`). **Strict** — a result the index didn't categorize is dropped, so real category matches aren't drowned by uncategorized ones. Pushed to 402 Index server-side. |
+| `asset` | — | Keep only resources paying in this token symbol, e.g. `'USDC'`. Keeps results whose asset the index didn't report (confirm with `quote()`). |
 | `maxPrice` | — | Drop results whose advertised price exceeds this number. Results with no advertised price pass through. |
+| `minReliability` | — | Drop results whose reliability score (0–100) is below this. Unscored results (e.g. from Bazaar) pass through. |
+| `verified` | — | Prefer verified listings (402 Index server-side only). Its `verified` flag differs from the per-record `domain_verified`, so it is **not** re-filtered client-side — inspect `result.verified` for the per-record signal. |
+| `paymentValid` | — | Restrict to listings 402 Index confirmed are payable x402 (its `payment_valid` flag). |
+| `sort` | `'relevance'`\* | `'relevance'` \| `'reliability'` \| `'price'` \| `'uptime'` \| `'latency'` \| `'name'` (type `DiscoverySort`). \*Defaults to `'relevance'` when a `query` is given, else first-seen order. |
+| `order` | `'desc'` | Direction for a **non-relevance** `sort`. |
 | `sources` | `['bazaar', '402index']` | Which open indexes to read. |
 | `limit` | `20` | Max results per source before merge. |
 
@@ -84,10 +119,19 @@ interface DiscoveredResource {
   name?: string
   description?: string
   category?: string
+  tags?: string[]           // free-text keywords, when the index reports them
   priceUsd?: number         // advertised price, when the index reports one (402 Index)
+  reliabilityScore?: number // health/uptime score 0–100 (402 Index only; absent on Bazaar)
+  health?: string           // liveness as last probed — 'healthy' | 'degraded' | 'down' (402 Index)
+  verified?: boolean        // per-record domain-ownership signal (402 Index domain_verified)
+  score?: number            // relevance score — present only when a query was given
   rails: DiscoveredRail[]   // the advertised payment options (cross-scheme)
 }
 ```
+
+`reliabilityScore`, `health`, and `verified` are reported by **402 Index** and absent from
+sources that don't measure them (Bazaar), so treat a missing field as "unknown," not "bad" — the
+`minReliability` filter and the unscored-pass-through rule are built around exactly that.
 
 :::caution
 Results are **cross-scheme** — the open indexes mostly carry the mainstream `exact` scheme, not
@@ -114,6 +158,9 @@ turn on a standard [`exact` rail](/accepting-payments/exact-rail-seller/) on the
 ```ts
 const [outcome] = await client.register('https://api.example.com/report', {
   name: 'Daily report',
+  category: 'finance',                         // ← the #1 findability lever (see below)
+  tags: ['market', 'stocks', 'daily report'],  // words an agent will search for
+  description: 'Daily US equity market report.',
   priceUsd: 0.1,   // advertised metadata only — no oracle reads this
   asset: 'USDC',
 })
@@ -123,16 +170,37 @@ console.log(outcome.ok, outcome.visibility, outcome.note)
 //    passes automated health + payment checks … verify your domain for instant approval + a badge.'
 ```
 
+:::tip[`category` is the highest-leverage field — set it]
+Most of 402 Index's ~66k catalog is **`uncategorized`**, so a single real `category` makes your
+listing rank and filter where almost nothing else does. Pick the obvious bucket for what your
+endpoint does (`'ai'`, `'finance'`, `'data'`, …) — it costs one string and is the biggest
+findability win available.
+:::
+
+:::tip[402 Index search is literal — pack the words in]
+402 Index matches a search term only when it **appears in the name or description**. So the words
+an agent will type are the words you must put there. `tags` does this for you: each keyword is
+folded into the description as a compact `· Keywords: a, b, c` tail (tastefully — it skips tags
+already present, caps the description at 500 chars, and never double-stamps) **and** sent as a
+`tags` field for any index that indexes them natively. Write the description for a human, then list
+the search terms as `tags`.
+:::
+
 ### RegisterOptions
 
 | Option | Default | Purpose |
 | --- | --- | --- |
+| `category` | — | **The highest-leverage findability field.** A real category (`'ai'`, `'finance'`, `'data'`, …) makes a listing rank + filter where most of the `uncategorized` catalog can't. |
+| `tags` | — | Keywords. Folded into the description as a searchable `· Keywords: …` tail (402 Index search is literal) **and** sent as a `tags` field. |
 | `name` | the URL's host | Display name for the listing. |
-| `description` | — | Listing description. |
+| `description` | — | Listing description. The one field an index displays — pack the words agents search for into it (and `tags`). |
 | `priceUsd` | — | Advertised price (metadata only — no oracle reads it). |
 | `asset` | — | Payment asset symbol, e.g. `'USDC'`. |
 | `network` | the client's `chain` | Payment network slug, e.g. `'base'`. |
 | `method` | `'GET'` | HTTP method the resource answers on. |
+| `provider` | — | Who runs the resource (provider/org name). |
+| `contactEmail` | — | Contact email for the listing (also used by the domain claim). |
+| `probeBody` | — | A JSON request body the index sends when health-checking a **POST/PUT** resource, so probes pass and the reliability score stays high. |
 | `targets` | `['402index']` | Which indexes to list on. Add `'x402scan'` for the SIWX path. |
 | `attribution` | `true` | Attribute the listing to PipRail (the `via` field + a tasteful `· Built with @piprail/sdk` on the description). Metadata only; opt out with `attribution: false`. See [Attribution](#attribution--how-a-listing-is-associated-with-piprail). |
 

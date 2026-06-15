@@ -311,6 +311,43 @@ describe('paymentTools — framework-agnostic descriptors', () => {
     expect(payloadUrl).toBe('https://api.example.com/report')
     expect(calls).toBe(1) // one register POST, no payment flow
   })
+
+  it('discover tool forwards the new filter params + surfaces reliability/health/verified', async () => {
+    let seen = ''
+    globalThis.fetch = (async (url: unknown) => {
+      const u = String(url)
+      if (u.includes('402index.io')) {
+        seen = u
+        return new Response(
+          JSON.stringify({ services: [{ url: 'https://ai.example.com/x', name: 'AI', protocol: 'x402', payment_network: 'base', category: 'ai', reliability_score: 91, health_status: 'healthy', domain_verified: 1 }] }),
+          { status: 200 }
+        )
+      }
+      return new Response(JSON.stringify({ items: [] }), { status: 200 }) // bazaar
+    }) as typeof fetch
+    const discoverTool = paymentTools(client()).find((t) => t.name === 'piprail_discover')!
+    const out = (await discoverTool.invoke({ network: 'any', category: 'ai', minReliability: 80, verified: true, sort: 'reliability' })) as Record<string, unknown>
+    const p = new URL(seen).searchParams
+    expect(p.get('category')).toBe('ai')
+    expect(p.get('verified')).toBe('true')
+    expect(p.get('sort')).toBe('reliability')
+    expect((out.resources as Record<string, unknown>[])[0]).toMatchObject({
+      category: 'ai', reliabilityScore: 91, health: 'healthy', verified: true,
+    })
+  })
+
+  it('register tool forwards category + tags', async () => {
+    let body: Record<string, unknown> = {}
+    globalThis.fetch = (async (_u: unknown, init?: RequestInit) => {
+      body = JSON.parse(String(init?.body))
+      return new Response(JSON.stringify({ ok: true }), { status: 200 })
+    }) as typeof fetch
+    const registerTool = paymentTools(client()).find((t) => t.name === 'piprail_register')!
+    await registerTool.invoke({ url: 'https://api.example.com/r', category: 'data', tags: ['weather', 'forecast'], provider: 'Acme' })
+    expect(body.category).toBe('data')
+    expect(body.tags).toEqual(['weather', 'forecast'])
+    expect(body.provider).toBe('Acme')
+  })
 })
 
 describe('paymentTools — read-only tools FUNNEL errors into a structured result (never a raw throw)', () => {

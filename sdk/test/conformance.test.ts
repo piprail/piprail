@@ -312,4 +312,45 @@ describe('x402 self-describing 402 — extensions.piprail (discoverability Phase
     expect(ext.piprail!.code).toBe('tx_already_used')
     expect(ext.piprail!.name).toBeUndefined() // no self-describe block when opted out
   })
+
+  it('no `endpoint` block by default (no description/mimeType/descriptor → byte-identical)', async () => {
+    const { challenge } = await mk().challenge('https://api/x')
+    const pr = (challenge.extensions as { piprail?: Record<string, any> }).piprail
+    expect(pr).toBeDefined()
+    expect('endpoint' in pr!).toBe(false)
+    expect(challenge.resource.mimeType).toBeUndefined()
+  })
+
+  it('describes what the endpoint DOES: summary + mimeType + input/output schema (agent-readability)', async () => {
+    const gate = mk({
+      description: 'Current USD price for any crypto ticker',
+      mimeType: 'application/json',
+      discovery: {
+        method: 'GET',
+        queryParams: { symbol: { type: 'string' } },
+        output: { type: 'json', example: { symbol: 'ETH', usd: 3247.18 } },
+      },
+    })
+    const { challenge } = await gate.challenge('https://api/price')
+    // v2 root resource carries the human description + content-type
+    expect(challenge.resource).toMatchObject({ description: 'Current USD price for any crypto ticker', mimeType: 'application/json' })
+    // and the self-describe block tells an agent the purpose, inputs, and an example output
+    const ep = (challenge.extensions as { piprail: { endpoint: Record<string, any> } }).piprail.endpoint
+    expect(ep).toMatchObject({
+      summary: 'Current USD price for any crypto ticker',
+      method: 'GET',
+      mimeType: 'application/json',
+      input: { symbol: { type: 'string' } },
+      output: { type: 'json', example: { symbol: 'ETH', usd: 3247.18 } },
+    })
+    // the index-facing bazaar block is populated from the SAME descriptor
+    const bazaar = (challenge.extensions as { bazaar: { info: { input: { queryParams: unknown } } } }).bazaar
+    expect(bazaar.info.input.queryParams).toEqual({ symbol: { type: 'string' } })
+  })
+
+  it('a bare `description` (no descriptor) still yields a summary-only endpoint block', async () => {
+    const { challenge } = await mk({ description: 'Weather by lat/lon' }).challenge('https://api/w')
+    const pr = (challenge.extensions as { piprail: { endpoint?: Record<string, any> } }).piprail
+    expect(pr.endpoint).toEqual({ summary: 'Weather by lat/lon' })
+  })
 })

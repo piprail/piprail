@@ -10,6 +10,10 @@ import {
   register402Index,
   registerX402Scan,
   normalizeNetwork,
+  rankResources,
+  scoreResource,
+  appendKeywords,
+  type DiscoveredResource,
   type DiscoverySigner,
 } from '../src/index.js'
 
@@ -165,11 +169,79 @@ describe('searchOpenIndexes — 402 Index read', () => {
     expect(found.find((r) => r.resource === 'https://p3/x')!.priceUsd).toBeUndefined()
   })
 
-  it('passes the query through as ?q=', async () => {
+  it('passes a single-word query through as ?q=', async () => {
     let seen = ''
     route({ index402: (u) => { seen = u; return new Response(JSON.stringify({ services: [] }), { status: 200 }) } })
-    await searchOpenIndexes({ sources: ['402index'], query: 'weather feed' })
+    await searchOpenIndexes({ sources: ['402index'], query: 'weather' })
     expect(seen).toContain('q=weather')
+  })
+
+  it('FANS OUT a multi-word query: the full phrase PLUS one request per token', async () => {
+    // 402 Index ?q= is AND-tokenized, so a multi-word phrase misses resources that match
+    // each word separately. We issue the phrase + each token and union the results.
+    const seen: string[] = []
+    route({ index402: (u) => { seen.push(u); return new Response(JSON.stringify({ services: [] }), { status: 200 }) } })
+    await searchOpenIndexes({ sources: ['402index'], query: 'weather feed' })
+    const qs = seen.map((u) => new URL(u).searchParams.get('q'))
+    expect(qs).toContain('weather feed') // the precise full-phrase request
+    expect(qs).toContain('weather') // + per-token requests
+    expect(qs).toContain('feed')
+  })
+
+  it('caps the fan-out at 5 requests for a long query (no index storm)', async () => {
+    let count = 0
+    route({ index402: () => { count++; return new Response(JSON.stringify({ services: [] }), { status: 200 }) } })
+    await searchOpenIndexes({ sources: ['402index'], query: 'alpha beta gamma delta epsilon zeta eta' })
+    expect(count).toBeLessThanOrEqual(5)
+  })
+
+  it('pushes server-side filters (category/asset/maxPrice/verified/paymentValid/sort) onto the request', async () => {
+    let seen = ''
+    route({ index402: (u) => { seen = u; return new Response(JSON.stringify({ services: [] }), { status: 200 }) } })
+    await searchOpenIndexes({
+      sources: ['402index'],
+      category: 'ai',
+      asset: 'USDC',
+      maxPrice: 0.05,
+      verified: true,
+      paymentValid: true,
+      sort: 'reliability',
+      order: 'desc',
+    })
+    const p = new URL(seen).searchParams
+    expect(p.get('category')).toBe('ai')
+    expect(p.get('payment_asset')).toBe('USDC')
+    expect(p.get('max_price_usd')).toBe('0.05')
+    expect(p.get('verified')).toBe('true')
+    expect(p.get('payment_valid')).toBe('true')
+    expect(p.get('sort')).toBe('reliability')
+    expect(p.get('order')).toBe('desc')
+  })
+
+  it('reads reliability_score / health_status / domain_verified / tags onto the result', async () => {
+    route({
+      index402: () =>
+        new Response(
+          JSON.stringify({
+            services: [
+              {
+                url: 'https://rich/x', name: 'Rich', protocol: 'x402', payment_network: 'base', payment_asset: 'USDC',
+                reliability_score: 87, health_status: 'healthy', domain_verified: 1, tags: ['weather', 'forecast'],
+              },
+              {
+                url: 'https://bare/x', name: 'Bare', protocol: 'x402', payment_network: 'base', domain_verified: 0,
+              },
+            ],
+          }),
+          { status: 200 }
+        ),
+    })
+    const found = await searchOpenIndexes({ sources: ['402index'] })
+    const rich = found.find((r) => r.resource === 'https://rich/x')!
+    expect(rich).toMatchObject({ reliabilityScore: 87, health: 'healthy', verified: true, tags: ['weather', 'forecast'] })
+    const bare = found.find((r) => r.resource === 'https://bare/x')!
+    expect(bare.verified).toBe(false)
+    expect(bare.reliabilityScore).toBeUndefined()
   })
 
   it('passes the limit through', async () => {
@@ -401,6 +473,167 @@ describe('attribution — User-Agent (always) + PipRail tag (default ON, opt-out
     await register402Index({ url: 'https://x/y' })
     expect('description' in body).toBe(false)
     expect(body.via).toBe('@piprail/sdk')
+  })
+})
+
+describe('rankResources + scoreResource — relevance ranking', () => {
+  const res = (over: Partial<DiscoveredResource>): DiscoveredResource => ({
+    resource: 'https://x.example.com/y',
+    source: '402index',
+    rails: [{ scheme: 'exact', network: 'eip155:8453' }],
+    ...over,
+  })
+
+  it('ranks a complete multi-word match above a partial one', () => {
+    const items = [
+      res({ resource: 'https://a/x', name: 'Random Weather Toy' }), // matches "weather" only
+      res({ resource: 'https://b/x', name: 'PipRail x402 demo', description: 'a tiny demo endpoint' }), // matches both
+    ]
+    const ranked = rankResources(items, 'piprail demo')
+    expect(ranked[0]!.resource).toBe('https://b/x') // complete-match bonus wins
+    expect(ranked[0]!.score).toBeGreaterThan(ranked[1]?.score ?? 0)
+  })
+
+  it('drops zero-match resources entirely', () => {
+    const items = [res({ name: 'Weather' }), res({ resource: 'https://z/q', name: 'Stocks' })]
+    const ranked = rankResources(items, 'weather')
+    expect(ranked.map((r) => r.name)).toEqual(['Weather'])
+  })
+
+  it('weights a NAME hit above a description-only hit', () => {
+    const byName = res({ resource: 'https://n/x', name: 'crypto prices' })
+    const byDesc = res({ resource: 'https://d/x', name: 'Service', description: 'crypto prices here' })
+    expect(scoreResource(byName, ['crypto'])).toBeGreaterThan(scoreResource(byDesc, ['crypto']))
+  })
+
+  it('matches a query token against tags + the URL path', () => {
+    expect(scoreResource(res({ tags: ['weather'] }), ['weather'])).toBeGreaterThan(0)
+    expect(scoreResource(res({ resource: 'https://api.example.com/weather' }), ['weather'])).toBeGreaterThan(0)
+  })
+
+  it('no query → returns the list unchanged (no score stamped, order preserved)', () => {
+    const items = [res({ name: 'B' }), res({ resource: 'https://a/x', name: 'A' })]
+    const out = rankResources(items, undefined)
+    expect(out.map((r) => r.name)).toEqual(['B', 'A'])
+    expect(out[0]!.score).toBeUndefined()
+  })
+
+  it('ties keep first-seen order (source priority survives)', () => {
+    const a = res({ resource: 'https://a/x', source: 'bazaar', name: 'weather' })
+    const b = res({ resource: 'https://b/x', source: '402index', name: 'weather' })
+    const ranked = rankResources([a, b], 'weather')
+    expect(ranked.map((r) => r.resource)).toEqual(['https://a/x', 'https://b/x'])
+  })
+})
+
+describe('searchOpenIndexes — client-side filters keep the un-annotated', () => {
+  // 402 Index returns a categorized 'ai' item, an uncategorized one, and a 'finance' one.
+  const services = [
+    { url: 'https://ai/x', protocol: 'x402', payment_network: 'base', category: 'ai', payment_asset: 'USDC', price_usd: 0.01, reliability_score: 90, domain_verified: 1 },
+    { url: 'https://uncat/x', protocol: 'x402', payment_network: 'base', payment_asset: 'USDC', price_usd: 0.2, domain_verified: 0 },
+    { url: 'https://fin/x', protocol: 'x402', payment_network: 'base', category: 'finance', payment_asset: 'DAI', price_usd: 2, reliability_score: 40, domain_verified: 0 },
+  ]
+  const stub = () => route({ index402: () => new Response(JSON.stringify({ services }), { status: 200 }) })
+
+  it('category is STRICT: keeps the match, drops the mismatch AND the un-categorized', async () => {
+    stub()
+    const found = await searchOpenIndexes({ sources: ['402index'], category: 'ai' })
+    const urls = found.map((r) => r.resource)
+    expect(urls).toEqual(['https://ai/x']) // only the real 'ai' item — uncat/finance dropped
+  })
+
+  it('verified is server-side (402 Index), NOT re-filtered client-side', async () => {
+    // 402 Index's `verified` param and per-record `domain_verified` differ, so the SDK
+    // trusts the index's server-side filter and does not strict-drop on domain_verified
+    // (which would wrongly empty the results). It DOES send the param.
+    let seen = ''
+    route({ index402: (u) => { seen = u; return new Response(JSON.stringify({ services }), { status: 200 }) } })
+    const found = await searchOpenIndexes({ sources: ['402index'], verified: true })
+    expect(new URL(seen).searchParams.get('verified')).toBe('true') // pushed server-side
+    expect(found.length).toBe(3) // no client-side over-drop on domain_verified
+  })
+
+  it('asset keeps matching + asset-less, drops a known mismatch', async () => {
+    stub()
+    const found = await searchOpenIndexes({ sources: ['402index'], asset: 'USDC' })
+    expect(found.map((r) => r.resource)).not.toContain('https://fin/x') // DAI ≠ USDC
+    expect(found.map((r) => r.resource)).toContain('https://ai/x')
+  })
+
+  it('maxPrice drops the over-priced (unknown price passes)', async () => {
+    stub()
+    const found = await searchOpenIndexes({ sources: ['402index'], maxPrice: 0.05 })
+    const urls = found.map((r) => r.resource)
+    expect(urls).toContain('https://ai/x') // 0.01
+    expect(urls).not.toContain('https://fin/x') // 2 > 0.05
+  })
+
+  it('minReliability drops the low-scored (unknown reliability passes)', async () => {
+    stub()
+    const found = await searchOpenIndexes({ sources: ['402index'], minReliability: 80 })
+    const urls = found.map((r) => r.resource)
+    expect(urls).toContain('https://ai/x') // 90
+    expect(urls).toContain('https://uncat/x') // no score → kept
+    expect(urls).not.toContain('https://fin/x') // 40 < 80
+  })
+
+  it('sort:reliability orders by score, unknowns last', async () => {
+    stub()
+    const found = await searchOpenIndexes({ sources: ['402index'], sort: 'reliability' })
+    expect(found[0]!.resource).toBe('https://ai/x') // 90
+    expect(found[found.length - 1]!.resource).toBe('https://uncat/x') // unknown → last
+  })
+})
+
+describe('register402Index — richer metadata (Layer 2)', () => {
+  it('forwards category / tags / provider / contact_email / probe_body', async () => {
+    let body: Record<string, unknown> = {}
+    globalThis.fetch = (async (_u: unknown, init?: RequestInit) => {
+      body = JSON.parse(String(init?.body))
+      return new Response('{}', { status: 200 })
+    }) as typeof fetch
+    await register402Index({
+      url: 'https://api.example.com/r',
+      description: 'Live market data.',
+      category: 'finance',
+      tags: ['crypto', 'price', 'ticker'],
+      provider: 'Acme',
+      contactEmail: 'dev@acme.com',
+      probeBody: { symbol: 'ETH' },
+    })
+    expect(body.category).toBe('finance')
+    expect(body.tags).toEqual(['crypto', 'price', 'ticker'])
+    expect(body.provider).toBe('Acme')
+    expect(body.contact_email).toBe('dev@acme.com')
+    expect(body.probe_body).toEqual({ symbol: 'ETH' })
+    // tags fold into the description as a searchable tail, before the attribution suffix
+    expect(body.description).toBe('Live market data. · Keywords: crypto, price, ticker · Built with @piprail/sdk')
+  })
+
+  it('does not duplicate a tag already present in the description', async () => {
+    let body: Record<string, unknown> = {}
+    globalThis.fetch = (async (_u: unknown, init?: RequestInit) => {
+      body = JSON.parse(String(init?.body))
+      return new Response('{}', { status: 200 })
+    }) as typeof fetch
+    await register402Index({ url: 'https://x/y', description: 'Live crypto prices', tags: ['crypto', 'weather'], attribution: false })
+    expect(body.description).toBe('Live crypto prices · Keywords: weather') // 'crypto' already present → only 'weather' added
+  })
+})
+
+describe('appendKeywords — searchable tag tail (pure)', () => {
+  it('appends fresh tags as a Keywords tail', () => {
+    expect(appendKeywords('Weather API', ['rain', 'forecast'])).toBe('Weather API · Keywords: rain, forecast')
+  })
+  it('no tags → unchanged', () => {
+    expect(appendKeywords('Weather API', [])).toBe('Weather API')
+    expect(appendKeywords('Weather API', undefined)).toBe('Weather API')
+  })
+  it('seeds a description from tags when none was given', () => {
+    expect(appendKeywords(undefined, ['rain'])).toBe('Keywords: rain')
+  })
+  it('skips tags already present (case-insensitive)', () => {
+    expect(appendKeywords('Rain and SNOW', ['rain', 'snow', 'hail'])).toBe('Rain and SNOW · Keywords: hail')
   })
 })
 

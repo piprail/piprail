@@ -1,5 +1,18 @@
 # @piprail/mcp changelog
 
+## [0.7.0] — 2026-06-15 — on `@piprail/sdk` 2.1.0 (richer discover / register tools)
+
+Re-pins to **`@piprail/sdk` ^2.1.0**, the discoverability upgrade, and surfaces it through the two
+discovery tools. **No tool was added or removed** — still the same 7 `piprail_*` tools, env vars,
+and spend-policy guarantees — so existing configs and integrations (OpenClaw, Hermes) keep working
+unchanged and inherit the improvements automatically (`npx -y @piprail/mcp` is always-latest).
+
+- **`piprail_discover`** gains the new filter inputs — `category`, `asset`, `minReliability`,
+  `verified`, `sort` — and its results now carry `category`, `reliabilityScore`, `health`, and
+  `verified`. Multi-word queries are pinpoint (per-word fan-out + relevance ranking in the SDK).
+- **`piprail_register`** gains `category` (the top findability lever), `tags`, `provider`, and
+  `contactEmail`, with the tool description nudging agents to pack searchable keywords into the text.
+
 ## [0.6.1] — 2026-06-15 — on `@piprail/sdk` 2.0.1 (clearer typed errors)
 
 Re-pins to **`@piprail/sdk` ^2.0.1**, a robustness patch that turns raw library errors into typed

@@ -89,11 +89,36 @@ const hits = await searchOpenIndexes({ sources: ['bazaar', '402index'], limit: 5
 // → DiscoveredResource[] — if 402index is down, you still get bazaar's results (never an empty throw)
 ```
 
+:::note[Why a query needs more than a raw index search]
+The two indexes search badly, in opposite ways, so `searchOpenIndexes` (and `client.discover()`)
+compensate:
+
+- **402 Index** search is **literal and AND-tokenized** — `?q=` matches only listings whose text
+  contains **every** word verbatim, so a multi-word query like `'crypto price feed'` misses an
+  obviously-relevant "BTC/USD oracle" listing. To beat this, a multi-word query **fans out** — one
+  request per word (plus the full phrase), capped at 5, unioned — and the merged set is **ranked
+  client-side by relevance** (weighted name > category/tags > URL > description, with a bonus when
+  every token matches).
+- **Bazaar's** keyless search is effectively unusable, so its catalog is fetched and then
+  **filtered + ranked client-side** against your query.
+
+Net: a natural-language, multi-word query that returned nothing against the raw indexes now lands
+on the right resource.
+:::
+
 The options object is the exported `SearchOpenIndexesOptions`:
 
 | Option | Default | Purpose |
 | --- | --- | --- |
-| `query` | — | Free-text, filtered client-side against name / description / resource. |
+| `query` | — | Free-text. Tokenized + matched across name / description / category / URL; fans out per-word on 402 Index, filters Bazaar client-side, then ranks the merged set by relevance. |
+| `category` | — | Keep only this category (prefix match) — strict (uncategorized results dropped); pushed to 402 Index server-side. |
+| `asset` | — | Keep only resources paying in this token symbol; keeps results whose asset the index didn't report. |
+| `maxPrice` | — | Drop results advertised above this USD price (no-price results pass). |
+| `minReliability` | — | Drop results scored below this (0–100); unscored results pass. |
+| `verified` | — | Prefer verified listings (402 Index server-side; not re-filtered client-side). |
+| `paymentValid` | — | Restrict to 402-Index-confirmed-payable listings. |
+| `sort` | `'relevance'`\* | `DiscoverySort` — `'relevance'` \| `'reliability'` \| `'price'` \| `'uptime'` \| `'latency'` \| `'name'`. \*Relevance by default with a query, else first-seen order. |
+| `order` | `'desc'` | Direction for a non-relevance `sort`. |
 | `sources` | `['bazaar', '402index']` | Which indexes to read (both free). |
 | `limit` | `20` | Max results per source, before dedupe. |
 | `signal` | — | An `AbortSignal` to cancel the reads. |
@@ -143,9 +168,13 @@ The `RegisterInput` fields:
 | --- | --- |
 | `url` | Required — the gated resource. |
 | `name` | Defaults to the URL's hostname. |
-| `description` / `priceUsd` | Listing metadata. |
+| `category` | **The highest-leverage findability field** — most of the catalog is `uncategorized`, so a real category (`'ai'`, `'finance'`, …) makes a listing rank + filter. |
+| `tags` | Keywords — folded into the description as a `· Keywords: …` tail (search is literal) **and** sent as a `tags` field. |
+| `description` / `priceUsd` | Listing metadata. The description is the one field an index displays. |
 | `asset` / `network` | Payment symbol (e.g. `'USDC'`) and network slug (e.g. `'base'`). |
 | `method` | HTTP method the resource answers on. Defaults to `GET`. |
+| `provider` / `contactEmail` | Who runs the resource, and a contact email (also used by the domain claim). |
+| `probeBody` | A JSON body the index sends when health-checking a **POST/PUT** resource, so probes pass and the reliability score stays high. |
 | `attribution` | **Default on** (opt out with `false`) — attributes the listing to PipRail via a `via: '@piprail/sdk'` field + a tasteful `· Built with @piprail/sdk` description suffix. Metadata only. |
 
 A self-registered listing comes back **pending review** (`onSuccess: 'pending-review'`) — probed on

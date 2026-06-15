@@ -197,6 +197,30 @@ describe('client.discover() — federate the open indexes', () => {
     expect(found.some((r) => r.resource.includes('news.example.com'))).toBe(true)
   })
 
+  it('ranks query results by relevance, stamping a score (best first)', async () => {
+    stubIndexes()
+    const client = new PipRailClient({ chain: 'base', wallet: { key: TEST_KEY } })
+    const found = await client.discover({ query: 'weather', network: 'any' })
+    expect(found[0]!.resource).toBe('https://weather.example.com/now') // name "Weather Now" → top
+    expect(found[0]!.score).toBeGreaterThan(0)
+  })
+
+  it('forwards server-side filters to 402 Index (category/asset/verified/sort)', async () => {
+    const seen: string[] = []
+    globalThis.fetch = (async (url: unknown) => {
+      const u = String(url)
+      if (u.includes('402index.io')) { seen.push(u); return new Response(JSON.stringify({ services: [] }), { status: 200 }) }
+      return new Response(JSON.stringify({ items: [] }), { status: 200 })
+    }) as typeof fetch
+    const client = new PipRailClient({ chain: 'base', wallet: { key: TEST_KEY } })
+    await client.discover({ network: 'any', category: 'ai', asset: 'USDC', verified: true, sort: 'reliability' })
+    const p = new URL(seen[0]!).searchParams
+    expect(p.get('category')).toBe('ai')
+    expect(p.get('payment_asset')).toBe('USDC')
+    expect(p.get('verified')).toBe('true')
+    expect(p.get('sort')).toBe('reliability')
+  })
+
   // The slug map is the linchpin of self-filtering — and its non-EVM entries must
   // mirror each driver's bound caip2 exactly (Solana's reference is truncated to
   // 32 chars). An unknown slug passes through unchanged (no ':') so the client
