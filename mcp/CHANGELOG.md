@@ -1,5 +1,13 @@
 # @piprail/mcp changelog
 
+## [0.5.1] — 2026-06-15 — refresh on `@piprail/sdk` 1.25.0
+
+Maintenance release — **no behaviour change**. Re-pins the SDK floor to `^1.25.0` so the server ships
+on the latest engine: **more keyless gasless facilitators** (xpay, OpenFacilitator, Corbits, beside
+PayAI) and the live-verified facilitator coverage map, plus the multi-chain `PIPRAIL_CHAINS` mode
+shipped in 0.5.0 — now backed by SDK 1.25.0. Tool surface, config, and the spend-policy guarantees are
+unchanged (still the 7 `piprail_*` tools; read-only without a key).
+
 ## [0.5.0] — 2026-06-14 — multi-chain mode (one server, a wallet per chain)
 
 **`PIPRAIL_CHAINS` adds multi-chain paying.** List several chains (e.g.
