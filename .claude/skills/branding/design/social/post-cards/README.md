@@ -1,33 +1,36 @@
 # post-cards/ — themed campaign post cards
 
-Square (1080×1080) posts for the campaign themes (the machine economy, RWAs, the 402 loop,
-`planPayment`, the spend policy, chain launches, …). **One template per card; one generic
-renderer for all of them** — this folder is the reusable template library, so it keeps *all*
-the templates even though only a few rendered PNGs live in git.
+Square (1080×1080) posts. This folder is a **curated, minimal template set** — one template per
+*distinct layout*, not one per slogan. The copy inside each is swappable; the layout is the reusable
+asset. One generic renderer drives them all.
 
 ```bash
 # render any card by name -> post-<name>.png
-node render.mjs base        # uses card-base.html
-node render.mjs near        # uses post-near.html
+node render.mjs open        # uses card-open.html
 node render.mjs plan        # uses post-plan.html
 ```
 
-`render.mjs <name>` finds `card-<name>.html` or `post-<name>.html` beside it and screenshots it
-to `post-<name>.png` at 1080² @2×. (This one script replaced the old per-theme
-`render-ai.mjs` / `render-base.mjs` / … zoo.)
+`render.mjs <name>` finds `card-<name>.html` or `post-<name>.html` beside it and screenshots it to
+`post-<name>.png` at 1080² @2×.
 
-## Two template flavours
+## The five essential templates (one per layout)
 
-| Prefix | Logos via | Notes |
+| Template | Layout / archetype | Use it for |
 | --- | --- | --- |
-| `card-*.html` | the shared bundle `../../video/assets.js` | run `node ../../video/genassets.mjs` once first to (re)build the bundle |
-| `post-*.html` | `site/public/` directly (relative `../../../../../../site/public/…`) | self-contained; no bundle needed |
+| `card-open.html` | **two-bullet thesis** (logo · eyebrow · big headline · sub · 2 bullet rows · chain strip) | the workhorse — any "agents pay, here's why" claim. Swap the copy. |
+| `post-plan.html` | **centered code card** | showing a feature in code — here `planPayment()` |
+| `post-policy.html` | **centered code card** | a second feature — the spend policy |
+| `post-explainer.html` | **402 → 200 flow** | the signature "what PipRail does" explainer |
+| `card-rwa.html` | **logo grid** | "live where the money flows" — a wall of chain logos |
 
-- **SOURCE (tracked):** every `card-*.html` / `post-*.html` template + `render.mjs`. The full
-  template set is the library — keep it; it's cheap and it's the actual reusable IP.
-- **GALLERY (tracked by name):** three reference renders are committed as examples —
-  **`post-ai.png`**, **`post-open.png`**, **`post-explainer.png`** (allowlisted in the repo
-  `.gitignore`). Pick a kept one to add a new example.
+> `card-*` templates embed logos from the shared bundle `../../video/assets.js` — run
+> `node ../../video/genassets.mjs` once first to (re)build it. `post-*` templates read `site/public/`
+> directly (self-contained). Per-chain cards are **not** here — that's the [`chain-cards/`](../chain-cards/) pipeline.
+
+- **SOURCE (tracked):** the five templates + `render.mjs`. Need a new layout? Add one template here;
+  don't add a fifth copy of an existing layout.
+- **GALLERY (tracked by name):** three reference renders are committed — **`post-open.png`**
+  (two-bullet), **`post-explainer.png`** (flow), **`post-plan.png`** (code) — allowlisted in the repo
+  `.gitignore`, one per visual archetype.
 - **RENDER (gitignored):** every other `post-*.png`. Regenerate from its template; never commit.
-- **No local logo copies.** Templates reference `site/public/` (the single source of truth) or
-  the shared bundle. See [`../../README.md`](../../README.md).
+- **No local logo copies.** Templates reference `site/public/` or the shared bundle. See [`../../README.md`](../../README.md).

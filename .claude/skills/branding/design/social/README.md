@@ -10,7 +10,7 @@ social/
 ├── CAMPAIGN.md        the "one chain a day" campaign plan + per-chain copy/tags
 ├── profile/           PUBLISHED, uploaded deliverables — X header + GitHub social card   [tracked]
 ├── launch-cards/      the 4 canonical one-off cards (integration · gasless · code)        [gallery]
-├── post-cards/        themed square posts — the template library + 3 example renders       [gallery]
+├── post-cards/        themed square posts — 5 essential templates + 3 example renders        [gallery]
 └── chain-cards/       per-chain "now pays on <chain>" cards — pipeline + 2 example renders  [gallery]
 ```
 
@@ -28,7 +28,7 @@ Same as the [parent rule](../README.md), with one addition (GALLERY):
   scripts. **Tracked.**
 - **PUBLISHED** — the uploaded, permanent deliverables in `profile/`. **Tracked.**
 - **GALLERY** — a small, **named** set of finished renders kept as canonical examples (the 4
-  launch cards + `post-ai`/`post-open`/`post-explainer` + `chain-cards/solana`/`base`). **Tracked by
+  launch cards + `post-open`/`post-explainer`/`post-plan` + `chain-cards/solana`/`base`). **Tracked by
   an explicit allowlist** in the repo `.gitignore` — so the best cards persist and nothing else does.
 - **RENDER** — every other `*.png`/`*.mp4` a script writes, plus the `chain-cards/*.html` debug
   dumps. **Gitignored.** Never commit one; rerun the script instead.

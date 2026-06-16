@@ -109,9 +109,9 @@ Screenshot*.png
 !.claude/skills/branding/design/social/launch-cards/payai-gasless.png
 !.claude/skills/branding/design/social/launch-cards/solana-gasless.png
 !.claude/skills/branding/design/social/launch-cards/multichain.png
-!.claude/skills/branding/design/social/post-cards/post-ai.png
 !.claude/skills/branding/design/social/post-cards/post-open.png
 !.claude/skills/branding/design/social/post-cards/post-explainer.png
+!.claude/skills/branding/design/social/post-cards/post-plan.png
 !.claude/skills/branding/design/social/chain-cards/solana.png
 !.claude/skills/branding/design/social/chain-cards/base.png
 # chain-cards/ render.mjs writes a debug <chain>.html beside each <chain>.png — both are

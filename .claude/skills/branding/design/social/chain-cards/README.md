@@ -7,13 +7,12 @@ the script writes both a debug `<chain>.html` and the final `<chain>.png` beside
 ```bash
 node render.mjs <chain>          # e.g. base, solana, xrpl  → <chain>.png (+ debug <chain>.html)
 node render-reply.mjs <chain>    # the reply / quote-tweet variant
-node render-reply-square.mjs <chain>
 node render-universal.mjs        # the single "works on every chain" card (not per-chain)
 ```
 
-- **SOURCE (tracked):** `render.mjs`, `render-reply.mjs`, `render-reply-square.mjs`,
-  `render-universal.mjs`. Known chains live in the `CHAINS` map at the top of `render.mjs`; logos
-  resolve from `site/public/chains/<chain>.svg` and `site/public/logo-no-background.png`.
+- **SOURCE (tracked):** `render.mjs`, `render-reply.mjs`, `render-universal.mjs`. Known chains live
+  in the `CHAINS` map at the top of `render.mjs`; logos resolve from `site/public/chains/<chain>.svg`
+  and `site/public/logo-no-background.png`.
 - **GALLERY (tracked by name):** two reference renders are committed — **`solana.png`** and
   **`base.png`** (the gasless-EURC card), allowlisted in the repo `.gitignore`. Render any other
   chain on demand; it lands as a gitignored PNG.

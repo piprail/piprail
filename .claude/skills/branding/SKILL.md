@@ -41,7 +41,7 @@ generates is gitignored and regenerable.
 │   ├── profile/         #    PUBLISHED profile deliverables (tracked PNGs): og-github (→ GitHub social
 │   │                    #    preview) · x-banner-1500x500 (→ X header) + x-banner.html (its source)
 │   ├── chain-cards/     #    per-chain announce cards — render.mjs (template in the script); gallery: solana, base
-│   ├── post-cards/      #    themed posts — *.html template library + one render.mjs; gallery: ai, open, explainer
+│   ├── post-cards/      #    themed posts — 5 essential templates (one per layout) + render.mjs; gallery: open, explainer, plan
 │   └── launch-cards/    #    4 canonical one-offs (png+html+script): hermes · payai · solana-gasless · multichain
 ├── video/               # ③ PROMO-VIDEO pipeline — own README; scene.html · capture/genassets/synth
 │                        #    (renders gitignored)

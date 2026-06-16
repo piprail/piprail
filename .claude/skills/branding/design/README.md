@@ -50,7 +50,7 @@ design/
 │   │   ├── x-banner-1500x500.png    → x.com/@piprail ▸ profile header
 │   │   └── x-banner.html            the banner's source template
 │   ├── chain-cards/             per-chain cards — render.mjs (+ reply/universal) · gallery: solana, base
-│   ├── post-cards/              themed posts — template library + render.mjs · gallery: ai, open, explainer
+│   ├── post-cards/              themed posts — 5 essential templates + render.mjs · gallery: open, explainer, plan
 │   └── launch-cards/            4 canonical one-offs — hermes · payai · solana-gasless · multichain
 │
 ├── video/               ③ PROMO-VIDEO pipeline — source tracked, renders ignored
