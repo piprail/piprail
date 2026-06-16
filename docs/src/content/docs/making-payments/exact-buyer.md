@@ -72,10 +72,26 @@ names which one (`extra.assetTransferMethod`), and the client picks the matching
 | Solana SVM — any SPL token (USDC / USDT) | A contract / EIP-1271 / EIP-7702 signer (EVM) |
 
 An `exact` rail is selected only when the 402 names a network **your bound chain supports** — the
-client matches each offered rail against its own chain via the driver (it doesn't gate on a fixed slug
-list) and settles on that chain. So an EIP-3009/Permit2 rail on your bound EVM chain, or an SVM rail on
+client matches each offered rail against its own chain via the driver (matching the network whether
+it's a CAIP-2 id or a chain slug — see [Interoperability](#interoperability-any-network-label) below)
+and settles on that chain. So an EIP-3009/Permit2 rail on your bound EVM chain, or an SVM rail on
 a Solana-bound client, is payable; an `exact` rail naming a different chain (or a family without an
 `exact` scheme) simply isn't selected and falls back to `onchain-proof`.
+
+## Interoperability: any network label
+
+The `exact` rail is the *standard* x402 scheme, so a PipRail client interoperates with the wider x402
+ecosystem out of the box — any server or facilitator that speaks `exact`, **however it labels the
+network**. Before matching a rail to your bound chain the client normalizes the rail's network, so a
+402 that names the chain as a **CAIP-2 id** (`eip155:8453`) *or* a **chain slug** (`base`, `bsc`,
+`polygon`) is matched and paid identically. You don't have to know, or configure, which form a given
+facilitator emits — both resolve to the same chain.
+
+This matters because facilitators in the wild are inconsistent: the same endpoint may advertise a rail
+as `eip155:56` in one place and `bsc` (or `56`) in another. PipRail pays all of them. A label that
+resolves to a **different** chain than the one you're bound to — or an unrecognized one — is simply not
+selected, never mis-paid; the trusted EIP-712 domain (which fixes the chain id at signing time) is the
+final guard regardless of the label.
 
 When you enable both schemes, the client gathers `onchain-proof` rails first, so on a dual-rail
 402 the default selection is unchanged. An `exact` rail is only ever picked when the bound

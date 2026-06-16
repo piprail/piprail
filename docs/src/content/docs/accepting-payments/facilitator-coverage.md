@@ -106,6 +106,12 @@ await facilitatorCoverage('https://facilitator.payai.network')
 //    { scheme: 'exact', network: 'solana:5eykt4Us…', feePayer: 'Fee…' }]
 ```
 
+Each kind also carries two **optional** fields when the facilitator advertises them: `x402Version`
+(the envelope version it reports per kind) and `assetTransferMethod` (`'eip3009' | 'permit2'`) — so a
+reader can tell a v1 rail from a v2 rail, or a gasless EIP-3009 kind from a Permit2 one, straight from
+`/supported`. Both are omitted entirely when absent (never a `undefined` key), so a facilitator that
+reports neither parses exactly as before.
+
 `parseFacilitatorSupported(body)` is the pure parser behind it (useful in tests or when you already
 hold the body):
 

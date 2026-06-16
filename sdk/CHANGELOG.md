@@ -4,6 +4,30 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased] — broader x402 ecosystem interoperability
+
+Both changes are additive and backward-compatible — defaults and the zero-config 402 stay
+byte-identical; only previously-skipped cases become newly handled.
+
+### Changed
+
+- **The `exact` buyer matches a rail's network whether it's a CAIP-2 id _or_ a chain slug.** The pay
+  path now normalizes the offered network (`eip155:8453`, `base`, `bsc`, `56`, …) before matching it to
+  the bound chain — the same normalization discovery already used — so a PipRail client interoperates
+  with any x402 server or facilitator regardless of how it labels the network. Strictly additive: a
+  CAIP-2 label behaves exactly as before; only a chain slug that resolves to the **bound** chain becomes
+  newly payable (a different-chain or unrecognized label is never selected, and the trusted EIP-712
+  domain still fixes the chain id at signing). Fixes `exact` rails that some facilitators label by slug
+  being silently unpayable.
+
+### Added
+
+- **`facilitatorCoverage()` / `parseFacilitatorSupported()` surface two optional per-kind fields** —
+  `x402Version` and `assetTransferMethod` (`'eip3009' | 'permit2'`) — when a facilitator's `GET
+  /supported` advertises them, so coverage can tell a v1 rail from a v2 rail and an EIP-3009 kind from a
+  Permit2 one. Omitted entirely when absent (no `undefined` keys), so a facilitator reporting neither
+  parses exactly as before.
+
 ## [2.1.1] — 2026-06-15 — discoverability polish (post-2.1.0 audit)
 
 A consistency patch from a deep docs↔source audit of the 2.1.0 discoverability surface. No
