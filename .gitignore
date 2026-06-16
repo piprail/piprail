@@ -101,6 +101,19 @@ Screenshot*.png
 # EXCEPT the PUBLISHED profile deliverables (X header + GitHub social card) — uploaded
 # externally and must persist, so keep them tracked (negation must follow the rule above).
 !.claude/skills/branding/design/social/profile/*.png
+# AND the curated EXAMPLE GALLERY — a small, NAMED set of finished renders kept in git as the
+# canonical examples (one per card archetype) so the best cards are never lost locally. Everything
+# else under social/ stays a regenerable RENDER; only these explicit files track. To add/retire an
+# example, edit this list. The matching render script for each lives beside it. See social/README.md.
+!.claude/skills/branding/design/social/launch-cards/hermes-launch.png
+!.claude/skills/branding/design/social/launch-cards/payai-gasless.png
+!.claude/skills/branding/design/social/launch-cards/solana-gasless.png
+!.claude/skills/branding/design/social/launch-cards/multichain.png
+!.claude/skills/branding/design/social/post-cards/post-ai.png
+!.claude/skills/branding/design/social/post-cards/post-open.png
+!.claude/skills/branding/design/social/post-cards/post-explainer.png
+!.claude/skills/branding/design/social/chain-cards/solana.png
+!.claude/skills/branding/design/social/chain-cards/base.png
 # chain-cards/ render.mjs writes a debug <chain>.html beside each <chain>.png — both are
 # RENDER output here (the template is a string inside render.mjs), so ignore the HTML too.
 # (post-cards/ and launch-cards/ .html ARE source templates, so this is scoped to chain-cards.)

@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1080px; }
+  .frame {
+    position: relative; width: 1080px; height: 1080px; background: #000; overflow: hidden;
+    font-family: 'Inter', sans-serif; color: #fafafa;
+    display: flex; flex-direction: column; justify-content: center;
+    gap: 34px; padding: 88px 82px;
+  }
+  /* soft emerald glow, top-right — "paid" */
+  .frame::before {
+    content: ""; position: absolute; top: -360px; right: -320px; width: 880px; height: 880px;
+    background: radial-gradient(circle, rgba(46,230,166,0.15) 0%, rgba(46,230,166,0) 60%);
+    pointer-events: none;
+  }
+  .frame::after {
+    content: ""; position: absolute; bottom: -380px; left: -280px; width: 800px; height: 800px;
+    background: radial-gradient(circle, rgba(110,168,254,0.07) 0%, rgba(110,168,254,0) 60%);
+    pointer-events: none;
+  }
+  .frame > * { position: relative; z-index: 1; }
+
+  /* header */
+  .top { display: flex; align-items: center; gap: 18px; margin-bottom: 4px; }
+  .mark { width: 64px; height: 64px; border-radius: 16px; box-shadow: 0 0 0 1px rgba(255,255,255,0.08); }
+  .word { font-family: 'Space Grotesk', 'Inter', system-ui, sans-serif; font-weight: 700; font-size: 52px; letter-spacing: -1.8px; line-height: 1; }
+  .word .a { color: #fafafa; } .word .b { color: #2ee6a6; }
+  .kick {
+    margin-left: auto; display: flex; align-items: center; gap: 11px;
+    font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 19px;
+    color: #2ee6a6; background: rgba(46,230,166,0.08);
+    border: 1px solid rgba(46,230,166,0.25); border-radius: 999px; padding: 9px 18px;
+    letter-spacing: 0.5px;
+  }
+  .kick i { width: 9px; height: 9px; border-radius: 50%; background: #2ee6a6; box-shadow: 0 0 12px #2ee6a6; }
+
+  .eyebrow {
+    font-family: 'JetBrains Mono', monospace; font-weight: 500; font-size: 22px;
+    letter-spacing: 6px; text-transform: uppercase; color: #717880;
+  }
+
+  h1 { font-family: 'Space Grotesk', 'Inter', system-ui, sans-serif; font-weight: 700; font-size: 104px; line-height: 0.95; letter-spacing: -4px; }
+  h1 .l1 {
+    background: linear-gradient(176deg, #ffffff 0%, #b9bec3 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  h1 .l2 { color: #2ee6a6; }
+
+  .sub {
+    font-size: 32px; line-height: 1.5; color: #98a0a8; letter-spacing: -0.4px; max-width: 900px;
+  }
+  .sub b { color: #f2f4f6; font-weight: 700; }
+  .sub em { color: #2ee6a6; font-style: normal; font-weight: 600; }
+
+  .rows { display: flex; flex-direction: column; gap: 18px; }
+  .item {
+    display: flex; align-items: center; gap: 22px;
+    background: linear-gradient(180deg, #0d0f12 0%, #090a0c 100%);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 20px; padding: 28px 32px;
+  }
+  .item .arw {
+    color: #2ee6a6; font-size: 26px; font-weight: 800; flex: none; line-height: 1;
+    width: 46px; height: 46px; display: flex; align-items: center; justify-content: center;
+    background: rgba(46,230,166,0.10); border: 1px solid rgba(46,230,166,0.22); border-radius: 12px;
+  }
+  .item .txt { font-size: 30px; font-weight: 600; color: #e9ecef; letter-spacing: -0.5px; }
+  .item .txt em { color: #2ee6a6; font-style: normal; font-weight: 700; }
+
+  .strip { display: flex; align-items: center; gap: 15px; }
+  .tile {
+    width: 64px; height: 64px; border-radius: 16px; overflow: hidden;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.08); flex: none; background: #0b0c0f;
+  }
+  .tile img { width: 100%; height: 100%; display: block; }
+  .more {
+    font-family: 'JetBrains Mono', monospace; font-weight: 500; font-size: 23px;
+    color: #717880; margin-left: 5px;
+  }
+
+  .foot {
+    display: flex; align-items: center; justify-content: space-between;
+    font-family: 'JetBrains Mono', monospace; font-size: 23px; padding-top: 6px;
+    border-top: 1px solid rgba(255,255,255,0.06); margin-top: 4px;
+  }
+  .foot .left { color: #717880; }
+  .foot .left b { color: #98a0a8; font-weight: 500; }
+  .foot .url { color: #2ee6a6; font-weight: 700; letter-spacing: -0.3px; }
+</style>
+</head>
+<body>
+  <div class="frame">
+    <div class="top">
+      <img class="mark" src="../../../../../../site/public/logo.png" alt="PipRail">
+      <div class="word"><span class="a">Pip</span><span class="b">Rail</span></div>
+      <div class="kick"><i></i>x402</div>
+    </div>
+
+    <div class="eyebrow">The machine economy</div>
+
+    <h1><span class="l1">Software that</span><br><span class="l2">pays for itself.</span></h1>
+
+    <p class="sub">
+      AI agents are starting to buy data, compute and APIs <b>on their own</b>. PipRail is
+      the rail they pay over — <em>self-custodial, no facilitator, no fee</em>. One SDK to pay
+      any URL. One line to charge for your API.
+    </p>
+
+    <div class="rows">
+      <div class="item">
+        <span class="arw">&rarr;</span>
+        <span class="txt">An agent pays as it works — capped by a <em>policy it can't break</em>.</span>
+      </div>
+      <div class="item">
+        <span class="arw">&rarr;</span>
+        <span class="txt">Or charge one for your API — <em>any x402 URL, 28 chains</em>.</span>
+      </div>
+    </div>
+
+    <div class="strip">
+      <span class="tile"><img src="../../../../../../site/public/chains/solana.svg"></span>
+      <span class="tile"><img src="../../../../../../site/public/chains/base.svg"></span>
+      <span class="tile"><img src="../../../../../../site/public/chains/ethereum.svg"></span>
+      <span class="tile"><img src="../../../../../../site/public/chains/bnb.svg"></span>
+      <span class="tile"><img src="../../../../../../site/public/chains/polygon.svg"></span>
+      <span class="tile"><img src="../../../../../../site/public/chains/ton.svg"></span>
+      <span class="tile"><img src="../../../../../../site/public/chains/near.svg"></span>
+      <span class="tile"><img src="../../../../../../site/public/chains/sui.svg"></span>
+      <span class="tile"><img src="../../../../../../site/public/chains/stellar.svg"></span>
+      <span class="tile"><img src="../../../../../../site/public/chains/xrpl.svg"></span>
+      <span class="more">+18 more</span>
+    </div>
+
+    <div class="foot">
+      <span class="left"><b>@piprail/sdk</b> + <b>@piprail/mcp</b> · the rails for machines</span>
+      <span class="url">piprail.com</span>
+    </div>
+  </div>
+</body>
+</html>

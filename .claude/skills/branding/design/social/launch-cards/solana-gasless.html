@@ -1,0 +1,58 @@
+<!doctype html><html><head><meta charset="utf-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; }
+  :root { --accent:#2ee6a6; --muted:#8a8f98; }
+  html,body { width:1080px; height:1080px; }
+  body { background:#000; color:#fff; font-family:'Inter',sans-serif; position:relative; overflow:hidden;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:46px; }
+  .glow { position:absolute; left:50%; top:40%; transform:translate(-50%,-50%); width:1000px; height:860px;
+    border-radius:50%; background:radial-gradient(circle, rgba(46,230,166,0.16) 0%, rgba(46,230,166,0.045) 44%, rgba(0,0,0,0) 70%); }
+  .frame { position:absolute; inset:28px; border:1px solid rgba(255,255,255,0.07); border-radius:28px; }
+
+  .badge { position:relative; z-index:2; display:inline-flex; align-items:center; gap:10px;
+    border:1px solid rgba(46,230,166,0.30); background:rgba(46,230,166,0.08); color:var(--accent);
+    border-radius:999px; padding:9px 22px; font-family:'JetBrains Mono',monospace; font-size:18px;
+    font-weight:600; letter-spacing:0.24em; text-transform:uppercase; }
+  .badge i { width:8px; height:8px; border-radius:50%; background:var(--accent); box-shadow:0 0 10px 1px rgba(46,230,166,0.7); }
+
+  /* Focal: the Solana coin in a glow ring + one clean "0 SOL gas" pill. */
+  .focal { position:relative; z-index:2; display:flex; flex-direction:column; align-items:center; gap:24px; }
+  .coin { width:188px; height:188px; border-radius:50%; overflow:hidden; display:flex; align-items:center; justify-content:center;
+    background:#0c0c0e; border:1px solid rgba(255,255,255,0.12); box-shadow:0 0 80px rgba(46,230,166,0.30), inset 0 1px 0 rgba(255,255,255,0.08); }
+  .coin img { width:100%; height:100%; object-fit:cover; }
+  .zpill { display:inline-flex; align-items:baseline; gap:11px; padding:13px 26px; border-radius:999px;
+    background:rgba(46,230,166,0.12); border:1px solid rgba(46,230,166,0.42);
+    box-shadow:0 0 38px rgba(46,230,166,0.26), inset 0 1px 0 rgba(255,255,255,0.10); }
+  .zpill .z { font-family:'Space Grotesk',sans-serif; font-size:34px; font-weight:700; color:var(--accent); line-height:1; letter-spacing:-0.02em; }
+  .zpill .t { font-family:'JetBrains Mono',monospace; font-size:20px; font-weight:600; color:#e6f6f0; letter-spacing:0.05em; }
+
+  .head { position:relative; z-index:2; text-align:center; }
+  .head h1 { font-family:'Space Grotesk','Inter',system-ui,sans-serif; font-size:82px; font-weight:700;
+    letter-spacing:-0.04em; line-height:1.0; }
+  .head h1 .em { color:var(--accent); }
+  .head p { margin-top:26px; font-size:29px; line-height:1.5; color:#c5c9cf; font-weight:400; max-width:820px; margin-left:auto; margin-right:auto; }
+  .head p b { color:#fff; font-weight:600; }
+
+  footer { position:absolute; bottom:56px; left:0; right:0; display:flex; align-items:center; justify-content:center; gap:18px; z-index:2;
+    font-family:'JetBrains Mono',monospace; font-size:21px; color:var(--muted); letter-spacing:0.01em; }
+  footer b { color:#fff; font-weight:600; }
+  footer .dot { color:rgba(255,255,255,0.25); }
+</style></head>
+<body>
+  <div class="glow"></div><div class="frame"></div>
+
+  <div class="badge"><i></i> Fully gasless</div>
+
+  <div class="focal">
+    <div class="coin"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgZmlsbD0ibm9uZSIgdmlld0JveD0iMCAwIDI0IDI0IiBjbGFzcz0id2ViM2ljb25zIj4KICAgIDxnIGNsaXAtcGF0aD0idXJsKCNzb2xhbmFfX2EpIj4KICAgICAgICA8cGF0aCBmaWxsPSIjMDAwIiBkPSJNMjQgMEgwdjI0aDI0eiIvPgogICAgICAgIDxwYXRoIGZpbGw9InVybCgjc29sYW5hX19iKSIgZD0iTTE3LjcgOC4zNThhLjU1LjU1IDAgMCAxLS4zNjUuMTQ1SDQuNTE1Yy0uNDU1IDAtLjY4NC0uNTItLjM3LS44MjVsMi4xMDYtMi4wM2EuNTQuNTQgMCAwIDEgLjM2NC0uMTVoMTIuODdjLjQ2IDAgLjY4NS41MjQuMzY1Ljgzem0wIDEwLjAwNWMtLjEuMDktLjIzLjE0LS4zNjUuMTRINC41MTVjLS40NTUgMC0uNjg0LS41MTYtLjM3LS44MmwyLjEwNi0yLjAzNmEuNTMuNTMgMCAwIDEgLjM2NC0uMTQ1aDEyLjg3Yy40NiAwIC42ODUuNTIuMzY1LjgyNXptMC03LjcyYS41NS41NSAwIDAgMC0uMzY1LS4xNEg0LjUxNWMtLjQ1NSAwLS42ODQuNTE1LS4zNy44MmwyLjEwNiAyLjAzNWMuMS4wOTEuMjMuMTQzLjM2NC4xNDRoMTIuODdjLjQ2IDAgLjY4NS0uNTIuMzY1LS44MjR6Ii8+CiAgICA8L2c+CiAgICA8ZGVmcz4KICAgICAgICA8bGluZWFyR3JhZGllbnQgaWQ9InNvbGFuYV9fYiIgeDE9IjQiIHgyPSIyMCIgeTE9IjE4LjUiIHkyPSI1LjUiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj4KICAgICAgICAgICAgPHN0b3Agc3RvcC1jb2xvcj0iIzk5NDVGRiIvPgogICAgICAgICAgICA8c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMxNEYxOTUiLz4KICAgICAgICA8L2xpbmVhckdyYWRpZW50PgogICAgICAgIDxjbGlwUGF0aCBpZD0ic29sYW5hX19hIj4KICAgICAgICAgICAgPHBhdGggZmlsbD0iI2ZmZiIgZD0iTTAgMGgyNHYyNEgweiIvPgogICAgICAgIDwvY2xpcFBhdGg+CiAgICA8L2RlZnM+Cjwvc3ZnPgo="></div>
+    <div class="zpill"><span class="z">0</span><span class="t">SOL gas for the buyer</span></div>
+  </div>
+
+  <div class="head">
+    <h1>Solana payments,<br>now <span class="em">gasless.</span></h1>
+    <p>Your AI agent signs once — the facilitator covers the SOL. The buyer pays <b>zero gas</b>; the merchant just gets paid in USDC.</p>
+  </div>
+
+  <footer><b>piprail.com</b><span class="dot">·</span><span>npm i @piprail/sdk</span></footer>
+</body></html>

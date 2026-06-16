@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="../../video/assets.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{--bg:#000;--fg:#fafafa;--muted:#8b9298;--line:rgba(255,255,255,.08);--em:#2ee6a6;--blue:#4da2ff;}
+  html,body{width:1080px;height:1080px;background:#000;}
+  #card{position:relative;width:1080px;height:1080px;background:var(--bg);overflow:hidden;
+    font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;color:var(--fg);padding:70px 72px;
+    display:flex;flex-direction:column;justify-content:center;}
+  .g{position:absolute;border-radius:50%;filter:blur(150px);z-index:0;}
+  .g1{width:980px;height:620px;left:-180px;top:-240px;background:rgba(46,230,166,.12);}
+  .g2{width:820px;height:600px;right:-200px;bottom:-260px;background:rgba(77,162,255,.07);}
+  #card>*{position:relative;z-index:2;}
+  .brand{display:flex;align-items:center;gap:18px;margin-bottom:30px;}
+  .brand img{width:64px;height:64px;border-radius:16px;}
+  .brand b{font-family:'Space Grotesk','Inter',system-ui,sans-serif;font-size:46px;font-weight:700;letter-spacing:-.02em;}
+  .brand .em{color:var(--em);}
+  .eyebrow{font:700 24px 'JetBrains Mono',monospace;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:16px;}
+  .eyebrow b{color:#fff;}
+  h1{font-family:'Space Grotesk','Inter',system-ui,sans-serif;font-weight:700;letter-spacing:-.03em;font-size:90px;line-height:0.98;margin-bottom:22px;}
+  h1 .em{color:var(--em);}
+  .sub{font-size:30px;color:var(--muted);font-weight:500;line-height:1.36;margin-bottom:40px;max-width:940px;}
+  .sub b{color:#dfe3e7;font-weight:600;}
+  .chips{display:flex;flex-direction:column;gap:18px;}
+  .chip{display:flex;align-items:center;gap:20px;background:#0c0d10;border:1px solid var(--line);border-radius:18px;padding:24px 28px;}
+  .chip .ar{color:var(--em);font-weight:900;font-size:34px;flex:none;}
+  .chip .t{font-size:30px;font-weight:600;color:#eef1f4;}
+  .chip .t span{color:var(--em);}
+  .strip{display:flex;align-items:center;gap:16px;margin-top:42px;}
+  .strip img{width:62px;height:62px;border-radius:15px;border:1px solid var(--line);}
+  .strip .more{font:700 24px 'JetBrains Mono',monospace;color:var(--muted);}
+  .foot{display:flex;align-items:center;justify-content:space-between;margin-top:34px;
+    font:600 25px 'JetBrains Mono',monospace;color:var(--muted);}
+  .foot .em{color:var(--em);} .foot b{color:#fafafa;font-weight:700;}
+</style>
+</head>
+<body>
+<div id="card">
+  <div class="g g1"></div><div class="g g2"></div>
+  <div class="brand"><img id="logo" alt=""><b>Pip<span class="em">Rail</span></b></div>
+  <div class="eyebrow">Agentic payments on Base just crossed <b>100M</b></div>
+  <h1>Built for <span class="em">exactly this.</span></h1>
+  <div class="sub">That's <b>x402</b> — and it won't stay on one chain. PipRail brings it to <b>28</b>, both sides of the payment:</div>
+  <div class="chips">
+    <div class="chip"><span class="ar">&rarr;</span><span class="t">Charge an <span>AI agent</span> for your API — one line.</span></div>
+    <div class="chip"><span class="ar">&rarr;</span><span class="t">Give your agent a <span>budget-bound wallet</span> it can't overspend.</span></div>
+  </div>
+  <div class="strip" id="strip"></div>
+  <div class="foot"><span>x402 · @piprail/mcp · one line</span><span class="em">piprail.com</span></div>
+</div>
+<script>
+  const A=window.ASSETS;
+  document.getElementById('logo').src=A.logo;
+  const S=['base','solana','sui','ton','near','stellar','xrpl','aptos','avalanche','polygon'];
+  const strip=document.getElementById('strip');
+  for(const s of S){ const im=document.createElement('img'); im.src=A.chains[s]; strip.appendChild(im); }
+  const more=document.createElement('span'); more.className='more'; more.textContent='+18 more'; strip.appendChild(more);
+  window.__ready=document.fonts.ready;
+</script>
+</body>
+</html>
