@@ -1,0 +1,463 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import Navigation from '../../components/Navigation.astro'
+import Footer from '../../components/Footer.astro'
+import Breadcrumbs from '../../components/Breadcrumbs.astro'
+import { getPost, relatedPosts, formatDate } from '../../data/posts'
+import {
+  ArrowRight, ArrowLeft, Clock, CalendarDays, Plus, Equal, RefreshCw,
+  Fingerprint, ReceiptText, ShieldCheck, Github, Package, Plug, Share2,
+} from 'lucide-astro'
+
+const post = getPost('an-agents-receipts-are-its-credit-score')!
+const site = Astro.site?.href.replace(/\/$/, '') ?? 'https://piprail.com'
+const canonical = `${site}/blog/${post.slug}/` // trailing slash matches the page's <link rel="canonical">
+const ogImageAbs = `${site}${post.ogImage}`
+const more = relatedPosts(post.slug, 2)
+
+// Prefer the authored, keyword-front-loaded SERP title when present; else brand the plain title.
+const pageTitle = post.seoTitle ?? `${post.title} — PipRail`
+
+// BlogPosting structured data — the post's own entity for search + answer engines.
+const articleLd = {
+  '@context': 'https://schema.org',
+  '@type': 'BlogPosting',
+  '@id': `${canonical}#article`,
+  headline: post.title,
+  description: post.description,
+  image: ogImageAbs,
+  datePublished: post.published,
+  dateModified: post.updated ?? post.published,
+  author: {
+    '@type': 'Person',
+    name: post.author.name,
+    jobTitle: 'Cofounder',
+    url: post.author.url,
+    worksFor: { '@id': 'https://piprail.com/#organization' },
+  },
+  publisher: { '@id': 'https://piprail.com/#organization' },
+  mainEntityOfPage: { '@type': 'WebPage', '@id': canonical },
+  isPartOf: { '@id': 'https://piprail.com/#website' },
+  articleSection: post.category,
+  keywords: post.tags.join(', '),
+  inLanguage: 'en',
+  wordCount: 1300,
+  url: canonical,
+}
+
+// The argument, distilled — readable bullets that double as answer-engine fodder.
+const takeaways = [
+  'Intelligence is no longer the bottleneck in the agent economy — trust is.',
+  'On-chain volume, ratings, and reviews are all gameable. A settled payment is the one signal that costs the same to fake as to earn.',
+  'x402 plus ERC-8004 make a payment-grounded reputation buildable today — and the rail itself should stay free, with the value moving up into the trust layer.',
+]
+
+// FAQ — extracted from the essay. Renders FAQPage JSON-LD for rich results + AEO.
+const faqs = [
+  {
+    q: 'What does “an agent’s receipts are its credit score” mean?',
+    a: 'It means an AI agent’s trustworthiness is best measured by its history of settled payments — what it has actually paid and been paid — rather than by what it claims or how much volume it has moved. Each settled payment cost real money to produce, so a long record of them is a reputation that cannot be cheaply faked, the way a credit score reflects a real borrowing history.',
+  },
+  {
+    q: 'Why isn’t on-chain volume a good reputation signal for agents?',
+    a: 'Raw on-chain volume is the single most gamed number in crypto. Wash trading exists precisely because volume is cheap to manufacture and useful to fake — anyone willing to move funds in a circle can inflate it. Ratings and reviews collapse for the same reason: once there is money in a five-star score, the scores stop meaning anything. A settled payment is different because faking it costs exactly as much as earning it.',
+  },
+  {
+    q: 'What is Know Your Agent (KYA)?',
+    a: 'Know Your Agent is a term a16z coined to describe the shift in the agent economy’s bottleneck from intelligence to identity. It is the agent-era analogue of Know Your Customer: knowing who an agent is, who its principal is, and what it is allowed to do. Identity is the necessary first half of trust — but, as with humans, identity alone is not enough; it has to be paired with a track record.',
+  },
+  {
+    q: 'What is x402 and how does it enable a trust layer?',
+    a: 'x402 is a payment protocol that turns the long-dormant HTTP 402 “Payment Required” response into a working rail, letting an agent pay per API call with no account and no card. Because every x402 payment settles on-chain, it produces a verifiable receipt — the raw material a payment-grounded reputation reads across chains and turns into a signal a merchant can query in milliseconds.',
+  },
+  {
+    q: 'What is ERC-8004?',
+    a: 'ERC-8004 is a standard that gives agents on-chain identity, reputation, and validation registries to write to. Its reputation registry even includes a field for proof of payment — so the primitives for a settled-payment trust layer already exist on-chain. What is still missing is the infrastructure that reads those settled payments across every chain and turns them into a usable score.',
+  },
+  {
+    q: 'Why should an agent payment rail be free?',
+    a: 'The moment a payment rail takes a cut it starts competing with the people building on top of it, and it has to touch or hold funds to take that cut — which drags it into custody, money transmission, and licensing. A neutral rail that never touches funds wins distribution because it asks for nothing and stays clean because it holds nothing. The value does not disappear; it moves one layer up, into the trust signal built from the payments the rail carries. Free rail, paid trust.',
+  },
+]
+
+const faqLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  '@id': `${canonical}#faq`,
+  mainEntity: faqs.map((f) => ({
+    '@type': 'Question',
+    name: f.q,
+    acceptedAnswer: { '@type': 'Answer', text: f.a },
+  })),
+}
+---
+
+<Layout
+  title={pageTitle}
+  description={post.description}
+  ogImage={post.ogImage}
+  ogType="article"
+  article={{
+    publishedTime: post.published,
+    modifiedTime: post.updated ?? post.published,
+    author: post.author.name,
+    section: post.category,
+    tags: post.tags,
+  }}
+>
+  <Fragment slot="head">
+    <link rel="author" href={post.author.url} />
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(articleLd)} />
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(faqLd)} />
+  </Fragment>
+
+  <Navigation />
+
+  <main class="mx-auto max-w-3xl px-4 sm:px-6">
+    <div class="pt-6"><Breadcrumbs items={[{ name: 'Blog', href: '/blog' }, { name: post.title }]} /></div>
+
+    <!-- ── Article header ─────────────────────────────────────────────────── -->
+    <article class="fade-up">
+      <header class="pt-10 sm:pt-14">
+        <div class="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-accent">
+          PipRail · {post.category}
+        </div>
+        <h1 class="mt-5 text-pretty text-[2.1rem] font-bold leading-[1.12] tracking-tight text-white sm:text-5xl">
+          {post.title}
+        </h1>
+        <p class="mt-5 text-lg leading-relaxed text-neutral-400 sm:text-xl">
+          Identity tells you <em class="not-italic text-neutral-200">who</em> an agent is. A track record tells you
+          <em class="not-italic text-neutral-200">whether to trust it</em> — and the one trust signal that can’t be gamed is hiding in plain sight.
+        </p>
+
+        <!-- Byline -->
+        <div class="mt-8 flex flex-wrap items-center gap-x-4 gap-y-3 border-y border-white/10 py-4">
+          <div class="flex items-center gap-3">
+            <span
+              class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-accent/30 bg-accent/10 font-display text-sm font-semibold text-accent"
+              aria-hidden="true"
+            >TR</span>
+            <div class="leading-tight">
+              <div class="text-sm font-semibold text-neutral-100">{post.author.name}</div>
+              <div class="text-xs text-neutral-400">{post.author.role}</div>
+            </div>
+          </div>
+          <div class="ml-auto flex items-center gap-x-4 gap-y-1 text-xs text-neutral-400">
+            <span class="inline-flex items-center gap-1.5">
+              <CalendarDays size={13} aria-hidden="true" />
+              <time datetime={post.published}>{formatDate(post.published)}</time>
+            </span>
+            <span class="inline-flex items-center gap-1.5">
+              <Clock size={13} aria-hidden="true" /> {post.readingTime} min read
+            </span>
+          </div>
+        </div>
+      </header>
+
+      <!-- ── The short version (TL;DR) ──────────────────────────────────────── -->
+      <aside
+        class="card mt-10 rounded-2xl p-6 sm:p-7"
+        aria-label="Summary"
+      >
+        <h2 class="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">The short version</h2>
+        <ul class="mt-4 space-y-3">
+          {takeaways.map((t) => (
+            <li class="flex gap-3 text-[15px] leading-relaxed text-neutral-300">
+              <ReceiptText size={17} class="mt-0.5 shrink-0 text-accent" aria-hidden="true" />
+              <span>{t}</span>
+            </li>
+          ))}
+        </ul>
+      </aside>
+
+      <!-- ── Body ───────────────────────────────────────────────────────────── -->
+      <div class="article-prose mt-10">
+        <p>The hard problem in the agent economy used to be intelligence. It isn’t anymore. Models can plan, call tools, and chain together tasks well enough to do real work. The question that actually gates the next phase is quieter and more awkward: can anyone trust an agent enough to let it spend money, or to take its money?</p>
+
+        <p>a16z put it well earlier this year when it argued that the bottleneck has shifted from intelligence to identity, and coined the phrase <em>Know Your Agent</em>. In financial services, non-human identities already outnumber human ones by a wide margin, and almost none of them can be trusted the way a counterparty needs to be trusted. An agent shows up at a merchant’s door, or at another agent’s API, and the merchant has no way to answer the only question that matters: is this thing good for it?</p>
+
+        <p>Identity is the first half of the answer, and a necessary one. You want to know who an agent is, who its principal is, and what it is allowed to do. But identity alone has never been enough for humans either. We pair it with a track record. A passport tells you who someone is; a credit score tells you whether to lend to them. Agents will need the same second half, and right now it does not exist.</p>
+
+        <!-- Figure 1 — the two halves of trust -->
+        <figure class="article-fig">
+          <div class="card rounded-2xl p-6 sm:p-8">
+            <div class="fig-eyebrow">The two halves of trust</div>
+            <div class="grid grid-cols-1 items-stretch gap-3 sm:grid-cols-[1fr_auto_1fr_auto_1fr]">
+              <div class="rounded-xl border border-white/12 bg-white/4 p-5 text-center sm:text-left">
+                <Fingerprint size={18} class="mx-auto text-neutral-400 sm:mx-0" aria-hidden="true" />
+                <div class="mt-2.5 font-display text-xl font-semibold text-white">Identity</div>
+                <div class="mt-1 text-sm text-neutral-400">who the agent is</div>
+              </div>
+              <div class="flex items-center justify-center text-neutral-600" aria-hidden="true">
+                <Plus size={20} class="rotate-0" />
+              </div>
+              <div class="rounded-xl border border-accent/25 bg-accent/8 p-5 text-center sm:text-left">
+                <ReceiptText size={18} class="mx-auto text-accent sm:mx-0" aria-hidden="true" />
+                <div class="mt-2.5 font-display text-xl font-semibold text-white">Track record</div>
+                <div class="mt-1 text-sm text-accent">what it has paid</div>
+              </div>
+              <div class="flex items-center justify-center text-neutral-600" aria-hidden="true">
+                <Equal size={20} />
+              </div>
+              <div class="flex flex-col items-center justify-center rounded-xl border border-accent/50 bg-accent/12 p-5 text-center">
+                <ShieldCheck size={20} class="text-accent" aria-hidden="true" />
+                <div class="mt-2 font-display text-xl font-semibold text-accent">Trust</div>
+              </div>
+            </div>
+          </div>
+          <figcaption class="fig-cap">A passport tells you who. A track record tells you whether to trust.</figcaption>
+        </figure>
+
+        <p>The instinct is to build it from on-chain activity, because that is the data that is already there. This is a trap. Raw on-chain volume is the single most gamed number in crypto. Wash trading exists precisely because volume is cheap to manufacture and useful to fake. Any reputation system built on “how much has this address moved” is gameable by anyone willing to move funds in a circle. Ratings and reviews fare no better; the moment there is money in a five-star score, the five-star scores stop meaning anything. Most trust signals collapse under the weight of the incentive to fake them.</p>
+
+        <p>There is exactly one signal that does not collapse, and it is hiding in plain sight: a settled payment. A receipt for a real payment is expensive to produce, because producing it required actually paying. You cannot fake a million settled payments without spending a million real dollars to do it. That asymmetry, the fact that the signal costs the same to fake as to earn, is the entire foundation of a trust layer that works. An agent that has paid hundreds of counterparties and been paid by hundreds more has a reputation that no amount of cleverness can manufacture cheaply. <strong>Its receipts are its credit score.</strong></p>
+
+        <!-- Figure 2 — gameable vs ungameable -->
+        <figure class="article-fig">
+          <div class="card rounded-2xl p-6 sm:p-8">
+            <div class="fig-eyebrow">Gameable vs ungameable</div>
+            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-0">
+              <div class="text-center sm:border-r sm:border-white/10 sm:pr-8">
+                <div class="font-display text-lg font-semibold text-white">On-chain volume</div>
+                <div class="mt-5 flex justify-center text-amber-300" aria-hidden="true">
+                  <RefreshCw size={48} strokeWidth={1.5} />
+                </div>
+                <div class="mt-4 text-sm text-amber-300/90">free to fake</div>
+                <div class="mt-1 font-mono text-xs text-amber-200/70">$0 to manufacture</div>
+              </div>
+              <div class="text-center sm:pl-8">
+                <div class="font-display text-lg font-semibold text-white">Settled payments</div>
+                <div class="mt-5 flex justify-center gap-2" aria-hidden="true">
+                  {[0, 1, 2, 3].map(() => (
+                    <span class="flex h-12 w-9 items-center justify-center rounded-md border border-accent/30 bg-accent/8 font-mono text-base text-accent">$</span>
+                  ))}
+                </div>
+                <div class="mt-4 text-sm text-accent">each cost real money</div>
+                <div class="mt-1 font-mono text-xs text-accent/80">expensive to fake</div>
+              </div>
+            </div>
+          </div>
+          <figcaption class="fig-cap">The only signal that costs the same to fake as to earn.</figcaption>
+        </figure>
+
+        <p>Two things make this buildable now where it wasn’t a year ago. The first is x402, the payment protocol that turns the long-dormant HTTP 402 “Payment Required” response into a working rail, letting an agent pay per call with no account and no card. It has become the standard the agent economy is converging on, with support spreading across major chains and platforms. The second is ERC-8004, which gives agents on-chain identity, reputation, and validation registries to write to. The reputation registry even includes a field for proof of payment. The primitives are sitting there. What is missing is the thing that reads settled payments across every chain and turns them into a signal a merchant can actually query.</p>
+
+        <p>Picture the moment it matters. An agent arrives to buy a data feed, or to hire another agent for a subtask, and money is about to move. The seller wants to know, in the few hundred milliseconds before it responds, whether this buyer settles its bills or vanishes once the work is done. A query against a payment-grounded reputation answers that in one call: this agent has settled four hundred payments, been paid by ninety counterparties, never reversed one, here is its score. None of it is self-reported. All of it cost money to accumulate. That is a trust decision a machine can make at machine speed, which is the only speed the agent economy runs at.</p>
+
+        <!-- Figure 3 — a trust decision at machine speed -->
+        <figure class="article-fig">
+          <div class="card rounded-2xl p-6 sm:p-8">
+            <div class="fig-eyebrow">A trust decision at machine speed</div>
+            <div class="flex flex-col items-stretch gap-4 sm:flex-row sm:items-center">
+              <div class="rounded-xl border border-white/12 bg-white/4 p-5 sm:flex-1">
+                <div class="font-mono text-sm text-neutral-100">Agent 0x7f3a…</div>
+                <div class="mt-1.5 text-sm text-neutral-400">wants to pay a vendor</div>
+              </div>
+              <div class="flex shrink-0 items-center justify-center gap-2 text-accent sm:flex-col sm:gap-0.5">
+                <span class="font-mono text-[11px] uppercase tracking-widest text-accent/80">query</span>
+                <ArrowRight size={22} class="hidden sm:block" aria-hidden="true" />
+                <ArrowRight size={20} class="rotate-90 sm:hidden" aria-hidden="true" />
+              </div>
+              <div class="rounded-xl border border-accent/30 bg-accent/8 p-5 sm:flex-[1.7]">
+                <div class="font-mono text-[11px] uppercase tracking-[0.18em] text-accent">Payment-grounded reputation</div>
+                <div class="mt-3.5 flex flex-wrap items-center gap-x-7 gap-y-3">
+                  <div class="flex items-baseline">
+                    <span class="font-display text-5xl font-bold leading-none text-accent">92</span>
+                    <span class="ml-1 text-base text-neutral-500">/100</span>
+                  </div>
+                  <div class="text-sm leading-relaxed text-neutral-300">
+                    412 payments settled<br />90 counterparties<br />0 reversed
+                  </div>
+                </div>
+                <div class="mt-3.5 font-mono text-xs text-accent/70">~180 ms</div>
+              </div>
+            </div>
+          </div>
+          <figcaption class="fig-cap">None of it self-reported. All of it cost money to accumulate.</figcaption>
+        </figure>
+
+        <p>I see this from a specific vantage point. I am building <a href="/">PipRail</a>, an open, neutral x402 rail that works across 29 chains. It has grown to more than five thousand installs across its SDK and MCP server with no marketing, pulled by one fact: agents need to pay across chains, and most tools only speak one. From inside that adoption, the pattern is obvious. The payments are already happening. Agents are already settling real money against real APIs. Those settlements are the raw material for the trust layer, and almost nobody is refining them into one.</p>
+
+        <p>Here is the part that sounds backwards. The rail that carries these payments should be free. Not freemium, not free for now: structurally, permanently free, with no protocol fee.</p>
+
+        <p>The reasoning is not generosity, it is positioning. The moment a payment rail takes a cut, two things happen. It starts competing with the very people building on top of it, because every basis point it takes is a basis point they cannot. And it has to touch or hold funds to take that cut, which drags it across the line into custody, money transmission, and the licensing regime that comes with both. A neutral rail that never touches funds avoids all of that. It wins distribution because it asks for nothing, and it stays clean because it holds nothing. The value does not disappear; it moves one layer up, into the trust signal built from the payments the rail carries. <strong>Free rail, paid trust.</strong></p>
+
+        <p>This is the shape the agent economy will take, whether any single company builds it or not. Agents will transact constantly, and the parties on the other side will need to decide who to deal with. They will not decide based on what an agent claims, because claims are free. They will not decide based on how much an agent has moved, because volume is fake. They will decide based on what an agent has actually paid and been paid, settled and final, because that is the one thing that cost something to earn.</p>
+
+        <p>Receipts, not reviews. The agent that has quietly paid its way will be the one others trust, and the infrastructure that reads those receipts across every chain is the layer worth building. The intelligence problem is largely solved. The trust problem is wide open, and it has a surprisingly old answer: show me what you paid.</p>
+      </div>
+
+      <!-- Share -->
+      <div class="mt-12 flex flex-wrap items-center gap-3 border-t border-white/10 pt-6">
+        <span class="mr-1 inline-flex items-center gap-1.5 text-xs text-neutral-500"><Share2 size={13} aria-hidden="true" /> Share</span>
+        <a
+          href={`https://x.com/intent/tweet?text=${encodeURIComponent(post.title + ' — by ' + post.author.name)}&url=${encodeURIComponent(canonical)}&via=piprailhq`}
+          class="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-neutral-300 transition hover:border-white/20 hover:text-white"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path></svg>
+          Post on X
+        </a>
+        <button
+          type="button"
+          data-copy-link
+          data-url={canonical}
+          class="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-neutral-300 transition hover:border-white/20 hover:text-white"
+        >
+          <span data-copy-label aria-live="polite">Copy link</span>
+        </button>
+      </div>
+    </article>
+
+    <!-- ── Author bio ─────────────────────────────────────────────────────── -->
+    <section class="mt-12 rounded-2xl border border-white/10 bg-white/2.5 p-6 sm:p-7">
+      <div class="flex items-start gap-4">
+        <span
+          class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-accent/30 bg-accent/10 font-display text-base font-semibold text-accent"
+          aria-hidden="true"
+        >TR</span>
+        <div>
+          <div class="text-sm font-semibold text-neutral-100">{post.author.name}</div>
+          <div class="text-xs text-neutral-500">{post.author.role}</div>
+          <p class="mt-2.5 text-sm leading-relaxed text-neutral-400">
+            Building PipRail — the open, neutral, no-fee x402 payment rail for AI agents, across 29 chains.
+            Writing about the trust layer the agent economy still has to build.
+          </p>
+          <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+            <a href="/" class="text-accent transition hover:brightness-110">piprail.com</a>
+            <a href="https://github.com/piprail" class="text-accent transition hover:brightness-110">github.com/piprail</a>
+            <a href="https://x.com/piprailhq" class="text-accent transition hover:brightness-110">@piprailhq</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── FAQ ────────────────────────────────────────────────────────────── -->
+    <section class="mt-14" aria-labelledby="faq-heading">
+      <h2 id="faq-heading" class="text-2xl font-semibold tracking-tight sm:text-3xl">Frequently asked</h2>
+      <div class="mt-6 divide-y divide-white/10 border-y border-white/10">
+        {faqs.map((f) => (
+          <details class="group">
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-4 py-4 text-[15px] font-medium text-neutral-100 transition hover:text-white">
+              <span>{f.q}</span>
+              <Plus size={17} class="shrink-0 text-neutral-500 transition group-open:rotate-45" aria-hidden="true" />
+            </summary>
+            <p class="pb-5 text-[15px] leading-relaxed text-neutral-400">{f.a}</p>
+          </details>
+        ))}
+      </div>
+    </section>
+
+    <!-- ── CTA ────────────────────────────────────────────────────────────── -->
+    <section class="mt-14 overflow-hidden rounded-2xl border border-accent/20 bg-accent/6 p-7 text-center sm:p-10">
+      <h2 class="text-2xl font-semibold tracking-tight text-white sm:text-3xl">Build on the free rail.</h2>
+      <p class="mx-auto mt-3 max-w-xl text-neutral-300">
+        PipRail is the open, self-custody x402 rail — no backend, no facilitator, no fee. Accept payments in one line,
+        or hand your agent a budget-bound wallet across 29 chains.
+      </p>
+      <div class="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        <a
+          href="https://www.npmjs.com/package/@piprail/sdk"
+          class="cta-glow inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto"
+        >
+          <Package size={16} aria-hidden="true" /> Get the SDK
+        </a>
+        <a
+          href="/mcp"
+          class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/12 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto"
+        >
+          <Plug size={16} aria-hidden="true" /> MCP for agents
+        </a>
+        <a
+          href="https://github.com/piprail/piprail"
+          class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/12 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto"
+        >
+          <Github size={16} aria-hidden="true" /> Star on GitHub
+        </a>
+      </div>
+    </section>
+
+    <!-- ── More writing / back ────────────────────────────────────────────── -->
+    <section class="mt-14 mb-8">
+      {more.length > 0 ? (
+        <>
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-neutral-500">More writing</h2>
+          <div class="mt-4 grid gap-4 sm:grid-cols-2">
+            {more.map((p) => (
+              <a
+                href={`/blog/${p.slug}`}
+                class="group rounded-2xl border border-white/10 bg-white/2.5 p-5 transition hover:border-accent/30 hover:bg-white/5"
+              >
+                <div class="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">{p.category}</div>
+                <div class="mt-2 font-display text-lg font-semibold leading-snug text-neutral-100 group-hover:text-white">{p.title}</div>
+                <p class="mt-1.5 text-sm leading-relaxed text-neutral-400">{p.excerpt}</p>
+              </a>
+            ))}
+          </div>
+        </>
+      ) : (
+        <a href="/blog" class="inline-flex items-center gap-2 text-sm font-medium text-accent transition hover:brightness-110">
+          <ArrowLeft size={15} aria-hidden="true" /> All writing
+        </a>
+      )}
+    </section>
+  </main>
+
+  <Footer />
+</Layout>
+
+<style>
+  /* Article typography — comfortable measure, generous leading, emerald links. */
+  .article-prose p {
+    margin-block: 0 1.5rem;
+    color: var(--color-fg);
+    color: oklch(0.86 0.008 260); /* neutral-300-ish, easy on the eyes for long reading */
+    font-size: 1.0625rem;
+    line-height: 1.85;
+    text-wrap: pretty;
+  }
+  @media (min-width: 640px) {
+    .article-prose p { font-size: 1.1875rem; line-height: 1.85; }
+  }
+  .article-prose a {
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-decoration-color: oklch(0.78 0.17 162 / 0.35);
+    text-underline-offset: 3px;
+    transition: text-decoration-color 0.15s ease;
+  }
+  .article-prose a:hover { text-decoration-color: oklch(0.78 0.17 162 / 0.9); }
+  .article-prose strong { color: #fff; font-weight: 600; }
+  .article-prose em { color: oklch(0.92 0.01 260); font-style: italic; }
+
+  /* Figures */
+  .article-fig { margin-block: 2.5rem; }
+  .fig-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+    margin-bottom: 1.5rem;
+  }
+  .fig-cap {
+    margin-top: 1rem;
+    font-size: 0.875rem;
+    font-style: italic;
+    color: oklch(0.62 0.01 260);
+  }
+</style>
+
+<!-- Copy-link button (progressive enhancement). -->
+<script is:inline>
+  for (const btn of document.querySelectorAll('[data-copy-link]')) {
+    btn.addEventListener('click', async () => {
+      const label = btn.querySelector('[data-copy-label]')
+      try {
+        await navigator.clipboard.writeText(btn.dataset.url)
+        const prev = label.textContent
+        label.textContent = 'Copied!'
+        setTimeout(() => { label.textContent = prev }, 1600)
+      } catch {}
+    })
+  }
+</script>
