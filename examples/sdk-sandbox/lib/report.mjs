@@ -33,6 +33,13 @@ export function summarize() {
   const passed = results.filter((r) => r.ok).length
   const failed = results.length - passed
   console.log(`\n${C.bold}── summary ──${C.reset}`)
+  if (results.length === 0) {
+    // A suite that recorded ZERO checks proved nothing (it skipped — no anvil, no RPC,
+    // no @x402, …). Never report that as success: flag it and exit non-zero so a skip is
+    // never mistaken for a pass. (run-all always records checks, so it's unaffected.)
+    console.log(`${C.yellow}${C.bold}⚠ NO CHECKS RAN — nothing was proven (skipped).${C.reset}`)
+    return 1
+  }
   if (failed === 0) {
     console.log(`${C.green}${C.bold}ALL ${passed} CHECKS PASSED${C.reset}`)
   } else {
