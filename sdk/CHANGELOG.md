@@ -4,7 +4,7 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased] — broader x402 ecosystem interoperability
+## [2.2.0] — 2026-06-16 — broader x402 ecosystem interoperability
 
 Both changes are additive and backward-compatible — defaults and the zero-config 402 stay
 byte-identical; only previously-skipped cases become newly handled.
@@ -1220,6 +1220,7 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[2.2.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.1.1]: https://www.npmjs.com/package/@piprail/sdk
 [2.1.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.0.2]: https://www.npmjs.com/package/@piprail/sdk
