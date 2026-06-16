@@ -166,6 +166,14 @@ piprail/
 - **Test wallets:** `.secrets/wallets/<family>-wallet.json` (gitignored, chmod 600), one per
   family, holding a payer + a recoverable `merchantAddress` as the test `payTo`; funded manually
   for live mainnet smoke tests with tiny amounts. The `.secrets/` directory is never committed.
+- **`main` is protected** by a GitHub *ruleset* (`protect-main`), managed as code. Canonical spec:
+  [`.claude/skills/branch-protection/protect-main.json`](.claude/skills/branch-protection/protect-main.json);
+  runbook: the **`branch-protection`** skill. **Practical effect: you can't push directly to `main`** —
+  branch, open a PR, merge it (solo is fine; 0 approvals required). Force-pushes and deletions of `main`
+  are blocked and every commit must be signed. Change protection *only* via the skill's guarded Apply
+  (backs up first, verifies after, refuses to drop your admin bypass or disable enforcement) — never
+  click-edit the ruleset in the UI, that's drift. An outsider forking the repo or filing an issue
+  **cannot** touch `main`; that's normal OSS activity, not a threat.
 - **Domain:** piprail.com — static site on Netlify.
 - **Created:** 2026-06-01.
 
