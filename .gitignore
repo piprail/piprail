@@ -79,6 +79,7 @@ mcp/*.local.mjs
 !/.claude/skills/
 /.claude/skills/*
 !/.claude/skills/add-chain-integration/
+!/.claude/skills/branch-protection/
 !/.claude/skills/branding/
 !/.claude/skills/release/
 !/.claude/skills/verify-gate/

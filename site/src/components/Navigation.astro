@@ -5,7 +5,7 @@
 // full-height slide-in overlay (backdrop + right panel). CSS does the slide
 // (keyed on data-open); a tiny progressive script toggles it + locks scroll +
 // closes on backdrop / link / Escape.
-import { ArrowRight, Play, Menu, X, BookText, Package, Plug, Link2, Compass, Handshake, Github } from 'lucide-astro'
+import { ArrowRight, Play, Menu, X, BookText, Package, Plug, Link2, Compass, Handshake, Github, Newspaper } from 'lucide-astro'
 
 interface Props {
   path?: string
@@ -28,6 +28,7 @@ const navLinks = [
   { href: '/sdk', label: 'SDK', icon: Package },
   { href: '/mcp', label: 'MCP', icon: Plug },
   { href: '/chains', label: 'Chains', icon: Link2 },
+  { href: '/blog', label: 'Blog', icon: Newspaper },
   { href: '/discovery', label: 'Discovery', mobileOnly: true, icon: Compass },
   { href: '/partners', label: 'Partners', mobileOnly: true, icon: Handshake },
   { href: 'https://github.com/piprail/piprail', label: 'GitHub', icon: Github },

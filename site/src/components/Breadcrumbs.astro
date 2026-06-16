@@ -28,7 +28,9 @@ const breadcrumbLd = {
     '@type': 'ListItem',
     position: i + 1,
     name: c.name,
-    ...(c.href ? { item: `${site}${c.href === '/' ? '' : c.href}` } : {}),
+    // Normalize to directory-style (trailing-slash) URLs so breadcrumb items match
+    // the canonical/sitemap form Astro emits (e.g. /blog → /blog/). Home stays bare.
+    ...(c.href ? { item: `${site}${c.href === '/' ? '' : c.href.replace(/\/?$/, '/')}` } : {}),
   })),
 }
 ---

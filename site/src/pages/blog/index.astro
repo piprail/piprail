@@ -1,0 +1,151 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import Navigation from '../../components/Navigation.astro'
+import Footer from '../../components/Footer.astro'
+import Breadcrumbs from '../../components/Breadcrumbs.astro'
+import { postsByDate, formatDate } from '../../data/posts'
+import { Clock, ArrowRight, BookText } from 'lucide-astro'
+
+const title = 'Blog — PipRail'
+const description =
+  'Writing from the PipRail team on x402, agent payments, and the trust layer the agent economy still has to build. The open, self-custody, any-chain rail.'
+
+const site = Astro.site?.href.replace(/\/$/, '') ?? 'https://piprail.com'
+
+// Blog + ItemList structured data — lets search + answer engines see the post list.
+const blogLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Blog',
+  '@id': `${site}/blog/#blog`,
+  name: 'PipRail Blog',
+  description,
+  url: `${site}/blog/`,
+  inLanguage: 'en',
+  publisher: { '@id': 'https://piprail.com/#organization' },
+  isPartOf: { '@id': 'https://piprail.com/#website' },
+  blogPost: postsByDate.map((p) => ({
+    '@type': 'BlogPosting',
+    '@id': `${site}/blog/${p.slug}/#article`,
+    headline: p.title,
+    description: p.description,
+    url: `${site}/blog/${p.slug}/`,
+    datePublished: p.published,
+    dateModified: p.updated ?? p.published,
+    image: `${site}${p.ogImage}`,
+    author: { '@type': 'Person', name: p.author.name },
+    keywords: p.tags.join(', '),
+  })),
+}
+
+const [featured, ...rest] = postsByDate
+---
+
+<Layout title={title} description={description}>
+  <Fragment slot="head">
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(blogLd)} />
+  </Fragment>
+
+  <Navigation />
+
+  <main class="mx-auto max-w-5xl px-4 sm:px-6">
+    <div class="pt-6"><Breadcrumbs items={[{ name: 'Blog' }]} /></div>
+
+    <!-- Hero -->
+    <section class="fade-up py-10 sm:py-14">
+      <span class="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/8 px-3.5 py-1.5 text-xs font-medium text-accent">
+        <BookText size={14} aria-hidden="true" /> Writing
+      </span>
+      <h1 class="mt-5 max-w-3xl text-[2.4rem] font-bold leading-[1.08] tracking-tight sm:text-6xl">
+        The trust layer, <span class="text-accent">in the open.</span>
+      </h1>
+      <p class="mt-5 max-w-2xl text-base leading-relaxed text-neutral-400 sm:text-lg">
+        Notes from building PipRail — on x402, agent payments, and the questions the agent economy
+        has to answer next. No backend, no custody, no fee.
+      </p>
+    </section>
+
+    <!-- Featured post -->
+    <section class="pb-6">
+      <a
+        href={`/blog/${featured.slug}`}
+        class="group block overflow-hidden rounded-3xl border border-white/10 bg-white/2.5 transition hover:border-accent/30 hover:bg-white/5"
+        aria-label={featured.title}
+      >
+        <div class="grid gap-0 md:grid-cols-2">
+          <!-- Visual -->
+          <div class="relative flex aspect-40/21 items-center justify-center overflow-hidden border-b border-white/10 bg-bg md:aspect-auto md:border-b-0 md:border-r">
+            <img
+              src={featured.ogImage}
+              alt={`Cover image for “${featured.title}” — a payment-grounded reputation score of 92/100`}
+              width="1200"
+              height="630"
+              loading="eager"
+              class="h-full w-full object-cover md:object-contain"
+            />
+          </div>
+          <!-- Text -->
+          <div class="flex flex-col justify-center p-7 sm:p-9">
+            <div class="flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.2em] text-accent">
+              <span>{featured.category}</span>
+              <span class="text-neutral-600">·</span>
+              <span class="text-neutral-500">Featured</span>
+            </div>
+            <h2 class="mt-3 font-display text-2xl font-bold leading-tight text-white sm:text-3xl">{featured.title}</h2>
+            <p class="mt-3 text-[15px] leading-relaxed text-neutral-400">{featured.excerpt}</p>
+            <div class="mt-6 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-neutral-400">
+              <span>{featured.author.name}</span>
+              <span class="text-neutral-700">·</span>
+              <time datetime={featured.published}>{formatDate(featured.published)}</time>
+              <span class="text-neutral-700">·</span>
+              <span class="inline-flex items-center gap-1.5"><Clock size={12} aria-hidden="true" /> {featured.readingTime} min</span>
+            </div>
+            <span class="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-accent">
+              Read the essay <ArrowRight size={15} class="transition group-hover:translate-x-0.5" aria-hidden="true" />
+            </span>
+          </div>
+        </div>
+      </a>
+    </section>
+
+    <!-- Rest of posts (grid) — appears once there's more than one. -->
+    {rest.length > 0 && (
+      <section class="pb-16">
+        <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {rest.map((p) => (
+            <a
+              href={`/blog/${p.slug}`}
+              class="group flex flex-col rounded-2xl border border-white/10 bg-white/2.5 p-6 transition hover:border-accent/30 hover:bg-white/5"
+            >
+              <div class="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">{p.category}</div>
+              <h2 class="mt-2.5 font-display text-lg font-semibold leading-snug text-neutral-100 group-hover:text-white">{p.title}</h2>
+              <p class="mt-2 flex-1 text-sm leading-relaxed text-neutral-400">{p.excerpt}</p>
+              <div class="mt-5 flex items-center gap-x-3 text-xs text-neutral-400">
+                <time datetime={p.published}>{formatDate(p.published)}</time>
+                <span class="text-neutral-700">·</span>
+                <span class="inline-flex items-center gap-1.5"><Clock size={12} aria-hidden="true" /> {p.readingTime} min</span>
+              </div>
+            </a>
+          ))}
+        </div>
+      </section>
+    )}
+
+    <!-- Subscribe / follow nudge -->
+    <section class="mb-16 rounded-2xl border border-white/10 bg-white/2.5 p-7 text-center sm:p-9">
+      <h2 class="text-xl font-semibold tracking-tight text-white sm:text-2xl">More to come.</h2>
+      <p class="mx-auto mt-2.5 max-w-lg text-sm leading-relaxed text-neutral-400">
+        Follow along as we build the open, self-custody payment rail for the agent economy.
+      </p>
+      <div class="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        <a href="https://x.com/piprailhq" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-5 py-3 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto">
+          Follow @piprailhq
+        </a>
+        <a href="https://github.com/piprail/piprail" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/12 bg-white/5 px-5 py-3 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto">
+          Star on GitHub
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <Footer />
+</Layout>
