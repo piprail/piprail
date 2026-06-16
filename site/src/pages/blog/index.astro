@@ -37,7 +37,8 @@ const blogLd = {
   })),
 }
 
-const [featured, ...rest] = postsByDate
+const featured = postsByDate[0]
+const rest = postsByDate.slice(1)
 ---
 
 <Layout title={title} description={description}>
@@ -64,8 +65,33 @@ const [featured, ...rest] = postsByDate
       </p>
     </section>
 
-    <!-- Featured post -->
-    <section class="pb-6">
+    <!-- Coming soon — shown while no posts are published. -->
+    {!featured && (
+      <section class="pb-16">
+        <div class="card flex flex-col items-center rounded-3xl border border-white/10 bg-white/2.5 px-6 py-16 text-center sm:py-20">
+          <span class="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/8 px-3.5 py-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-accent">
+            <Clock size={13} aria-hidden="true" /> Coming soon
+          </span>
+          <h2 class="mt-6 max-w-xl font-display text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+            The first essay is on its way.
+          </h2>
+          <p class="mt-3.5 max-w-md text-[15px] leading-relaxed text-neutral-400">
+            We’re putting the finishing touches on our writing about x402, agent payments, and the
+            trust layer the agent economy still has to build. Check back shortly.
+          </p>
+          <a
+            href="https://x.com/piprailhq"
+            class="mt-7 inline-flex items-center gap-1.5 text-sm font-medium text-accent transition hover:brightness-110"
+          >
+            Follow @piprailhq for the drop <ArrowRight size={15} aria-hidden="true" />
+          </a>
+        </div>
+      </section>
+    )}
+
+    <!-- Featured post (shown once a post is published) -->
+    {featured && (
+      <section class="pb-6">
       <a
         href={`/blog/${featured.slug}`}
         class="group block overflow-hidden rounded-3xl border border-white/10 bg-white/2.5 transition hover:border-accent/30 hover:bg-white/5"
@@ -106,6 +132,7 @@ const [featured, ...rest] = postsByDate
         </div>
       </a>
     </section>
+    )}
 
     <!-- Rest of posts (grid) — appears once there's more than one. -->
     {rest.length > 0 && (

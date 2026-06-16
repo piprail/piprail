@@ -55,8 +55,7 @@ Full pitch + all code inline: [llms-full.txt](https://piprail.com/llms-full.txt)
 
 ## Writing — the PipRail blog
 
-- [Blog](https://piprail.com/blog): essays from the PipRail team on x402, agent payments, and the trust layer the agent economy still has to build.
-- ["An Agent's Receipts Are Its Credit Score"](https://piprail.com/blog/an-agents-receipts-are-its-credit-score) by Tim Roelofs (cofounder, PipRail) — Identity tells you *who* an agent is; a track record tells you *whether to trust it*. The instinct is to build agent reputation from on-chain volume, but that is the single most gamed number in crypto (wash trading is free); ratings and reviews collapse the same way. The one signal that does not collapse is a **settled payment**: a receipt is expensive to produce because producing it required actually paying — it costs the same to fake as to earn. Two primitives make a payment-grounded reputation buildable now: **x402** (HTTP 402 turned into a working per-call rail) and **ERC-8004** (on-chain agent identity/reputation registries, with a proof-of-payment field). The rail that carries the payments should be structurally, permanently **free** — a rail that takes a cut competes with its builders and must touch funds (custody + money-transmission licensing); a neutral rail that holds nothing avoids both. The value moves one layer up, into the trust signal. **"Free rail, paid trust." Receipts, not reviews.**
+- [Blog](https://piprail.com/blog): essays from the PipRail team on x402, agent payments, and the trust layer the agent economy still has to build. First essay coming soon.
 
 ## Links
 
