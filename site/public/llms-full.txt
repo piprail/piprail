@@ -353,35 +353,7 @@ The rule of thumb for agents: a thrown `PaymentDeclinedError` means your own bud
 
 ## Writing — the blog
 
-The PipRail blog (https://piprail.com/blog) collects essays from the team on x402, agent payments, and the trust layer the agent economy still has to build. Full text of the flagship essay below.
-
-### An Agent's Receipts Are Its Credit Score — by Tim Roelofs (cofounder, PipRail), 2026-06-17
-
-URL: https://piprail.com/blog/an-agents-receipts-are-its-credit-score
-
-The hard problem in the agent economy used to be intelligence. It isn't anymore. Models can plan, call tools, and chain together tasks well enough to do real work. The question that actually gates the next phase is quieter and more awkward: can anyone trust an agent enough to let it spend money, or to take its money?
-
-a16z put it well earlier this year when it argued that the bottleneck has shifted from intelligence to identity, and coined the phrase Know Your Agent. In financial services, non-human identities already outnumber human ones by a wide margin, and almost none of them can be trusted the way a counterparty needs to be trusted. An agent shows up at a merchant's door, or at another agent's API, and the merchant has no way to answer the only question that matters: is this thing good for it?
-
-Identity is the first half of the answer, and a necessary one. You want to know who an agent is, who its principal is, and what it is allowed to do. But identity alone has never been enough for humans either. We pair it with a track record. A passport tells you who someone is; a credit score tells you whether to lend to them. Agents will need the same second half, and right now it does not exist.
-
-The instinct is to build it from on-chain activity, because that is the data that is already there. This is a trap. Raw on-chain volume is the single most gamed number in crypto. Wash trading exists precisely because volume is cheap to manufacture and useful to fake. Any reputation system built on "how much has this address moved" is gameable by anyone willing to move funds in a circle. Ratings and reviews fare no better; the moment there is money in a five-star score, the five-star scores stop meaning anything. Most trust signals collapse under the weight of the incentive to fake them.
-
-There is exactly one signal that does not collapse, and it is hiding in plain sight: a settled payment. A receipt for a real payment is expensive to produce, because producing it required actually paying. You cannot fake a million settled payments without spending a million real dollars to do it. That asymmetry, the fact that the signal costs the same to fake as to earn, is the entire foundation of a trust layer that works. An agent that has paid hundreds of counterparties and been paid by hundreds more has a reputation that no amount of cleverness can manufacture cheaply. Its receipts are its credit score.
-
-Two things make this buildable now where it wasn't a year ago. The first is x402, the payment protocol that turns the long-dormant HTTP 402 "Payment Required" response into a working rail, letting an agent pay per call with no account and no card. It has become the standard the agent economy is converging on, with support spreading across major chains and platforms. The second is ERC-8004, which gives agents on-chain identity, reputation, and validation registries to write to. The reputation registry even includes a field for proof of payment. The primitives are sitting there. What is missing is the thing that reads settled payments across every chain and turns them into a signal a merchant can actually query.
-
-Picture the moment it matters. An agent arrives to buy a data feed, or to hire another agent for a subtask, and money is about to move. The seller wants to know, in the few hundred milliseconds before it responds, whether this buyer settles its bills or vanishes once the work is done. A query against a payment-grounded reputation answers that in one call: this agent has settled four hundred payments, been paid by ninety counterparties, never reversed one, here is its score. None of it is self-reported. All of it cost money to accumulate. That is a trust decision a machine can make at machine speed, which is the only speed the agent economy runs at.
-
-I see this from a specific vantage point. I am building PipRail, an open, neutral x402 rail that works across 29 chains. It has grown to more than five thousand installs across its SDK and MCP server with no marketing, pulled by one fact: agents need to pay across chains, and most tools only speak one. From inside that adoption, the pattern is obvious. The payments are already happening. Agents are already settling real money against real APIs. Those settlements are the raw material for the trust layer, and almost nobody is refining them into one.
-
-Here is the part that sounds backwards. The rail that carries these payments should be free. Not freemium, not free for now: structurally, permanently free, with no protocol fee.
-
-The reasoning is not generosity, it is positioning. The moment a payment rail takes a cut, two things happen. It starts competing with the very people building on top of it, because every basis point it takes is a basis point they cannot. And it has to touch or hold funds to take that cut, which drags it across the line into custody, money transmission, and the licensing regime that comes with both. A neutral rail that never touches funds avoids all of that. It wins distribution because it asks for nothing, and it stays clean because it holds nothing. The value does not disappear; it moves one layer up, into the trust signal built from the payments the rail carries. Free rail, paid trust.
-
-This is the shape the agent economy will take, whether any single company builds it or not. Agents will transact constantly, and the parties on the other side will need to decide who to deal with. They will not decide based on what an agent claims, because claims are free. They will not decide based on how much an agent has moved, because volume is fake. They will decide based on what an agent has actually paid and been paid, settled and final, because that is the one thing that cost something to earn.
-
-Receipts, not reviews. The agent that has quietly paid its way will be the one others trust, and the infrastructure that reads those receipts across every chain is the layer worth building. The intelligence problem is largely solved. The trust problem is wide open, and it has a surprisingly old answer: show me what you paid.
+The PipRail blog (https://piprail.com/blog) collects essays from the team on x402, agent payments, and the trust layer the agent economy still has to build. The first essay is coming soon.
 
 ## Links
 

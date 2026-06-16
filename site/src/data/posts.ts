@@ -46,7 +46,15 @@ export const authors = {
   },
 } satisfies Record<string, Author>
 
-export const posts: Post[] = [
+// No posts are published yet — /blog renders a "coming soon" state until the first
+// essay ships. The flagship draft is PARKED, not deleted: its prose + figures live in
+// `src/pages/blog/_an-agents-receipts-are-its-credit-score.astro` (the `_` prefix keeps
+// Astro from routing it). To republish: tighten the argument, move that entry from
+// `parkedPosts` into `posts`, and rename the page file back (drop the `_`).
+export const posts: Post[] = []
+
+/** Drafts held back from /blog — kept so the metadata isn't lost. Not rendered anywhere. */
+export const parkedPosts: Post[] = [
   {
     slug: 'an-agents-receipts-are-its-credit-score',
     title: "An Agent's Receipts Are Its Credit Score",
