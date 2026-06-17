@@ -18,7 +18,7 @@ const failing: AlgorandReader = {
 function usdcAccept(amount = '50000'): X402AcceptEntry {
   return {
     scheme: 'onchain-proof',
-    network: 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k',
+    network: 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=',
     amount,
     asset: String(USDC_ID),
     payTo: PAY_TO,

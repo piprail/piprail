@@ -15,8 +15,10 @@
  * → unit-name "USDC", decimals 6, creator/reserve = Circle's 2UEQ… account,
  * url centre.io/usdc) before shipping.
  *
- * CAIP-2 is not assigned by the x402 spec for Algorand → use the official
- * `algorand:<genesis-hash-prefix>` form (mainnet); zero interop impact (we self-verify).
+ * CAIP-2 for Algorand is `algorand:<base64 genesis hash>` — the FULL 44-char hash, exactly the
+ * form the ratified x402 Algorand `exact` scheme and its facilitators (GoPlausible) use, so a
+ * facilitator-settled rail interops on the wire. (We also self-verify, re-deriving every checked
+ * field from the trusted `accept`, so the label is never load-bearing for our own gate.)
  */
 
 export interface AlgorandAssetInfo {
@@ -42,7 +44,7 @@ export const ALGO_DECIMALS = 6
 export const ALGO_SYMBOL = 'ALGO'
 
 export const ALGORAND_MAINNET: AlgorandPreset = {
-  caip2: 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k',
+  caip2: 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=',
   defaultAlgod: 'https://mainnet-api.algonode.cloud',
   defaultIndexer: 'https://mainnet-idx.algonode.cloud',
   tokens: {

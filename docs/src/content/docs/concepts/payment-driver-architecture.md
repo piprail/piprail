@@ -81,7 +81,7 @@ means that family simply doesn't offer the feature — the protocol layer skips 
 
 | Method | Available | Enables |
 | --- | --- | --- |
-| `resolveExactRail` / `settleExactSelf` / `payExact` | EVM + Solana | Advertising, buying, and selling a standard [`exact` rail](/accepting-payments/exact-rail-seller/) (EVM EIP-3009/Permit2; Solana SVM). |
+| `resolveExactRail` / `settleExactSelf` / `payExact` | EVM + Solana + Algorand + Aptos | Advertising, buying, and selling a standard [`exact` rail](/accepting-payments/exact-rail-seller/) (EVM EIP-3009/Permit2; Solana SVM; Algorand / Aptos fee-payer sponsored tx). |
 | `exactDomain` / `exactPermit2Supported` | EVM only | The EVM method-selection (EIP-3009 vs Permit2). |
 | `discoverySigner` | EVM today | SIWX [registration](/discovery/discover-and-register/) on open indexes. |
 

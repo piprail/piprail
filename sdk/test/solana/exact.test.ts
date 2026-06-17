@@ -7,6 +7,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   AddressLookupTableAccount,
+  ComputeBudgetProgram,
   Keypair,
   PublicKey,
   SystemProgram,
@@ -212,6 +213,28 @@ describe('SVM exact — adversarial (every field bound to the trusted accept)', 
     tx.sign([buyer, feePayer]) // buyer wrongly fills the fee-payer slot too
     const res = await verifyAndSettleExactSolana({ connection: sellerConn(), feePayerKeypair: feePayer, payload: { transaction: toB64(tx) }, accept: makeAccept() })
     expect(res).toMatchObject({ ok: false, error: 'signature_invalid' })
+  })
+
+  it('an oversized compute-unit price/limit → signature_invalid (sponsor-drain guard)', async () => {
+    // Every other check passes (valid transfer to payTo's ATA, fee payer isolated, buyer signed),
+    // but a huge CU price/limit would drain the fee payer the priority fee for a sub-cent transfer.
+    const accept = makeAccept()
+    const mint = new PublicKey(accept.asset)
+    const payTo = new PublicKey(accept.payTo)
+    const fp = new PublicKey(accept.extra.feePayer!)
+    const source = getAssociatedTokenAddressSync(mint, buyer.publicKey, true)
+    const dest = getAssociatedTokenAddressSync(mint, payTo, true)
+    const ixs = [
+      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1_000_000_000n }), // drain attempt
+      ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 }), // Solana's per-tx max
+      createTransferCheckedInstruction(source, mint, dest, buyer.publicKey, BigInt(accept.amount), accept.extra.decimals!, [], TOKEN_PROGRAM_ID),
+    ]
+    const msg = new TransactionMessage({ payerKey: fp, recentBlockhash: BLOCKHASH, instructions: ixs }).compileToV0Message()
+    const tx = new VersionedTransaction(msg)
+    tx.sign([buyer])
+    const res = await verifyAndSettleExactSolana({ connection: sellerConn(), feePayerKeypair: feePayer, payload: { transaction: toB64(tx) }, accept })
+    expect(res).toMatchObject({ ok: false, error: 'signature_invalid' })
+    if (!res.ok) expect(res.detail).toMatch(/cap|drain|exceeds/i)
   })
 
   it('an empty buyer signature slot → signature_invalid', async () => {

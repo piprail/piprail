@@ -26,7 +26,7 @@ describe('parseExactPaymentHeader — v2 (PAYMENT-SIGNATURE)', () => {
     expect(p!.x402Version).toBe(2)
     expect(p!.network).toBe('eip155:8453')
     expect(p!.asset).toBe('0xUSDC')
-    if (p && p.method !== 'svm') expect(p.payload.signature).toBe(SIG)
+    if (p && (p.method === 'eip3009' || p.method === 'permit2')) expect(p.payload.signature).toBe(SIG)
     expect(p!.method).toBe('eip3009')
     if (p && p.method === 'eip3009') expect(p.payload.authorization.value).toBe('10000')
     expect(p!.raw).toMatchObject({ x402Version: 2 })
@@ -69,6 +69,36 @@ describe('parseExactPaymentHeader — SVM (Solana, { transaction })', () => {
     const p = parseExactPaymentHeader(h)
     expect(p!.method).toBe('svm')
     if (p && p.method === 'svm') expect(p.payload.transaction).toBe(TX)
+  })
+
+  it('an SVM payload (no senderAuth) is NOT mis-parsed as Aptos', () => {
+    const accepted = { scheme: 'exact', network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', asset: 'mint' }
+    const p = parseExactPaymentHeader(b64({ x402Version: 2, accepted, payload: { transaction: TX } }))
+    expect(p!.method).toBe('svm')
+  })
+})
+
+describe('parseExactPaymentHeader — Aptos ({ transaction, senderAuth })', () => {
+  const TX = Buffer.alloc(80, 5).toString('base64') // a stand-in base64 BCS tx blob
+  const AUTH = Buffer.alloc(96, 6).toString('base64') // a stand-in base64 BCS authenticator
+  it('parses the v2 Aptos shape as method:"aptos" (transaction + senderAuth, checked before SVM)', () => {
+    const accepted = { scheme: 'exact', network: 'aptos:1', asset: '0xbae207659db88bea0cbead6da0ed00aac12edcdda169e591cd41c94180b46f3b' }
+    const p = parseExactPaymentHeader(b64({ x402Version: 2, accepted, payload: { transaction: TX, senderAuth: AUTH } }))
+    expect(p).not.toBeNull()
+    expect(p!.method).toBe('aptos')
+    expect(p!.network).toBe('aptos:1')
+    if (p && p.method === 'aptos') {
+      expect(p.payload.transaction).toBe(TX)
+      expect(p.payload.senderAuth).toBe(AUTH)
+    }
+  })
+
+  it('round-trips through buildExactSignatureHeader', () => {
+    const accepted = { scheme: 'exact', network: 'aptos:1', asset: 'm', payTo: 'p', amount: '1', maxTimeoutSeconds: 600, extra: { assetTransferMethod: 'aptos', feePayer: 'fp' } }
+    const h = buildExactSignatureHeader({ accepted: accepted as never, payload: { transaction: TX, senderAuth: AUTH } })
+    const p = parseExactPaymentHeader(h)
+    expect(p!.method).toBe('aptos')
+    if (p && p.method === 'aptos') expect(p.payload.senderAuth).toBe(AUTH)
   })
 })
 
@@ -119,7 +149,7 @@ describe('encodeXPaymentHeader — emits the v1 flat shape (intentional, not a b
     const p = parseExactPaymentHeader(encodeXPaymentHeader(input))
     expect(p).not.toBeNull()
     expect(p!.x402Version).toBe(1)
-    if (p && p.method !== 'svm') expect(p.payload.signature).toBe(SIG)
+    if (p && (p.method === 'eip3009' || p.method === 'permit2')) expect(p.payload.signature).toBe(SIG)
     expect(p!.method).toBe('eip3009')
     if (p && p.method === 'eip3009') expect(p.payload.authorization.value).toBe(AUTH.value)
   })

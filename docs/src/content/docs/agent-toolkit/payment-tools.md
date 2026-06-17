@@ -43,7 +43,7 @@ const tools = paymentTools(client) // → AgentTool[] of length 7
 :::tip[Make the agent gasless]
 `schemes: ['onchain-proof', 'exact']` lets the tools pay the ratified x402 `exact` rail — the buyer
 **signs** and the server (or its facilitator, e.g. PayAI) broadcasts, so the agent spends **zero gas**
-(EVM + Solana). With `autoRoute: true` the tools then prefer that gasless rail automatically. Both are
+(EVM + Solana + Algorand + Aptos). With `autoRoute: true` the tools then prefer that gasless rail automatically. Both are
 opt-in; the zero-config default stays `onchain-proof`. See [Gasless payments](/making-payments/gasless-payments/).
 :::
 

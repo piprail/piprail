@@ -9,7 +9,7 @@ describe('auto-mount — naming "algorand" is enough (no setup call)', () => {
   it('mounts the Algorand driver on first use and builds a USDC challenge', async () => {
     const gate = createPaymentGate({ chain: 'algorand', token: 'USDC', amount: '0.05', payTo: PAY_TO })
     const accept = (await gate.challenge()).challenge.accepts[0]!
-    expect(accept.network).toBe('algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k')
+    expect(accept.network).toBe('algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=')
     expect(accept.asset).toBe('31566704')
     expect(accept.amount).toBe('50000') // 0.05 × 10^6
     expect(accept.extra.symbol).toBe('USDC')

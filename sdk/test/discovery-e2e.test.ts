@@ -136,7 +136,7 @@ const FAMILIES: { family: ResolvedNetwork['family']; chain: string; caip2: strin
   { family: 'near', chain: 'near', caip2: 'near:mainnet', slug: 'near' },
   { family: 'sui', chain: 'sui', caip2: 'sui:mainnet', slug: 'sui' },
   { family: 'aptos', chain: 'aptos', caip2: 'aptos:1', slug: 'aptos' },
-  { family: 'algorand', chain: 'algorand', caip2: 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k', slug: 'algorand' },
+  { family: 'algorand', chain: 'algorand', caip2: 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=', slug: 'algorand' },
   { family: 'stellar', chain: 'stellar', caip2: 'stellar:pubnet', slug: 'stellar' },
   { family: 'xrpl', chain: 'xrpl', caip2: 'xrpl:0', slug: 'xrpl' },
 ]

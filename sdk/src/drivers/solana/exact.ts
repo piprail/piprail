@@ -57,6 +57,19 @@ import type { VerifyErrorCode, VerifyResult, X402ExactAcceptEntry } from '../../
 const COMPUTE_UNIT_LIMIT = 20_000
 const COMPUTE_UNIT_PRICE_MICROLAMPORTS = 1
 
+// Anti-drain caps the SELLER enforces on the inbound tx before co-signing as fee payer. The fee
+// payer (the merchant's relayer / a keyless facilitator) is debited base + compute_unit_limit ×
+// compute_unit_price; NO instruction NAMES it, so the isolation check (B4) can't see this. Without a
+// cap a malicious buyer could set a huge limit/price (Solana's max limit is 1.4M units) and drain
+// the sponsor for a sub-cent transfer. These ceilings are generous vs the canonical 20k-unit @
+// 1-µlamport path (worst case ≈ 300k × 100k / 1e6 ≈ 0.00003 SOL) yet far below any meaningful drain.
+// Mirrors the Algorand MAX_GROUP_FEE / Aptos gas caps — the same fee-payer drain class.
+const MAX_COMPUTE_UNIT_LIMIT = 300_000n
+const MAX_COMPUTE_UNIT_PRICE_MICROLAMPORTS = 100_000n
+/** ComputeBudgetProgram instruction discriminators (first data byte). */
+const CB_SET_UNIT_LIMIT = 2
+const CB_SET_UNIT_PRICE = 3
+
 /** Resolve the rail's token program (an ATA's address depends on it). Defaults to classic
  *  spl-token — the built-in USDC/USDT are classic. */
 function tokenProgramFor(accept: X402ExactAcceptEntry): PublicKey {
@@ -303,6 +316,27 @@ export async function verifyAndSettleExactSolana(input: {
     for (const i of ix.accountKeyIndexes) {
       if (keys.get(i)?.equals(feePayerKey)) {
         return fail('signature_invalid', 'The fee payer appears in an instruction account list (would risk a fund drain).')
+      }
+    }
+  }
+
+  // --- B4.5. Anti-drain (MUST-rule #3 — "not debited beyond the network fee"): bound the COMPUTE
+  //     BUDGET. The fee payer pays base + compute_unit_limit × compute_unit_price; the canonical
+  //     buyer sets a tiny fixed budget, but a malicious one could set a huge limit/price and drain
+  //     the sponsor — no instruction names the fee payer, so B4 misses it. Cap both. ---
+  for (const ix of message.compiledInstructions) {
+    const ixProgram = keys.get(ix.programIdIndex)
+    if (!ixProgram || !ixProgram.equals(ComputeBudgetProgram.programId)) continue
+    const data = Buffer.from(ix.data)
+    if (data.length >= 5 && data[0] === CB_SET_UNIT_LIMIT) {
+      const limit = BigInt(data.readUInt32LE(1))
+      if (limit > MAX_COMPUTE_UNIT_LIMIT) {
+        return fail('signature_invalid', `Compute-unit limit ${limit} exceeds the ${MAX_COMPUTE_UNIT_LIMIT} cap (fee-payer drain guard).`)
+      }
+    } else if (data.length >= 9 && data[0] === CB_SET_UNIT_PRICE) {
+      const price = data.readBigUInt64LE(1)
+      if (price > MAX_COMPUTE_UNIT_PRICE_MICROLAMPORTS) {
+        return fail('signature_invalid', `Compute-unit price ${price} µlamports exceeds the ${MAX_COMPUTE_UNIT_PRICE_MICROLAMPORTS} cap (fee-payer drain guard).`)
       }
     }
   }

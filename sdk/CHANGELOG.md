@@ -4,6 +4,104 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.4.0] — 2026-06-17 — gasless Algorand & Aptos rails + keyless gasless on SIX chains (incl. Algorand & BNB)
+
+Additive and backward-compatible — defaults and the zero-config 402 stay byte-identical; pure-EVM
+installs still never download a non-EVM library (Algorand and Aptos stay lazy-loaded — verified: the
+built EVM bundle has zero static non-EVM imports, only lazy chunks).
+
+### Added
+
+- **Algorand `exact` rail — gasless on a fourth family.** PipRail's `exact` scheme now covers Algorand
+  (ASAs) alongside EVM and Solana, via the ratified `scheme_exact_algo`. The buyer signs an ASA
+  `axfer` to `payTo` at **fee 0**, atomically grouped with a 0-ALGO `pay` whose pooled fee covers the
+  group; the sponsor (the merchant's relayer in self-settle, or a keyless facilitator) signs the fee
+  txn and submits — the buyer spends **zero ALGO**. New `payExactAlgorand` / `verifyAndSettleExactAlgorand`
+  driver functions; `resolveExactRail` / `payExact` / `settleExactSelf` are now implemented for the
+  Algorand family. **Live-proven on Algorand mainnet** (self-settle round-trip, buyer paid 0 ALGO).
+  Unlike Solana, **`feePayer === payTo` is allowed** (the fee txn is separate — no isolation rule), so
+  a single merchant account can self-settle. Native ALGO stays `onchain-proof`-only.
+- **Aptos `exact` rail — gasless on a fifth family.** PipRail's `exact` scheme now also covers Aptos
+  (Fungible Assets), via the ratified `scheme_exact_aptos`. The buyer builds a fee-payer (sponsored,
+  AIP-39) `0x1::primary_fungible_store::transfer` to `payTo` and signs **only the sender slot** — spending
+  **zero APT**; the sponsor (the merchant's relayer in self-settle, or a keyless facilitator) adds the
+  fee-payer signature and submits, paying the sub-cent gas. It's **one-shot** (no gas-station round-trip,
+  unlike Sui's sponsorship — which is why Aptos fits PipRail's backendless model and Sui's gasless path
+  doesn't). New `payExactAptos` / `verifyAndSettleExactAptos` driver functions; `resolveExactRail` /
+  `payExact` / `settleExactSelf` are now implemented for the Aptos family; the seller verifies by
+  **decoding the entry function** and binding the FA metadata/recipient/amount to its trusted rail, caps
+  the fee payer's gas exposure, and verifies the sender signature off-chain before settling.
+  **Live-proven on Aptos mainnet** (self-settle round-trip, buyer paid 0 APT). Like Algorand,
+  **`feePayer === payTo` is allowed**. Any Fungible Asset (USDC + USD₮) is gasless; native APT stays
+  `onchain-proof`-only.
+- **`exact: true` zero-config gasless now spans SIX chains** — Base, **BNB**, HyperEVM, Monad, Solana,
+  and **Algorand** — where a **keyless facilitator sponsors gas for *both* sides** (neither buyer nor
+  merchant pays). Each `KNOWN_FACILITATORS` row was added only after a real mainnet keyless settle (THE
+  RULE), all 2026-06-17:
+  - **Algorand** (`algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=`) — **new keyless chain, the
+    first non-EVM/non-Solana one**, via **GoPlausible** (the only keyless Algorand x402 facilitator).
+    Atomic-group fee pooling: the sponsor pools the whole group fee, so the **buyer AND the merchant both
+    pay 0 ALGO** (tx `PDVDVRFGJAG2K6AJ7L26OTSCSRL7AURVKEX4D4KHBAOLNSCYENXA`).
+  - **BNB** (`eip155:56`) — **new keyless chain** via **Dexter** + **Pieverse**, settling the EIP-3009
+    tokens **FDUSD/USD1** (BNB's Binance-Peg USDC/USDT are Permit2 → not facilitator-settleable; Dexter
+    has a ~$0.003 floor). This beats the BNB token-overlap wall that blocks AEON.
+  - **Monad** (`eip155:143`) — **Corbits** + **Ultravioleta DAO** + **Pieverse** (3 facilitators).
+  - **HyperEVM** (`eip155:999`) — **Ultravioleta DAO**.
+  - **Base** (`eip155:8453`) — PayAI + xpay + **Ultravioleta DAO** + **Dexter** + **Corbits** +
+    **GoPlausible** (6 facilitators → automatic failover).
+  - **Solana** — PayAI + OpenFacilitator + Corbits (SVM).
+  Ultravioleta DAO (the broadest endpoint — 18 PipRail networks) is live-validated on **3** chains
+  (HyperEVM, Base, Monad); **GoPlausible** on **2** (Algorand, Base). As more chains are funded the same
+  sweep seeds them — **9 more EVM chains have a keyless facilitator awaiting funding** (Polygon, Arbitrum,
+  Optimism, Avalanche, Ethereum, Celo, Unichain, Scroll, Sei).
+- The `exact` transfer-method union (`ExactRailInfo.method`, `KnownFacilitator.settles`,
+  `assetTransferMethod`, the parsed-payment + wire types) now includes **`'algorand'`** and **`'aptos'`**,
+  and two new wire payloads are parsed/validated: `ExactAlgorandPaymentPayload` (`{ paymentIndex,
+  paymentGroup }`) and `ExactAptosPaymentPayload` (`{ transaction, senderAuth }`).
+
+### Changed
+
+- The gate's facilitator-settle path forwards the sponsor `feePayer` for Algorand and Aptos (as it
+  already does for Solana), and the replay claim canonicalizes the Algorand `paymentGroup` and the Aptos
+  `{ transaction, senderAuth }` (so a base64-malleated re-submission of the same payment can't slip past
+  the used-proof set). All additive — EVM/Solana behaviour is unchanged.
+- **Algorand's CAIP-2 is now the FULL 44-char base64 genesis hash**
+  (`algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=`, was a 32-char prefix) — the exact form the
+  ratified x402 Algorand scheme and its facilitators (GoPlausible) use, so a facilitator-settled rail
+  interops on the wire and `fetchFacilitatorFeePayer` auto-matches. The on-chain `exact` group is
+  **byte-identical** (GoPlausible accepts PipRail's group as-is — the gate already sends the `amount`
+  field it needs); self-settle is **behaviour-neutral** (re-proven live on mainnet). Safe because 2.4.0
+  is unreleased, so no published version emitted the prefix form.
+- `verifyExact` now matches a v2 `exact` payment's CAIP-2 network **family-agnostically** (any
+  `namespace:reference`, not just `eip155:`), so a foreign non-EVM v2 payment (`solana:…`/`algorand:…`/
+  `aptos:…`) routes precisely by network on a multi-rail gate instead of relying on the asset filter.
+  PipRail's own buyer (which always echoes the asset) is unaffected.
+
+### Security
+
+A pre-release adversarial sweep of every `exact` rail found — and this release fixes — a **sponsor
+fee-drain** class on the two rails where the buyer constructs a fee/gas parameter the gate co-signs and
+submits from the sponsor's balance (the keyless facilitator, or the merchant's self-settle relayer). In
+both cases the buyer signs a valid, correctly-bound transfer, so every other check (recipient, amount,
+asset, fee-payer isolation) passed and simulation succeeded — only the fee magnitude was unbounded. Both
+now cap it, mirroring the Aptos rail's existing gas caps. Neither shipped in a released version (the
+Algorand/Aptos rails are new in 2.4.0; the Solana cap hardens a rail first released in 2.x), and both are
+covered by a new red-then-green adversarial test.
+
+- **Algorand** (`drivers/algorand/exact.ts`): the seller co-signed the buyer-supplied pooled-fee `pay`
+  txn **without bounding its fee**. A malicious buyer could name the sponsor as fee payer and set an
+  arbitrarily large fee, draining it for a sub-cent transfer. Fixed with `MAX_GROUP_FEE` (20 000 µALGO,
+  ~10× the honest `minFee × 2`).
+- **Solana** (`drivers/solana/exact.ts`): the seller did not bound the **compute-unit limit/price**
+  (the priority fee the fee payer pays). A malicious buyer could set a huge `setComputeUnitLimit` ×
+  `setComputeUnitPrice` and drain the sponsor's SOL (Solana's max budget makes this multi-SOL per
+  request). Fixed with `MAX_COMPUTE_UNIT_LIMIT` (300 000) + `MAX_COMPUTE_UNIT_PRICE_MICROLAMPORTS`
+  (100 000), enforced before co-signing — worst case ≈ 0.00003 SOL, vs the canonical 20 000-unit @
+  1-µlamport path.
+- EVM (EIP-3009 / Permit2) and Aptos were reviewed and found **not** exposed: EVM derives gas at
+  broadcast (never from the buyer payload), and Aptos already caps gas. The fee-payer drain guards are
+  now consistent across all four rails.
+
 ## [2.3.0] — 2026-06-17 — `exact: true` zero-config gasless gate
 
 Additive and backward-compatible — defaults and the zero-config 402 stay byte-identical. A new
@@ -1249,6 +1347,7 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[2.4.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.3.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.2.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.1.1]: https://www.npmjs.com/package/@piprail/sdk

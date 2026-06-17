@@ -336,6 +336,10 @@ function makeEvmNetwork(resolved: ResolvedChain): ResolvedNetwork {
         // routing, but fail closed as a client fault rather than crash.
         return { ok: false, error: 'signature_invalid', detail: 'An SVM (Solana) payload was submitted to an EVM exact rail.' }
       }
+      if ('paymentGroup' in payload) {
+        // An Algorand-shaped payload reached the EVM driver — impossible via per-spec routing; fail closed.
+        return { ok: false, error: 'signature_invalid', detail: 'An Algorand payload was submitted to an EVM exact rail.' }
+      }
       return verifyAndSettleExactEvm({
         publicClient,
         walletClient: a.walletClient,

@@ -311,10 +311,10 @@ type ResolvedExactMode =
  *  settles. Present when `options.exact` is set and the spec's family can carry it
  *  (EVM ERC-20 via EIP-3009/Permit2, or Solana SPL via the SVM scheme). */
 interface ResolvedExactRail {
-  /** `'eip3009'`/`'permit2'` (EVM) or `'svm'` (Solana). */
-  method: 'eip3009' | 'permit2' | 'svm'
+  /** `'eip3009'`/`'permit2'` (EVM), `'svm'` (Solana), `'algorand'` (Algorand), or `'aptos'` (Aptos). */
+  method: 'eip3009' | 'permit2' | 'svm' | 'algorand' | 'aptos'
   /** Family-specific keys the driver supplies, merged verbatim into the accept's `extra`
-   *  (EVM EIP-3009: the token's `name`/`version`; Solana: `feePayer`/`tokenProgram`). */
+   *  (EVM EIP-3009: the token's `name`/`version`; Solana/Algorand: `feePayer`[/`tokenProgram`]). */
   extra?: Record<string, unknown>
   mode: ResolvedExactMode
 }
@@ -567,7 +567,7 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
       if (cfg.method === 'permit2') {
         throw new Error(
           "requirePayment: exact `method: 'permit2'` can't be settled by a third-party facilitator — " +
-            'facilitators settle the standard EIP-3009 (EVM) / SVM (Solana) schemes, not PipRail’s ' +
+            'facilitators settle the standard EIP-3009 (EVM) / SVM (Solana) / Algorand schemes, not PipRail’s ' +
             "Permit2 proxy. Use an EIP-3009 token (USDC / EURC) with the facilitator, or `settle: 'self'` " +
             '(your own relayer) to settle Permit2 yourself.'
         )
@@ -950,7 +950,10 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     // v2 clients echo the CAIP-2 network + asset → match precisely (an explicit
     // wrong network/asset must NOT match). A v1 client (flat, slug network, no asset)
     // can't be matched on CAIP-2, so it falls back to the single offered exact rail.
-    const isCaip = exact.network.startsWith('eip155:')
+    // CAIP-2 is family-agnostic — `namespace:reference` for EVM (eip155:…) AND non-EVM
+    // (solana:… / algorand:… / aptos:…), so a foreign non-EVM v2 payment filters by network
+    // exactly like EVM (a v1 flat slug has no `:` and falls through to the slug fallback).
+    const isCaip = exact.network.includes(':')
     let candidates = isCaip ? exactSpecs.filter((s) => s.net.network === exact.network) : exactSpecs
     if (exact.asset) {
       candidates = candidates.filter((s) => s.asset.toLowerCase() === exact.asset!.toLowerCase())
@@ -980,7 +983,22 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     // nonce / signature state is a second, canonical guard.
     let nonce: string
     let evmAuth: { nonce: string; from: string } | null = null
-    if ('transaction' in exact.payload) {
+    if ('senderAuth' in exact.payload && 'transaction' in exact.payload) {
+      // Aptos: no separate nonce field (like SVM/Algorand). Canonicalize the signed tx + the sender
+      // authenticator (decode → re-encode) and join — so malleable encodings of the SAME payment
+      // collapse to one key. The sender's monotonic on-chain SEQUENCE NUMBER is the canonical second
+      // backstop (Aptos rejects a reused sequence). Checked BEFORE the SVM branch (Aptos also has
+      // `transaction`). Chain-agnostic — server.ts never BCS-decodes the tx.
+      nonce = [exact.payload.transaction, exact.payload.senderAuth]
+        .map((t) => {
+          try {
+            return Buffer.from(t, 'base64').toString('base64')
+          } catch {
+            return t
+          }
+        })
+        .join('|')
+    } else if ('transaction' in exact.payload) {
       // CANONICALIZE the base64 (decode → re-encode) before using it as the replay key — two
       // malleable encodings of the SAME signed tx (whitespace / missing padding / base64url) must
       // collapse to one key, so a mutated re-submission can't slip past the claim. Chain-agnostic;
@@ -990,6 +1008,20 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
       } catch {
         nonce = exact.payload.transaction
       }
+    } else if ('paymentGroup' in exact.payload) {
+      // Algorand: no separate nonce field (like SVM). Canonicalize EACH base64 element (decode →
+      // re-encode) and join — so malleable encodings of the SAME group collapse to one key. The
+      // group's atomic, deterministic on-chain txids are the canonical second backstop (algod
+      // rejects a duplicate txid). Chain-agnostic — server.ts never msgpack-decodes the group.
+      nonce = exact.payload.paymentGroup
+        .map((t) => {
+          try {
+            return Buffer.from(t, 'base64').toString('base64')
+          } catch {
+            return t
+          }
+        })
+        .join('|')
     } else if ('permit2Authorization' in exact.payload) {
       evmAuth = exact.payload.permit2Authorization
       nonce = evmAuth.nonce
@@ -1008,6 +1040,18 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
       if (mode.kind === 'self') {
         result = await spec.net.settleExactSelf!({ relayer: mode.relayer, payload: exact.payload, accept })
       } else {
+        // SVM / Algorand / Aptos rails carry the facilitator's `feePayer` (the gas sponsor); EVM
+        // carries the token's EIP-712 domain. A fee-payer rail can't even be ADVERTISED without a
+        // sponsor (resolveExactRail returns null, or the gate drops the rail when /supported yields
+        // none), so a missing feePayer here is an invariant violation — fail loudly with a clear
+        // SettlementError (gate 5xx) rather than forwarding an empty string to the facilitator.
+        const ftMethod = accept.extra.assetTransferMethod
+        const needsFeePayer = ftMethod === 'svm' || ftMethod === 'algorand' || ftMethod === 'aptos'
+        if (needsFeePayer && !accept.extra.feePayer) {
+          throw new SettlementError(
+            `exact settle: the ${ftMethod} facilitator rail is missing extra.feePayer (the gas sponsor) — cannot settle.`
+          )
+        }
         result = await settleViaFacilitator({
           url: mode.url,
           ...(mode.authHeaders ? { authHeaders: mode.authHeaders } : {}),
@@ -1024,12 +1068,9 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
             amount: accept.amount,
             payTo: accept.payTo,
             maxTimeoutSeconds: accept.maxTimeoutSeconds,
-            // The scheme's chain-specific `extra`, from the gate's OWN trusted rail: SVM forwards the
-            // facilitator's `feePayer` (the gas sponsor); EVM forwards the token's EIP-712 domain.
-            extra:
-              accept.extra.assetTransferMethod === 'svm'
-                ? { feePayer: accept.extra.feePayer ?? '' }
-                : { name: accept.extra.name ?? '', version: accept.extra.version ?? '' },
+            extra: needsFeePayer
+              ? { feePayer: accept.extra.feePayer! }
+              : { name: accept.extra.name ?? '', version: accept.extra.version ?? '' },
           },
           receipt: { network: accept.network, asset: accept.asset, payTo: accept.payTo, amount: accept.amount },
           // The buyer address, for the receipt's `payer` fallback. EVM carries it in the

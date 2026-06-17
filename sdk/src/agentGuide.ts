@@ -39,7 +39,8 @@ A 402 may offer up to two rails; you don't choose per payment — the client doe
   (the native coin — ETH/SOL/…). Works on every chain.
 - exact (the ratified x402 rail, opt-in): you only SIGN; the server — or a facilitator it chose
   (e.g. PayAI) — broadcasts it, so you pay ZERO gas (you need only the token, no native coin). It
-  works on EVM + Solana, and the on-chain method (EIP-3009 / Permit2 / SVM) is picked automatically.
+  works on EVM, Solana + Algorand, and the on-chain method (EIP-3009 / Permit2 / SVM / Algorand
+  fee-pooled group) is picked automatically.
 When the exact scheme is enabled AND balance-aware routing is on, paying picks the cheapest
 settleable rail — i.e. the gasless exact one. Nothing changes in your loop: quote → plan → pay is
 identical. The exact scheme is OPT-IN by the operator (MCP: PIPRAIL_SCHEMES=onchain-proof,exact);

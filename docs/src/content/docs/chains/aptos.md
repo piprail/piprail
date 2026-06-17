@@ -173,6 +173,41 @@ spend, call [`planPayment()`](/making-payments/plan-payment/): it distinguishes 
 `INSUFFICIENT_GAS` vs `INSUFFICIENT_TOKEN` blockers, with a `shortfall` and a `fundingHint`.
 :::
 
+## Gasless — the `exact` rail (the buyer pays zero APT)
+
+Beyond `onchain-proof`, Aptos supports the ratified x402 **`exact` rail** (opt-in), and it's **gasless
+for the buyer**. Aptos has native **fee-payer (sponsored) transactions** (AIP-39): the buyer signs a
+`0x1::primary_fungible_store::transfer` to `payTo` with the gas sponsor (`feePayer`) set, signing **only
+the sender slot** — spending **zero APT**. The sponsor — your own relayer, or a keyless facilitator —
+adds the fee-payer signature and submits, paying the sub-cent gas. The buyer holds only the FA (USDC / USD₮):
+
+```ts
+import { requirePayment } from '@piprail/sdk'
+
+requirePayment({
+  chain: 'aptos', token: 'USDC', amount: '0.10', payTo: '0x…',
+  exact: { settle: 'self', relayer: { key: process.env.APTOS_RELAYER_KEY! } }, // pays the gas to receive
+})
+```
+
+It's **one-shot** — the buyer needs only the advertised `feePayer` (no gas-station round-trip). Like
+Algorand, the relayer **may be `payTo` itself** (the fee-payer signature is separate from the transfer —
+no isolation rule), so a single merchant account can self-settle. **Any Fungible Asset is gasless
+equally** (USDC and USD₮ alike — there's no EVM-style EIP-3009 token requirement). Native **APT** isn't
+exact-payable — it stays `onchain-proof`. **Live-proven on Aptos mainnet.** Full mechanism: [Gasless
+payments → Aptos](/making-payments/gasless-payments/#aptos--how-sponsored-tx-gasless-works).
+
+Because your relayer co-signs a buyer-built transaction as the gas sponsor, the gate **caps the gas**
+the sponsor will pay before signing (`MAX_GAS_AMOUNT_CAP` = 100 000 units, `MAX_GAS_UNIT_PRICE_CAP` =
+2 000 octas/unit — ≤ 0.2 APT worst case) — so a buyer can't inflate `max_gas_amount × gas_unit_price` to
+drain it. See [sponsor protection](/making-payments/gasless-payments/#sponsor-protection--the-fee-drain-guard).
+
+:::note[`exact: true` on Aptos]
+Aptos has **no keyless x402 facilitator on mainnet** yet, so `exact: true` (the auto-pick-a-facilitator
+shorthand) **degrades gracefully** to `onchain-proof` there. Use **self-settle** (above) for gasless
+Aptos today — it's proven on mainnet.
+:::
+
 ## Proof binding — Template B (digest-bound)
 
 Aptos uses **Template B**, like Sui, EVM, and Solana: the proof ref is the **transaction hash**.

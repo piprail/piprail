@@ -110,7 +110,14 @@ The buyer partial-signs the canonical `[cu-limit, cu-price, TransferChecked]` tr
 fee-payer slot empty; the facilitator (or your relayer) co-signs as fee payer and broadcasts. The buyer
 needs only the token (zero SOL). The recipient's **token account must already exist** — the exact rail
 won't create it (a brand-new recipient is payable on `onchain-proof`, which does). Native **SOL** is not
-exact-payable. Full details: [Gasless payments](/making-payments/gasless-payments/) ·
+exact-payable.
+
+Because the fee payer (the facilitator, or your self-settle relayer) co-signs a buyer-built transaction,
+the gate enforces the scheme's fee-payer safety rules (the fee payer in no instruction, never a program,
+never drained) **and caps the compute budget** before co-signing (`MAX_COMPUTE_UNIT_LIMIT` = 300 000 units,
+`MAX_COMPUTE_UNIT_PRICE_MICROLAMPORTS` = 100 000) — so a buyer can't inflate the fee to drain the sponsor.
+See [sponsor protection](/making-payments/gasless-payments/#sponsor-protection--the-fee-drain-guard). Full
+details: [Gasless payments](/making-payments/gasless-payments/) ·
 [exact rail (buyer)](/making-payments/exact-buyer/) · [exact rail (seller)](/accepting-payments/exact-rail-seller/).
 
 ## Receiver setup — none
