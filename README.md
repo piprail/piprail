@@ -24,6 +24,16 @@
 
 PipRail implements the open [x402](https://x402.org) **"402 Payment Required"** standard with **no backend, no database, no account, and no fee**. Payments settle **straight into your wallet**, verified locally against your own RPC — across every major EVM chain plus **Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar & the XRP Ledger**. Self-custodial throughout.
 
+## How a payment moves
+
+<div align="center">
+
+<img src="site/public/flow.png" alt="How a payment moves — the full life of one payment, side by side. Left, the traditional MPP path (Stripe + Tempo): the agent's money is held in transit through a processor and a permissioned chain across roughly five hops, takes ~T+2 days to become spendable, and can be frozen or reversed. Right, PipRail's x402 wallet-to-wallet rail: the agent pays the merchant's wallet directly in a single on-chain transaction, the merchant gate verifies it locally, funds are spendable in seconds, there's no custodian, and the fee is 0%." width="840" />
+
+<sub>**The middle is the difference.** A traditional processor holds the money in transit, takes days to release it, and can freeze or reverse it. PipRail removes the middle entirely — the agent pays the merchant's wallet directly, the merchant verifies it locally against their own RPC, and it settles in one transaction at **0% fee**, self-custodial end to end. &nbsp;<a href="https://piprail.com">See it on piprail.com →</a></sub>
+
+</div>
+
 > ### 📖 Full documentation → **[docs.piprail.com](https://docs.piprail.com)**
 > The single, searchable **source of truth** — every function, option, chain, and example. This README is just the front door.
 
