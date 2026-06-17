@@ -28,11 +28,12 @@
 import { JsonRpcProvider, Account, actions } from 'near-api-js'
 import { NEAR_MAINNET, NEAR_DECIMALS, isValidNearAccountId, type NearPreset } from './chains.js'
 import { payNear, payNearNative, type NearSendClient } from './pay.js'
-import { payExactNear } from './exact.js'
+import { payExactNear, verifyAndSettleExactNear, type NearRelayClient } from './exact.js'
 import { verifyNear, type NearReader, type NearReceiptView } from './verify.js'
 import { assertNearWallet, resolveNearWallet, type NearWalletConfig } from './wallet.js'
 import {
   ConfirmationTimeoutError,
+  SettlementError,
   UnknownTokenError,
   WrongFamilyError,
 } from '../../errors.js'
@@ -317,14 +318,77 @@ function makeNearNetwork(preset: NearPreset, rpcUrl: string): ResolvedNetwork {
       return { payload, accepted: accept, payerFrom, nonce }
     },
 
-    // The gate's rail-advertisement SPI. NEAR exact is NEP-141-only + FACILITATOR-settled, so it
-    // advertises ONLY when a facilitator sponsor (`feePayer` — the relayer that prepays gas so
-    // neither buyer nor merchant pays) is available; returns `null` for native, a non-NEP-141 asset,
-    // or a self-settle request (NEAR has no PipRail self-settle). The buyer's SignedDelegateAction is
-    // self-contained, so `feePayer` rides in `extra` only for observability + facilitator forwarding.
-    async resolveExactRail({ asset, feePayer }) {
-      if (asset === 'native' || !isValidNearAccountId(asset) || !feePayer) return null
-      return { method: 'near' as const, extra: { feePayer } }
+    // The gate's rail-advertisement SPI. NEAR exact is NEP-141-only. The fee payer (the relayer that
+    // prepays gas + the 1 yocto, so the BUYER pays nothing) comes from EITHER the merchant's own bound
+    // `relayer` (SELF mode — what works today) OR a facilitator-provided `feePayer` (facilitator mode —
+    // for when a NEAR x402 facilitator ships; none does yet). `null` for native / non-NEP-141 / when no
+    // fee payer is available. The buyer's SignedDelegateAction is self-contained, so `feePayer` rides in
+    // `extra` only for observability + (future) facilitator forwarding.
+    async resolveExactRail({ asset, relayer, feePayer }) {
+      if (asset === 'native' || !isValidNearAccountId(asset)) return null
+      let fp = feePayer
+      if (!fp && relayer) {
+        try {
+          fp = resolveNearWallet(relayer._native as NearWalletConfig).accountId
+        } catch {
+          return null // a malformed relayer wallet can't carry a rail
+        }
+      }
+      if (!fp) return null
+      return { method: 'near' as const, extra: { feePayer: fp } }
+    },
+
+    // Standard x402 `exact` rail, SELLER side (SELF-SETTLE) — decode + verify the inbound delegate
+    // against the trusted accept, then RELAY it from the merchant's own NEAR relayer (which prepays the
+    // sub-cent gas + the 1 yocto). The buyer stays gasless. THIS is how a NEAR gate gets paid today
+    // (no third-party facilitator settles NEAR yet). The drain guard (gas/deposit caps) lives in
+    // verifyAndSettleExactNear, invisible to the gate.
+    async settleExactSelf({ relayer, payload, accept }) {
+      if (!('signedDelegateAction' in payload)) {
+        // A non-NEAR payload reached the NEAR driver — impossible via per-spec routing; fail closed.
+        return { ok: false, error: 'signature_invalid', detail: 'NEAR exact expects a { signedDelegateAction } payload.' }
+      }
+      let relayerWallet: ReturnType<typeof resolveNearWallet>
+      try {
+        relayerWallet = resolveNearWallet(relayer._native as NearWalletConfig)
+      } catch (err) {
+        throw new SettlementError(
+          `NEAR exact settle: the relayer wallet is invalid (${err instanceof Error ? err.message : String(err)}).`,
+          { cause: err }
+        )
+      }
+      const relayerAccount = new Account(relayerWallet.accountId, provider, relayerWallet.signer)
+      const isSuccess = (s: unknown): boolean =>
+        typeof s === 'object' && s !== null && 'SuccessValue' in (s as Record<string, unknown>)
+
+      const client: NearRelayClient = {
+        async currentBlockHeight() {
+          try {
+            const b = (await provider.viewBlock({ finality: 'final' })) as { header?: { height?: number | string } }
+            return b.header?.height != null ? BigInt(b.header.height) : null
+          } catch {
+            return null
+          }
+        },
+        async relay({ senderId, delegateAction, signature }) {
+          const outcome = (await relayerAccount.signAndSendTransaction({
+            receiverId: senderId,
+            actions: [actions.signedDelegate({ delegateAction, signature: signature as never })],
+            waitUntil: 'FINAL',
+          })) as {
+            transaction?: { hash?: string }
+            status?: unknown
+            receipts_outcome?: Array<{ outcome?: { executor_id?: string; status?: unknown } }>
+          }
+          const txHash = outcome.transaction?.hash ?? ''
+          // Inner success = the TOKEN-CONTRACT receipt itself succeeded (an outer-tx success with a
+          // failed inner ft_transfer must NOT count — NEAR runs the transfer in a spawned receipt).
+          const tokenReceipt = (outcome.receipts_outcome ?? []).find((r) => r.outcome?.executor_id === accept.asset)
+          const innerSuccess = tokenReceipt ? isSuccess(tokenReceipt.outcome?.status) : isSuccess(outcome.status)
+          return { txHash, innerSuccess }
+        },
+      }
+      return verifyAndSettleExactNear({ client, payload, accept })
     },
   }
 }

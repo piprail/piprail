@@ -161,45 +161,105 @@ PipRail uses plain transfers plus local receipt verification on purpose. See [Ve
 payments](/accepting-payments/verifying-payments/).
 :::
 
-## Standard `exact` rail — gasless via NEP-366 (NEP-141 tokens)
+## Standard `exact` rail — gasless for the buyer via NEP-366 (NEP-141 tokens)
 
 Beside the default `onchain-proof` rail, PipRail also speaks the **ratified x402 `exact` scheme for
-NEAR** (`scheme_exact_near.md`). The buyer signs a **NEP-366 `SignedDelegateAction`** authorizing
-exactly one NEP-141 `ft_transfer` (to `payTo`, the exact amount, the mandatory 1 yoctoNEAR) with a
-**full-access key** — then a **keyless x402 facilitator's relayer prepays the gas + the yocto and
-submits**. The buyer holds **zero NEAR**, and with a keyless facilitator the merchant pays nothing
-either: both sides are gasless.
+NEAR** ([`scheme_exact_near.md`](https://github.com/x402-foundation/x402/blob/main/specs/schemes/exact/scheme_exact_near.md),
+x402 v2). The buyer signs a **NEP-366 `SignedDelegateAction`** authorizing exactly one NEP-141
+`ft_transfer` (to `payTo`, the exact `amount`, the mandatory 1 yoctoNEAR) with a **full-access key** —
+and **never broadcasts it or holds any NEAR**. A relayer wraps that delegate in its own outer
+transaction, prepays the gas + the yocto, and submits it. The agent (buyer) is **completely gasless**.
+
+This rail is **opt-in** and only ever offered for **NEP-141 tokens** (USDC / USDT, or a custom token
+you pass). Native NEAR is **not** exact-payable — the scheme is defined over `ft_transfer` — so native
+always stays on the zero-setup `onchain-proof` rail. Defaults are unchanged: an `onchain-proof`-only
+client behaves exactly as before.
+
+### Paying (the buyer / agent — gasless)
+
+Enable `'exact'` in `schemes` and the client builds + signs the `SignedDelegateAction` for any NEAR
+`exact` rail it's offered. It spends **zero NEAR** (the merchant's relayer pays):
 
 ```ts
-// Buyer: opt into exact, and the client builds + signs the SignedDelegateAction for any NEAR exact
-// rail it's offered (USDC / USDT — NEP-141 tokens only; native NEAR stays onchain-proof).
-const client = new PipRailClient({ chain: 'near', wallet, schemes: ['onchain-proof', 'exact'] })
-await client.fetch('https://api.example.com/data')
+const client = new PipRailClient({
+  chain: 'near',
+  wallet: { accountId: 'agent.near', key: 'ed25519:…' }, // MUST be a full-access key (see below)
+  schemes: ['onchain-proof', 'exact'],
+})
+await client.fetch('https://api.example.com/data') // 402 → signs a delegate (0 NEAR) → 200
 ```
 
-NEAR `exact` is **facilitator-settled** (unlike EVM/Solana/Algorand, PipRail does not self-settle it:
-the NEAR relayer wraps the delegate action in its own outer transaction — a funded hot relayer the
-charter avoids running). A merchant points the gate at an x402 facilitator that implements
-`scheme_exact_near.md` for `near:mainnet`:
+:::caution[The buyer's key must be a FULL-ACCESS key]
+A NEP-141 `ft_transfer` attaches exactly **1 yoctoNEAR**, and NEAR **function-call** access keys
+cannot attach a positive deposit — so the relayer (or facilitator) will reject a delegate signed by a
+function-call key. The buyer must sign with a **full-access** key. (Implicit 64-hex accounts created
+from their key are full-access by construction.)
+:::
+
+### Receiving (the merchant) — self-settle today
+
+NEAR `exact` is **self-settled** today: the merchant runs a small **relayer** (a funded NEAR account)
+that the gate uses to submit the buyer's signed delegate. The **buyer stays gasless**; the merchant's
+relayer pays the **sub-cent NEAR** network fee to receive — exactly like PipRail's self-settle on
+Solana / Algorand / Aptos. This is the standard, working configuration:
 
 ```ts
 createPaymentGate({
-  chain: 'near', token: 'USDC', amount: '0.01', payTo: 'merchant.near',
-  exact: { settle: { facilitator: 'https://your-near-facilitator.example' } },
+  chain: 'near',
+  token: 'USDC',          // or 'USDT' — any NEP-141; native is onchain-proof only
+  amount: '0.01',
+  payTo: 'merchant.near',
+  exact: {
+    settle: 'self',
+    relayer: { accountId: 'relayer.near', key: 'ed25519:…' }, // a funded NEAR key that pays settle gas
+  },
 })
 ```
 
-:::caution[Facilitator coverage is still rolling out]
-The NEAR exact **payload PipRail builds is proven on mainnet** (a real NEP-366 meta-transaction
-settles a USDC/USDT `ft_transfer` gaslessly — the buyer spends zero NEAR, single-use via the on-chain
-access-key nonce). But **facilitator support for `near:mainnet` is still emerging across the x402
-ecosystem** — some facilitators advertise NEAR in `/supported` without yet settling it. Confirm your
-facilitator actually settles `near:mainnet` before relying on it; this is why PipRail's built-in
-keyless auto-pick (`exact: true`) does not yet include a NEAR facilitator.
-:::
+The relayer:
 
-:::note
-The buyer must sign with a **full-access key**: NEP-141 `ft_transfer` attaches 1 yoctoNEAR, which a
-function-call access key can't do, so the relayer rejects it. Native NEAR is **not** exact-payable
-(the scheme is defined over `ft_transfer`) — it stays on the zero-setup `onchain-proof` rail.
+- needs a **little NEAR** for gas (each settle costs ≈ 0.0003 NEAR — well under a cent);
+- **must not equal the payer** (that's the buyer), but **may equal `payTo`** (the merchant can relay
+  its own incoming payment — NEAR's outer/inner-transaction split allows it);
+- should use a **dedicated key** you can fund + rotate, not your cold treasury key (it's a hot key the
+  gate signs with on every settle).
+
+Unlike EVM/Solana/Algorand — where the merchant co-signs **one slot** of the buyer's transaction —
+the NEAR relayer wraps the delegate in a **separate outer transaction it fully owns**, then waits for
+the inner `ft_transfer` receipt to finish executing across shards before the gate returns `200`.
+
+### Gas model + the sponsor drain guard
+
+| Party | Pays gas? |
+| --- | --- |
+| Buyer / agent | **No** — signs off-chain, holds zero NEAR |
+| Merchant relayer (self-settle) | **Yes** — the sub-cent settle fee + the 1 yoctoNEAR, prepaid on submit |
+
+Because the relayer **prepays both the gas and the attached deposit** of the delegated call, a hostile
+buyer could try to drain it by signing a valid sub-cent transfer with a huge `gas` or a large
+`deposit`. PipRail's gate **re-derives every field from your trusted rail and refuses the delegate
+before the relayer ever signs** if the attached `deposit` ≠ exactly **1 yoctoNEAR** or the `gas`
+exceeds **300 TGas** (an honest payload uses ~30 TGas). It also re-checks the token contract, `payTo`,
+`amount`, single-action shape, and expiry against the rail — never the client's echo.
+
+### Storage registration (NEP-145) — required to send AND receive
+
+A NEP-141 token only moves between accounts that are **storage-registered** on that token
+(`storage_deposit`, ≈ 0.00125 NEAR once per account+token). For the `exact` rail that means **both the
+buyer (sender) and `payTo` (recipient) must be registered** on the token, or the `ft_transfer` panics.
+Check the recipient with [`planPayment()`](/making-payments/plan-payment/) /
+[`recipientReady()`](/concepts/affordability/) (it surfaces `RECIPIENT_NOT_REGISTERED`) before you rely
+on the rail. Register out of band once; it persists.
+
+:::caution[No third-party facilitator settles NEAR yet — use self-settle]
+PipRail also has a **facilitator (Mode-B)** path — `exact: { settle: { facilitator } }` — where a
+keyless third-party relayer would make **both** sides gasless. It is fully wired and will work the
+moment a real NEAR facilitator ships, **but no production x402 facilitator settles NEAR today.** Some
+facilitators **advertise** `near:mainnet` in their `/supported` endpoint while their backend cannot
+actually deserialize/settle a NEAR request (verified against the public `x402-rs` facilitator stack,
+which has no NEAR implementation). **Do not** point a NEAR gate at a facilitator unless you have
+**confirmed it genuinely settles `near:mainnet`** end-to-end. This is also why PipRail's zero-config
+keyless auto-pick (`exact: true`) deliberately **excludes** NEAR — it would otherwise route to a
+facilitator that 400s. Until a real one lands, **`settle: 'self'` is the supported gasless-for-buyer
+configuration.**
 :::

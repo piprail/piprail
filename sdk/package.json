@@ -1,6 +1,6 @@
 {
   "name": "@piprail/sdk",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "description": "Accept x402 crypto payments across 29 chains — every major EVM chain plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar & XRPL — in a couple of lines. No backend, no database, no fee; payments settle straight to your wallet.",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -86,6 +86,7 @@
     "@ton/crypto": ">=3 <4",
     "@ton/ton": ">=15 <17",
     "algosdk": ">=3 <4",
+    "borsh": ">=2 <3",
     "bs58": "^5.0.0",
     "near-api-js": ">=7 <8",
     "tronweb": ">=6 <7",
@@ -131,6 +132,9 @@
     },
     "algosdk": {
       "optional": true
+    },
+    "borsh": {
+      "optional": true
     }
   },
   "devDependencies": {
@@ -144,6 +148,7 @@
     "@ton/ton": "^16.2.4",
     "@types/node": "^22.10.0",
     "algosdk": "^3.5.2",
+    "borsh": "^2.0.0",
     "bs58": "^5.0.0",
     "near-api-js": "^7.2.0",
     "tronweb": "^6.3.0",
