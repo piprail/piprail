@@ -185,23 +185,17 @@ export const KNOWN_FACILITATORS: Readonly<Record<Caip2, ReadonlyArray<KnownFacil
       note: 'Corbits — keyless, Solana-first fee-payer sponsor. LIVE-settled on Solana 2026-06-15 (tx BCreYer…).',
     },
   ],
-  // NEAR (near:mainnet) — PENDING a live settle (THE RULE: seed only after one). Ultravioleta DAO's
-  // /supported advertises `near:mainnet` exact with relayer feePayer `uvd-facilitator.near` (verified
-  // 2026-06-18), and it settles the ratified NEP-366 SignedDelegateAction scheme (scheme_exact_near.md)
-  // keylessly — the relayer prepays gas + the 1 yoctoNEAR, so buyer AND merchant pay zero NEAR. The
-  // buyer rail is fully built (drivers/near/exact.ts); `exact: true` will auto-pick UVD the moment the
-  // block below is uncommented, which happens ONLY after a live ~$0.01 USDC settle on near:mainnet.
-  // Until then, a merchant enables it explicitly: exact: { settle: { facilitator: 'https://facilitator.ultravioletadao.xyz' } }.
-  //
-  // 'near:mainnet': [
-  //   {
-  //     url: 'https://facilitator.ultravioletadao.xyz',
-  //     keyless: true,
-  //     schemes: ['exact'],
-  //     settles: ['near'],
-  //     note: 'Ultravioleta DAO — keyless, gas-sponsored via relayer uvd-facilitator.near (NEP-366 SignedDelegateAction; buyer AND merchant 0 NEAR). LIVE-settled on near:mainnet <DATE> (tx <HASH>).',
-  //   },
-  // ],
+  // NEAR (near:mainnet) — DELIBERATELY UNSEEDED: no x402 facilitator settles NEAR yet.
+  // The NEAR `exact` BUYER payload PipRail builds (drivers/near/exact.ts) is LIVE-PROVEN on mainnet —
+  // a real NEP-366 meta-transaction settles a USDC/USDT ft_transfer gaslessly (buyer 0 NEAR, single-use
+  // via the access-key nonce; relay txs CMnQJzrLvwk… USDT + BCCnVHbSCMY… USDC, 2026-06-18). What's
+  // missing is the FACILITATOR side: the public x402-rs (which Ultravioleta DAO runs) has NO NEAR chain
+  // crate (only eip155/solana/aptos), and UVD's `/verify` 400s on a near:mainnet request even though its
+  // `/supported` ADVERTISES `near:mainnet` + feePayer `uvd-facilitator.near` — i.e. the listing is
+  // aspirational, not settle-capable (verified 2026-06-18). So `exact: true` must NOT auto-pick a NEAR
+  // facilitator. Seed here ONLY after a real keyless settle through a facilitator that actually
+  // implements scheme_exact_near.md (THE RULE). Merchants can still pass an explicit
+  // `exact: { settle: { facilitator } }` for any facilitator they've confirmed settles near:mainnet.
 }
 
 /** Known facilitators for a network — an empty array when none is seeded. */

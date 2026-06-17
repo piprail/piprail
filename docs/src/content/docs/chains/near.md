@@ -179,18 +179,27 @@ await client.fetch('https://api.example.com/data')
 
 NEAR `exact` is **facilitator-settled** (unlike EVM/Solana/Algorand, PipRail does not self-settle it:
 the NEAR relayer wraps the delegate action in its own outer transaction — a funded hot relayer the
-charter avoids running). A merchant points the gate at a keyless facilitator that supports
-`near:mainnet`:
+charter avoids running). A merchant points the gate at an x402 facilitator that implements
+`scheme_exact_near.md` for `near:mainnet`:
 
 ```ts
 createPaymentGate({
   chain: 'near', token: 'USDC', amount: '0.01', payTo: 'merchant.near',
-  exact: { settle: { facilitator: 'https://facilitator.ultravioletadao.xyz' } },
+  exact: { settle: { facilitator: 'https://your-near-facilitator.example' } },
 })
 ```
 
+:::caution[Facilitator coverage is still rolling out]
+The NEAR exact **payload PipRail builds is proven on mainnet** (a real NEP-366 meta-transaction
+settles a USDC/USDT `ft_transfer` gaslessly — the buyer spends zero NEAR, single-use via the on-chain
+access-key nonce). But **facilitator support for `near:mainnet` is still emerging across the x402
+ecosystem** — some facilitators advertise NEAR in `/supported` without yet settling it. Confirm your
+facilitator actually settles `near:mainnet` before relying on it; this is why PipRail's built-in
+keyless auto-pick (`exact: true`) does not yet include a NEAR facilitator.
+:::
+
 :::note
 The buyer must sign with a **full-access key**: NEP-141 `ft_transfer` attaches 1 yoctoNEAR, which a
-function-call access key can't do, so the facilitator rejects it. Native NEAR is **not** exact-payable
+function-call access key can't do, so the relayer rejects it. Native NEAR is **not** exact-payable
 (the scheme is defined over `ft_transfer`) — it stays on the zero-setup `onchain-proof` rail.
 :::
