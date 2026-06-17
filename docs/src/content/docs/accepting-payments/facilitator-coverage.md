@@ -29,7 +29,8 @@ with `exact: { settle: { facilitator: '<facilitator url>' } }` — see
 |---|---|---|---|
 | **[PayAI](https://facilitator.payai.network/)** | ✅ keyless | ✅ Solana + Base | Base, Solana, Avalanche, Polygon, Arbitrum, Sei +24 |
 | **[Corbits](https://corbits.dev/)** | ✅ keyless | ✅ Solana + **Monad** | Solana, Base, Polygon, Monad +38 |
-| **[Ultravioleta DAO](https://facilitator.ultravioletadao.xyz/)** | ✅ keyless | ✅ **HyperEVM** | HyperEVM, Celo, Unichain, Optimism, Monad, Scroll, Ethereum, Arbitrum, Polygon + Solana, Stellar, Sui, Algorand, NEAR, XRPL |
+| **[Ultravioleta DAO](https://facilitator.ultravioletadao.xyz/)** | ✅ keyless | ✅ **HyperEVM, Base, Monad** | HyperEVM, Base, Monad, Celo, Unichain, Optimism, Scroll, Ethereum, Arbitrum, Polygon, Avalanche, BNB + Solana, Stellar, Sui, Algorand, NEAR, XRPL (18 — the broadest) |
+| **[Dexter](https://x402.dexter.cash/)** | ✅ keyless | ✅ **Base, BNB** | Base, BNB, Solana, Polygon, Arbitrum, Optimism, Avalanche *(BNB: FDUSD/USD1 only, ~$0.003 floor)* |
 | **[OpenFacilitator](https://www.openfacilitator.io/)** | ✅ keyless | ✅ Solana | Base, Solana, Stacks |
 | **[xpay](https://www.xpay.sh/)** | ✅ zero-fee | ✅ Base | Base |
 | **[Daydreams](https://daydreams.systems/)** | 🔑 API key | — | Ethereum, Base, Solana |
@@ -93,12 +94,13 @@ methods (`'eip3009' | 'permit2' | 'svm' | 'algorand' | 'aptos'`), and an optiona
 settled a real mainnet payment with no key, buyer paid zero gas (see
 [Live-verified facilitators](#live-verified-facilitators)):
 
-- **Base** (`eip155:8453`) → PayAI + xpay (`eip3009`)
-- **Monad** (`eip155:143`) → Corbits (`eip3009`) — *new, live-settled 2026-06-17*
-- **HyperEVM** (`eip155:999`) → Ultravioleta DAO (`eip3009`) — *new, live-settled 2026-06-17*
+- **Base** (`eip155:8453`) → PayAI + xpay + **Ultravioleta DAO** + **Dexter** (`eip3009`) *(UVD + Dexter live-settled 2026-06-17)*
+- **BNB** (`eip155:56`) → **Dexter** (`eip3009`) — *new, live-settled 2026-06-17 with FDUSD.* BNB's USDC/USDT are Binance-Peg (Permit2, not facilitator-settleable), so keyless BNB works only for the **EIP-3009 tokens FDUSD/USD1**, and Dexter enforces a **~$0.003 dynamic floor**. This beats the BNB token-overlap wall that blocks AEON/Pieverse.
+- **Monad** (`eip155:143`) → Corbits + **Ultravioleta DAO** (`eip3009`) *(live-settled 2026-06-17)*
+- **HyperEVM** (`eip155:999`) → Ultravioleta DAO (`eip3009`) *(live-settled 2026-06-17)*
 - **Solana** → PayAI + OpenFacilitator + Corbits (`svm`)
 
-So **`exact: true` is zero-config gasless on Base, Monad, HyperEVM, and Solana** today. **Daydreams** and
+So **`exact: true` is zero-config gasless on Base, BNB, HyperEVM, Monad, and Solana** today (multiple keyless facilitators per chain = automatic failover). **Daydreams** and
 **Questflow** are deliberately **omitted** — their `/supported` is public but `/verify` needs an API key.
 `x402.org/facilitator` is **not** seeded either — it's a Base *Sepolia* testnet facilitator, not a
 mainnet rail. A keyless **Algorand** facilitator isn't seeded yet (GoPlausible lists Algorand under a

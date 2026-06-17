@@ -326,6 +326,14 @@ via **Permit2**. But **FDUSD** and **USD1** (both in the `bnb` preset) **are** E
 clean gasless path, **no approval at all**. PipRail auto-selects: USDC/USDT → Permit2, FDUSD/USD1 →
 EIP-3009. All four are live-proven on BNB mainnet.
 
+**BNB is now fully both-sides-gasless via a keyless facilitator too** — but *only* on the EIP-3009 tokens.
+A keyless facilitator settles `eip3009` (not PipRail's Permit2 proxy), so `exact: true` on BNB with
+**FDUSD** or **USD1** auto-picks **[Dexter](https://x402.dexter.cash/)** — neither buyer nor merchant
+pays gas (live-settled on BNB mainnet with FDUSD). USDC/USDT (Permit2) stay **self-settle only** (your
+relayer pays the gas). One caveat: Dexter enforces a **~$0.003 dynamic floor** on BNB, so a sub-$0.003
+payment is rejected — fine for real prices. This is the BNB token-overlap wall (which blocked AEON/
+Pieverse) finally beaten: route through the native EIP-3009 stablecoins.
+
 A wrinkle PipRail handles for you: FDUSD and USD1 hardcode their EIP-712 domain version (`"1"`) and
 don't expose `version()`, so [`readExactDomain`](/reference/exact-lowlevel/) **derives the version from
 the on-chain `DOMAIN_SEPARATOR`** — making any `version()`-less EIP-3009 token first-class with no config.

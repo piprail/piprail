@@ -34,11 +34,20 @@ built EVM bundle has zero static non-EVM imports, only lazy chunks).
   **Live-proven on Aptos mainnet** (self-settle round-trip, buyer paid 0 APT). Like Algorand,
   **`feePayer === payTo` is allowed**. Any Fungible Asset (USDC + USD₮) is gasless; native APT stays
   `onchain-proof`-only.
-- **`exact: true` is now zero-config gasless on Monad and HyperEVM.** Two new live-settled keyless
-  facilitators seeded into `KNOWN_FACILITATORS`: **Monad** (`eip155:143`) via **Corbits** and
-  **HyperEVM** (`eip155:999`) via **Ultravioleta DAO** — each settled a real mainnet `exact` payment
-  with no API key, buyer paid zero gas. Brings the zero-config keyless set to **Base, Monad, HyperEVM,
-  and Solana**.
+- **`exact: true` zero-config gasless now spans FIVE chains** — Base, **BNB**, HyperEVM, Monad, and
+  Solana — where a **keyless facilitator sponsors gas for *both* sides** (neither buyer nor merchant
+  pays). Each `KNOWN_FACILITATORS` row was added only after a real mainnet keyless settle (THE RULE),
+  all 2026-06-17:
+  - **BNB** (`eip155:56`) — **new keyless chain** via **Dexter**, settling the EIP-3009 tokens
+    **FDUSD/USD1** (BNB's Binance-Peg USDC/USDT are Permit2 → not facilitator-settleable; Dexter has a
+    ~$0.003 floor). This beats the BNB token-overlap wall that blocks AEON/Pieverse.
+  - **Monad** (`eip155:143`) — **Corbits** + now **Ultravioleta DAO**.
+  - **HyperEVM** (`eip155:999`) — **Ultravioleta DAO**.
+  - **Base** (`eip155:8453`) — PayAI + xpay + now **Ultravioleta DAO** + **Dexter** (4 facilitators →
+    automatic failover).
+  - **Solana** — PayAI + OpenFacilitator + Corbits (SVM).
+  Ultravioleta DAO (the broadest endpoint — 18 PipRail networks) is now live-validated on **3** chains
+  (HyperEVM, Base, Monad), so it's a trustworthy seed candidate as more chains are funded.
 - The `exact` transfer-method union (`ExactRailInfo.method`, `KnownFacilitator.settles`,
   `assetTransferMethod`, the parsed-payment + wire types) now includes **`'algorand'`** and **`'aptos'`**,
   and two new wire payloads are parsed/validated: `ExactAlgorandPaymentPayload` (`{ paymentIndex,

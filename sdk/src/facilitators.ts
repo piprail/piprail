@@ -53,10 +53,24 @@ export const KNOWN_FACILITATORS: Readonly<Record<Caip2, ReadonlyArray<KnownFacil
       settles: ['eip3009'],
       note: 'xpay — keyless, zero-fee, sponsors gas. LIVE-settled on Base 2026-06-15 (tx 0x2273d5…).',
     },
+    {
+      url: 'https://facilitator.ultravioletadao.xyz',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['eip3009'],
+      note: 'Ultravioleta DAO — keyless, 100% gas-sponsored (Base USDC EIP-3009). LIVE-settled on Base 2026-06-17 (tx 0x58a69042a4129be649c5642456752ede95a5ff921daddfd30560ae70ae5907ff). 2nd UVD validation chain (after HyperEVM).',
+    },
+    {
+      url: 'https://x402.dexter.cash',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['eip3009'],
+      note: 'Dexter — keyless, gas-sponsored (Base USDC EIP-3009). LIVE-settled on Base 2026-06-17 (tx 0xdf030e4d5bf41a88c5a3bfe73bb433dfbb90b058d3b8ded63b68e026eedb9de8).',
+    },
   ],
-  // Monad (eip155:143). Corbits keyless-settles the EVM EIP-3009 exact rail (Monad's native Circle
-  // USDC), buyer paid zero gas — a real LIVE settle, not just a /supported read. Makes `exact: true`
-  // zero-config gasless on Monad.
+  // Monad (eip155:143). Corbits + Ultravioleta DAO each keyless-settle the EVM EIP-3009 exact rail
+  // (Monad's native Circle USDC), buyer paid zero gas — real LIVE settles, not just /supported reads.
+  // Makes `exact: true` zero-config gasless on Monad.
   'eip155:143': [
     {
       url: 'https://facilitator.corbits.dev',
@@ -64,6 +78,27 @@ export const KNOWN_FACILITATORS: Readonly<Record<Caip2, ReadonlyArray<KnownFacil
       schemes: ['exact'],
       settles: ['eip3009'],
       note: 'Corbits (Faremeter) — keyless, sponsors gas (Monad native USDC EIP-3009). LIVE-settled on Monad 2026-06-17 (tx 0x7797be27ce22c17f7433a0389bd22d46e338899b1faac505fffd068174428ae6).',
+    },
+    {
+      url: 'https://facilitator.ultravioletadao.xyz',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['eip3009'],
+      note: 'Ultravioleta DAO — keyless, 100% gas-sponsored (Monad native USDC EIP-3009). LIVE-settled on Monad 2026-06-17 (tx 0xb107576effbaceb5586c07a9ddc996ef2b6d455f1858314995ef83a7c6e64d11). 3rd UVD validation chain.',
+    },
+  ],
+  // BNB Chain (eip155:56). Dexter keyless-settles the EVM EIP-3009 exact rail — but ONLY for BNB's
+  // EIP-3009 tokens (FDUSD / USD1); BNB's USDC/USDT are Binance-Peg (Permit2), which no facilitator
+  // settles. Dexter also enforces a ~$0.003 dynamic settlement floor on BNB, so a sub-$0.003 payment
+  // is rejected (amount_too_low) — fine for real prices, but the floor is real. LIVE-settled with
+  // FDUSD, buyer paid zero BNB — this beats the BNB token-overlap wall that blocked AEON/Pieverse.
+  'eip155:56': [
+    {
+      url: 'https://x402.dexter.cash',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['eip3009'],
+      note: 'Dexter — keyless, gas-sponsored. BNB EIP-3009 tokens FDUSD/USD1 ONLY (Binance-Peg USDC/USDT are Permit2 → not facilitator-settleable); ~$0.003 dynamic floor. LIVE-settled on BNB 2026-06-17 with FDUSD (tx 0x6d9eb4e4939f3f3c74cb19424cc7822d66ec8ed5c5c7c330d9f88a5f9ad59e9e).',
     },
   ],
   // HyperEVM (eip155:999). Ultravioleta DAO keyless-settles the EVM EIP-3009 exact rail (HyperEVM's
