@@ -1,6 +1,6 @@
 ---
 title: Gasless payments
-description: How gasless x402 payments work in PipRail — the two rails (onchain-proof vs the gasless exact rail), the exact rail's four auto-selected methods (EIP-3009, Permit2, SVM, Algorand), and a clear table of exactly which chains and tokens are gasless and which aren't.
+description: How gasless x402 payments work in PipRail — the two rails (onchain-proof vs the gasless exact rail), the exact rail's five auto-selected methods (EIP-3009, Permit2, SVM, Algorand, Aptos), and a clear table of exactly which chains and tokens are gasless and which aren't.
 sidebar:
   order: 9
 ---
@@ -21,25 +21,27 @@ falls out:
     Works on every chain. (The "with-gas" path.)
   - **`exact`** — the ratified x402 rail (**opt-in**). You only **sign**; someone else broadcasts, so
     **you pay zero gas**. This is the gasless rail.
-- **`exact` has four *methods*** — *how* the signature is shaped, **auto-selected** per chain + token.
+- **`exact` has five *methods*** — *how* the signature is shaped, **auto-selected** per chain + token.
   These are children of `exact`, **not** alternatives to it:
   - **EIP-3009** — EVM tokens with `transferWithAuthorization` (USDC, EURC). The clean path.
   - **Permit2** — EVM tokens *without* EIP-3009 (e.g. Binance-Peg USDC on BNB). Self-settle only.
   - **SVM** — Solana, any SPL token.
   - **Algorand** — any ASA (USDCa), via an atomic-group **fee pool** (the buyer's transfer rides at fee 0).
+  - **Aptos** — any Fungible Asset (USDC, USDT), via a native **fee-payer (sponsored) transaction** (AIP-39).
 
 So it's **not** "gas vs permit vs exact." It's: **`onchain-proof` (with-gas) vs `exact` (gasless)**, and
-**`exact` happens to be implemented four ways** (EIP-3009 / Permit2 / SVM / Algorand) that the SDK picks
-for you. You never name a method by hand.
+**`exact` happens to be implemented five ways** (EIP-3009 / Permit2 / SVM / Algorand / Aptos) that the
+SDK picks for you. You never name a method by hand.
 
 ```text
   a 402 payment
   ├── onchain-proof   ← default · you broadcast · YOU PAY GAS · every chain
-  └── exact           ← opt-in  · you only sign · ZERO gas for you · EVM + Solana + Algorand
+  └── exact           ← opt-in  · you only sign · ZERO gas for you · EVM + Solana + Algorand + Aptos
         ├── EIP-3009   (EVM: USDC, EURC)         ┐ picked
         ├── Permit2    (EVM: other ERC-20s)      │ automatically
         ├── SVM        (Solana: any SPL token)   │ per chain+token
-        └── Algorand   (Algorand: any ASA)       ┘
+        ├── Algorand   (Algorand: any ASA)       │
+        └── Aptos      (Aptos: any FA)           ┘
 ```
 
 ## What "gasless" means
@@ -50,7 +52,8 @@ standard x402 **`exact` rail is gasless _for the buyer_**: the buyer only **sign
 (self-settle) or a **facilitator**. On EVM the buyer signs an off-chain authorization; on **Solana**
 the buyer partial-signs the transfer transaction and a **fee payer** completes + broadcasts it; on
 **Algorand** the buyer signs an asset transfer at **fee 0** that's atomically grouped with a sponsor's
-**fee-pooling** transaction. Either way the buyer needs only the *token*, never the gas coin.
+**fee-pooling** transaction; on **Aptos** the buyer signs a **fee-payer (sponsored) transaction** and the
+sponsor adds its signature + submits. Either way the buyer needs only the *token*, never the gas coin.
 
 **Who pays the gas, then?** Whoever settles. With **self-settle** the merchant's relayer pays the
 (tiny) fee to receive. With a **facilitator** (e.g. PayAI), the **facilitator pays the gas — so
@@ -64,7 +67,7 @@ PipRail offers up to two rails on a single 402; the agent picks one.
 |---|---|---|
 | Who broadcasts | the **buyer** | the merchant's relayer / a facilitator |
 | Buyer pays gas? | **yes** (a normal transfer) | **no** — just signs |
-| Where it works | **every** chain + token PipRail supports | **EVM** + **Solana** + **Algorand** (below) |
+| Where it works | **every** chain + token PipRail supports | **EVM** + **Solana** + **Algorand** + **Aptos** (below) |
 | Opt-in | default | `schemes: ['onchain-proof', 'exact']` |
 
 `onchain-proof` is PipRail's backendless default — universal, but the buyer holds the gas token.
@@ -96,11 +99,11 @@ can't settle. A native coin, an EVM token that's neither EIP-3009 nor facilitato
 family with no `exact` scheme is simply served over `onchain-proof` (the with-gas rail). You don't have
 to detect any of this; the gate does.
 
-## Four `exact` methods: EIP-3009, Permit2, SVM, and Algorand
+## Five `exact` methods: EIP-3009, Permit2, SVM, Algorand, and Aptos
 
-The `exact` rail works one of four ways, depending on the chain + token. **PipRail auto-selects**
+The `exact` rail works one of five ways, depending on the chain + token. **PipRail auto-selects**
 (`method: 'auto'`), so you rarely choose by hand — Solana always uses SVM, Algorand uses its fee-pool
-group, and EVM picks EIP-3009 or Permit2.
+group, Aptos uses its fee-payer (sponsored) transaction, and EVM picks EIP-3009 or Permit2.
 
 | | **EIP-3009** (EVM, gold path) | **Permit2** (EVM) | **SVM** (Solana) |
 |---|---|---|---|
@@ -142,6 +145,16 @@ gasless on Algorand**, with no token feature required. Unlike Solana, **`feePaye
 (the fee txn is separate from the transfer — no isolation rule), so a merchant can be its own relayer.
 Native **ALGO** isn't exact-payable (the scheme is an ASA transfer) — it stays on `onchain-proof`. (See
 the [architecture note](#algorand--how-fee-pooled-gasless-works) below.)
+
+**Aptos is the fifth method, and it's gasless by a native *fee payer* (a sponsored transaction, AIP-39).**
+The buyer builds a `0x1::primary_fungible_store::transfer` to `payTo` with the `feePayer` set as the gas
+sponsor, and signs **only the sender slot** — spending **zero APT**; the sponsor (the merchant's relayer,
+or a keyless facilitator) adds the fee-payer signature and submits, paying the sub-cent gas. It's
+**one-shot** (the buyer needs only the advertised `feePayer` — no gas-station round-trip). So **any
+Fungible Asset (USDC, USDT) is gasless on Aptos**, with no token feature required. Like Algorand,
+**`feePayer === payTo` is allowed** (the fee-payer signature is separate from the transfer), so a merchant
+can be its own relayer. Native **APT** isn't exact-payable — it stays on `onchain-proof`. (See the
+[architecture note](#aptos--how-sponsored-tx-gasless-works) below.)
 
 ## ⭐ Which chains & tokens are gasless?
 
@@ -195,12 +208,28 @@ merchant's relayer in self-settle, or a keyless facilitator) pays the pooled ~0.
 **opted into the ASA** to receive it — `recipientReady()` checks this. Native **ALGO** isn't
 exact-payable. Live-proven on Algorand mainnet.)*
 
+### Gasless via Aptos — any Fungible Asset, sponsored tx, no per-token setup
+
+| Token | Gasless on |
+|---|---|
+| **USDC** (native Circle) · **USDT** (native Tether) · **any Fungible Asset** | Aptos |
+
+*(Like Solana/Algorand, the gasless mechanism is structural — a native **fee-payer (sponsored)
+transaction** (AIP-39), not a token feature — so **any FA is equally gasless** (USDC and USDT alike). The
+buyer signs the `primary_fungible_store::transfer` sender slot; the sponsor (the merchant's relayer in
+self-settle, or a keyless facilitator) adds the fee-payer signature and pays the sub-cent gas.
+`feePayer === payTo` is allowed (the merchant can sponsor its own receive). It's **one-shot** — no
+gas-station round-trip. Native **APT** isn't exact-payable. Live-proven on Aptos mainnet.)*
+
 ### NOT gasless → `onchain-proof` (the buyer broadcasts)
 
-- **Native coins** (ETH, BNB, SOL, ALGO, MATIC, …) — nothing to authorize / no fee-payer split.
-- **The other non-EVM families** — TON, Tron, NEAR, Sui, Aptos, Stellar, XRPL. (Fees there are
-  sub-cent, but the buyer signs *and* broadcasts.) **Solana and Algorand are the exceptions** — gasless
-  via SVM and the fee-pooled Algorand rail (above).
+- **Native coins** (ETH, BNB, SOL, ALGO, APT, MATIC, …) — nothing to authorize / no fee-payer split.
+- **The other non-EVM families** — TON, Tron, NEAR, **Sui**, Stellar, XRPL. (Fees there are sub-cent,
+  but the buyer signs *and* broadcasts.) **Solana, Algorand, and Aptos are the exceptions** — gasless
+  via SVM, the fee-pooled Algorand rail, and the Aptos sponsored-tx rail (above). *(Sui has a ratified
+  `exact` scheme, but its sponsored path needs a **gas-station round-trip** — a hosted service the buyer
+  calls mid-flow — which doesn't fit PipRail's one-shot backendless model, so Sui stays on
+  `onchain-proof`; its fees are sub-cent.)*
 - **USDT** on EVM chains where it isn't EIP-3009 **and** has no Permit2 proxy (Tether implements no
   EIP-3009 anywhere) — and bridged USDC (e.g. Mantle, Scroll), which isn't the Circle FiatToken.
 
@@ -273,6 +302,17 @@ requirePayment({
   exact: { settle: 'self', relayer: { key: process.env.ALGO_RELAYER_MNEMONIC } }, // 25-word mnemonic
 })
 // recipient (payTo) must be opted into the USDC ASA to receive it.
+```
+
+**Seller on Aptos — gasless self-settle** (proven on mainnet). The buyer signs the sponsored transfer;
+your relayer adds the fee-payer signature + pays the sub-cent gas. The relayer can be `payTo` itself:
+
+```ts
+requirePayment({
+  chain: 'aptos', token: 'USDC', amount: '0.05', payTo: '0xYourAptosAddress…',
+  // USDT works identically — any Fungible Asset is gasless on Aptos.
+  exact: { settle: 'self', relayer: { key: process.env.APTOS_RELAYER_KEY } }, // ed25519-priv-0x… (or 0x… hex)
+})
 ```
 
 With a **facilitator** (EVM EIP-3009, or Solana), **neither side pays gas**. See the full how-tos:
@@ -370,6 +410,40 @@ A keyless Algorand facilitator (e.g. GoPlausible, the Algorand-Foundation facili
 spec-compliant 32-char form), so it can't be auto-matched yet. Until a keyless Algorand facilitator is
 live-settled + seeded, use **self-settle** (`exact: { settle: 'self', relayer }`) for gasless Algorand —
 it's proven on mainnet — and `exact: true` **degrades gracefully** to `onchain-proof` there.
+:::
+
+## Aptos — how sponsored-tx gasless works
+
+Aptos's `exact` rail (the ratified x402 `scheme_exact_aptos`) is gasless by a fourth mechanism — a
+native **fee-payer (sponsored) transaction** (AIP-39). Unlike Sui's sponsorship (which needs a hosted
+gas-station round-trip), Aptos's is **one-shot**: the buyer needs only the advertised `feePayer` to sign,
+so it fits PipRail's backendless model cleanly.
+
+1. The **buyer** builds a `0x1::primary_fungible_store::transfer` of the FA to `payTo`, with the rail's
+   `feePayer` set as the gas sponsor, and signs **only the sender slot** (`{ transaction, senderAuth }`,
+   base64 BCS). It spends **no** APT. The fee-payer signature is left for the sponsor.
+2. The **sponsor** adds the fee-payer signature + submits:
+   - **Self-settle** — the gate verifies the transaction against its own trusted rail by **decoding the
+     entry function** (re-deriving the FA metadata, recipient, and amount — never trusting the client),
+     verifies the buyer's signature off-chain, bounds the gas exposure (a `max_gas_amount × gas_unit_price`
+     cap), `simulate`s, **signs as the fee payer**, and submits. The relayer pays the sub-cent gas.
+     **Live-proven on mainnet.**
+   - **Facilitator** — a keyless Aptos facilitator would add the fee-payer signature + submit, so
+     **neither buyer nor merchant pays gas**.
+
+Because gasless-ness lives in the **fee payer**, not the token, **any FA is gasless equally** (USDC and
+USDT alike). Safety: the gate accepts **only** a `primary_fungible_store::transfer` bound to its trusted
+asset/recipient/amount, confirms the tx's fee payer is the gate's own address (the buyer committed to it),
+caps the gas so a malicious buyer can't drain the sponsor, and verifies the sender's signature before
+signing. Replay is bounded by the gate's used-proof set plus Aptos's own monotonic **sequence number**.
+Like Algorand, **`feePayer === payTo` is allowed** — the fee-payer signature is a separate authenticator,
+not part of the transfer. Native **APT** stays on `onchain-proof`.
+
+:::note[Keyless `exact: true` on Aptos]
+Aptos has **no keyless x402 facilitator on mainnet** yet (the public `exact` facilitators are Base/Solana/
+EVM-focused; the official Aptos one is testnet). So PipRail seeds none for Aptos — use **self-settle**
+(`exact: { settle: 'self', relayer }`) for gasless Aptos (proven on mainnet), and `exact: true`
+**degrades gracefully** to `onchain-proof` there until a keyless Aptos facilitator is live-settled + seeded.
 :::
 
 ## Who pays — and is any of this a fee?

@@ -11,6 +11,7 @@ import { run as s06 } from './suites/06-discovery.mjs'
 import { run as s12 } from './suites/12-discoverability.mjs'
 import { run as s14 } from './suites/14-exact-true-keyless.mjs'
 import { run as s15 } from './suites/15-algorand-exact.mjs'
+import { run as s16 } from './suites/16-aptos-exact.mjs'
 // Suites 09–11 register FAKE drivers into the shared registry singleton (last-wins), so they
 // run AFTER the real-driver suites 01–06 — nothing real-driver-dependent follows them.
 import { run as s09 } from './suites/09-multichain.mjs'
@@ -27,6 +28,7 @@ const suites = [
   ['12 discoverability 2.1.0', s12],
   ['14 exact:true keyless + graceful fallback', s14],
   ['15 algorand exact (fee-pooled gasless)', s15],
+  ['16 aptos exact (sponsored-tx gasless)', s16],
   ['09 multi-chain (MultiChainPayer)', s09],
   ['10 agent toolkit (7 tools)', s10],
   ['11 api-surface sweep', s11],

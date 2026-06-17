@@ -311,8 +311,8 @@ type ResolvedExactMode =
  *  settles. Present when `options.exact` is set and the spec's family can carry it
  *  (EVM ERC-20 via EIP-3009/Permit2, or Solana SPL via the SVM scheme). */
 interface ResolvedExactRail {
-  /** `'eip3009'`/`'permit2'` (EVM), `'svm'` (Solana), or `'algorand'` (Algorand). */
-  method: 'eip3009' | 'permit2' | 'svm' | 'algorand'
+  /** `'eip3009'`/`'permit2'` (EVM), `'svm'` (Solana), `'algorand'` (Algorand), or `'aptos'` (Aptos). */
+  method: 'eip3009' | 'permit2' | 'svm' | 'algorand' | 'aptos'
   /** Family-specific keys the driver supplies, merged verbatim into the accept's `extra`
    *  (EVM EIP-3009: the token's `name`/`version`; Solana/Algorand: `feePayer`[/`tokenProgram`]). */
   extra?: Record<string, unknown>
@@ -980,7 +980,22 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     // nonce / signature state is a second, canonical guard.
     let nonce: string
     let evmAuth: { nonce: string; from: string } | null = null
-    if ('transaction' in exact.payload) {
+    if ('senderAuth' in exact.payload && 'transaction' in exact.payload) {
+      // Aptos: no separate nonce field (like SVM/Algorand). Canonicalize the signed tx + the sender
+      // authenticator (decode → re-encode) and join — so malleable encodings of the SAME payment
+      // collapse to one key. The sender's monotonic on-chain SEQUENCE NUMBER is the canonical second
+      // backstop (Aptos rejects a reused sequence). Checked BEFORE the SVM branch (Aptos also has
+      // `transaction`). Chain-agnostic — server.ts never BCS-decodes the tx.
+      nonce = [exact.payload.transaction, exact.payload.senderAuth]
+        .map((t) => {
+          try {
+            return Buffer.from(t, 'base64').toString('base64')
+          } catch {
+            return t
+          }
+        })
+        .join('|')
+    } else if ('transaction' in exact.payload) {
       // CANONICALIZE the base64 (decode → re-encode) before using it as the replay key — two
       // malleable encodings of the SAME signed tx (whitespace / missing padding / base64url) must
       // collapse to one key, so a mutated re-submission can't slip past the claim. Chain-agnostic;
@@ -1038,11 +1053,12 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
             amount: accept.amount,
             payTo: accept.payTo,
             maxTimeoutSeconds: accept.maxTimeoutSeconds,
-            // The scheme's chain-specific `extra`, from the gate's OWN trusted rail: SVM + Algorand
-            // forward the facilitator's `feePayer` (the gas sponsor); EVM forwards the token's EIP-712 domain.
+            // The scheme's chain-specific `extra`, from the gate's OWN trusted rail: SVM + Algorand +
+            // Aptos forward the facilitator's `feePayer` (the gas sponsor); EVM forwards the token's EIP-712 domain.
             extra:
               accept.extra.assetTransferMethod === 'svm' ||
-              accept.extra.assetTransferMethod === 'algorand'
+              accept.extra.assetTransferMethod === 'algorand' ||
+              accept.extra.assetTransferMethod === 'aptos'
                 ? { feePayer: accept.extra.feePayer ?? '' }
                 : { name: accept.extra.name ?? '', version: accept.extra.version ?? '' },
           },

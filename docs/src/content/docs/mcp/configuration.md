@@ -141,14 +141,14 @@ server refuses to start with only one.
 PipRail's backendless rail (`onchain-proof`) only — the zero-config default, where the wallet
 broadcasts and pays gas. Add `exact` to **also** pay standard x402 servers **gasless** — the wallet
 only **signs**, and the server (or a facilitator it chose, e.g. PayAI) broadcasts, so the wallet
-spends **zero gas** on **EVM and Solana**. `exact` is **one** scheme; its on-chain *method* (EIP-3009
-for USDC/EURC, Permit2 for other EVM ERC-20s, or SVM for any Solana SPL token) is **auto-selected** per
+spends **zero gas** on **EVM, Solana, Algorand, and Aptos**. `exact` is **one** scheme; its on-chain *method* (EIP-3009
+for USDC/EURC, Permit2 for other EVM ERC-20s, SVM for any Solana SPL token, or a fee-payer sponsored transfer on Algorand / Aptos) is **auto-selected** per
 chain + token — you never name it. See the [whole model in 30 seconds](/making-payments/gasless-payments/#the-whole-model-in-30-seconds).
 
 ```jsonc
 "env": {
   "PIPRAIL_CHAIN": "solana",                 // or an EVM chain like "base"
-  "PIPRAIL_SCHEMES": "onchain-proof,exact"   // also pay standard x402 servers (EVM + Solana)
+  "PIPRAIL_SCHEMES": "onchain-proof,exact"   // also pay standard x402 servers (EVM + Solana + Algorand + Aptos)
 }
 ```
 

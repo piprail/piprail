@@ -4,10 +4,11 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
-## [2.4.0] — 2026-06-17 — gasless Algorand rail + Monad & HyperEVM keyless coverage
+## [2.4.0] — 2026-06-17 — gasless Algorand & Aptos rails + Monad/HyperEVM keyless coverage
 
 Additive and backward-compatible — defaults and the zero-config 402 stay byte-identical; pure-EVM
-installs still never download a non-EVM library (Algorand stays lazy-loaded).
+installs still never download a non-EVM library (Algorand and Aptos stay lazy-loaded — verified: the
+built EVM bundle has zero static non-EVM imports, only lazy chunks).
 
 ### Added
 
@@ -20,21 +21,35 @@ installs still never download a non-EVM library (Algorand stays lazy-loaded).
   Algorand family. **Live-proven on Algorand mainnet** (self-settle round-trip, buyer paid 0 ALGO).
   Unlike Solana, **`feePayer === payTo` is allowed** (the fee txn is separate — no isolation rule), so
   a single merchant account can self-settle. Native ALGO stays `onchain-proof`-only.
+- **Aptos `exact` rail — gasless on a fifth family.** PipRail's `exact` scheme now also covers Aptos
+  (Fungible Assets), via the ratified `scheme_exact_aptos`. The buyer builds a fee-payer (sponsored,
+  AIP-39) `0x1::primary_fungible_store::transfer` to `payTo` and signs **only the sender slot** — spending
+  **zero APT**; the sponsor (the merchant's relayer in self-settle, or a keyless facilitator) adds the
+  fee-payer signature and submits, paying the sub-cent gas. It's **one-shot** (no gas-station round-trip,
+  unlike Sui's sponsorship — which is why Aptos fits PipRail's backendless model and Sui's gasless path
+  doesn't). New `payExactAptos` / `verifyAndSettleExactAptos` driver functions; `resolveExactRail` /
+  `payExact` / `settleExactSelf` are now implemented for the Aptos family; the seller verifies by
+  **decoding the entry function** and binding the FA metadata/recipient/amount to its trusted rail, caps
+  the fee payer's gas exposure, and verifies the sender signature off-chain before settling.
+  **Live-proven on Aptos mainnet** (self-settle round-trip, buyer paid 0 APT). Like Algorand,
+  **`feePayer === payTo` is allowed**. Any Fungible Asset (USDC + USD₮) is gasless; native APT stays
+  `onchain-proof`-only.
 - **`exact: true` is now zero-config gasless on Monad and HyperEVM.** Two new live-settled keyless
   facilitators seeded into `KNOWN_FACILITATORS`: **Monad** (`eip155:143`) via **Corbits** and
   **HyperEVM** (`eip155:999`) via **Ultravioleta DAO** — each settled a real mainnet `exact` payment
   with no API key, buyer paid zero gas. Brings the zero-config keyless set to **Base, Monad, HyperEVM,
   and Solana**.
 - The `exact` transfer-method union (`ExactRailInfo.method`, `KnownFacilitator.settles`,
-  `assetTransferMethod`, the parsed-payment + wire types) now includes **`'algorand'`**, and a new
-  `ExactAlgorandPaymentPayload` (`{ paymentIndex, paymentGroup }`) is parsed/validated on the wire.
+  `assetTransferMethod`, the parsed-payment + wire types) now includes **`'algorand'`** and **`'aptos'`**,
+  and two new wire payloads are parsed/validated: `ExactAlgorandPaymentPayload` (`{ paymentIndex,
+  paymentGroup }`) and `ExactAptosPaymentPayload` (`{ transaction, senderAuth }`).
 
 ### Changed
 
-- The gate's facilitator-settle path forwards the sponsor `feePayer` for Algorand (as it already does
-  for Solana), and the replay claim canonicalizes an Algorand `paymentGroup` (so a base64-malleated
-  re-submission of the same group can't slip past the used-proof set). All additive — EVM/Solana
-  behaviour is unchanged.
+- The gate's facilitator-settle path forwards the sponsor `feePayer` for Algorand and Aptos (as it
+  already does for Solana), and the replay claim canonicalizes the Algorand `paymentGroup` and the Aptos
+  `{ transaction, senderAuth }` (so a base64-malleated re-submission of the same payment can't slip past
+  the used-proof set). All additive — EVM/Solana behaviour is unchanged.
 
 ## [2.3.0] — 2026-06-17 — `exact: true` zero-config gasless gate
 

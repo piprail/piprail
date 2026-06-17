@@ -89,8 +89,11 @@ export interface X402ExactAcceptEntry {
      *  and the gate co-signs as fee payer + broadcasts. **Algorand: `'algorand'`** — the payer
      *  signs an ASA `axfer` to `payTo` at fee 0, atomically grouped with a 0-ALGO `pay` from
      *  the `feePayer` that pools the group fee (per `scheme_exact_algo.md`); the gate (or a
-     *  keyless facilitator) signs that fee txn + submits. PipRail self-settles ALL. */
-    assetTransferMethod: 'eip3009' | 'permit2' | 'svm' | 'algorand'
+     *  keyless facilitator) signs that fee txn + submits. **Aptos: `'aptos'`** — the payer signs a
+     *  fee-payer (sponsored) `primary_fungible_store::transfer` to `payTo` (per
+     *  `scheme_exact_aptos.md`); the gate (or a keyless facilitator) adds the fee-payer signature
+     *  + submits, paying gas. PipRail self-settles ALL. */
+    assetTransferMethod: 'eip3009' | 'permit2' | 'svm' | 'algorand' | 'aptos'
     /** EIP-712 domain name of the token. OPTIONAL per the exact-EVM scheme (only
      *  `assetTransferMethod` is required) — a foreign rail may omit it. NEVER assumed
      *  from the symbol (USDC's on-chain name() is "USD Coin", not "USDC"); a PipRail gate
@@ -98,11 +101,12 @@ export interface X402ExactAcceptEntry {
     name?: string
     /** EIP-712 domain version of the token (USDC: "2"). OPTIONAL (see `name`); read/re-derived on-chain. */
     version?: string
-    /** **SVM only** — the merchant's fee-payer (sponsor) public key (base58), per the
-     *  x402 `exact` SVM scheme. The buyer compiles the transaction with this account as
-     *  the fee payer (so the buyer spends zero SOL on the network fee), leaving its
-     *  signature slot empty; the gate fills it and broadcasts. Distinct from `payTo` —
-     *  the fee payer must never appear in any instruction's accounts (a MUST-rule). */
+    /** **SVM / Algorand / Aptos** — the fee-payer (gas sponsor) address. The buyer builds the
+     *  transaction with this account as the gas payer (so the buyer spends ZERO native coin),
+     *  leaving its signature for whoever sponsors; the gate (self mode) or a keyless facilitator
+     *  fills it and submits. On **SVM** it must differ from `payTo` (the fee payer must never
+     *  appear in an instruction — a MUST-rule); on **Algorand/Aptos** the fee txn/signature is
+     *  separate from the transfer, so `feePayer === payTo` is allowed. */
     feePayer?: string
     /** **SVM only, OPTIONAL** — a ≤256-byte reconciliation memo the buyer attaches to the
      *  transaction (the SVM scheme's optional `extra.memo`). */
@@ -234,13 +238,31 @@ export interface ExactAlgorandPaymentPayload {
   paymentGroup: string[]
 }
 
+/**
+ * The `payload` a client sends for the **Aptos `exact`** variant, per `scheme_exact_aptos.md`:
+ * a fee-payer (sponsored, AIP-39) `primary_fungible_store::transfer`. `transaction` is the base64
+ * BCS-serialized `SimpleTransaction` (raw tx + the bound `feePayerAddress`); `senderAuth` is the
+ * base64 BCS-serialized buyer (sender) authenticator. The buyer leaves the fee-payer signature for
+ * whoever sponsors (the gate's relayer in self mode, or a keyless facilitator), who adds it +
+ * submits. The (tx + sender authenticator) IS the proof — there's no separate `authorization`
+ * object (the Aptos analogue of EIP-3009's `authorization` / SVM's `transaction`). The two-field
+ * shape (a `senderAuth` alongside `transaction`) also distinguishes it from the SVM payload.
+ */
+export interface ExactAptosPaymentPayload {
+  /** Base64 BCS-serialized `SimpleTransaction` (raw transaction + the bound `feePayerAddress`). */
+  transaction: string
+  /** Base64 BCS-serialized buyer (sender) `AccountAuthenticator`. */
+  senderAuth: string
+}
+
 /** Any `exact`-rail payload shape — EIP-3009 (`authorization`), Permit2 (`permit2Authorization`),
- *  SVM (`transaction`), or Algorand (`paymentGroup`). */
+ *  SVM (`transaction`), Algorand (`paymentGroup`), or Aptos (`transaction` + `senderAuth`). */
 export type ExactPaymentPayloadAny =
   | ExactPaymentPayload
   | Permit2PaymentPayload
   | ExactSvmPaymentPayload
   | ExactAlgorandPaymentPayload
+  | ExactAptosPaymentPayload
 
 interface ParsedExactBase {
   x402Version: number
@@ -261,13 +283,15 @@ interface ParsedExactBase {
  * `method`, so narrowing on `method` narrows `payload`: `'eip3009'` → {@link ExactPaymentPayload}
  * (`authorization`), `'permit2'` → {@link Permit2PaymentPayload} (`permit2Authorization`),
  * `'svm'` → {@link ExactSvmPaymentPayload} (`transaction`), `'algorand'` →
- * {@link ExactAlgorandPaymentPayload} (`paymentGroup`).
+ * {@link ExactAlgorandPaymentPayload} (`paymentGroup`); `'aptos'` →
+ * {@link ExactAptosPaymentPayload} (`transaction` + `senderAuth`).
  */
 export type ParsedExactPayment =
   | (ParsedExactBase & { method: 'eip3009'; payload: ExactPaymentPayload })
   | (ParsedExactBase & { method: 'permit2'; payload: Permit2PaymentPayload })
   | (ParsedExactBase & { method: 'svm'; payload: ExactSvmPaymentPayload })
   | (ParsedExactBase & { method: 'algorand'; payload: ExactAlgorandPaymentPayload })
+  | (ParsedExactBase & { method: 'aptos'; payload: ExactAptosPaymentPayload })
 
 export interface X402Receipt {
   scheme: 'onchain-proof' | 'exact'
@@ -597,8 +621,15 @@ export function parseExactPaymentHeader(value: string): ParsedExactPayment | nul
   const asset = accepted && typeof accepted.asset === 'string' ? accepted.asset : undefined
   const base = { x402Version, network, ...(asset ? { asset } : {}), raw: v }
 
+  // Aptos shape: payload.transaction + payload.senderAuth (both base64 BCS, no top-level `signature`).
+  // Checked BEFORE the SVM branch — SVM also carries `transaction` but NO `senderAuth`, so the extra
+  // field disambiguates the two families' single-transaction payloads.
+  if (typeof payload.transaction === 'string' && typeof payload.senderAuth === 'string') {
+    return { ...base, method: 'aptos', payload: { transaction: payload.transaction, senderAuth: payload.senderAuth } }
+  }
+
   // SVM shape: payload.transaction is a base64 partial-signed tx (no separate `signature` field).
-  // Checked FIRST because, unlike the EVM shapes, it carries no top-level `signature`.
+  // Checked FIRST (after Aptos) because, unlike the EVM shapes, it carries no top-level `signature`.
   if (typeof payload.transaction === 'string') {
     return { ...base, method: 'svm', payload: { transaction: payload.transaction } }
   }

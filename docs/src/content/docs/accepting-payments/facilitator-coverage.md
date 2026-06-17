@@ -86,7 +86,7 @@ firstKeylessFacilitator('eip155:999999') // unknown network
 
 Each `KnownFacilitator` has a `url` (no trailing slash), a `keyless` boolean (true ⇒ no API key, the
 facilitator sponsors gas), the `schemes` it settles (today `'exact'`), the exact transfer `settles`
-methods (`'eip3009' | 'permit2' | 'svm' | 'algorand'`), and an optional `note`.
+methods (`'eip3009' | 'permit2' | 'svm' | 'algorand' | 'aptos'`), and an optional `note`.
 
 :::caution
 **What's seeded, and what isn't.** The map carries only **live-confirmed keyless** entries — each
@@ -102,8 +102,9 @@ So **`exact: true` is zero-config gasless on Base, Monad, HyperEVM, and Solana**
 **Questflow** are deliberately **omitted** — their `/supported` is public but `/verify` needs an API key.
 `x402.org/facilitator` is **not** seeded either — it's a Base *Sepolia* testnet facilitator, not a
 mainnet rail. A keyless **Algorand** facilitator isn't seeded yet (GoPlausible lists Algorand under a
-non-CAIP-2 network id) — use **self-settle** for gasless Algorand. On a network not in the map, pass an
-explicit `exact: { settle: { facilitator } }`.
+non-CAIP-2 network id), and **Aptos** has no keyless x402 facilitator on mainnet yet — use **self-settle**
+for gasless Algorand and Aptos (both proven on mainnet). On a network not in the map, pass an explicit
+`exact: { settle: { facilitator } }`.
 :::
 
 ## Reading a facilitator's live `/supported`

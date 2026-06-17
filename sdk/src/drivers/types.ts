@@ -238,9 +238,10 @@ export interface DiscoverySigner {
  * chain-agnostic — it never names a family, it just merges `extra`.
  */
 export interface ExactRailInfo {
-  method: 'eip3009' | 'permit2' | 'svm' | 'algorand'
+  method: 'eip3009' | 'permit2' | 'svm' | 'algorand' | 'aptos'
   /** Family-specific `extra` keys merged into the exact accept (e.g. `{ name, version }`
-   *  for EVM EIP-3009, `{ feePayer, tokenProgram }` for Solana, `{ feePayer }` for Algorand). */
+   *  for EVM EIP-3009, `{ feePayer, tokenProgram }` for Solana, `{ feePayer }` for
+   *  Algorand/Aptos). */
   extra?: Record<string, unknown>
 }
 
@@ -330,7 +331,7 @@ export interface ResolvedNetwork {
   ): Promise<{ ready: boolean | 'n/a' | 'unknown'; reason?: RecipientReason }>
 
   /**
-   * OPTIONAL (EVM EIP-3009/Permit2 + Solana SVM + Algorand) — the BUYER counterpart to {@link settleExactSelf}.
+   * OPTIONAL (EVM EIP-3009/Permit2 + Solana SVM + Algorand + Aptos) — the BUYER counterpart to {@link settleExactSelf}.
    * Build + EIP-712-sign an EIP-3009 `transferWithAuthorization` for a standard x402
    * `exact` rail, so a PipRail agent can PAY any standard x402 server (not just PipRail's
    * own `onchain-proof` gates). The client frames the returned `payload` + `accepted` echo
@@ -392,7 +393,7 @@ export interface ResolvedNetwork {
    * (the merchant's own bound self-settle wallet, in self mode); `feePayer` takes precedence.
    * RPC-read (EVM reads the token's EIP-712 domain; Solana reads the mint's token program); MAY
    * throw a typed config error for an explicitly-requested-but-unsupported method (EVM does). A
-   * family that omits this method offers no `exact` rail (today: every family except EVM, Solana, and Algorand).
+   * family that omits this method offers no `exact` rail (today: every family except EVM, Solana, Algorand, and Aptos).
    */
   resolveExactRail?(input: {
     asset: string
@@ -426,12 +427,12 @@ export interface ResolvedNetwork {
   exactPermit2Supported?(): boolean
 
   /**
-   * OPTIONAL (EVM EIP-3009/Permit2 + Solana SVM + Algorand) — verify a standard x402 `exact`
+   * OPTIONAL (EVM EIP-3009/Permit2 + Solana SVM + Algorand + Aptos) — verify a standard x402 `exact`
    * payment locally, then SELF-SETTLE it by broadcasting from the merchant's own `relayer`
    * wallet (the merchant pays the network fee to receive; EVM broadcasts
    * `transferWithAuthorization`, Solana co-signs the fee payer, Algorand signs the pooled fee
-   * txn + submits the group — the signature
-   * binds `to`, so no redirect risk). RETURNS a `VerifyResult`:
+   * txn + submits the group, Aptos adds the fee-payer signature + submits — the transfer
+   * binds `payTo`, so no redirect risk). RETURNS a `VerifyResult`:
    *   - `{ ok:false, error }` for a CLIENT-fixable fault (bad signature, expired,
    *     wrong recipient/amount, used nonce, simulation revert) → gate replies 402;
    *   - `{ ok:true, receipt }` once the settle tx is mined.

@@ -21,7 +21,7 @@ export interface KnownFacilitator {
   /** The x402 schemes it settles (today only `exact`). */
   schemes: ReadonlyArray<'exact'>
   /** The exact transfer methods it can settle on this network. */
-  settles: ReadonlyArray<'eip3009' | 'permit2' | 'svm' | 'algorand'>
+  settles: ReadonlyArray<'eip3009' | 'permit2' | 'svm' | 'algorand' | 'aptos'>
   /** A short human note (who it is / caveat). */
   note?: string
 }
@@ -120,7 +120,7 @@ export function knownFacilitatorsFor(network: Caip2): ReadonlyArray<KnownFacilit
  */
 export function firstKeylessFacilitator(
   network: Caip2,
-  method?: 'eip3009' | 'permit2' | 'svm' | 'algorand'
+  method?: 'eip3009' | 'permit2' | 'svm' | 'algorand' | 'aptos'
 ): KnownFacilitator | undefined {
   return knownFacilitatorsFor(network).find(
     (f) => f.keyless && f.schemes.includes('exact') && (method === undefined || f.settles.includes(method))
