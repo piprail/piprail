@@ -38,6 +38,15 @@ export interface NearPreset {
  *  payment asset via `token: 'native'` (digest-bound; see the section note). */
 export const NEAR_DECIMALS = 24
 
+/** A valid NEAR account id: 2–64 chars, lowercase parts of [a-z0-9_-] joined by '.', or a
+ *  64-hex implicit account. Excludes `0x…` (EVM/Sui) shapes. Shared by the driver + the exact
+ *  rail (which validates `asset`/`payTo` before building a delegate action). */
+export function isValidNearAccountId(id: string): boolean {
+  if (id.startsWith('0x')) return false
+  if (id.length < 2 || id.length > 64) return false
+  return /^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/.test(id)
+}
+
 export const NEAR_MAINNET: NearPreset = {
   caip2: 'near:mainnet',
   defaultRpc: 'https://free.rpc.fastnear.com',

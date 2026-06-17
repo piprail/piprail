@@ -160,3 +160,37 @@ Do not route through NEAR Intents or solvers — that re-introduces a third-part
 PipRail uses plain transfers plus local receipt verification on purpose. See [Verifying
 payments](/accepting-payments/verifying-payments/).
 :::
+
+## Standard `exact` rail — gasless via NEP-366 (NEP-141 tokens)
+
+Beside the default `onchain-proof` rail, PipRail also speaks the **ratified x402 `exact` scheme for
+NEAR** (`scheme_exact_near.md`). The buyer signs a **NEP-366 `SignedDelegateAction`** authorizing
+exactly one NEP-141 `ft_transfer` (to `payTo`, the exact amount, the mandatory 1 yoctoNEAR) with a
+**full-access key** — then a **keyless x402 facilitator's relayer prepays the gas + the yocto and
+submits**. The buyer holds **zero NEAR**, and with a keyless facilitator the merchant pays nothing
+either: both sides are gasless.
+
+```ts
+// Buyer: opt into exact, and the client builds + signs the SignedDelegateAction for any NEAR exact
+// rail it's offered (USDC / USDT — NEP-141 tokens only; native NEAR stays onchain-proof).
+const client = new PipRailClient({ chain: 'near', wallet, schemes: ['onchain-proof', 'exact'] })
+await client.fetch('https://api.example.com/data')
+```
+
+NEAR `exact` is **facilitator-settled** (unlike EVM/Solana/Algorand, PipRail does not self-settle it:
+the NEAR relayer wraps the delegate action in its own outer transaction — a funded hot relayer the
+charter avoids running). A merchant points the gate at a keyless facilitator that supports
+`near:mainnet`:
+
+```ts
+createPaymentGate({
+  chain: 'near', token: 'USDC', amount: '0.01', payTo: 'merchant.near',
+  exact: { settle: { facilitator: 'https://facilitator.ultravioletadao.xyz' } },
+})
+```
+
+:::note
+The buyer must sign with a **full-access key**: NEP-141 `ft_transfer` attaches 1 yoctoNEAR, which a
+function-call access key can't do, so the facilitator rejects it. Native NEAR is **not** exact-payable
+(the scheme is defined over `ft_transfer`) — it stays on the zero-setup `onchain-proof` rail.
+:::

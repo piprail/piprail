@@ -26,8 +26,9 @@
  * third-party facilitator; a plain ft_transfer + local verify is what we do.
  */
 import { JsonRpcProvider, Account, actions } from 'near-api-js'
-import { NEAR_MAINNET, NEAR_DECIMALS, type NearPreset } from './chains.js'
+import { NEAR_MAINNET, NEAR_DECIMALS, isValidNearAccountId, type NearPreset } from './chains.js'
 import { payNear, payNearNative, type NearSendClient } from './pay.js'
+import { payExactNear } from './exact.js'
 import { verifyNear, type NearReader, type NearReceiptView } from './verify.js'
 import { assertNearWallet, resolveNearWallet, type NearWalletConfig } from './wallet.js'
 import {
@@ -37,6 +38,7 @@ import {
 } from '../../errors.js'
 import { rejectForeignToken } from '../shared.js'
 import { nativeCost } from '../../util/cost.js'
+import type { X402ExactAcceptEntry } from '../../x402.js'
 import type {
   PaymentDriver,
   ResolvedNetwork,
@@ -54,14 +56,6 @@ export const nearDriver: PaymentDriver = {
     const rpcUrl = opts.rpcUrl ?? NEAR_MAINNET.defaultRpc
     return makeNearNetwork(NEAR_MAINNET, rpcUrl)
   },
-}
-
-/** A valid NEAR account id: 2–64 chars, lowercase parts of [a-z0-9_-] joined by
- *  '.', or a 64-hex implicit account. Excludes 0x… (EVM/Sui) shapes. */
-function isValidNearAccountId(id: string): boolean {
-  if (id.startsWith('0x')) return false
-  if (id.length < 2 || id.length > 64) return false
-  return /^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/.test(id)
 }
 
 function makeNearNetwork(preset: NearPreset, rpcUrl: string): ResolvedNetwork {
@@ -292,6 +286,45 @@ function makeNearNetwork(preset: NearPreset, rpcUrl: string): ResolvedNetwork {
     async verify(ref, accept) {
       const { senderId, hash } = decodeRef(ref)
       return verifyNear({ reader, hash, senderId, accept })
+    },
+
+    // Standard x402 `exact` rail, BUYER side — build a NEP-366 SignedDelegateAction authorizing one
+    // NEP-141 ft_transfer (per scheme_exact_near.md). The buyer signs with its FULL-ACCESS key and
+    // spends ZERO NEAR; a keyless facilitator's relayer prepays the gas + 1 yoctoNEAR and submits.
+    // NEAR exact is NEP-141-only + facilitator-settled (see ./exact.ts for why) — native NEAR isn't
+    // exact-payable. Pre-reads the access-key nonce + final block height, then defers to payExactNear.
+    async payExact(wallet: WalletHandle, accept: X402ExactAcceptEntry) {
+      const { accountId, signer } = resolveNearWallet(wallet._native as NearWalletConfig)
+      const publicKey = await signer.getPublicKey()
+      const [accessKey, block] = await Promise.all([
+        provider.query({
+          request_type: 'view_access_key',
+          finality: 'final',
+          account_id: accountId,
+          public_key: publicKey.toString(),
+        }) as Promise<{ nonce?: number | string | bigint }>,
+        provider.viewBlock({ finality: 'final' }) as Promise<{ header?: { height?: number | string } }>,
+      ])
+      const accessKeyNonce = BigInt(accessKey.nonce ?? 0)
+      const blockHeight = BigInt(block.header?.height ?? 0)
+      const { payload, payerFrom, nonce } = await payExactNear({
+        signer,
+        senderId: accountId,
+        blockHeight,
+        accessKeyNonce,
+        accept,
+      })
+      return { payload, accepted: accept, payerFrom, nonce }
+    },
+
+    // The gate's rail-advertisement SPI. NEAR exact is NEP-141-only + FACILITATOR-settled, so it
+    // advertises ONLY when a facilitator sponsor (`feePayer` — the relayer that prepays gas so
+    // neither buyer nor merchant pays) is available; returns `null` for native, a non-NEP-141 asset,
+    // or a self-settle request (NEAR has no PipRail self-settle). The buyer's SignedDelegateAction is
+    // self-contained, so `feePayer` rides in `extra` only for observability + facilitator forwarding.
+    async resolveExactRail({ asset, feePayer }) {
+      if (asset === 'native' || !isValidNearAccountId(asset) || !feePayer) return null
+      return { method: 'near' as const, extra: { feePayer } }
     },
   }
 }

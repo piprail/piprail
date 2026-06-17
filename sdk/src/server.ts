@@ -311,8 +311,8 @@ type ResolvedExactMode =
  *  settles. Present when `options.exact` is set and the spec's family can carry it
  *  (EVM ERC-20 via EIP-3009/Permit2, or Solana SPL via the SVM scheme). */
 interface ResolvedExactRail {
-  /** `'eip3009'`/`'permit2'` (EVM), `'svm'` (Solana), `'algorand'` (Algorand), or `'aptos'` (Aptos). */
-  method: 'eip3009' | 'permit2' | 'svm' | 'algorand' | 'aptos'
+  /** `'eip3009'`/`'permit2'` (EVM), `'svm'` (Solana), `'algorand'`, `'aptos'`, or `'near'` (NEP-366). */
+  method: 'eip3009' | 'permit2' | 'svm' | 'algorand' | 'aptos' | 'near'
   /** Family-specific keys the driver supplies, merged verbatim into the accept's `extra`
    *  (EVM EIP-3009: the token's `name`/`version`; Solana/Algorand: `feePayer`[/`tokenProgram`]). */
   extra?: Record<string, unknown>
@@ -1022,6 +1022,16 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
           }
         })
         .join('|')
+    } else if ('signedDelegateAction' in exact.payload) {
+      // NEAR: no separate nonce field (the dedupe key is the signed delegate action itself).
+      // Canonicalize the base64 (decode → re-encode) so malleable encodings of the SAME signed
+      // action collapse to one key; the on-chain access-key nonce (single-use) is the second
+      // backstop. Chain-agnostic — server.ts never Borsh-decodes the delegate action.
+      try {
+        nonce = Buffer.from(exact.payload.signedDelegateAction, 'base64').toString('base64')
+      } catch {
+        nonce = exact.payload.signedDelegateAction
+      }
     } else if ('permit2Authorization' in exact.payload) {
       evmAuth = exact.payload.permit2Authorization
       nonce = evmAuth.nonce
@@ -1040,13 +1050,14 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
       if (mode.kind === 'self') {
         result = await spec.net.settleExactSelf!({ relayer: mode.relayer, payload: exact.payload, accept })
       } else {
-        // SVM / Algorand / Aptos rails carry the facilitator's `feePayer` (the gas sponsor); EVM
-        // carries the token's EIP-712 domain. A fee-payer rail can't even be ADVERTISED without a
+        // SVM / Algorand / Aptos / NEAR rails carry the facilitator's `feePayer` (the gas sponsor);
+        // EVM carries the token's EIP-712 domain. A fee-payer rail can't even be ADVERTISED without a
         // sponsor (resolveExactRail returns null, or the gate drops the rail when /supported yields
         // none), so a missing feePayer here is an invariant violation — fail loudly with a clear
         // SettlementError (gate 5xx) rather than forwarding an empty string to the facilitator.
         const ftMethod = accept.extra.assetTransferMethod
-        const needsFeePayer = ftMethod === 'svm' || ftMethod === 'algorand' || ftMethod === 'aptos'
+        const needsFeePayer =
+          ftMethod === 'svm' || ftMethod === 'algorand' || ftMethod === 'aptos' || ftMethod === 'near'
         if (needsFeePayer && !accept.extra.feePayer) {
           throw new SettlementError(
             `exact settle: the ${ftMethod} facilitator rail is missing extra.feePayer (the gas sponsor) — cannot settle.`

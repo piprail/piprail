@@ -1064,7 +1064,7 @@ export class PipRailClient {
       if (schemes.includes('exact') && exactOnNet && typeof net.payExact !== 'function') {
         throw new UnsupportedSchemeError(
           `This 402 offers a standard 'exact' rail on ${net.network}, but the ${net.family} ` +
-            `family can't pay 'exact' (supported on EVM, Solana + Algorand today), and no 'onchain-proof' rail was offered.`
+            `family can't pay 'exact' (supported on EVM, Solana, Algorand + NEAR today), and no 'onchain-proof' rail was offered.`
         )
       }
       // The dominant agent journey: a default (onchain-proof-only) client hits an exact-only
@@ -1642,7 +1642,7 @@ export class PipRailClient {
     if (!net.payExact) {
       // gatherCandidates only yields an exact rail when payExact exists — defensive.
       throw new UnsupportedSchemeError(
-        `the ${net.family} family can't pay a standard 'exact' rail (supported on EVM, Solana + Algorand today).`
+        `the ${net.family} family can't pay a standard 'exact' rail (supported on EVM, Solana, Algorand + NEAR today).`
       )
     }
     // A caller who aborts BEFORE we sign/send hasn't moved any funds — surface their

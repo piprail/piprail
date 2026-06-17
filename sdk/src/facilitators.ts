@@ -21,7 +21,7 @@ export interface KnownFacilitator {
   /** The x402 schemes it settles (today only `exact`). */
   schemes: ReadonlyArray<'exact'>
   /** The exact transfer methods it can settle on this network. */
-  settles: ReadonlyArray<'eip3009' | 'permit2' | 'svm' | 'algorand' | 'aptos'>
+  settles: ReadonlyArray<'eip3009' | 'permit2' | 'svm' | 'algorand' | 'aptos' | 'near'>
   /** A short human note (who it is / caveat). */
   note?: string
 }
@@ -185,6 +185,23 @@ export const KNOWN_FACILITATORS: Readonly<Record<Caip2, ReadonlyArray<KnownFacil
       note: 'Corbits — keyless, Solana-first fee-payer sponsor. LIVE-settled on Solana 2026-06-15 (tx BCreYer…).',
     },
   ],
+  // NEAR (near:mainnet) — PENDING a live settle (THE RULE: seed only after one). Ultravioleta DAO's
+  // /supported advertises `near:mainnet` exact with relayer feePayer `uvd-facilitator.near` (verified
+  // 2026-06-18), and it settles the ratified NEP-366 SignedDelegateAction scheme (scheme_exact_near.md)
+  // keylessly — the relayer prepays gas + the 1 yoctoNEAR, so buyer AND merchant pay zero NEAR. The
+  // buyer rail is fully built (drivers/near/exact.ts); `exact: true` will auto-pick UVD the moment the
+  // block below is uncommented, which happens ONLY after a live ~$0.01 USDC settle on near:mainnet.
+  // Until then, a merchant enables it explicitly: exact: { settle: { facilitator: 'https://facilitator.ultravioletadao.xyz' } }.
+  //
+  // 'near:mainnet': [
+  //   {
+  //     url: 'https://facilitator.ultravioletadao.xyz',
+  //     keyless: true,
+  //     schemes: ['exact'],
+  //     settles: ['near'],
+  //     note: 'Ultravioleta DAO — keyless, gas-sponsored via relayer uvd-facilitator.near (NEP-366 SignedDelegateAction; buyer AND merchant 0 NEAR). LIVE-settled on near:mainnet <DATE> (tx <HASH>).',
+  //   },
+  // ],
 }
 
 /** Known facilitators for a network — an empty array when none is seeded. */
@@ -199,7 +216,7 @@ export function knownFacilitatorsFor(network: Caip2): ReadonlyArray<KnownFacilit
  */
 export function firstKeylessFacilitator(
   network: Caip2,
-  method?: 'eip3009' | 'permit2' | 'svm' | 'algorand' | 'aptos'
+  method?: 'eip3009' | 'permit2' | 'svm' | 'algorand' | 'aptos' | 'near'
 ): KnownFacilitator | undefined {
   return knownFacilitatorsFor(network).find(
     (f) => f.keyless && f.schemes.includes('exact') && (method === undefined || f.settles.includes(method))
