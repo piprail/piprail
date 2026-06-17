@@ -197,6 +197,11 @@ equally** (USDC and USD₮ alike — there's no EVM-style EIP-3009 token require
 exact-payable — it stays `onchain-proof`. **Live-proven on Aptos mainnet.** Full mechanism: [Gasless
 payments → Aptos](/making-payments/gasless-payments/#aptos--how-sponsored-tx-gasless-works).
 
+Because your relayer co-signs a buyer-built transaction as the gas sponsor, the gate **caps the gas**
+the sponsor will pay before signing (`MAX_GAS_AMOUNT_CAP` = 100 000 units, `MAX_GAS_UNIT_PRICE_CAP` =
+2 000 octas/unit — ≤ 0.2 APT worst case) — so a buyer can't inflate `max_gas_amount × gas_unit_price` to
+drain it. See [sponsor protection](/making-payments/gasless-payments/#sponsor-protection--the-fee-drain-guard).
+
 :::note[`exact: true` on Aptos]
 Aptos has **no keyless x402 facilitator on mainnet** yet, so `exact: true` (the auto-pick-a-facilitator
 shorthand) **degrades gracefully** to `onchain-proof` there. Use **self-settle** (above) for gasless

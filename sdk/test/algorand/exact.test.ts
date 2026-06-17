@@ -201,6 +201,33 @@ describe('Algorand exact — SELLER (verifyAndSettleExactAlgorand)', () => {
     expect(res).toMatchObject({ ok: false, error: 'signature_invalid' })
   })
 
+  it('rejects an oversized fee txn → signature_invalid (sponsor-drain guard)', async () => {
+    // A malicious buyer names the gate's fee payer but sets the pooled fee absurdly high (5 ALGO).
+    // Without the cap the gate would co-sign + submit it, draining the sponsor. Build the group by
+    // hand (the honest buyer sets fee = minFee × 2 = 2000 µALGO).
+    const accept = makeAccept()
+    const params = suggestedParams()
+    const axfer = algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
+      sender: buyer.addr.toString(), receiver: merchant.addr.toString(), amount: 50000n, assetIndex: ASSET_ID,
+      note: new Uint8Array(32), suggestedParams: { ...params, flatFee: true, fee: 0n },
+    })
+    const feeTxn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+      sender: sponsor.addr.toString(), receiver: sponsor.addr.toString(), amount: 0n,
+      suggestedParams: { ...params, flatFee: true, fee: 5_000_000n }, // 5 ALGO drain attempt
+    })
+    algosdk.assignGroupID([axfer, feeTxn])
+    const payload = {
+      paymentIndex: 0,
+      paymentGroup: [
+        Buffer.from(axfer.signTxn(buyer.sk)).toString('base64'),
+        Buffer.from(algosdk.encodeUnsignedTransaction(feeTxn)).toString('base64'),
+      ],
+    }
+    const res = await settle(payload, accept)
+    expect(res).toMatchObject({ ok: false, error: 'signature_invalid' })
+    if (!res.ok) expect(res.detail).toMatch(/cap|drain|exceeds/i)
+  })
+
   it('rejects a simulate signature failure → signature_invalid (402, client fault)', async () => {
     const accept = makeAccept()
     const { payload } = await buildPayload(accept)

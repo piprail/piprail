@@ -18,12 +18,14 @@ facilitator for your gate's network from this map, or fails with a clear message
 
 ## Live-verified facilitators
 
-The third-party x402 facilitators below were **probed live on 2026-06-14/15** — each one's `GET /supported`
-was read, and every row marked ✅ was then settled with a **real mainnet `exact` payment through
-PipRail**, where the **buyer paid zero gas**. "Keyless" means it settles with **no API key**, so the
+The third-party x402 facilitators below were **probed live (2026-06-14 → 2026-06-17)** — each one's
+`GET /supported` was read, and every row marked ✅ was then settled with a **real mainnet `exact` payment
+through PipRail**, where the **buyer paid zero gas**. "Keyless" means it settles with **no API key**, so the
 facilitator sponsors the network fee for the buyer *and* the merchant. You point a gate at any of them
 with `exact: { settle: { facilitator: '<facilitator url>' } }` — see
-[the exact rail seller guide](/accepting-payments/exact-rail-seller/).
+[the exact rail seller guide](/accepting-payments/exact-rail-seller/). On a facilitator-sponsored
+fee-payer rail the gate also **bounds the fee** a buyer can make the sponsor pay — see
+[sponsor protection](/making-payments/gasless-payments/#sponsor-protection--the-fee-drain-guard).
 
 | Facilitator | Keyless? | PipRail live-tested | Mainnet `exact` networks |
 |---|---|---|---|

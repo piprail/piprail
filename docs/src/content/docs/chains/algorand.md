@@ -185,6 +185,11 @@ verify+settle to GoPlausible — no relayer key needed. **Live-settled on mainne
 makes Algorand the first non-EVM/non-Solana keyless PipRail chain. See
 [Facilitator coverage](/accepting-payments/facilitator-coverage/).
 
+Because the sponsor (GoPlausible, or your self-settle relayer) co-signs a buyer-built group, the gate
+**caps the pooled group fee** it will pay before co-signing (`MAX_GROUP_FEE` = 20 000 µALGO; the honest
+path is ~2 000 µALGO) and rejects any asset/account close or rekey — so a buyer can't drain the sponsor on
+a sub-cent payment. See [sponsor protection](/making-payments/gasless-payments/#sponsor-protection--the-fee-drain-guard).
+
 ## Proof binding — Template A (note-bound)
 
 Algorand uses [Template A](/concepts/proof-binding/): the challenge nonce rides in the

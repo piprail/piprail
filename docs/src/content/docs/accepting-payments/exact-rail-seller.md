@@ -10,9 +10,9 @@ sidebar:
 PipRail gates default to the `onchain-proof` scheme: the client pays first, then proves it
 with a tx ref your gate verifies locally. The ratified x402 `exact` scheme is the inverse —
 the client signs (an [EIP-3009](https://eips.ethereum.org/EIPS/eip-3009)
-`transferWithAuthorization` on EVM, a partial-signed `TransferChecked` transaction on Solana, or a
-fee-0 asset transfer in a fee-pooled atomic group on Algorand) and
-*someone else* broadcasts it. Opting into `exact` makes your gate payable by **any** standard
+`transferWithAuthorization` on EVM, a partial-signed `TransferChecked` transaction on Solana, a
+fee-0 asset transfer in a fee-pooled atomic group on Algorand, or a fee-payer sponsored transaction on
+Aptos) and *someone else* broadcasts it. Opting into `exact` makes your gate payable by **any** standard
 x402 client (and is the only path onto Coinbase's Bazaar directory), while staying backendless:
 PipRail still hosts nothing.
 
@@ -52,8 +52,10 @@ const gate = requirePayment({
 
 It is **soft and additive**, so it can never brick your gate:
 
-- **Has a keyless facilitator** (Base, Solana today; more as they're seeded) → advertises the gasless
-  `exact` rail **and** the `onchain-proof` floor. The buyer signs (0 gas); the facilitator settles + pays.
+- **Has a keyless facilitator** (**Base, BNB, HyperEVM, Monad, Solana, and Algorand** today — six chains;
+  more as they're seeded) → advertises the gasless `exact` rail **and** the `onchain-proof` floor. The
+  buyer signs (0 gas); the facilitator settles + pays. *(On Algorand the merchant pays 0 too — see
+  [facilitator coverage](/accepting-payments/facilitator-coverage/).)*
 - **No keyless facilitator for the chain** → **degrades gracefully** to `onchain-proof` only (the buyer
   pays gas — the only option left when nobody sponsors) and logs a **loud, production-silent warning**
   naming the cause and the remedy. It never throws.
@@ -104,8 +106,13 @@ rail the buyer signs a sponsored `primary_fungible_store::transfer` (sender slot
 the fee-payer signature and submits. Either way the buyer pays **zero** native coin; your relayer pays
 the sub-cent fee. Unlike Solana, the relayer **may be `payTo` itself** (the fee transaction/signature is
 separate — no isolation rule), so a merchant can self-settle from one account. On Algorand the recipient
-(`payTo`) must be **opted into the ASA**; Aptos needs no receiver setup. These are the gasless Algorand
-and Aptos paths today (no keyless facilitator on either yet — use self-settle).
+(`payTo`) must be **opted into the ASA**; Aptos needs no receiver setup.
+
+**Algorand also has a keyless facilitator now** — [GoPlausible](https://facilitator.goplausible.xyz)
+settles the ratified Algorand `exact` rail, so on Algorand you can use the zero-config Mode 0 (`exact:
+true`) and **both the buyer *and* the merchant pay 0 ALGO** (live-settled on mainnet 2026-06-17). Self-settle
+stays available if you'd rather run your own relayer. **Aptos** still has **no** keyless facilitator on
+mainnet, so self-settle is the gasless Aptos path today (`exact: true` degrades to `onchain-proof` there).
 :::
 
 :::caution[Solana: the fee payer must differ from `payTo`]
@@ -123,16 +130,18 @@ emitted as HTTP `502`), never a 402 — the payer's signed authorization stays v
 so they can retry once you top it up.
 :::
 
-## Mode B — delegate to a facilitator (EVM **and** Solana)
+## Mode B — delegate to a facilitator (EVM, Solana **and** Algorand)
 
 Instead of running a relayer, delegate verify + settle to a third-party x402 facilitator **you
-choose** (Coinbase CDP, PayAI, or any compatible one). No relayer key, and the
+choose** (Coinbase CDP, PayAI, GoPlausible, or any compatible one). No relayer key, and the
 facilitator pays gas. Under the hood this is just two HTTP POSTs to the facilitator's
-configured URL — PipRail hosts nothing. Works on **EVM and Solana**.
+configured URL — PipRail hosts nothing. Works on **EVM, Solana, and Algorand** (the chains with a
+seeded keyless facilitator — see [coverage](/accepting-payments/facilitator-coverage/)).
 
-:::caution[A facilitator settles EIP-3009 + SVM — not Permit2]
-Third-party facilitators settle the *standard* `exact` schemes: **EIP-3009** (EVM — USDC, EURC) and
-**SVM** (Solana — any SPL token). They do **not** understand PipRail's **Permit2** payload (it settles
+:::caution[A facilitator settles EIP-3009 + SVM + Algorand — not Permit2]
+Third-party facilitators settle the *standard* `exact` schemes: **EIP-3009** (EVM — USDC, EURC),
+**SVM** (Solana — any SPL token), and the ratified **Algorand** atomic-group rail (USDCa, via GoPlausible
+— buyer *and* merchant pay 0 ALGO). They do **not** understand PipRail's **Permit2** payload (it settles
 through PipRail's own `x402ExactPermit2Proxy`), so a non-EIP-3009 EVM token (e.g. Binance-Peg USDC/USDT
 on BNB) **can't** go through a facilitator — it's **self-settle only** (Mode A). PipRail enforces this:
 a *forced* `method: 'permit2'` with `settle: { facilitator }` throws on the first request, and an *auto*-selected
@@ -198,13 +207,42 @@ than a misleading 402. Critically, the `paymentRequirements` sent to the facilit
 rebuilt from the gate's **trusted rail** (`payTo` / `amount` / `asset` / `network`), never the
 client's echo, so a forged payload can't redirect the settlement.
 
-On **Solana**, there's also a *challenge-time* read: the gate fetches the facilitator's fee-payer
-pubkey from its `GET /supported` (to advertise it so the buyer can build the transaction). If that's
-unreachable, the gate **drops the `exact` rail** for that chain (serving `onchain-proof`); if it was
-the only exact rail, it throws a clear error naming the cause. Pin it with `settle: { facilitator,
-feePayer }` to remove the dependency entirely. The full three-failure-point breakdown — challenge-time
-discovery, settle transport/auth (502), and a facilitator rejection (402) — is in
+On the **fee-payer rails** (Solana, Algorand, Aptos), there's also a *challenge-time* read: the gate
+fetches the facilitator's fee-payer / sponsor address from its `GET /supported` (to advertise it so the
+buyer can build the transaction). If that's unreachable, the gate **drops the `exact` rail** for that
+chain (serving `onchain-proof`); if it was the only exact rail, it throws a clear error naming the cause.
+Pin it with `settle: { facilitator, feePayer }` to remove the dependency entirely. The full
+three-failure-point breakdown — challenge-time discovery, settle transport/auth (502), and a facilitator
+rejection (402) — is in
 [Gasless payments → When the facilitator fails](/making-payments/gasless-payments/#when-the-facilitator-fails).
+
+## Sponsor protection — the fee-drain guard
+
+On the **fee-payer rails** (Solana, Algorand, Aptos), whoever sponsors gas — a keyless facilitator in
+Mode B, or **your own relayer in Mode A** — co-signs and submits a transaction the **buyer** constructed.
+That raises a real concern for the party paying the gas: a malicious buyer could set an enormous fee on a
+sub-cent payment and try to drain the sponsor. Both modes are protected, and **the protection is the
+gate's, not the facilitator's** — so it applies to your self-settle relayer too.
+
+Before it co-signs, the gate **bounds the maximum fee the sponsor will pay**, and re-derives every payment
+field (`payTo`, `amount`, `asset`, `feePayer`) from its **own trusted rail** — never the buyer's payload.
+The caps are generous (≈10× the honest path, so real congestion never trips them) but far below any
+meaningful drain; a transaction above a cap is rejected with `signature_invalid` (and `exact: true` then
+falls back to `onchain-proof`).
+
+| Rail | What the sponsor pays | Caps the gate enforces |
+|---|---|---|
+| **Algorand** | the pooled atomic-group fee | `MAX_GROUP_FEE` = 20 000 µALGO (0.02 ALGO) |
+| **Solana** | base + compute-budget | `MAX_COMPUTE_UNIT_LIMIT` = 300 000 units · `MAX_COMPUTE_UNIT_PRICE_MICROLAMPORTS` = 100 000 |
+| **Aptos** | gas (amount × unit price) | `MAX_GAS_AMOUNT_CAP` = 100 000 units · `MAX_GAS_UNIT_PRICE_CAP` = 2 000 octas/unit |
+| **EVM** (EIP-3009 / Permit2) | nothing buyer-controlled | none needed — the buyer signs only an authorization; the relayer/facilitator derives gas at broadcast |
+
+The gate backs the caps with two more structural checks: it accepts **only the canonical transfer shape**
+for each rail (so no extra instruction can sneak in), and it rejects any close/rekey (Algorand) or
+fee-payer-in-an-instruction (Solana) that could sweep funds. So a relayer or facilitator can only ever pay
+a bounded fee to push the *signed* amount to the *trusted* `payTo`. Full detail and the honest-path numbers
+are in [Gasless payments → Sponsor protection](/making-payments/gasless-payments/#sponsor-protection--the-fee-drain-guard);
+the constants live in `sdk/src/drivers/{algorand,solana,aptos}/exact.ts`.
 
 ## The `ExactRailOption`
 

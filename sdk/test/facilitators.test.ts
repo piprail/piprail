@@ -24,6 +24,36 @@ describe('KNOWN_FACILITATORS (seed data)', () => {
     }
   })
 
+  it('every entry is internally consistent: keyless, exact-only, and a settle method that matches its chain family', () => {
+    // The `family → expected settle method(s)` contract. This makes the method-BLIND
+    // `firstKeylessFacilitator(network)` pick in server.ts safe BY CONSTRUCTION: since every
+    // facilitator seeded under a CAIP-2 key settles that family's method, picking [0] (any of them)
+    // always yields a facilitator that can settle the rail the driver will resolve for that chain.
+    const familyMethods: Record<string, ReadonlyArray<string>> = {
+      eip155: ['eip3009', 'permit2'], // EVM
+      solana: ['svm'],
+      algorand: ['algorand'],
+      aptos: ['aptos'],
+    }
+    for (const [network, facs] of Object.entries(KNOWN_FACILITATORS)) {
+      const namespace = network.split(':')[0]!
+      const allowed = familyMethods[namespace]
+      expect(allowed, `no expected settle method for namespace "${namespace}" (seed under an unknown family?)`).toBeDefined()
+      for (const f of facs) {
+        // All seeded facilitators are keyless (no API key → sponsors gas for BOTH sides) and exact-only.
+        expect(f.keyless, `${f.url} on ${network} must be keyless`).toBe(true)
+        expect([...f.schemes]).toEqual(['exact'])
+        // Every settle method must belong to this chain's family — no cross-family paste.
+        for (const m of f.settles) {
+          expect(allowed, `${f.url} settles "${m}" which is not valid for ${namespace}`).toContain(m)
+        }
+        // THE RULE: each entry carries a dated live-settle note with a tx reference.
+        expect(typeof f.note).toBe('string')
+        expect(f.note, `${f.url} on ${network} needs a dated live-settle note`).toMatch(/202\d-\d\d-\d\d|tx /i)
+      }
+    }
+  })
+
   it('does NOT seed x402.org as a mainnet facilitator (it is Base Sepolia)', () => {
     const allUrls = Object.values(KNOWN_FACILITATORS).flat().map((f) => f.url)
     expect(allUrls.some((u) => u.includes('x402.org'))).toBe(false)

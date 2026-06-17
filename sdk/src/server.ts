@@ -950,7 +950,10 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     // v2 clients echo the CAIP-2 network + asset → match precisely (an explicit
     // wrong network/asset must NOT match). A v1 client (flat, slug network, no asset)
     // can't be matched on CAIP-2, so it falls back to the single offered exact rail.
-    const isCaip = exact.network.startsWith('eip155:')
+    // CAIP-2 is family-agnostic — `namespace:reference` for EVM (eip155:…) AND non-EVM
+    // (solana:… / algorand:… / aptos:…), so a foreign non-EVM v2 payment filters by network
+    // exactly like EVM (a v1 flat slug has no `:` and falls through to the slug fallback).
+    const isCaip = exact.network.includes(':')
     let candidates = isCaip ? exactSpecs.filter((s) => s.net.network === exact.network) : exactSpecs
     if (exact.asset) {
       candidates = candidates.filter((s) => s.asset.toLowerCase() === exact.asset!.toLowerCase())
@@ -1037,6 +1040,18 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
       if (mode.kind === 'self') {
         result = await spec.net.settleExactSelf!({ relayer: mode.relayer, payload: exact.payload, accept })
       } else {
+        // SVM / Algorand / Aptos rails carry the facilitator's `feePayer` (the gas sponsor); EVM
+        // carries the token's EIP-712 domain. A fee-payer rail can't even be ADVERTISED without a
+        // sponsor (resolveExactRail returns null, or the gate drops the rail when /supported yields
+        // none), so a missing feePayer here is an invariant violation — fail loudly with a clear
+        // SettlementError (gate 5xx) rather than forwarding an empty string to the facilitator.
+        const ftMethod = accept.extra.assetTransferMethod
+        const needsFeePayer = ftMethod === 'svm' || ftMethod === 'algorand' || ftMethod === 'aptos'
+        if (needsFeePayer && !accept.extra.feePayer) {
+          throw new SettlementError(
+            `exact settle: the ${ftMethod} facilitator rail is missing extra.feePayer (the gas sponsor) — cannot settle.`
+          )
+        }
         result = await settleViaFacilitator({
           url: mode.url,
           ...(mode.authHeaders ? { authHeaders: mode.authHeaders } : {}),
@@ -1053,14 +1068,9 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
             amount: accept.amount,
             payTo: accept.payTo,
             maxTimeoutSeconds: accept.maxTimeoutSeconds,
-            // The scheme's chain-specific `extra`, from the gate's OWN trusted rail: SVM + Algorand +
-            // Aptos forward the facilitator's `feePayer` (the gas sponsor); EVM forwards the token's EIP-712 domain.
-            extra:
-              accept.extra.assetTransferMethod === 'svm' ||
-              accept.extra.assetTransferMethod === 'algorand' ||
-              accept.extra.assetTransferMethod === 'aptos'
-                ? { feePayer: accept.extra.feePayer ?? '' }
-                : { name: accept.extra.name ?? '', version: accept.extra.version ?? '' },
+            extra: needsFeePayer
+              ? { feePayer: accept.extra.feePayer! }
+              : { name: accept.extra.name ?? '', version: accept.extra.version ?? '' },
           },
           receipt: { network: accept.network, asset: accept.asset, payTo: accept.payTo, amount: accept.amount },
           // The buyer address, for the receipt's `payer` fallback. EVM carries it in the

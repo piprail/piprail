@@ -1,6 +1,6 @@
 ---
 title: Pay any x402 server (the exact rail)
-description: Opt the client into the standard x402 `exact` scheme so it can pay any x402 server, not just PipRail gates — EVM (EIP-3009 USDC/EURC or Permit2 for any ERC-20) and Solana (any SPL token, USDC/USDT), gas-free for the buyer.
+description: Opt the client into the standard x402 `exact` scheme so it can pay any x402 server, not just PipRail gates — EVM (EIP-3009 USDC/EURC or Permit2 for any ERC-20), Solana (any SPL token), Algorand (any ASA), and Aptos (any Fungible Asset), gas-free for the buyer.
 sidebar:
   order: 8
 ---
@@ -32,7 +32,8 @@ this rail existed — `exact` is strictly opt-in.
 
 With `onchain-proof`, the client broadcasts the payment itself and proves it. With `exact`, the
 buyer **signs with its own wallet** and *someone else* broadcasts it — the merchant's relayer, or a
-merchant-chosen **facilitator** (on **EVM or Solana**). So the buyer spends roughly **zero gas** — only
+merchant-chosen **facilitator** (keyless on EVM EIP-3009, Solana, and Algorand). So the buyer spends
+roughly **zero gas** — only
 the token funds the payment — and PipRail hosts and settles nothing. **The buyer is gasless either way:
 how the merchant settles (its own relayer vs a facilitator) is the merchant's call and invisible to the
 buyer.** When the merchant points settlement at a free facilitator like **PayAI**, no one runs a
@@ -48,8 +49,9 @@ gas-funded key at all — settlement is fully gasless end to end (see
 
 ## What exact can settle
 
-The `exact` rail works on **EVM** and **Solana**, via one of three on-chain methods. The 402's rail
-names which one (`extra.assetTransferMethod`), and the client picks the matching signer automatically:
+The `exact` rail works on **EVM, Solana, Algorand, and Aptos**, via one of five on-chain methods. The
+402's rail names which one (`extra.assetTransferMethod`), and the client picks the matching signer
+automatically:
 
 - **`eip3009`** (EVM) — canonical USDC/EURC and other tokens exposing `transferWithAuthorization`. The
   client re-derives the token's EIP-712 domain on-chain before signing, so a lying or absent
@@ -102,7 +104,7 @@ final guard regardless of the label.
 
 When you enable both schemes, the client gathers `onchain-proof` rails first, so on a dual-rail
 402 the default selection is unchanged. An `exact` rail is only ever picked when the bound
-driver can actually settle it (EVM EIP-3009/Permit2, or Solana SVM).
+driver can actually settle it (EVM EIP-3009/Permit2, Solana SVM, the Algorand ASA rail, or the Aptos FA rail).
 
 To make the client *prefer* the gasless `exact` rail when a gate offers both, enable
 [`autoRoute`](/making-payments/fetch-and-autoroute/) (`new PipRailClient({ …, autoRoute: true })`, or

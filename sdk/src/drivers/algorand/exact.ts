@@ -53,6 +53,17 @@ const ZERO_ADDRESS = algosdk.Address.zeroAddress().toString()
 /** The canonical PipRail `exact` group is exactly two txns: the buyer's payment + the fee txn. */
 const GROUP_SIZE = 2
 
+/**
+ * Cap on the fee the SPONSOR (the gate's relayer in self-settle, or a keyless facilitator) will pay
+ * on the pooled fee txn. The honest buyer sets it to `minFee × GROUP_SIZE` (~2000 µALGO at the
+ * 1000-µALGO floor); this 20000-µALGO (0.02 ALGO) ceiling is ~10× headroom for any realistic
+ * congestion yet far below a drain. WITHOUT it, a malicious buyer could name the sponsor as fee
+ * payer and set an arbitrarily large fee — the gate would co-sign + submit it, draining the
+ * sponsor's ALGO for a sub-cent transfer. (Mirrors the Aptos rail's gas caps — ERRORS.md §5 / the
+ * fee-payer drain guard.) Generous on purpose: a false reject just falls back to onchain-proof.
+ */
+const MAX_GROUP_FEE = 20_000n
+
 const b64encode = (bytes: Uint8Array): string => Buffer.from(bytes).toString('base64')
 const b64decode = (s: string): Uint8Array => new Uint8Array(Buffer.from(s, 'base64'))
 
@@ -293,6 +304,14 @@ export async function verifyAndSettleExactAlgorand(input: {
   if (BigInt(fee.payment.amount) !== 0n) {
     return fail('signature_invalid', 'The fee transaction must move 0 ALGO (it only pools the group fee).')
   }
+  // Anti-drain: bound the pooled fee the SPONSOR pays. The gate co-signs + submits this txn, and the
+  // fee is debited from its OWN sender (the gate's relayer / the keyless facilitator). Without a cap a
+  // malicious buyer could set an arbitrarily large fee and drain the sponsor (confirmed exploitable).
+  // The honest path is minFee × GROUP_SIZE (~2000 µALGO); reject anything above MAX_GROUP_FEE.
+  const feeAmount = fee.fee != null ? BigInt(fee.fee) : 0n
+  if (feeAmount > MAX_GROUP_FEE) {
+    return fail('signature_invalid', `The fee transaction fee ${feeAmount} µALGO exceeds the ${MAX_GROUP_FEE} cap (fee-payer drain guard).`)
+  }
   if (isSet(fee.payment.closeRemainderTo)) return fail('signature_invalid', 'The fee transaction has an account-close — refused.')
   if (isSet(fee.rekeyTo)) return fail('signature_invalid', 'The fee transaction has a rekey — refused.')
 
@@ -325,7 +344,8 @@ export async function verifyAndSettleExactAlgorand(input: {
     if (sim.failureMessage) {
       const m = sim.failureMessage
       if (/signature|sig|auth/i.test(m)) return fail('signature_invalid', `Signature verification failed: ${shorten(m)}.`)
-      if (/round|expired|lifetime|valid/i.test(m)) return fail('payment_expired', `Transaction validity window is no longer valid: ${shorten(m)}.`)
+      // `validity`/`dead`/`round` — NOT bare `valid` (which also matches "invalid …" would-revert msgs).
+      if (/\bround\b|expired|lifetime|validity|dead/i.test(m)) return fail('payment_expired', `Transaction validity window is no longer valid: ${shorten(m)}.`)
       if (/overspend|below min|underflow|insufficient|asset|frozen|opt|missing/i.test(m)) return fail('tx_reverted', `Group would fail on-chain: ${shorten(m)}.`)
       return fail('tx_reverted', `Group would fail on-chain: ${shorten(m)}.`)
     }
@@ -341,8 +361,9 @@ export async function verifyAndSettleExactAlgorand(input: {
   } catch (err) {
     const m = err instanceof Error ? err.message : String(err)
     if (/signature|sig|auth|malformed/i.test(m)) return fail('signature_invalid', `Settle rejected — bad signature: ${shorten(m)}.`)
-    if (/round|expired|lifetime|stale|valid/i.test(m)) return fail('payment_expired', `Settle rejected — validity window expired: ${shorten(m)}.`)
+    // Check "already in ledger" BEFORE expiry, and match `validity` not bare `valid` (avoids "invalid").
     if (/already in ledger|already committed|duplicate/i.test(m)) return fail('tx_already_used', `This payment was already settled: ${shorten(m)}.`)
+    if (/\bround\b|expired|lifetime|stale|validity/i.test(m)) return fail('payment_expired', `Settle rejected — validity window expired: ${shorten(m)}.`)
     throw new SettlementError(
       `Algorand exact settle: the group failed to submit (${shorten(m)}). The buyer's signed transaction is still ` +
         `valid — fund/fix the fee payer (${railFeePayer}) and the buyer can re-present it.`,

@@ -315,7 +315,9 @@ requirePayment({
 })
 ```
 
-With a **facilitator** (EVM EIP-3009, or Solana), **neither side pays gas**. See the full how-tos:
+With a **keyless facilitator** (EVM EIP-3009 on Base/BNB/HyperEVM/Monad, Solana, **or Algorand**),
+**neither side pays gas** — on Algorand both the buyer *and* the merchant pay 0 ALGO (see the
+[keyless note](#keyless-exact-true-on-algorand--now-live) below). See the full how-tos:
 [the exact rail (buyer)](/making-payments/exact-buyer/) · [the exact rail (seller)](/accepting-payments/exact-rail-seller/).
 
 ## BNB Chain — a worked example of both methods
@@ -455,6 +457,47 @@ EVM-focused; the official Aptos one is testnet). So PipRail seeds none for Aptos
 **degrades gracefully** to `onchain-proof` there until a keyless Aptos facilitator is live-settled + seeded.
 :::
 
+## Sponsor protection — the fee-drain guard
+
+On the fee-payer rails (**Solana**, **Algorand**, **Aptos**) a **sponsor** pays the network fee for a
+transaction the **buyer constructed**: the buyer builds and signs the payment, and the sponsor — a keyless
+facilitator, or your own self-settle relayer — **co-signs and submits** it. That asymmetry is the point of
+gasless, but it raises one question a careful merchant should ask: *if the buyer builds the transaction,
+what stops a malicious buyer from setting an enormous fee and making my sponsor pay it?* For a sub-cent
+payment, an attacker could otherwise drain the sponsor's gas balance one over-priced transaction at a time.
+
+PipRail closes this. Before it co-signs, the gate **bounds the maximum fee the sponsor will pay** on every
+fee-payer-sponsored rail — and re-derives `payTo`, `amount`, `asset`, and `feePayer` from its **own trusted
+rail**, never the buyer's payload. The caps are deliberately **generous** (≈10× the honest path, so real
+congestion never trips them) yet **far below any meaningful drain**; a transaction over a cap is rejected
+with `signature_invalid` and the gate falls back to `onchain-proof`. The honest canonical transaction sits
+well under each ceiling, so this is invisible in normal use — it only ever stops an attack.
+
+| Rail | What the sponsor pays | What's capped | Cap |
+|---|---|---|---|
+| **Algorand** | the pooled atomic-group fee | the fee on the pooled-fee txn | **`MAX_GROUP_FEE` = 20 000 µALGO** (0.02 ALGO; honest path ≈ 2 000 µALGO) |
+| **Solana** | base + `compute_unit_limit × compute_unit_price` | the compute-unit **limit** *and* **price** | **`MAX_COMPUTE_UNIT_LIMIT` = 300 000** units · **`MAX_COMPUTE_UNIT_PRICE_MICROLAMPORTS` = 100 000** µlamports (honest path: 20 000 units @ 1 µlamport) |
+| **Aptos** | gas: `max_gas_amount × gas_unit_price` | the gas **amount** *and* **unit price** | **`MAX_GAS_AMOUNT_CAP` = 100 000** units · **`MAX_GAS_UNIT_PRICE_CAP` = 2 000** octas/unit (≤ 0.2 APT worst case) |
+| **EVM** (EIP-3009 / Permit2) | nothing buyer-controlled | — *(structurally immune)* | n/a |
+
+**EVM needs no cap.** On EIP-3009 and Permit2 the buyer signs only an off-chain *authorization* (recipient,
+amount, nonce, deadline) — it does **not** set the gas. The relayer or facilitator derives the gas at
+broadcast time from current network conditions, so a buyer can't inflate it. The fee-payer rails are the
+ones where the buyer assembles the whole transaction (including its fee fields), which is exactly why they
+each carry an explicit cap.
+
+These caps live in `sdk/src/drivers/{algorand,solana,aptos}/exact.ts` and apply identically whether the
+sponsor is a **keyless facilitator** or your **self-settle relayer** — the gate guards the transaction
+*before* anyone co-signs, so the protection holds regardless of who pays. Two further guards back them up:
+the gate accepts only the **canonical transfer shape** for each rail (Algorand: exactly a two-txn
+`[axfer fee-0, fee-pool pay]` group with a consistent group id; Solana: exactly `[cu-limit, cu-price,
+TransferChecked]` with the fee payer in no instruction; Aptos: exactly a `primary_fungible_store::transfer`
+fee-payer transaction), and it rejects any **close/rekey** (Algorand) or fee-payer-in-an-instruction
+(Solana) that could sweep funds. See [the exact rail (seller) → what you verify](/accepting-payments/exact-rail-seller/#what-the-client-signs-and-what-you-verify)
+for the full verify model these caps sit inside, and
+[the exact rail (seller) → sponsor protection](/accepting-payments/exact-rail-seller/#sponsor-protection--the-fee-drain-guard)
+for the merchant-facing summary.
+
 ## Who pays — and is any of this a fee?
 
 There are three separate things here, and only one of them is ever a real cost:
@@ -480,8 +523,11 @@ PipRail. Check [facilitator.payai.network](https://facilitator.payai.network/) f
 When a gate is configured with `settle: { facilitator }`, the SDK does just two things over plain HTTP — it
 **hosts nothing**:
 
-1. **Discovers the sponsor** — reads the facilitator's `GET /supported` to learn its **fee-payer pubkey**
-   (Solana) and advertises it on the `exact` rail, so the buyer builds the transaction against it.
+1. **Discovers the sponsor** — on the fee-payer rails (**Solana, Algorand, Aptos**) it reads the
+   facilitator's `GET /supported` to learn its **fee-payer / sponsor address** and advertises it on the
+   `exact` rail, so the buyer builds the transaction against it. (EIP-3009/Permit2 on EVM carry no
+   sponsor address — the relayer is implicit.) Pin it with `settle: { facilitator, feePayer }` to skip
+   this lookup.
 2. **Settles** — POSTs the buyer's signed authorization to the facilitator's `/verify`, then `/settle`; the
    facilitator co-signs as fee payer, broadcasts, and **pays the gas**. The receipt returns with the
    on-chain `transaction` id.
@@ -516,15 +562,15 @@ never turns into a 5xx. There are three distinct failure points:
 
 | When | What failed | Buyer/agent sees | Gate behaviour |
 |---|---|---|---|
-| **At challenge time** (Solana only) | The gate couldn't read the facilitator's fee payer from `GET /supported` (it's down, or doesn't sponsor this network) | — | The `exact` rail is **dropped** for that chain (the gate serves `onchain-proof`). With **`exact: true`** (soft) the gate then **degrades gracefully** to `onchain-proof` + a loud warning; with an **explicit** `settle` and no other exact rail, the gate **throws** a clear error. **Fix:** pin `settle: { facilitator, feePayer }` to remove the runtime dependency, or use `settle: 'self'`. |
+| **At challenge time** (the **fee-payer rails** — Solana, Algorand, Aptos) | The gate couldn't read the facilitator's fee-payer / sponsor address from `GET /supported` (it's down, or doesn't sponsor this network) | — | The `exact` rail is **dropped** for that chain (the gate serves `onchain-proof`). With **`exact: true`** (soft) the gate then **degrades gracefully** to `onchain-proof` + a loud warning; with an **explicit** `settle` and no other exact rail, the gate **throws** a clear error. **Fix:** pin `settle: { facilitator, feePayer }` to remove the runtime dependency, or use `settle: 'self'`. *(EIP-3009/Permit2 on EVM carry no sponsor address, so they have no challenge-time read.)* |
 | **At settle — transport/auth** | `/verify` or `/settle` returned a non-200, or the request itself failed (facilitator down, bad/expired auth header) | **HTTP 502** `{ error: 'settlement_failed', detail, fallback }` — *not* a 402; the **`fallback` field names `onchain-proof`** as the pay-gas retry | The gate throws [`SettlementError`](/errors/error-hierarchy/); the buyer's signed authorization stays **valid + unused**, the replay claim is **released**, and the payment can be re-presented once the facilitator recovers. The buyer is told to **verify on-chain, never re-pay** — or pay the `onchain-proof` rail. |
 | **At settle — facilitator rejection** | `/verify` returned `isValid:false`, or `/settle` returned `success:false` (insufficient funds, bad signature, expired, …) | **HTTP 402** with the mapped reason | A conformant re-challenge — the agent reads the reason (`errorReason`), fixes it, and re-presents the **same** authorization (never a fresh signature). No spend is recorded. |
 
 The split is the whole point: **"the facilitator is down" (502) and "your payment was rejected" (402)
 are different problems with different fixes**, and PipRail never blurs them. Pinning
-`settle: { facilitator, feePayer }` (Solana) removes the only *challenge-time* dependency on the
-facilitator, so a `/supported` blip can't even affect serving the challenge. Self-settle has the exact
-same error contract — substitute "your relayer" for "the facilitator".
+`settle: { facilitator, feePayer }` (on the fee-payer rails — Solana, Algorand, Aptos) removes the only
+*challenge-time* dependency on the facilitator, so a `/supported` blip can't even affect serving the
+challenge. Self-settle has the exact same error contract — substitute "your relayer" for "the facilitator".
 
 ## If every facilitator fails — the onchain-proof floor
 

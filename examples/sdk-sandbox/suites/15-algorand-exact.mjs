@@ -61,27 +61,19 @@ export async function run() {
   check('the merchant can be its OWN relayer (feePayer === payTo) — the fee txn is separate', cp?.extra?.feePayer === merchant.addr.toString())
   note('On Solana the fee payer must NOT be payTo (a MUST-rule); on Algorand it is fine.')
 
-  // ── (3) exact: true on Algorand → graceful degrade (no keyless facilitator seeded) ──
-  group('3) exact: true on Algorand → graceful degrade to onchain-proof (no keyless facilitator yet)')
-  check('no keyless facilitator is seeded for Algorand yet (so exact:true degrades, not throws)', firstKeylessFacilitator(ALGORAND) === undefined)
-  const warns = []
-  const orig = console.warn
-  console.warn = (...a) => warns.push(a.join(' '))
-  let trueChallenge
-  try {
-    // The rail resolves LAZILY on the first challenge, so the degrade warning fires here.
-    const trueGate = createPaymentGate({ chain: 'algorand', token: 'USDC', amount: '0.05', payTo: payToAddr, exact: true })
-    trueChallenge = (await trueGate.challenge()).challenge
-  } finally {
-    console.warn = orig
-  }
-  check('exact: true did NOT throw — it degraded gracefully', Boolean(trueChallenge))
-  check('the challenge serves onchain-proof (the buyer pays gas — Algorand fees are sub-cent)', trueChallenge.accepts.some((a) => a.scheme === 'onchain-proof'))
-  check('a clear degrade warning was emitted (production-visible)', warns.some((w) => /ONCHAIN-PROOF ONLY|keyless facilitator/i.test(w)))
-  note('Use `exact: { settle: \'self\', relayer }` for gasless on Algorand TODAY (proven on mainnet).')
-  note('Once a keyless Algorand facilitator is live-settled + seeded, `exact: true` will be zero-config gasless here too.')
+  // ── (3) exact: true on Algorand → NOW zero-config gasless (keyless GoPlausible seeded) ──
+  // Offline check of the SEED resolution — `exact: true` auto-picks this facilitator. The live
+  // challenge auto-discovers its sponsor from /supported (a network call), so that's in the live suite.
+  group('3) exact: true on Algorand → zero-config gasless (the keyless GoPlausible facilitator is seeded)')
+  const picked = firstKeylessFacilitator(ALGORAND)
+  check('a keyless facilitator IS now seeded for Algorand (GoPlausible) → exact:true auto-picks it', picked?.url === 'https://facilitator.goplausible.xyz', picked?.url)
+  check('it is keyless + settles the `algorand` method (the sponsor pays gas for BOTH sides)', picked?.keyless === true && picked?.settles.includes('algorand'))
+  check('firstKeylessFacilitator(ALGORAND, "algorand") resolves it for the method too', firstKeylessFacilitator(ALGORAND, 'algorand')?.url === 'https://facilitator.goplausible.xyz')
+  note('So `exact: true` on Algorand is zero-config gasless — both the buyer AND the merchant pay 0 ALGO.')
+  note('(At challenge time it auto-discovers GoPlausible’s sponsor from /supported — see the live suite.)')
+  note('Self-settle (`exact: { settle: \'self\', relayer }`) also works if you’d rather run your own relayer.')
 
-  note('▶ Real mainnet gasless round-trip: node suites/live-algorand-exact.mjs')
+  note('▶ Real mainnet gasless round-trips: node suites/live-algorand-exact.mjs (self) · live-algorand-goplausible.mjs (keyless)')
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

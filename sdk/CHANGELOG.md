@@ -72,6 +72,35 @@ built EVM bundle has zero static non-EVM imports, only lazy chunks).
   **byte-identical** (GoPlausible accepts PipRail's group as-is — the gate already sends the `amount`
   field it needs); self-settle is **behaviour-neutral** (re-proven live on mainnet). Safe because 2.4.0
   is unreleased, so no published version emitted the prefix form.
+- `verifyExact` now matches a v2 `exact` payment's CAIP-2 network **family-agnostically** (any
+  `namespace:reference`, not just `eip155:`), so a foreign non-EVM v2 payment (`solana:…`/`algorand:…`/
+  `aptos:…`) routes precisely by network on a multi-rail gate instead of relying on the asset filter.
+  PipRail's own buyer (which always echoes the asset) is unaffected.
+
+### Security
+
+A pre-release adversarial sweep of every `exact` rail found — and this release fixes — a **sponsor
+fee-drain** class on the two rails where the buyer constructs a fee/gas parameter the gate co-signs and
+submits from the sponsor's balance (the keyless facilitator, or the merchant's self-settle relayer). In
+both cases the buyer signs a valid, correctly-bound transfer, so every other check (recipient, amount,
+asset, fee-payer isolation) passed and simulation succeeded — only the fee magnitude was unbounded. Both
+now cap it, mirroring the Aptos rail's existing gas caps. Neither shipped in a released version (the
+Algorand/Aptos rails are new in 2.4.0; the Solana cap hardens a rail first released in 2.x), and both are
+covered by a new red-then-green adversarial test.
+
+- **Algorand** (`drivers/algorand/exact.ts`): the seller co-signed the buyer-supplied pooled-fee `pay`
+  txn **without bounding its fee**. A malicious buyer could name the sponsor as fee payer and set an
+  arbitrarily large fee, draining it for a sub-cent transfer. Fixed with `MAX_GROUP_FEE` (20 000 µALGO,
+  ~10× the honest `minFee × 2`).
+- **Solana** (`drivers/solana/exact.ts`): the seller did not bound the **compute-unit limit/price**
+  (the priority fee the fee payer pays). A malicious buyer could set a huge `setComputeUnitLimit` ×
+  `setComputeUnitPrice` and drain the sponsor's SOL (Solana's max budget makes this multi-SOL per
+  request). Fixed with `MAX_COMPUTE_UNIT_LIMIT` (300 000) + `MAX_COMPUTE_UNIT_PRICE_MICROLAMPORTS`
+  (100 000), enforced before co-signing — worst case ≈ 0.00003 SOL, vs the canonical 20 000-unit @
+  1-µlamport path.
+- EVM (EIP-3009 / Permit2) and Aptos were reviewed and found **not** exposed: EVM derives gas at
+  broadcast (never from the buyer payload), and Aptos already caps gas. The fee-payer drain guards are
+  now consistent across all four rails.
 
 ## [2.3.0] — 2026-06-17 — `exact: true` zero-config gasless gate
 
