@@ -4,7 +4,36 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
-## [2.2.0] — 2026-06-16 — broader x402 ecosystem interoperability
+## [2.3.0] — 2026-06-17 — `exact: true` zero-config gasless gate
+
+Additive and backward-compatible — defaults and the zero-config 402 stay byte-identical. A new
+opt-in shorthand makes the gasless `exact` rail one line, and it degrades gracefully instead of
+breaking when no facilitator covers a chain.
+
+### Added
+
+- **`exact: true` on `requirePayment` / `createPaymentGate` — zero-config gasless.** Equivalent to
+  `exact: { settle: 'keyless' }`: the gate auto-advertises a gasless `exact` rail and, at settle
+  time, picks the first known **keyless** (no-API-key) facilitator for the chain from the built-in
+  `KNOWN_FACILITATORS` map, so buyers pay no gas and the merchant runs no relayer. One line, no
+  facilitator URL, no relayer key.
+- **`ExactRailOption.settle` accepts `'keyless'`** alongside `'self'` and `{ facilitator }`, and
+  `exact` accepts `boolean | ExactRailOption`. The boolean shorthand normalizes to
+  `{ settle: 'keyless' }`.
+
+### Changed
+
+- **Graceful degrade for the soft path.** When `exact: true` (or `settle: 'keyless'`) is set but no
+  keyless facilitator covers the offered chain, the gate **does not throw** — it logs a clear,
+  production-visible warning and serves the `onchain-proof` floor (buyers pay their own gas), so a
+  resource never goes dark over a coverage gap. An **explicit** `settle: 'self'` or
+  `settle: { facilitator }` still throws on a coverage gap (you asked for a specific rail; a silent
+  fallback would hide a misconfiguration). Suppress the soft-path hints with `PIPRAIL_NO_HINTS=1`.
+- **A failed gasless settlement returns a clear fallback hint.** When a facilitator settle fails at
+  pay time, the 502 body now carries a `fallback` field telling the caller the resource also accepts
+  `onchain-proof` — retry by paying that rail yourself.
+
+
 
 Both changes are additive and backward-compatible — defaults and the zero-config 402 stay
 byte-identical; only previously-skipped cases become newly handled.
@@ -1220,6 +1249,7 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[2.3.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.2.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.1.1]: https://www.npmjs.com/package/@piprail/sdk
 [2.1.0]: https://www.npmjs.com/package/@piprail/sdk
