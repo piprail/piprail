@@ -1,6 +1,6 @@
 ---
 title: Gasless payments
-description: How gasless x402 payments work in PipRail — the two rails (onchain-proof vs the gasless exact rail), the exact rail's three auto-selected methods (EIP-3009, Permit2, SVM), and a clear table of exactly which chains and tokens are gasless and which aren't.
+description: How gasless x402 payments work in PipRail — the two rails (onchain-proof vs the gasless exact rail), the exact rail's four auto-selected methods (EIP-3009, Permit2, SVM, Algorand), and a clear table of exactly which chains and tokens are gasless and which aren't.
 sidebar:
   order: 9
 ---
@@ -21,23 +21,25 @@ falls out:
     Works on every chain. (The "with-gas" path.)
   - **`exact`** — the ratified x402 rail (**opt-in**). You only **sign**; someone else broadcasts, so
     **you pay zero gas**. This is the gasless rail.
-- **`exact` has three *methods*** — *how* the signature is shaped, **auto-selected** per chain + token.
+- **`exact` has four *methods*** — *how* the signature is shaped, **auto-selected** per chain + token.
   These are children of `exact`, **not** alternatives to it:
   - **EIP-3009** — EVM tokens with `transferWithAuthorization` (USDC, EURC). The clean path.
   - **Permit2** — EVM tokens *without* EIP-3009 (e.g. Binance-Peg USDC on BNB). Self-settle only.
   - **SVM** — Solana, any SPL token.
+  - **Algorand** — any ASA (USDCa), via an atomic-group **fee pool** (the buyer's transfer rides at fee 0).
 
 So it's **not** "gas vs permit vs exact." It's: **`onchain-proof` (with-gas) vs `exact` (gasless)**, and
-**`exact` happens to be implemented three ways** (EIP-3009 / Permit2 / SVM) that the SDK picks for you.
-You never name a method by hand.
+**`exact` happens to be implemented four ways** (EIP-3009 / Permit2 / SVM / Algorand) that the SDK picks
+for you. You never name a method by hand.
 
 ```text
   a 402 payment
   ├── onchain-proof   ← default · you broadcast · YOU PAY GAS · every chain
-  └── exact           ← opt-in  · you only sign · ZERO gas for you · EVM + Solana
+  └── exact           ← opt-in  · you only sign · ZERO gas for you · EVM + Solana + Algorand
         ├── EIP-3009   (EVM: USDC, EURC)         ┐ picked
         ├── Permit2    (EVM: other ERC-20s)      │ automatically
-        └── SVM        (Solana: any SPL token)   ┘ per chain+token
+        ├── SVM        (Solana: any SPL token)   │ per chain+token
+        └── Algorand   (Algorand: any ASA)       ┘
 ```
 
 ## What "gasless" means
@@ -46,8 +48,9 @@ In an ordinary on-chain payment the buyer **broadcasts** the transfer and **pays
 standard x402 **`exact` rail is gasless _for the buyer_**: the buyer only **signs** the transfer
 (zero gas, no native coin needed), and someone else broadcasts it — the merchant's own **relayer**
 (self-settle) or a **facilitator**. On EVM the buyer signs an off-chain authorization; on **Solana**
-the buyer partial-signs the transfer transaction and a **fee payer** completes + broadcasts it. Either
-way the buyer needs only the *token*, never the gas coin.
+the buyer partial-signs the transfer transaction and a **fee payer** completes + broadcasts it; on
+**Algorand** the buyer signs an asset transfer at **fee 0** that's atomically grouped with a sponsor's
+**fee-pooling** transaction. Either way the buyer needs only the *token*, never the gas coin.
 
 **Who pays the gas, then?** Whoever settles. With **self-settle** the merchant's relayer pays the
 (tiny) fee to receive. With a **facilitator** (e.g. PayAI), the **facilitator pays the gas — so
@@ -61,7 +64,7 @@ PipRail offers up to two rails on a single 402; the agent picks one.
 |---|---|---|
 | Who broadcasts | the **buyer** | the merchant's relayer / a facilitator |
 | Buyer pays gas? | **yes** (a normal transfer) | **no** — just signs |
-| Where it works | **every** chain + token PipRail supports | **EVM** + **Solana** (below) |
+| Where it works | **every** chain + token PipRail supports | **EVM** + **Solana** + **Algorand** (below) |
 | Opt-in | default | `schemes: ['onchain-proof', 'exact']` |
 
 `onchain-proof` is PipRail's backendless default — universal, but the buyer holds the gas token.
@@ -93,10 +96,11 @@ can't settle. A native coin, an EVM token that's neither EIP-3009 nor facilitato
 family with no `exact` scheme is simply served over `onchain-proof` (the with-gas rail). You don't have
 to detect any of this; the gate does.
 
-## Three `exact` methods: EIP-3009, Permit2, and SVM
+## Four `exact` methods: EIP-3009, Permit2, SVM, and Algorand
 
-The `exact` rail works one of three ways, depending on the chain + token. **PipRail auto-selects**
-(`method: 'auto'`), so you rarely choose by hand — Solana always uses SVM; EVM picks EIP-3009 or Permit2.
+The `exact` rail works one of four ways, depending on the chain + token. **PipRail auto-selects**
+(`method: 'auto'`), so you rarely choose by hand — Solana always uses SVM, Algorand uses its fee-pool
+group, and EVM picks EIP-3009 or Permit2.
 
 | | **EIP-3009** (EVM, gold path) | **Permit2** (EVM) | **SVM** (Solana) |
 |---|---|---|---|
@@ -128,6 +132,16 @@ token feature — so it works for **any SPL token equally** (USDC and USDT alike
 `TransferChecked` with the merchant's public key as the fee payer, signs only its own slot, and hands
 the partially-signed transaction to the gate, which co-signs as fee payer and broadcasts. (See the
 [architecture note](#solana--how-svm-gasless-works) below for the fee-payer safety rules.)
+
+**Algorand is the fourth method, and it's gasless by *fee pooling*** — Algorand has no per-account fee
+payer like Solana; instead a transaction **group** pools fees, so one txn can over-pay and cover a
+fee-0 sibling. The buyer signs an **ASA `axfer` to `payTo` at fee 0** (zero ALGO), atomically grouped
+with a **0-ALGO `pay`** from the `feePayer` whose fee covers the whole group; the sponsor (the merchant's
+relayer, or a keyless facilitator) signs that fee txn and submits the group. So **any ASA (USDCa) is
+gasless on Algorand**, with no token feature required. Unlike Solana, **`feePayer === payTo` is allowed**
+(the fee txn is separate from the transfer — no isolation rule), so a merchant can be its own relayer.
+Native **ALGO** isn't exact-payable (the scheme is an ASA transfer) — it stays on `onchain-proof`. (See
+the [architecture note](#algorand--how-fee-pooled-gasless-works) below.)
 
 ## ⭐ Which chains & tokens are gasless?
 
@@ -168,11 +182,25 @@ merchant's relayer pays the sub-cent fee. Requirements: the fee-payer key must b
 `payTo`**, and the recipient's **token account must already exist** — the exact rail won't create it
 (a brand-new recipient can be paid on `onchain-proof`, which does).)*
 
+### Gasless via Algorand — any ASA, fee-pooled group, no per-token setup
+
+| Token | Gasless on |
+|---|---|
+| **USDC** (native Circle USDCa) · **any ASA** | Algorand |
+
+*(Like Solana, the gasless mechanism is structural — an atomic-group **fee pool**, not a token feature —
+so **any ASA is equally gasless**. The buyer signs the asset transfer at fee 0; the sponsor (the
+merchant's relayer in self-settle, or a keyless facilitator) pays the pooled ~0.002-ALGO group fee.
+`feePayer === payTo` is allowed (the merchant can sponsor its own receive). The recipient must be
+**opted into the ASA** to receive it — `recipientReady()` checks this. Native **ALGO** isn't
+exact-payable. Live-proven on Algorand mainnet.)*
+
 ### NOT gasless → `onchain-proof` (the buyer broadcasts)
 
-- **Native coins** (ETH, BNB, SOL, MATIC, …) — nothing to authorize / no fee-payer split.
-- **The other non-EVM families** — TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, XRPL. (Fees there are
-  sub-cent, but the buyer signs *and* broadcasts.) **Solana is the exception** — it's gasless via SVM (above).
+- **Native coins** (ETH, BNB, SOL, ALGO, MATIC, …) — nothing to authorize / no fee-payer split.
+- **The other non-EVM families** — TON, Tron, NEAR, Sui, Aptos, Stellar, XRPL. (Fees there are
+  sub-cent, but the buyer signs *and* broadcasts.) **Solana and Algorand are the exceptions** — gasless
+  via SVM and the fee-pooled Algorand rail (above).
 - **USDT** on EVM chains where it isn't EIP-3009 **and** has no Permit2 proxy (Tether implements no
   EIP-3009 anywhere) — and bridged USDC (e.g. Mantle, Scroll), which isn't the Circle FiatToken.
 
@@ -236,6 +264,17 @@ sub-cent SOL fee:
 exact: { settle: 'self', relayer: { key: process.env.SOLANA_RELAYER_KEY } } // fee payer ≠ payTo
 ```
 
+**Seller on Algorand — gasless self-settle** (proven on mainnet). The buyer signs an ASA transfer at
+fee 0; your relayer pools the sub-cent group fee. Here the relayer can even be `payTo` itself:
+
+```ts
+requirePayment({
+  chain: 'algorand', token: 'USDC', amount: '0.05', payTo: 'YOURALGOADDRESS…',
+  exact: { settle: 'self', relayer: { key: process.env.ALGO_RELAYER_MNEMONIC } }, // 25-word mnemonic
+})
+// recipient (payTo) must be opted into the USDC ASA to receive it.
+```
+
 With a **facilitator** (EVM EIP-3009, or Solana), **neither side pays gas**. See the full how-tos:
 [the exact rail (buyer)](/making-payments/exact-buyer/) · [the exact rail (seller)](/accepting-payments/exact-rail-seller/).
 
@@ -295,6 +334,43 @@ You choose the facilitator (PipRail depends on none). PayAI is the zero-config d
 Solana gate; point `settle.facilitator` at whichever you trust. For the **full cross-chain list** — Base-only
 options like **[xpay](https://www.xpay.sh/)**, and which providers need an API key (Daydreams, Questflow) — see
 [Facilitator coverage → live-verified facilitators](/accepting-payments/facilitator-coverage/#live-verified-facilitators).
+
+## Algorand — how fee-pooled gasless works
+
+Algorand's `exact` rail (the ratified x402 `scheme_exact_algo`) is gasless by a third mechanism —
+**transaction-group fee pooling**. Algorand has no per-account fee-payer slot; instead the total fee of
+an atomic group need only cover the group, so one transaction can over-pay and a sibling can ride at
+fee 0:
+
+1. The **buyer** builds the canonical two-transaction group:
+   `[ ASA axfer → payTo at fee 0 , feePayer 0-ALGO pay whose fee covers the whole group ]`, assigns the
+   group id, and signs **only** its own transfer (fee 0). It sends `{ paymentIndex, paymentGroup }`
+   (base64 msgpack) and spends **no** ALGO. The fee txn is left **unsigned** for the sponsor.
+2. The **sponsor** completes + submits it:
+   - **Self-settle** — the gate verifies the group against its own trusted rail (re-deriving the
+     receiver, amount, and ASA id — never trusting the client), checks the fee txn is benign
+     (`pay`, 0 ALGO, sent by the rail's `feePayer`, no close/rekey), **co-signs the fee txn**,
+     `simulate`s the group (which verifies the buyer's signature), and submits. The relayer pays the
+     sub-cent (~0.002 ALGO) group fee. **Live-proven on mainnet.**
+   - **Facilitator** — a keyless Algorand facilitator signs the fee txn + submits, paying the fee, so
+     **neither buyer nor merchant pays gas**.
+
+Because gasless-ness lives in the **group**, not the token, **any ASA is gasless equally** (USDCa and
+beyond). Safety: the gate signs **only** the fee txn (sender = the trusted `feePayer`), the group must be
+exactly the canonical two-txn shape with a consistent group id, and the chain enforces signatures +
+group integrity atomically at `simulate`/submit. Unlike Solana, **`feePayer === payTo` is allowed** — the
+fee txn is a separate transaction, so a merchant paying its own receive fee violates no isolation rule.
+The recipient must be **opted into the ASA** (`recipientReady()` reports `NOT_OPTED_IN` otherwise), and
+native **ALGO** stays on `onchain-proof`.
+
+:::note[Keyless `exact: true` on Algorand]
+A keyless Algorand facilitator (e.g. GoPlausible, the Algorand-Foundation facilitator) would make
+`exact: true` zero-config gasless on Algorand too. Today PipRail seeds none for Algorand — GoPlausible's
+`/supported` lists Algorand but under a **non-CAIP-2 network id** (the full 44-char genesis hash vs. the
+spec-compliant 32-char form), so it can't be auto-matched yet. Until a keyless Algorand facilitator is
+live-settled + seeded, use **self-settle** (`exact: { settle: 'self', relayer }`) for gasless Algorand —
+it's proven on mainnet — and `exact: true` **degrades gracefully** to `onchain-proof` there.
+:::
 
 ## Who pays — and is any of this a fee?
 

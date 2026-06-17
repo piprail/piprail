@@ -86,8 +86,11 @@ export interface X402ExactAcceptEntry {
      *  `spender` is the canonical x402ExactPermit2Proxy and whose `witness.to` binds the
      *  recipient. **Solana (SVM): `'svm'`** — the payer partial-signs an SPL
      *  `TransferChecked` transaction whose fee payer is the merchant (`feePayer` below),
-     *  and the gate co-signs as fee payer + broadcasts. PipRail self-settles ALL. */
-    assetTransferMethod: 'eip3009' | 'permit2' | 'svm'
+     *  and the gate co-signs as fee payer + broadcasts. **Algorand: `'algorand'`** — the payer
+     *  signs an ASA `axfer` to `payTo` at fee 0, atomically grouped with a 0-ALGO `pay` from
+     *  the `feePayer` that pools the group fee (per `scheme_exact_algo.md`); the gate (or a
+     *  keyless facilitator) signs that fee txn + submits. PipRail self-settles ALL. */
+    assetTransferMethod: 'eip3009' | 'permit2' | 'svm' | 'algorand'
     /** EIP-712 domain name of the token. OPTIONAL per the exact-EVM scheme (only
      *  `assetTransferMethod` is required) — a foreign rail may omit it. NEVER assumed
      *  from the symbol (USDC's on-chain name() is "USD Coin", not "USDC"); a PipRail gate
@@ -214,12 +217,30 @@ export interface ExactSvmPaymentPayload {
   transaction: string
 }
 
+/**
+ * The `payload` a client sends for the **Algorand `exact`** variant, per
+ * `scheme_exact_algo.md`: an atomically-grouped set of base64-encoded msgpack transactions,
+ * and the index within it of the transaction that pays the resource server. The buyer's ASA
+ * `axfer` (to `payTo`, fee 0) is SIGNED; a 0-ALGO `pay` from the `feePayer` that pools the
+ * group fee is left UNSIGNED for whoever sponsors (the gate's relayer in self mode, or a
+ * keyless facilitator). The group itself IS the proof — there's no separate authorization
+ * object (the Algorand analogue of EIP-3009's `authorization` / SVM's `transaction`).
+ */
+export interface ExactAlgorandPaymentPayload {
+  /** Index into `paymentGroup` of the txn that pays the resource server (the buyer's `axfer`). */
+  paymentIndex: number
+  /** The atomic group: each element is a base64-encoded, msgpack-encoded (signed or unsigned)
+   *  Algorand transaction. ≤ 16 elements (the protocol's atomic-group cap). */
+  paymentGroup: string[]
+}
+
 /** Any `exact`-rail payload shape — EIP-3009 (`authorization`), Permit2 (`permit2Authorization`),
- *  or SVM (`transaction`). */
+ *  SVM (`transaction`), or Algorand (`paymentGroup`). */
 export type ExactPaymentPayloadAny =
   | ExactPaymentPayload
   | Permit2PaymentPayload
   | ExactSvmPaymentPayload
+  | ExactAlgorandPaymentPayload
 
 interface ParsedExactBase {
   x402Version: number
@@ -239,12 +260,14 @@ interface ParsedExactBase {
  * re-derives every verified field from its own trusted rail. A discriminated union on
  * `method`, so narrowing on `method` narrows `payload`: `'eip3009'` → {@link ExactPaymentPayload}
  * (`authorization`), `'permit2'` → {@link Permit2PaymentPayload} (`permit2Authorization`),
- * `'svm'` → {@link ExactSvmPaymentPayload} (`transaction`).
+ * `'svm'` → {@link ExactSvmPaymentPayload} (`transaction`), `'algorand'` →
+ * {@link ExactAlgorandPaymentPayload} (`paymentGroup`).
  */
 export type ParsedExactPayment =
   | (ParsedExactBase & { method: 'eip3009'; payload: ExactPaymentPayload })
   | (ParsedExactBase & { method: 'permit2'; payload: Permit2PaymentPayload })
   | (ParsedExactBase & { method: 'svm'; payload: ExactSvmPaymentPayload })
+  | (ParsedExactBase & { method: 'algorand'; payload: ExactAlgorandPaymentPayload })
 
 export interface X402Receipt {
   scheme: 'onchain-proof' | 'exact'
@@ -578,6 +601,30 @@ export function parseExactPaymentHeader(value: string): ParsedExactPayment | nul
   // Checked FIRST because, unlike the EVM shapes, it carries no top-level `signature`.
   if (typeof payload.transaction === 'string') {
     return { ...base, method: 'svm', payload: { transaction: payload.transaction } }
+  }
+
+  // Algorand shape: payload.paymentGroup is an array of base64 msgpack txns + a paymentIndex
+  // (also no top-level `signature`). Validate the shape strictly (every element a string, a
+  // sane index inside the ≤16 group) so a malformed group is a clean miss, not a crash.
+  if (Array.isArray(payload.paymentGroup)) {
+    const group = payload.paymentGroup
+    const index = payload.paymentIndex
+    if (
+      group.length === 0 ||
+      group.length > 16 ||
+      !group.every((t) => typeof t === 'string') ||
+      typeof index !== 'number' ||
+      !Number.isInteger(index) ||
+      index < 0 ||
+      index >= group.length
+    ) {
+      return null
+    }
+    return {
+      ...base,
+      method: 'algorand',
+      payload: { paymentIndex: index, paymentGroup: group as string[] },
+    }
   }
 
   const signature = payload.signature

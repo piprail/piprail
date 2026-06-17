@@ -33,6 +33,11 @@ import {
   type AlgorandPreset,
 } from './chains.js'
 import { payAlgorand, type AlgorandPayClient } from './pay.js'
+import {
+  payExactAlgorand,
+  verifyAndSettleExactAlgorand,
+  type AlgorandSettleClient,
+} from './exact.js'
 import { verifyAlgorand, type AlgorandReader, type AlgorandTxRecord } from './verify.js'
 import {
   assertAlgorandWallet,
@@ -107,6 +112,30 @@ function makeAlgorandNetwork(preset: AlgorandPreset, algodUrl: string): Resolved
     async signSend({ txn, sk }) {
       const signed = (txn as { signTxn(sk: Uint8Array): Uint8Array }).signTxn(sk)
       await algod.sendRawTransaction(signed).do()
+    },
+  }
+
+  // The standard `exact` rail's network ops, adapted from the real algod so exact.ts stays a
+  // pure, mockable module. simulate verifies signatures (allow-empty-signatures defaults false);
+  // sendRawTransaction concatenates the array into one atomic-group submission.
+  const settleClient: AlgorandSettleClient = {
+    async simulate(signedGroup) {
+      const resp = (await algod.simulateRawTransactions(signedGroup).do()) as {
+        txnGroups?: { failureMessage?: string }[]
+      }
+      const fm = resp?.txnGroups?.[0]?.failureMessage
+      return { failureMessage: fm && fm.length > 0 ? fm : null }
+    },
+    async submit(signedGroup) {
+      const res = (await algod.sendRawTransaction(signedGroup).do()) as { txid?: string }
+      return res?.txid ?? ''
+    },
+    async waitForConfirmation(txid) {
+      const info = (await algosdk.waitForConfirmation(algod, txid, 10)) as {
+        confirmedRound?: bigint | number
+      }
+      const r = info.confirmedRound
+      return r != null && Number(r) > 0 ? Number(r) : null
     },
   }
 
@@ -190,7 +219,20 @@ function makeAlgorandNetwork(preset: AlgorandPreset, algodUrl: string): Resolved
       }
     },
 
-    async estimateCost() {
+    async estimateCost(accept) {
+      // Standard `exact` rail: the buyer only SIGNS its asset transfer at fee 0; the fee payer
+      // (a keyless facilitator, or the merchant's relayer) pools the group fee and submits — so
+      // the BUYER's gas is 0 (mirrors the EVM/Solana drivers). Report it gasless so the planner
+      // shows the rail as buyer-gasless and `autoRoute` prefers it over onchain-proof.
+      if (accept.scheme === 'exact') {
+        return nativeCost({
+          symbol: ALGO_SYMBOL,
+          decimals: ALGO_DECIMALS,
+          fee: 0n,
+          basis: 'estimated',
+          detail: 'gasless — the fee payer (facilitator/relayer) pools the group fee; the buyer pays 0 ALGO',
+        })
+      }
       // Algorand's minimum fee is 1000 microAlgos (0.001 ALGO) per transaction —
       // flat and sub-cent. A small heuristic in ALGO (6dp) is honest.
       return nativeCost({
@@ -248,6 +290,60 @@ function makeAlgorandNetwork(preset: AlgorandPreset, algodUrl: string): Resolved
       // Re-derive the watched account from the TRUSTED accept (payTo), not the
       // client ref — binding/provenance come from the note + the inbound transfer.
       return verifyAlgorand({ reader, accept })
+    },
+
+    // Standard x402 `exact` rail, BUYER side — build the canonical 2-txn group (buyer axfer at
+    // fee 0 + the fee payer's pooled-fee pay txn), sign ONLY the axfer (the buyer spends zero
+    // ALGO). Never submits. Throws UnsupportedSchemeError for native / a missing feePayer / a
+    // feePayer that equals the payer.
+    async payExact(wallet: WalletHandle, accept) {
+      const signer = resolveAlgorandWallet(wallet._native as AlgorandWalletConfig)
+      const suggestedParams = await algod.getTransactionParams().do()
+      const { payload, payerFrom, nonce } = await payExactAlgorand({
+        suggestedParams,
+        sk: signer.sk,
+        sender: signer.addr,
+        accept,
+      })
+      return { payload, accepted: accept, payerFrom, nonce }
+    },
+
+    // Standard x402 `exact` rail, SELLER side — verify the inbound group against the trusted
+    // accept, then co-sign the fee txn as the fee payer + submit the group (self-settle, no
+    // facilitator). The buyer stays gasless; the merchant's relayer pays the pooled group fee.
+    async settleExactSelf({ relayer, payload, accept }) {
+      if (!('paymentGroup' in payload)) {
+        // A non-Algorand payload reached the Algorand driver — impossible via the gate's per-spec
+        // routing, but fail closed as a client fault rather than crash.
+        return { ok: false, error: 'signature_invalid', detail: 'Algorand exact expects a { paymentGroup } payload.' }
+      }
+      const signer = resolveAlgorandWallet(relayer._native as AlgorandWalletConfig)
+      return verifyAndSettleExactAlgorand({
+        client: settleClient,
+        feePayerSk: signer.sk,
+        feePayerAddr: signer.addr,
+        payload,
+        accept,
+      })
+    },
+
+    // The gate's rail-advertisement SPI. The fee payer is EITHER a keyless facilitator's sponsor
+    // address (`feePayer` — facilitator mode, neither buyer nor merchant pays gas) OR the
+    // merchant's own bound `relayer` (self mode); native ALGO isn't exact-payable. `null` ⇒ no
+    // exact rail. The buyer fee-pools the group, so the merchant may even reuse `payTo` as the
+    // relayer (Algorand allows feePayer === payTo — the fee txn is separate, unlike Solana).
+    async resolveExactRail({ asset, relayer, feePayer }) {
+      if (asset === 'native') return null
+      let fp = feePayer
+      if (!fp && relayer) {
+        try {
+          fp = resolveAlgorandWallet(relayer._native as AlgorandWalletConfig).addr
+        } catch {
+          return null // a malformed relayer mnemonic can't carry a rail
+        }
+      }
+      if (!fp || !algosdk.isValidAddress(fp)) return null
+      return { method: 'algorand', extra: { feePayer: fp } }
     },
   }
 }

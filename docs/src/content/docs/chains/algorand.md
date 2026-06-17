@@ -140,7 +140,31 @@ const optIn = algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
 await algod.sendRawTransaction(optIn.signTxn(account.sk)).do()  // one-time, per account per ASA
 ```
 
-The payer needs a little **ALGO for gas** either way — fees are a flat 0.001 ALGO.
+The payer needs a little **ALGO for gas** on the `onchain-proof` rail — fees are a flat 0.001 ALGO. On
+the gasless **`exact`** rail (below) the payer needs **no ALGO at all**.
+
+## Gasless — the `exact` rail (the buyer pays zero ALGO)
+
+Beyond `onchain-proof`, Algorand supports the ratified x402 **`exact` rail** (opt-in), and it's
+**gasless for the buyer**. Algorand has no per-account fee payer like Solana; instead a transaction
+**group pools fees**, so the buyer signs an ASA transfer at **fee 0**, atomically grouped with a
+0-ALGO `pay` whose pooled fee covers the whole group. The sponsor — your own relayer, or a keyless
+facilitator — signs that fee txn and submits the group. The buyer spends **zero ALGO**, holding only
+USDC:
+
+```ts
+import { requirePayment } from '@piprail/sdk'
+
+requirePayment({
+  chain: 'algorand', token: 'USDC', amount: '0.10', payTo: 'YourAlgoAddr',
+  exact: { settle: 'self', relayer: { key: process.env.ALGO_RELAYER_MNEMONIC! } }, // pools the group fee
+})
+```
+
+Unlike Solana, the relayer **may be `payTo` itself** (the fee txn is separate — no isolation rule), so
+a single merchant account can self-settle. `payTo` must be opted into the ASA. Native **ALGO** isn't
+exact-payable (the scheme is an ASA transfer) — it stays `onchain-proof`. **Live-proven on Algorand
+mainnet.** Full mechanism: [Gasless payments → Algorand](/making-payments/gasless-payments/#algorand--how-fee-pooled-gasless-works).
 
 ## Proof binding — Template A (note-bound)
 
@@ -159,8 +183,9 @@ AlgoNode default — the public indexer is production-grade for this read, so ov
 rarely necessary. The public algod is rate-limited; pass your own `rpcUrl` in production.
 
 :::tip
-Algorand's `exact` scheme is part of the official x402 standard, but the incumbent on-chain path
-there uses a hosted **facilitator**. PipRail is the backendless, no-facilitator option — the
-payer broadcasts and the merchant verifies locally. See [Chains and
+Algorand's `exact` scheme is part of the official x402 standard, and the incumbent on-chain path there
+uses a hosted **facilitator**. PipRail gives you **both**: the backendless `onchain-proof` default (the
+payer broadcasts, the merchant verifies locally — no facilitator) **and** the gasless `exact` rail
+(above), which you can **self-settle** with your own relayer — still no third party. See [Chains and
 tokens](/concepts/chains-and-tokens/).
 :::

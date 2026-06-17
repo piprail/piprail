@@ -28,7 +28,8 @@ with `exact: { settle: { facilitator: '<facilitator url>' } }` — see
 | Facilitator | Keyless? | PipRail live-tested | Mainnet `exact` networks |
 |---|---|---|---|
 | **[PayAI](https://facilitator.payai.network/)** | ✅ keyless | ✅ Solana + Base | Base, Solana, Avalanche, Polygon, Arbitrum, Sei +24 |
-| **[Corbits](https://corbits.dev/)** | ✅ keyless | ✅ Solana | Solana, Base, Polygon, Monad +38 |
+| **[Corbits](https://corbits.dev/)** | ✅ keyless | ✅ Solana + **Monad** | Solana, Base, Polygon, Monad +38 |
+| **[Ultravioleta DAO](https://facilitator.ultravioletadao.xyz/)** | ✅ keyless | ✅ **HyperEVM** | HyperEVM, Celo, Unichain, Optimism, Monad, Scroll, Ethereum, Arbitrum, Polygon + Solana, Stellar, Sui, Algorand, NEAR, XRPL |
 | **[OpenFacilitator](https://www.openfacilitator.io/)** | ✅ keyless | ✅ Solana | Base, Solana, Stacks |
 | **[xpay](https://www.xpay.sh/)** | ✅ zero-fee | ✅ Base | Base |
 | **[Daydreams](https://daydreams.systems/)** | 🔑 API key | — | Ethereum, Base, Solana |
@@ -53,7 +54,11 @@ OpenFacilitator Solana
 Corbits Solana
 [`BCreYer…`](https://solscan.io/tx/BCreYerDkQQykiZ1qLbvo9P4cGwhh2Gestc8sft8X7cmcQHdxi1SUDz6vcxu1vcKKhvprCjsgX5rfgbtEhrXHdU) ·
 xpay Base
-[`0x2273d5…`](https://basescan.org/tx/0x2273d5855a180002c6999ddf9fd26b03f62ae9ee0214983efddaefc1d42125d3).
+[`0x2273d5…`](https://basescan.org/tx/0x2273d5855a180002c6999ddf9fd26b03f62ae9ee0214983efddaefc1d42125d3) ·
+Corbits **Monad**
+[`0x7797be…`](https://monadexplorer.com/tx/0x7797be27ce22c17f7433a0389bd22d46e338899b1faac505fffd068174428ae6) ·
+Ultravioleta **HyperEVM**
+[`0x56af81…`](https://hyperevmscan.io/tx/0x56af8148a92a291f0ce362e250919f7742074e5464ac0f315ad68abaec93bd0a).
 
 You're never locked to any of them — keep one, swap it, or run your own (self-settle / Kora). See
 [keep PayAI, or swap it](/making-payments/gasless-payments/#keep-payai-or-swap-it). **PipRail depends on
@@ -81,15 +86,24 @@ firstKeylessFacilitator('eip155:999999') // unknown network
 
 Each `KnownFacilitator` has a `url` (no trailing slash), a `keyless` boolean (true ⇒ no API key, the
 facilitator sponsors gas), the `schemes` it settles (today `'exact'`), the exact transfer `settles`
-methods (`'eip3009' | 'permit2' | 'svm'`), and an optional `note`.
+methods (`'eip3009' | 'permit2' | 'svm' | 'algorand'`), and an optional `note`.
 
 :::caution
-**What's seeded, and what isn't.** The map carries only **live-confirmed keyless** entries: **Base** →
-PayAI + xpay (`eip3009`); **Solana** → PayAI + OpenFacilitator + Corbits (`svm`) — each settled a real
-payment with no key (see [Live-verified facilitators](#live-verified-facilitators)). **Daydreams** and
+**What's seeded, and what isn't.** The map carries only **live-confirmed keyless** entries — each
+settled a real mainnet payment with no key, buyer paid zero gas (see
+[Live-verified facilitators](#live-verified-facilitators)):
+
+- **Base** (`eip155:8453`) → PayAI + xpay (`eip3009`)
+- **Monad** (`eip155:143`) → Corbits (`eip3009`) — *new, live-settled 2026-06-17*
+- **HyperEVM** (`eip155:999`) → Ultravioleta DAO (`eip3009`) — *new, live-settled 2026-06-17*
+- **Solana** → PayAI + OpenFacilitator + Corbits (`svm`)
+
+So **`exact: true` is zero-config gasless on Base, Monad, HyperEVM, and Solana** today. **Daydreams** and
 **Questflow** are deliberately **omitted** — their `/supported` is public but `/verify` needs an API key.
 `x402.org/facilitator` is **not** seeded either — it's a Base *Sepolia* testnet facilitator, not a
-mainnet rail. On a network not in the map, pass an explicit `exact: { settle: { facilitator } }`.
+mainnet rail. A keyless **Algorand** facilitator isn't seeded yet (GoPlausible lists Algorand under a
+non-CAIP-2 network id) — use **self-settle** for gasless Algorand. On a network not in the map, pass an
+explicit `exact: { settle: { facilitator } }`.
 :::
 
 ## Reading a facilitator's live `/supported`

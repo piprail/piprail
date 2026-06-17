@@ -311,10 +311,10 @@ type ResolvedExactMode =
  *  settles. Present when `options.exact` is set and the spec's family can carry it
  *  (EVM ERC-20 via EIP-3009/Permit2, or Solana SPL via the SVM scheme). */
 interface ResolvedExactRail {
-  /** `'eip3009'`/`'permit2'` (EVM) or `'svm'` (Solana). */
-  method: 'eip3009' | 'permit2' | 'svm'
+  /** `'eip3009'`/`'permit2'` (EVM), `'svm'` (Solana), or `'algorand'` (Algorand). */
+  method: 'eip3009' | 'permit2' | 'svm' | 'algorand'
   /** Family-specific keys the driver supplies, merged verbatim into the accept's `extra`
-   *  (EVM EIP-3009: the token's `name`/`version`; Solana: `feePayer`/`tokenProgram`). */
+   *  (EVM EIP-3009: the token's `name`/`version`; Solana/Algorand: `feePayer`[/`tokenProgram`]). */
   extra?: Record<string, unknown>
   mode: ResolvedExactMode
 }
@@ -567,7 +567,7 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
       if (cfg.method === 'permit2') {
         throw new Error(
           "requirePayment: exact `method: 'permit2'` can't be settled by a third-party facilitator — " +
-            'facilitators settle the standard EIP-3009 (EVM) / SVM (Solana) schemes, not PipRail’s ' +
+            'facilitators settle the standard EIP-3009 (EVM) / SVM (Solana) / Algorand schemes, not PipRail’s ' +
             "Permit2 proxy. Use an EIP-3009 token (USDC / EURC) with the facilitator, or `settle: 'self'` " +
             '(your own relayer) to settle Permit2 yourself.'
         )
@@ -990,6 +990,20 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
       } catch {
         nonce = exact.payload.transaction
       }
+    } else if ('paymentGroup' in exact.payload) {
+      // Algorand: no separate nonce field (like SVM). Canonicalize EACH base64 element (decode →
+      // re-encode) and join — so malleable encodings of the SAME group collapse to one key. The
+      // group's atomic, deterministic on-chain txids are the canonical second backstop (algod
+      // rejects a duplicate txid). Chain-agnostic — server.ts never msgpack-decodes the group.
+      nonce = exact.payload.paymentGroup
+        .map((t) => {
+          try {
+            return Buffer.from(t, 'base64').toString('base64')
+          } catch {
+            return t
+          }
+        })
+        .join('|')
     } else if ('permit2Authorization' in exact.payload) {
       evmAuth = exact.payload.permit2Authorization
       nonce = evmAuth.nonce
@@ -1024,10 +1038,11 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
             amount: accept.amount,
             payTo: accept.payTo,
             maxTimeoutSeconds: accept.maxTimeoutSeconds,
-            // The scheme's chain-specific `extra`, from the gate's OWN trusted rail: SVM forwards the
-            // facilitator's `feePayer` (the gas sponsor); EVM forwards the token's EIP-712 domain.
+            // The scheme's chain-specific `extra`, from the gate's OWN trusted rail: SVM + Algorand
+            // forward the facilitator's `feePayer` (the gas sponsor); EVM forwards the token's EIP-712 domain.
             extra:
-              accept.extra.assetTransferMethod === 'svm'
+              accept.extra.assetTransferMethod === 'svm' ||
+              accept.extra.assetTransferMethod === 'algorand'
                 ? { feePayer: accept.extra.feePayer ?? '' }
                 : { name: accept.extra.name ?? '', version: accept.extra.version ?? '' },
           },

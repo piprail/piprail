@@ -21,7 +21,7 @@ export interface KnownFacilitator {
   /** The x402 schemes it settles (today only `exact`). */
   schemes: ReadonlyArray<'exact'>
   /** The exact transfer methods it can settle on this network. */
-  settles: ReadonlyArray<'eip3009' | 'permit2' | 'svm'>
+  settles: ReadonlyArray<'eip3009' | 'permit2' | 'svm' | 'algorand'>
   /** A short human note (who it is / caveat). */
   note?: string
 }
@@ -52,6 +52,31 @@ export const KNOWN_FACILITATORS: Readonly<Record<Caip2, ReadonlyArray<KnownFacil
       schemes: ['exact'],
       settles: ['eip3009'],
       note: 'xpay — keyless, zero-fee, sponsors gas. LIVE-settled on Base 2026-06-15 (tx 0x2273d5…).',
+    },
+  ],
+  // Monad (eip155:143). Corbits keyless-settles the EVM EIP-3009 exact rail (Monad's native Circle
+  // USDC), buyer paid zero gas — a real LIVE settle, not just a /supported read. Makes `exact: true`
+  // zero-config gasless on Monad.
+  'eip155:143': [
+    {
+      url: 'https://facilitator.corbits.dev',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['eip3009'],
+      note: 'Corbits (Faremeter) — keyless, sponsors gas (Monad native USDC EIP-3009). LIVE-settled on Monad 2026-06-17 (tx 0x7797be27ce22c17f7433a0389bd22d46e338899b1faac505fffd068174428ae6).',
+    },
+  ],
+  // HyperEVM (eip155:999). Ultravioleta DAO keyless-settles the EVM EIP-3009 exact rail (HyperEVM's
+  // native Circle USDC), buyer paid zero gas — a real LIVE settle. UVD is the broadest keyless
+  // facilitator (it also lists Celo/Unichain/Optimism/Scroll + many non-EVM); only HyperEVM is
+  // seeded here because THE RULE requires a per-chain live settle, and that's the one we proved.
+  'eip155:999': [
+    {
+      url: 'https://facilitator.ultravioletadao.xyz',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['eip3009'],
+      note: 'Ultravioleta DAO — keyless, 100% gas-sponsored (HyperEVM native USDC EIP-3009). LIVE-settled on HyperEVM 2026-06-17 (tx 0x56af8148a92a291f0ce362e250919f7742074e5464ac0f315ad68abaec93bd0a).',
     },
   ],
   // Solana (mainnet-beta). Keyless fee-payer sponsors for the SVM exact rail, each LIVE-settled
@@ -95,7 +120,7 @@ export function knownFacilitatorsFor(network: Caip2): ReadonlyArray<KnownFacilit
  */
 export function firstKeylessFacilitator(
   network: Caip2,
-  method?: 'eip3009' | 'permit2' | 'svm'
+  method?: 'eip3009' | 'permit2' | 'svm' | 'algorand'
 ): KnownFacilitator | undefined {
   return knownFacilitatorsFor(network).find(
     (f) => f.keyless && f.schemes.includes('exact') && (method === undefined || f.settles.includes(method))

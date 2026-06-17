@@ -10,7 +10,8 @@ sidebar:
 PipRail gates default to the `onchain-proof` scheme: the client pays first, then proves it
 with a tx ref your gate verifies locally. The ratified x402 `exact` scheme is the inverse —
 the client signs (an [EIP-3009](https://eips.ethereum.org/EIPS/eip-3009)
-`transferWithAuthorization` on EVM, a partial-signed `TransferChecked` transaction on Solana) and
+`transferWithAuthorization` on EVM, a partial-signed `TransferChecked` transaction on Solana, or a
+fee-0 asset transfer in a fee-pooled atomic group on Algorand) and
 *someone else* broadcasts it. Opting into `exact` makes your gate payable by **any** standard
 x402 client (and is the only path onto Coinbase's Bazaar directory), while staying backendless:
 PipRail still hosts nothing.
@@ -21,12 +22,13 @@ entry in the same 402, so a standard client picks `exact` while a PipRail client
 `onchain-proof`. Omitting `exact` leaves the challenge byte-identical to before.
 
 :::note
-The `exact` rail covers **EVM ERC-20** and **Solana SPL** tokens, via the method the gate picks
-automatically: **EIP-3009** for EVM tokens that expose `transferWithAuthorization` (USDC, EURC),
-**Permit2** for any other EVM ERC-20 (e.g. **Binance-Peg USDC/USDT on BNB**), or **SVM** for any
-Solana SPL token (USDC, USDT — the merchant is the transaction fee payer). It does **not** cover
-native coins (incl. SOL) or families without an `exact` scheme (TON, Tron, NEAR, Sui, Aptos,
-Algorand, Stellar, XRPL); those stay `onchain-proof`-only, and mixing them in one gate is fine. See
+The `exact` rail covers **EVM ERC-20**, **Solana SPL**, and **Algorand ASA** tokens, via the method the
+gate picks automatically: **EIP-3009** for EVM tokens that expose `transferWithAuthorization` (USDC,
+EURC), **Permit2** for any other EVM ERC-20 (e.g. **Binance-Peg USDC/USDT on BNB**), **SVM** for any
+Solana SPL token (USDC, USDT — the merchant is the transaction fee payer), or **Algorand** for any ASA
+(USDCa — an atomic-group fee pool covers the buyer's fee-0 transfer). It does **not** cover native coins
+(incl. SOL, ALGO) or families without an `exact` scheme (TON, Tron, NEAR, Sui, Aptos, Stellar, XRPL);
+those stay `onchain-proof`-only, and mixing them in one gate is fine. See
 [Gasless payments](/making-payments/gasless-payments/).
 :::
 
@@ -83,12 +85,22 @@ const gate = requirePayment({
 ```
 
 The `relayer` is the gas-paying wallet that broadcasts the settle — **distinct from `payTo`, the
-receive address**. Pass `{ key }` or bring your own viem signer with `{ walletClient }`;
-on **Solana** pass `{ key }` (a `Uint8Array` or base58 string) or `{ signer }`. It broadcasts
-EIP-3009's `transferWithAuthorization` (USDC/EURC), the Permit2 proxy's `settle` (e.g. BNB), or — on
-Solana — **co-signs the buyer's `TransferChecked` as the fee payer** and submits it. Either way the
-signature binds the recipient (`to` / `witness.to` = `payTo`, or the recomputed recipient ATA on
-Solana), so a front-runner can only push the same funds to the same `payTo` — there is no redirect risk.
+receive address** (except on Algorand, where it may equal `payTo`). Pass `{ key }` or bring your own
+viem signer with `{ walletClient }`; on **Solana** pass `{ key }` (a `Uint8Array` or base58 string) or
+`{ signer }`; on **Algorand** pass `{ key }` (a 25-word mnemonic) or `{ account }`. It broadcasts
+EIP-3009's `transferWithAuthorization` (USDC/EURC), the Permit2 proxy's `settle` (e.g. BNB), on Solana
+**co-signs the buyer's `TransferChecked` as the fee payer**, or on Algorand **signs the pooled-fee txn
+and submits the atomic group**. Either way the payment binds the recipient (`to` / `witness.to` =
+`payTo`, the recomputed recipient ATA on Solana, or the verified `arcv` on Algorand), so a front-runner
+can only push the same funds to the same `payTo` — there is no redirect risk.
+
+:::note[Algorand: gasless self-settle, proven on mainnet]
+On the Algorand rail the buyer signs an ASA transfer at **fee 0**, atomically grouped with a 0-ALGO
+`pay` whose pooled fee covers the group; your relayer signs that fee txn and submits. The buyer pays
+**zero ALGO**; your relayer pays the sub-cent (~0.002 ALGO) group fee. Unlike Solana, the relayer **may
+be `payTo` itself** (the fee txn is separate — no isolation rule), so a two-account merchant can self-
+settle. The recipient (`payTo`) must be **opted into the ASA**. This is the gasless Algorand path today.
+:::
 
 :::caution[Solana: the fee payer must differ from `payTo`]
 On the Solana SVM rail the relayer is the transaction **fee payer**, and a scheme MUST-rule forbids
@@ -206,8 +218,8 @@ exact: { settle: 'self', relayer: { key } }  // Mode A — your own relayer
 | Field | Type | Purpose |
 | --- | --- | --- |
 | `settle` | `'keyless'` \| `'self'` \| `{ facilitator: string; authHeaders?: () => Promise<Record<string, string>>; feePayer?: string }` | Pick the mode: **`'keyless'`** (≡ top-level `exact: true`) auto-picks a known keyless facilitator from `KNOWN_FACILITATORS` and **degrades gracefully** to `onchain-proof` when none is available; `'self'` = your own relayer; `{ facilitator }` = a specific URL you choose. `feePayer` (Solana only, optional) pins the facilitator's fee-payer pubkey instead of discovering it from `GET /supported`. |
-| `relayer` | a `{ key }` (or a bring-your-own `{ walletClient }` / `{ signer }`) | **Required for `settle: 'self'`** — the gas-paying wallet that broadcasts the settle (EIP-3009 `transferWithAuthorization`, the Permit2 proxy `settle`, or the Solana fee-payer co-sign). Distinct from `payTo` (**must differ** on Solana). Ignored in facilitator mode. |
-| `method` | `'eip3009'` \| `'permit2'` \| `'auto'` | Which EVM transfer method to advertise. `'auto'` (default) uses EIP-3009 when the token supports it, else Permit2 (so BNB's Binance-Peg USDC "just works"). Pin one to force it. **Ignored on Solana** (always SVM). **`'permit2'` requires `settle: 'self'`** — a third-party facilitator can't settle Permit2 (see the Mode B caution above). |
+| `relayer` | a `{ key }` (or a bring-your-own `{ walletClient }` / `{ signer }`) | **Required for `settle: 'self'`** — the gas-paying wallet that broadcasts the settle (EIP-3009 `transferWithAuthorization`, the Permit2 proxy `settle`, the Solana fee-payer co-sign, or the Algorand pooled-fee txn + group submit). Distinct from `payTo` (**must differ** on Solana; **may equal `payTo`** on Algorand). Ignored in facilitator mode. |
+| `method` | `'eip3009'` \| `'permit2'` \| `'auto'` | Which EVM transfer method to advertise. `'auto'` (default) uses EIP-3009 when the token supports it, else Permit2 (so BNB's Binance-Peg USDC "just works"). Pin one to force it. **Ignored on Solana** (always SVM) **and Algorand** (always the fee-pooled group). **`'permit2'` requires `settle: 'self'`** — a third-party facilitator can't settle Permit2 (see the Mode B caution above). |
 
 ## Choosing a mode
 
