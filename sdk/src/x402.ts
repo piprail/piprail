@@ -466,7 +466,7 @@ export function chainIdFromNetwork(network: string): number | null {
   const match = /^eip155:(\d+)$/.exec(network)
   if (!match || !match[1]) return null
   const n = Number(match[1])
-  return Number.isSafeInteger(n) ? n : null
+  return Number.isSafeInteger(n) && n > 0 ? n : null
 }
 
 /* ----------------------------- build (server) ----------------------------- */

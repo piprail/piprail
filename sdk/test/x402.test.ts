@@ -69,6 +69,7 @@ describe('network id helpers', () => {
   it('rejects malformed networks', () => {
     expect(chainIdFromNetwork('solana:1')).toBeNull()
     expect(chainIdFromNetwork('eip155:')).toBeNull()
+    expect(chainIdFromNetwork('eip155:0')).toBeNull()
   })
 })
 
