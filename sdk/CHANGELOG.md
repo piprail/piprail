@@ -4,6 +4,38 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.4.0] — 2026-06-17 — gasless Algorand rail + Monad & HyperEVM keyless coverage
+
+Additive and backward-compatible — defaults and the zero-config 402 stay byte-identical; pure-EVM
+installs still never download a non-EVM library (Algorand stays lazy-loaded).
+
+### Added
+
+- **Algorand `exact` rail — gasless on a fourth family.** PipRail's `exact` scheme now covers Algorand
+  (ASAs) alongside EVM and Solana, via the ratified `scheme_exact_algo`. The buyer signs an ASA
+  `axfer` to `payTo` at **fee 0**, atomically grouped with a 0-ALGO `pay` whose pooled fee covers the
+  group; the sponsor (the merchant's relayer in self-settle, or a keyless facilitator) signs the fee
+  txn and submits — the buyer spends **zero ALGO**. New `payExactAlgorand` / `verifyAndSettleExactAlgorand`
+  driver functions; `resolveExactRail` / `payExact` / `settleExactSelf` are now implemented for the
+  Algorand family. **Live-proven on Algorand mainnet** (self-settle round-trip, buyer paid 0 ALGO).
+  Unlike Solana, **`feePayer === payTo` is allowed** (the fee txn is separate — no isolation rule), so
+  a single merchant account can self-settle. Native ALGO stays `onchain-proof`-only.
+- **`exact: true` is now zero-config gasless on Monad and HyperEVM.** Two new live-settled keyless
+  facilitators seeded into `KNOWN_FACILITATORS`: **Monad** (`eip155:143`) via **Corbits** and
+  **HyperEVM** (`eip155:999`) via **Ultravioleta DAO** — each settled a real mainnet `exact` payment
+  with no API key, buyer paid zero gas. Brings the zero-config keyless set to **Base, Monad, HyperEVM,
+  and Solana**.
+- The `exact` transfer-method union (`ExactRailInfo.method`, `KnownFacilitator.settles`,
+  `assetTransferMethod`, the parsed-payment + wire types) now includes **`'algorand'`**, and a new
+  `ExactAlgorandPaymentPayload` (`{ paymentIndex, paymentGroup }`) is parsed/validated on the wire.
+
+### Changed
+
+- The gate's facilitator-settle path forwards the sponsor `feePayer` for Algorand (as it already does
+  for Solana), and the replay claim canonicalizes an Algorand `paymentGroup` (so a base64-malleated
+  re-submission of the same group can't slip past the used-proof set). All additive — EVM/Solana
+  behaviour is unchanged.
+
 ## [2.3.0] — 2026-06-17 — `exact: true` zero-config gasless gate
 
 Additive and backward-compatible — defaults and the zero-config 402 stay byte-identical. A new
@@ -1249,6 +1281,7 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[2.4.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.3.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.2.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.1.1]: https://www.npmjs.com/package/@piprail/sdk
