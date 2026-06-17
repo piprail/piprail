@@ -80,9 +80,13 @@ which one to trust is your call (some need an API key). After that one flag, eve
   [`autoRoute`](/making-payments/fetch-and-autoroute/) — it pays the **cheapest settleable** rail, which is the
   gasless one. (Without `autoRoute`, a dual-rail PipRail gate defaults to `onchain-proof`; a foreign
   `exact`-only server is paid over `exact` automatically either way.)
-- **Seller** — set `exact: { settle: { facilitator } }`. The gate discovers everything it needs (on
-  Solana, the facilitator's fee payer from `GET /supported`) and routes settlement to it — **neither
-  buyer nor merchant pays gas**. No relayer key, no manual fee-payer plumbing.
+- **Seller** — the one-liner is **`exact: true`**: the gate **auto-picks a known keyless facilitator**
+  for each offered chain (from `KNOWN_FACILITATORS`) and routes settlement to it — **neither buyer nor
+  merchant pays gas**, with no relayer key, no facilitator URL, and no fee-payer plumbing. It's a *soft*
+  flag: a chain with no keyless facilitator **degrades gracefully** to `onchain-proof` (the buyer pays
+  gas) with a **loud warning** — it never bricks the gate. Pin `exact: { settle: { facilitator } }` to
+  choose a specific facilitator (recommended in production), or `settle: 'self'` to self-settle with your
+  own relayer.
 
 **And when a rail _can't_ be gasless, PipRail falls back automatically** — it never advertises a rail it
 can't settle. A native coin, an EVM token that's neither EIP-3009 nor facilitator-settleable, or a
@@ -190,16 +194,26 @@ const client = new PipRailClient({
 await client.fetch('https://any-x402-endpoint/api/data') // pays the cheapest settleable rail
 ```
 
-**Seller** — advertise `exact` beside `onchain-proof`; the method auto-selects per token. Settle with
-your own relayer (you pay the settle gas) or, on EVM, a facilitator (they do):
+**Seller — the one-line gasless gate.** `exact: true` auto-picks a known keyless facilitator for the
+chain, so **neither buyer nor merchant pays gas** — no relayer key, no facilitator URL:
 
 ```ts
 import { requirePayment } from '@piprail/sdk'
 
 requirePayment({
   chain: 'base', token: 'USDC', amount: '0.05', payTo: '0xYourWallet',
-  exact: { settle: 'self', relayer: { key: process.env.RELAYER_KEY } }, // or { settle: { facilitator } }
+  exact: true, // ← auto-picks a keyless facilitator (e.g. PayAI on Base); gasless both sides, zero config
 })
+```
+
+This advertises **both** the gasless `exact` rail **and** the `onchain-proof` floor. If the chain has no
+keyless facilitator, `exact: true` **degrades gracefully** to `onchain-proof` only (the buyer pays gas)
+with a loud warning — it never bricks the gate. For more control, pin a specific facilitator (recommended
+in production) or self-settle with your own relayer (you then pay the settle gas):
+
+```ts
+exact: { settle: { facilitator: 'https://facilitator.payai.network' } } // a specific keyless facilitator
+exact: { settle: 'self', relayer: { key: process.env.RELAYER_KEY } }    // your own relayer pays the gas
 ```
 
 **Seller on Solana — fully gasless via a facilitator** (recommended; **neither buyer nor merchant pays
@@ -343,8 +357,8 @@ never turns into a 5xx. There are three distinct failure points:
 
 | When | What failed | Buyer/agent sees | Gate behaviour |
 |---|---|---|---|
-| **At challenge time** (Solana only) | The gate couldn't read the facilitator's fee payer from `GET /supported` (it's down, or doesn't sponsor this network) | — | The `exact` rail is **dropped** for that chain (the gate serves `onchain-proof`); if it was the *only* exact rail, the gate throws a clear error naming the cause. **Fix:** pin `settle: { facilitator, feePayer }` to remove the runtime dependency, or use `settle: 'self'`. |
-| **At settle — transport/auth** | `/verify` or `/settle` returned a non-200, or the request itself failed (facilitator down, bad/expired auth header) | **HTTP 502** `settlement_failed` — *not* a 402 | The gate throws [`SettlementError`](/errors/error-hierarchy/); the buyer's signed authorization stays **valid + unused**, the replay claim is **released**, and the payment can be re-presented once the facilitator recovers. The buyer is told to **verify on-chain, never re-pay**. |
+| **At challenge time** (Solana only) | The gate couldn't read the facilitator's fee payer from `GET /supported` (it's down, or doesn't sponsor this network) | — | The `exact` rail is **dropped** for that chain (the gate serves `onchain-proof`). With **`exact: true`** (soft) the gate then **degrades gracefully** to `onchain-proof` + a loud warning; with an **explicit** `settle` and no other exact rail, the gate **throws** a clear error. **Fix:** pin `settle: { facilitator, feePayer }` to remove the runtime dependency, or use `settle: 'self'`. |
+| **At settle — transport/auth** | `/verify` or `/settle` returned a non-200, or the request itself failed (facilitator down, bad/expired auth header) | **HTTP 502** `{ error: 'settlement_failed', detail, fallback }` — *not* a 402; the **`fallback` field names `onchain-proof`** as the pay-gas retry | The gate throws [`SettlementError`](/errors/error-hierarchy/); the buyer's signed authorization stays **valid + unused**, the replay claim is **released**, and the payment can be re-presented once the facilitator recovers. The buyer is told to **verify on-chain, never re-pay** — or pay the `onchain-proof` rail. |
 | **At settle — facilitator rejection** | `/verify` returned `isValid:false`, or `/settle` returned `success:false` (insufficient funds, bad signature, expired, …) | **HTTP 402** with the mapped reason | A conformant re-challenge — the agent reads the reason (`errorReason`), fixes it, and re-presents the **same** authorization (never a fresh signature). No spend is recorded. |
 
 The split is the whole point: **"the facilitator is down" (502) and "your payment was rejected" (402)
@@ -366,8 +380,9 @@ Solana mainnet** (and the contract is identical on EVM):
 | What fails | Behaviour | What the caller gets | Fallback / fix |
 |---|---|---|---|
 | A facilitator is down **at challenge time** — *multi-rail* gate | The exact rail for that chain is **dropped**; the gate still serves `onchain-proof` (+ any working rails) | — *(challenge still succeeds)* | **Automatic** — the buyer pays `onchain-proof`. |
-| The **only** exact rail's facilitator is unreachable at challenge — *single-rail* gate, no pinned fee payer | The gate **fails loud** — it won't silently downgrade your stated gasless intent | `requirePayment: exact was requested but none of the offered rails support it … couldn't read a fee payer from (…/supported) … Set exact.settle.feePayer, switch to settle:'self', or retry.` | Pin `settle:{facilitator,feePayer}`, use `settle:'self'`, add a 2nd rail, or drop `exact` (the `onchain-proof` default always works). |
-| The facilitator **errors at settle** (down / 401 / timeout) | The signed authorization stays **valid + unused** — no double-spend | **HTTP 502** `SettlementError: exact settle (facilitator …): /verify returned HTTP 401 (transport/auth error)` | Re-present the **same** payment when it recovers, **or** pay `onchain-proof` on the same endpoint *(verified: 502 → onchain-proof → 200)*. |
+| No chain can carry exact — **`exact: true`** (the soft shorthand): no keyless facilitator seeded for the chain, a native coin, etc. | **Graceful degrade** — the gate serves `onchain-proof` **only** (never bricks) + a **loud warning** naming the cause (fires once at startup, **in production too** — a silent prod degrade is the trap; silence with `PIPRAIL_NO_HINTS=1`) | — *(challenge succeeds; buyers pay gas via `onchain-proof`)* | **Automatic.** The warning shows the remedy; for guaranteed gasless, pin `settle:{facilitator}` or use `settle:'self'`. |
+| No chain can carry exact — **explicit** `settle: 'self'` / `{ facilitator }` (a deliberate gasless intent that can't be honoured) | The gate **throws** loud at construction — an explicit config error is a bug to surface, not silently downgrade | `requirePayment: exact was requested but none of the offered rails support it …` | Fix the config (typo'd URL, wrong/native token), **or** switch to the soft `exact: true` (which degrades), **or** drop `exact` (the `onchain-proof` default always works). |
+| The facilitator **errors at settle** (down / 401 / timeout) | The signed authorization stays **valid + unused** — no double-spend | **HTTP 502** `{ error: 'settlement_failed', detail, fallback }` — the `fallback` field **explicitly names `onchain-proof`** as the pay-gas retry — *not* a 402 | Re-present the **same** payment when it recovers, **or** pay `onchain-proof` on the same endpoint *(verified: 502 → onchain-proof → 200)*. |
 | The facilitator **rejects** the payment (bad sig / expired / insufficient) | A conformant re-challenge — **no spend recorded** | **HTTP 402** + a mapped `VerifyErrorCode` and `Facilitator rejected the payment: <reason>` | The agent reads the reason, fixes it, re-presents the **same** authorization. |
 | **Everything** — facilitator down **and** the buyer can't afford `onchain-proof` either (no token / no gas / recipient not ready / outside policy) | The client **refuses before sending anything** — no signature, no broadcast, nothing spent | `PaymentDeclinedError: Can't settle on solana: top up 0.001 USDC (to pay 0.001 USDC).` + per-rail `planPayment()` blockers (`INSUFFICIENT_TOKEN`, `INSUFFICIENT_GAS`, `RECIPIENT_NOT_READY`, `OUTSIDE_POLICY`) | Read `planPayment(url).fundingHint`, top up the named amount, retry. `canAfford(url)` is the boolean. |
 

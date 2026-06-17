@@ -30,6 +30,41 @@ Algorand, Stellar, XRPL); those stay `onchain-proof`-only, and mixing them in on
 [Gasless payments](/making-payments/gasless-payments/).
 :::
 
+## Mode 0 — `exact: true` (zero-config keyless, start here)
+
+The simplest gasless gate is **one flag**. `exact: true` (≡ `exact: { settle: 'keyless' }`) makes the
+gate **auto-pick a known keyless facilitator** for each offered chain — from the seeded, live-verified
+[`KNOWN_FACILITATORS`](/accepting-payments/facilitator-coverage/) map — so **neither the buyer nor you
+pays gas**, with no relayer key and no facilitator URL to choose:
+
+```ts
+import { requirePayment } from '@piprail/sdk'
+
+const gate = requirePayment({
+  chain: 'base', token: 'USDC', amount: '0.10', payTo: '0xYourWallet',
+  exact: true, // ← auto-picks a keyless facilitator (e.g. PayAI on Base); gasless both sides, zero config
+})
+// Live-proven on Base mainnet: payer + merchant both spent ZERO gas; the facilitator broadcast it.
+```
+
+It is **soft and additive**, so it can never brick your gate:
+
+- **Has a keyless facilitator** (Base, Solana today; more as they're seeded) → advertises the gasless
+  `exact` rail **and** the `onchain-proof` floor. The buyer signs (0 gas); the facilitator settles + pays.
+- **No keyless facilitator for the chain** → **degrades gracefully** to `onchain-proof` only (the buyer
+  pays gas — the only option left when nobody sponsors) and logs a **loud, production-silent warning**
+  naming the cause and the remedy. It never throws.
+- **The facilitator is down at settle time** → an honest **HTTP 502** whose `fallback` field explicitly
+  tells the caller to pay the `onchain-proof` rail instead (the `requirePayment` Express adapter emits
+  `{ error: 'settlement_failed', detail, fallback }`; with `createPaymentGate` directly you catch the
+  thrown [`SettlementError`](/errors/error-hierarchy/) and map it yourself). See
+  [When the facilitator fails](/making-payments/gasless-payments/#when-the-facilitator-fails).
+
+**Production tip:** `exact: true` is ideal for getting started and for dev. For production, **pin a
+specific facilitator** (Mode B) so an upgrade can't change which third party settles your payments, or
+**self-settle** (Mode A) to depend on no one. An *explicit* `settle` that can't carry exact throws loudly
+(a config error you should fix) — only the soft `exact: true` degrades.
+
 ## Mode A — self-settle with your own relayer
 
 You hold a gas-paying **relayer** key and broadcast the authorization yourself. You pay gas to
@@ -155,16 +190,22 @@ discovery, settle transport/auth (502), and a facilitator rejection (402) — is
 
 ## The `ExactRailOption`
 
-The `exact:` object you pass to `requirePayment` / `createPaymentGate` is an `ExactRailOption`,
+The `exact:` field you pass to `requirePayment` / `createPaymentGate` is **`boolean | ExactRailOption`**,
 exported from `@piprail/sdk`:
 
 ```ts
 import type { ExactRailOption } from '@piprail/sdk'
+
+exact: true                 // ≡ { settle: 'keyless' } — auto-pick a keyless facilitator (Mode 0)
+exact: false                // (or omit) — onchain-proof only, byte-identical default
+exact: { settle: 'keyless' }                 // same as `true`
+exact: { settle: { facilitator: '…' } }      // Mode B — a specific facilitator
+exact: { settle: 'self', relayer: { key } }  // Mode A — your own relayer
 ```
 
 | Field | Type | Purpose |
 | --- | --- | --- |
-| `settle` | `'self'` \| `{ facilitator: string; authHeaders?: () => Promise<Record<string, string>>; feePayer?: string }` | Pick the mode: your own relayer (`'self'`) or a facilitator URL you choose. `feePayer` (Solana only, optional) pins the facilitator's fee-payer pubkey instead of discovering it from `GET /supported`. |
+| `settle` | `'keyless'` \| `'self'` \| `{ facilitator: string; authHeaders?: () => Promise<Record<string, string>>; feePayer?: string }` | Pick the mode: **`'keyless'`** (≡ top-level `exact: true`) auto-picks a known keyless facilitator from `KNOWN_FACILITATORS` and **degrades gracefully** to `onchain-proof` when none is available; `'self'` = your own relayer; `{ facilitator }` = a specific URL you choose. `feePayer` (Solana only, optional) pins the facilitator's fee-payer pubkey instead of discovering it from `GET /supported`. |
 | `relayer` | a `{ key }` (or a bring-your-own `{ walletClient }` / `{ signer }`) | **Required for `settle: 'self'`** — the gas-paying wallet that broadcasts the settle (EIP-3009 `transferWithAuthorization`, the Permit2 proxy `settle`, or the Solana fee-payer co-sign). Distinct from `payTo` (**must differ** on Solana). Ignored in facilitator mode. |
 | `method` | `'eip3009'` \| `'permit2'` \| `'auto'` | Which EVM transfer method to advertise. `'auto'` (default) uses EIP-3009 when the token supports it, else Permit2 (so BNB's Binance-Peg USDC "just works"). Pin one to force it. **Ignored on Solana** (always SVM). **`'permit2'` requires `settle: 'self'`** — a third-party facilitator can't settle Permit2 (see the Mode B caution above). |
 
@@ -200,11 +241,19 @@ to match, enforces the fee-payer safety rules (the fee payer in no instruction, 
 drained), checks the buyer's signature via a `sigVerify` simulation, then co-signs as fee payer and
 broadcasts.
 
-:::tip
-If you request `exact` but none of your offered rails can carry it (a single native-coin gate, or a
-family without an `exact` scheme), the gate throws a clear error on the first request rather than silently shipping
-`onchain-proof` only. Offer an EVM ERC-20 (EIP-3009 USDC/EURC, or any token via Permit2) or a Solana
-SPL token, or drop `exact`.
+:::tip[Soft `exact: true` degrades; an explicit `settle` throws]
+If you request `exact` but none of your offered rails can carry it (a single native-coin gate, a family
+without an `exact` scheme, or no keyless facilitator for the chain), the behaviour depends on **how** you
+asked:
+- **`exact: true`** (soft, Mode 0) → **degrades gracefully** to `onchain-proof` only, with a loud warning
+  (production-visible; `PIPRAIL_NO_HINTS=1` to silence). It never throws — your gate always works, just
+  not gasless.
+- **explicit `settle: 'self' | { facilitator }`** → the gate **throws** a clear error on the first request
+  rather than silently shipping `onchain-proof` only (an explicit gasless intent that can't be honoured is
+  a config error to fix).
+
+Either way: offer an EVM ERC-20 (EIP-3009 USDC/EURC, or any token via Permit2) or a Solana SPL token, pin
+a facilitator, or drop `exact`.
 :::
 
 ## Replay protection and `onPaid`

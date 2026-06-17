@@ -469,10 +469,21 @@ describe('exact rail — `exact: true` keyless auto-pick', () => {
     expect(challenge.accepts.map((a) => a.scheme)).toEqual(['exact', 'onchain-proof'])
   })
 
-  it('fails closed with a loud, actionable error when no keyless facilitator is seeded for the chain', async () => {
-    // eip155:12345 is NOT in KNOWN_FACILITATORS → don't silently downgrade; surface the escape hatches.
+  it('`exact: true` degrades GRACEFULLY to onchain-proof (loud warning, never throws) when no keyless facilitator is seeded', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    // eip155:12345 is NOT in KNOWN_FACILITATORS → SOFT shorthand → serve onchain-proof only (the
+    // pay-gas fallback), never brick the gate, and warn loudly (not silent).
     const gate = createPaymentGate({ chain: { id: 12345, rpcUrl: 'x' }, token: 'USDC', amount: '0.05', payTo: PAY_TO, exact: true })
-    await expect(gate.challenge()).rejects.toThrow(/no known keyless facilitator/)
+    const { challenge } = await gate.challenge()
+    expect(challenge.accepts).toHaveLength(1)
+    expect(challenge.accepts[0]!.scheme).toBe('onchain-proof')
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/ONCHAIN-PROOF ONLY/))
+  })
+
+  it('an EXPLICIT settle that can\'t carry exact still THROWS loudly (config error, not soft)', async () => {
+    // settle:'self' on the native coin → capability gap on an explicitly-engaged rail → throw.
+    const gate = createPaymentGate({ chain: { id: 8453, rpcUrl: 'x' }, token: 'native', amount: '0.01', payTo: PAY_TO, exact: { settle: 'self', relayer: { key: '0x' + 'ab'.repeat(32) } } })
+    await expect(gate.challenge()).rejects.toThrow(/none of the offered rails support it/)
   })
 
   it('`exact: false` keeps the gate onchain-proof only (byte-identical default)', async () => {

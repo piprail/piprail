@@ -198,10 +198,13 @@ export interface RequirePaymentOptions {
    * gate — opt-in, EVM (EIP-3009/Permit2) + Solana (SVM). See {@link ExactRailOption}.
    * Shorthand **`exact: true`** === `{ settle: 'keyless' }`: the gate auto-picks a known KEYLESS
    * facilitator for each offered chain (from `KNOWN_FACILITATORS`), so neither buyer nor merchant
-   * pays gas, zero-config. If a chain has no seeded keyless facilitator the rail is dropped (and the
-   * gate errors loudly if NOTHING carries exact) — pin `settle: { facilitator }` or use
-   * `settle: 'self'`; pin an explicit facilitator in production. `false`/omitted keeps the gate
-   * exactly as today (`onchain-proof` only — byte-identical).
+   * pays gas, zero-config. It is a SOFT, best-effort flag — a chain with no available keyless
+   * facilitator DEGRADES GRACEFULLY to the always-present `onchain-proof` rail (the buyer pays gas,
+   * the only option left when no facilitator can sponsor) with a LOUD warning; it never bricks the
+   * gate. For guaranteed gasless, pin `settle: { facilitator }` (recommended in production) or
+   * self-settle `settle: 'self'`; an EXPLICIT `settle` that can't carry exact throws loudly (a config
+   * error you should fix). `false`/omitted keeps the gate exactly as today (`onchain-proof` only —
+   * byte-identical).
    */
   exact?: boolean | ExactRailOption
   /**
@@ -416,18 +419,40 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
           return spec
         })
       )
-      // If exact was requested but NOTHING could carry it (e.g. a single non-EVM / native gate,
-      // or a facilitator that's unreachable), say so loudly rather than silently shipping
-      // onchain-proof only — leading with any ACTIONABLE per-rail reason we collected.
+      // Exact was requested but NOTHING could carry it (no keyless facilitator for the chain, a
+      // facilitator that's unreachable, a native/non-exact family, …). Two postures, by intent:
+      //  • `exact: true` / `settle: 'keyless'` is a SOFT, best-effort "be gasless where I can" flag —
+      //    DEGRADE GRACEFULLY to the always-present onchain-proof rail (the buyer pays gas; the only
+      //    option left) and warn LOUDLY (never silently — the merchant must know their gate isn't
+      //    gasless), but NEVER brick the gate.
+      //  • An EXPLICIT `settle: 'self' | { facilitator }` engaged the exact rail deliberately, so a
+      //    coverage gap is a config error → throw loudly (surfaces a typo'd URL / wrong token fast).
+      // (Hard misconfigs — self-without-relayer, forced permit2 via facilitator — already threw inside
+      // resolveExactRail before reaching here, so this branch only ever sees AVAILABILITY gaps.)
       if (exactOption && !specs.some((s) => s.exact)) {
-        throw new Error(
-          'requirePayment: `exact` was requested but none of the offered rails support it. ' +
-            (exactSkips.length > 0
-              ? exactSkips.join(' ')
-              : 'The standard `exact` rail is EVM ERC-20 (EIP-3009 — USDC / EURC — or Permit2, e.g. ' +
-                'Binance-Peg USDC on BNB) or a Solana SPL token (SVM) — NOT native coins, NOT families ' +
-                'without a standard `exact` scheme. Offer an EVM ERC-20 / Solana SPL token, or drop `exact`.')
-        )
+        const why =
+          exactSkips.length > 0
+            ? exactSkips.join(' ')
+            : 'The standard `exact` rail is EVM ERC-20 (EIP-3009 — USDC / EURC — or Permit2, e.g. ' +
+              'Binance-Peg USDC on BNB) or a Solana SPL token (SVM) — NOT native coins, NOT families ' +
+              'without a standard `exact` scheme.'
+        if (exactOption.settle === 'keyless') {
+          // SOFT shorthand → graceful fallback to onchain-proof (pay-gas). This warns about a real
+          // POSTURE GAP (the merchant asked for gasless; buyers will now pay gas), fires ONCE at gate
+          // construction, and stays visible IN PRODUCTION too (a silent prod degrade is the trap) —
+          // suppress explicitly with PIPRAIL_NO_HINTS. Browser-safe (no `process` → still warns).
+          if (typeof process === 'undefined' || !process?.env?.PIPRAIL_NO_HINTS) {
+            console.warn(
+              '[piprail] exact: true — no offered chain has a gasless `exact` rail available, so this ' +
+                'gate serves ONCHAIN-PROOF ONLY (buyers PAY GAS — the fallback when no facilitator can ' +
+                `sponsor). ${why} To be gasless: pin \`exact: { settle: { facilitator } }\` or self-settle ` +
+                '`exact: { settle: \'self\', relayer }`. (Suppress with PIPRAIL_NO_HINTS=1.)'
+            )
+          }
+          // fall through — serve onchain-proof only (graceful, never bricks).
+        } else {
+          throw new Error('requirePayment: `exact` was requested but none of the offered rails support it. ' + why)
+        }
       }
       return specs
     })()
@@ -477,9 +502,12 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
             'the coverage map (KNOWN_FACILITATORS / docs.piprail.com).',
         }
       }
-      // Visibility (dev-only, production-silent, browser-safe): name the delegated counterparty so the
-      // auto-picked facilitator is observable. Production gates should pin it via `settle.facilitator`.
-      if (typeof process !== 'undefined' && process?.env?.NODE_ENV !== 'production') {
+      // Visibility (DEV-ONLY + browser, once at gate construction): name the delegated counterparty so
+      // the auto-picked facilitator is observable. This is the HAPPY path (the merchant opted into
+      // `exact: true`), so it's PRODUCTION-SILENT to avoid recurring stderr noise on a working gate —
+      // the DEGRADE warning above is the one that stays visible in prod. Suppress in dev with
+      // PIPRAIL_NO_HINTS. Production gates should pin `settle.facilitator`.
+      if (typeof process === 'undefined' || (process?.env?.NODE_ENV !== 'production' && !process?.env?.PIPRAIL_NO_HINTS)) {
         console.warn(
           `[piprail] exact: keyless rail on ${net.network} auto-settles via ${picked.url} ` +
             '(zero-config; pin `exact.settle.facilitator` in production).'
@@ -1096,10 +1124,21 @@ export function requirePayment(
     } catch (err) {
       // A server-side settle failure (relayer out of gas / facilitator down) is NOT
       // the payer's fault — return 5xx, never a 402 (which would tell them to re-pay).
-      // Their signed authorization stays valid + unused.
+      // Their signed authorization stays valid + unused. The gate ALWAYS also offers the
+      // `onchain-proof` scheme, so name it as the explicit fallback: the buyer's one
+      // remaining option is to pay that rail themselves (broadcasting the transfer + paying
+      // the gas) — the graceful last resort when no facilitator can sponsor the gasless rail.
       if (err instanceof SettlementError) {
         res.status(502)
-        res.json({ x402Version: 2, error: 'settlement_failed', detail: err.message })
+        res.json({
+          x402Version: 2,
+          error: 'settlement_failed',
+          detail: err.message,
+          fallback:
+            'The gasless `exact` settlement failed. This resource also accepts the `onchain-proof` ' +
+            'scheme — retry by paying that rail yourself (you broadcast the transfer and pay the gas). ' +
+            'It is the fallback when no facilitator can sponsor the gas.',
+        })
         return
       }
       next(err)
