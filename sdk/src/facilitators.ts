@@ -21,7 +21,7 @@ export interface KnownFacilitator {
   /** The x402 schemes it settles (today only `exact`). */
   schemes: ReadonlyArray<'exact'>
   /** The exact transfer methods it can settle on this network. */
-  settles: ReadonlyArray<'eip3009' | 'permit2' | 'svm' | 'algorand' | 'aptos'>
+  settles: ReadonlyArray<'eip3009' | 'permit2' | 'svm' | 'algorand' | 'aptos' | 'near'>
   /** A short human note (who it is / caveat). */
   note?: string
 }
@@ -185,6 +185,17 @@ export const KNOWN_FACILITATORS: Readonly<Record<Caip2, ReadonlyArray<KnownFacil
       note: 'Corbits — keyless, Solana-first fee-payer sponsor. LIVE-settled on Solana 2026-06-15 (tx BCreYer…).',
     },
   ],
+  // NEAR (near:mainnet) — DELIBERATELY UNSEEDED: no x402 facilitator settles NEAR yet.
+  // The NEAR `exact` BUYER payload PipRail builds (drivers/near/exact.ts) is LIVE-PROVEN on mainnet —
+  // a real NEP-366 meta-transaction settles a USDC/USDT ft_transfer gaslessly (buyer 0 NEAR, single-use
+  // via the access-key nonce; relay txs CMnQJzrLvwk… USDT + BCCnVHbSCMY… USDC, 2026-06-18). What's
+  // missing is the FACILITATOR side: the public x402-rs (which Ultravioleta DAO runs) has NO NEAR chain
+  // crate (only eip155/solana/aptos), and UVD's `/verify` 400s on a near:mainnet request even though its
+  // `/supported` ADVERTISES `near:mainnet` + feePayer `uvd-facilitator.near` — i.e. the listing is
+  // aspirational, not settle-capable (verified 2026-06-18). So `exact: true` must NOT auto-pick a NEAR
+  // facilitator. Seed here ONLY after a real keyless settle through a facilitator that actually
+  // implements scheme_exact_near.md (THE RULE). Merchants can still pass an explicit
+  // `exact: { settle: { facilitator } }` for any facilitator they've confirmed settles near:mainnet.
 }
 
 /** Known facilitators for a network — an empty array when none is seeded. */
@@ -199,7 +210,7 @@ export function knownFacilitatorsFor(network: Caip2): ReadonlyArray<KnownFacilit
  */
 export function firstKeylessFacilitator(
   network: Caip2,
-  method?: 'eip3009' | 'permit2' | 'svm' | 'algorand' | 'aptos'
+  method?: 'eip3009' | 'permit2' | 'svm' | 'algorand' | 'aptos' | 'near'
 ): KnownFacilitator | undefined {
   return knownFacilitatorsFor(network).find(
     (f) => f.keyless && f.schemes.includes('exact') && (method === undefined || f.settles.includes(method))

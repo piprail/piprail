@@ -340,6 +340,10 @@ function makeEvmNetwork(resolved: ResolvedChain): ResolvedNetwork {
         // An Algorand-shaped payload reached the EVM driver — impossible via per-spec routing; fail closed.
         return { ok: false, error: 'signature_invalid', detail: 'An Algorand payload was submitted to an EVM exact rail.' }
       }
+      if ('signedDelegateAction' in payload) {
+        // A NEAR-shaped payload reached the EVM driver — impossible via per-spec routing; fail closed.
+        return { ok: false, error: 'signature_invalid', detail: 'A NEAR payload was submitted to an EVM exact rail.' }
+      }
       return verifyAndSettleExactEvm({
         publicClient,
         walletClient: a.walletClient,

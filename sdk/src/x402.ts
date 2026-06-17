@@ -92,8 +92,11 @@ export interface X402ExactAcceptEntry {
      *  keyless facilitator) signs that fee txn + submits. **Aptos: `'aptos'`** — the payer signs a
      *  fee-payer (sponsored) `primary_fungible_store::transfer` to `payTo` (per
      *  `scheme_exact_aptos.md`); the gate (or a keyless facilitator) adds the fee-payer signature
-     *  + submits, paying gas. PipRail self-settles ALL. */
-    assetTransferMethod: 'eip3009' | 'permit2' | 'svm' | 'algorand' | 'aptos'
+     *  + submits, paying gas. **NEAR: `'near'`** — the payer signs a NEP-366 `SignedDelegateAction`
+     *  authorizing exactly one NEP-141 `ft_transfer` to `payTo` (per `scheme_exact_near.md`); a
+     *  facilitator-selected relayer (`feePayer` below) prepays gas + the 1 yoctoNEAR and submits, so
+     *  the buyer holds zero NEAR. PipRail self-settles ALL. */
+    assetTransferMethod: 'eip3009' | 'permit2' | 'svm' | 'algorand' | 'aptos' | 'near'
     /** EIP-712 domain name of the token. OPTIONAL per the exact-EVM scheme (only
      *  `assetTransferMethod` is required) — a foreign rail may omit it. NEVER assumed
      *  from the symbol (USDC's on-chain name() is "USD Coin", not "USDC"); a PipRail gate
@@ -255,14 +258,31 @@ export interface ExactAptosPaymentPayload {
   senderAuth: string
 }
 
+/**
+ * The `payload` a client sends for the **NEAR `exact`** variant, per `scheme_exact_near.md`:
+ * a base64-encoded, Borsh-serialized NEP-366 `SignedDelegateAction` whose single delegated action
+ * is one NEP-141 `ft_transfer` (to `payTo`, the exact `amount`, `deposit: 1` yoctoNEAR). The buyer
+ * signs the delegate action with a FULL-ACCESS key (a function-call key can't attach the 1 yocto and
+ * is rejected); a facilitator-selected relayer wraps it, prepays gas + the yocto, and submits. The
+ * signed delegate action IS the proof — there's no separate authorization object (the NEAR analogue
+ * of EIP-3009's `authorization` / SVM's `transaction`). Its single self-contained string field also
+ * distinguishes it from every other family's payload shape.
+ */
+export interface ExactNearPaymentPayload {
+  /** Base64 of the Borsh-encoded NEP-366 `SignedDelegateAction` (one `ft_transfer`). */
+  signedDelegateAction: string
+}
+
 /** Any `exact`-rail payload shape — EIP-3009 (`authorization`), Permit2 (`permit2Authorization`),
- *  SVM (`transaction`), Algorand (`paymentGroup`), or Aptos (`transaction` + `senderAuth`). */
+ *  SVM (`transaction`), Algorand (`paymentGroup`), Aptos (`transaction` + `senderAuth`), or NEAR
+ *  (`signedDelegateAction`). */
 export type ExactPaymentPayloadAny =
   | ExactPaymentPayload
   | Permit2PaymentPayload
   | ExactSvmPaymentPayload
   | ExactAlgorandPaymentPayload
   | ExactAptosPaymentPayload
+  | ExactNearPaymentPayload
 
 interface ParsedExactBase {
   x402Version: number
@@ -284,7 +304,8 @@ interface ParsedExactBase {
  * (`authorization`), `'permit2'` → {@link Permit2PaymentPayload} (`permit2Authorization`),
  * `'svm'` → {@link ExactSvmPaymentPayload} (`transaction`), `'algorand'` →
  * {@link ExactAlgorandPaymentPayload} (`paymentGroup`); `'aptos'` →
- * {@link ExactAptosPaymentPayload} (`transaction` + `senderAuth`).
+ * {@link ExactAptosPaymentPayload} (`transaction` + `senderAuth`); `'near'` →
+ * {@link ExactNearPaymentPayload} (`signedDelegateAction`).
  */
 export type ParsedExactPayment =
   | (ParsedExactBase & { method: 'eip3009'; payload: ExactPaymentPayload })
@@ -292,6 +313,7 @@ export type ParsedExactPayment =
   | (ParsedExactBase & { method: 'svm'; payload: ExactSvmPaymentPayload })
   | (ParsedExactBase & { method: 'algorand'; payload: ExactAlgorandPaymentPayload })
   | (ParsedExactBase & { method: 'aptos'; payload: ExactAptosPaymentPayload })
+  | (ParsedExactBase & { method: 'near'; payload: ExactNearPaymentPayload })
 
 export interface X402Receipt {
   scheme: 'onchain-proof' | 'exact'
@@ -620,6 +642,13 @@ export function parseExactPaymentHeader(value: string): ParsedExactPayment | nul
   const x402Version = typeof v.x402Version === 'number' ? v.x402Version : 2
   const asset = accepted && typeof accepted.asset === 'string' ? accepted.asset : undefined
   const base = { x402Version, network, ...(asset ? { asset } : {}), raw: v }
+
+  // NEAR shape: payload.signedDelegateAction is a single base64 Borsh SignedDelegateAction (no
+  // top-level `signature`, no `transaction`/`paymentGroup`). Its unique field name disambiguates it
+  // from every other family, so it's checked first.
+  if (typeof payload.signedDelegateAction === 'string') {
+    return { ...base, method: 'near', payload: { signedDelegateAction: payload.signedDelegateAction } }
+  }
 
   // Aptos shape: payload.transaction + payload.senderAuth (both base64 BCS, no top-level `signature`).
   // Checked BEFORE the SVM branch — SVM also carries `transaction` but NO `senderAuth`, so the extra

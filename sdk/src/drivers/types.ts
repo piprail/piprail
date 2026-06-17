@@ -238,10 +238,10 @@ export interface DiscoverySigner {
  * chain-agnostic — it never names a family, it just merges `extra`.
  */
 export interface ExactRailInfo {
-  method: 'eip3009' | 'permit2' | 'svm' | 'algorand' | 'aptos'
+  method: 'eip3009' | 'permit2' | 'svm' | 'algorand' | 'aptos' | 'near'
   /** Family-specific `extra` keys merged into the exact accept (e.g. `{ name, version }`
    *  for EVM EIP-3009, `{ feePayer, tokenProgram }` for Solana, `{ feePayer }` for
-   *  Algorand/Aptos). */
+   *  Algorand/Aptos/NEAR). */
   extra?: Record<string, unknown>
 }
 

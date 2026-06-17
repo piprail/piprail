@@ -4,6 +4,40 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.5.0] — 2026-06-18 — gasless NEAR `exact` rail (NEP-366 meta-transactions)
+
+Additive and backward-compatible — defaults and the zero-config 402 stay byte-identical; pure-EVM
+installs still never download a non-EVM library (NEAR + its borsh decoder stay lazy-loaded — verified:
+the built EVM bundle has zero static non-EVM imports, only lazy chunks).
+
+### Added
+
+- **NEAR `exact` rail — gasless for the buyer on a fifth family.** PipRail's `exact` scheme now covers
+  NEAR (NEP-141 tokens — USDC / USDT) via the ratified
+  [`scheme_exact_near`](https://github.com/x402-foundation/x402/blob/main/specs/schemes/exact/scheme_exact_near.md)
+  (x402 v2). The buyer signs a **NEP-366 `SignedDelegateAction`** authorizing exactly one `ft_transfer`
+  with a **full-access key** and never broadcasts it or holds any NEAR; a relayer wraps it, prepays the
+  gas + the 1 yoctoNEAR, and submits — the agent is **completely gasless**. Opt-in
+  (`schemes: ['onchain-proof', 'exact']`); native NEAR is **not** exact-payable (the scheme is over
+  `ft_transfer`) and stays `onchain-proof`. Proven on NEAR mainnet for both USDC and USDT.
+  - New `payExactNear` (buyer build/sign) and `verifyAndSettleExactNear` (seller verify + relay) driver
+    functions; `resolveExactRail` / `payExact` / `settleExactSelf` are now implemented for NEAR.
+  - **Self-settle today** (`exact: { settle: 'self', relayer: { accountId, key } }`): the merchant runs
+    a small funded relayer that pays the sub-cent settle gas — the buyer stays gasless, exactly like the
+    Solana / Algorand / Aptos self-settle. The **facilitator** path (`settle: { facilitator }`) is wired
+    and will work the moment a real NEAR x402 facilitator ships; **none does yet** (some advertise
+    `near:mainnet` in `/supported` without settling it), so `exact: true` deliberately excludes NEAR and
+    self-settle is the supported gasless-for-buyer config. See the NEAR chain doc for the caveat.
+  - **Sponsor fee-drain guard**: the relayer prepays both the gas and the attached deposit, so the gate
+    rejects any delegate whose attached `deposit` ≠ exactly 1 yoctoNEAR or whose `gas` exceeds the
+    300 TGas cap (re-derived from the trusted rail) **before** the relayer signs.
+
+### Dependencies
+
+- Added **`borsh` (`>=2 <3`) as an OPTIONAL peer dependency** — used only to decode the inbound NEAR
+  `SignedDelegateAction` during self-settle, lazy-loaded inside the NEAR driver. NEAR users already have
+  it via `near-api-js`; pure-EVM (and non-NEAR) installs never load it.
+
 ## [2.4.0] — 2026-06-17 — gasless Algorand & Aptos rails + keyless gasless on SIX chains (incl. Algorand & BNB)
 
 Additive and backward-compatible — defaults and the zero-config 402 stay byte-identical; pure-EVM
@@ -1347,6 +1381,7 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[2.5.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.4.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.3.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.2.0]: https://www.npmjs.com/package/@piprail/sdk
