@@ -29,10 +29,18 @@ const AMOUNT = '0.001'
 // tiny USDC (~$0.05, NO native — the facilitator covers gas) on a chain below, then re-run — a clean
 // settle prints "✅ SEEDABLE" with the tx to add to KNOWN_FACILITATORS.
 //
-// ✅ ALREADY SEEDED (live-settled 2026-06-17): Base (PayAI·xpay·UVD·Dexter), BNB (Dexter/FDUSD),
-//    Monad (Corbits·UVD), HyperEVM (UVD), Solana (PayAI·OpenFacilitator·Corbits — separate SVM harness).
+// ✅ ALREADY SEEDED (live-settled 2026-06-17): Base (PayAI·xpay·UVD·Dexter·Corbits·GoPlausible),
+//    BNB (Dexter·Pieverse / FDUSD), Monad (Corbits·UVD·Pieverse), HyperEVM (UVD),
+//    Solana (PayAI·OpenFacilitator·Corbits — separate SVM harness),
+//    Algorand (GoPlausible — separate harness: live-algorand-goplausible.mjs). = 6 keyless chains.
 // ⏳ FUNDING WORKLIST below — each is covered by a validated keyless facilitator; just needs USDC.
 const TARGETS = [
+  // ── EXTRA facilitators on ALREADY-KEYLESS funded chains (more facilitators per chain = automatic
+  //    failover). These add redundancy, not new chains; each still needs a live keyless settle to seed. ──
+  { name: 'Base / Corbits',       chain: 'base',     token: 'USDC',  addr: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', chainId: 8453,  decimals: 6,  rpc: 'https://base-rpc.publicnode.com',         facilitator: 'https://facilitator.corbits.dev' },
+  { name: 'Base / GoPlausible',   chain: 'base',     token: 'USDC',  addr: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', chainId: 8453,  decimals: 6,  rpc: 'https://base-rpc.publicnode.com',         facilitator: 'https://facilitator.goplausible.xyz' },
+  { name: 'Monad / Pieverse',     chain: 'monad',    token: 'USDC',  addr: '0x754704Bc059F8C67012fEd69BC8A327a5aafb603', chainId: 143,   decimals: 6,  rpc: 'https://rpc.monad.xyz',                   facilitator: 'https://facilitator.pieverse.io' },
+  { name: 'BNB / Pieverse',       chain: 'bnb',      token: 'FDUSD', addr: '0xc5f0f7b66764F6ec8C8Dff7BA683102295E16409', chainId: 56,    decimals: 18, rpc: 'https://bsc-dataseed.binance.org',        facilitator: 'https://facilitator.pieverse.io', amount: '0.005' },
   // ── re-validate the proven EVM rails (idempotent; needs the funded chains) ──
   { name: 'Base / Dexter',        chain: 'base',     token: 'USDC',  addr: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', chainId: 8453,  decimals: 6,  rpc: 'https://base-rpc.publicnode.com',         facilitator: 'https://x402.dexter.cash' },
   { name: 'BNB / Dexter',         chain: 'bnb',      token: 'FDUSD', addr: '0xc5f0f7b66764F6ec8C8Dff7BA683102295E16409', chainId: 56,    decimals: 18, rpc: 'https://bsc-dataseed.binance.org',        facilitator: 'https://x402.dexter.cash', amount: '0.005' },
@@ -45,6 +53,7 @@ const TARGETS = [
   { name: 'Unichain / Ultravioleta', chain: 'unichain', token: 'USDC', addr: '0x078D782b760474a361dDA0AF3839290b0EF57AD6', chainId: 130,    decimals: 6, rpc: 'https://mainnet.unichain.org',           facilitator: 'https://facilitator.ultravioletadao.xyz' },
   { name: 'Ethereum / Primev',       chain: 'ethereum', token: 'USDC', addr: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', chainId: 1,      decimals: 6, rpc: 'https://ethereum-rpc.publicnode.com',     facilitator: 'https://facilitator.primev.xyz' },
   { name: 'Sei / PayAI',             chain: 'sei',      token: 'USDC', addr: '0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392', chainId: 1329,   decimals: 6, rpc: 'https://evm-rpc.sei-apis.com',           facilitator: 'https://facilitator.payai.network' },
+  { name: 'Scroll / Ultravioleta',   chain: 'scroll',   token: 'USDC', addr: '0x06eFdBFf2a14a7c8E15944D1F4A48F9F95F663A4', chainId: 534352, decimals: 6, rpc: 'https://rpc.scroll.io',                  facilitator: 'https://facilitator.ultravioletadao.xyz' },
 ]
 
 const seedable = []

@@ -19,7 +19,7 @@ import algosdk from 'algosdk'
 import { createPaymentGate, firstKeylessFacilitator } from '../../../sdk/dist/index.js'
 import { group, check, note, summarize } from '../lib/report.mjs'
 
-const ALGORAND = 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k'
+const ALGORAND = 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8='
 
 export async function run() {
   group('Algorand exact — what it is')

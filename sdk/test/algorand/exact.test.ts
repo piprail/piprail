@@ -15,7 +15,7 @@ import {
 import { SettlementError } from '../../src/errors.js'
 import type { X402ExactAcceptEntry } from '../../src/x402.js'
 
-const NETWORK = 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k' as const
+const NETWORK = 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=' as const
 const ASSET_ID = 31566704 // USDC ASA
 const ASSET = String(ASSET_ID)
 

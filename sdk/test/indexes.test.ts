@@ -649,7 +649,7 @@ describe('normalizeNetwork — every family slug resolves to its driver caip2', 
     ['near', 'near:mainnet'],
     ['sui', 'sui:mainnet'],
     ['aptos', 'aptos:1'],
-    ['algorand', 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k'],
+    ['algorand', 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8='],
     ['stellar', 'stellar:pubnet'],
     ['xrpl', 'xrpl:0'],
     ['eip155:8453', 'eip155:8453'], // CAIP-2 passthrough

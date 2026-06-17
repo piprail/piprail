@@ -411,13 +411,14 @@ fee txn is a separate transaction, so a merchant paying its own receive fee viol
 The recipient must be **opted into the ASA** (`recipientReady()` reports `NOT_OPTED_IN` otherwise), and
 native **ALGO** stays on `onchain-proof`.
 
-:::note[Keyless `exact: true` on Algorand]
-A keyless Algorand facilitator (e.g. GoPlausible, the Algorand-Foundation facilitator) would make
-`exact: true` zero-config gasless on Algorand too. Today PipRail seeds none for Algorand — GoPlausible's
-`/supported` lists Algorand but under a **non-CAIP-2 network id** (the full 44-char genesis hash vs. the
-spec-compliant 32-char form), so it can't be auto-matched yet. Until a keyless Algorand facilitator is
-live-settled + seeded, use **self-settle** (`exact: { settle: 'self', relayer }`) for gasless Algorand —
-it's proven on mainnet — and `exact: true` **degrades gracefully** to `onchain-proof` there.
+:::note[Keyless `exact: true` on Algorand — now live]
+**Algorand is a keyless chain.** [GoPlausible](https://facilitator.goplausible.xyz) — the only keyless
+Algorand x402 facilitator — settles the ratified Algorand `exact` rail, so `exact: true` is zero-config
+gasless on Algorand: GoPlausible's sponsor pools the whole group fee, and **both the buyer AND the
+merchant pay 0 ALGO** (live-settled on mainnet 2026-06-17, tx `PDVDVRFG…`). PipRail uses the full 44-char
+base64 genesis-hash CAIP-2 (`algorand:wGHE2…kit8=`) — exactly the form GoPlausible and the ratified scheme
+use — so it auto-matches and seeds in `KNOWN_FACILITATORS`. You can still self-settle
+(`exact: { settle: 'self', relayer }`) if you'd rather run your own relayer instead of the facilitator.
 :::
 
 ## Aptos — how sponsored-tx gasless works

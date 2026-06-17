@@ -11,7 +11,7 @@ import { createPaymentGate } from '../src/server.js'
 import { registerDriver } from '../src/drivers/index.js'
 import type { PaymentDriver } from '../src/drivers/types.js'
 
-const NETWORK = 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k'
+const NETWORK = 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8='
 const ASSET = '31566704'
 const FEE_PAYER = 'SSWUCC4WCWY7Z3KQHYZ3SI4MGMVDS6747ELGEKXLDDQ7DACVJK52VJC7KE'
 const PAY_TO = '2OT6GLZYUNCBI4QFNH3DSYNXY7HKFVQ6UYW3CRJ4S5JT2L7T2J3GC5E4'

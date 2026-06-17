@@ -65,7 +65,21 @@ export const KNOWN_FACILITATORS: Readonly<Record<Caip2, ReadonlyArray<KnownFacil
       keyless: true,
       schemes: ['exact'],
       settles: ['eip3009'],
-      note: 'Dexter — keyless, gas-sponsored (Base USDC EIP-3009). LIVE-settled on Base 2026-06-17 (tx 0xdf030e4d5bf41a88c5a3bfe73bb433dfbb90b058d3b8ded63b68e026eedb9de8).',
+      note: 'Dexter — keyless, gas-sponsored (Base USDC EIP-3009). LIVE-settled on Base 2026-06-17 (tx 0xdf030e4d5bf41a88c5a3bfe73bb433dfbb90b058d3b8ded63b68e026eedb9de8). Note: ~$0.001 dynamic floor on Base.',
+    },
+    {
+      url: 'https://facilitator.corbits.dev',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['eip3009'],
+      note: 'Corbits (Faremeter) — keyless, sponsors gas (Base USDC EIP-3009). LIVE-settled on Base 2026-06-17 (tx 0x2e41c581af023100429ada81f1371bef82d41dd577ed438d72ddc18676d4213d). Also seeded on Monad + Solana.',
+    },
+    {
+      url: 'https://facilitator.goplausible.xyz',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['eip3009'],
+      note: 'GoPlausible — keyless, sponsors gas (Base USDC EIP-3009). LIVE-settled on Base 2026-06-17 (tx 0x9bcbc1f01fe1fd1aed2a79e5582555164cc4185e9800189df378a6b46eb9c59e). 2nd GoPlausible validation chain (after Algorand).',
     },
   ],
   // Monad (eip155:143). Corbits + Ultravioleta DAO each keyless-settle the EVM EIP-3009 exact rail
@@ -86,6 +100,13 @@ export const KNOWN_FACILITATORS: Readonly<Record<Caip2, ReadonlyArray<KnownFacil
       settles: ['eip3009'],
       note: 'Ultravioleta DAO — keyless, 100% gas-sponsored (Monad native USDC EIP-3009). LIVE-settled on Monad 2026-06-17 (tx 0xb107576effbaceb5586c07a9ddc996ef2b6d455f1858314995ef83a7c6e64d11). 3rd UVD validation chain.',
     },
+    {
+      url: 'https://facilitator.pieverse.io',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['eip3009'],
+      note: 'Pieverse — keyless, sponsors gas (Monad USDC EIP-3009). LIVE-settled on Monad 2026-06-17 (tx 0x00cfeb93876e5ef57dcb002510038b7304913233ca286d7ab33c72a8b119eb0d).',
+    },
   ],
   // BNB Chain (eip155:56). Dexter keyless-settles the EVM EIP-3009 exact rail — but ONLY for BNB's
   // EIP-3009 tokens (FDUSD / USD1); BNB's USDC/USDT are Binance-Peg (Permit2), which no facilitator
@@ -100,6 +121,13 @@ export const KNOWN_FACILITATORS: Readonly<Record<Caip2, ReadonlyArray<KnownFacil
       settles: ['eip3009'],
       note: 'Dexter — keyless, gas-sponsored. BNB EIP-3009 tokens FDUSD/USD1 ONLY (Binance-Peg USDC/USDT are Permit2 → not facilitator-settleable); ~$0.003 dynamic floor. LIVE-settled on BNB 2026-06-17 with FDUSD (tx 0x6d9eb4e4939f3f3c74cb19424cc7822d66ec8ed5c5c7c330d9f88a5f9ad59e9e).',
     },
+    {
+      url: 'https://facilitator.pieverse.io',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['eip3009'],
+      note: 'Pieverse — keyless, sponsors gas. BNB EIP-3009 tokens FDUSD/USD1 (same Binance-Peg caveat as Dexter). LIVE-settled on BNB 2026-06-17 with FDUSD (tx 0xb9c76affc45bd07a51559efd813ca71516fc30625478724476c2cf42fc2203d3) — a 2nd keyless BNB facilitator (failover for Dexter).',
+    },
   ],
   // HyperEVM (eip155:999). Ultravioleta DAO keyless-settles the EVM EIP-3009 exact rail (HyperEVM's
   // native Circle USDC), buyer paid zero gas — a real LIVE settle. UVD is the broadest keyless
@@ -112,6 +140,22 @@ export const KNOWN_FACILITATORS: Readonly<Record<Caip2, ReadonlyArray<KnownFacil
       schemes: ['exact'],
       settles: ['eip3009'],
       note: 'Ultravioleta DAO — keyless, 100% gas-sponsored (HyperEVM native USDC EIP-3009). LIVE-settled on HyperEVM 2026-06-17 (tx 0x56af8148a92a291f0ce362e250919f7742074e5464ac0f315ad68abaec93bd0a).',
+    },
+  ],
+  // Algorand (mainnet, CAIP-2 = full base64 genesis hash). GoPlausible keyless-settles the ratified
+  // x402 Algorand `exact` rail (atomic-group fee pooling): its sponsor pools the whole group fee and
+  // submits, so NEITHER the buyer NOR the merchant pays ALGO — both-sides gasless. LIVE-settled by us
+  // (a real USDCa exact payment; buyer 0 ALGO AND merchant 0 ALGO) — beyond a /supported read. This
+  // makes Algorand a keyless chain (the first non-EVM/non-Solana one). GoPlausible authored the
+  // ratified Algorand scheme; PipRail's group is byte-compatible (the gate sends `amount` + the full
+  // genesis-hash network, which is all GoPlausible needs).
+  'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=': [
+    {
+      url: 'https://facilitator.goplausible.xyz',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['algorand'],
+      note: 'GoPlausible — keyless, 100% gas-sponsored (Algorand USDCa, atomic-group fee pooling; both buyer AND merchant pay 0 ALGO). LIVE-settled on Algorand mainnet 2026-06-17 (tx PDVDVRFGJAG2K6AJ7L26OTSCSRL7AURVKEX4D4KHBAOLNSCYENXA). The only keyless Algorand x402 facilitator.',
     },
   ],
   // Solana (mainnet-beta). Keyless fee-payer sponsors for the SVM exact rail, each LIVE-settled

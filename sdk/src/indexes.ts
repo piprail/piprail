@@ -335,7 +335,7 @@ const SLUG_TO_CAIP2: Readonly<Record<string, Caip2>> = {
   near: 'near:mainnet',
   sui: 'sui:mainnet',
   aptos: 'aptos:1',
-  algorand: 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k',
+  algorand: 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=',
   stellar: 'stellar:pubnet',
   xrpl: 'xrpl:0',
 }

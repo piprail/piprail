@@ -4,7 +4,7 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
-## [2.4.0] — 2026-06-17 — gasless Algorand & Aptos rails + Monad/HyperEVM keyless coverage
+## [2.4.0] — 2026-06-17 — gasless Algorand & Aptos rails + keyless gasless on SIX chains (incl. Algorand & BNB)
 
 Additive and backward-compatible — defaults and the zero-config 402 stay byte-identical; pure-EVM
 installs still never download a non-EVM library (Algorand and Aptos stay lazy-loaded — verified: the
@@ -34,20 +34,26 @@ built EVM bundle has zero static non-EVM imports, only lazy chunks).
   **Live-proven on Aptos mainnet** (self-settle round-trip, buyer paid 0 APT). Like Algorand,
   **`feePayer === payTo` is allowed**. Any Fungible Asset (USDC + USD₮) is gasless; native APT stays
   `onchain-proof`-only.
-- **`exact: true` zero-config gasless now spans FIVE chains** — Base, **BNB**, HyperEVM, Monad, and
-  Solana — where a **keyless facilitator sponsors gas for *both* sides** (neither buyer nor merchant
-  pays). Each `KNOWN_FACILITATORS` row was added only after a real mainnet keyless settle (THE RULE),
-  all 2026-06-17:
-  - **BNB** (`eip155:56`) — **new keyless chain** via **Dexter**, settling the EIP-3009 tokens
-    **FDUSD/USD1** (BNB's Binance-Peg USDC/USDT are Permit2 → not facilitator-settleable; Dexter has a
-    ~$0.003 floor). This beats the BNB token-overlap wall that blocks AEON/Pieverse.
-  - **Monad** (`eip155:143`) — **Corbits** + now **Ultravioleta DAO**.
+- **`exact: true` zero-config gasless now spans SIX chains** — Base, **BNB**, HyperEVM, Monad, Solana,
+  and **Algorand** — where a **keyless facilitator sponsors gas for *both* sides** (neither buyer nor
+  merchant pays). Each `KNOWN_FACILITATORS` row was added only after a real mainnet keyless settle (THE
+  RULE), all 2026-06-17:
+  - **Algorand** (`algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=`) — **new keyless chain, the
+    first non-EVM/non-Solana one**, via **GoPlausible** (the only keyless Algorand x402 facilitator).
+    Atomic-group fee pooling: the sponsor pools the whole group fee, so the **buyer AND the merchant both
+    pay 0 ALGO** (tx `PDVDVRFGJAG2K6AJ7L26OTSCSRL7AURVKEX4D4KHBAOLNSCYENXA`).
+  - **BNB** (`eip155:56`) — **new keyless chain** via **Dexter** + **Pieverse**, settling the EIP-3009
+    tokens **FDUSD/USD1** (BNB's Binance-Peg USDC/USDT are Permit2 → not facilitator-settleable; Dexter
+    has a ~$0.003 floor). This beats the BNB token-overlap wall that blocks AEON.
+  - **Monad** (`eip155:143`) — **Corbits** + **Ultravioleta DAO** + **Pieverse** (3 facilitators).
   - **HyperEVM** (`eip155:999`) — **Ultravioleta DAO**.
-  - **Base** (`eip155:8453`) — PayAI + xpay + now **Ultravioleta DAO** + **Dexter** (4 facilitators →
-    automatic failover).
+  - **Base** (`eip155:8453`) — PayAI + xpay + **Ultravioleta DAO** + **Dexter** + **Corbits** +
+    **GoPlausible** (6 facilitators → automatic failover).
   - **Solana** — PayAI + OpenFacilitator + Corbits (SVM).
-  Ultravioleta DAO (the broadest endpoint — 18 PipRail networks) is now live-validated on **3** chains
-  (HyperEVM, Base, Monad), so it's a trustworthy seed candidate as more chains are funded.
+  Ultravioleta DAO (the broadest endpoint — 18 PipRail networks) is live-validated on **3** chains
+  (HyperEVM, Base, Monad); **GoPlausible** on **2** (Algorand, Base). As more chains are funded the same
+  sweep seeds them — **9 more EVM chains have a keyless facilitator awaiting funding** (Polygon, Arbitrum,
+  Optimism, Avalanche, Ethereum, Celo, Unichain, Scroll, Sei).
 - The `exact` transfer-method union (`ExactRailInfo.method`, `KnownFacilitator.settles`,
   `assetTransferMethod`, the parsed-payment + wire types) now includes **`'algorand'`** and **`'aptos'`**,
   and two new wire payloads are parsed/validated: `ExactAlgorandPaymentPayload` (`{ paymentIndex,
@@ -59,6 +65,13 @@ built EVM bundle has zero static non-EVM imports, only lazy chunks).
   already does for Solana), and the replay claim canonicalizes the Algorand `paymentGroup` and the Aptos
   `{ transaction, senderAuth }` (so a base64-malleated re-submission of the same payment can't slip past
   the used-proof set). All additive — EVM/Solana behaviour is unchanged.
+- **Algorand's CAIP-2 is now the FULL 44-char base64 genesis hash**
+  (`algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=`, was a 32-char prefix) — the exact form the
+  ratified x402 Algorand scheme and its facilitators (GoPlausible) use, so a facilitator-settled rail
+  interops on the wire and `fetchFacilitatorFeePayer` auto-matches. The on-chain `exact` group is
+  **byte-identical** (GoPlausible accepts PipRail's group as-is — the gate already sends the `amount`
+  field it needs); self-settle is **behaviour-neutral** (re-proven live on mainnet). Safe because 2.4.0
+  is unreleased, so no published version emitted the prefix form.
 
 ## [2.3.0] — 2026-06-17 — `exact: true` zero-config gasless gate
 

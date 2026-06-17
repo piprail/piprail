@@ -166,6 +166,25 @@ a single merchant account can self-settle. `payTo` must be opted into the ASA. N
 exact-payable (the scheme is an ASA transfer) — it stays `onchain-proof`. **Live-proven on Algorand
 mainnet.** Full mechanism: [Gasless payments → Algorand](/making-payments/gasless-payments/#algorand--how-fee-pooled-gasless-works).
 
+### Keyless — both sides pay zero ALGO
+
+For **truly gasless** (neither buyer nor merchant pays), use the keyless
+[GoPlausible](https://facilitator.goplausible.xyz) facilitator — the only keyless Algorand x402
+facilitator. Its sponsor pools the whole group fee, so the **merchant pays 0 ALGO too**:
+
+```ts
+requirePayment({
+  chain: 'algorand', token: 'USDC', amount: '0.10', payTo: 'YourAlgoAddr',
+  exact: true, // zero-config: auto-picks GoPlausible (or pin exact: { settle: { facilitator: 'https://facilitator.goplausible.xyz' } })
+})
+```
+
+The gate reads GoPlausible's sponsor address from its `GET /supported`, advertises it, and forwards
+verify+settle to GoPlausible — no relayer key needed. **Live-settled on mainnet 2026-06-17**
+(tx `PDVDVRFGJAG2K6AJ7L26OTSCSRL7AURVKEX4D4KHBAOLNSCYENXA`), buyer **and** merchant both 0 ALGO. This
+makes Algorand the first non-EVM/non-Solana keyless PipRail chain. See
+[Facilitator coverage](/accepting-payments/facilitator-coverage/).
+
 ## Proof binding — Template A (note-bound)
 
 Algorand uses [Template A](/concepts/proof-binding/): the challenge nonce rides in the
