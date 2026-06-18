@@ -40,6 +40,14 @@ If a payer just sends a raw transfer to your wallet, you can't discover the pric
 
 > `requirePayment` is **Express-only**. Every other framework — Next.js, Hono, Fastify, Cloudflare Workers, Bun, Deno — uses `createPaymentGate` the same way: build a gate, switch on `verify()`.
 
+## A complete payment system — both sides notified, success **and** failure
+
+| What | Folder |
+|---|---|
+| A merchant + a buyer where **both** are told the outcome of every payment — each settlement (`onPaid`) **and** each rejected attempt (`onFailed`) persisted to SQLite, the buyer's `onEvent` seeing `payment-settled` / `payment-failed` with the **same `code`** | [`payment-system/`](./payment-system) |
+
+> The merchant's gate records every success (`onPaid` → `payments`) and every rejected attempt (`onFailed` → `failed_attempts`, with a `transient` flag so RPC-lag retries aren't false alarms) to its **own** SQLite ledger; a free `GET /ledger` shows both. The buyer is notified of the same outcome (event + thrown error). This is the "just like a payment system" reference — `npm start` the merchant, then `npm run buyer`.
+
 ## Make payments (agent)
 
 | What | Folder |

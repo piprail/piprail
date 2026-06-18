@@ -17,13 +17,25 @@ options and behaviour is unchanged.
 - **`onFailedError(error, failure)`** and **`awaitOnFailed`** mirror `onPaidError` / `awaitOnPaid`: the
   hook is fully isolated (a sync throw or async rejection routes to `onFailedError` — it can never break
   the request or escape as an unhandledRejection), and `awaitOnFailed` runs it before the 402 returns.
-- **Exported `FailedPayment` type.**
+- **Exported `FailedPayment` type** — `{ code, detail, transient }`. The `transient` flag is `true` for
+  `tx_not_found` / `insufficient_confirmations` (the proof may still be settling and the buyer's client
+  auto-retries — alert on `!transient` to avoid false alarms on RPC lag), `false` for a definitive
+  rejection (wrong amount, expired, replayed, bad signature, …). Nothing is hidden — every rejected
+  attempt still fires `onFailed`.
 - **Buyer side:** the `payment-failed` client event now also carries structured `code` / `detail` (the
-  server's parsed reason) alongside the existing human `reason`, so an agent can branch on the code.
+  server's parsed reason) alongside the existing human `reason`. It now ALSO fires on a **pre-send
+  decline** (policy / `onBeforePay` / no settleable rail) — previously those only threw — so a consumer
+  watching `onEvent` learns of EVERY failure, not just server rejections (the typed throw is unchanged).
 - **Fires only on a real rejection** — not on a normal first-request `challenge` (no proof yet), and not
   on a transient/settlement error that throws (an RPC blip, or a 5xx `SettlementError`): those aren't
   payment verdicts. A failure the merchant never receives a request for (insufficient funds, policy
   decline, abandonment) reaches only the buyer — a backendless gate is passive by design.
+- **Examples + tests:** a complete `examples/payment-system/` reference (merchant + buyer — both sides,
+  success + failure → a SQLite ledger with a free `/ledger` dashboard); `onFailed` added to the Express +
+  Next.js examples. Coverage spans every `VerifyErrorCode`, both rails, the `requirePayment` middleware,
+  the `transient` flag, concurrency, replay-after-success, that a thrown `SettlementError`/transient error
+  does NOT fire `onFailed`, buyer declines, and a full client↔gate HTTP loop proving both sides receive
+  the same `code`.
 
 ## [2.6.0] — 2026-06-18 — keyless-gasless `exact` on 7 more EVM mainnets (6 → 13 chains)
 

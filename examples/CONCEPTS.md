@@ -126,7 +126,8 @@ else console.log(plan?.fundingHint) // "Top up 0.04 USDC on base" / "recipient m
 A payment's outcome reaches **both** parties, with the same reason:
 
 - **Success:** the merchant's `onPaid(receipt)` fires; the buyer's `client.fetch()` returns `200` (+ a `payment-settled` event).
-- **Failure (a rejected proof):** the merchant's `onFailed(failure)` fires; the buyer gets the **same `code`** (a thrown `PipRailError` + a `payment-failed` event carrying `code`/`detail`).
+- **Failure (a rejected proof):** the merchant's `onFailed(failure)` fires; the buyer gets the **same `code`** (a thrown `PipRailError` + a `payment-failed` event carrying `code`/`detail`). `failure.transient` is `true` for a still-settling proof (`tx_not_found`/`insufficient_confirmations`, which the buyer auto-retries) — alert on `!transient`.
+- **Buyer-side decline** (over budget, `onBeforePay` says no): the buyer is told both ways — a thrown `PaymentDeclinedError` **and** a `payment-failed` event — and **zero funds move**. The merchant isn't told (a pre-send refusal never reaches a passive gate); see the limit below.
 
 ```ts
 createPaymentGate({

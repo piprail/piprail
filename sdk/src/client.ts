@@ -94,11 +94,13 @@ export type PipRailEvent =
   | {
       kind: 'payment-failed'
       reason: string
-      /** The server's machine-readable rejection code when it sent one — the SAME code the
-       *  merchant's `onFailed` hook receives (a canonical {@link VerifyErrorCode} from a PipRail
-       *  gate, or a foreign facilitator's reason string). Absent when no structured code was given. */
+      /** A machine-readable failure code when one is known. For a SERVER rejection it's the SAME
+       *  code the merchant's `onFailed` hook receives (a canonical {@link VerifyErrorCode} from a
+       *  PipRail gate, or a foreign facilitator's reason string); for a pre-send client DECLINE
+       *  (policy / budget / approval) it's that decline reason (e.g. `'BUDGET'`, `'APPROVAL'`).
+       *  Absent when no structured code was given. */
       code?: string
-      /** The server's human-readable detail, when present (e.g. `"Paid 40000, required 500000."`). */
+      /** Human-readable detail, when present (e.g. `"Paid 40000, required 500000."`). */
       detail?: string
     }
 
@@ -1008,7 +1010,10 @@ export class PipRailClient {
     if (autoRoute) {
       const plan = await this.planFromChallenge(net, wallet, challenge, url, schemes)
       if (!plan.best) {
-        throw new PaymentDeclinedError(plan.fundingHint ?? 'No rail is settleable for this payment.')
+        const reason = plan.fundingHint ?? 'No rail is settleable for this payment.'
+        // autoRoute refused before any send — surface it on the event stream too, not only the throw.
+        this.safeEmit({ kind: 'payment-failed', reason })
+        throw new PaymentDeclinedError(reason)
       }
       accept = plan.best.accept
       quote = plan.best.quote
@@ -1441,10 +1446,11 @@ export class PipRailClient {
    *  TERMINAL expiry/approval decline it must not retry) without parsing prose. */
   private async authorize(quote: PipRailQuote): Promise<void> {
     if (!quote.withinPolicy) {
-      throw new PaymentDeclinedError(
-        `Payment refused by policy: ${quote.policyReason ?? 'not allowed'}`,
-        { reasonCode: reasonCodeForPolicy(quote.policyCode) }
-      )
+      const reason = `Payment refused by policy: ${quote.policyReason ?? 'not allowed'}`
+      // Emit `payment-failed` too (not only throw), so a consumer watching `onEvent` learns of a
+      // pre-send DECLINE just as it does a server rejection — the buyer is notified of EVERY failure.
+      this.safeEmit({ kind: 'payment-failed', reason, code: quote.policyCode ?? 'POLICY' })
+      throw new PaymentDeclinedError(reason, { reasonCode: reasonCodeForPolicy(quote.policyCode) })
     }
     const hook = this.opts.onBeforePay
     if (!hook) return
@@ -1453,17 +1459,16 @@ export class PipRailClient {
       approved = await hook(quote)
     } catch (err) {
       // A throwing decision hook means "do not pay" — fail safe, never pay.
-      throw new PaymentDeclinedError('onBeforePay threw — refusing to pay.', {
-        cause: err,
-        reasonCode: 'APPROVAL',
-      })
+      const reason = 'onBeforePay threw — refusing to pay.'
+      this.safeEmit({ kind: 'payment-failed', reason, code: 'APPROVAL' })
+      throw new PaymentDeclinedError(reason, { cause: err, reasonCode: 'APPROVAL' })
     }
     if (!approved) {
-      throw new PaymentDeclinedError(
+      const reason =
         `onBeforePay declined ${quote.amountFormatted} ${quote.symbol ?? ''}`.trimEnd() +
-          ` on ${quote.network}.`,
-        { reasonCode: 'APPROVAL' }
-      )
+        ` on ${quote.network}.`
+      this.safeEmit({ kind: 'payment-failed', reason, code: 'APPROVAL' })
+      throw new PaymentDeclinedError(reason, { reasonCode: 'APPROVAL' })
     }
   }
 

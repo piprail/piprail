@@ -135,6 +135,14 @@ export interface FailedPayment {
   code: VerifyErrorCode
   /** Human-readable detail, e.g. `"Paid 40000, required 500000."`. */
   detail: string
+  /**
+   * `true` for a **transient** rejection (`tx_not_found` / `insufficient_confirmations`): the proof
+   * may still be settling and the buyer's client **retries automatically** — you'll get `onPaid` if
+   * it then succeeds. `false` for a **definitive** rejection the buyer must fix (wrong amount,
+   * expired, replayed, bad signature, wrong recipient). Alert on `!transient` to avoid false alarms
+   * on normal RPC lag; nothing is hidden — every rejected attempt still fires `onFailed`.
+   */
+  transient: boolean
 }
 
 export interface RequirePaymentOptions {
@@ -424,6 +432,11 @@ function normaliseExactOption(
  * The chain's driver is resolved lazily on first `challenge()`/`verify()`,
  * which is what lets Solana (and future families) auto-mount with no setup.
  */
+/** The two TRANSIENT verify codes (ERRORS.md §3): the proof may still be settling (RPC lag /
+ *  awaiting confirmations) and the buyer's client retries automatically. Everything else is a
+ *  definitive rejection. Used to flag {@link FailedPayment.transient}. */
+const TRANSIENT_VERIFY_CODES = new Set<VerifyErrorCode>(['tx_not_found', 'insufficient_confirmations'])
+
 export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
   const minConfirmations = options.minConfirmations ?? 1
   const maxTimeoutSeconds = options.maxTimeoutSeconds ?? 600
@@ -953,7 +966,8 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
   async function deliverOnFailed(
     result: Extract<VerifyPaymentResult, { kind: 'invalid' }>
   ): Promise<void> {
-    const failure: FailedPayment = { code: result.error as VerifyErrorCode, detail: result.detail }
+    const code = result.error as VerifyErrorCode
+    const failure: FailedPayment = { code, detail: result.detail, transient: TRANSIENT_VERIFY_CODES.has(code) }
     if (options.awaitOnFailed) await fireOnFailed(failure)
     else void fireOnFailed(failure)
   }
