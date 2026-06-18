@@ -138,7 +138,7 @@ These two say "the 402 offered rails, but not ones this wallet can settle." Keep
 | Code | Meaning |
 | --- | --- |
 | `NO_COMPATIBLE_ACCEPT` | The challenge offered no `accepts[]` entry for the client's network and enabled schemes. The message names the enabled schemes. |
-| `UNSUPPORTED_SCHEME` | Asked to pay a scheme the bound family/asset/signer can't settle, with no fallback — e.g. an [`exact`](/making-payments/exact-buyer/) rail on a family without an exact implementation (TON, Tron, NEAR, Sui, Stellar, XRPL — EVM, Solana, Algorand, and Aptos DO support it), a non-EIP-3009 token (USDT, native, plain ERC-20), or a contract / EIP-1271 / EIP-7702 signer. |
+| `UNSUPPORTED_SCHEME` | Asked to pay a scheme the bound family/asset/signer can't settle, with no fallback — e.g. an [`exact`](/making-payments/exact-buyer/) rail on a family without an exact implementation (TON, Tron, Sui, Stellar, XRPL — EVM, Solana, Algorand, Aptos, and NEAR DO support it), a non-EIP-3009 token (USDT, native, plain ERC-20), or a contract / EIP-1271 / EIP-7702 signer. |
 
 The usual fix for `UNSUPPORTED_SCHEME` is to keep an `onchain-proof` rail in the offer, or pay with a
 supported chain/token. Note `WRONG_FAMILY` is different again — that's a wallet, `payTo`, or token
