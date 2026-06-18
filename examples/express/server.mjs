@@ -21,7 +21,11 @@ const paid = requirePayment({
   amount: '0.05',
   payTo: PAY_TO,
   rpcUrl: process.env.RPC, // optional; omit to use a public Base RPC
-  onPaid: (r) => console.log(`✅ paid ${r.amount} by ${r.payer.slice(0, 8)}… — tx ${r.transaction.slice(0, 10)}…`),
+  // Notified the instant a payment SUCCEEDS…
+  onPaid: (r) => console.log(`✅ paid ${r.amountFormatted} ${r.symbol} by ${r.payer.slice(0, 8)}… — tx ${r.transaction.slice(0, 10)}…`),
+  // …AND the instant one is REJECTED (the buyer's client is told the same `code`). `transient`
+  // means the proof may still be settling (RPC lag) and the buyer auto-retries — alert on !transient.
+  onFailed: (f) => console.log(`⚠️  rejected: ${f.code}${f.transient ? ' (transient — buyer retrying)' : ''} — ${f.detail}`),
 })
 
 const app = express()

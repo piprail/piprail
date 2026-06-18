@@ -1,0 +1,17 @@
+{
+  "name": "@piprail/example-payment-system",
+  "private": true,
+  "type": "module",
+  "version": "0.0.1",
+  "description": "PipRail as a payment system — notify BOTH merchant and buyer on success AND failure, persisted to SQLite.",
+  "scripts": {
+    "start": "node merchant.mjs",
+    "buyer": "node buyer.mjs"
+  },
+  "dependencies": {
+    "@piprail/sdk": "^2.7.0",
+    "better-sqlite3": "^11",
+    "express": "^4",
+    "viem": "^2.21.0"
+  }
+}

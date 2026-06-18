@@ -133,6 +133,55 @@ never break the request (route them to `onPaidError`). It's fire-and-forget by d
 **at-least-once** — dedupe on `idempotencyKey`. See
 [Receipts & onPaid](/accepting-payments/receipts-and-onpaid/) for the full story.
 
+## Failure notifications — `onFailed`
+
+`onFailed` is the **mirror of `onPaid`**: it fires when a submitted proof is *rejected* — every
+time `gate.verify()` returns [`kind: 'invalid'`](/accepting-payments/verifying-payments/) (wrong
+amount, expired, replayed, unknown asset, wrong recipient, bad signature, …). Where `onPaid`
+records a settlement, `onFailed` records a rejection, so you can log, count, or alert on bad
+attempts with the same machinery:
+
+```ts
+requirePayment({
+  chain: 'base', token: 'USDC', amount: '0.10', payTo: '0xYourWallet',
+  onPaid:   (r) => log.info({ tx: r.transaction }, `paid ${r.amountFormatted} ${r.symbol}`),
+  onFailed: (f) => { if (!f.transient) log.warn({ code: f.code }, `rejected: ${f.detail}`) },
+})
+```
+
+It receives a `FailedPayment` — and because a rejection has no settlement, it's a much leaner
+shape than `PaidReceipt` (no tx, no amount, no payer):
+
+```ts
+interface FailedPayment {
+  code: VerifyErrorCode   // the SAME machine code the buyer's client is told (e.g. 'amount_too_low')
+  detail: string          // human text, e.g. "Paid 40000, required 500000."
+  transient: boolean      // true only for tx_not_found / insufficient_confirmations
+}
+```
+
+The `code` is identical to the one the buyer's client receives for that rejection (both sides see
+one consistent reason — see the [VerifyErrorCode table](/accepting-payments/verifying-payments/#why-a-proof-was-rejected)).
+Use `transient` to avoid false alarms: it's `true` only for the two transient codes
+(`tx_not_found` / `insufficient_confirmations`), where the proof may still be settling and the
+buyer's client retries automatically — you'll usually then get `onPaid`. Alert only on
+`!transient`.
+
+`onFailed` shares `onPaid`'s isolation and lifecycle exactly: it may be **sync or async**; a thrown
+error or a rejected promise is caught and routed to `onFailedError` — it can never break the
+request or crash the process; and it's **fire-and-forget** unless you set `awaitOnFailed` to run
+it before the 402 is returned.
+
+:::note
+`onFailed` fires on every rejection that **reaches the gate**, but a backendless gate is passive
+by design: a failure the merchant never gets a request for — the buyer can't afford it, a
+`policy` / `onBeforePay` declines it, or the buyer abandons before paying — is seen **only** by the
+buyer's client (its [`payment-failed` event](/making-payments/events/) now carries that reason).
+And a *thrown* error — a transient RPC blip that re-throws, or a 5xx
+[`SettlementError`](/accepting-payments/verifying-payments/#verifying-the-exact-rail) — is not a
+verdict, so it does **not** fire `onFailed`.
+:::
+
 ## Key options
 
 | Option | Purpose |
@@ -145,6 +194,9 @@ never break the request (route them to `onPaidError`). It's fire-and-forget by d
 | `onPaid` | Callback after a payment verifies (sync or async; receives a `PaidReceipt`). |
 | `onPaidError` | Observe a failing `onPaid` instead of swallowing it silently. |
 | `awaitOnPaid` | Await `onPaid` before serving the resource (default `false` = fire-and-forget). |
+| `onFailed` | Mirror of `onPaid`: callback after a submitted proof is *rejected* (`'invalid'`), receiving a `FailedPayment`. |
+| `onFailedError` | Observe a failing `onFailed` instead of swallowing it silently (mirror of `onPaidError`). |
+| `awaitOnFailed` | Await `onFailed` before the 402 is returned (default `false` = fire-and-forget). |
 | `generateNonce` | Custom per-challenge nonce generator. Default `crypto.randomUUID()`. |
 | `isUsed` / `markUsed` | Pluggable replay store for multi-instance deploys. |
 | `exact` | Also accept the standard `exact` scheme — zero-config keyless (`exact: true`, Mode 0 — start here), your own relayer (`settle: 'self'`, Mode A), or a named facilitator (`settle: { facilitator }`, Mode B). |

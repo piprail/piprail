@@ -33,6 +33,31 @@ client ──GET /report + proof──────▶ server ──(verify on-ch
 client ◀──200 + the goods────────── server
 ```
 
+## Both sides are told the outcome
+
+Every proof that reaches the gate produces a verdict, and **both parties learn it with the same
+reason**:
+
+- **It settled.** The buyer gets the `200` plus the receipt (and a `payment-settled`
+  [event](/making-payments/events/)); the merchant's [`onPaid`](/accepting-payments/receipts-and-onpaid/)
+  hook fires with the verified [`PaidReceipt`](/accepting-payments/receipts-and-onpaid/#the-paidreceipt).
+- **It was rejected.** When `verify()` returns `kind: 'invalid'` — wrong amount, expired, replayed,
+  wrong recipient, bad signature — the buyer's client throws (and emits a `payment-failed` event),
+  and the merchant's [`onFailed`](/accepting-payments/receipts-and-onpaid/#failure-notifications--onfailed)
+  hook fires with a `FailedPayment`. The machine `code` on each side is **the same**, so a log on
+  one matches a log on the other.
+
+A no-proof first request (the normal `402` challenge) is neither — it fires no hook, because it
+isn't a verdict.
+
+:::note[The one honest limit]
+Because the gate is **passive** — it only acts on a request that arrives — a failure that never
+reaches it can only be observed by the buyer. If the buyer can't afford the payment, their
+[spend policy](/spend-controls/payment-policy/) or `onBeforePay` declines it, or they abandon
+before paying, the gate never sees a request, so there's no merchant-side notification. Every
+rejection that *does* reach the gate fires `onFailed`.
+:::
+
 ## Verification is local — there's no facilitator
 
 A "facilitator" is the third party most x402 stacks use to verify and settle payments. PipRail

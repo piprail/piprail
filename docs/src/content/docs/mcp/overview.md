@@ -69,7 +69,7 @@ there. Never pass it as a CLI argument, and never commit it.
 | `piprail_discover` | Find x402-payable resources on the open indexes — without paying. |
 | `piprail_quote_payment` | Price a gated URL (no payment). |
 | `piprail_plan_payment` | Check it *can* pay — balance, gas, recipient readiness — across every rail. |
-| `piprail_pay_request` | **The one value-moving tool.** Fetch the URL and pay the `402`, within policy. |
+| `piprail_pay_request` | **The one value-moving tool.** Fetch the URL and pay the `402`, within policy — returns a structured outcome (success *or* failure), never an exception. |
 | `piprail_register` | List a resource you run on the open indexes (moves no funds). |
 | `piprail_budget` | Read remaining budget + time leash + spend-so-far. |
 | `piprail_guide` | Read the agent contract — the quote → plan → pay loop and the never-re-pay rule. |

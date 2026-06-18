@@ -91,7 +91,18 @@ export type PipRailEvent =
    * rich receipt — read `settle.transaction` for the on-chain settle tx there.
    */
   | { kind: 'payment-settled'; receipt: X402Receipt | null; settle?: SettleOutcome }
-  | { kind: 'payment-failed'; reason: string }
+  | {
+      kind: 'payment-failed'
+      reason: string
+      /** A machine-readable failure code when one is known. For a SERVER rejection it's the SAME
+       *  code the merchant's `onFailed` hook receives (a canonical {@link VerifyErrorCode} from a
+       *  PipRail gate, or a foreign facilitator's reason string); for a pre-send client DECLINE
+       *  (policy / budget / approval) it's that decline reason (e.g. `'BUDGET'`, `'APPROVAL'`).
+       *  Absent when no structured code was given. */
+      code?: string
+      /** Human-readable detail, when present (e.g. `"Paid 40000, required 500000."`). */
+      detail?: string
+    }
 
 /**
  * Wallet for the chosen chain family. **One field, every chain: `{ key }`** — the
@@ -999,7 +1010,10 @@ export class PipRailClient {
     if (autoRoute) {
       const plan = await this.planFromChallenge(net, wallet, challenge, url, schemes)
       if (!plan.best) {
-        throw new PaymentDeclinedError(plan.fundingHint ?? 'No rail is settleable for this payment.')
+        const reason = plan.fundingHint ?? 'No rail is settleable for this payment.'
+        // autoRoute refused before any send — surface it on the event stream too, not only the throw.
+        this.safeEmit({ kind: 'payment-failed', reason })
+        throw new PaymentDeclinedError(reason)
       }
       accept = plan.best.accept
       quote = plan.best.quote
@@ -1432,10 +1446,13 @@ export class PipRailClient {
    *  TERMINAL expiry/approval decline it must not retry) without parsing prose. */
   private async authorize(quote: PipRailQuote): Promise<void> {
     if (!quote.withinPolicy) {
-      throw new PaymentDeclinedError(
-        `Payment refused by policy: ${quote.policyReason ?? 'not allowed'}`,
-        { reasonCode: reasonCodeForPolicy(quote.policyCode) }
-      )
+      const reason = `Payment refused by policy: ${quote.policyReason ?? 'not allowed'}`
+      const reasonCode = reasonCodeForPolicy(quote.policyCode)
+      // Emit `payment-failed` too (not only throw), so a consumer watching `onEvent` learns of a
+      // pre-send DECLINE just as it does a server rejection — the buyer is notified of EVERY failure.
+      // The event `code` is the SAME DeclineReasonCode the thrown error carries (one consistent value).
+      this.safeEmit({ kind: 'payment-failed', reason, code: reasonCode })
+      throw new PaymentDeclinedError(reason, { reasonCode })
     }
     const hook = this.opts.onBeforePay
     if (!hook) return
@@ -1444,17 +1461,16 @@ export class PipRailClient {
       approved = await hook(quote)
     } catch (err) {
       // A throwing decision hook means "do not pay" — fail safe, never pay.
-      throw new PaymentDeclinedError('onBeforePay threw — refusing to pay.', {
-        cause: err,
-        reasonCode: 'APPROVAL',
-      })
+      const reason = 'onBeforePay threw — refusing to pay.'
+      this.safeEmit({ kind: 'payment-failed', reason, code: 'APPROVAL' })
+      throw new PaymentDeclinedError(reason, { cause: err, reasonCode: 'APPROVAL' })
     }
     if (!approved) {
-      throw new PaymentDeclinedError(
+      const reason =
         `onBeforePay declined ${quote.amountFormatted} ${quote.symbol ?? ''}`.trimEnd() +
-          ` on ${quote.network}.`,
-        { reasonCode: 'APPROVAL' }
-      )
+        ` on ${quote.network}.`
+      this.safeEmit({ kind: 'payment-failed', reason, code: 'APPROVAL' })
+      throw new PaymentDeclinedError(reason, { reasonCode: 'APPROVAL' })
     }
   }
 
@@ -1605,6 +1621,7 @@ export class PipRailClient {
     this.safeEmit({
       kind: 'payment-failed',
       reason: `server returned 402 after broadcasting payment ${ref}${unconfirmedNote} (${why})`,
+      ...(lastReason ? { code: lastReason.error, detail: lastReason.detail } : {}),
     })
     throw new MaxRetriesExceededError(
       `Server still returned 402 after ${attempts} attempt(s) with on-chain proof ` +
@@ -1659,7 +1676,9 @@ export class PipRailClient {
     // non-5xx), or a persistent transient 402. Never re-present, never a spend; the
     // `errorReason` tells the agent the real fix (e.g. `insufficient_funds` → top up).
     const rejectDefinitive = (why: string): never => {
-      this.safeEmit({ kind: 'payment-failed', reason: `exact: facilitator rejected nonce=${nonce} (${why})` })
+      // `why` is the facilitator's structured errorReason — surface it as the event `code` too, so the
+      // buyer learns the reason on the exact rail's most common failure (parity with the merchant).
+      this.safeEmit({ kind: 'payment-failed', reason: `exact: facilitator rejected nonce=${nonce} (${why})`, code: why })
       throw new MaxRetriesExceededError(
         `exact: the facilitator rejected the payment (${why}). Fix the cause, then re-present the ` +
           `SAME signed authorization (nonce=${nonce}) — do NOT re-sign a fresh nonce. ref=${nonce}.`,
@@ -1755,6 +1774,7 @@ export class PipRailClient {
     this.safeEmit({
       kind: 'payment-failed',
       reason: `exact: 402 after submitting authorization nonce=${nonce} (${why})`,
+      ...(lastReason ? { code: lastReason.error, detail: lastReason.detail } : {}),
     })
     throw new MaxRetriesExceededError(
       `exact: server still returned 402 after submitting the signed authorization ` +

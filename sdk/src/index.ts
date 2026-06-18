@@ -72,6 +72,7 @@ export type {
   RequirePaymentOptions,
   AcceptOption,
   ExactRailOption,
+  FailedPayment,
   ChainSelector,
   TokenInput,
   PaymentGate,

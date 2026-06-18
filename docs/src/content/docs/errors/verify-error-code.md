@@ -37,12 +37,24 @@ family uses the same code for the same condition. An agent branches on `error`; 
 | `tx_already_used` | This proof was already redeemed — a replay. | definitive |
 | `signature_invalid` | The `exact`-rail authorization is invalid — the signed payload didn't validate against the trusted rail. On EVM the EIP-712 signature didn't recover to the payer; on Solana, Algorand, Aptos, and NEAR the signed transaction / atomic group / delegate-action is unparseable, the signer or structure is wrong, or it trips a fee-payer/relayer drain guard. | definitive |
 
+:::note
+This is also exactly what a **merchant** receives. When a submitted proof is rejected, the gate's
+[`onFailed`](/accepting-payments/receipts-and-onpaid/) hook fires with a `FailedPayment` whose
+`.code` is the same `VerifyErrorCode` from the table above (and whose `.detail` is the same
+human-readable line) — so the buyer's client and the merchant's hook are told one consistent reason.
+The **Transient?** column maps to `FailedPayment.transient`: `true` for the two transient codes,
+`false` for a definitive rejection. Alert the merchant on `!transient` — a transient code usually
+clears on the buyer's automatic retry and is followed by `onPaid`.
+:::
+
 ## Transient vs definitive
 
 `transient` means the proof may simply not have propagated to the server's RPC node yet;
 `definitive` means retrying won't change the outcome. **These labels are informational** — the
 built-in client retries *every* code up to `maxPaymentRetries` with a short backoff that absorbs
 RPC lag, and does not branch on the code. A consumer building a custom client may branch on it.
+On the gate side the same split surfaces as `FailedPayment.transient`
+([`onFailed`](/accepting-payments/receipts-and-onpaid/)).
 
 :::note
 `verify()` fails closed. If the gate's RPC read fails, it returns `tx_not_found` and replies

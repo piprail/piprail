@@ -136,9 +136,14 @@ the code. A consumer building a custom client may branch on it.
 > The pure renderers (`render.ts`) and `classifyChallenge` (`classify.ts`) are viem-free protocol-layer
 > modules; `render.ts`'s VALUE import of `errors.ts` is allowed (errors.ts is chain-agnostic).
 
-Observability hooks never change control flow: the gate wraps `onPaid`, and the client routes
-every event through a private `safeEmit()` that swallows handler throws — a logging bug can't
-abort a payment.
+Observability hooks never change control flow: the gate wraps **`onPaid` (settled) and `onFailed`
+(a rejected proof — the same `VerifyErrorCode` the buyer is sent)** in the same isolation, and the
+client routes every event through a private `safeEmit()` that swallows handler throws — a logging bug
+can't abort a payment. (`onFailed` fires only on an `invalid` verdict the gate actually receives — not
+on a no-proof `challenge`, nor on a thrown transient/`SettlementError`, nor on a buyer-side failure
+that never reaches a backendless gate. Its `FailedPayment.transient` flags the two transient codes —
+`tx_not_found`/`insufficient_confirmations` — so a merchant can alert on `!transient` only. The buyer's
+`payment-failed` event mirrors it for both server rejections AND pre-send declines.)
 
 ---
 

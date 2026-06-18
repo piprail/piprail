@@ -15,6 +15,11 @@ was re-derived from your own trusted [`accept`](/accepting-payments/defining-acc
 [verification](/accepting-payments/verifying-payments/), never taken from the client. The hook is
 isolated, may be sync or async, and can deliver receipts durably — all covered below.
 
+`onPaid` has a mirror — [`onFailed`](#failure-notifications--onfailed) — that fires when a
+submitted proof is *rejected* (`gate.verify()` returns `kind: 'invalid'`). Wire both and the gate
+notifies you of every settlement **and** every rejection, with the buyer told the same machine
+reason; that section is at the end.
+
 ## The `onPaid` callback
 
 Pass `onPaid` to [`requirePayment`](/accepting-payments/require-payment-and-gate/) or
@@ -219,9 +224,9 @@ const gate = createPaymentGate({ chain: 'base', token: 'USDC', amount: '0.10', p
 let result
 try {
   result = await gate.verify(req.headers[HEADER_SIGNATURE] ?? req.headers[HEADER_SIGNATURE_V1])
-  // → { kind: 'paid', receipt, receiptHeader }            on a verified, unused proof
-  //   { kind: 'challenge', challenge, requiredHeader, statusCode: 402 }   no proof yet
-  //   { kind: 'invalid', error, detail, challenge, requiredHeader, statusCode: 402 }  rejected proof
+  // → { kind: 'paid', receipt, receiptHeader }            on a verified, unused proof — fires onPaid
+  //   { kind: 'challenge', challenge, requiredHeader, statusCode: 402 }   no proof yet — fires NEITHER hook
+  //   { kind: 'invalid', error, detail, challenge, requiredHeader, statusCode: 402 }  rejected proof — fires onFailed
 } catch (err) {
   // ONLY the optional `exact` rail throws: a server-side settle failure (relayer out of gas,
   // facilitator down) is NOT the payer's fault — reply 5xx, never a 402 (which says "re-pay").
@@ -263,3 +268,156 @@ returns `502` on a `SettlementError` itself — you only reach for `buildReceipt
 manual `try/catch` when you've stepped outside the gate entirely. See the
 [wire codecs](/reference/wire-codecs/) reference for the full envelope set.
 :::
+
+## Failure notifications — `onFailed`
+
+`onPaid` tells you when a payment *settled*. `onFailed` is its exact mirror: it fires when a
+**submitted proof is rejected** — when [`gate.verify()`](/accepting-payments/verifying-payments/)
+returns `kind: 'invalid'`. Wrong amount, expired, replayed, unknown asset, wrong recipient, a bad
+`exact`-rail signature — any verdict that becomes a 402 rejection fires `onFailed`. It carries the
+**same machine `code`** the buyer's client is told for that rejection, so both sides see one
+consistent reason for the same failure.
+
+Pass it to [`requirePayment`](/accepting-payments/require-payment-and-gate/) or `createPaymentGate`
+exactly like `onPaid` — it fires through both, because it fires *inside* `gate.verify()`:
+
+```ts
+requirePayment({
+  chain: 'base', token: 'USDC', amount: '0.05', payTo: '0xYourWallet',
+  onPaid:   (r) => console.log(`paid ${r.amountFormatted} ${r.symbol} — tx ${r.transaction}`),
+  onFailed: (f) => console.warn(`rejected: ${f.code} — ${f.detail}`),  // the mirror of onPaid
+})
+```
+
+### The `FailedPayment`
+
+`onFailed` and `onFailedError` get a `FailedPayment`. A rejection has **no settlement**, so —
+unlike a [`PaidReceipt`](#the-paidreceipt) — there's no tx hash, amount, or payer to report. It's
+exactly three fields:
+
+```ts
+interface FailedPayment {
+  code: VerifyErrorCode   // the canonical rejection reason — the SAME code the buyer is given
+  detail: string          // human-readable detail, e.g. "Paid 40000, required 500000."
+  transient: boolean      // true for the two transient codes — the proof may still be settling
+}
+```
+
+| Field | What it is |
+| --- | --- |
+| `code` | The closed [`VerifyErrorCode`](/errors/verify-error-code/) for the rejection — `amount_too_low`, `payment_expired`, `tx_already_used`, `transfer_not_found`, `signature_invalid`, … Branch on this; it's the same code the buyer's client reads off `extensions.piprail.code`. |
+| `detail` | The human-readable explanation, for logs — e.g. `"Paid 40000, required 500000."` or `"Proof 0xabc… was already redeemed."`. |
+| `transient` | `true` only for the two transient codes `tx_not_found` / `insufficient_confirmations` — the proof may still be settling and the buyer auto-retries. `false` for a definitive rejection the buyer must fix. See below. |
+
+### The `transient` flag — real failures vs lag
+
+A rejection isn't always a *real* failure. The two transient codes —
+[`tx_not_found`](/errors/verify-error-code/) (the proof tx hasn't propagated to your RPC node yet,
+or the read itself blipped) and `insufficient_confirmations` (mined, but not yet
+`minConfirmations` deep) — mean the proof may **still be settling**. The buyer's client
+[retries automatically](/errors/why-payments-fail/), so a `transient: true` rejection is usually
+followed by `onPaid` on a later attempt once the node catches up.
+
+So **alert on `!transient`**, log everything:
+
+```ts
+onFailed: (f) => {
+  metrics.inc('payment.rejected', { code: f.code })   // count every rejection
+  if (!f.transient) {
+    // a DEFINITIVE rejection the buyer must fix (wrong amount, expired, replayed, bad signature)
+    alerts.warn(`payment rejected: ${f.code} — ${f.detail}`)
+  }
+  // f.transient === true → normal RPC lag; the buyer is already retrying. Don't page anyone.
+}
+```
+
+Nothing is hidden: every rejected attempt — transient or not — fires `onFailed`. The flag just
+tells you whether it's worth waking someone up. See
+[`VerifyErrorCode`](/errors/verify-error-code/) for the full transient-vs-definitive table.
+
+### Sync or async — and always isolated
+
+Identical to `onPaid`. `onFailed` may be **synchronous or `async`**, and is fully isolated: a
+thrown error **or a rejected promise** is caught and routed to `onFailedError` — it can never break
+the request, hold up a response it isn't awaiting, or escape as an `unhandledRejection`:
+
+```ts
+onFailed: async (f) => {
+  await db.insert('failed_attempts', { code: f.code, detail: f.detail, transient: f.transient })  // a rejection here is isolated
+},
+onFailedError: (err, f) => logger.error({ err, code: f.code }, 'failure-record persist failed'),
+```
+
+`onFailedError(error, failure)` is the mirror of [`onPaidError`](#sync-or-async--and-always-isolated):
+it observes a throw inside `onFailed`, and is itself isolated (even a throwing error handler can't
+break a request). Without it, a failing `onFailed` hook is swallowed silently — set it to log or
+alert the dropped record.
+
+### Fire-and-forget, or `awaitOnFailed`
+
+By default `onFailed` is **fire-and-forget**: the gate doesn't block the 402 rejection on it.
+`awaitOnFailed: true` mirrors [`awaitOnPaid`](#fire-and-forget-or-awaitonpaid) — the gate awaits
+the hook before the 402 is returned, so "failure recorded" is guaranteed before the caller is told.
+A rejection inside the hook is still isolated to `onFailedError`.
+
+### When it fires — and when it doesn't
+
+`onFailed` fires on a **real rejection** and nothing else. The three cases it deliberately does
+*not* cover:
+
+| Outcome | `onFailed`? | Why |
+| --- | --- | --- |
+| `kind: 'invalid'` — a submitted proof was rejected | **yes** | This is the rejection verdict — wrong amount, expired, replayed, bad signature, … |
+| `kind: 'challenge'` — no proof yet (the normal first request) | no | A first 402 is the start of the flow, not a failure. |
+| `verify()` **throws** — a transient RPC error re-throws, or a 5xx [`SettlementError`](/accepting-payments/exact-rail-seller/) | no | A throw isn't a payment *verdict* — it's an infrastructure fault. The gate returns 5xx, the buyer's signed authorization stays valid + unused, and there's nothing to record as a buyer failure. |
+
+That last row is the important distinction: a definitive `kind: 'invalid'` rejection (the buyer's
+proof is wrong) fires `onFailed`; a thrown `SettlementError` (your relayer is out of gas, or a
+facilitator is down) does **not** — it's your infrastructure, not the buyer's payment. See
+[the exact rail](/accepting-payments/exact-rail-seller/) for the settle-failure path.
+
+:::caution[The honest limit — pre-send failures never reach the gate]
+A backendless gate is **passive** — it only ever sees a request that arrives. So a failure the
+buyer hits *before* submitting a proof reaches **only the buyer's client**, never `onFailed`: the
+buyer can't afford it ([`InsufficientFundsError`](/errors/why-payments-fail/)), a
+[spend policy](/spend-controls/payment-policy/) or `onBeforePay` declines it
+([`PaymentDeclinedError`](/errors/why-payments-fail/)), no settleable rail exists, or the buyer
+just abandons the flow. None of those send anything to your endpoint, so no gate — PipRail's or
+anyone's — can observe them. `onFailed` covers **every rejection that does reach the gate**; for
+the buyer's-eye view of the rest, see the [client events](/making-payments/events/) below.
+:::
+
+### Recording both outcomes — the payment-system pattern
+
+The two hooks together let a gate persist a complete record — every settlement *and* every
+rejection — to your own store, with no PipRail backend or database in the path. This is the shape
+the runnable [`examples/payment-system/`](https://github.com/piprail/piprail/tree/main/examples/payment-system)
+demo uses (merchant + buyer, both sides, success + failure persisted to SQLite with a `/ledger`
+dashboard):
+
+```ts
+import { createPaymentGate } from '@piprail/sdk'
+
+const gate = createPaymentGate({
+  chain: 'base', token: 'USDC', amount: '0.05', payTo: '0xYourWallet',
+  awaitOnPaid: true,                                   // record the receipt before serving the goods
+  // ✅ SUCCESS — fires after a verified settlement. at-least-once → dedupe on idempotencyKey.
+  onPaid: (r) => paymentsTable.upsert({
+    where: { tx: r.idempotencyKey },
+    create: { tx: r.transaction, payer: r.payer, amount: r.amountFormatted, symbol: r.symbol, at: r.verifiedAt },
+    update: {},
+  }),
+  // ⚠️  FAILURE — the mirror. A rejection has no tx/amount/payer; record the reason.
+  onFailed: (f) => failuresTable.insert({
+    code: f.code, detail: f.detail, transient: f.transient, at: new Date(),
+  }),
+  // Both hooks are fully isolated — a throw routes to the *Error seam, never breaking the request.
+  onPaidError:   (err, r) => logger.error({ err, tx: r.transaction }, 'receipt persist failed'),
+  onFailedError: (err, f) => logger.error({ err, code: f.code }, 'failure persist failed'),
+})
+```
+
+Both `requirePayment` and `createPaymentGate` fire `onFailed` identically — it lives inside
+`gate.verify()`, which the middleware calls for you. (Want the *buyer's* side of these same
+failures — a single `onEvent` stream that also catches the pre-send declines the gate can't?
+See [Events & observability](/making-payments/events/).)

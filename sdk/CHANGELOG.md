@@ -4,6 +4,39 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.7.0] — 2026-06-19 — symmetric payment notifications (`onFailed`: both sides notified on success AND failure)
+
+Additive and backward-compatible — defaults and the zero-config 402 stay byte-identical; omit the new
+options and behaviour is unchanged.
+
+- **New merchant hook `onFailed(failure)`** on `createPaymentGate` / `requirePayment` — the mirror of
+  `onPaid`. It fires whenever a SUBMITTED proof is rejected (a `kind:'invalid'` verdict: wrong amount,
+  expired, replayed, unknown asset, …), so the merchant is notified of a failure exactly as the buyer's
+  client already is. The new `FailedPayment` it receives carries the SAME machine `code` (a
+  `VerifyErrorCode`) the buyer gets — one consistent reason on both sides.
+- **`onFailedError(error, failure)`** and **`awaitOnFailed`** mirror `onPaidError` / `awaitOnPaid`: the
+  hook is fully isolated (a sync throw or async rejection routes to `onFailedError` — it can never break
+  the request or escape as an unhandledRejection), and `awaitOnFailed` runs it before the 402 returns.
+- **Exported `FailedPayment` type** — `{ code, detail, transient }`. The `transient` flag is `true` for
+  `tx_not_found` / `insufficient_confirmations` (the proof may still be settling and the buyer's client
+  auto-retries — alert on `!transient` to avoid false alarms on RPC lag), `false` for a definitive
+  rejection (wrong amount, expired, replayed, bad signature, …). Nothing is hidden — every rejected
+  attempt still fires `onFailed`.
+- **Buyer side:** the `payment-failed` client event now also carries structured `code` / `detail` (the
+  server's parsed reason) alongside the existing human `reason`. It now ALSO fires on a **pre-send
+  decline** (policy / `onBeforePay` / no settleable rail) — previously those only threw — so a consumer
+  watching `onEvent` learns of EVERY failure, not just server rejections (the typed throw is unchanged).
+- **Fires only on a real rejection** — not on a normal first-request `challenge` (no proof yet), and not
+  on a transient/settlement error that throws (an RPC blip, or a 5xx `SettlementError`): those aren't
+  payment verdicts. A failure the merchant never receives a request for (insufficient funds, policy
+  decline, abandonment) reaches only the buyer — a backendless gate is passive by design.
+- **Examples + tests:** a complete `examples/payment-system/` reference (merchant + buyer — both sides,
+  success + failure → a SQLite ledger with a free `/ledger` dashboard); `onFailed` added to the Express +
+  Next.js examples. Coverage spans every `VerifyErrorCode`, both rails, the `requirePayment` middleware,
+  the `transient` flag, concurrency, replay-after-success, that a thrown `SettlementError`/transient error
+  does NOT fire `onFailed`, buyer declines, and a full client↔gate HTTP loop proving both sides receive
+  the same `code`.
+
 ## [2.6.0] — 2026-06-18 — keyless-gasless `exact` on 7 more EVM mainnets (6 → 13 chains)
 
 Additive and backward-compatible — defaults and the zero-config 402 stay byte-identical; this only

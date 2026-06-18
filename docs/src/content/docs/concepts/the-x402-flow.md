@@ -84,6 +84,30 @@ On success the server returns `200` plus a `payment-response` header (v1 fallbac
 The settled tx lives in `transaction`, not the submit-time `payload.txHash` — they differ on
 TON/NEAR, where the proof ref is a composite locator rather than the final tx id.
 
+## Settled or rejected — both sides hear the same reason
+
+The receipt above is the *success* message. The wire flow also has a symmetric *failure* path,
+and PipRail surfaces both verdicts to **both** parties with one consistent machine `code`:
+
+| Outcome | Buyer learns it via | Merchant learns it via |
+| --- | --- | --- |
+| **Settled** | `200` + the `payment-response` receipt, and a `payment-settled` [event](/making-payments/events/) | the [`onPaid`](/accepting-payments/receipts-and-onpaid/) hook + `PaidReceipt` |
+| **Rejected** | the thrown error + a `payment-failed` [event](/making-payments/events/) carrying `code` + `detail` | the [`onFailed`](/accepting-payments/receipts-and-onpaid/#failure-notifications--onfailed) hook + a `FailedPayment` |
+
+A rejection is what `gate.verify()` returns as `kind: 'invalid'` — a wrong amount, an expired or
+replayed proof, an unknown asset, the wrong recipient, a bad signature. There's no settlement, so
+unlike a receipt it carries no tx/amount/payer — just the [`VerifyErrorCode`](/accepting-payments/verifying-payments/),
+a human `detail`, and a `transient` flag. The buyer's `payment-failed` `code` **equals** the
+merchant's `failure.code`, by design: one rejection, one reason, two notifications.
+
+:::note
+The first request (no proof yet) returns a plain `402` challenge — that's the start of the flow,
+not a rejection, so it notifies neither side. One honest limit: a failure that never reaches the
+gate — the buyer can't afford it, a [spend policy](/spend-controls/payment-policy/) / `onBeforePay`
+declines it, or the buyer abandons — is seen **only by the buyer**, because a backendless gate is
+passive. Every rejection that *does* reach `verify()` fires `onFailed`.
+:::
+
 ## Two schemes
 
 PipRail speaks two payment schemes:

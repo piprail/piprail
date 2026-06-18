@@ -13,6 +13,10 @@ const gate = createPaymentGate({
   token: 'USDC',
   amount: '0.05',
   payTo: '0xYourWallet…', // set from env in production, e.g. process.env.PAY_TO
+  // Notified on BOTH outcomes: onPaid on a settlement, onFailed on a rejected proof — the buyer's
+  // client is told the same `code`. `transient` means the buyer is auto-retrying (RPC lag), not a real fail.
+  onPaid: (r) => console.log('paid', r.amountFormatted, r.symbol, r.transaction),
+  onFailed: (f) => console.log('rejected', f.code, f.transient ? '(transient)' : '', f.detail),
 })
 
 export async function GET(req: Request): Promise<Response> {
