@@ -283,7 +283,8 @@ nav.sidebar a[aria-current='page']::before {
   text-decoration-color: var(--sl-color-accent);
 }
 
-/* Inline code — a quiet emerald-tinted chip, not a loud highlight. */
+/* Inline code — a quiet emerald-tinted chip, not a loud highlight. A long token
+   (an address, a long type) wraps instead of overflowing the column on a phone. */
 .sl-markdown-content :not(pre) > code {
   font-size: 0.85em;
   padding: 0.15em 0.4em;
@@ -291,6 +292,7 @@ nav.sidebar a[aria-current='page']::before {
   border: 1px solid color-mix(in oklch, var(--sl-color-accent) 18%, transparent);
   background: color-mix(in oklch, var(--sl-color-accent) 7%, var(--sl-color-gray-6));
   color: var(--sl-color-white);
+  overflow-wrap: break-word;
 }
 
 /* Strong gets a touch more presence. */
@@ -304,6 +306,64 @@ nav.sidebar a[aria-current='page']::before {
   border-inline-start: 2px solid var(--sl-color-accent);
   padding-inline-start: 1.1rem;
   color: var(--sl-color-gray-2);
+}
+
+/* Code in a heading is the heading (function names like `quote()`), not a chip —
+   strip the inline-code box so it reads as a mono heading in the heading's own
+   color, instead of an emerald capsule floating mid-title. */
+.sl-markdown-content :is(h1, h2, h3, h4, h5, h6) code {
+  background: transparent;
+  border-color: transparent;
+  padding: 0;
+  color: inherit;
+  font-size: 0.93em;
+}
+
+/* ============================================================================
+   Lists — a comfortable rhythm with the brand's quiet emerald markers. Starlight
+   ships plain discs; these give an unordered list an emerald dot and an ordered
+   list a mono emerald numeral, with a little air between items so a dense list
+   scans cleanly instead of reading as one grey block.
+   ============================================================================ */
+.sl-markdown-content :is(ul, ol) {
+  padding-inline-start: 1.4rem;
+}
+.sl-markdown-content li + li {
+  margin-top: 0.45rem;
+}
+.sl-markdown-content li::marker {
+  color: var(--sl-color-accent);
+}
+.sl-markdown-content ol > li::marker {
+  font-family: var(--sl-font-mono);
+  font-weight: 600;
+  font-size: 0.92em;
+}
+/* A nested list gets a touch of room from its parent item. */
+.sl-markdown-content li > :is(ul, ol) {
+  margin-top: 0.45rem;
+}
+/* GFM task lists (`- [ ] …`) ship their own checkbox — drop the emerald bullet so
+   we don't show a marker AND a box, and tint the checkbox with the accent. */
+.sl-markdown-content .contains-task-list {
+  list-style: none;
+  padding-inline-start: 0.1rem;
+}
+.sl-markdown-content .contains-task-list li::marker {
+  content: none;
+}
+.sl-markdown-content input[type='checkbox'] {
+  accent-color: var(--sl-color-accent);
+  margin-inline-end: 0.5em;
+  translate: 0 0.08em;
+}
+
+/* Horizontal rule — a soft hairline that fades at both ends, not a hard line. */
+.sl-markdown-content hr {
+  border: 0;
+  height: 1px;
+  margin-block: 2.75rem;
+  background: linear-gradient(90deg, transparent, var(--sl-color-gray-5), transparent);
 }
 
 /* ============================================================================
@@ -353,7 +413,12 @@ nav.sidebar a[aria-current='page']::before {
   border-color: color-mix(in oklch, var(--sl-color-accent) 55%, transparent);
 }
 
-/* Quiet, thin scrollbars on code blocks. */
+/* Quiet, thin scrollbars on code blocks. Firefox uses the standard
+   scrollbar-* properties; WebKit/Blink use the ::-webkit-scrollbar rules. */
+:root[data-theme='dark'] .sl-markdown-content pre {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(1 0 0 / 0.12) transparent;
+}
 :root[data-theme='dark'] pre::-webkit-scrollbar {
   height: 6px;
 }
@@ -381,17 +446,25 @@ nav.sidebar a[aria-current='page']::before {
 }
 
 /* ============================================================================
-   Tables — rounded container, tinted header row, hairline dividers, zebra rows.
+   Tables — a crafted reference surface: rounded card frame, an uppercase
+   tracked header rail, hairline row dividers, quiet zebra + hover.
 
-   Design rules that keep every table pristine:
-   • The table is its own horizontal scroll container (`display:block` +
-     `overflow-x:auto`) — full-width when it fits, a clean horizontal scroll when
-     a genuinely wide table can't, so it NEVER bleeds under the "On this page" panel.
-   • Cells top-align and wrap normally, but long unbreakable tokens (URLs, chain
-     addresses, inline code) break instead of ballooning one column and crushing
-     its neighbours — the squashing we used to see.
-   • A per-cell `min-width` floor stops auto-layout from crushing a column to a
-     useless sliver; past that the table simply scrolls.
+   The squash, solved properly. A table column that held a TYPE SIGNATURE
+   (`Record<string, WalletInput>`, `(quote) => boolean | Promise<boolean>`) used
+   to collapse into vertical character-soup. Two rules fix it for good:
+
+   • Cell text wraps with `overflow-wrap: break-word` (NOT `anywhere`). `anywhere`
+     lets a column's min-content shrink to a single glyph, so auto-layout crushed
+     the type column to a sliver and chopped identifiers mid-word. `break-word`
+     keeps each token whole — a type signature breaks only at its spaces/commas
+     (two tidy lines), and an identifier never splits while it fits its column.
+   • A code-only cell (an id, a type, a default) gets a real width floor (14ch),
+     so the type column is never starved by a greedy prose column beside it.
+
+   The table stays its own horizontal scroll container (`display:block` +
+   `overflow-x:auto`), so a genuinely wide table scrolls cleanly instead of
+   bleeding under the "On this page" panel — but with tokens kept whole, almost
+   nothing needs to.
    ============================================================================ */
 .sl-markdown-content table {
   display: block;
@@ -402,8 +475,24 @@ nav.sidebar a[aria-current='page']::before {
   border-collapse: separate;
   border-spacing: 0;
   border: 1px solid var(--sl-color-hairline, var(--sl-color-gray-5));
-  border-radius: 0.6rem;
-  font-size: 0.94rem;
+  /* 0.7rem matches the code-block frame + cards exactly, so every framed surface
+     in the docs shares one corner radius. */
+  border-radius: 0.7rem;
+  font-size: 0.92rem;
+  /* The brand card lift, value-for-value identical to `.card`, so a table reads
+     as the same deliberate surface as a card or a code window. */
+  box-shadow:
+    inset 0 1px 0 var(--piprail-edge-light),
+    0 1px 2px oklch(0 0 0 / 0.2),
+    0 16px 36px -24px oklch(0 0 0 / 0.5);
+  /* Firefox thin scrollbar (WebKit uses ::-webkit-scrollbar below). */
+  scrollbar-width: thin;
+  scrollbar-color: oklch(1 0 0 / 0.12) transparent;
+}
+:root[data-theme='light'] .sl-markdown-content table {
+  box-shadow:
+    0 1px 2px oklch(0 0 0 / 0.06),
+    0 12px 30px -22px oklch(0 0 0 / 0.25);
 }
 /* Thin, quiet scrollbar to match the code blocks. */
 .sl-markdown-content table::-webkit-scrollbar {
@@ -413,34 +502,61 @@ nav.sidebar a[aria-current='page']::before {
   background: oklch(1 0 0 / 0.12);
   border-radius: 999px;
 }
+/* Header rail — uppercase, tracked, the display face, on a tinted band. Reads as
+   column labels (Stripe/Linear-clean), not as more body text. */
 .sl-markdown-content th {
   font-family: var(--piprail-font-display);
   font-weight: 600;
-  font-size: 0.92em;
+  font-size: 0.78em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   text-align: start;
-  white-space: nowrap; /* short headers read best on one line */
-  background: color-mix(in oklch, var(--sl-color-accent) 8%, var(--sl-color-gray-6));
+  white-space: nowrap;
+  color: var(--sl-color-gray-2);
+  background: color-mix(in oklch, var(--sl-color-accent) 7%, var(--sl-color-gray-6));
   border-bottom: 1px solid var(--sl-color-hairline, var(--sl-color-gray-5));
 }
 .sl-markdown-content :is(th, td) {
-  padding: 0.62rem 0.9rem;
+  padding: 0.72rem 1rem;
   vertical-align: top;
-  min-width: 7ch; /* no razor-thin crushed columns; wider tables scroll instead */
-  overflow-wrap: break-word; /* break a long word/URL rather than balloon the column */
+  word-break: normal;
+  overflow-wrap: break-word; /* break only at token boundaries — never mid-identifier */
 }
-/* Inline code in a cell (URLs, addresses, mints) must wrap inside its column,
-   never force the whole table wide. */
+.sl-markdown-content td {
+  min-width: 8ch; /* prose columns can still narrow; nothing crushes to a sliver */
+}
+/* A cell that is purely a code chip (an id, a type signature, a default value)
+   earns a comfortable width floor — this is what keeps the TYPE column from being
+   starved by the prose column next to it. */
+.sl-markdown-content :is(td, th):has(> code:only-child) {
+  min-width: 14ch;
+}
+/* Inline code in a cell breaks only at token boundaries (the table's defence
+   against character-soup), and wears a quiet, borderless chip so a column of
+   types/ids reads as one calm block instead of a wall of emerald boxes. */
 .sl-markdown-content :is(th, td) code {
   white-space: normal;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  word-break: normal;
+  border-color: transparent;
+  background: color-mix(in oklch, var(--sl-color-white) 6%, transparent);
+  color: var(--sl-color-gray-1);
 }
-/* …EXCEPT the first column, which is nearly always a short identifier (an env var,
-   a field, a function, a token symbol). Keep those whole on one line — auto-layout
-   then grants the name its width and the prose column absorbs the wrapping — so we
-   never see `PIPRAIL_PRIVA`↵`TE_KEY` broken mid-name. */
+/* The first column is the row's key (a field, function, env var, token symbol):
+   keep it whole on one line and let it carry a faint emerald tint so the eye
+   lands on it first. */
 .sl-markdown-content :is(th, td):first-child code {
   white-space: nowrap;
   overflow-wrap: normal;
+  background: color-mix(in oklch, var(--sl-color-accent) 9%, var(--sl-color-gray-6));
+  color: var(--sl-color-white);
+}
+/* The first column is the row's anchor — a key, a name, or (in a transposed
+   comparison) the row label. Give it a gentle lift so the eye reads down it
+   like a spine, without shouting over a two-column content table. */
+.sl-markdown-content tbody td:first-child {
+  color: var(--sl-color-white);
+  font-weight: 500;
 }
 /* A secondary line inside a cell (e.g. an env-var alias under its name): muted + smaller. */
 .sl-markdown-content :is(td, th) small {
@@ -462,6 +578,22 @@ nav.sidebar a[aria-current='page']::before {
 }
 .sl-markdown-content tbody tr:hover td {
   background: color-mix(in oklch, var(--sl-color-accent) 5%, transparent);
+}
+/* On a phone, a multi-column table is genuinely narrow. Let the nowrap header and
+   the nowrap first-column key wrap (token-safe) so the table needs far less
+   horizontal scroll — it still scrolls inside its own frame if it must, but most
+   tables now fit the viewport. Above this width the tidy single-line look returns. */
+@media (max-width: 30rem) {
+  .sl-markdown-content th {
+    white-space: normal;
+  }
+  .sl-markdown-content :is(th, td):first-child code {
+    white-space: normal;
+    overflow-wrap: break-word;
+  }
+  .sl-markdown-content :is(td, th):has(> code:only-child) {
+    min-width: 10ch;
+  }
 }
 
 /* ============================================================================
