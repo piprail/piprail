@@ -24,7 +24,7 @@ app.get('/report',
 )
 ```
 
-That route now costs **0.05 USDC on Base**, paid straight to your wallet. One parameter picks the chain. → [Accepting payments](https://docs.piprail.com/accepting-payments/require-payment-and-gate/)
+That route now costs **0.05 USDC on Base**, paid straight to your wallet. One parameter picks the chain. Add `onPaid` / `onFailed` to be notified the moment a payment settles or is rejected — both carry the same reason, and the buyer's client is notified too. → [Accepting payments](https://docs.piprail.com/accepting-payments/require-payment-and-gate/)
 
 ## Let an agent pay for it
 

@@ -4,6 +4,27 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased] — symmetric payment notifications (`onFailed`: both sides notified on success AND failure)
+
+Additive and backward-compatible — defaults and the zero-config 402 stay byte-identical; omit the new
+options and behaviour is unchanged.
+
+- **New merchant hook `onFailed(failure)`** on `createPaymentGate` / `requirePayment` — the mirror of
+  `onPaid`. It fires whenever a SUBMITTED proof is rejected (a `kind:'invalid'` verdict: wrong amount,
+  expired, replayed, unknown asset, …), so the merchant is notified of a failure exactly as the buyer's
+  client already is. The new `FailedPayment` it receives carries the SAME machine `code` (a
+  `VerifyErrorCode`) the buyer gets — one consistent reason on both sides.
+- **`onFailedError(error, failure)`** and **`awaitOnFailed`** mirror `onPaidError` / `awaitOnPaid`: the
+  hook is fully isolated (a sync throw or async rejection routes to `onFailedError` — it can never break
+  the request or escape as an unhandledRejection), and `awaitOnFailed` runs it before the 402 returns.
+- **Exported `FailedPayment` type.**
+- **Buyer side:** the `payment-failed` client event now also carries structured `code` / `detail` (the
+  server's parsed reason) alongside the existing human `reason`, so an agent can branch on the code.
+- **Fires only on a real rejection** — not on a normal first-request `challenge` (no proof yet), and not
+  on a transient/settlement error that throws (an RPC blip, or a 5xx `SettlementError`): those aren't
+  payment verdicts. A failure the merchant never receives a request for (insufficient funds, policy
+  decline, abandonment) reaches only the buyer — a backendless gate is passive by design.
+
 ## [2.6.0] — 2026-06-18 — keyless-gasless `exact` on 7 more EVM mainnets (6 → 13 chains)
 
 Additive and backward-compatible — defaults and the zero-config 402 stay byte-identical; this only

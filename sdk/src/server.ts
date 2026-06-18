@@ -48,6 +48,7 @@ import {
   type X402PaymentSignature,
   type ParsedExactPayment,
   type VerifyResult,
+  type VerifyErrorCode,
 } from './x402.js'
 
 export type { TokenInput, ChainSelector }
@@ -119,6 +120,21 @@ export interface ExactRailOption {
    *  token supports it, else Permit2 — so a non-EIP-3009 token like Binance-Peg USDC on BNB
    *  "just works". Force `'eip3009'` or `'permit2'` to pin one. Ignored on Solana (always SVM). */
   method?: 'eip3009' | 'permit2' | 'auto'
+}
+
+/**
+ * The merchant-side mirror of {@link PaidReceipt}: what an {@link RequirePaymentOptions.onFailed}
+ * hook receives when a SUBMITTED payment proof is REJECTED. It carries the SAME machine-readable
+ * `code` the buyer's client is given for that rejection, so both sides are notified of one
+ * consistent reason. (A rejection has no settlement, so — unlike a receipt — there is no tx hash
+ * or settled amount to report.)
+ */
+export interface FailedPayment {
+  /** The canonical rejection reason — the same {@link VerifyErrorCode} surfaced to the buyer
+   *  (e.g. `amount_too_low`, `payment_expired`, `tx_already_used`, `transfer_not_found`). */
+  code: VerifyErrorCode
+  /** Human-readable detail, e.g. `"Paid 40000, required 500000."`. */
+  detail: string
 }
 
 export interface RequirePaymentOptions {
@@ -193,6 +209,37 @@ export interface RequirePaymentOptions {
    * via `onPaidError`; it never turns a settled payment into a 402.
    */
   awaitOnPaid?: boolean
+  /**
+   * The merchant-side mirror of `onPaid`: fired when a SUBMITTED payment proof is REJECTED — a
+   * `kind:'invalid'` verdict (wrong amount, expired, replayed, unknown asset, …). Receives a
+   * {@link FailedPayment} carrying the SAME machine `code` the buyer's client is given, so the
+   * merchant and the buyer are notified of the same failure with the same reason.
+   *
+   * Fires ONLY on a rejected attempt — NOT on a normal first-request 402 `challenge` (no proof
+   * yet), and NOT on a transient/settlement error that throws (an RPC blip, or a 5xx
+   * `SettlementError`): those aren't payment verdicts. Like `onPaid`, it may be **sync or async**
+   * and is fully isolated — a throw OR a rejected promise is caught and routed to `onFailedError`,
+   * so it can never break the request or crash the process. Fire-and-forget by default; set
+   * `awaitOnFailed` to run it before the 402 is returned.
+   *
+   * NOTE: a failure the merchant never receives a request for — the buyer can't afford it, an
+   * `onBeforePay`/`policy` declines it, or the buyer abandons before paying — cannot reach a
+   * backendless gate (only the buyer's client sees it). `onFailed` covers every rejection that
+   * DOES reach the gate.
+   */
+  onFailed?: (failure: FailedPayment) => void | Promise<void>
+  /**
+   * Observe a failure inside `onFailed` (sync throw or async rejection) — the mirror of
+   * `onPaidError`. Without it, a throwing `onFailed` is swallowed silently. Its own throws are
+   * also swallowed (it can never break a request).
+   */
+  onFailedError?: (error: unknown, failure: FailedPayment) => void
+  /**
+   * Await `onFailed` before the 402 rejection is returned (mirror of `awaitOnPaid`), so
+   * "failure recorded" is guaranteed before the caller is told. Default `false` (fire-and-forget).
+   * A rejection inside the hook is still isolated via `onFailedError`.
+   */
+  awaitOnFailed?: boolean
   /**
    * ALSO advertise a standard x402 `exact` rail so any standard x402 client can pay this
    * gate — opt-in, EVM (EIP-3009/Permit2) + Solana (SVM). See {@link ExactRailOption}.
@@ -871,6 +918,46 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     else void fireOnPaid(paid)
   }
 
+  /** Surface an `onFailed` throw through the optional `onFailedError` seam — itself isolated,
+   *  the mirror of {@link reportOnPaidError}. */
+  function reportOnFailedError(error: unknown, failure: FailedPayment): void {
+    if (!options.onFailedError) return
+    try {
+      options.onFailedError(error, failure)
+    } catch {
+      /* an observer must never break the request either */
+    }
+  }
+
+  /** Run `onFailed` with the SAME total isolation as `onPaid`: a synchronous throw AND an async
+   *  rejection are both caught and routed to `onFailedError`, so a failure-notification hook can
+   *  never break the request nor escape as an unhandledRejection. Returns the in-flight promise so
+   *  the caller can `await` it when `awaitOnFailed` is set. */
+  function fireOnFailed(failure: FailedPayment): void | Promise<void> {
+    if (!options.onFailed) return
+    let outcome: void | Promise<void>
+    try {
+      outcome = options.onFailed(failure)
+    } catch (err) {
+      reportOnFailedError(err, failure)
+      return
+    }
+    if (outcome != null && typeof (outcome as Promise<void>).then === 'function') {
+      return Promise.resolve(outcome).catch((err) => reportOnFailedError(err, failure))
+    }
+  }
+
+  /** Fire `onFailed` after a REJECTED proof: await it (record-before-respond) when `awaitOnFailed`,
+   *  else fire-and-forget. Builds the {@link FailedPayment} from the SAME `invalid` verdict the buyer
+   *  is sent, so both sides see one consistent `code`. Either way it can never throw upward. */
+  async function deliverOnFailed(
+    result: Extract<VerifyPaymentResult, { kind: 'invalid' }>
+  ): Promise<void> {
+    const failure: FailedPayment = { code: result.error as VerifyErrorCode, detail: result.detail }
+    if (options.awaitOnFailed) await fireOnFailed(failure)
+    else void fireOnFailed(failure)
+  }
+
   async function describe(resourceUrl = ''): Promise<ResourceDescription> {
     const specs = await ready()
     const accepts: PaymentRail[] = []
@@ -1105,7 +1192,24 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     return { kind: 'paid', receipt: result.receipt, receiptHeader: buildReceiptHeader(result.receipt) }
   }
 
+  /**
+   * Verify an incoming `payment-signature` header value AND fire the merchant-side notification
+   * for the verdict. On a settled proof, `onPaid` has already fired inside (record-before-serve);
+   * here we fire `onFailed` on a REJECTED proof — so the merchant is notified of a failure exactly
+   * as the buyer's client is. A no-proof `challenge` is the normal first leg, not a failure, so it
+   * fires neither hook.
+   */
   async function verify(
+    paymentSignature: string | string[] | undefined
+  ): Promise<VerifyPaymentResult> {
+    const result = await resolveVerdict(paymentSignature)
+    if (result.kind === 'invalid') await deliverOnFailed(result)
+    return result
+  }
+
+  /** Route a `payment-signature` to the right verifier (or a fresh challenge). The pure dispatch —
+   *  `verify()` wraps it to fire the failure hook so EVERY rejection path is covered by one seam. */
+  async function resolveVerdict(
     paymentSignature: string | string[] | undefined
   ): Promise<VerifyPaymentResult> {
     const raw = normaliseHeader(paymentSignature)

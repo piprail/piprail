@@ -91,7 +91,16 @@ export type PipRailEvent =
    * rich receipt — read `settle.transaction` for the on-chain settle tx there.
    */
   | { kind: 'payment-settled'; receipt: X402Receipt | null; settle?: SettleOutcome }
-  | { kind: 'payment-failed'; reason: string }
+  | {
+      kind: 'payment-failed'
+      reason: string
+      /** The server's machine-readable rejection code when it sent one — the SAME code the
+       *  merchant's `onFailed` hook receives (a canonical {@link VerifyErrorCode} from a PipRail
+       *  gate, or a foreign facilitator's reason string). Absent when no structured code was given. */
+      code?: string
+      /** The server's human-readable detail, when present (e.g. `"Paid 40000, required 500000."`). */
+      detail?: string
+    }
 
 /**
  * Wallet for the chosen chain family. **One field, every chain: `{ key }`** — the
@@ -1605,6 +1614,7 @@ export class PipRailClient {
     this.safeEmit({
       kind: 'payment-failed',
       reason: `server returned 402 after broadcasting payment ${ref}${unconfirmedNote} (${why})`,
+      ...(lastReason ? { code: lastReason.error, detail: lastReason.detail } : {}),
     })
     throw new MaxRetriesExceededError(
       `Server still returned 402 after ${attempts} attempt(s) with on-chain proof ` +
@@ -1755,6 +1765,7 @@ export class PipRailClient {
     this.safeEmit({
       kind: 'payment-failed',
       reason: `exact: 402 after submitting authorization nonce=${nonce} (${why})`,
+      ...(lastReason ? { code: lastReason.error, detail: lastReason.detail } : {}),
     })
     throw new MaxRetriesExceededError(
       `exact: server still returned 402 after submitting the signed authorization ` +

@@ -121,6 +121,23 @@ else console.log(plan?.fundingHint) // "Top up 0.04 USDC on base" / "recipient m
 1. **Thrown** (config/wallet/budget): a `PipRailError` subclass with a stable `.code` (`INSUFFICIENT_FUNDS`, `UNKNOWN_TOKEN`, `PAYMENT_DECLINED`, …). Catch with `instanceof`.
 2. **Returned** (proof rejected): the gate gives `{ kind: 'invalid', error, detail }` where `error` is a `VerifyErrorCode` (`amount_too_low`, `transfer_not_found`, `payment_expired`, …) — turn it into a 402 body with `toInvalidBody(result)`.
 
+## Both sides are notified — success *or* failure
+
+A payment's outcome reaches **both** parties, with the same reason:
+
+- **Success:** the merchant's `onPaid(receipt)` fires; the buyer's `client.fetch()` returns `200` (+ a `payment-settled` event).
+- **Failure (a rejected proof):** the merchant's `onFailed(failure)` fires; the buyer gets the **same `code`** (a thrown `PipRailError` + a `payment-failed` event carrying `code`/`detail`).
+
+```ts
+createPaymentGate({
+  chain: 'base', token: 'USDC', amount: '0.05', payTo,
+  onPaid:   (r) => console.log('PAID', r.amountFormatted, r.symbol, r.transaction),
+  onFailed: (f) => console.log('FAILED', f.code, f.detail),   // same code the buyer sees
+})
+```
+
+`onFailed` mirrors `onPaid` exactly — sync **or** async, fully isolated (a throw routes to `onFailedError`, never breaks the request), and `awaitOnFailed` records before the 402 is returned. It fires **only** on a rejected proof the gate receives — not on a normal no-proof `challenge`, nor a transient/settlement error that throws. One honest limit: a failure that never reaches the gate — the buyer can't afford it, a `policy`/`onBeforePay` declines it, or they abandon before paying — is seen only by the buyer (a backendless gate is passive by design).
+
 ## More
 
 - [docs.piprail.com](https://docs.piprail.com) — full API, every chain, wallet formats, custom tokens.
