@@ -186,7 +186,9 @@ inputs [`estimateCost()`](/making-payments/estimate-cost/), plus the drivers' `b
 client methods. Like `verify()`,
 they *return* their outcome: a transient read becomes a rail in `state: 'unknown'` with a warning,
 an unsettleable rail carries typed `blockers`, and a missing field comes back `null` (never a false
-`0`). The only throw on that path is `InvalidEnvelopeError` on an unparseable challenge — and
+`0`). The throws on that path are `InvalidEnvelopeError` (an unparseable challenge) and
+`WalletRequiredError` (`planPayment()` / `canAfford()` called on a read-only client built with no
+`wallet` — they read YOUR balance, gas, and recipient-readiness) — plus
 [`fetch(url, { autoRoute: true })`](/making-payments/fetch-and-autoroute/), the one place a plan
 turns into a thrown `PaymentDeclinedError` when nothing is settleable.
 

@@ -157,9 +157,11 @@ See [proof binding](/concepts/proof-binding/) for how Templates A and B differ, 
 
 ## In the browser
 
-Sui runs client-side: its libraries load from the CDN via an import map (see `examples/browser/`),
-the same one line as on Node, Bun, Deno, or Workers. The lazy import means a page that doesn't
-name `'sui'` never downloads `@mysten/sui`.
+Sui runs client-side: like `solana` and `near`, `@mysten/sui` resolves from the CDN via an
+[import map](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/script/type/importmap)
+that pins each non-EVM peer's browser-ESM URL (see the browser story in
+[Installation](/getting-started/installation/)) — the same one line as on Node, Bun, Deno, or
+Workers. The lazy import means a page that doesn't name `'sui'` never downloads `@mysten/sui`.
 
 :::caution
 A bare `{ key }` is for server-side and trusted-agent use — never ship a real secret to a

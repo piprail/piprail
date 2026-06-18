@@ -99,7 +99,7 @@ is validated as an `Ed25519PrivateKey`. An EVM `0x…` key is the wrong length a
 | `token` | What it is |
 | --- | --- |
 | `'USDC'` | Circle-native USDC — FA metadata + 6 decimals verified on-chain before shipping. |
-| `'USDT'` | Tether-native USD₮ — FA metadata + 6 decimals (on-chain `symbol()` reads `USDt`). |
+| `'USDT'` | Tether-native USD₮ — FA metadata + 6 decimals (on-chain `0x1::fungible_asset::Metadata` reads symbol `USDt`). |
 | `'native'` | APT, 8 decimals (octas). |
 | `{ metadata, decimals }` | Any other Fungible Asset, by its metadata object address. No allowlist. |
 

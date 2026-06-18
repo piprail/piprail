@@ -62,7 +62,7 @@ sums the ERC-20 `Transfer` logs to `payTo`:
 // drivers/evm/verify.ts — `payTo` and `asset` come from accept, not the client ref
 const transferred = sumTransfersTo(receipt.logs, asset, payTo)
 if (transferred.total < requiredAmount) {
-  return { ok: false, error: 'transfer_not_found', detail: `No ERC-20 Transfer to ${payTo}.` }
+  return { ok: false, error: 'transfer_not_found', detail: `No ERC-20 Transfer of >= ${requiredAmount} (token ${asset}) to ${payTo} in ${txHash}.` }
 }
 ```
 

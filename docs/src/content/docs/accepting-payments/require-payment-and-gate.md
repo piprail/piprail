@@ -147,7 +147,7 @@ never break the request (route them to `onPaidError`). It's fire-and-forget by d
 | `awaitOnPaid` | Await `onPaid` before serving the resource (default `false` = fire-and-forget). |
 | `generateNonce` | Custom per-challenge nonce generator. Default `crypto.randomUUID()`. |
 | `isUsed` / `markUsed` | Pluggable replay store for multi-instance deploys. |
-| `exact` | Also accept the standard `exact` scheme (Mode A self-settle, or Mode B facilitator). |
+| `exact` | Also accept the standard `exact` scheme — zero-config keyless (`exact: true`, Mode 0 — start here), your own relayer (`settle: 'self'`, Mode A), or a named facilitator (`settle: { facilitator }`, Mode B). |
 | `selfDescribe` | Self-describe every 402 with an [`extensions.piprail`](/discovery/self-describing-endpoints/) block. Default `true`; set `false` to omit. |
 | `discovery` | Emit the discovery manifest so crawlers can find this endpoint. |
 

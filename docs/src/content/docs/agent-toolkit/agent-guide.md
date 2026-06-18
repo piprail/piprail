@@ -112,8 +112,9 @@ The guide closes with two facts the model must not get wrong:
 
 ## How the MCP server serves it
 
-When you run [`@piprail/mcp`](/mcp/getting-started/) with the guide enabled (default on), the same
-string is exposed two ways, so any MCP client can pull it into context:
+When you run [`@piprail/mcp`](/mcp/getting-started/) with the guide enabled (default on), the guide
+string is exposed two ways — as a prompt and a resource — alongside a live-budget resource, so any
+MCP client can pull them into context:
 
 | Surface | Identifier |
 | --- | --- |

@@ -248,8 +248,8 @@ A NEP-141 token only moves between accounts that are **storage-registered** on t
 (`storage_deposit`, ≈ 0.00125 NEAR once per account+token). For the `exact` rail that means **both the
 buyer (sender) and `payTo` (recipient) must be registered** on the token, or the `ft_transfer` panics.
 Check the recipient with [`planPayment()`](/making-payments/plan-payment/) /
-[`recipientReady()`](/concepts/affordability/) (it surfaces `RECIPIENT_NOT_REGISTERED`) before you rely
-on the rail. Register out of band once; it persists.
+`recipientReady()` (`planPayment()` surfaces the `RECIPIENT_NOT_READY` blocker; `recipientReady()`
+returns the `NOT_REGISTERED` reason) before you rely on the rail. Register out of band once; it persists.
 
 :::caution[No third-party facilitator settles NEAR yet — use self-settle]
 PipRail also has a **facilitator (Mode-B)** path — `exact: { settle: { facilitator } }` — where a

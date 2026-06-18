@@ -101,11 +101,12 @@ can't settle. A native coin, an EVM token that's neither EIP-3009 nor facilitato
 family with no `exact` scheme is simply served over `onchain-proof` (the with-gas rail). You don't have
 to detect any of this; the gate does.
 
-## Five `exact` methods: EIP-3009, Permit2, SVM, Algorand, and Aptos
+## Six `exact` methods: EIP-3009, Permit2, SVM, Algorand, Aptos, and NEAR
 
-The `exact` rail works one of five ways, depending on the chain + token. **PipRail auto-selects**
+The `exact` rail works one of six ways, depending on the chain + token. **PipRail auto-selects**
 (`method: 'auto'`), so you rarely choose by hand — Solana always uses SVM, Algorand uses its fee-pool
-group, Aptos uses its fee-payer (sponsored) transaction, and EVM picks EIP-3009 or Permit2.
+group, Aptos uses its fee-payer (sponsored) transaction, NEAR uses its NEP-366 meta-transaction
+(a relayed `SignedDelegateAction`, self-settle only), and EVM picks EIP-3009 or Permit2.
 
 | | **EIP-3009** (EVM, gold path) | **Permit2** (EVM) | **SVM** (Solana) |
 |---|---|---|---|
@@ -157,6 +158,15 @@ Fungible Asset (USDC, USDT) is gasless on Aptos**, with no token feature require
 **`feePayer === payTo` is allowed** (the fee-payer signature is separate from the transfer), so a merchant
 can be its own relayer. Native **APT** isn't exact-payable — it stays on `onchain-proof`. (See the
 [architecture note](#aptos--how-sponsored-tx-gasless-works) below.)
+
+**NEAR is the sixth method, and it's gasless by a NEP-366 *meta-transaction*.** The buyer signs a
+`SignedDelegateAction` with its **full-access** key authorizing exactly one NEP-141 `ft_transfer` to
+`payTo` (the exact `amount`, `deposit: 1` yoctoNEAR, fixed 30 TGas) — spending **zero NEAR**; a relayer
+(the merchant's, in self-settle) wraps it in an outer transaction, prepays the gas **and** the yocto,
+and submits. So **any NEP-141 token (USDC, USDT) is gasless on NEAR**, with no token feature required.
+It's **self-settle only** today — no keyless facilitator settles NEAR yet, so on NEAR `exact: true`
+degrades to `onchain-proof` while `exact: { settle: 'self', relayer }` enables the rail. Native **NEAR**
+isn't exact-payable (the scheme is an NEP-141 transfer) — it stays on `onchain-proof`.
 
 ## ⭐ Which chains & tokens are gasless?
 

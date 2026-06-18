@@ -35,7 +35,7 @@ family uses the same code for the same condition. An agent branches on `error`; 
 | `transfer_not_found` | No matching transfer (asset / amount / nonce) to `payTo`. | definitive |
 | `payment_expired` | Older than `maxTimeoutSeconds` (the replay window). | definitive |
 | `tx_already_used` | This proof was already redeemed — a replay. | definitive |
-| `signature_invalid` | The `exact`-rail authorization is invalid: on EVM the EIP-712 signature didn't recover to the payer; on Solana the SVM transaction's signer/structure is invalid. | definitive |
+| `signature_invalid` | The `exact`-rail authorization is invalid — the signed payload didn't validate against the trusted rail. On EVM the EIP-712 signature didn't recover to the payer; on Solana, Algorand, Aptos, and NEAR the signed transaction / atomic group / delegate-action is unparseable, the signer or structure is wrong, or it trips a fee-payer/relayer drain guard. | definitive |
 
 ## Transient vs definitive
 
@@ -71,9 +71,11 @@ read the transfer, check it was unused.
 - **`tx_already_used`** — the verify-style code the gate emits for the onchain-proof replay set — and
   that the EVM `exact` / Permit2 driver also returns via the token's on-chain `authorizationState` /
   Permit2 nonce check.
-- **`signature_invalid`** — `exact`-rail only: the authorization is invalid. On EVM the EIP-712
-  signature didn't recover to the claimed payer; on Solana the SVM transaction's signer/structure
-  is invalid. See [the exact rail](/accepting-payments/exact-rail-seller/).
+- **`signature_invalid`** — `exact`-rail only: the signed authorization didn't validate against the
+  trusted rail. On EVM the EIP-712 signature didn't recover to the claimed payer; on Solana,
+  Algorand, Aptos, and NEAR the signed transaction / atomic group / delegate-action is unparseable,
+  its signer or structure is wrong, or it exceeds the fee-payer/relayer drain-guard caps. See
+  [the exact rail](/accepting-payments/exact-rail-seller/).
 
 ## Family-specificity is structural, not drift
 

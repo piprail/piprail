@@ -22,14 +22,16 @@ entry in the same 402, so a standard client picks `exact` while a PipRail client
 `onchain-proof`. Omitting `exact` leaves the challenge byte-identical to before.
 
 :::note
-The `exact` rail covers **EVM ERC-20**, **Solana SPL**, **Algorand ASA**, and **Aptos Fungible Asset**
-tokens, via the method the gate picks automatically: **EIP-3009** for EVM tokens that expose
+The `exact` rail covers **EVM ERC-20**, **Solana SPL**, **Algorand ASA**, **Aptos Fungible Asset**, and
+**NEAR NEP-141** tokens, via the method the gate picks automatically: **EIP-3009** for EVM tokens that expose
 `transferWithAuthorization` (USDC, EURC), **Permit2** for any other EVM ERC-20 (e.g. **Binance-Peg
 USDC/USDT on BNB**), **SVM** for any Solana SPL token (USDC, USDT — the merchant is the transaction fee
-payer), **Algorand** for any ASA (USDCa — an atomic-group fee pool covers the buyer's fee-0 transfer), or
-**Aptos** for any FA (USDC, USD₮ — a fee-payer / sponsored transaction). It does **not** cover native
-coins (incl. SOL, ALGO, APT) or families without an `exact` scheme (TON, Tron, NEAR, Sui, Stellar, XRPL);
-those stay `onchain-proof`-only, and mixing them in one gate is fine. See
+payer), **Algorand** for any ASA (USDCa — an atomic-group fee pool covers the buyer's fee-0 transfer),
+**Aptos** for any FA (USDC, USD₮ — a fee-payer / sponsored transaction), or **NEAR** for any NEP-141 token
+(USDC, USDT — a NEP-366 `SignedDelegateAction` your relayer wraps, prepaying gas + 1 yocto so the buyer
+stays gasless; **self-settle only / Mode A**, since no keyless facilitator settles NEAR yet). It does **not**
+cover native coins (incl. SOL, ALGO, APT, NEAR) or families without an `exact` scheme (TON, Tron, Sui,
+Stellar, XRPL); those stay `onchain-proof`-only, and mixing them in one gate is fine. See
 [Gasless payments](/making-payments/gasless-payments/).
 :::
 
@@ -219,8 +221,8 @@ rejection (402) — is in
 
 ## Sponsor protection — the fee-drain guard
 
-On the **fee-payer rails** (Solana, Algorand, Aptos), whoever sponsors gas — a keyless facilitator in
-Mode B, or **your own relayer in Mode A** — co-signs and submits a transaction the **buyer** constructed.
+On the **fee-payer rails** (Solana, Algorand, Aptos, NEAR), whoever sponsors gas — a keyless facilitator in
+Mode B, or **your own relayer in Mode A** (the only mode on NEAR) — co-signs and submits a transaction the **buyer** constructed.
 That raises a real concern for the party paying the gas: a malicious buyer could set an enormous fee on a
 sub-cent payment and try to drain the sponsor. Both modes are protected, and **the protection is the
 gate's, not the facilitator's** — so it applies to your self-settle relayer too.
@@ -236,6 +238,7 @@ falls back to `onchain-proof`).
 | **Algorand** | the pooled atomic-group fee | `MAX_GROUP_FEE` = 20 000 µALGO (0.02 ALGO) |
 | **Solana** | base + compute-budget | `MAX_COMPUTE_UNIT_LIMIT` = 300 000 units · `MAX_COMPUTE_UNIT_PRICE_MICROLAMPORTS` = 100 000 |
 | **Aptos** | gas (amount × unit price) | `MAX_GAS_AMOUNT_CAP` = 100 000 units · `MAX_GAS_UNIT_PRICE_CAP` = 2 000 octas/unit |
+| **NEAR** | the relayed gas + the 1-yocto deposit | `MAX_RELAY_GAS` = 300 TGas (the honest delegate signs 30 TGas) · attached `deposit` must equal exactly 1 yoctoNEAR |
 | **EVM** (EIP-3009 / Permit2) | nothing buyer-controlled | none needed — the buyer signs only an authorization; the relayer/facilitator derives gas at broadcast |
 
 The gate backs the caps with two more structural checks: it accepts **only the canonical transfer shape**
@@ -243,7 +246,7 @@ for each rail (so no extra instruction can sneak in), and it rejects any close/r
 fee-payer-in-an-instruction (Solana) that could sweep funds. So a relayer or facilitator can only ever pay
 a bounded fee to push the *signed* amount to the *trusted* `payTo`. Full detail and the honest-path numbers
 are in [Gasless payments → Sponsor protection](/making-payments/gasless-payments/#sponsor-protection--the-fee-drain-guard);
-the constants live in `sdk/src/drivers/{algorand,solana,aptos}/exact.ts`.
+the constants live in `sdk/src/drivers/{algorand,solana,aptos,near}/exact.ts`.
 
 ## The `ExactRailOption`
 

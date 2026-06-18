@@ -42,8 +42,10 @@ const data = await res.json()
 // → the unlocked 200 response — same shape the server returns once paid
 ```
 
-`get` and `post` are thin conveniences over `fetch` (`post` JSON-serialises a plain object); both
-take the same optional `RequestInit` second argument as `fetch`:
+`get` and `post` are thin conveniences over `fetch`. `get(url, init?)` takes the same optional
+`RequestInit` second argument as `fetch`; `post(url, body?, init?)` takes the request body second
+(a plain object is JSON-serialised with `content-type: application/json`; a string/`FormData`/
+`URLSearchParams`/`ArrayBuffer`/`Blob` is sent as-is) and an optional `RequestInit` third:
 
 ```ts
 const res = await client.post('https://api.example.com/jobs', { prompt: 'summarise Q3' })
@@ -59,8 +61,9 @@ so a malicious or buggy server can't drain the wallet.
 
 These move no funds — they're how an agent decides. `planPayment` and `estimateCost` never throw
 for a read problem (a flaky RPC surfaces as a warning, not a false "broke"); `quote` raises
-`InvalidEnvelopeError` only if the challenge itself is unparseable. Each returns `null` when the
-URL isn't payment-gated (no 402), so null-guard the result:
+`InvalidEnvelopeError` if the challenge itself is unparseable, and `NoCompatibleAcceptError` /
+`UnsupportedSchemeError` when the 402 offers no rail this client can pay on its chain. Each returns
+`null` when the URL isn't payment-gated (no 402), so null-guard the result:
 
 ```ts
 const url = 'https://api.example.com/report'
@@ -202,7 +205,7 @@ broadcast lands but local confirmation times out) — for logging or a UI.
 | Option | Purpose |
 | --- | --- |
 | `chain` | The chain this client pays on. |
-| `wallet` | The per-family wallet (see above). |
+| `wallet` | The per-family wallet (see above). **Optional** — omit it for a read-only client: `quote`, `discover`, `estimateCost`, and `register` work with no key, while `fetch`/`get`/`post`, `planPayment`, and signing throw `WalletRequiredError`. |
 | `rpcUrl` | Your RPC (fold any API key in here). |
 | `policy` | The [spend policy](/spend-controls/payment-policy/) — caps, allowlists, time window. |
 | `onBeforePay` | Approval hook — receives the `PipRailQuote`; returning `false` **or throwing** refuses the payment (`PaymentDeclinedError`, `reasonCode: 'APPROVAL'`), before any send. |
