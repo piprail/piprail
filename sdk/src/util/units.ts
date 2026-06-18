@@ -10,18 +10,27 @@
  *
  * Throws on a malformed amount or more fractional digits than `decimals`.
  */
-export function parseUnits(value: string, decimals: number): bigint {
-  if (!/^\d+(\.\d+)?$/.test(value)) {
-    throw new Error(`parseUnits: "${value}" is not a non-negative decimal amount.`)
+function assertValidDecimals(decimals: number, fn: string): void {
+  if (!Number.isSafeInteger(decimals) || decimals < 0) {
+    throw new Error(`${fn}: decimals must be a nonnegative safe integer.`);
   }
-  const [whole, frac = ''] = value.split('.')
+}
+
+export function parseUnits(value: string, decimals: number): bigint {
+  assertValidDecimals(decimals, "parseUnits");
+  if (!/^\d+(\.\d+)?$/.test(value)) {
+    throw new Error(
+      `parseUnits: "${value}" is not a non-negative decimal amount.`,
+    );
+  }
+  const [whole, frac = ""] = value.split(".");
   if (frac.length > decimals) {
     throw new Error(
-      `parseUnits: "${value}" has more than ${decimals} decimal places.`
-    )
+      `parseUnits: "${value}" has more than ${decimals} decimal places.`,
+    );
   }
-  const fracPadded = frac.padEnd(decimals, '0')
-  return BigInt(whole + fracPadded)
+  const fracPadded = frac.padEnd(decimals, "0");
+  return BigInt(whole + fracPadded);
 }
 
 /**
@@ -32,12 +41,15 @@ export function parseUnits(value: string, decimals: number): bigint {
  * Still rejects a malformed / negative amount (a real config error).
  */
 export function floorUnits(value: string, decimals: number): bigint {
+  assertValidDecimals(decimals, "floorUnits");
   if (!/^\d+(\.\d+)?$/.test(value)) {
-    throw new Error(`floorUnits: "${value}" is not a non-negative decimal amount.`)
+    throw new Error(
+      `floorUnits: "${value}" is not a non-negative decimal amount.`,
+    );
   }
-  const [whole, frac = ''] = value.split('.')
-  const fracTrunc = frac.slice(0, decimals).padEnd(decimals, '0')
-  return BigInt(whole + fracTrunc)
+  const [whole, frac = ""] = value.split(".");
+  const fracTrunc = frac.slice(0, decimals).padEnd(decimals, "0");
+  return BigInt(whole + fracTrunc);
 }
 
 /**
@@ -47,9 +59,12 @@ export function floorUnits(value: string, decimals: number): bigint {
  * Trailing zeros in the fractional part are trimmed; an integer has no point.
  */
 export function formatUnits(value: bigint, decimals: number): string {
-  const negative = value < 0n
-  const digits = (negative ? -value : value).toString().padStart(decimals + 1, '0')
-  const whole = digits.slice(0, digits.length - decimals)
-  const frac = digits.slice(digits.length - decimals).replace(/0+$/, '')
-  return `${negative ? '-' : ''}${whole}${frac ? `.${frac}` : ''}`
+  assertValidDecimals(decimals, "formatUnits");
+  const negative = value < 0n;
+  const digits = (negative ? -value : value)
+    .toString()
+    .padStart(decimals + 1, "0");
+  const whole = digits.slice(0, digits.length - decimals);
+  const frac = digits.slice(digits.length - decimals).replace(/0+$/, "");
+  return `${negative ? "-" : ""}${whole}${frac ? `.${frac}` : ""}`;
 }
