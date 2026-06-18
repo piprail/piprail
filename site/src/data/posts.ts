@@ -44,10 +44,41 @@ export const authors = {
     // signal than the brand account or the /blog list page (a weak self-referential one).
     url: 'https://x.com/johnweeksdev',
   },
+  tim: {
+    name: 'Tim Roelofs',
+    role: 'Cofounder, PipRail',
+    // Tim's preferred public contact / author presence is his Telegram.
+    url: 'https://t.me/tmroel90',
+  },
 } satisfies Record<string, Author>
 
 // The published feed. Newest entries go first in the file; `postsByDate` sorts by date.
 export const posts: Post[] = [
+  {
+    slug: 'the-agent-economy-needs-an-open-rail',
+    title: 'The Agent Economy Needs an Open Rail',
+    seoTitle: 'The Agent Economy Needs an Open Rail — why agent payments must be open',
+    description:
+      'Every network that scaled ran on open protocols, not private ones. The agent economy is no different — and its payment rail just got opened up.',
+    excerpt:
+      'Every network that became an economy ran on open protocols — HTTP, SMTP, TCP/IP — never one company’s walled garden. The agent economy is at the same fork, and its payment rail just got opened up.',
+    author: authors.tim,
+    published: '2026-06-18',
+    readingTime: 6,
+    category: 'Perspective',
+    tags: [
+      'x402',
+      'agent economy',
+      'open protocols',
+      'agent payments',
+      'self-custody',
+      'multi-chain',
+      'AI agents',
+      'crypto payments',
+      'trust layer',
+    ],
+    ogImage: '/blog/the-agent-economy-needs-an-open-rail.png',
+  },
   {
     slug: 'mpp-vs-x402',
     title: 'MPP vs. x402: Two Ways to Pay an Agent',

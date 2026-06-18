@@ -1,0 +1,470 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import Navigation from '../../components/Navigation.astro'
+import Footer from '../../components/Footer.astro'
+import Breadcrumbs from '../../components/Breadcrumbs.astro'
+import { getPost, relatedPosts, formatDate } from '../../data/posts'
+import {
+  ArrowRight, ArrowLeft, ArrowDown, Clock, CalendarDays, Plus, Globe, Unlock,
+  Percent, Boxes, Wallet, Layers, Send, Share2, Github, Package, Plug,
+} from 'lucide-astro'
+
+const post = getPost('the-agent-economy-needs-an-open-rail')!
+const site = Astro.site?.href.replace(/\/$/, '') ?? 'https://piprail.com'
+const canonical = `${site}/blog/${post.slug}/` // trailing slash matches the page's <link rel="canonical">
+const ogImageAbs = `${site}${post.ogImage}`
+const more = relatedPosts(post.slug, 2)
+
+const pageTitle = post.seoTitle ?? `${post.title} — PipRail`
+
+// BlogPosting structured data — the post's own entity for search + answer engines.
+const articleLd = {
+  '@context': 'https://schema.org',
+  '@type': 'BlogPosting',
+  '@id': `${canonical}#article`,
+  headline: post.title,
+  description: post.description,
+  image: ogImageAbs,
+  datePublished: post.published,
+  dateModified: post.updated ?? post.published,
+  author: {
+    '@type': 'Person',
+    name: post.author.name,
+    jobTitle: 'Cofounder',
+    url: post.author.url,
+    worksFor: { '@id': 'https://piprail.com/#organization' },
+  },
+  publisher: { '@id': 'https://piprail.com/#organization' },
+  mainEntityOfPage: { '@type': 'WebPage', '@id': canonical },
+  isPartOf: { '@id': 'https://piprail.com/#website' },
+  articleSection: post.category,
+  keywords: post.tags.join(', '),
+  inLanguage: 'en',
+  wordCount: 1100,
+  url: canonical,
+}
+
+// The argument, distilled — readable bullets that double as answer-engine fodder.
+const takeaways = [
+  'Every network that became an economy ran on open protocols — HTTP, TCP/IP, SMTP — not one company’s private network. Openness isn’t a nicety; it’s the mechanism that lets participation compound.',
+  'Agents pay constantly, autonomously, in tiny amounts, across many chains, with no human to open an account or approve a charge. A closed rail — gatekeepers, facilitators, fees, single-chain walls — doesn’t slow that down. It prevents it.',
+  'x402 was the right primitive; PipRail opened it up — MIT-licensed, 29 chains, no facilitator, settling to your own wallet, 0% protocol fee, gasless on six chains, one line of code. The open rail is the foundation the agent economy’s trust layer stands on.',
+]
+
+// FAQ — extracted from the essay. Renders FAQPage JSON-LD for rich results + AEO.
+const faqs = [
+  {
+    q: 'Why does the agent economy need an open payment rail?',
+    a: 'Because agents pay in a way closed rails can’t support: constantly, autonomously, in tiny amounts, across many chains, with no human in the loop to open an account, approve a charge, or top up a balance. On a closed rail, every gatekeeper is a permission the agent can’t grant itself, every facilitator is a dependency that can fail or say no, every fee is a tax on sub-cent activity, and every single-chain limit is a wall. Open protocols are also simply how every network that became an economy actually scaled — the web on HTTP and TCP/IP, email on SMTP — never inside one company’s walled garden.',
+  },
+  {
+    q: 'What is x402?',
+    a: 'x402 is a payment protocol that revives HTTP 402, the “Payment Required” status code that sat unused in the web’s plumbing for decades. Coinbase turned it into a way for software to pay per request with no account and no card. It is the right primitive for agent payments — but an implementation has to be open enough to carry an economy, which is what PipRail set out to make it.',
+  },
+  {
+    q: 'What makes PipRail an “open” rail?',
+    a: 'PipRail is an MIT-licensed x402 implementation that runs across 29 chains and every major chain family, with no facilitator in the path, settling straight to the recipient’s own wallet, with no fee at the protocol layer, gasless on six chains, in a single line of code. No gatekeeper, no middleman, no cut — an agent can pay almost anyone on almost any chain without asking permission and without holding anything but the funds it is spending.',
+  },
+  {
+    q: 'Why should an agent payment rail have no fee?',
+    a: 'A rail that takes a cut competes with everyone building on top of it and can never be the neutral default — and to take that cut it has to touch or hold funds, which drags it into custody and licensing. A rail that charges nothing and holds nothing stays neutral and wins distribution because it asks for nothing. The value does not disappear; it moves one layer up, into the trust layer built from the payments the rail carries.',
+  },
+  {
+    q: 'How do settled payments become a trust layer for agents?',
+    a: 'Every settled payment is a receipt, and a receipt is far harder to fake than on-chain volume or self-reported reputation, because creating one cost real money. Once payments flow freely across every chain, that history of settled payments becomes the raw material for an agent’s credit score — strongest when it is weighed across many independent counterparties rather than taken as a raw count. The open rail is the foundation that trust layer stands on: payments have to flow freely before they can mean anything.',
+  },
+  {
+    q: 'Is PipRail free and open source?',
+    a: 'Yes. PipRail is open source and MIT-licensed, with no fee at the protocol layer — payments settle straight to your own wallet. You can build on it at piprail.com or github.com/piprail, or install the SDK from npm and gate a route or pay an x402 URL in one line.',
+  },
+]
+
+const faqLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  '@id': `${canonical}#faq`,
+  mainEntity: faqs.map((f) => ({
+    '@type': 'Question',
+    name: f.q,
+    acceptedAnswer: { '@type': 'Answer', text: f.a },
+  })),
+}
+
+// The four conditions of "open" → what each one actually enables.
+const conditions = [
+  { Icon: Unlock, k: 'No gatekeeper', v: 'Permissionless action — the only way an autonomous agent can act on its own.' },
+  { Icon: Percent, k: 'No fee on the path', v: 'A neutral default — a rail that takes a cut competes with everyone building on it.' },
+  { Icon: Boxes, k: 'Multi-chain', v: 'Value moves where it needs to go — agents aren’t trapped in one ecosystem.' },
+  { Icon: Wallet, k: 'Self-custody', v: 'Real autonomy — no intermediary can freeze or reverse a payment.' },
+]
+
+// The spec, as plain chips — what "open" looks like once it's in code.
+const specs = ['29 chains', '10 chain families', '0% protocol fee', 'no facilitator', 'settles to your wallet', 'gasless on 6 chains', 'MIT-licensed', 'one line of code']
+---
+
+<Layout
+  title={pageTitle}
+  description={post.description}
+  ogImage={post.ogImage}
+  ogType="article"
+  article={{
+    publishedTime: post.published,
+    modifiedTime: post.updated ?? post.published,
+    author: post.author.name,
+    section: post.category,
+    tags: post.tags,
+  }}
+>
+  <Fragment slot="head">
+    <link rel="author" href={post.author.url} />
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(articleLd)} />
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(faqLd)} />
+  </Fragment>
+
+  <Navigation />
+
+  <main class="mx-auto max-w-3xl px-4 sm:px-6">
+    <div class="pt-6"><Breadcrumbs items={[{ name: 'Blog', href: '/blog' }, { name: post.title }]} /></div>
+
+    <!-- ── Article header ─────────────────────────────────────────────────── -->
+    <article class="fade-up">
+      <header class="pt-10 sm:pt-14">
+        <div class="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-accent">
+          PipRail · {post.category}
+        </div>
+        <h1 class="mt-5 text-pretty text-[2.1rem] font-bold leading-[1.12] tracking-tight text-white sm:text-5xl">
+          {post.title}
+        </h1>
+        <p class="mt-5 text-lg leading-relaxed text-neutral-400 sm:text-xl">
+          Every network that scaled ran on <em class="not-italic text-neutral-200">open</em> protocols, not private ones.
+          The agent economy will be no different — and its payment rail just got opened up.
+        </p>
+
+        <!-- Byline -->
+        <div class="mt-8 flex flex-wrap items-center gap-x-4 gap-y-3 border-y border-white/10 py-4">
+          <div class="flex items-center gap-3">
+            <span
+              class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-accent/30 bg-accent/10 font-display text-sm font-semibold text-accent"
+              aria-hidden="true"
+            >TR</span>
+            <div class="leading-tight">
+              <div class="text-sm font-semibold text-neutral-100">{post.author.name}</div>
+              <div class="text-xs text-neutral-400">{post.author.role}</div>
+            </div>
+          </div>
+          <div class="ml-auto flex items-center gap-x-4 gap-y-1 text-xs text-neutral-400">
+            <span class="inline-flex items-center gap-1.5">
+              <CalendarDays size={13} aria-hidden="true" />
+              <time datetime={post.published}>{formatDate(post.published)}</time>
+            </span>
+            <span class="inline-flex items-center gap-1.5">
+              <Clock size={13} aria-hidden="true" /> {post.readingTime} min read
+            </span>
+          </div>
+        </div>
+      </header>
+
+      <!-- ── The short version (TL;DR) ──────────────────────────────────────── -->
+      <aside class="card mt-10 rounded-2xl p-6 sm:p-7" aria-label="Summary">
+        <h2 class="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">The short version</h2>
+        <ul class="mt-4 space-y-3">
+          {takeaways.map((t) => (
+            <li class="flex gap-3 text-[15px] leading-relaxed text-neutral-300">
+              <Globe size={17} class="mt-0.5 shrink-0 text-accent" aria-hidden="true" />
+              <span set:html={t} />
+            </li>
+          ))}
+        </ul>
+      </aside>
+
+      <!-- ── Body ───────────────────────────────────────────────────────────── -->
+      <div class="article-prose mt-10">
+        <p>We talk about the agent economy as though the hard part is the agents. Make them smart enough, give them tools, let them loose, and a new economy of software paying software will appear. But there is a precondition underneath all of it that gets almost no attention, and it quietly decides whether any of this works: the payment rail the agents run on has to be open.</p>
+
+        <p>History is blunt on this point. Every network that grew into an economy ran on open protocols, not private ones. The web did not scale inside AOL’s walled garden; it scaled on HTTP and TCP/IP, protocols anyone could build on without asking permission. Email scaled on SMTP, not on one company’s messaging product. The pattern repeats because openness is not a nicety, it is the mechanism. A protocol anyone can use without a gatekeeper attracts everyone. A network that requires permission to join attracts almost no one. Closed networks optimize for the owner; open ones optimize for participation, and participation is the thing that compounds.</p>
+
+        <!-- Figure 1 — open protocols won -->
+        <figure class="article-fig">
+          <div class="card rounded-2xl p-6 sm:p-8">
+            <div class="fig-eyebrow">Open won, every time</div>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-stretch">
+              <div class="rounded-xl border border-accent/25 bg-accent/8 p-5">
+                <div class="flex items-center gap-2 text-accent"><Globe size={17} aria-hidden="true" /><span class="font-display text-base font-semibold text-white">Open protocols</span></div>
+                <div class="mt-3 flex flex-wrap gap-1.5">
+                  {['HTTP', 'TCP/IP', 'SMTP'].map((p) => (
+                    <span class="rounded-md border border-accent/25 bg-accent/10 px-2.5 py-1 font-mono text-xs text-accent">{p}</span>
+                  ))}
+                </div>
+                <div class="mt-3.5 text-sm leading-relaxed text-neutral-300">Anyone could build on them without asking. They became the internet.</div>
+              </div>
+              <div class="hidden items-center justify-center text-neutral-600 sm:flex" aria-hidden="true"><ArrowRight size={20} /></div>
+              <div class="rounded-xl border border-white/12 bg-white/4 p-5">
+                <div class="flex items-center gap-2 text-neutral-300"><span class="font-display text-base font-semibold text-white">Walled gardens</span></div>
+                <div class="mt-3 flex flex-wrap gap-1.5">
+                  {['AOL', 'private networks'].map((p) => (
+                    <span class="rounded-md border border-white/12 bg-white/5 px-2.5 py-1 font-mono text-xs text-neutral-400">{p}</span>
+                  ))}
+                </div>
+                <div class="mt-3.5 text-sm leading-relaxed text-neutral-400">Optimized for the owner. Required permission to join — and attracted almost no one.</div>
+              </div>
+            </div>
+          </div>
+          <figcaption class="fig-cap">Openness isn’t a nicety. It’s the mechanism that makes a network compound.</figcaption>
+        </figure>
+
+        <p>The agent economy stands at exactly that fork, and the stakes are higher because of how agents behave. An agent does not transact the way a person does. It pays constantly, autonomously, in tiny amounts, across many counterparties, often on chains its developer never thought about, and it does all of this with no human in the loop to open an account, approve a charge, or top up a balance. Put that behavior on a closed rail and it suffocates. Every gatekeeper becomes a permission the agent cannot grant itself. Every facilitator in the middle is a dependency that can fail or say no. Every fee on the payment path is a tax on activity that runs at fractions of a cent. Every single-chain limit is a wall the agent hits the moment it needs to pay someone on another network. A closed rail does not slow the agent economy down. It prevents it.</p>
+
+        <p>x402 was the right primitive for this moment. Coinbase took HTTP 402, the “Payment Required” status code that had sat unused in the web’s plumbing for decades, and turned it into a way for software to pay per request with no account and no card. It was the correct idea. But an idea is only as powerful as its openness, and x402 started boxed in: strongest on a few chains, often routed through a facilitator in the middle, assuming infrastructure that not every agent has. The primitive was universal. The implementation was not yet open enough to carry an economy.</p>
+
+        <p>So we opened it up. At PipRail we built x402 into an open, MIT-licensed rail that runs across 29 chains and every major chain family, with no facilitator in the path, settling straight to the recipient’s own wallet, with no fee at the protocol layer, gasless on six chains, in a single line of code. An agent can now pay almost anyone, on almost any chain, without permission, without a middleman, and without holding anything but the funds it is spending. It was installed thousands of times in its first weeks with no marketing, because the moment a team needs to pay across chains, an open multi-chain rail stops being optional.</p>
+
+        <!-- Figure 2 — what "open" looks like in code -->
+        <figure class="article-fig">
+          <div class="card rounded-2xl p-6 sm:p-7">
+            <div class="fig-eyebrow">What “open” looks like once it ships</div>
+            <div class="flex flex-wrap gap-2">
+              {specs.map((s) => (
+                <span class="inline-flex items-center gap-1.5 rounded-full border border-accent/25 bg-accent/8 px-3 py-1.5 text-[13px] font-medium text-accent">
+                  <span class="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true"></span>{s}
+                </span>
+              ))}
+            </div>
+          </div>
+          <figcaption class="fig-cap">No gatekeeper, no middleman, no cut — and it installs in one line.</figcaption>
+        </figure>
+
+        <p>It is worth being precise about why each piece of “open” matters, because none of it is decoration. No gatekeeper means no permission, which is the only way an autonomous agent can act on its own. No fee on the path means the rail can be the neutral default, because a rail that takes a cut competes with everyone building on it and can never be neutral. Multi-chain means agents are not trapped in one ecosystem, and value moves where it needs to go. Self-custody means no intermediary can freeze or reverse a payment, which is what autonomy requires to be real. These are not rows on a feature comparison. They are the conditions under which an agent economy can function at all.</p>
+
+        <!-- Figure 3 — four conditions, not four features -->
+        <figure class="article-fig">
+          <div class="card rounded-2xl p-6 sm:p-8">
+            <div class="fig-eyebrow">Four conditions, not four features</div>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {conditions.map((c) => (
+                <div class="flex flex-col rounded-xl border border-white/10 bg-white/3 p-5">
+                  <div class="flex items-center gap-2.5">
+                    <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-accent/25 bg-accent/10 text-accent" aria-hidden="true">
+                      <c.Icon size={17} />
+                    </span>
+                    <span class="font-display text-base font-semibold text-white">{c.k}</span>
+                  </div>
+                  <div class="mt-3 flex items-start gap-2 text-sm leading-relaxed text-neutral-300">
+                    <ArrowRight size={15} class="mt-1 shrink-0 text-accent/70" aria-hidden="true" />
+                    <span>{c.v}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <figcaption class="fig-cap">Each one is a precondition for the economy, not a checkbox.</figcaption>
+        </figure>
+
+        <p>And opening the rail is not the finish line. It is the step that makes everything above it possible. Once payments flow freely across every chain, they begin to accumulate into something new. Every settled payment is a receipt, and a receipt is far harder to fake than almost any other signal, because creating one cost real money. That is the raw material for the layer the agent economy is still missing: trust. An agent’s history of settled payments becomes the basis for its credit score — far harder to game than on-chain volume or self-reported reputation ever were. You cannot build that trust layer on a closed rail, because the payments never flow freely enough to mean anything. The open rail is the foundation the trust layer stands on, and the trust layer is what turns a stream of transactions into an economy.</p>
+
+        <!-- Figure 4 — the rail is the foundation -->
+        <figure class="article-fig">
+          <div class="card rounded-2xl p-6 sm:p-8">
+            <div class="fig-eyebrow">The rail is the foundation</div>
+            <div class="mx-auto flex max-w-md flex-col gap-2.5">
+              <div class="rounded-xl border border-white/10 bg-white/3 px-5 py-3.5 text-center">
+                <div class="font-display text-base font-semibold text-white">The agent economy</div>
+              </div>
+              <div class="flex justify-center text-neutral-600" aria-hidden="true"><ArrowDown size={17} /></div>
+              <div class="rounded-xl border border-white/10 bg-white/3 px-5 py-3.5 text-center">
+                <div class="font-display text-base font-semibold text-neutral-100">The trust layer</div>
+                <div class="mt-0.5 text-xs text-neutral-400">receipts → an agent’s credit score</div>
+              </div>
+              <div class="flex justify-center text-neutral-600" aria-hidden="true"><ArrowDown size={17} /></div>
+              <div class="rounded-xl border border-white/10 bg-white/3 px-5 py-3.5 text-center">
+                <div class="font-display text-base font-semibold text-neutral-100">Settled payments</div>
+                <div class="mt-0.5 text-xs text-neutral-400">flowing freely across every chain</div>
+              </div>
+              <div class="flex justify-center text-accent" aria-hidden="true"><ArrowDown size={17} /></div>
+              <div class="rounded-xl border border-accent/40 bg-accent/12 px-5 py-4 text-center">
+                <div class="inline-flex items-center gap-2 font-display text-lg font-bold text-accent"><Layers size={18} aria-hidden="true" /> The open rail</div>
+                <div class="mt-0.5 text-xs text-accent/80">neutral · self-custody · everywhere</div>
+              </div>
+            </div>
+          </div>
+          <figcaption class="fig-cap">Payments have to flow freely before they can mean anything.</figcaption>
+        </figure>
+
+        <p>This is the part worth holding onto. The agent economy does not need another walled garden with a payment API and a fee schedule. It needs an open rail, neutral and everywhere, the way the early internet needed open protocols instead of one company’s private network. Coinbase proved the primitive. We opened it up so the rest of crypto could build on it without asking anyone. The rail is open now. What gets built on top of it is the economy itself, and that part is only just beginning.</p>
+      </div>
+
+      <!-- Share -->
+      <div class="mt-12 flex flex-wrap items-center gap-3 border-t border-white/10 pt-6">
+        <span class="mr-1 inline-flex items-center gap-1.5 text-xs text-neutral-500"><Share2 size={13} aria-hidden="true" /> Share</span>
+        <a
+          href={`https://x.com/intent/tweet?text=${encodeURIComponent(post.title + ' — by ' + post.author.name)}&url=${encodeURIComponent(canonical)}&via=piprailhq`}
+          class="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-neutral-300 transition hover:border-white/20 hover:text-white"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path></svg>
+          Post on X
+        </a>
+        <button
+          type="button"
+          data-copy-link
+          data-url={canonical}
+          class="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-neutral-300 transition hover:border-white/20 hover:text-white"
+        >
+          <span data-copy-label aria-live="polite">Copy link</span>
+        </button>
+      </div>
+    </article>
+
+    <!-- ── Author bio ─────────────────────────────────────────────────────── -->
+    <section class="mt-12 rounded-2xl border border-white/10 bg-white/2.5 p-6 sm:p-7">
+      <div class="flex items-start gap-4">
+        <span
+          class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-accent/30 bg-accent/10 font-display text-base font-semibold text-accent"
+          aria-hidden="true"
+        >TR</span>
+        <div>
+          <div class="text-sm font-semibold text-neutral-100">{post.author.name}</div>
+          <div class="text-xs text-neutral-500">{post.author.role}</div>
+          <p class="mt-2.5 text-sm leading-relaxed text-neutral-400">
+            Cofounder of PipRail — the open, self-custody, no-fee x402 rail for AI agents, across 29 chains.
+            Writing about the open infrastructure the agent economy runs on.
+          </p>
+          <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+            <a href="/" class="text-accent transition hover:brightness-110">piprail.com</a>
+            <a href="https://github.com/piprail" class="text-accent transition hover:brightness-110">github.com/piprail</a>
+            <a href={post.author.url} class="inline-flex items-center gap-1 text-accent transition hover:brightness-110">
+              <Send size={12} aria-hidden="true" /> Telegram @tmroel90
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── FAQ ────────────────────────────────────────────────────────────── -->
+    <section class="mt-14" aria-labelledby="faq-heading">
+      <h2 id="faq-heading" class="text-2xl font-semibold tracking-tight sm:text-3xl">Frequently asked</h2>
+      <div class="mt-6 divide-y divide-white/10 border-y border-white/10">
+        {faqs.map((f) => (
+          <details class="group">
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-4 py-4 text-[15px] font-medium text-neutral-100 transition hover:text-white">
+              <span>{f.q}</span>
+              <Plus size={17} class="shrink-0 text-neutral-500 transition group-open:rotate-45" aria-hidden="true" />
+            </summary>
+            <p class="pb-5 text-[15px] leading-relaxed text-neutral-400">{f.a}</p>
+          </details>
+        ))}
+      </div>
+    </section>
+
+    <!-- ── CTA ────────────────────────────────────────────────────────────── -->
+    <section class="mt-14 overflow-hidden rounded-2xl border border-accent/20 bg-accent/6 p-7 text-center sm:p-10">
+      <h2 class="text-2xl font-semibold tracking-tight text-white sm:text-3xl">The rail is open. Build on it.</h2>
+      <p class="mx-auto mt-3 max-w-xl text-neutral-300">
+        PipRail is open source and free — MIT-licensed, no backend, no middleman, no fee. Accept payments in one line,
+        or hand your agent a budget-bound wallet across 29 chains.
+      </p>
+      <div class="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        <a
+          href="https://www.npmjs.com/package/@piprail/sdk"
+          class="cta-glow inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto"
+        >
+          <Package size={16} aria-hidden="true" /> Get the SDK
+        </a>
+        <a
+          href="/mcp"
+          class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/12 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto"
+        >
+          <Plug size={16} aria-hidden="true" /> MCP for agents
+        </a>
+        <a
+          href="https://github.com/piprail/piprail"
+          class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/12 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto"
+        >
+          <Github size={16} aria-hidden="true" /> Star on GitHub
+        </a>
+      </div>
+    </section>
+
+    <!-- ── More writing / back ────────────────────────────────────────────── -->
+    <section class="mt-14 mb-8">
+      {more.length > 0 ? (
+        <>
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-neutral-500">More writing</h2>
+          <div class="mt-4 grid gap-4 sm:grid-cols-2">
+            {more.map((p) => (
+              <a
+                href={`/blog/${p.slug}`}
+                class="group rounded-2xl border border-white/10 bg-white/2.5 p-5 transition hover:border-accent/30 hover:bg-white/5"
+              >
+                <div class="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">{p.category}</div>
+                <div class="mt-2 font-display text-lg font-semibold leading-snug text-neutral-100 group-hover:text-white">{p.title}</div>
+                <p class="mt-1.5 text-sm leading-relaxed text-neutral-400">{p.excerpt}</p>
+              </a>
+            ))}
+          </div>
+        </>
+      ) : (
+        <a href="/blog" class="inline-flex items-center gap-2 text-sm font-medium text-accent transition hover:brightness-110">
+          <ArrowLeft size={15} aria-hidden="true" /> All writing
+        </a>
+      )}
+    </section>
+  </main>
+
+  <Footer />
+</Layout>
+
+<style>
+  /* Article typography — comfortable measure, generous leading, emerald links. */
+  .article-prose p {
+    margin-block: 0 1.5rem;
+    color: var(--color-fg);
+    color: oklch(0.86 0.008 260); /* neutral-300-ish, easy on the eyes for long reading */
+    font-size: 1.0625rem;
+    line-height: 1.85;
+    text-wrap: pretty;
+  }
+  @media (min-width: 640px) {
+    .article-prose p { font-size: 1.1875rem; line-height: 1.85; }
+  }
+  .article-prose a {
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-decoration-color: oklch(0.78 0.17 162 / 0.35);
+    text-underline-offset: 3px;
+    transition: text-decoration-color 0.15s ease;
+  }
+  .article-prose a:hover { text-decoration-color: oklch(0.78 0.17 162 / 0.9); }
+  .article-prose strong { color: #fff; font-weight: 600; }
+  .article-prose em { color: oklch(0.92 0.01 260); font-style: italic; }
+
+  /* Figures */
+  .article-fig { margin-block: 2.5rem; }
+  .fig-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+    margin-bottom: 1.5rem;
+  }
+  .fig-cap {
+    margin-top: 1rem;
+    font-size: 0.875rem;
+    font-style: italic;
+    color: oklch(0.62 0.01 260);
+  }
+</style>
+
+<!-- Copy-link button (progressive enhancement). -->
+<script is:inline>
+  for (const btn of document.querySelectorAll('[data-copy-link]')) {
+    btn.addEventListener('click', async () => {
+      const label = btn.querySelector('[data-copy-label]')
+      try {
+        await navigator.clipboard.writeText(btn.dataset.url)
+        const prev = label.textContent
+        label.textContent = 'Copied!'
+        setTimeout(() => { label.textContent = prev }, 1600)
+      } catch {}
+    })
+  }
+</script>
