@@ -48,7 +48,7 @@ const articleLd = {
 const takeaways = [
   'Every network that became an economy ran on open protocols — HTTP, TCP/IP, SMTP — not one company’s private network. Openness isn’t a nicety; it’s the mechanism that lets participation compound.',
   'Agents pay constantly, autonomously, in tiny amounts, across many chains, with no human to open an account or approve a charge. A closed rail — gatekeepers, facilitators, fees, single-chain walls — doesn’t slow that down. It prevents it.',
-  'x402 was the right primitive; PipRail opened it up — MIT-licensed, 29 chains, no facilitator, settling to your own wallet, 0% protocol fee, gasless on six chains, one line of code. The open rail is the foundation the agent economy’s trust layer stands on.',
+  'x402 was the right primitive; PipRail opened it up — MIT-licensed, 29 chains, no facilitator, settling to your own wallet, 0% protocol fee, gasless on 13 chains, one line of code. The open rail is the foundation the agent economy’s trust layer stands on.',
 ]
 
 // FAQ — extracted from the essay. Renders FAQPage JSON-LD for rich results + AEO.
@@ -63,7 +63,7 @@ const faqs = [
   },
   {
     q: 'What makes PipRail an “open” rail?',
-    a: 'PipRail is an MIT-licensed x402 implementation that runs across 29 chains and every major chain family, with no facilitator in the path, settling straight to the recipient’s own wallet, with no fee at the protocol layer, gasless on six chains, in a single line of code. No gatekeeper, no middleman, no cut — an agent can pay almost anyone on almost any chain without asking permission and without holding anything but the funds it is spending.',
+    a: 'PipRail is an MIT-licensed x402 implementation that runs across 29 chains and every major chain family, with no facilitator in the path, settling straight to the recipient’s own wallet, with no fee at the protocol layer, gasless on 13 chains, in a single line of code. No gatekeeper, no middleman, no cut — an agent can pay almost anyone on almost any chain without asking permission and without holding anything but the funds it is spending.',
   },
   {
     q: 'Why should an agent payment rail have no fee?',
@@ -99,7 +99,7 @@ const conditions = [
 ]
 
 // The spec, as plain chips — what "open" looks like once it's in code.
-const specs = ['29 chains', '10 chain families', '0% protocol fee', 'no facilitator', 'settles to your wallet', 'gasless on 6 chains', 'MIT-licensed', 'one line of code']
+const specs = ['29 chains', '10 chain families', '0% protocol fee', 'no facilitator', 'settles to your wallet', 'gasless on 13 chains', 'MIT-licensed', 'one line of code']
 ---
 
 <Layout
@@ -216,7 +216,7 @@ const specs = ['29 chains', '10 chain families', '0% protocol fee', 'no facilita
 
         <p>x402 was the right primitive for this moment. Coinbase took HTTP 402, the “Payment Required” status code that had sat unused in the web’s plumbing for decades, and turned it into a way for software to pay per request with no account and no card. It was the correct idea. But an idea is only as powerful as its openness, and x402 started boxed in: strongest on a few chains, often routed through a facilitator in the middle, assuming infrastructure that not every agent has. The primitive was universal. The implementation was not yet open enough to carry an economy.</p>
 
-        <p>So we opened it up. At PipRail we built x402 into an open, MIT-licensed rail that runs across 29 chains and every major chain family, with no facilitator in the path, settling straight to the recipient’s own wallet, with no fee at the protocol layer, gasless on six chains, in a single line of code. An agent can now pay almost anyone, on almost any chain, without permission, without a middleman, and without holding anything but the funds it is spending. It was installed thousands of times in its first weeks with no marketing, because the moment a team needs to pay across chains, an open multi-chain rail stops being optional.</p>
+        <p>So we opened it up. At PipRail we built x402 into an open, MIT-licensed rail that runs across 29 chains and every major chain family, with no facilitator in the path, settling straight to the recipient’s own wallet, with no fee at the protocol layer, gasless on 13 chains, in a single line of code. An agent can now pay almost anyone, on almost any chain, without permission, without a middleman, and without holding anything but the funds it is spending. It was installed thousands of times in its first weeks with no marketing, because the moment a team needs to pay across chains, an open multi-chain rail stops being optional.</p>
 
         <!-- Figure 2 — what "open" looks like in code -->
         <figure class="article-fig">

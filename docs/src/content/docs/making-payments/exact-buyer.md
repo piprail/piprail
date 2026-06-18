@@ -49,7 +49,7 @@ gas-funded key at all — settlement is fully gasless end to end (see
 
 ## What exact can settle
 
-The `exact` rail works on **EVM, Solana, Algorand, and Aptos**, via one of five on-chain methods. The
+The `exact` rail works on **EVM, Solana, Algorand, Aptos, and NEAR**, via one of six on-chain methods. The
 402's rail names which one (`extra.assetTransferMethod`), and the client picks the matching signer
 automatically:
 
@@ -104,7 +104,7 @@ final guard regardless of the label.
 
 When you enable both schemes, the client gathers `onchain-proof` rails first, so on a dual-rail
 402 the default selection is unchanged. An `exact` rail is only ever picked when the bound
-driver can actually settle it (EVM EIP-3009/Permit2, Solana SVM, the Algorand ASA rail, or the Aptos FA rail).
+driver can actually settle it (EVM EIP-3009/Permit2, Solana SVM, the Algorand ASA rail, the Aptos FA rail, or the NEAR NEP-366 meta-tx).
 
 To make the client *prefer* the gasless `exact` rail when a gate offers both, enable
 [`autoRoute`](/making-payments/fetch-and-autoroute/) (`new PipRailClient({ …, autoRoute: true })`, or

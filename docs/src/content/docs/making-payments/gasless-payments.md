@@ -1,6 +1,6 @@
 ---
 title: Gasless payments
-description: How gasless x402 payments work in PipRail — the two rails (onchain-proof vs the gasless exact rail), the exact rail's five auto-selected methods (EIP-3009, Permit2, SVM, Algorand, Aptos), and a clear table of exactly which chains and tokens are gasless and which aren't.
+description: How gasless x402 payments work in PipRail — the two rails (onchain-proof vs the gasless exact rail), the exact rail's six auto-selected methods (EIP-3009, Permit2, SVM, Algorand, Aptos, NEAR), and a clear table of exactly which chains and tokens are gasless, both-sides-gasless via a keyless facilitator vs buyer-gasless via self-settle, and which aren't.
 sidebar:
   order: 9
 ---
@@ -21,27 +21,29 @@ falls out:
     Works on every chain. (The "with-gas" path.)
   - **`exact`** — the ratified x402 rail (**opt-in**). You only **sign**; someone else broadcasts, so
     **you pay zero gas**. This is the gasless rail.
-- **`exact` has five *methods*** — *how* the signature is shaped, **auto-selected** per chain + token.
+- **`exact` has six *methods*** — *how* the signature is shaped, **auto-selected** per chain + token.
   These are children of `exact`, **not** alternatives to it:
   - **EIP-3009** — EVM tokens with `transferWithAuthorization` (USDC, EURC). The clean path.
   - **Permit2** — EVM tokens *without* EIP-3009 (e.g. Binance-Peg USDC on BNB). Self-settle only.
   - **SVM** — Solana, any SPL token.
   - **Algorand** — any ASA (USDCa), via an atomic-group **fee pool** (the buyer's transfer rides at fee 0).
   - **Aptos** — any Fungible Asset (USDC, USDT), via a native **fee-payer (sponsored) transaction** (AIP-39).
+  - **NEAR** — NEP-141 tokens (USDC, USDT), via a **NEP-366 meta-transaction** (the buyer signs at 0 NEAR; a relayer pays). Self-settle only.
 
 So it's **not** "gas vs permit vs exact." It's: **`onchain-proof` (with-gas) vs `exact` (gasless)**, and
-**`exact` happens to be implemented five ways** (EIP-3009 / Permit2 / SVM / Algorand / Aptos) that the
-SDK picks for you. You never name a method by hand.
+**`exact` happens to be implemented six ways** (EIP-3009 / Permit2 / SVM / Algorand / Aptos / NEAR) that
+the SDK picks for you. You never name a method by hand.
 
 ```text
   a 402 payment
   ├── onchain-proof   ← default · you broadcast · YOU PAY GAS · every chain
-  └── exact           ← opt-in  · you only sign · ZERO gas for you · EVM + Solana + Algorand + Aptos
+  └── exact           ← opt-in  · you only sign · ZERO gas for you · EVM + Solana + Algorand + Aptos + NEAR
         ├── EIP-3009   (EVM: USDC, EURC)         ┐ picked
         ├── Permit2    (EVM: other ERC-20s)      │ automatically
         ├── SVM        (Solana: any SPL token)   │ per chain+token
         ├── Algorand   (Algorand: any ASA)       │
-        └── Aptos      (Aptos: any FA)           ┘
+        ├── Aptos      (Aptos: any FA)           │
+        └── NEAR       (NEAR: NEP-141, self-settle) ┘
 ```
 
 ## What "gasless" means
@@ -67,7 +69,7 @@ PipRail offers up to two rails on a single 402; the agent picks one.
 |---|---|---|
 | Who broadcasts | the **buyer** | the merchant's relayer / a facilitator |
 | Buyer pays gas? | **yes** (a normal transfer) | **no** — just signs |
-| Where it works | **every** chain + token PipRail supports | **EVM** + **Solana** + **Algorand** + **Aptos** (below) |
+| Where it works | **every** chain + token PipRail supports | **EVM** + **Solana** + **Algorand** + **Aptos** + **NEAR** (below) |
 | Opt-in | default | `schemes: ['onchain-proof', 'exact']` |
 
 `onchain-proof` is PipRail's backendless default — universal, but the buyer holds the gas token.
@@ -158,8 +160,24 @@ can be its own relayer. Native **APT** isn't exact-payable — it stays on `onch
 
 ## ⭐ Which chains & tokens are gasless?
 
-Read this as: *"on chain X, token Y is gasless via Z."* Anything not listed pays via `onchain-proof`
-(buyer broadcasts; fees are tiny on most chains but not zero).
+**Gasless has two strengths — be precise about which one a chain has:**
+
+| Tier | Who pays gas | When | How |
+|---|---|---|---|
+| 🟢 **Both-sides-gasless** | **Nobody** — a **keyless third-party facilitator** sponsors it. Buyer **and** merchant pay zero. | A keyless facilitator is seeded for the chain | **zero-config** — `exact: true` |
+| 🔵 **Buyer-gasless (self-settle)** | The **merchant** (sub-cent), via their own relayer. The **buyer** still pays zero. | The token supports `exact` but **no keyless facilitator** exists for that chain | `exact: { settle: 'self', relayer }` |
+| ⚪ **Not gasless** | The **buyer** (tiny). | No `exact` rail on the chain at all | the `onchain-proof` default |
+
+**🟢 Both-sides-gasless — 13 chains, zero config** *(every one live-settled on mainnet + re-verified on-chain that a third party, not the buyer or merchant, paid the gas)*:
+**Ethereum · Polygon · Arbitrum · Optimism · Avalanche · Sei · Unichain · Base · BNB · HyperEVM · Monad · Solana · Algorand.** Most carry **multiple** keyless facilitators for automatic failover (Base has 8, Polygon 5, Arbitrum 3) — the full live-proven list is in [facilitator coverage](/accepting-payments/facilitator-coverage/).
+
+**🔵 Buyer-gasless via self-settle** *(the token is `exact`-payable, but no keyless facilitator settles the chain yet — you run a relayer that pays the sub-cent gas; the buyer still pays nothing)*:
+**Sonic · Linea · Celo · World Chain · zkSync Era · Injective · Scroll · Mantle** (EVM EIP-3009) · **Aptos** (AIP-39 sponsored tx) · **NEAR** (NEP-366 meta-tx). *Celo + Scroll have an EIP-3009 USDC and Ultravioleta DAO **advertises** them — but its sponsor contract **reverts** there (`contract_call_failed`), so there's no working facilitator; self-settle is the gasless path.*
+
+**⚪ Not gasless (onchain-proof only)** — no `exact` rail exists on these yet: **Tron · XRP Ledger · TON · Stellar · Sui · Kaia** (Kaia also has no EIP-3009 token). The buyer broadcasts and pays the (usually tiny) fee. *Tron and XRPL have keyless **gas-free** facilitators (MERX, t54) but on **non-standard, single-vendor** schemes — not wired here; see [the note below](#tron--xrpl--keyless-but-non-standard).*
+
+The rest of this section breaks the 🟢/🔵 tiers down by *how* `exact` is signed (the method). Read each as
+*"on chain X, token Y is gasless via Z."*
 
 ### Gasless via EIP-3009 — no approval, no proxy
 
@@ -224,17 +242,35 @@ gas-station round-trip. Native **APT** isn't exact-payable. Live-proven on Aptos
 ### NOT gasless → `onchain-proof` (the buyer broadcasts)
 
 - **Native coins** (ETH, BNB, SOL, ALGO, APT, MATIC, …) — nothing to authorize / no fee-payer split.
-- **The other non-EVM families** — TON, Tron, NEAR, **Sui**, Stellar, XRPL. (Fees there are sub-cent,
-  but the buyer signs *and* broadcasts.) **Solana, Algorand, and Aptos are the exceptions** — gasless
-  via SVM, the fee-pooled Algorand rail, and the Aptos sponsored-tx rail (above). *(Sui has a ratified
-  `exact` scheme, but its sponsored path needs a **gas-station round-trip** — a hosted service the buyer
-  calls mid-flow — which doesn't fit PipRail's one-shot backendless model, so Sui stays on
-  `onchain-proof`; its fees are sub-cent.)*
+- **The non-EVM families without an `exact` rail** — TON, Tron, **Sui**, Stellar, XRPL. (Fees there are
+  sub-cent, but the buyer signs *and* broadcasts.) **Solana, Algorand, Aptos, and NEAR are the gasless
+  exceptions** — via SVM, the fee-pooled Algorand rail, the Aptos sponsored-tx rail, and NEAR's
+  **NEP-366 meta-transaction** (self-settle: the buyer signs at 0 NEAR, the merchant's relayer pays).
+  *(Sui has a ratified `exact` scheme, but its sponsored path needs a **gas-station round-trip** — a
+  hosted service the buyer calls mid-flow — which doesn't fit PipRail's one-shot backendless model, so
+  Sui stays on `onchain-proof`; its fees are sub-cent.)*
 - **USDT** on EVM chains where it isn't EIP-3009 **and** has no Permit2 proxy (Tether implements no
-  EIP-3009 anywhere) — and bridged USDC (e.g. Mantle, Scroll), which isn't the Circle FiatToken.
+  EIP-3009 anywhere). *(Native Circle USDC, by contrast, is EIP-3009 on **every** chain PipRail ships it —
+  **on-chain-verified `version()="2"` including Mantle, Scroll, Sonic, Linea, zkSync, Celo, World Chain** —
+  so USDC is `exact`-payable there via **self-settle** even where no keyless facilitator exists yet.)*
 
 > PipRail never advertises a rail it can't settle: if an EVM token isn't EIP-3009 **and** the chain has
 > no Permit2 proxy, the gate simply offers `onchain-proof`, not a broken `exact` rail.
+
+### Tron & XRPL — keyless but non-standard
+
+Two chains PipRail ships on `onchain-proof` *do* have a keyless, gas-free facilitator — but on a
+**non-standard, single-vendor** scheme, so they're **not** wired as a gasless `exact` rail (yet):
+
+- **Tron** — **MERX** (`x402.merx.exchange`, keyless) settles native USDT/USDC **gas-free** via Tron's
+  **GasFree** scheme (TIP-712 fee-delegation), *not* the ratified x402 `exact`.
+- **XRPL** — **t54** (`xrpl-facilitator-mainnet.t54.ai`, keyless) settles XRP/RLUSD via an XRPL-specific path.
+
+Both are real and keyless, but each is a **single vendor on a bespoke scheme** — the opposite of the EVM
+rails' multi-facilitator, ratified-`exact` failover, and there's no x402 `exact` standard on Tron or XRPL
+to fall back to if the vendor changes. So for now Tron and XRPL stay on `onchain-proof` (the buyer pays a
+sub-cent fee). This is a deliberate charter call — wiring a single-vendor non-standard rail trades the
+"open rail, no lock-in" guarantee for one chain's gasless convenience — not a gap in the research.
 
 ## Turn it on
 
@@ -315,7 +351,8 @@ requirePayment({
 })
 ```
 
-With a **keyless facilitator** (EVM EIP-3009 on Base/BNB/HyperEVM/Monad, Solana, **or Algorand**),
+With a **keyless facilitator** (EVM EIP-3009 on **Ethereum, Polygon, Arbitrum, Optimism, Avalanche,
+Sei, Unichain, Base, BNB, HyperEVM, Monad**, Solana, **or Algorand** — 13 chains),
 **neither side pays gas** — on Algorand both the buyer *and* the merchant pay 0 ALGO (see the
 [keyless note](#keyless-exact-true-on-algorand--now-live) below). See the full how-tos:
 [the exact rail (buyer)](/making-payments/exact-buyer/) · [the exact rail (seller)](/accepting-payments/exact-rail-seller/).

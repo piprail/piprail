@@ -81,6 +81,20 @@ export const KNOWN_FACILITATORS: Readonly<Record<Caip2, ReadonlyArray<KnownFacil
       settles: ['eip3009'],
       note: 'GoPlausible — keyless, sponsors gas (Base USDC EIP-3009). LIVE-settled on Base 2026-06-17 (tx 0x9bcbc1f01fe1fd1aed2a79e5582555164cc4185e9800189df378a6b46eb9c59e). 2nd GoPlausible validation chain (after Algorand).',
     },
+    {
+      url: 'https://facilitator.cascade.fyi',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['eip3009'],
+      note: 'Cascade — keyless, sponsors gas (Base USDC EIP-3009). LIVE-settled on Base 2026-06-18 (tx 0x2e784725f3c66e170720cc8df43a9248f02ad80914fcbe05dadbdbe411c3b52b).',
+    },
+    {
+      url: 'https://facilitator.bitcoinsapi.com',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['eip3009'],
+      note: 'Satoshi (bitcoinsapi) — keyless, sponsors gas (Base USDC EIP-3009). LIVE-settled on Base 2026-06-18 (tx 0xbb2b6c354b12c6d07cce91e2b337e38327d4b0833bbd1dfbeda3ad495b67b819).',
+    },
   ],
   // Monad (eip155:143). Corbits + Ultravioleta DAO each keyless-settle the EVM EIP-3009 exact rail
   // (Monad's native Circle USDC), buyer paid zero gas — real LIVE settles, not just /supported reads.
@@ -140,6 +154,139 @@ export const KNOWN_FACILITATORS: Readonly<Record<Caip2, ReadonlyArray<KnownFacil
       schemes: ['exact'],
       settles: ['eip3009'],
       note: 'Ultravioleta DAO — keyless, 100% gas-sponsored (HyperEVM native USDC EIP-3009). LIVE-settled on HyperEVM 2026-06-17 (tx 0x56af8148a92a291f0ce362e250919f7742074e5464ac0f315ad68abaec93bd0a).',
+    },
+  ],
+  // ── gasless-extension (2026-06-18): 7 more EVM mainnets, each LIVE-settled by us — a real EIP-3009
+  // exact payment with the buyer holding ZERO native (so PROVABLY gasless), funded self-service by
+  // bridging USDC in (LI.FI/Eco/Relay), never a /supported read. Dexter enforces a ~$0.004 dynamic
+  // floor on some chains (we cleared it at $0.005); UVD has no floor (100%-sponsors) but its sponsor
+  // contract is NOT deployed on every chain it advertises (Avalanche/Celo/Scroll → contract_call_failed,
+  // left UNSEEDED — the NEAR lesson: advertising ≠ settling).
+  // Ethereum L1 (eip155:1) — UVD (no floor, sponsors L1 gas). 2nd keyless ETH option vs Primev, which
+  // rejected PipRail's exact as unsupported_scheme.
+  'eip155:1': [
+    {
+      url: 'https://facilitator.ultravioletadao.xyz',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['eip3009'],
+      note: 'Ultravioleta DAO — keyless, 100% gas-sponsored (Ethereum native USDC EIP-3009; no settlement floor). LIVE-settled on Ethereum mainnet 2026-06-18 (tx 0x7fcc3cafdf43c52888f0117cde633eff35371f832dfb8dbd84e6fd7704ae5cfc).',
+    },
+  ],
+  // Polygon PoS (eip155:137) — FIVE keyless facilitators (the broadest after Base), all live-settled.
+  'eip155:137': [
+    {
+      url: 'https://facilitator.payai.network',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['eip3009'],
+      note: 'PayAI — keyless, sponsors gas (Polygon native USDC EIP-3009). LIVE-settled on Polygon 2026-06-18 (tx 0xb37630871504618c4db35e8ef0edd3c99deac102b143b7e5eb738c03fb13a619).',
+    },
+    {
+      url: 'https://x402.polygon.technology',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['eip3009'],
+      note: 'Polygon Labs (the official Polygon facilitator) — keyless, sponsors gas. LIVE-settled on Polygon 2026-06-18 (tx 0x6a8ca60ea111959a61a85ad6c4f2ed99e192052ec7b9ffb59baa33691a86f419).',
+    },
+    {
+      url: 'https://facilitator.corbits.dev',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['eip3009'],
+      note: 'Corbits (Faremeter) — keyless, sponsors gas. LIVE-settled on Polygon 2026-06-18 (tx 0x2fadca2ee3cd7fcff32d015e8b06109de6b747d7cd0f80dcd8fb022b2d58d008).',
+    },
+    {
+      url: 'https://facilitator.ultravioletadao.xyz',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['eip3009'],
+      note: 'Ultravioleta DAO — keyless, 100% gas-sponsored. LIVE-settled on Polygon 2026-06-18 (tx 0x0922cd78f3b7c35cc294cf0c0d9b7609e6596eb337be0d197fa5fc511eacba34).',
+    },
+    {
+      url: 'https://x402.dexter.cash',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['eip3009'],
+      note: 'Dexter — keyless, sponsors gas; ~$0.004 dynamic settlement floor (sub-floor → amount_too_low). LIVE-settled on Polygon 2026-06-18 at $0.005 (tx 0x4a7cfc96e4e2496652435c77b0021db4a459e7bcd97948c15e6bea09077c164b).',
+    },
+  ],
+  // Arbitrum One (eip155:42161) — PayAI + UVD + Dexter.
+  'eip155:42161': [
+    {
+      url: 'https://facilitator.payai.network',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['eip3009'],
+      note: 'PayAI — keyless, sponsors gas (Arbitrum native USDC EIP-3009). LIVE-settled on Arbitrum 2026-06-18 (tx 0x4c7fbfb37ef087bb9bc8872b1b2b0b83ea7ca4cf6b50bc883e51f9b85be61199).',
+    },
+    {
+      url: 'https://facilitator.ultravioletadao.xyz',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['eip3009'],
+      note: 'Ultravioleta DAO — keyless, 100% gas-sponsored. LIVE-settled on Arbitrum 2026-06-18 (tx 0xd1fa7e6ffbd59502bba5809ce181d7936749b93a45c8c2277b4f6d8638326dec).',
+    },
+    {
+      url: 'https://x402.dexter.cash',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['eip3009'],
+      note: 'Dexter — keyless, sponsors gas; ~$0.004 dynamic floor. LIVE-settled on Arbitrum 2026-06-18 at $0.005 (tx 0x0993d51b3859dfd7e8d5b2af709ce64f01ff34ed14bfef665dbb340e7373d599).',
+    },
+  ],
+  // Optimism (eip155:10) — Dexter + UVD.
+  'eip155:10': [
+    {
+      url: 'https://x402.dexter.cash',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['eip3009'],
+      note: 'Dexter — keyless, sponsors gas; ~$0.004 dynamic floor. LIVE-settled on Optimism 2026-06-18 at $0.005 (tx 0x98b282a5dd698054eff4900ff8547170d4f7605b51140c55147fc5ae485f81da).',
+    },
+    {
+      url: 'https://facilitator.ultravioletadao.xyz',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['eip3009'],
+      note: 'Ultravioleta DAO — keyless, 100% gas-sponsored. LIVE-settled on Optimism 2026-06-18 (tx 0xdd91dfdf12bed2d196e37fa1dea9a0da71a97e3c39a0ec0ed114be6a9af22837).',
+    },
+  ],
+  // Avalanche C-Chain (eip155:43114) — PayAI + Dexter. (UVD advertises it but contract_call_failed → unseeded.)
+  'eip155:43114': [
+    {
+      url: 'https://facilitator.payai.network',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['eip3009'],
+      note: 'PayAI — keyless, sponsors gas (Avalanche native USDC EIP-3009). LIVE-settled on Avalanche 2026-06-18 (tx 0x6a1307bc48a157de236ea03440ea2cb6ad4f27e22dd9c89a4345b4c3edb270c7).',
+    },
+    {
+      url: 'https://x402.dexter.cash',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['eip3009'],
+      note: 'Dexter — keyless, sponsors gas (no floor hit at $0.001 here). LIVE-settled on Avalanche 2026-06-18 (tx 0xb2263e9a4ea3917eee6acabcb454d42a50264fdd69a0781ed8fcaec5590e264b).',
+    },
+  ],
+  // Sei (eip155:1329) — PayAI (the only keyless facilitator that lists Sei).
+  'eip155:1329': [
+    {
+      url: 'https://facilitator.payai.network',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['eip3009'],
+      note: 'PayAI — keyless, sponsors gas (Sei native USDC EIP-3009). LIVE-settled on Sei 2026-06-18 (tx 0xde63679b64749cb59625527e5c7682503c851d66b9b8b8ba217ed7b099461312).',
+    },
+  ],
+  // Unichain (eip155:130) — UVD (the only keyless facilitator that lists Unichain).
+  'eip155:130': [
+    {
+      url: 'https://facilitator.ultravioletadao.xyz',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['eip3009'],
+      note: 'Ultravioleta DAO — keyless, 100% gas-sponsored (Unichain native USDC EIP-3009). LIVE-settled on Unichain 2026-06-18 (tx 0xf8bf4a9a200f24159ac67c6315c30b194257999d7da21471b39d5f2cc32b2236).',
     },
   ],
   // Algorand (mainnet, CAIP-2 = full base64 genesis hash). GoPlausible keyless-settles the ratified
