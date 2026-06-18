@@ -98,14 +98,21 @@ methods (`'eip3009' | 'permit2' | 'svm' | 'algorand' | 'aptos'`), and an optiona
 settled a real mainnet payment with no key, buyer paid zero gas (see
 [Live-verified facilitators](#live-verified-facilitators)):
 
-- **Base** (`eip155:8453`) → PayAI + xpay + **Ultravioleta DAO** + **Dexter** + **Corbits** + **GoPlausible** (`eip3009`) — six keyless facilitators *(UVD/Dexter/Corbits/GoPlausible live-settled 2026-06-17)*
+- **Base** (`eip155:8453`) → PayAI + xpay + **Ultravioleta DAO** + **Dexter** + **Corbits** + **GoPlausible** + **Cascade** + **Satoshi** (`eip3009`) — eight keyless facilitators *(UVD/Dexter/Corbits/GoPlausible 2026-06-17; Cascade/Satoshi 2026-06-18)*
+- **Ethereum** (`eip155:1`) → **Ultravioleta DAO** (`eip3009`) — *live-settled 2026-06-18.* UVD 100%-sponsors L1 gas with no floor; the keyless Ethereum option (Primev rejects PipRail's `exact` as `unsupported_scheme`).
+- **Polygon** (`eip155:137`) → **PayAI + Polygon Labs + Corbits + Ultravioleta DAO + Dexter** (`eip3009`) — *live-settled 2026-06-18.* Five keyless facilitators — the broadest coverage after Base.
+- **Arbitrum** (`eip155:42161`) → **PayAI + Ultravioleta DAO + Dexter** (`eip3009`) *(live-settled 2026-06-18)*
+- **Optimism** (`eip155:10`) → **Dexter + Ultravioleta DAO** (`eip3009`) *(live-settled 2026-06-18)*
+- **Avalanche** (`eip155:43114`) → **PayAI + Dexter** (`eip3009`) *(live-settled 2026-06-18)*
+- **Sei** (`eip155:1329`) → **PayAI** (`eip3009`) *(live-settled 2026-06-18)*
+- **Unichain** (`eip155:130`) → **Ultravioleta DAO** (`eip3009`) *(live-settled 2026-06-18)*
 - **BNB** (`eip155:56`) → **Dexter** + **Pieverse** (`eip3009`) — *live-settled 2026-06-17 with FDUSD.* BNB's USDC/USDT are Binance-Peg (Permit2, not facilitator-settleable), so keyless BNB works only for the **EIP-3009 tokens FDUSD/USD1**, and Dexter enforces a **~$0.003 dynamic floor**. This beats the BNB token-overlap wall — and Pieverse settles FDUSD too, so BNB now has two keyless facilitators.
 - **Monad** (`eip155:143`) → Corbits + **Ultravioleta DAO** + **Pieverse** (`eip3009`) *(live-settled 2026-06-17)*
 - **HyperEVM** (`eip155:999`) → Ultravioleta DAO (`eip3009`) *(live-settled 2026-06-17)*
 - **Algorand** (`algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=`) → **GoPlausible** (`algorand`) — *new, live-settled 2026-06-17.* Atomic-group fee pooling: GoPlausible's sponsor pools the whole group fee, so **both the buyer AND the merchant pay 0 ALGO**. The first non-EVM/non-Solana keyless chain.
 - **Solana** → PayAI + OpenFacilitator + Corbits (`svm`)
 
-So **`exact: true` is zero-config gasless on Base, BNB, HyperEVM, Monad, Solana, and Algorand** — six chains — today (multiple keyless facilitators per chain = automatic failover). **Daydreams** and
+So **`exact: true` is zero-config gasless on 13 chains today — Ethereum, Polygon, Arbitrum, Optimism, Avalanche, Sei, Unichain, Base, BNB, HyperEVM, Monad, Solana, and Algorand** (multiple keyless facilitators per chain = automatic failover). **Celo and Scroll are NOT seeded** — Ultravioleta DAO advertises them but its sponsor contract reverts there (`contract_call_failed`), proving again that a `/supported` listing isn't settlement. **Daydreams** and
 **Questflow** are deliberately **omitted** — their `/supported` is public but `/verify` needs an API key.
 `x402.org/facilitator` is **not** seeded either — it's a Base *Sepolia* testnet facilitator, not a
 mainnet rail. **Aptos** has no keyless x402 facilitator on mainnet yet — use **self-settle** for

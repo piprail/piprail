@@ -4,6 +4,25 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.6.0] — 2026-06-18 — keyless-gasless `exact` on 7 more EVM mainnets (6 → 13 chains)
+
+Additive and backward-compatible — defaults and the zero-config 402 stay byte-identical; this only
+grows the `KNOWN_FACILITATORS` seed map, so `exact: true` now resolves a keyless, gas-sponsoring
+facilitator zero-config on **7 more chains**.
+
+- **`exact: true` is now zero-config truly-gasless (buyer AND merchant pay zero native) on Ethereum,
+  Polygon, Arbitrum, Optimism, Avalanche, Sei, and Unichain** — joining Base, Monad, BNB, HyperEVM,
+  Algorand, and Solana (**6 → 13 chains**). Every new (chain, facilitator) pair was LIVE-settled on
+  mainnet with the buyer holding **zero native gas** (provably gasless), per the seed-map RULE
+  (settle-proven, never a `/supported` read). **17 new pairs**, e.g. Polygon now lists five keyless
+  facilitators (PayAI, Polygon Labs, Corbits, Ultravioleta DAO, Dexter).
+- **Base** gains two more keyless facilitators (Cascade, Satoshi/bitcoinsapi).
+- **Not seeded (advertised ≠ settles):** Celo and Scroll — Ultravioleta DAO lists them but its sponsor
+  contract reverts there (`contract_call_failed`), so neither was ever live-settled. They stay on
+  `onchain-proof` until a facilitator actually settles them.
+- No API surface change. Merchants on an unseeded network still pass an explicit
+  `exact: { settle: { facilitator } }`.
+
 ## [2.5.0] — 2026-06-18 — gasless NEAR `exact` rail (NEP-366 meta-transactions)
 
 Additive and backward-compatible — defaults and the zero-config 402 stay byte-identical; pure-EVM
@@ -1381,6 +1400,7 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[2.6.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.5.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.4.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.3.0]: https://www.npmjs.com/package/@piprail/sdk

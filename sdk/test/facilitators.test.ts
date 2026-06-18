@@ -65,6 +65,29 @@ describe('KNOWN_FACILITATORS (seed data)', () => {
     const sol = knownFacilitatorsFor('solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp')
     expect(sol.some((f) => f.url.includes('payai') && f.settles.includes('svm') && f.keyless)).toBe(true)
   })
+
+  // gasless-extension (2026-06-18): 7 more EVM mainnets, each LIVE-settled keyless (buyer paid zero
+  // native). Locks in the expansion so a regression that drops a network fails the gate.
+  it('seeds keyless eip3009 facilitators for the 7 gasless-extension EVM mainnets', () => {
+    for (const net of ['eip155:1', 'eip155:137', 'eip155:42161', 'eip155:10', 'eip155:43114', 'eip155:1329', 'eip155:130'] as const) {
+      const facs = knownFacilitatorsFor(net)
+      expect(facs.length, `${net} has no seeded facilitator`).toBeGreaterThan(0)
+      expect(facs.every((f) => f.keyless && f.settles.includes('eip3009'))).toBe(true)
+      expect(firstKeylessFacilitator(net, 'eip3009'), `${net} exact:true has no keyless pick`).toBeDefined()
+    }
+  })
+
+  it('Polygon carries all five live-settled keyless facilitators (the broadest after Base)', () => {
+    const hosts = knownFacilitatorsFor('eip155:137').map((f) => f.url)
+    for (const h of ['payai', 'polygon.technology', 'corbits', 'ultravioletadao', 'dexter']) {
+      expect(hosts.some((u) => u.includes(h)), `Polygon missing ${h}`).toBe(true)
+    }
+  })
+
+  it('does NOT seed Celo/Scroll (UVD advertises them but contract_call_failed → never live-settled)', () => {
+    expect(knownFacilitatorsFor('eip155:42220')).toEqual([]) // Celo
+    expect(knownFacilitatorsFor('eip155:534352')).toEqual([]) // Scroll
+  })
 })
 
 describe('knownFacilitatorsFor / firstKeylessFacilitator', () => {

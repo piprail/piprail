@@ -52,8 +52,9 @@ const gate = requirePayment({
 
 It is **soft and additive**, so it can never brick your gate:
 
-- **Has a keyless facilitator** (**Base, BNB, HyperEVM, Monad, Solana, and Algorand** today — six chains;
-  more as they're seeded) → advertises the gasless `exact` rail **and** the `onchain-proof` floor. The
+- **Has a keyless facilitator** (**Ethereum, Polygon, Arbitrum, Optimism, Avalanche, Sei, Unichain, Base,
+  BNB, HyperEVM, Monad, Solana, and Algorand** today — 13 chains; more as they're seeded) → advertises
+  the gasless `exact` rail **and** the `onchain-proof` floor. The
   buyer signs (0 gas); the facilitator settles + pays. *(On Algorand the merchant pays 0 too — see
   [facilitator coverage](/accepting-payments/facilitator-coverage/).)*
 - **No keyless facilitator for the chain** → **degrades gracefully** to `onchain-proof` only (the buyer
