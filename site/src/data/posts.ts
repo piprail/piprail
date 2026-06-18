@@ -37,12 +37,12 @@ export interface Post {
 }
 
 export const authors = {
-  tim: {
-    name: 'Tim Roelofs',
-    role: 'Cofounder, PipRail',
-    // A real, crawlable author presence (the project's public account the cofounder
-    // posts from) — not the /blog list page, which is a weak self-referential author signal.
-    url: 'https://x.com/piprailhq',
+  john: {
+    name: 'John Weeks',
+    role: 'Founder, PipRail',
+    // The author's real, crawlable personal presence — a stronger E-E-A-T / author-entity
+    // signal than the brand account or the /blog list page (a weak self-referential one).
+    url: 'https://x.com/johnweeksdev',
   },
 } satisfies Record<string, Author>
 
@@ -57,7 +57,7 @@ export const posts: Post[] = [
       "Stripe's Machine Payments Protocol and x402 both revive HTTP 402 to let agents pay per call. They split on one thing: who holds the money. An honest comparison.",
     excerpt:
       'Stripe’s MPP and the open x402 rail both answer “Payment Required” for AI agents. They agree on the mechanism and disagree on everything that follows from custody. A fair, side-by-side look.',
-    author: authors.tim,
+    author: authors.john,
     published: '2026-06-18',
     readingTime: 11,
     category: 'Comparison',
