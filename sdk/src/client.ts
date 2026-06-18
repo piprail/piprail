@@ -1447,10 +1447,12 @@ export class PipRailClient {
   private async authorize(quote: PipRailQuote): Promise<void> {
     if (!quote.withinPolicy) {
       const reason = `Payment refused by policy: ${quote.policyReason ?? 'not allowed'}`
+      const reasonCode = reasonCodeForPolicy(quote.policyCode)
       // Emit `payment-failed` too (not only throw), so a consumer watching `onEvent` learns of a
       // pre-send DECLINE just as it does a server rejection — the buyer is notified of EVERY failure.
-      this.safeEmit({ kind: 'payment-failed', reason, code: quote.policyCode ?? 'POLICY' })
-      throw new PaymentDeclinedError(reason, { reasonCode: reasonCodeForPolicy(quote.policyCode) })
+      // The event `code` is the SAME DeclineReasonCode the thrown error carries (one consistent value).
+      this.safeEmit({ kind: 'payment-failed', reason, code: reasonCode })
+      throw new PaymentDeclinedError(reason, { reasonCode })
     }
     const hook = this.opts.onBeforePay
     if (!hook) return
@@ -1674,7 +1676,9 @@ export class PipRailClient {
     // non-5xx), or a persistent transient 402. Never re-present, never a spend; the
     // `errorReason` tells the agent the real fix (e.g. `insufficient_funds` → top up).
     const rejectDefinitive = (why: string): never => {
-      this.safeEmit({ kind: 'payment-failed', reason: `exact: facilitator rejected nonce=${nonce} (${why})` })
+      // `why` is the facilitator's structured errorReason — surface it as the event `code` too, so the
+      // buyer learns the reason on the exact rail's most common failure (parity with the merchant).
+      this.safeEmit({ kind: 'payment-failed', reason: `exact: facilitator rejected nonce=${nonce} (${why})`, code: why })
       throw new MaxRetriesExceededError(
         `exact: the facilitator rejected the payment (${why}). Fix the cause, then re-present the ` +
           `SAME signed authorization (nonce=${nonce}) — do NOT re-sign a fresh nonce. ref=${nonce}.`,

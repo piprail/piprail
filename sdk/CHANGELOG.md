@@ -4,7 +4,7 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased] — symmetric payment notifications (`onFailed`: both sides notified on success AND failure)
+## [2.7.0] — 2026-06-19 — symmetric payment notifications (`onFailed`: both sides notified on success AND failure)
 
 Additive and backward-compatible — defaults and the zero-config 402 stay byte-identical; omit the new
 options and behaviour is unchanged.

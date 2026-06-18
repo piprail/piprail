@@ -131,6 +131,12 @@ try {
 `SESSION_EXPIRED` and `APPROVAL` are terminal — every further payment this process is refused, so
 restart or extend the session rather than retrying.
 
+A decline now **also emits a `payment-failed`** [event](/making-payments/events/) — not only the
+throw. The event carries a `code` (the decline reason, e.g. `'BUDGET'` / `'APPROVAL'` / `'POLICY'`)
+so a consumer watching `onEvent` alone learns of *every* failure type, server-side rejections and
+pre-send declines alike, without a try/catch. The typed `PaymentDeclinedError` throw is unchanged,
+and zero funds move either way — the event is purely additive observability.
+
 ## Nothing the wallet can pay — `NO_COMPATIBLE_ACCEPT` and `UNSUPPORTED_SCHEME`
 
 These two say "the 402 offered rails, but not ones this wallet can settle." Keep them apart:

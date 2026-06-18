@@ -118,6 +118,11 @@ client is configured for — PipRail's backendless on-chain rail, or the standar
 [`exact` rail](/making-payments/exact-buyer/) when enabled. Its annotations mark it
 `readOnlyHint: false`, `destructiveHint: true`, `idempotentHint: false`.
 
+It always hands the model a **structured outcome — success *or* failure** — never an exception.
+A settled fetch returns `{ status, ok, body, receipt }`; anything that goes wrong (a refused
+payment, a server rejection, a broadcast that didn't confirm) comes back as a structured
+`{ ok: false, … }` object the agent can branch on. The two shapes are below.
+
 | Argument | Type | Meaning |
 | --- | --- | --- |
 | `url` | string (required) | Full URL to fetch. |
@@ -166,6 +171,18 @@ hold. The [agent guide](/agent-toolkit/agent-guide/) spells out every recovery c
 :::
 
 A genuine, non-SDK bug is the only thing that still surfaces as an MCP `isError` result.
+
+:::note
+**The MCP is the *payer*.** When a payment is rejected **by a merchant's gate** — wrong amount,
+expired, replayed, bad signature — that gate's canonical
+[`VerifyErrorCode`](/errors/verify-error-code/) (the **same** code the merchant's own
+[`onFailed` hook](/accepting-payments/receipts-and-onpaid/) receives) rides through to the model
+in this tool's `reason` line, so both sides report one consistent cause. The top-level `code`
+here is the [`PipRailError` code](/errors/error-hierarchy/) for the give-up condition (e.g.
+`MAX_RETRIES_EXCEEDED`). The MCP exposes only the buyer side — `onFailed` is a server-gate
+(merchant) hook, so it is **not** an MCP tool. Building the seller? Wire `onFailed` into
+[`requirePayment` / `createPaymentGate`](/accepting-payments/require-payment-and-gate/).
+:::
 
 ## piprail_register
 

@@ -77,6 +77,12 @@ code everywhere. The gate turns a rejection into a conformant 402 re-challenge (
 `extensions.piprail.{code,detail}`). See the [verify error code](/errors/verify-error-code/) page
 for the full union and which driver emits each.
 
+The gate exposes both verdicts as fully-isolated observability hooks — the mirror pair
+[`onPaid` and `onFailed`](/accepting-payments/receipts-and-onpaid/): `onPaid` fires with the
+enriched receipt on a settled proof, `onFailed` fires with a `FailedPayment` on a rejected one,
+carrying the *same* `VerifyErrorCode` the buyer's client is told (so both sides see one reason). A
+throw inside either is caught and routed to its `…Error` seam — neither can break the request.
+
 :::note
 Verification **fails closed**. If the gate's RPC read hiccups, `verify()` returns `tx_not_found`
 and the gate replies 402 — never `paid`. An RPC outage can't trick a merchant into unlocking

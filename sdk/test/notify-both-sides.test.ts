@@ -130,6 +130,18 @@ describe('onFailed — the exact rail', () => {
     await expect(payExact(gate)).rejects.toBeInstanceOf(SettlementError)
     expect(onFailed).toHaveBeenCalledTimes(0)
   })
+
+  it('fires onFailed{tx_already_used} on an exact-rail REPLAY (same authorization nonce twice)', async () => {
+    // A distinct replay path from onchain-proof: the gate claims the EIP-3009 authorization NONCE.
+    const codes: string[] = []
+    const gate = gateWith({ exact: { settle: 'self', relayer: { key: '0x' + 'ab'.repeat(32) } }, onFailed: (f) => { codes.push(f.code) } })
+    const { challenge } = await gate.challenge('https://x')
+    const exactAccept = challenge.accepts.find((a) => a.scheme === 'exact')!
+    const header = b64({ x402Version: 2, accepted: exactAccept, payload: { signature: '0xsig', authorization: AUTH() } })
+    expect((await gate.verify(header)).kind).toBe('paid') // first: settles + claims the nonce
+    expect((await gate.verify(header)).kind).toBe('invalid') // SAME nonce again → replay-rejected
+    expect(codes).toEqual(['tx_already_used']) // onFailed fired exactly once, on the replay
+  })
 })
 
 // ── D. a transient RPC THROW in verify() does not fire onFailed (it propagates; proof not burned) ──
@@ -246,12 +258,16 @@ describe('both sides over a real HTTP loop', () => {
     verifyError = 'amount_too_low'
     let merchantCode: string | undefined
     let buyerCode: string | undefined
-    await withServer(gateWith({ onFailed: (f) => { merchantCode = f.code } }), async (url) => {
-      const buyer = new PipRailClient({ chain: { id: 8453, rpcUrl: 'x' }, wallet: { key: '0x' + '1'.repeat(64) }, maxPaymentRetries: 1, retryTimeoutMs: 1000, onEvent: (e) => { if (e.kind === 'payment-failed') buyerCode = e.code } })
+    let merchantDetail: string | undefined
+    let buyerDetail: string | undefined
+    await withServer(gateWith({ onFailed: (f) => { merchantCode = f.code; merchantDetail = f.detail } }), async (url) => {
+      const buyer = new PipRailClient({ chain: { id: 8453, rpcUrl: 'x' }, wallet: { key: '0x' + '1'.repeat(64) }, maxPaymentRetries: 1, retryTimeoutMs: 1000, onEvent: (e) => { if (e.kind === 'payment-failed') { buyerCode = e.code; buyerDetail = e.detail } } })
       await expect(buyer.fetch(url)).rejects.toThrow(/amount_too_low/)
     })
     expect(merchantCode).toBe('amount_too_low') // merchant notified
     expect(buyerCode).toBe('amount_too_low') // buyer notified
-    expect(merchantCode).toBe(buyerCode) // ONE consistent reason on both sides
+    expect(merchantCode).toBe(buyerCode) // ONE consistent code on both sides
+    expect(merchantDetail).toBeTruthy()
+    expect(buyerDetail).toBe(merchantDetail) // …and the SAME detail string, both sides
   })
 })

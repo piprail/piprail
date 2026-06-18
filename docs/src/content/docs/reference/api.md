@@ -29,10 +29,11 @@ the same logic, framework-free.
 | `createPaymentGate` | fn | **Headline** |
 | `deliverReceipt` | fn | Reliable receipt webhook — signed + retried POST to **your** endpoint |
 | `toInvalidBody` | fn | Deprecated |
-| `RequirePaymentOptions`, `AcceptOption`, `ExactRailOption` | type | carries `onPaid` / `onPaidError` / `awaitOnPaid`; `mimeType` (→ v2 `resource.mimeType` + the self-describe `endpoint`) |
+| `RequirePaymentOptions`, `AcceptOption`, `ExactRailOption` | type | carries `onPaid` / `onPaidError` / `awaitOnPaid` **and their failure mirrors `onFailed` / `onFailedError` / `awaitOnFailed`**; `mimeType` (→ v2 `resource.mimeType` + the self-describe `endpoint`) |
 | `ChainSelector`, `TokenInput` | type | — |
 | `PaymentGate`, `VerifyPaymentResult` | type | — |
 | `PaidReceipt` | type | The enriched receipt `onPaid` receives |
+| `FailedPayment` | type | The failure object `onFailed` receives — `{ code, detail, transient }` (the mirror of `PaidReceipt`) |
 | `DeliverReceiptOptions`, `DeliverAttempt`, `DeliverResult` | type | — |
 | `X402InvalidBody` | type | — |
 | `ExpressLike{Request,Response,Next,Middleware}` | type | — |
@@ -41,7 +42,20 @@ See [requirePayment & createPaymentGate](/accepting-payments/require-payment-and
 [Defining accepts](/accepting-payments/defining-accepts/),
 [Verifying payments](/accepting-payments/verifying-payments/), and
 [Receipts & onPaid](/accepting-payments/receipts-and-onpaid/) (the `PaidReceipt`, `onPaidError`,
-`awaitOnPaid`, and `deliverReceipt`).
+`awaitOnPaid`, and `deliverReceipt` — plus the failure mirror `onFailed` / `FailedPayment` /
+`onFailedError` / `awaitOnFailed`, fired when a submitted proof is rejected).
+
+:::note
+`onFailed` is the exact mirror of `onPaid`: it fires only when a SUBMITTED proof is **rejected**
+(a `kind:'invalid'` verdict from `gate.verify()` — wrong amount, expired, replayed, unknown asset,
+wrong recipient, bad signature, …), never on a normal no-proof first-request 402 and never when
+`verify()` *throws* (a transient RPC blip or a 5xx `SettlementError` isn't a verdict). The
+`FailedPayment` it receives carries the SAME machine `code` the buyer's client is told, so both
+sides see one consistent reason. `transient` is `true` only for the two transient codes
+(`tx_not_found` / `insufficient_confirmations`) — the proof may still be settling and the buyer
+auto-retries, so alert on `!transient`. See
+[Why payments fail](/errors/why-payments-fail/) and [VerifyErrorCode](/errors/verify-error-code/).
+:::
 
 ## Pay (agent side)
 
@@ -56,7 +70,7 @@ per chain and auto-routes a 402 to whichever chain can settle it.
 | `planAcross`, `fetchAcross` | fn | plan / pay across an array of single-chain clients |
 | `PipRailClientOptions`, `MultiChainPayerOptions`, `WalletInput`, `PaymentScheme` | type | — |
 | `PayingClient` | type | the read-+-pay surface both `PipRailClient` and `MultiChainPayer` satisfy |
-| `PipRailQuote`, `PipRailCostQuote`, `PipRailEvent` | type | — |
+| `PipRailQuote`, `PipRailCostQuote`, `PipRailEvent` | type | the `payment-failed` event gained `code?` / `detail?` and ALSO fires on a pre-send DECLINE (policy / `onBeforePay` / no settleable rail) |
 | `PaymentPlan`, `PayOption`, `PayBlocker`, `PayWarning` | type | — |
 | `SessionBudget`, `SpendRemaining` | type | — |
 
@@ -65,6 +79,17 @@ See [Quote](/making-payments/quote/), [Estimate cost](/making-payments/estimate-
 [fetch & autoRoute](/making-payments/fetch-and-autoroute/),
 [Multi-chain buying](/making-payments/multi-chain/),
 [Events](/making-payments/events/), and [Wallets by family](/making-payments/wallets-by-family/).
+
+:::tip
+The `payment-failed` event (on `onEvent`) now carries an optional `code?` + `detail?`. On a
+**server rejection** that's the SAME canonical `code` the merchant's `onFailed` hook receives (a
+[VerifyErrorCode](/errors/verify-error-code/)); on a **pre-send client decline** it's the decline
+reason (e.g. `'BUDGET'` / `'APPROVAL'` / `'MAX_AMOUNT'`). `payment-failed` also fires on those
+pre-send declines now (policy, `onBeforePay`, or no settleable rail) — previously those *only*
+threw. The typed `PaymentDeclinedError` throw is unchanged and zero funds still move, so a consumer
+watching `onEvent` alone now learns of **every** failure type, not just server rejections. See
+[Events](/making-payments/events/).
+:::
 
 ## Spend controls
 

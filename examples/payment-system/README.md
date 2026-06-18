@@ -76,15 +76,17 @@ your own RPC (set `RPC=` to override the public default).
 
 A failure has to *reach the gate* to fire `onFailed` (see the limit above). The two easy ways:
 
-- **Replay** — run the buyer twice for the same challenge / re-submit a spent proof. The second
-  attempt is rejected `tx_already_used` (`transient: false`) → a `failed_attempts` row, and the
-  buyer gets the same `tx_already_used` code.
-- **Wrong amount** — point the buyer at a gate asking for more than was paid → `amount_too_low`.
+- **Replay** — capture the `payment-signature` header from a successful run and re-submit that *same*
+  spent proof to the gate (e.g. `curl` it back). It's rejected `tx_already_used` (`transient: false`)
+  → a `failed_attempts` row, and the buyer would get the same `tx_already_used` code. (Running the buyer
+  twice does **not** replay — each run gets a fresh challenge and pays again.)
+- **Wrong amount** — point the buyer at a *second* gate priced higher than it paid → `amount_too_low`.
 
 A **buyer-only** failure (never recorded by the merchant): lower the buyer's `policy.maxAmount`
-below `0.05` — `fetch()` throws `PaymentDeclinedError` (`BUDGET`) **before any send**, the buyer's
-`payment-failed` event fires, and the merchant's `/ledger` stays empty for that attempt — exactly
-as the honest limit describes.
+below `0.05` — `fetch()` throws `PaymentDeclinedError` (`reasonCode: 'POLICY'` — a per-payment cap;
+the lifetime `maxTotal` cap is the one that yields `'BUDGET'`) **before any send**, the buyer's
+`payment-failed` event fires with the same `code`, and the merchant's `/ledger` stays empty for that
+attempt — exactly as the honest limit describes.
 
 ## Files
 

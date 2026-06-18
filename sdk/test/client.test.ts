@@ -208,30 +208,58 @@ describe('PipRailClient — the buyer is notified of EVERY failure (event + thro
     })
     const err = await client.get(RESOURCE).catch((e) => e)
     expect(err).toBeInstanceOf(PaymentDeclinedError) // still throws for try/catch callers
-    const failed = events.find((e) => e.kind === 'payment-failed')
+    const failed = events.find((e) => e.kind === 'payment-failed') as { code?: string; reason?: string } | undefined
     expect(failed).toBeDefined() // AND the event stream learns of the decline
-    expect(failed!.code).toBeTruthy() // a structured decline reason
+    // The event `code` is the SAME DeclineReasonCode the thrown error carries — one consistent value.
+    expect(failed!.code).toBe('POLICY') // a per-payment (maxAmount) cap maps to POLICY
+    expect((err as PaymentDeclinedError).reasonCode).toBe('POLICY')
     expect(failed!.reason).toMatch(/policy/i)
   })
 
-  it('an onBeforePay rejection emits payment-failed and never pays', async () => {
+  it('an onBeforePay rejection emits payment-failed (code APPROVAL) and never pays', async () => {
     let sent = false
     stubFetch(() => {
       sent = true
       return new Response('{}', { status: 200 })
     })
-    let failed = false
+    let failedCode: string | undefined
+    let gotFailed = false
     const client = new PipRailClient({
       chain: 'stellar',
       wallet: { key: 'x' },
       onBeforePay: () => false, // decline at the hook
       onEvent: (e) => {
-        if (e.kind === 'payment-failed') failed = true
+        if (e.kind === 'payment-failed') { gotFailed = true; failedCode = e.code }
       },
     })
     const err = await client.get(RESOURCE).catch((e) => e)
     expect(err).toBeInstanceOf(PaymentDeclinedError)
-    expect(failed).toBe(true) // notified via the event stream
+    expect((err as PaymentDeclinedError).reasonCode).toBe('APPROVAL')
+    expect(gotFailed).toBe(true) // notified via the event stream
+    expect(failedCode).toBe('APPROVAL') // event code === thrown reasonCode
     expect(sent).toBe(false) // and zero funds moved (no proof-bearing request)
+  })
+
+  it('an autoRoute pre-send decline (no settleable rail) emits payment-failed and never pays', async () => {
+    // The fake driver's balanceOf returns 0 → no rail is settleable → autoRoute refuses BEFORE any
+    // send. The decline must reach the event stream too (regression guard for the autoRoute emit).
+    let sent = false
+    stubFetch(() => {
+      sent = true
+      return new Response('{}', { status: 200 })
+    })
+    let failed: { reason?: string } | undefined
+    const client = new PipRailClient({
+      chain: 'stellar',
+      wallet: { key: 'x' },
+      autoRoute: true,
+      onEvent: (e) => {
+        if (e.kind === 'payment-failed') failed = e
+      },
+    })
+    const err = await client.get(RESOURCE).catch((e) => e)
+    expect(err).toBeInstanceOf(PaymentDeclinedError)
+    expect(failed).toBeDefined() // the autoRoute refusal reaches onEvent, not only the throw
+    expect(sent).toBe(false) // never paid
   })
 })

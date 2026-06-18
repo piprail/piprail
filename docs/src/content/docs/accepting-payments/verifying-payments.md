@@ -143,6 +143,22 @@ Some codes are family-specific by design (account-watch chains collapse "wrong r
 `transfer_not_found`; `insufficient_confirmations` needs a discrete confirmation count). The full
 table lives on the [VerifyErrorCode reference](/errors/verify-error-code/).
 
+### `onFailed` fires on every `'invalid'`
+
+A `'invalid'` verdict is also a merchant-side *event*: the gate fires the
+[`onFailed`](/accepting-payments/require-payment-and-gate/#failure-notifications--onfailed) hook on
+**every** rejected proof, with a `FailedPayment` carrying the **same `code`** that goes to the
+buyer — so both sides are notified of one consistent reason. It's the mirror of `onPaid`: where a
+`'paid'` verdict fires `onPaid`, an `'invalid'` verdict fires `onFailed`. A no-proof `'challenge'`
+(the normal first request) is not a failure and fires neither hook.
+
+:::caution
+A *thrown* error is **not** a verdict, so it does **not** fire `onFailed`. A transient RPC blip
+that re-throws, or a 5xx [`SettlementError`](#verifying-the-exact-rail) on the optional `exact`
+rail, is an exception you catch in your adapter (answer `5xx`, never `402`) — neither is an
+`'invalid'` result, and the gate fires `onFailed` only on a real `'invalid'` rejection.
+:::
+
 :::note
 `verify()` **fails closed**. If an RPC read fails, the driver returns `tx_not_found` and the gate
 replies `402` (locked) — never `paid`. An RPC outage can't trick the gate into unlocking. The

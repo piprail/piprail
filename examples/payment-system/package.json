@@ -9,7 +9,7 @@
     "buyer": "node buyer.mjs"
   },
   "dependencies": {
-    "@piprail/sdk": "^1.0.0",
+    "@piprail/sdk": "^2.7.0",
     "better-sqlite3": "^11",
     "express": "^4",
     "viem": "^2.21.0"
