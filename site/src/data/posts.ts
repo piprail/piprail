@@ -46,42 +46,39 @@ export const authors = {
   },
 } satisfies Record<string, Author>
 
-// No posts are published yet — /blog renders a "coming soon" state until the first
-// essay ships. The flagship draft is PARKED, not deleted: its prose + figures live in
-// `src/pages/blog/_an-agents-receipts-are-its-credit-score.astro` (the `_` prefix keeps
-// Astro from routing it). To republish: tighten the argument, move that entry from
-// `parkedPosts` into `posts`, and rename the page file back (drop the `_`).
-export const posts: Post[] = []
-
-/** Drafts held back from /blog — kept so the metadata isn't lost. Not rendered anywhere. */
-export const parkedPosts: Post[] = [
+// The published feed. Newest entries go first in the file; `postsByDate` sorts by date.
+export const posts: Post[] = [
   {
-    slug: 'an-agents-receipts-are-its-credit-score',
-    title: "An Agent's Receipts Are Its Credit Score",
-    seoTitle: "An Agent's Receipts Are Its Credit Score — the trust layer for the agent economy",
+    slug: 'mpp-vs-x402',
+    title: 'MPP vs. x402: Two Ways to Pay an Agent',
+    seoTitle:
+      "MPP vs. x402: Stripe's Machine Payments Protocol vs. the open agent-payment rail",
     description:
-      'Identity tells you who an agent is; a track record tells you whether to trust it. A settled x402 payment is the one trust signal as costly to fake as to earn.',
+      "Stripe's Machine Payments Protocol and x402 both revive HTTP 402 to let agents pay per call. They split on one thing: who holds the money. An honest comparison.",
     excerpt:
-      'Intelligence is no longer the bottleneck in the agent economy — trust is. And the one signal that can’t be gamed is hiding in plain sight: a settled payment.',
+      'Stripe’s MPP and the open x402 rail both answer “Payment Required” for AI agents. They agree on the mechanism and disagree on everything that follows from custody. A fair, side-by-side look.',
     author: authors.tim,
-    published: '2026-06-17',
-    updated: '2026-06-17',
-    readingTime: 6,
-    category: 'Research',
+    published: '2026-06-18',
+    readingTime: 11,
+    category: 'Comparison',
     tags: [
-      'agent economy',
       'x402',
-      'agent reputation',
-      'Know Your Agent',
-      'ERC-8004',
+      'Machine Payments Protocol',
+      'MPP',
+      'Stripe',
+      'Tempo',
       'agentic commerce',
-      'trust layer',
+      'agent payments',
+      'stablecoins',
+      'self-custody',
       'AI agents',
-      'crypto payments',
     ],
-    ogImage: '/blog/an-agents-receipts-are-its-credit-score.png',
+    ogImage: '/blog/mpp-vs-x402.png',
   },
 ]
+
+/** Drafts held back from /blog — kept so the metadata isn't lost. Not rendered anywhere. */
+export const parkedPosts: Post[] = []
 
 /** Newest first — the order the index renders in. */
 export const postsByDate = [...posts].sort((a, b) => b.published.localeCompare(a.published))

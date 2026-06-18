@@ -1,0 +1,591 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import Navigation from '../../components/Navigation.astro'
+import Footer from '../../components/Footer.astro'
+import Breadcrumbs from '../../components/Breadcrumbs.astro'
+import { getPost, relatedPosts, formatDate } from '../../data/posts'
+import {
+  ArrowRight, ArrowLeft, Clock, CalendarDays, Plus, GitFork, Wallet,
+  Building2, Share2, Github, Package, Plug,
+} from 'lucide-astro'
+
+const post = getPost('mpp-vs-x402')!
+const site = Astro.site?.href.replace(/\/$/, '') ?? 'https://piprail.com'
+const canonical = `${site}/blog/${post.slug}/` // trailing slash matches the page's <link rel="canonical">
+const ogImageAbs = `${site}${post.ogImage}`
+const more = relatedPosts(post.slug, 2)
+
+// Prefer the authored, keyword-front-loaded SERP title when present; else brand the plain title.
+const pageTitle = post.seoTitle ?? `${post.title} — PipRail`
+
+// BlogPosting structured data — the post's own entity for search + answer engines.
+const articleLd = {
+  '@context': 'https://schema.org',
+  '@type': 'BlogPosting',
+  '@id': `${canonical}#article`,
+  headline: post.title,
+  description: post.description,
+  image: ogImageAbs,
+  datePublished: post.published,
+  dateModified: post.updated ?? post.published,
+  author: {
+    '@type': 'Person',
+    name: post.author.name,
+    jobTitle: 'Cofounder',
+    url: post.author.url,
+    worksFor: { '@id': 'https://piprail.com/#organization' },
+  },
+  publisher: { '@id': 'https://piprail.com/#organization' },
+  mainEntityOfPage: { '@type': 'WebPage', '@id': canonical },
+  isPartOf: { '@id': 'https://piprail.com/#website' },
+  articleSection: post.category,
+  keywords: post.tags.join(', '),
+  inLanguage: 'en',
+  wordCount: 2300,
+  url: canonical,
+}
+
+// The argument, distilled — readable bullets that double as answer-engine fodder.
+const takeaways = [
+  'MPP (Stripe’s Machine Payments Protocol, on the Tempo chain) and x402 both revive HTTP 402 “Payment Required” so an AI agent can pay per call. The mechanism is the same; the custody model is not.',
+  'MPP routes the money through Stripe: cards or stablecoins, compliance and disputes handled, settled to your bank — for a fee (1.5% on stablecoins, 2.9% + $0.30 on cards), on a permissioned chain whose policy registry can freeze or block an address.',
+  'x402 is wallet-to-wallet and self-custody: 0% protocol fee, no account, no custodian, verified locally, across any chain — but you hold the keys, settlement is final, and compliance is on you.',
+]
+
+// FAQ — extracted from the essay. Renders FAQPage JSON-LD for rich results + AEO.
+const faqs = [
+  {
+    q: 'What is the difference between MPP and x402?',
+    a: 'Both are agent-payment protocols built on the HTTP 402 “Payment Required” response: a server asks for payment, the agent authorizes it, pays, and gets the resource plus a receipt. They diverge on custody. MPP — Stripe and Tempo’s Machine Payments Protocol — settles through Stripe and the permissioned Tempo blockchain: money passes through a custodian, can be paid out to a bank in fiat, carries a fee, and rides a chain whose policy registry can freeze or block addresses. x402 is a wallet-to-wallet on-chain transfer: the agent pays the merchant’s wallet directly, the merchant verifies it locally, no custodian holds the funds, the protocol fee is 0%, and it works across many chains — but the payer holds their own keys and settlement is final.',
+  },
+  {
+    q: 'What is MPP (the Machine Payments Protocol)?',
+    a: 'MPP is an open agent-payment standard co-authored by Stripe and Tempo and launched in March 2026 alongside Tempo’s mainnet. It uses the HTTP 402 flow to let AI agents pay for resources, settling in stablecoins over the Tempo blockchain or via cards and Shared Payment Tokens through Stripe’s existing APIs. Stripe merchants can accept it in a few lines of code, with funds landing in their Stripe balance.',
+  },
+  {
+    q: 'What is Tempo?',
+    a: 'Tempo is an EVM-compatible Layer-1 blockchain incubated by Stripe and Paradigm, with sub-second finality and gas paid in stablecoins. It went live on mainnet on March 18, 2026. It runs a permissioned validator set — Stripe, Visa, Zodia Custody and MoneyGram among the confirmed validators — and includes a protocol-level policy registry that supports issuer allow/block lists, emergency freezing, and Travel Rule compliance.',
+  },
+  {
+    q: 'Is x402 free? What does it cost to use?',
+    a: 'x402 has no protocol fee — 0%. A payment is a direct on-chain transfer, so the only cost is the chain’s network (gas) fee, which on low-cost chains is a fraction of a cent, and which can be sponsored on gasless rails so the buyer pays nothing. There is no processor cut, no payout fee, and no monthly cost. By contrast, MPP charges Stripe’s standard rates: about 1.5% on stablecoin payments and 2.9% + $0.30 on cards, plus currency-conversion fees where they apply.',
+  },
+  {
+    q: 'When should I use MPP instead of x402?',
+    a: 'Use MPP when you want Stripe to do the hard parts: accept both cards and stablecoins, settle to a bank account in fiat, and hand off compliance — Travel Rule, sanctions screening, chargebacks and dispute handling — to a regulated processor. It fits consumer commerce and regulated merchants that don’t want to touch crypto directly. Use x402 when you want self-custody, a 0% fee, no account or KYC gate, many chains, and machine-speed settlement — which fits agent-to-agent and agent-to-API micropayments, where a custodial payout schedule and a per-transaction cut make little sense.',
+  },
+  {
+    q: 'Does PipRail use MPP or x402?',
+    a: 'PipRail is an open, self-custody implementation of x402. It is a TypeScript SDK (and an MCP server for AI agents) that lets a developer accept x402 payments in one line, or hand an agent a budget-bound wallet to pay x402 URLs across roughly 29 chains. There is no backend, no account, and no fee — payments go straight to the developer’s wallet, verified locally against their own RPC.',
+  },
+  {
+    q: 'Can an agent support both protocols?',
+    a: 'Yes. Because both are built on HTTP 402, they are not mutually exclusive: an agent can speak both, and a server can advertise more than one way to be paid. Stripe’s own Agentic Commerce Suite supports both MPP and x402. The practical question is usually not “which protocol” but “which rail should this particular payment ride” — the custodial, compliance-handled one, or the open, self-custody one.',
+  },
+]
+
+const faqLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  '@id': `${canonical}#faq`,
+  mainEntity: faqs.map((f) => ({
+    '@type': 'Question',
+    name: f.q,
+    acceptedAnswer: { '@type': 'Answer', text: f.a },
+  })),
+}
+
+// The scorecard — accurate, sourced, and the artifact most readers will screenshot.
+// `tone`: 'a' = friction/cost on the MPP side, 'e' = clean on the x402 side, 'n' = neutral fact.
+const rows: { k: string; mpp: string; x402: string }[] = [
+  { k: 'The handshake', mpp: 'HTTP 402 “Payment Required”', x402: 'HTTP 402 “Payment Required”' },
+  { k: 'Who holds the money in transit', mpp: 'Stripe / Bridge — custodial', x402: 'Nobody — wallet-to-wallet' },
+  { k: 'Where it settles', mpp: 'Tempo — one permissioned L1', x402: 'Any of ~29 chains, 10 families' },
+  { k: 'Parties in the path', mpp: 'Stripe + card network + Tempo validators + your bank', x402: 'None (optional gas-relayer that cannot custody)' },
+  { k: 'Protocol fee', mpp: '1.5% stablecoin · 2.9% + $0.30 card · ~1% FX', x402: '0% — chain gas only' },
+  { k: 'Time to spendable funds', mpp: '~T+2 days (default card payout); USDC→wallet faster', x402: 'One on-chain transaction — seconds' },
+  { k: 'Can it be frozen or reversed?', mpp: 'Yes — chargebacks, Stripe holds, policy-registry freeze', x402: 'No — a final public-chain transfer' },
+  { k: 'Onboarding', mpp: 'Stripe account · KYC · ~46 countries', x402: 'npm install · add a wallet · permissionless' },
+  { k: 'Compliance (Travel Rule, screening, disputes)', mpp: 'Built in — handled by Stripe', x402: 'Your responsibility' },
+  { k: 'Where the money ends up', mpp: 'Your bank (fiat) by default, or USDC to a wallet', x402: 'Your own wallet' },
+]
+---
+
+<Layout
+  title={pageTitle}
+  description={post.description}
+  ogImage={post.ogImage}
+  ogType="article"
+  article={{
+    publishedTime: post.published,
+    modifiedTime: post.updated ?? post.published,
+    author: post.author.name,
+    section: post.category,
+    tags: post.tags,
+  }}
+>
+  <Fragment slot="head">
+    <link rel="author" href={post.author.url} />
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(articleLd)} />
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(faqLd)} />
+  </Fragment>
+
+  <Navigation />
+
+  <main class="mx-auto max-w-3xl px-4 sm:px-6">
+    <div class="pt-6"><Breadcrumbs items={[{ name: 'Blog', href: '/blog' }, { name: post.title }]} /></div>
+
+    <!-- ── Article header ─────────────────────────────────────────────────── -->
+    <article class="fade-up">
+      <header class="pt-10 sm:pt-14">
+        <div class="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-accent">
+          PipRail · {post.category}
+        </div>
+        <h1 class="mt-5 text-pretty text-[2.1rem] font-bold leading-[1.12] tracking-tight text-white sm:text-5xl">
+          {post.title}
+        </h1>
+        <p class="mt-5 text-lg leading-relaxed text-neutral-400 sm:text-xl">
+          Stripe’s Machine Payments Protocol and the open x402 rail both answer the same question —
+          <em class="not-italic text-neutral-200">how does an AI agent pay for something?</em> They agree on the
+          mechanism and disagree on the one thing that follows from it: <em class="not-italic text-neutral-200">who holds the money.</em>
+        </p>
+
+        <!-- Byline -->
+        <div class="mt-8 flex flex-wrap items-center gap-x-4 gap-y-3 border-y border-white/10 py-4">
+          <div class="flex items-center gap-3">
+            <span
+              class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-accent/30 bg-accent/10 font-display text-sm font-semibold text-accent"
+              aria-hidden="true"
+            >TR</span>
+            <div class="leading-tight">
+              <div class="text-sm font-semibold text-neutral-100">{post.author.name}</div>
+              <div class="text-xs text-neutral-400">{post.author.role}</div>
+            </div>
+          </div>
+          <div class="ml-auto flex items-center gap-x-4 gap-y-1 text-xs text-neutral-400">
+            <span class="inline-flex items-center gap-1.5">
+              <CalendarDays size={13} aria-hidden="true" />
+              <time datetime={post.published}>{formatDate(post.published)}</time>
+            </span>
+            <span class="inline-flex items-center gap-1.5">
+              <Clock size={13} aria-hidden="true" /> {post.readingTime} min read
+            </span>
+          </div>
+        </div>
+      </header>
+
+      <!-- ── The short version (TL;DR) ──────────────────────────────────────── -->
+      <aside class="card mt-10 rounded-2xl p-6 sm:p-7" aria-label="Summary">
+        <h2 class="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">The short version</h2>
+        <ul class="mt-4 space-y-3">
+          {takeaways.map((t) => (
+            <li class="flex gap-3 text-[15px] leading-relaxed text-neutral-300">
+              <GitFork size={17} class="mt-0.5 shrink-0 text-accent" aria-hidden="true" />
+              <span set:html={t} />
+            </li>
+          ))}
+        </ul>
+      </aside>
+
+      <!-- ── Body ───────────────────────────────────────────────────────────── -->
+      <div class="article-prose mt-10">
+        <p>Two things happened to agent payments in quick succession, and they rhyme. The open-source <a href="https://www.x402.org/">x402</a> protocol took the long-dormant HTTP <strong>402 “Payment Required”</strong> response — a status code that sat reserved-but-unused in the web’s plumbing for decades — and turned it into a working rail, so software could pay per request with no account and no card. Then, in March 2026, Stripe and the new Tempo blockchain launched the <strong>Machine Payments Protocol</strong>, or MPP — and it, too, is built on HTTP 402.</p>
+
+        <p>That coincidence is the most useful fact for understanding the landscape. The two are usually framed as competitors, and in places they are. But they don’t disagree about how an agent should ask to pay, or how a server should demand it. A server returns 402 with the payment details; the agent authorizes, pays, and receives the resource and a receipt. Both protocols do exactly that. The argument between them is not about the handshake. It is about everything that happens to the money <em>after</em> the agent agrees to pay — and that comes down to a single question: who holds it.</p>
+
+        <!-- Figure 1 — same handshake, then a fork -->
+        <figure class="article-fig">
+          <div class="card rounded-2xl p-6 sm:p-8">
+            <div class="fig-eyebrow">One handshake, two rails</div>
+            <div class="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-2 text-center">
+              <span class="rounded-lg border border-white/12 bg-white/4 px-3.5 py-2 text-sm font-medium text-neutral-200">Server: <span class="font-mono text-[13px] text-neutral-400">402 Payment Required</span></span>
+              <ArrowRight size={16} class="text-neutral-600" aria-hidden="true" />
+              <span class="rounded-lg border border-white/12 bg-white/4 px-3.5 py-2 text-sm font-medium text-neutral-200">Agent authorizes</span>
+              <ArrowRight size={16} class="text-neutral-600" aria-hidden="true" />
+              <span class="rounded-lg border border-white/12 bg-white/4 px-3.5 py-2 text-sm font-medium text-neutral-200">Pays</span>
+              <ArrowRight size={16} class="text-neutral-600" aria-hidden="true" />
+              <span class="rounded-lg border border-white/12 bg-white/4 px-3.5 py-2 text-sm font-medium text-neutral-200"><span class="font-mono text-[13px] text-neutral-400">200</span> + receipt</span>
+            </div>
+            <div class="mt-3 text-center font-mono text-[11px] uppercase tracking-[0.18em] text-neutral-500">Identical in MPP and x402</div>
+
+            <div class="my-6 flex items-center justify-center text-neutral-600" aria-hidden="true">
+              <GitFork size={22} />
+            </div>
+            <div class="mb-5 text-center font-mono text-[11px] uppercase tracking-[0.18em] text-accent">Then: who holds the money?</div>
+
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div class="rounded-xl border border-white/12 bg-white/4 p-5">
+                <div class="flex items-center gap-2 text-neutral-300"><Building2 size={17} aria-hidden="true" /><span class="font-display text-base font-semibold text-white">MPP</span></div>
+                <div class="mt-2 text-sm leading-relaxed text-neutral-400">A custodian (Stripe) holds it, on a permissioned chain, and pays you out.</div>
+              </div>
+              <div class="rounded-xl border border-accent/30 bg-accent/8 p-5">
+                <div class="flex items-center gap-2 text-accent"><Wallet size={17} aria-hidden="true" /><span class="font-display text-base font-semibold text-white">x402</span></div>
+                <div class="mt-2 text-sm leading-relaxed text-neutral-300">Nobody holds it — it goes wallet-to-wallet, and you verify it yourself.</div>
+              </div>
+            </div>
+          </div>
+          <figcaption class="fig-cap">Same status code, same flow. The fork is custody.</figcaption>
+        </figure>
+
+        <h2>The custodial rail: MPP, Stripe and Tempo</h2>
+
+        <p>MPP’s settlement layer is <a href="https://www.paradigm.xyz/2025/09/tempo-payments-first-blockchain">Tempo</a>, an EVM-compatible Layer-1 incubated by Stripe and Paradigm that went live on mainnet in March 2026. It is fast — sub-second finality — and its gas is paid in stablecoins, so a transfer can cost a fraction of a cent. On paper it looks like any other modern chain. The difference is who runs it. Tempo is <em>permissioned</em>: it launched with a closed validator set that includes Stripe, Visa, Zodia Custody and MoneyGram, and it ships with a protocol-level policy registry that can maintain allow- and block-lists, freeze funds in an emergency, and enforce Travel Rule compliance. That is a deliberate design choice, and for a regulated payments business it is a feature, not a bug.</p>
+
+        <p>For the merchant, MPP rides on top of Stripe’s existing rails. You accept it the way you already accept Stripe payments — a few lines against the same APIs — and the funds arrive as a balance in your Stripe account. You can take cards or stablecoins; an agent can pay with a Shared Payment Token that never exposes the buyer’s real credentials. Then Stripe pays you out, on its schedule, to your bank — in your local currency, roughly two days later for the default US card payout — or, if you prefer, in USDC to a wallet. Through the whole journey, the money is held by Stripe (or by Bridge, the stablecoin custodian Stripe owns) until it lands with you.</p>
+
+        <p>Be honest about what that buys you, because it is a lot. Stripe absorbs the parts of payments that are genuinely hard and genuinely unglamorous: fraud scoring, chargebacks and dispute handling, sanctions screening, the Travel Rule, the tax and reporting machinery, and the regulatory licensing that makes all of it legal in dozens of countries. If an agent is defrauded, there is a party who can reverse the transaction. If a payment needs to settle as dollars in a bank account, it does. For a consumer-facing merchant — or any business that does not want to touch crypto, hold keys, or become its own compliance department — that is exactly the deal it wants.</p>
+
+        <p>The price of the deal is also clear. There is a cut: about <strong>1.5%</strong> on stablecoin payments, and Stripe’s standard <strong>2.9% + $0.30</strong> on cards, plus a currency-conversion fee of around 1% where it applies. There is custody: your money sits with a third party in transit, and is released on someone else’s timetable. There is onboarding: a Stripe account, KYC, and availability only in the countries Stripe supports. And there is the chain itself, whose policy registry means a payment can, in principle, be frozen or an address blocked. None of that is hidden or sinister — it is the cost of having a regulated intermediary do the work. It is simply the opposite of self-custody.</p>
+
+        <h2>The open rail: x402, wallet-to-wallet</h2>
+
+        <p>x402 makes the other choice at the fork. When the agent agrees to pay, it sends a transfer straight to the merchant’s own wallet — one on-chain transaction — and the merchant verifies that transaction itself, reading it against its own RPC node. No processor sits in the middle. No custodian ever holds the funds. There is no facilitator the merchant has to trust and no database it has to run; the protocol’s own specification blesses this merchant-local verification, so the backendless shape is supported, not a workaround. The money was in the buyer’s wallet, and a few seconds later it is in the seller’s. That is the entire path.</p>
+
+        <p>Because nothing intermediates, there is no protocol fee — <strong>0%</strong>. The only cost is the chain’s gas, which on a low-cost chain is a fraction of a cent, and which can be sponsored entirely so the buyer pays nothing at all. There is no account to create and no approval to wait for: a developer runs <span class="font-mono text-[0.9em] text-neutral-200">npm install</span>, names a chain, adds a wallet, and can accept payments. And it is not tied to one chain — it works across roughly 29 of them, from Base and Solana to the XRP Ledger, so an agent pays with whatever it already holds.</p>
+
+        <p>The honest cost of that openness is the mirror image of MPP’s. You hold your own keys, which means you carry the risk that comes with them — lose them and there is no support line. Settlement is final: a wallet-to-wallet transfer on a public chain has no chargeback, which protects the payee and exposes a defrauded payer. Compliance is yours to handle, not a processor’s. And unless you off-ramp the funds yourself, you end the journey holding stablecoins or crypto, not dollars in a bank. The open rail asks more of you precisely because it removes the party that would otherwise do those things — and take a cut for it.</p>
+
+        <p>This is the side I build on. <a href="/">PipRail</a> is an open, self-custody implementation of x402 — a TypeScript SDK and an MCP server that let a developer accept payments in one line, or hand an agent a budget-bound wallet (a hard spend cap, per call and lifetime, that the agent cannot exceed) to pay across roughly 29 chains — the broadest reach of any x402 SDK, and the only one that puts the payer’s own wallet on chains like NEAR, Aptos, and the XRP Ledger. No backend, no account, no fee; payments go straight to the developer’s wallet, verified locally against their own node. So I have a side, and I am telling you which one. But the comparison below is the one I would want to read if I were choosing.</p>
+
+        <!-- Figure 2 — the full lifecycle, side by side (the flow graphic) -->
+        <figure class="article-fig">
+          <div class="overflow-hidden rounded-2xl border border-white/10 bg-bg">
+            <img
+              src="/flow.png"
+              alt="How a payment moves, side by side. Left, the MPP path on Stripe + Tempo: the agent's money is held in transit through a processor and a permissioned chain across roughly five hops, takes about T+2 days to become spendable in your bank, and can be frozen or reversed. Right, x402's wallet-to-wallet rail: the agent pays the merchant's wallet directly in a single on-chain transaction, the merchant verifies it locally, funds are spendable in seconds, no custodian holds them, and the protocol fee is 0%."
+              width="1640"
+              height="2518"
+              loading="lazy"
+              decoding="async"
+              class="h-auto w-full"
+            />
+          </div>
+          <figcaption class="fig-cap">The full life of one payment, on each rail. Emerald is money you hold; amber is money someone else holds.</figcaption>
+        </figure>
+
+        <h2>The two rails, side by side</h2>
+
+        <p>Strip away the framing and the differences are concrete. Here is the same payment, measured on the things a merchant or an agent actually cares about. Notice that the top row is identical — the disagreement starts the moment money has to move.</p>
+
+        <!-- Figure 3 — the scorecard. Table on ≥sm; stacked, color-coded cards on mobile. -->
+        <figure class="article-fig">
+          <!-- Desktop / tablet: comparison table -->
+          <div class="card hidden overflow-hidden rounded-2xl sm:block">
+            <table class="scorecard w-full border-collapse text-left">
+              <thead>
+                <tr>
+                  <th scope="col" class="sc-k">&nbsp;</th>
+                  <th scope="col" class="sc-mpp">
+                    <span class="inline-flex items-center gap-1.5"><Building2 size={14} aria-hidden="true" /> MPP</span>
+                    <span class="sc-sub">Stripe + Tempo</span>
+                  </th>
+                  <th scope="col" class="sc-x402">
+                    <span class="inline-flex items-center gap-1.5"><Wallet size={14} aria-hidden="true" /> x402</span>
+                    <span class="sc-sub">self-custody</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr>
+                    <th scope="row" class="sc-k">{r.k}</th>
+                    <td class="sc-mpp-cell">{r.mpp}</td>
+                    <td class="sc-x402-cell">{r.x402}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Mobile: one card per dimension, the two rails stacked + color-coded -->
+          <div class="space-y-3 sm:hidden">
+            {rows.map((r) => (
+              <div class="card rounded-2xl p-5">
+                <div class="sc-m-k">{r.k}</div>
+                <div class="sc-m-row sc-m-mpp">
+                  <span class="sc-m-tag sc-m-tag-mpp"><Building2 size={12} aria-hidden="true" /> MPP</span>
+                  <span class="sc-m-v">{r.mpp}</span>
+                </div>
+                <div class="sc-m-row sc-m-x402">
+                  <span class="sc-m-tag sc-m-tag-x402"><Wallet size={12} aria-hidden="true" /> x402</span>
+                  <span class="sc-m-v">{r.x402}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <figcaption class="fig-cap">Figures: Stripe’s published pricing and the Tempo / MPP launch materials, March–June 2026. Neither rail is strictly “better” — they optimize for opposite things.</figcaption>
+        </figure>
+
+        <h2>Which one should carry the payment?</h2>
+
+        <p>Because both speak 402, this was never really an either/or for the buyer. An agent can support both, and a server can advertise more than one way to be paid — Stripe’s own Agentic Commerce Suite, in fact, supports MPP <em>and</em> x402. So the useful question is not “which protocol wins,” but “which rail should this particular payment ride.”</p>
+
+        <p><strong>MPP is the right rail</strong> when the payment looks like commerce as we already know it. A regulated merchant selling to consumers, who needs chargebacks and a fraud net. A business that wants its money to land as dollars in a bank and never wants to see a private key. Anyone for whom “Stripe handles compliance” is worth more than the 1.5%. For those payments, the custodian is doing real work, and the fee is the price of not doing it yourself.</p>
+
+        <p><strong>x402 is the right rail</strong> when the payment is small, frequent, and machine-to-machine. An agent buying a single API call, or paying another agent for a subtask, hundreds of times an hour. A builder who is already crypto-native and wants self-custody by default. Anyone who balks at a percentage cut on a sub-cent payment, or at a two-day payout schedule for money that moved in two seconds, or at asking permission to accept funds at all. For those payments, the intermediary is overhead, and removing it is the point.</p>
+
+        <p>It helps to look at the human web for the shape of where this goes. Most of the money online runs through processors like Stripe, and that is not changing — the convenience and the compliance are worth it to most businesses. But a real, durable share of the web is self-hosted and self-custodied, by people who want to own their stack rather than rent it. The agent economy will split the same way. There will be a custodial lane and an open one, and both will be large.</p>
+
+        <p>PipRail’s bet is simply that the open lane is bigger than it looks — and that the agent-to-agent payments at the center of it, the small and constant ones that will outnumber every other kind, want a rail with no middle: no account, no custodian, no cut. The custodial rail meets businesses where they are. The open rail is the one you own rather than the platform you join. Both will carry real money. We are building the one we would want to pay on.</p>
+      </div>
+
+      <!-- Share -->
+      <div class="mt-12 flex flex-wrap items-center gap-3 border-t border-white/10 pt-6">
+        <span class="mr-1 inline-flex items-center gap-1.5 text-xs text-neutral-500"><Share2 size={13} aria-hidden="true" /> Share</span>
+        <a
+          href={`https://x.com/intent/tweet?text=${encodeURIComponent(post.title + ' — by ' + post.author.name)}&url=${encodeURIComponent(canonical)}&via=piprailhq`}
+          class="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-neutral-300 transition hover:border-white/20 hover:text-white"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path></svg>
+          Post on X
+        </a>
+        <button
+          type="button"
+          data-copy-link
+          data-url={canonical}
+          class="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-neutral-300 transition hover:border-white/20 hover:text-white"
+        >
+          <span data-copy-label aria-live="polite">Copy link</span>
+        </button>
+      </div>
+    </article>
+
+    <!-- ── Author bio ─────────────────────────────────────────────────────── -->
+    <section class="mt-12 rounded-2xl border border-white/10 bg-white/2.5 p-6 sm:p-7">
+      <div class="flex items-start gap-4">
+        <span
+          class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-accent/30 bg-accent/10 font-display text-base font-semibold text-accent"
+          aria-hidden="true"
+        >TR</span>
+        <div>
+          <div class="text-sm font-semibold text-neutral-100">{post.author.name}</div>
+          <div class="text-xs text-neutral-500">{post.author.role}</div>
+          <p class="mt-2.5 text-sm leading-relaxed text-neutral-400">
+            Building PipRail — the open, neutral, no-fee x402 payment rail for AI agents, across 29 chains.
+            Writing about how agents pay, and the trust layer the agent economy still has to build.
+          </p>
+          <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+            <a href="/" class="text-accent transition hover:brightness-110">piprail.com</a>
+            <a href="https://github.com/piprail" class="text-accent transition hover:brightness-110">github.com/piprail</a>
+            <a href="https://x.com/piprailhq" class="text-accent transition hover:brightness-110">@piprailhq</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── FAQ ────────────────────────────────────────────────────────────── -->
+    <section class="mt-14" aria-labelledby="faq-heading">
+      <h2 id="faq-heading" class="text-2xl font-semibold tracking-tight sm:text-3xl">Frequently asked</h2>
+      <div class="mt-6 divide-y divide-white/10 border-y border-white/10">
+        {faqs.map((f) => (
+          <details class="group">
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-4 py-4 text-[15px] font-medium text-neutral-100 transition hover:text-white">
+              <span>{f.q}</span>
+              <Plus size={17} class="shrink-0 text-neutral-500 transition group-open:rotate-45" aria-hidden="true" />
+            </summary>
+            <p class="pb-5 text-[15px] leading-relaxed text-neutral-400">{f.a}</p>
+          </details>
+        ))}
+      </div>
+    </section>
+
+    <!-- ── CTA ────────────────────────────────────────────────────────────── -->
+    <section class="mt-14 overflow-hidden rounded-2xl border border-accent/20 bg-accent/6 p-7 text-center sm:p-10">
+      <h2 class="text-2xl font-semibold tracking-tight text-white sm:text-3xl">Build on the open rail.</h2>
+      <p class="mx-auto mt-3 max-w-xl text-neutral-300">
+        PipRail is the open, self-custody x402 rail — no backend, no middleman, no fee. Accept payments in one line,
+        or hand your agent a budget-bound wallet across 29 chains.
+      </p>
+      <div class="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        <a
+          href="https://www.npmjs.com/package/@piprail/sdk"
+          class="cta-glow inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto"
+        >
+          <Package size={16} aria-hidden="true" /> Get the SDK
+        </a>
+        <a
+          href="/mcp"
+          class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/12 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto"
+        >
+          <Plug size={16} aria-hidden="true" /> MCP for agents
+        </a>
+        <a
+          href="https://github.com/piprail/piprail"
+          class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/12 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto"
+        >
+          <Github size={16} aria-hidden="true" /> Star on GitHub
+        </a>
+      </div>
+    </section>
+
+    <!-- ── More writing / back ────────────────────────────────────────────── -->
+    <section class="mt-14 mb-8">
+      {more.length > 0 ? (
+        <>
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-neutral-500">More writing</h2>
+          <div class="mt-4 grid gap-4 sm:grid-cols-2">
+            {more.map((p) => (
+              <a
+                href={`/blog/${p.slug}`}
+                class="group rounded-2xl border border-white/10 bg-white/2.5 p-5 transition hover:border-accent/30 hover:bg-white/5"
+              >
+                <div class="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">{p.category}</div>
+                <div class="mt-2 font-display text-lg font-semibold leading-snug text-neutral-100 group-hover:text-white">{p.title}</div>
+                <p class="mt-1.5 text-sm leading-relaxed text-neutral-400">{p.excerpt}</p>
+              </a>
+            ))}
+          </div>
+        </>
+      ) : (
+        <a href="/blog" class="inline-flex items-center gap-2 text-sm font-medium text-accent transition hover:brightness-110">
+          <ArrowLeft size={15} aria-hidden="true" /> All writing
+        </a>
+      )}
+    </section>
+  </main>
+
+  <Footer />
+</Layout>
+
+<style>
+  /* Article typography — comfortable measure, generous leading, emerald links. */
+  .article-prose p {
+    margin-block: 0 1.5rem;
+    color: var(--color-fg);
+    color: oklch(0.86 0.008 260); /* neutral-300-ish, easy on the eyes for long reading */
+    font-size: 1.0625rem;
+    line-height: 1.85;
+    text-wrap: pretty;
+  }
+  @media (min-width: 640px) {
+    .article-prose p { font-size: 1.1875rem; line-height: 1.85; }
+  }
+  .article-prose h2 {
+    margin-top: 2.75rem;
+    margin-bottom: 1.25rem;
+    font-family: var(--font-display, inherit);
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+    color: #fff;
+    text-wrap: balance;
+  }
+  @media (min-width: 640px) {
+    .article-prose h2 { font-size: 1.9rem; }
+  }
+  .article-prose a {
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-decoration-color: oklch(0.78 0.17 162 / 0.35);
+    text-underline-offset: 3px;
+    transition: text-decoration-color 0.15s ease;
+  }
+  .article-prose a:hover { text-decoration-color: oklch(0.78 0.17 162 / 0.9); }
+  .article-prose strong { color: #fff; font-weight: 600; }
+  .article-prose em { color: oklch(0.92 0.01 260); font-style: italic; }
+
+  /* Figures */
+  .article-fig { margin-block: 2.5rem; }
+  .fig-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+    margin-bottom: 1.5rem;
+  }
+  .fig-cap {
+    margin-top: 1rem;
+    font-size: 0.875rem;
+    font-style: italic;
+    color: oklch(0.62 0.01 260);
+  }
+
+  /* Scorecard — table (≥sm) */
+  .scorecard { font-size: 0.92rem; }
+  .scorecard th, .scorecard td {
+    padding: 0.95rem 1.1rem;
+    vertical-align: top;
+    border-bottom: 1px solid oklch(1 0 0 / 0.07);
+    line-height: 1.5;
+  }
+  .scorecard tbody tr:last-child th, .scorecard tbody tr:last-child td { border-bottom: 0; }
+  .scorecard thead th {
+    font-weight: 700;
+    border-bottom: 1px solid oklch(1 0 0 / 0.12);
+    background: oklch(1 0 0 / 0.02);
+  }
+  .scorecard .sc-sub {
+    display: block;
+    margin-top: 2px;
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    text-transform: lowercase;
+  }
+  .scorecard th.sc-k, .scorecard th[scope='row'] {
+    width: 30%;
+    color: oklch(0.78 0.01 260);
+    font-weight: 600;
+  }
+  .scorecard th.sc-mpp { color: #d6dade; }
+  .scorecard th.sc-mpp .sc-sub { color: #7c828a; }
+  .scorecard th.sc-x402 { color: var(--color-accent); }
+  .scorecard th.sc-x402 .sc-sub { color: oklch(0.78 0.17 162 / 0.7); }
+  .scorecard td.sc-mpp-cell { color: oklch(0.74 0.01 260); }
+  .scorecard td.sc-x402-cell { color: oklch(0.88 0.06 162); }
+  .scorecard tbody tr:first-child td { color: oklch(0.62 0.01 260); font-style: italic; }
+
+  /* Scorecard — stacked cards (<sm) */
+  .sc-m-k {
+    font-family: var(--font-display, inherit);
+    font-weight: 700;
+    color: #fff;
+    font-size: 1.05rem;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+  }
+  .sc-m-row {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-top: 0.9rem;
+    padding-left: 0.85rem;
+    border-left: 2px solid;
+  }
+  .sc-m-mpp { border-color: oklch(1 0 0 / 0.2); }
+  .sc-m-x402 { border-color: var(--color-accent); }
+  .sc-m-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .sc-m-tag-mpp { color: #9aa0a7; }
+  .sc-m-tag-x402 { color: var(--color-accent); }
+  .sc-m-v { font-size: 0.95rem; line-height: 1.5; }
+  .sc-m-mpp .sc-m-v { color: oklch(0.78 0.01 260); }
+  .sc-m-x402 .sc-m-v { color: oklch(0.9 0.06 162); }
+</style>
+
+<!-- Copy-link button (progressive enhancement). -->
+<script is:inline>
+  for (const btn of document.querySelectorAll('[data-copy-link]')) {
+    btn.addEventListener('click', async () => {
+      const label = btn.querySelector('[data-copy-label]')
+      try {
+        await navigator.clipboard.writeText(btn.dataset.url)
+        const prev = label.textContent
+        label.textContent = 'Copied!'
+        setTimeout(() => { label.textContent = prev }, 1600)
+      } catch {}
+    })
+  }
+</script>
