@@ -315,7 +315,8 @@ requirePayment({
 })
 ```
 
-With a **keyless facilitator** (EVM EIP-3009 on Base/BNB/HyperEVM/Monad, Solana, **or Algorand**),
+With a **keyless facilitator** (EVM EIP-3009 on **Ethereum, Polygon, Arbitrum, Optimism, Avalanche,
+Sei, Unichain, Base, BNB, HyperEVM, Monad**, Solana, **or Algorand** — 13 chains),
 **neither side pays gas** — on Algorand both the buyer *and* the merchant pay 0 ALGO (see the
 [keyless note](#keyless-exact-true-on-algorand--now-live) below). See the full how-tos:
 [the exact rail (buyer)](/making-payments/exact-buyer/) · [the exact rail (seller)](/accepting-payments/exact-rail-seller/).

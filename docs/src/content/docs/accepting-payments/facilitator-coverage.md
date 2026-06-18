@@ -29,12 +29,15 @@ fee-payer rail the gate also **bounds the fee** a buyer can make the sponsor pay
 
 | Facilitator | Keyless? | PipRail live-tested | Mainnet `exact` networks |
 |---|---|---|---|
-| **[PayAI](https://facilitator.payai.network/)** | ✅ keyless | ✅ Solana + Base | Base, Solana, Avalanche, Polygon, Arbitrum, Sei +24 |
-| **[Corbits](https://corbits.dev/)** | ✅ keyless | ✅ Solana + **Monad** + **Base** | Solana, Base, Polygon, Monad +38 |
-| **[Ultravioleta DAO](https://facilitator.ultravioletadao.xyz/)** | ✅ keyless | ✅ **HyperEVM, Base, Monad** | HyperEVM, Base, Monad, Celo, Unichain, Optimism, Scroll, Ethereum, Arbitrum, Polygon, Avalanche, BNB + Solana, Stellar, Sui, Algorand, NEAR, XRPL (18 — the broadest) |
-| **[Dexter](https://x402.dexter.cash/)** | ✅ keyless | ✅ **Base, BNB** | Base, BNB, Solana, Polygon, Arbitrum, Optimism, Avalanche *(BNB: FDUSD/USD1 only; ~$0.001 floor on Base, ~$0.003 on BNB)* |
+| **[PayAI](https://facilitator.payai.network/)** | ✅ keyless | ✅ **Base, Polygon, Arbitrum, Avalanche, Sei, Solana** | Base, Solana, Avalanche, Polygon, Arbitrum, Sei +24 |
+| **[Ultravioleta DAO](https://facilitator.ultravioletadao.xyz/)** | ✅ keyless | ✅ **Ethereum, Polygon, Arbitrum, Optimism, Unichain, HyperEVM, Base, Monad** | HyperEVM, Base, Monad, Celo, Unichain, Optimism, Scroll, Ethereum, Arbitrum, Polygon, Avalanche, BNB + Solana, Stellar, Sui, Algorand, NEAR, XRPL (18 listed — but Celo/Scroll/Avalanche `contract_call_failed`; non-EVM advertise-only) |
+| **[Dexter](https://x402.dexter.cash/)** | ✅ keyless | ✅ **Base, Polygon, Arbitrum, Optimism, Avalanche, BNB** | Base, BNB, Solana, Polygon, Arbitrum, Optimism, Avalanche *(BNB: FDUSD/USD1 only; ~$0.004 dynamic floor — sub-floor payments rejected)* |
+| **[Corbits](https://corbits.dev/)** | ✅ keyless | ✅ **Solana, Base, Polygon, Monad** | Solana, Base, Polygon, Monad +38 |
+| **[Polygon Labs](https://x402.polygon.technology/)** | ✅ keyless | ✅ **Polygon** | Polygon (the official Polygon facilitator) |
 | **[GoPlausible](https://facilitator.goplausible.xyz/)** | ✅ keyless | ✅ **Algorand + Base** | **Algorand** (the only keyless Algorand facilitator), Base, Solana |
 | **[Pieverse](https://facilitator.pieverse.io/)** | ✅ keyless | ✅ **Monad + BNB** | Monad, BNB, Base *(BNB: FDUSD/USD1)* |
+| **[Cascade](https://facilitator.cascade.fyi/)** | ✅ keyless | ✅ **Base** | Base, Solana |
+| **[Satoshi (bitcoinsapi)](https://facilitator.bitcoinsapi.com/)** | ✅ keyless | ✅ **Base** | Base, Solana |
 | **[OpenFacilitator](https://www.openfacilitator.io/)** | ✅ keyless | ✅ Solana | Base, Solana, Stacks |
 | **[xpay](https://www.xpay.sh/)** | ✅ zero-fee | ✅ Base | Base |
 | **[Daydreams](https://daydreams.systems/)** | 🔑 API key | — | Ethereum, Base, Solana |
@@ -43,7 +46,7 @@ fee-payer rail the gate also **bounds the fee** a buyer can make the sponsor pay
 | **[Kora](https://github.com/solana-foundation/kora)** | self-host | — | Solana |
 
 **Base URLs** (pass to `exact: { settle: { facilitator } }`) — the keyless ones, live-proven:
-`https://facilitator.payai.network` · `https://facilitator.corbits.dev` · `https://pay.openfacilitator.io` · `https://facilitator.xpay.sh` · `https://facilitator.ultravioletadao.xyz` · `https://x402.dexter.cash` · `https://facilitator.goplausible.xyz` (Algorand) · `https://facilitator.pieverse.io`.
+`https://facilitator.payai.network` · `https://facilitator.corbits.dev` · `https://pay.openfacilitator.io` · `https://facilitator.xpay.sh` · `https://facilitator.ultravioletadao.xyz` · `https://x402.dexter.cash` · `https://x402.polygon.technology` (Polygon) · `https://facilitator.goplausible.xyz` (Algorand) · `https://facilitator.pieverse.io` · `https://facilitator.cascade.fyi` · `https://facilitator.bitcoinsapi.com`.
 
 :::caution[A public `/supported` is NOT proof of keyless settlement]
 Daydreams and Questflow both expose a public `GET /supported`, but their `/verify` returns **401 — an
@@ -64,6 +67,13 @@ Corbits **Monad**
 [`0x7797be…`](https://monadexplorer.com/tx/0x7797be27ce22c17f7433a0389bd22d46e338899b1faac505fffd068174428ae6) ·
 Ultravioleta **HyperEVM**
 [`0x56af81…`](https://hyperevmscan.io/tx/0x56af8148a92a291f0ce362e250919f7742074e5464ac0f315ad68abaec93bd0a).
+The **2026-06-18 gasless-extension** added **17 more live proofs** across Ethereum, Polygon, Arbitrum,
+Optimism, Avalanche, Sei, and Unichain (e.g. UVD Ethereum
+[`0x7fcc3c…`](https://etherscan.io/tx/0x7fcc3cafdf43c52888f0117cde633eff35371f832dfb8dbd84e6fd7704ae5cfc) ·
+PayAI Polygon
+[`0xb37630…`](https://polygonscan.com/tx/0xb37630871504618c4db35e8ef0edd3c99deac102b143b7e5eb738c03fb13a619)) —
+the full per-pair tx hash lives in each `KNOWN_FACILITATORS` entry, and every one was re-verified
+on-chain to confirm a **third-party** (the facilitator) paid the gas, never the buyer or merchant.
 
 You're never locked to any of them — keep one, swap it, or run your own (self-settle / Kora). See
 [keep PayAI, or swap it](/making-payments/gasless-payments/#keep-payai-or-swap-it). **PipRail depends on
