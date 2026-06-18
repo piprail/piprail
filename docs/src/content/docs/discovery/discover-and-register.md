@@ -343,6 +343,8 @@ an `/openapi.json` or the `extensions.bazaar` block in your 402 body.
 `client.discover()` / `client.register()` are thin wrappers over the lower-level
 `searchOpenIndexes(opts: SearchOpenIndexesOptions)` and `register402Index(input: RegisterInput)`
 exports, which take the same fields. Reach for those only if you need discovery without binding a
-client; the client methods add the `'self'`-chain filter, the `priceUsd` cap, and the
-`visibility`/`note` decoration for you.
+client; the client methods add what only a bound client can: `discover()` applies the chain-aware
+`'self'`-network filter, and `register()` adds the `visibility`/`note` decoration. (The
+`maxPrice`/`priceUsd` cap is not one of them — `searchOpenIndexes` already applies it itself, so the
+low-level call honours it too.)
 :::

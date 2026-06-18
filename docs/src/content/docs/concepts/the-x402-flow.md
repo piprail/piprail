@@ -90,7 +90,8 @@ PipRail speaks two payment schemes:
 
 - **`onchain-proof`** (default) — the payer broadcasts their own transfer and proves it. No
   facilitator, works on every family. This is PipRail's native rail.
-- **`exact`** (opt-in) — the ratified x402 EVM scheme using EIP-3009 signed authorizations. Turn
+- **`exact`** (opt-in) — the ratified x402 `exact` scheme: EIP-3009 signed authorizations on EVM,
+  plus each family's exact variant (EVM Permit2, Solana SVM, Algorand, Aptos, NEAR NEP-366). Turn
   it on to **pay any standard x402 server** (see [the exact buyer](/making-payments/exact-buyer/))
   or to **get paid** — optionally **gasless**, by delegating settlement to a free facilitator like
   PayAI that broadcasts on Base and pays the gas (see

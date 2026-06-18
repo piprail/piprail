@@ -31,7 +31,7 @@ fee-payer rail the gate also **bounds the fee** a buyer can make the sponsor pay
 |---|---|---|---|
 | **[PayAI](https://facilitator.payai.network/)** | ✅ keyless | ✅ **Base, Polygon, Arbitrum, Avalanche, Sei, Solana** | Base, Solana, Avalanche, Polygon, Arbitrum, Sei +24 |
 | **[Ultravioleta DAO](https://facilitator.ultravioletadao.xyz/)** | ✅ keyless | ✅ **Ethereum, Polygon, Arbitrum, Optimism, Unichain, HyperEVM, Base, Monad** | HyperEVM, Base, Monad, Celo, Unichain, Optimism, Scroll, Ethereum, Arbitrum, Polygon, Avalanche, BNB + Solana, Stellar, Sui, Algorand, NEAR, XRPL (18 listed — but Celo/Scroll/Avalanche `contract_call_failed`; non-EVM advertise-only) |
-| **[Dexter](https://x402.dexter.cash/)** | ✅ keyless | ✅ **Base, Polygon, Arbitrum, Optimism, Avalanche, BNB** | Base, BNB, Solana, Polygon, Arbitrum, Optimism, Avalanche *(BNB: FDUSD/USD1 only; ~$0.004 dynamic floor — sub-floor payments rejected)* |
+| **[Dexter](https://x402.dexter.cash/)** | ✅ keyless | ✅ **Base, Polygon, Arbitrum, Optimism, Avalanche, BNB** | Base, BNB, Solana, Polygon, Arbitrum, Optimism, Avalanche *(BNB: FDUSD/USD1 only; ~$0.003 dynamic floor — sub-floor payments rejected)* |
 | **[Corbits](https://corbits.dev/)** | ✅ keyless | ✅ **Solana, Base, Polygon, Monad** | Solana, Base, Polygon, Monad +38 |
 | **[Polygon Labs](https://x402.polygon.technology/)** | ✅ keyless | ✅ **Polygon** | Polygon (the official Polygon facilitator) |
 | **[GoPlausible](https://facilitator.goplausible.xyz/)** | ✅ keyless | ✅ **Algorand + Base** | **Algorand** (the only keyless Algorand facilitator), Base, Solana |
@@ -88,9 +88,9 @@ after a live `/supported` read confirms a new pair.
 ```ts
 import { KNOWN_FACILITATORS, knownFacilitatorsFor, firstKeylessFacilitator } from '@piprail/sdk'
 
-knownFacilitatorsFor('eip155:8453') // Base — both live-verified keyless (PayAI 2026-06-14, xpay 2026-06-15)
-// → [{ url: 'https://facilitator.payai.network', keyless: true, settles: ['eip3009'], … },
-//    { url: 'https://facilitator.xpay.sh',       keyless: true, settles: ['eip3009'], … }]
+knownFacilitatorsFor('eip155:8453') // Base — eight live-verified keyless facilitators (all settle eip3009)
+// → [PayAI, xpay, Ultravioleta DAO, Dexter, Corbits, GoPlausible, Cascade, Satoshi]
+//   (8 entries; each shaped { url, keyless: true, schemes: ['exact'], settles: ['eip3009'], note })
 
 firstKeylessFacilitator('solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', 'svm')?.url
 // → 'https://facilitator.payai.network'  (first of PayAI · OpenFacilitator · Corbits)
@@ -101,7 +101,7 @@ firstKeylessFacilitator('eip155:999999') // unknown network
 
 Each `KnownFacilitator` has a `url` (no trailing slash), a `keyless` boolean (true ⇒ no API key, the
 facilitator sponsors gas), the `schemes` it settles (today `'exact'`), the exact transfer `settles`
-methods (`'eip3009' | 'permit2' | 'svm' | 'algorand' | 'aptos'`), and an optional `note`.
+methods (`'eip3009' | 'permit2' | 'svm' | 'algorand' | 'aptos' | 'near'`), and an optional `note`.
 
 :::caution
 **What's seeded, and what isn't.** The map carries only **live-confirmed keyless** entries — each

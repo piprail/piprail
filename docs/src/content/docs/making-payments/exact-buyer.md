@@ -1,6 +1,6 @@
 ---
 title: Pay any x402 server (the exact rail)
-description: Opt the client into the standard x402 `exact` scheme so it can pay any x402 server, not just PipRail gates — EVM (EIP-3009 USDC/EURC or Permit2 for any ERC-20), Solana (any SPL token), Algorand (any ASA), and Aptos (any Fungible Asset), gas-free for the buyer.
+description: Opt the client into the standard x402 `exact` scheme so it can pay any x402 server, not just PipRail gates — EVM (EIP-3009 USDC/EURC or Permit2 for any ERC-20), Solana (any SPL token), Algorand (any ASA), Aptos (any Fungible Asset), and NEAR (NEP-141 via a NEP-366 meta-transaction), gas-free for the buyer.
 sidebar:
   order: 8
 ---
@@ -72,13 +72,19 @@ automatically:
 - **`aptos`** (Aptos) — **any** Fungible Asset (USDC, USD₮, …). The client signs a fee-payer
   (sponsored, AIP-39) `primary_fungible_store::transfer` (sender slot only); the sponsor adds the
   fee-payer signature and submits. No token feature required — gasless for the buyer regardless of token.
+- **`near`** (NEAR) — **any** NEP-141 token (USDC, USDT). The client signs a NEP-366
+  `SignedDelegateAction` with its **full-access** key authorizing exactly one `ft_transfer` to `payTo`
+  (the exact `amount`, `deposit: 1` yoctoNEAR, fixed 30 TGas); the merchant's relayer wraps it in its
+  own outer transaction, prepays the gas **and** the yocto, and submits. The buyer holds **zero
+  NEAR** — gasless regardless of token. Self-settle only today (no third-party NEAR x402 facilitator
+  settles yet — see [Gasless payments](/making-payments/gasless-payments/)).
 
 | Works on `exact` | Stays on `onchain-proof` |
 | --- | --- |
-| EVM EIP-3009 (USDC / EURC; FDUSD & USD1 on BNB) | The other non-EVM families (TON, Tron, NEAR, Sui, Stellar, XRPL) |
-| EVM Permit2 — any ERC-20 (e.g. Binance-Peg USDC on BNB) | The chain's native coin (incl. SOL, ALGO, APT) |
+| EVM EIP-3009 (USDC / EURC; FDUSD & USD1 on BNB) | The other non-EVM families (TON, Tron, Sui, Stellar, XRPL) |
+| EVM Permit2 — any ERC-20 (e.g. Binance-Peg USDC on BNB) | The chain's native coin (incl. SOL, ALGO, APT, NEAR) |
 | Solana SVM — any SPL token (USDC / USDT) | A contract / EIP-1271 / EIP-7702 signer (EVM) |
-| Algorand ASA (USDCa) · Aptos FA (USDC / USD₮) | |
+| Algorand ASA (USDCa) · Aptos FA (USDC / USD₮) · NEAR NEP-141 (USDC / USDT, via NEP-366 meta-tx) | |
 
 An `exact` rail is selected only when the 402 names a network **your bound chain supports** — the
 client matches each offered rail against its own chain via the driver (matching the network whether
@@ -161,8 +167,8 @@ if (!plan) {
 ## When exact can't settle
 
 If a 402 offers only an `exact` rail and the bound family can't pay it — a family without an
-`exact` scheme (TON, Tron, NEAR, Sui, Stellar, XRPL), the chain's native coin
-(incl. SOL, ALGO, APT), or a contract / EIP-1271 / EIP-7702 signer — the client throws
+`exact` scheme (TON, Tron, Sui, Stellar, XRPL), the chain's native coin
+(incl. SOL, ALGO, APT, NEAR), or a contract / EIP-1271 / EIP-7702 signer — the client throws
 [`UnsupportedSchemeError`](/errors/error-hierarchy/) (`.code === 'UNSUPPORTED_SCHEME'`) rather
 than signing something that can't settle. (A non-EIP-3009 ERC-20 is **not** in this list — it pays
 via Permit2; nor is an SPL token on Solana — it pays via SVM.)

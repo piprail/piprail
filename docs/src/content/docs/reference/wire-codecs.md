@@ -224,16 +224,17 @@ here's the map:
 
 | Function / type | Role |
 | --- | --- |
-| `X402ExactAcceptEntry` | an `exact` rail in `accepts[]` (carries `assetTransferMethod` + the EVM EIP-712 domain or the Solana `feePayer`/`tokenProgram`) |
+| `X402ExactAcceptEntry` | an `exact` rail in `accepts[]` (carries `assetTransferMethod` — a six-value union `'eip3009'`/`'permit2'`/`'svm'`/`'algorand'`/`'aptos'`/`'near'` — plus the family-specific bits: the EVM EIP-712 domain, or the `feePayer` gas sponsor for Solana/Algorand/Aptos/NEAR, + the Solana `tokenProgram`) |
 | `buildExactSignatureHeader({ accepted, payload })` | frame an `exact` payment for the wire (buyer) — works for every method |
 | `parseExactPaymentHeader(value)` | parse an inbound `exact` payment, normalised across v1/v2 (seller) |
-| `ParsedExactPayment` | what `parseExactPaymentHeader` returns — a union discriminated on `method` (`'eip3009'` / `'permit2'` / `'svm'`) |
+| `ParsedExactPayment` | what `parseExactPaymentHeader` returns — a union discriminated on `method` (`'eip3009'` / `'permit2'` / `'svm'` / `'algorand'` / `'aptos'` / `'near'`) |
 | `ExactPaymentPayload` / `ExactAuthorizationWire` | the EVM EIP-3009 `{ signature, authorization }` payload |
 | `Permit2PaymentPayload` | the EVM Permit2 `{ signature, permit2Authorization }` payload |
 
 `parseExactPaymentHeader` tolerates both the v2 `payment-signature` and the v1 `X-PAYMENT`
-shapes, and discriminates the three payload shapes on `method` (`'eip3009'` → `authorization`,
-`'permit2'` → `permit2Authorization`, `'svm'` → `transaction`). The `network`/`asset` it returns are
+shapes, and discriminates each payload shape on `method` (`'eip3009'` → `authorization`,
+`'permit2'` → `permit2Authorization`, `'svm'` → `transaction`, `'algorand'` → `paymentGroup`,
+`'aptos'` → `transaction` + `senderAuth`, `'near'` → `signedDelegateAction`). The `network`/`asset` it returns are
 the client's *claim*, used only to match an offered rail — the gate re-derives every verified field
 from its own trusted rail. See [selling the exact rail](/accepting-payments/exact-rail-seller/) and
 the [exact buyer path](/making-payments/exact-buyer/).

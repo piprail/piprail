@@ -205,6 +205,6 @@ required `ResolvedNetwork` method for your chain, return it from a `PaymentDrive
 call `registerDriver`. There are six optional methods, all of which may be omitted:
 `resolveExactRail`, `payExact`, `settleExactSelf`, `exactDomain`, `exactPermit2Supported`, and
 `discoverySigner`. The exact-rail methods (`resolveExactRail` / `payExact` / `settleExactSelf`)
-are implemented by EVM and Solana today, while `exactDomain` / `exactPermit2Supported` are
+are implemented by EVM, Solana, Algorand, Aptos, and NEAR today, while `exactDomain` / `exactPermit2Supported` are
 EVM-specific. The full contract — every method's error behaviour and which are optional — is the
 [Driver SPI reference](/reference/driver-spi/).

@@ -56,7 +56,8 @@ layer calls only these methods, identical across every family:
 
 | Method | Side | What it does |
 | --- | --- | --- |
-| `resolveToken` / `describeAsset` | both | Turn a `TokenInput` into `{ asset, decimals, symbol }`, and back. |
+| `resolveToken` | both | Turn a `TokenInput` into a `ResolvedToken` — `{ asset, decimals, symbol? }` for this network. |
+| `describeAsset` | both | The inverse for known assets — a resolved on-chain `asset` id back to its trusted `{ symbol?, decimals }`, or `null` when the SDK doesn't recognise it. |
 | `assertValidPayTo` | both | Throw if `payTo` isn't valid for this family. |
 | `bindWallet` / `send` / `confirm` | agent | Wrap a wallet, broadcast a payment, wait for confirmations. |
 | `estimateCost` | agent | Best-effort gas in the native coin. Powers [`estimateCost()`](/making-payments/estimate-cost/). |
@@ -81,7 +82,7 @@ means that family simply doesn't offer the feature — the protocol layer skips 
 
 | Method | Available | Enables |
 | --- | --- | --- |
-| `resolveExactRail` / `settleExactSelf` / `payExact` | EVM + Solana + Algorand + Aptos + NEAR | Advertising, buying, and selling a standard [`exact` rail](/accepting-payments/exact-rail-seller/) (EVM EIP-3009/Permit2; Solana SVM; Algorand / Aptos fee-payer sponsored tx). |
+| `resolveExactRail` / `settleExactSelf` / `payExact` | EVM + Solana + Algorand + Aptos + NEAR | Advertising, buying, and selling a standard [`exact` rail](/accepting-payments/exact-rail-seller/) (EVM EIP-3009/Permit2; Solana SVM; Algorand / Aptos fee-payer sponsored tx; NEAR NEP-366 SignedDelegateAction relayed by a fee-payer). |
 | `exactDomain` / `exactPermit2Supported` | EVM only | The EVM method-selection (EIP-3009 vs Permit2). |
 | `discoverySigner` | EVM today | SIWX [registration](/discovery/discover-and-register/) on open indexes. |
 

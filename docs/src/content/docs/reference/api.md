@@ -188,12 +188,14 @@ See [Wire codecs](/reference/wire-codecs/) and [VerifyErrorCode](/errors/verify-
 
 The standard x402 `exact` scheme at the codec tier. For the high-level paths use
 `PipRailClient({ schemes: ['exact'] })` (buyer) or `createPaymentGate({ exact })` (seller) — these
-exports are for hand-rolled clients, v1 servers, and custom flows. The `exact` scheme has three
-asset-transfer methods: **EIP-3009** (`transferWithAuthorization`, on EVM tokens that implement it),
-**Permit2** (for EVM ERC-20s that don't — e.g. Binance-Peg USDC/USDT on BNB), and **SVM** (Solana —
-any SPL token, the merchant is the fee payer). The codecs below are the EVM tier; the Solana payload is
-the `{ transaction }` shape (`ExactSvmPaymentPayload`) and is built/verified inside the Solana driver.
-See [Gasless payments](/making-payments/gasless-payments/).
+exports are for hand-rolled clients, v1 servers, and custom flows. The `exact` scheme has six
+asset-transfer methods: **EIP-3009** (`transferWithAuthorization`, on EVM tokens that implement it) and
+**Permit2** (for EVM ERC-20s that don't — e.g. Binance-Peg USDC/USDT on BNB), plus **SVM** (Solana —
+any SPL token, the merchant is the fee payer), **Algorand**, **Aptos**, and **NEAR** on their respective
+L1s. The codecs in the table below are the EVM tier (EIP-3009 + Permit2); the non-EVM payloads — SVM's
+`{ transaction }` shape (`ExactSvmPaymentPayload`), Algorand (`ExactAlgorandPaymentPayload`), Aptos
+(`ExactAptosPaymentPayload`), NEAR (`ExactNearPaymentPayload`) — are built/verified inside their
+respective drivers. See [Gasless payments](/making-payments/gasless-payments/).
 
 | Export | Kind | Note |
 | --- | --- | --- |
@@ -204,7 +206,7 @@ See [Gasless payments](/making-payments/gasless-payments/).
 | `PERMIT2_PROXY_CHAIN_IDS`, `isPermit2ProxyChain` | const / fn | EVM chains where the x402 Permit2 proxy is deployed (where the Permit2 exact method can settle) |
 | `buildExactAuthorization` | fn | Deprecated — trusts the server-supplied domain |
 | `ExactAccept`, `ExactAuthorization`, `BuildExactParams` | type | — |
-| `Permit2Authorization`, `Permit2PaymentPayload`, `ExactPaymentPayloadAny` | type | the per-method wire payloads (EIP-3009 / Permit2 / SVM); `ParsedExactPayment` is a union on `method` (`'eip3009'`/`'permit2'`/`'svm'`) |
+| `Permit2Authorization`, `Permit2PaymentPayload`, `ExactPaymentPayloadAny` | type | the per-method wire payloads (EIP-3009 / Permit2 / SVM / Algorand / Aptos / NEAR); `ParsedExactPayment` is a union on `method` (`'eip3009'`/`'permit2'`/`'svm'`/`'algorand'`/`'aptos'`/`'near'`) |
 
 ## Advanced: exact facilitator (Mode B) — `facilitator.js`
 

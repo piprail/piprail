@@ -67,9 +67,13 @@ page. In the browser you **never paste a private key** — you hand the SDK an i
 <script type="module">
   import { PipRailClient } from 'https://esm.sh/@piprail/sdk'
   import { createWalletClient, custom } from 'https://esm.sh/viem'
+  import { base } from 'https://esm.sh/viem/chains'
 
   // Build a viem wallet client from the injected EIP-1193 provider — keys stay in the wallet.
-  const walletClient = createWalletClient({ transport: custom(window.ethereum) })
+  // Attach the connected account + chain: the SDK rejects an account-less client, and the
+  // JSON-RPC account routes every signature back through the wallet.
+  const [address] = await window.ethereum.request({ method: 'eth_requestAccounts' })
+  const walletClient = createWalletClient({ account: address, chain: base, transport: custom(window.ethereum) })
 
   const client = new PipRailClient({ chain: 'base', wallet: { walletClient } })
 

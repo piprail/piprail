@@ -52,7 +52,7 @@ Add one entry to your client's MCP config. Invocation is identical everywhere �
 
 Those five lines *are* the defaults — `chain: 'base'`, `0.10` per payment, `10.00` lifetime per
 token, `USDC` — so the only field you add to **pay** is `PIPRAIL_PRIVATE_KEY` (alias `AGENT_KEY`);
-omit it entirely and the server boots **read-only** (discover/quote/plan/register/budget/guide still work).
+omit it entirely and the server boots **read-only** (discover/quote/register/budget/guide still work).
 Restart the client and the PipRail tools appear. Per-client config-file locations and gotchas
 (VS Code uses `servers`, not `mcpServers`) are on the [Client setup](/mcp/client-setup/) page.
 

@@ -89,8 +89,11 @@ signs with their own wallet, and no secret ever touches your page source.
 
 ```ts
 import { createWalletClient, custom } from 'viem'
+import { base } from 'viem/chains'
 
-const walletClient = createWalletClient({ transport: custom(window.ethereum) })
+// The SDK needs a walletClient with an ATTACHED account — connect first.
+const [account] = await window.ethereum.request({ method: 'eth_requestAccounts' })
+const walletClient = createWalletClient({ account, chain: base, transport: custom(window.ethereum) })
 const client = new PipRailClient({ chain: 'base', wallet: { walletClient } })
 ```
 
