@@ -13,7 +13,7 @@ const NOW = () => Math.floor(Date.now() / 1000)
 function jettonAccept(amount: string, nonce = 'nonce-1'): X402AcceptEntry {
   return {
     scheme: 'onchain-proof',
-    network: 'ton:-239',
+    network: 'tvm:-239',
     amount,
     asset: USDT_MASTER,
     payTo: MERCHANT,
@@ -100,7 +100,7 @@ describe('verifyTon — jetton (USD₮)', () => {
     if (res.ok) {
       expect(res.receipt.payer).toBe(PAYER.toString())
       expect(res.receipt.asset).toBe(USDT_MASTER)
-      expect(res.receipt.network).toBe('ton:-239')
+      expect(res.receipt.network).toBe('tvm:-239')
       // x402 v2 SettlementResponse shape
       expect(res.receipt.success).toBe(true)
       expect(typeof res.receipt.transaction).toBe('string')

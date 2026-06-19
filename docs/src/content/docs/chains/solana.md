@@ -106,9 +106,10 @@ requirePayment({
 new PipRailClient({ chain: 'solana', wallet, schemes: ['onchain-proof', 'exact'] })
 ```
 
-The buyer partial-signs the canonical `[cu-limit, cu-price, TransferChecked]` transaction, leaving the
-fee-payer slot empty; the facilitator (or your relayer) co-signs as fee payer and broadcasts. The buyer
-needs only the token (zero SOL). The recipient's **token account must already exist** — the exact rail
+The buyer partial-signs the canonical `[cu-limit, cu-price, TransferChecked, Memo]` transaction — adding a
+spec-required SPL-Memo (the rail's `extra.memo`, else a random hex nonce) for transaction uniqueness — and
+leaves the fee-payer slot empty; the facilitator (or your relayer) co-signs as fee payer and broadcasts. The
+buyer needs only the token (zero SOL). The recipient's **token account must already exist** — the exact rail
 won't create it (a brand-new recipient is payable on `onchain-proof`, which does). Native **SOL** is not
 exact-payable.
 

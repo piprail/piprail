@@ -51,11 +51,20 @@ import bs58 from 'bs58'
 import { SettlementError, UnsupportedSchemeError } from '../../errors.js'
 import type { VerifyErrorCode, VerifyResult, X402ExactAcceptEntry } from '../../x402.js'
 
-// The canonical x402 SVM `exact` transaction is EXACTLY three instructions — a compute-unit
-// limit, a compute-unit price, then the SPL TransferChecked — matching the reference client, so
+// The canonical x402 SVM `exact` transaction is FOUR instructions — a compute-unit limit, a
+// compute-unit price, the SPL TransferChecked, then an SPL-Memo — matching the reference client, so
 // strict facilitators (which reject any other instruction count / a too-high CU limit) accept it.
+// The Memo is the scheme MUST-rule (§1.2/§3.1): `extra.memo` when present, else a random ≥16-byte
+// hex nonce for transaction uniqueness across concurrent identical-parameter payments. Four
+// instructions stay inside Path-1's 3-to-7 fast path, and SPL-Memo is category-exempt (§2.2.2).
 const COMPUTE_UNIT_LIMIT = 20_000
 const COMPUTE_UNIT_PRICE_MICROLAMPORTS = 1
+
+/** The SPL-Memo program (category-exempt §2.2.2). Takes NO accounts; its data is the raw UTF-8
+ *  memo. Hand-built here to avoid adding `@solana/spl-memo` as a dependency. */
+const MEMO_PROGRAM_ID = new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr')
+/** The scheme caps `extra.memo` at 256 bytes (§3.1). */
+const MAX_MEMO_BYTES = 256
 
 // Anti-drain caps the SELLER enforces on the inbound tx before co-signing as fee payer. The fee
 // payer (the merchant's relayer / a keyless facilitator) is debited base + compute_unit_limit ×
@@ -81,20 +90,58 @@ function isEmptySig(sig: Uint8Array | null | undefined): boolean {
   return !sig || sig.every((b) => b === 0)
 }
 
+/** Absent `extra.memo` → 16 CSPRNG bytes, hex-encoded (32 ASCII chars) for UTF-8 compliance + tx
+ *  uniqueness. Uses Web Crypto (`globalThis.crypto.getRandomValues`, headless + browser parity) — the
+ *  SDK's canonical cross-platform CSPRNG, mirroring the EVM/Algorand exact nonces (NOT `node:crypto`). */
+function memoRandomNonce(): Buffer {
+  const g = globalThis.crypto
+  if (!g?.getRandomValues) {
+    throw new UnsupportedSchemeError(
+      'this runtime lacks Web Crypto (globalThis.crypto.getRandomValues); SVM exact needs a CSPRNG nonce.'
+    )
+  }
+  const raw = new Uint8Array(16)
+  g.getRandomValues(raw)
+  return Buffer.from([...raw].map((b) => b.toString(16).padStart(2, '0')).join(''), 'utf8')
+}
+
+/** Spec §1.2/§3.1: the Memo data is `extra.memo` when present (verbatim UTF-8, ≤256 bytes), else a
+ *  random ≥16-byte hex nonce. */
+function memoDataFor(accept: X402ExactAcceptEntry): Buffer {
+  if (accept.extra.memo !== undefined) {
+    const bytes = Buffer.from(accept.extra.memo, 'utf8')
+    if (bytes.length > MAX_MEMO_BYTES) {
+      throw new UnsupportedSchemeError(
+        `SVM exact: extra.memo is ${bytes.length} bytes; the scheme caps it at ${MAX_MEMO_BYTES}.`
+      )
+    }
+    return bytes
+  }
+  return memoRandomNonce()
+}
+
+/** The signer-less SPL-Memo instruction the buyer appends (the scheme MUST). */
+function memoInstruction(accept: X402ExactAcceptEntry): TransactionInstruction {
+  return new TransactionInstruction({ programId: MEMO_PROGRAM_ID, keys: [], data: memoDataFor(accept) })
+}
+
 /* ───────────────────────────── BUYER SIDE (client) ───────────────────────────── */
 
 /**
  * BUYER — build + partially-sign an SVM `exact` payment for a standard x402 `exact`
  * rail. Compiles the canonical v0 transaction — exactly `[setComputeUnitLimit, setComputeUnitPrice,
- * TransferChecked]` — with the **fee payer** (`accept.extra.feePayer`: the merchant's relayer in
+ * TransferChecked, Memo]` — with the **fee payer** (`accept.extra.feePayer`: the merchant's relayer in
  * self mode, or the facilitator's sponsor in facilitator mode) as the payer, paying `accept.amount`
- * of the mint to `payTo`'s ATA. Signs ONLY the buyer's slot, leaving the fee-payer slot empty for
- * whoever sponsors. Returns the base64 transaction payload, the payer address, and a dedupe `nonce`
- * = the buyer's signature (base58) — stable across re-presentations of the SAME signed tx.
+ * of the mint to `payTo`'s ATA. The trailing SPL-Memo is the scheme MUST-rule: `extra.memo` verbatim
+ * when present, else a random ≥16-byte hex nonce (transaction uniqueness). Signs ONLY the buyer's
+ * slot, leaving the fee-payer slot empty for whoever sponsors. Returns the base64 transaction payload,
+ * the payer address, and a dedupe `nonce` = the buyer's signature (base58) — stable across
+ * re-presentations of the SAME signed tx.
  *
  * THROWS {@link UnsupportedSchemeError} for native (not SVM-exact-payable), a missing/invalid
- * `feePayer`, `feePayer === payTo`, a rail that omits the token `decimals`, or when `payTo`'s token
- * account doesn't exist yet (the exact rail can't create it — use `onchain-proof`, which does).
+ * `feePayer`, `feePayer === payTo`, a rail that omits the token `decimals`, an `extra.memo` over the
+ * 256-byte scheme cap, or when `payTo`'s token account doesn't exist yet (the exact rail can't create
+ * it — use `onchain-proof`, which does).
  */
 export async function payExactSolana(input: {
   connection: Pick<Connection, 'getLatestBlockhash' | 'getAccountInfo'>
@@ -158,8 +205,11 @@ export async function payExactSolana(input: {
     )
   }
 
-  // [0] compute-unit limit, [1] compute-unit price, [2] the SPL TransferChecked — the canonical
-  // three-instruction form every standard SVM facilitator validates against.
+  // [0] compute-unit limit, [1] compute-unit price, [2] the SPL TransferChecked, [3] the SPL-Memo —
+  // the canonical four-instruction form every standard SVM facilitator validates against. The Memo is
+  // the scheme MUST (extra.memo, else a random hex nonce); building it FIRST surfaces an over-256-byte
+  // memo before any RPC work.
+  const memoIx = memoInstruction(accept)
   const instructions: TransactionInstruction[] = [
     ComputeBudgetProgram.setComputeUnitLimit({ units: COMPUTE_UNIT_LIMIT }),
     ComputeBudgetProgram.setComputeUnitPrice({ microLamports: COMPUTE_UNIT_PRICE_MICROLAMPORTS }),
@@ -173,6 +223,7 @@ export async function payExactSolana(input: {
       [],
       program
     ),
+    memoIx, // [3] SPL-Memo (scheme MUST); keeps the tx at 4 ix, inside Path-1's 3-to-7.
   ]
 
   const { blockhash } = await connection.getLatestBlockhash()

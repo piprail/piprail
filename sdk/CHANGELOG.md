@@ -4,6 +4,38 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.8.0] — 2026-06-19 — Solana exact SPL-Memo conformance · TON canonical CAIP-2 (`tvm:-239`) · Toncoin→Gram
+
+- **chore(ton): native coin symbol `TON` → `GRAM` (Toncoin → Gram rebrand).** A TON community
+  governance vote renamed the native token *Toncoin → Gram* (ticker `TON` → `GRAM`), live 2026-06-15.
+  It's a token-only, presentation-layer rename — the blockchain is still **The Open Network (TON)**, the
+  CAIP-2 network id stays `tvm:-239`, and addresses/contracts/jettons are unchanged (no migration). The
+  SDK now surfaces the native coin's symbol as `GRAM` (a 402's `extra.symbol`, `describeAsset`, and
+  `estimateCost`'s `feeSymbol`); `chain: 'ton'` and `token: 'native'` select it exactly as before, and
+  USD₮ / other jettons are unaffected.
+- **fix(ton): emit canonical CAIP-2 `tvm:-239` (was `ton:-239`)** — the chainagnostic CAIP-2 registry
+  has no `ton` namespace and the merged foundation TON exact scheme mandates the `tvm` namespace, so a
+  TON 402's `accepts[].network` (and slug resolution / receipts) now emit `tvm:-239`. This makes
+  PipRail's TON 402s matchable by discovery indexes and any standard x402 client/facilitator keying on
+  the canonical id. **Back-compat:** the legacy `ton:-239` id is still accepted on parse — an inbound or
+  foreign challenge using the old id normalizes to `tvm:-239` and routes/verifies unchanged. The
+  internal `ton:<address>|<nonce>` proof-locator prefix is unrelated and unchanged.
+- **Solana `exact` SVM conformance — the buyer now emits the spec-required SPL-Memo.** The ratified
+  x402 SVM `exact` scheme (§1.2/§3.1) says clients **MUST** include a Memo instruction — `extra.memo`
+  verbatim when present, else a random ≥16-byte hex nonce for transaction uniqueness across concurrent
+  identical-parameter payments. PipRail's Solana exact buyer previously emitted none, so a seller that
+  set `extra.memo` (or a facilitator enforcing the uniqueness Memo) rejected the payment. The buyer now
+  appends one SPL-Memo as instruction `[3]`, keeping the exact-rail tx at **4** instructions (still
+  inside Path-1's 3-to-7 fast path; SPL-Memo is category-exempt, so it never trips the smart-wallet
+  allowlist or the fee-payer drain guard). An `extra.memo` over the 256-byte scheme cap is rejected
+  (`UnsupportedSchemeError`). This **changes the exact-rail's default emitted bytes** (a Memo is now
+  present) — a *required* conformance change, additive on the wire (old PipRail gates already tolerate
+  an inbound Memo). The `onchain-proof` default is byte-identical and untouched.
+- **harden(units): validate `decimals` is a non-negative safe integer.** `parseUnits` / `floorUnits` /
+  `formatUnits` now reject a negative, fractional, or NaN `decimals` argument up front (instead of
+  silently corrupting the bigint math via `padStart` / `slice`) — defence against a malformed preset or
+  a bad caller arg. Existing valid calls are unaffected. Thanks to @samsamtrum (#25).
+
 ## [2.7.0] — 2026-06-19 — symmetric payment notifications (`onFailed`: both sides notified on success AND failure)
 
 Additive and backward-compatible — defaults and the zero-config 402 stay byte-identical; omit the new
@@ -1433,6 +1465,8 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[2.8.0]: https://www.npmjs.com/package/@piprail/sdk
+[2.7.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.6.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.5.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.4.0]: https://www.npmjs.com/package/@piprail/sdk

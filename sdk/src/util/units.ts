@@ -4,6 +4,19 @@
  */
 
 /**
+ * Guard the `decimals` argument shared by the conversions below. A token's decimals is
+ * always a non-negative safe integer, so a negative / fractional / NaN value is a config
+ * bug (a malformed preset or a bad caller arg) that would otherwise silently corrupt the
+ * bigint math via `padStart` / `slice` / `padEnd` — fail loudly instead.
+ * (Decimals-hardening contributed by @samsamtrum, #25.)
+ */
+function assertValidDecimals(decimals: number, fn: string): void {
+  if (!Number.isSafeInteger(decimals) || decimals < 0) {
+    throw new Error(`${fn}: decimals must be a non-negative safe integer (got ${decimals}).`)
+  }
+}
+
+/**
  * Parse a decimal amount string into base units.
  *   parseUnits('0.05', 6)  → 50000n
  *   parseUnits('1', 18)    → 1000000000000000000n
@@ -11,6 +24,7 @@
  * Throws on a malformed amount or more fractional digits than `decimals`.
  */
 export function parseUnits(value: string, decimals: number): bigint {
+  assertValidDecimals(decimals, 'parseUnits')
   if (!/^\d+(\.\d+)?$/.test(value)) {
     throw new Error(`parseUnits: "${value}" is not a non-negative decimal amount.`)
   }
@@ -32,6 +46,7 @@ export function parseUnits(value: string, decimals: number): bigint {
  * Still rejects a malformed / negative amount (a real config error).
  */
 export function floorUnits(value: string, decimals: number): bigint {
+  assertValidDecimals(decimals, 'floorUnits')
   if (!/^\d+(\.\d+)?$/.test(value)) {
     throw new Error(`floorUnits: "${value}" is not a non-negative decimal amount.`)
   }
@@ -47,6 +62,7 @@ export function floorUnits(value: string, decimals: number): bigint {
  * Trailing zeros in the fractional part are trimmed; an integer has no point.
  */
 export function formatUnits(value: bigint, decimals: number): string {
+  assertValidDecimals(decimals, 'formatUnits')
   const negative = value < 0n
   const digits = (negative ? -value : value).toString().padStart(decimals + 1, '0')
   const whole = digits.slice(0, digits.length - decimals)

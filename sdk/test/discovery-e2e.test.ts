@@ -131,7 +131,7 @@ describe('discovery — the real merchant→agent loop', () => {
 // Each family with the exact CAIP-2 its driver binds + the slug an index reports.
 const FAMILIES: { family: ResolvedNetwork['family']; chain: string; caip2: string; slug: string }[] = [
   { family: 'solana', chain: 'solana', caip2: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', slug: 'solana' },
-  { family: 'ton', chain: 'ton', caip2: 'ton:-239', slug: 'ton' },
+  { family: 'ton', chain: 'ton', caip2: 'tvm:-239', slug: 'ton' },
   { family: 'tron', chain: 'tron', caip2: 'tron:mainnet', slug: 'tron' },
   { family: 'near', chain: 'near', caip2: 'near:mainnet', slug: 'near' },
   { family: 'sui', chain: 'sui', caip2: 'sui:mainnet', slug: 'sui' },

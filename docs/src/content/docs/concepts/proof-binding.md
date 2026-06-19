@@ -94,7 +94,7 @@ NEAR is digest-bound (by tx hash).
 | Stellar | A — memo | `MEMO_HASH` = `sha256(nonce)` on the merchant account (XLM + issued assets) |
 | XRPL | A — memo | nonce in a `Memo`, on a `Payment` to `payTo` (XRP + IOUs) |
 | Algorand | A — memo | nonce in the transaction's note field (native ALGO + ASA alike) |
-| TON | A — memo | nonce in the transfer comment (native TON + jettons) |
+| TON | A — memo | nonce in the transfer comment (native Gram + jettons) |
 
 ## verify() always re-derives from the trusted accept
 

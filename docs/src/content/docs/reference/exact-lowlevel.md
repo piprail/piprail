@@ -22,7 +22,9 @@ mechanics and low-level exports (`PERMIT2_ADDRESS`, `X402_EXACT_PERMIT2_PROXY`,
 `PERMIT2_WITNESS_TYPES`) live in [Gasless payments](/making-payments/gasless-payments/). On
 **Solana**, the `exact` payload is a different shape entirely — a base64 partial-signed
 `TransferChecked` transaction (`ExactSvmPaymentPayload`, the `svm` method), built and verified inside
-the Solana driver, not via these EVM codecs; see [Gasless payments](/making-payments/gasless-payments/#solana--how-svm-gasless-works).
+the Solana driver, not via these EVM codecs. The serialized transaction also carries a spec-required
+**SPL-Memo** instruction (the rail's `extra.memo`, else a random hex nonce for uniqueness) — it lives
+inside the transaction, not as a separate wire field; see [Gasless payments](/making-payments/gasless-payments/#solana--how-svm-gasless-works).
 (The chain's native coin — incl. SOL — is never `exact`-payable.)
 
 :::note
