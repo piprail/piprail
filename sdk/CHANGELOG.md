@@ -31,6 +31,10 @@ versions follow [Semantic Versioning](https://semver.org/).
   (`UnsupportedSchemeError`). This **changes the exact-rail's default emitted bytes** (a Memo is now
   present) — a *required* conformance change, additive on the wire (old PipRail gates already tolerate
   an inbound Memo). The `onchain-proof` default is byte-identical and untouched.
+- **harden(units): validate `decimals` is a non-negative safe integer.** `parseUnits` / `floorUnits` /
+  `formatUnits` now reject a negative, fractional, or NaN `decimals` argument up front (instead of
+  silently corrupting the bigint math via `padStart` / `slice`) — defence against a malformed preset or
+  a bad caller arg. Existing valid calls are unaffected. Thanks to @samsamtrum (#25).
 
 ## [2.7.0] — 2026-06-19 — symmetric payment notifications (`onFailed`: both sides notified on success AND failure)
 
@@ -1461,6 +1465,8 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[2.8.0]: https://www.npmjs.com/package/@piprail/sdk
+[2.7.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.6.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.5.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.4.0]: https://www.npmjs.com/package/@piprail/sdk
