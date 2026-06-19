@@ -66,4 +66,18 @@ describe('fileSpendStore — durable local JSONL log', () => {
     expect(() => store.append(rec())).not.toThrow()
     expect(store.load()).toEqual([]) // unreadable → empty, not a crash
   })
+
+  it('a JSON-valid-but-hostile line (bad amountBase) hydrates SAFELY — ledger skips it, no crash', () => {
+    // fileSpendStore.load() returns it (it's valid JSON); the LEDGER must then skip the
+    // un-tallyable record rather than throw BigInt(...) out of construction.
+    const path = tmpFile()
+    writeFileSync(
+      path,
+      `${JSON.stringify(rec())}\n${JSON.stringify(rec({ amountBase: '1e6', ref: 'bad' }))}\n${JSON.stringify(rec({ decimals: 999, ref: 'bad2' }))}\n`
+    )
+    let l: SpendLedger | undefined
+    expect(() => { l = new SpendLedger(fileSpendStore(path)) }).not.toThrow()
+    expect(l!.count()).toBe(1) // only the one good record survived
+    expect(() => l!.summary()).not.toThrow()
+  })
 })

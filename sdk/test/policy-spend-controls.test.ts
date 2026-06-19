@@ -164,3 +164,24 @@ describe('evaluatePolicy — pinned order with the new caps', () => {
     expect(d.code).toBe('WINDOW_TOTAL')
   })
 })
+
+describe('denomOf / capForDenom — adversarial hardening', () => {
+  it('a NATIVE coin is NEVER in a denomination, even if its symbol matches a built-in', () => {
+    // A hostile/edge native coin labelled USDC must not be bucketed into USD (no oracle for native).
+    expect(denomOf('USDC', 'native', undefined)).toBeUndefined()
+    expect(denomOf('USDC', 'native', { denomFor: { USDC: 'USD' } })).toBeUndefined()
+  })
+  it('denomination keys are whitespace-insensitive (a " USD " value/key still resolves)', () => {
+    expect(denomOf('PYUSD', '0x', { denomFor: { PYUSD: ' usd ' } })).toBe('USD')
+  })
+  it('a non-string denomFor value is ignored (never throws .toUpperCase out of a pure fn)', () => {
+    // @ts-expect-error — deliberately malformed value
+    expect(denomOf('WIDGET', '0xw', { denomFor: { WIDGET: 123 } })).toBeUndefined()
+  })
+  it('the STRICTEST cap wins when maxTotalPerDenom has case-variant keys (no looser-cap bypass)', () => {
+    // { USD:'5', usd:'0.04' } must enforce 0.04 — a 0.05 USDC payment is refused.
+    const d = evaluatePolicy(intent(), { maxTotalPerDenom: { USD: '5', usd: '0.04' } }, 0n, ctx())
+    expect(d.allowed).toBe(false)
+    expect(d.code).toBe('MAX_TOTAL_DENOM')
+  })
+})

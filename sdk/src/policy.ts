@@ -12,19 +12,25 @@
  * cheap-looking amount. An asset the SDK can't recognise can't be priced
  * safely, so it's declined unless `allowUnknownTokens` is explicitly set.
  */
-import { floorUnits } from './util/units.js'
+import { floorUnits, MAX_DECIMALS } from './util/units.js'
 import type { Caip2 } from './x402.js'
 import type { ChainSelector } from './drivers/types.js'
 
 /**
- * Fixed precision (decimal places) the cross-token GRAND-TOTAL accumulator sums
- * in. Every payment's base-unit amount is scaled to this many decimals before it
- * joins its denomination's running total, so tokens with DIFFERENT decimals
- * (USDC 6dp, USD1 18dp, …) add up exactly with no floating point. 24dp covers
- * every token PipRail ships (the deepest stablecoin is 18dp); a token finer than
- * this can't be summed safely and is simply left out of the grand total.
+ * Fixed precision (decimal places) the cross-token GRAND-TOTAL accumulator sums in.
+ * Every payment's base-unit amount is scaled to this many decimals before it joins its
+ * denomination's running total, so tokens with DIFFERENT decimals (USDC 6dp, USD1 18dp,
+ * …) add up exactly with no floating point.
+ *
+ * Pinned to {@link MAX_DECIMALS} — the most decimals any priceable token may have — ON
+ * PURPOSE: it guarantees EVERY token the SDK will price can be summed into a grand total.
+ * If this were smaller, a token whose decimals fell in the gap would be silently EXCLUDED
+ * from the denomination total, letting a server slip spend past a `maxTotalPerDenom` cap
+ * (a real bypass — caught by adversarial review: a hostile token labelled `USDC` with
+ * `decimals:25` escaped a 24dp accumulator). With them equal, `scaleToDenom` never returns
+ * null for a valid token, so no spend can escape the cap.
  */
-export const DENOM_PRECISION = 24
+export const DENOM_PRECISION = MAX_DECIMALS
 
 /**
  * Static, ship-time DENOMINATION labels for the SDK's built-in stablecoins — the
@@ -62,16 +68,32 @@ export function denomOf(
   asset: string | undefined,
   policy: PaymentPolicy | undefined
 ): string | undefined {
+  // A NATIVE coin (ETH/BNB/SOL/…) is volatile and NEVER in a denomination bucket — pricing
+  // it would need an oracle. Hard-exclude it up front so a server that labels native with a
+  // stablecoin symbol (or a stray `denomFor`) can't slip it into a USD/EUR grand total.
+  if (asset === 'native') return undefined
+  // Normalise to UPPERCASE + trimmed so denomination keys are case- AND whitespace-insensitive
+  // (a ` USD ` key, or a 'usd' value, resolves the same as 'USD').
+  const norm = (v: unknown): string | undefined =>
+    typeof v === 'string' && v.trim() !== '' ? v.trim().toUpperCase() : undefined
   const override = policy?.denomFor
-  if (override) {
-    if (asset && override[asset] !== undefined) return override[asset].toUpperCase()
+  if (override && typeof override === 'object') {
+    // by exact asset id first, then by case-insensitive TRUE symbol. Non-string values are
+    // ignored (a malformed denomFor must never throw out of this pure function — see below).
+    if (asset && asset in override) {
+      const d = norm(override[asset])
+      if (d) return d
+    }
     if (symbol) {
-      const hit = Object.entries(override).find(([k]) => k.toUpperCase() === symbol.toUpperCase())
-      if (hit) return hit[1].toUpperCase()
+      const hit = Object.entries(override).find(([k]) => k.trim().toUpperCase() === symbol.trim().toUpperCase())
+      if (hit) {
+        const d = norm(hit[1])
+        if (d) return d
+      }
     }
   }
   if (symbol) {
-    const builtin = BUILTIN_DENOMS[symbol.toUpperCase()]
+    const builtin = BUILTIN_DENOMS[symbol.trim().toUpperCase()]
     if (builtin) return builtin
   }
   return undefined
@@ -88,15 +110,26 @@ export function scaleToDenom(amountBase: bigint, decimals: number): bigint | nul
   return amountBase * 10n ** BigInt(DENOM_PRECISION - decimals)
 }
 
-/** Case-insensitive lookup of a denomination's cap in `maxTotalPerDenom`. */
+/**
+ * Resolve a denomination's cap from `maxTotalPerDenom`, case- AND whitespace-insensitively.
+ * If several keys match the same denomination (e.g. `{ USD: '5', usd: '3' }`, or a CSV that
+ * repeated a denom), the STRICTEST (numerically smallest) cap wins — so a sloppy or hostile
+ * config can never silently relax the leash by adding a looser case-variant. Non-string keys
+ * or values are ignored.
+ */
 function capForDenom(
   caps: Record<string, string> | undefined,
   denom: string
 ): string | undefined {
-  if (!caps) return undefined
-  if (caps[denom] !== undefined) return caps[denom]
-  const hit = Object.entries(caps).find(([k]) => k.toUpperCase() === denom.toUpperCase())
-  return hit?.[1]
+  if (!caps || typeof caps !== 'object') return undefined
+  const target = denom.trim().toUpperCase()
+  let best: string | undefined
+  for (const [k, v] of Object.entries(caps)) {
+    if (typeof k !== 'string' || typeof v !== 'string') continue
+    if (k.trim().toUpperCase() !== target) continue
+    if (best === undefined || Number(v) < Number(best)) best = v
+  }
+  return best
 }
 
 export interface PaymentPolicy {
@@ -423,18 +456,26 @@ export function evaluatePolicy(
     const capStr = denom ? capForDenom(policy.maxTotalPerDenom, denom) : undefined
     if (denom && capStr !== undefined) {
       const thisScaled = scaleToDenom(intent.amountBase, intent.decimals)
-      // A token finer than the accumulator can't be summed safely — it's excluded from
-      // the grand total (its per-asset maxTotal still applies), never mis-counted.
-      if (thisScaled !== null) {
-        const capScaled = floorUnits(capStr, DENOM_PRECISION)
-        if ((ctx.spentInDenomScaled ?? 0n) + thisScaled > capScaled) {
-          return deny(
-            'MAX_TOTAL_DENOM',
-            `this payment would push total ${denom} spend past ` +
-              `policy.maxTotalPerDenom.${denom} (${capStr}) — summed across every ` +
-              `${denom} token and chain.`
-          )
-        }
+      // FAIL CLOSED: a denomination-capped token that can't be scaled into the accumulator
+      // (decimals > DENOM_PRECISION) must be REFUSED, never silently skipped — skipping would
+      // let it escape the grand total entirely (a cap bypass). Because DENOM_PRECISION ===
+      // MAX_DECIMALS and the client already rejects a quote with decimals > MAX_DECIMALS, this
+      // is unreachable for a real quote; it's a belt-and-suspenders guard for any other caller.
+      if (thisScaled === null) {
+        return deny(
+          'MAX_TOTAL_DENOM',
+          `token for ${denom} has more than ${DENOM_PRECISION} decimals — refusing to count it ` +
+            `toward policy.maxTotalPerDenom.${denom} on trust (it can't be summed safely).`
+        )
+      }
+      const capScaled = floorUnits(capStr, DENOM_PRECISION)
+      if ((ctx.spentInDenomScaled ?? 0n) + thisScaled > capScaled) {
+        return deny(
+          'MAX_TOTAL_DENOM',
+          `this payment would push total ${denom} spend past ` +
+            `policy.maxTotalPerDenom.${denom} (${capStr}) — summed across every ` +
+            `${denom} token and chain.`
+        )
       }
     }
   }

@@ -17,7 +17,7 @@
  * construction and appends each settled payment, so caps survive a restart. With no
  * store it's in-memory and process-scoped (the default — the session is the process).
  */
-import { formatUnits } from './util/units.js'
+import { formatUnits, MAX_DECIMALS } from './util/units.js'
 import { DENOM_PRECISION, scaleToDenom } from './policy.js'
 import type { SpendStore } from './spendstore.js'
 import type { Caip2 } from './x402.js'
@@ -122,13 +122,36 @@ export class SpendLedger {
       } catch {
         seed = []
       }
-      for (const r of seed) this.ingest(r, r.decimals ?? 0, r.denom)
+      // Each record is ingested defensively (corrupt entries are SKIPPED, not fatal), so a
+      // poisoned/hand-edited store line can never throw out of construction (ERRORS.md).
+      for (const r of seed) this.ingest(r, r?.decimals ?? 0, r?.denom)
     }
   }
 
-  /** Apply a record to the in-memory tallies (records + per-asset bucket + denom
-   *  total). Shared by {@link record} and constructor hydration; does NOT persist. */
-  private ingest(r: SpendRecord, decimals: number, denom?: string): SpendRecord {
+  /**
+   * A record is safe to tally iff its `amountBase` is a non-negative integer STRING and its
+   * `decimals` is an integer in `[0, MAX_DECIMALS]`. The live `record()` path always passes
+   * (the client validated the quote), but a hydrated record comes from an UNTRUSTED store
+   * (a tampered/corrupt/future-version JSONL line), so we gate it here — a bad record is
+   * dropped rather than allowed to throw `BigInt(...)`/`formatUnits(...)` later and brick a
+   * read or the constructor.
+   */
+  private isTallyable(r: SpendRecord | undefined, decimals: number): boolean {
+    return (
+      !!r &&
+      typeof r.amountBase === 'string' &&
+      /^\d+$/.test(r.amountBase) &&
+      Number.isInteger(decimals) &&
+      decimals >= 0 &&
+      decimals <= MAX_DECIMALS
+    )
+  }
+
+  /** Apply a record to the in-memory tallies (records + per-asset bucket + denom total).
+   *  Shared by {@link record} and constructor hydration; does NOT persist. Returns the
+   *  stored record, or `null` when the record is corrupt and was skipped. */
+  private ingest(r: SpendRecord, decimals: number, denom?: string): SpendRecord | null {
+    if (!this.isTallyable(r, decimals)) return null
     const rec: SpendRecord = { ...r, decimals, ...(denom ? { denom } : {}) }
     this.records.push(rec)
 
@@ -167,7 +190,7 @@ export class SpendLedger {
    *  {@link SpendStore} when one is configured (a failed append never throws). */
   record(r: SpendRecord, decimals: number, denom?: string): void {
     const rec = this.ingest(r, decimals, denom)
-    if (this.store) {
+    if (rec && this.store) {
       try {
         this.store.append(rec)
       } catch {
@@ -205,7 +228,10 @@ export class SpendLedger {
   countSince(sinceMs: number): number {
     let n = 0
     for (const r of this.records) {
-      if (Date.parse(r.at) >= sinceMs) n += 1
+      // FAIL CLOSED on an unparseable `at` (corrupt store): count it toward the window
+      // rather than let `NaN >= sinceMs` (always false) silently drop it from the cap.
+      const t = Date.parse(r.at)
+      if (Number.isNaN(t) || t >= sinceMs) n += 1
     }
     return n
   }
@@ -220,9 +246,10 @@ export class SpendLedger {
   totalSince(network: string, asset: string, sinceMs: number): bigint {
     let sum = 0n
     for (const r of this.records) {
-      if (r.network === network && r.asset === asset && Date.parse(r.at) >= sinceMs) {
-        sum += BigInt(r.amountBase)
-      }
+      if (r.network !== network || r.asset !== asset) continue
+      // FAIL CLOSED on an unparseable `at` (count it toward the window) — see countSince.
+      const t = Date.parse(r.at)
+      if (Number.isNaN(t) || t >= sinceMs) sum += BigInt(r.amountBase)
     }
     return sum
   }

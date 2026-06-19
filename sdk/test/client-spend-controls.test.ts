@@ -7,6 +7,7 @@ import {
   registerDriver,
   buildChallengeHeader,
   buildReceiptHeader,
+  InvalidEnvelopeError,
   type PipRailEvent,
   type ResolvedNetwork,
   type SpendRecord,
@@ -231,5 +232,98 @@ describe('construction validation — new caps fail loudly', () => {
   })
   it('a count-only rolling window (no windowTotal) is allowed', () => {
     expect(() => mk({ policy: { maxPaymentsPerWindow: 5, windowSeconds: 60 } })).not.toThrow()
+  })
+  it('rejects a non-plain-object maxTotalPerDenom (array / Map would silently lose the cap)', () => {
+    expect(() => mk({ policy: { maxTotalPerDenom: ['5'] as unknown as Record<string, string> } })).toThrow(TypeError)
+    expect(() => mk({ policy: { maxTotalPerDenom: new Map([['USD', '5']]) as unknown as Record<string, string> } })).toThrow(TypeError)
+    expect(() => mk({ policy: { maxTotalPerDenom: { '': '5' } } })).toThrow(/blank/)
+  })
+  it('rejects a non-string denomFor value (would crash recordSpend AFTER settlement)', () => {
+    expect(() => mk({ policy: { denomFor: { PYUSD: 123 as unknown as string } } })).toThrow(TypeError)
+    expect(() => mk({ policy: { denomFor: { PYUSD: '' } } })).toThrow(TypeError)
+    expect(() => mk({ policy: { denomFor: { PYUSD: 'USD' } } })).not.toThrow()
+  })
+  it('rejects an invalid expiresAt (NaN/Infinity/string/float disarm the time leash)', () => {
+    for (const bad of [Number.NaN, Infinity, -Infinity, 1.5, '123' as unknown as number, 9e18]) {
+      expect(() => mk({ policy: { expiresAt: bad } }), `expiresAt=${bad}`).toThrow(TypeError)
+    }
+    expect(() => mk({ policy: { expiresAt: Date.now() + 60_000 } })).not.toThrow()
+  })
+})
+
+// Serve a 402 whose accept entry is `extra`-controlled (for hostile-input cases). `extra` is
+// MERGED over the defaults, so a caller only overrides the fields it cares about.
+function stubChallenge(accept: Omit<Partial<X402AcceptEntry>, 'extra'> & { extra?: Record<string, unknown> }) {
+  const { extra: extraOver, ...rest } = accept
+  const full: X402AcceptEntry = {
+    scheme: 'onchain-proof', network: A, amount: '50000', asset: '0xusdc', payTo: 'M', maxTimeoutSeconds: 600,
+    ...rest,
+    extra: { nonce: 'n', decimals: 6, minConfirmations: 1, amountFormatted: '0.05', symbol: 'USDC', ...(extraOver ?? {}) },
+  } as X402AcceptEntry
+  const body = { x402Version: 2 as const, error: null, resource: { url: URL }, accepts: [full] }
+  globalThis.fetch = (async (_u: unknown, init?: RequestInit) => {
+    if (new Headers(init?.headers ?? {}).get('payment-signature')) {
+      return new Response('{}', { status: 200, headers: { 'payment-response': buildReceiptHeader({
+        scheme: 'onchain-proof', success: true, network: full.network, transaction: 'ref',
+        asset: full.asset, amount: full.amount, payer: 'P', payTo: 'M', verifiedAt: '2026-06-02T00:00:00.000Z' }) } })
+    }
+    return new Response(JSON.stringify(body), { status: 402, headers: { 'payment-required': buildChallengeHeader(body) } })
+  }) as typeof fetch
+}
+
+describe('SMASH IT — adversarial / hostile-server edge cases', () => {
+  it('OOM guard: a 402 stating an absurd `decimals` is rejected, not allocated', async () => {
+    // Unknown asset (describeAsset → null) so `decimals` is server-stated; allowUnknownTokens
+    // lets it past the unknown-token guard so we reach the amount math — which must NOT
+    // padEnd(1e9, '0') (multi-GB string). The bound rejects it FIRST.
+    const c = mk({ policy: { allowUnknownTokens: true } })
+    stubChallenge({ asset: '0xUNKNOWN', extra: { nonce: 'n', decimals: 1_000_000_000, amountFormatted: '1', symbol: 'WUT' } })
+    await expect(c.quote(URL)).rejects.toMatchObject({ code: 'INVALID_ENVELOPE' })
+  })
+  it('rejects a negative / non-integer / non-string amount as a malformed envelope', async () => {
+    const c = mk()
+    for (const amount of ['-5', '0.5', '1e6', 'abc']) {
+      stubChallenge({ amount: amount as string })
+      await expect(c.quote(URL), `amount=${amount}`).rejects.toBeInstanceOf(InvalidEnvelopeError)
+    }
+  })
+  it('a ZERO-amount payment settles, bumps the count, but adds nothing to a denom total', async () => {
+    const c = mk({ policy: { maxTotalPerDenom: { USD: '1' }, maxPayments: 5 } })
+    stubChallenge({ amount: '0', extra: { nonce: 'n', decimals: 6, amountFormatted: '0', symbol: 'USDC' } })
+    await c.get(URL)
+    expect(c.budget().counts.settled).toBe(1) // count cap still sees it
+    expect(c.budget().byDenom[0]).toMatchObject({ spentFormatted: '0' }) // denom total unchanged
+  })
+  it('exact bigint at the grand-total boundary — equal-to-cap allowed, one base unit over denied', async () => {
+    const c = mk({ policy: { maxTotalPerDenom: { USD: '0.10' } } })
+    stubPay(A, '0xusdc', 'USDC') // 0.05
+    await c.get(URL) // USD total 0.05
+    await c.get(URL) // USD total exactly 0.10 — at the cap, allowed
+    expect(c.budget().byDenom[0]).toMatchObject({ spentFormatted: '0.1', remainingFormatted: '0' })
+    // One more base unit (0.000001 USDC) tips it over → refused, no funds move.
+    stubChallenge({ asset: '0xusdc', amount: '1', extra: { nonce: 'n', decimals: 6, amountFormatted: '0.000001', symbol: 'USDC' } })
+    await expect(c.get(URL)).rejects.toMatchObject({ code: 'PAYMENT_DECLINED', reasonCode: 'BUDGET' })
+    expect(c.budget().counts.settled).toBe(2) // only the two 0.05 payments settled
+  })
+  it('store hydration tolerates a poisoned log (a hostile line is skipped, no throw)', () => {
+    // A valid-JSON but absurd-decimals record must not OOM on reload, and a junk line is skipped.
+    const poisoned = memorySpendStore([
+      { url: 'u', host: 'h', network: A, asset: '0xusdc', amountBase: '50000', amountFormatted: '0.05', symbol: 'USDC', decimals: 6, denom: 'USD', ref: 'r1', at: '2026-06-02T00:00:00.000Z' },
+    ])
+    expect(() => mk({ policy: { maxTotalPerDenom: { USD: '1' } }, spendStore: poisoned }).budget())
+      .not.toThrow()
+  })
+  it('GRAND-TOTAL BYPASS regression: a token labelled USDC with deep decimals cannot escape the USD cap', async () => {
+    // Adversarial finding: a hostile unknown token claiming symbol=USDC + decimals=25 once
+    // ESCAPED the USD grand total (scaleToDenom returned null for >24dp → silently skipped).
+    // Now DENOM_PRECISION === MAX_DECIMALS, so it counts toward USD and the cap binds.
+    const c = mk({ policy: { allowUnknownTokens: true, maxTotalPerDenom: { USD: '0.01' } } })
+    // 10^26 base units @ 25dp = 10 "USD" — must be refused by the $0.01 cap.
+    stubChallenge({ asset: '0xHOSTILE', amount: '1' + '0'.repeat(26), extra: { nonce: 'n', decimals: 25, amountFormatted: '10', symbol: 'USDC' } })
+    const q = await c.quote(URL)
+    expect(q?.withinPolicy).toBe(false)
+    expect(q?.policyCode).toBe('MAX_TOTAL_DENOM')
+    await expect(c.get(URL)).rejects.toMatchObject({ reasonCode: 'BUDGET' })
+    expect(c.spent().count).toBe(0) // nothing escaped + settled
   })
 })

@@ -105,3 +105,50 @@ describe('SpendLedger — durable store (hydrate + append)', () => {
     expect(l.totalForDenom('USD')).toBe(50_000n * 10n ** BigInt(DENOM_PRECISION - 6)) // in-memory tally still updated
   })
 })
+
+describe('SpendLedger — crash-safe against a POISONED store (adversarial regression)', () => {
+  // A SpendStore is caller-owned (a tampered/corrupt/future-version JSONL file), so a
+  // hydrated record can carry anything. None of it may crash construction or a read.
+  const poison = (over: Record<string, unknown>): SpendRecord =>
+    ({ ...rec(), ...over }) as unknown as SpendRecord
+
+  it('skips records with a non-numeric / float / non-string amountBase (constructor never throws)', () => {
+    for (const amountBase of ['not-a-number', '1e6', '0x5', '-1', 0.5, 5, null, undefined]) {
+      const store = memorySpendStore([poison({ amountBase })])
+      let l: SpendLedger | undefined
+      expect(() => { l = new SpendLedger(store) }).not.toThrow()
+      expect(l!.count()).toBe(0) // the corrupt record was skipped, not tallied
+    }
+  })
+
+  it('skips records with out-of-range decimals (-1, 200) — reads NEVER throw', () => {
+    for (const decimals of [-1, 200, 1.5, Number.NaN]) {
+      const l = new SpendLedger(memorySpendStore([poison({ decimals })]))
+      expect(l.count()).toBe(0)
+      expect(() => l.summary()).not.toThrow()
+      expect(() => l.summary().byDenom).not.toThrow()
+    }
+  })
+
+  it('a mix of good + poisoned records keeps ONLY the good ones (totals stay exact)', () => {
+    // Hydration reads decimals + denom OFF each record, so the good ones carry them.
+    const l = new SpendLedger(memorySpendStore([
+      rec({ ref: 'good1', decimals: 6, denom: 'USD' }),
+      poison({ amountBase: 'JUNK', ref: 'bad1' }),
+      rec({ asset: '0xusdt', symbol: 'USDT', ref: 'good2', decimals: 6, denom: 'USD' }),
+      poison({ decimals: 999, ref: 'bad2' }),
+    ]))
+    expect(l.count()).toBe(2)
+    expect(l.totalForDenom('USD')).toBe(100_000n * 10n ** BigInt(DENOM_PRECISION - 6)) // 0.05 + 0.05
+  })
+
+  it('countSince/totalSince fail CLOSED on an unparseable `at` (counts it, never silently drops)', () => {
+    const l = new SpendLedger(memorySpendStore([
+      rec({ at: 'not-a-date', decimals: 6, denom: 'USD' }),
+      rec({ ref: 'r2', decimals: 6, denom: 'USD' }),
+    ]))
+    expect(l.count()).toBe(2)
+    expect(l.countSince(0)).toBe(2) // the bad-`at` record is counted, not dropped (no NaN-compare hole)
+    expect(l.totalForDenom('USD')).toBe(100_000n * 10n ** BigInt(DENOM_PRECISION - 6))
+  })
+})

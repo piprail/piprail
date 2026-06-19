@@ -17,6 +17,8 @@ import { run as s16 } from './suites/16-aptos-exact.mjs'
 import { run as s09 } from './suites/09-multichain.mjs'
 import { run as s10 } from './suites/10-agent-toolkit.mjs'
 import { run as s11 } from './suites/11-api-surface.mjs'
+// Suite 17 also registers a fake driver + stubs fetch, so it runs in the fake-driver block.
+import { run as s17 } from './suites/17-spend-controls.mjs'
 
 const suites = [
   ['01 merchant gate', s01],
@@ -32,6 +34,7 @@ const suites = [
   ['09 multi-chain (MultiChainPayer)', s09],
   ['10 agent toolkit (7 tools)', s10],
   ['11 api-surface sweep', s11],
+  ['17 spend controls (grand total · counts · persistence · adversarial)', s17],
 ]
 
 for (const [name, run] of suites) {

@@ -43,6 +43,23 @@ is **additive and opt-in**: omit the new fields and behaviour is byte-identical 
   coarse `DeclineReasonCode` set is unchanged — they map to `BUDGET` / `BUDGET` / `OUTSIDE_WINDOW`).
 - **New package entry `@piprail/sdk/node`** (`exports["./node"]`) for the Node-only `fileSpendStore`;
   the core `@piprail/sdk` bundle stays browser-safe (no static `node:fs`).
+- **Hardened against an adversarial review** (38-agent fuzz of the new surface). Fixes shipped
+  before release — see [Internals & hardening](https://docs.piprail.com/spend-controls/internals/):
+  - **OOM/DoS:** an absurd server-stated `decimals` (e.g. `1e9`) is rejected by a new `MAX_DECIMALS`
+    (100) bound at the envelope + the `assertValidDecimals` chokepoint (no multi-GB string).
+  - **Grand-total bypass (fund safety):** a token labelled `USDC` with `decimals` in `(24, 100]`
+    once **escaped** `maxTotalPerDenom`. `DENOM_PRECISION` is now pinned to `MAX_DECIMALS` and the
+    denom check **fails closed** (refuses an unscalable capped token, never skips it).
+  - **Strictest-cap-wins:** case-variant / whitespace / duplicate denomination keys (`{ USD, usd }`,
+    `" USD "`, a repeated CSV denom) now enforce the SMALLEST cap, never silently relax the leash.
+  - **Native never bucketed:** a native coin can't be summed into a USD/EUR total even if its symbol
+    matches a stablecoin.
+  - **Poisoned-store crash-safety:** the ledger validates + skips un-tallyable hydrated records
+    (non-numeric/negative `amountBase`, out-of-range `decimals`), so a corrupt store line can't crash
+    construction or make `budget()`/`spent()`/`summary()` throw; an unparseable `at` fails closed.
+  - **Loud validation:** `expiresAt` (must be a representable epoch-ms), a non-plain-object
+    `maxTotalPerDenom`, and a non-string `denomFor` value are all rejected at construction (the last
+    would otherwise throw at PAY time, after settlement).
 
 ## [2.8.0] — 2026-06-19 — Solana exact SPL-Memo conformance · TON canonical CAIP-2 (`tvm:-239`) · Toncoin→Gram
 

@@ -483,7 +483,10 @@ export function parseConfig(env: Env = process.env): Config {
           `Invalid PIPRAIL_MAX_TOTAL_DENOM entry "${pair}". Use DENOM:amount pairs, e.g. "USD:20.00,EUR:5.00".`
         )
       }
-      map[m[1]!.toUpperCase()] = m[2]!
+      const denom = m[1]!.toUpperCase()
+      const amount = m[2]!
+      // A repeated denom keeps the STRICTEST (smallest) cap — never silently relax the leash.
+      if (map[denom] === undefined || Number(amount) < Number(map[denom])) map[denom] = amount
     }
     if (Object.keys(map).length) maxTotalPerDenom = map
   }

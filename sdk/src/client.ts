@@ -72,7 +72,7 @@ import {
 } from './policy.js'
 import { SpendLedger, type SpendSummary, type SpendRecord } from './ledger.js'
 import type { SpendStore } from './spendstore.js'
-import { formatUnits, floorUnits } from './util/units.js'
+import { formatUnits, floorUnits, MAX_DECIMALS } from './util/units.js'
 
 /** Observability events. `ref` is the proof — a chain-specific id (EVM tx hash, Solana signature, TON locator, Stellar tx hash). */
 export type PipRailEvent =
@@ -673,19 +673,40 @@ export class PipRailClient {
         )
       }
     }
-    // Each grand-total cap must be a non-negative decimal string too.
+    // Each grand-total cap must be a non-negative decimal string too. The container must be
+    // a PLAIN object — an array or a Map/Set is `typeof 'object'` but its entries would be
+    // silently lost (Object.entries(map) === []), disarming the cap without a peep.
     if (policy.maxTotalPerDenom !== undefined) {
-      if (typeof policy.maxTotalPerDenom !== 'object' || policy.maxTotalPerDenom === null) {
+      const m = policy.maxTotalPerDenom as unknown
+      const proto = m && typeof m === 'object' ? Object.getPrototypeOf(m) : false
+      if (!m || typeof m !== 'object' || Array.isArray(m) || (proto !== Object.prototype && proto !== null)) {
         throw new TypeError(
-          `policy.maxTotalPerDenom must be a { DENOM: amount } map (e.g. { USD: '20.00' }).`
+          `policy.maxTotalPerDenom must be a plain { DENOM: amount } object (e.g. { USD: '20.00' }); ` +
+            `got ${JSON.stringify(policy.maxTotalPerDenom)}.`
         )
       }
       for (const [denom, v] of Object.entries(policy.maxTotalPerDenom)) {
+        if (denom.trim() === '') {
+          throw new TypeError('policy.maxTotalPerDenom has a blank denomination key.')
+        }
         if (typeof v !== 'string' || !/^\d+(\.\d+)?$/.test(v)) {
           throw new TypeError(
             `policy.maxTotalPerDenom.${denom} must be a non-negative decimal string (e.g. '20.00'); ` +
               `got ${JSON.stringify(v)}.`
           )
+        }
+      }
+    }
+    // `denomFor` values must be strings — a non-string would throw `.toUpperCase()` out of
+    // denomOf at PAY time (after the payment settled), so reject it loudly at construction.
+    if (policy.denomFor !== undefined) {
+      const m = policy.denomFor as unknown
+      if (!m || typeof m !== 'object' || Array.isArray(m)) {
+        throw new TypeError(`policy.denomFor must be a { token: DENOM } object; got ${JSON.stringify(m)}.`)
+      }
+      for (const [k, v] of Object.entries(policy.denomFor)) {
+        if (typeof v !== 'string' || v.trim() === '') {
+          throw new TypeError(`policy.denomFor.${k} must be a non-empty denomination string; got ${JSON.stringify(v)}.`)
         }
       }
     }
@@ -764,6 +785,20 @@ export class PipRailClient {
         throw new TypeError(
           'policy.ttlSeconds must be a positive integer number of seconds small enough that ' +
             'the resulting deadline stays a safe integer.'
+        )
+      }
+    }
+    // `expiresAt` is an absolute epoch-ms deadline. A NaN / non-finite / non-integer / string
+    // value would silently DISARM the time leash (`now >= NaN` is always false) AND, via
+    // `Math.min(ttlDeadline, NaN) === NaN`, destroy a co-set `ttlSeconds`; a value outside the
+    // representable Date range would also throw `new Date(...).toISOString()` out of the
+    // never-throw budget() read. Require a safe-integer epoch-ms a Date can represent (±8.64e15).
+    if (policy.expiresAt !== undefined) {
+      const at = policy.expiresAt
+      if (!Number.isSafeInteger(at) || Math.abs(at) > 8.64e15) {
+        throw new TypeError(
+          `policy.expiresAt must be an absolute epoch-MILLISECONDS integer (like Date.now()); ` +
+            `got ${JSON.stringify(at)}.`
         )
       }
     }
@@ -1628,6 +1663,15 @@ export class PipRailClient {
       throw new InvalidEnvelopeError(
         `challenge for ${accept.asset} on ${accept.network} states no valid decimals and the SDK ` +
           `doesn't recognise the token — refusing to price it.`
+      )
+    }
+    // Upper bound: a hostile/buggy 402 could state an absurd `decimals` (e.g. 1e9) for an
+    // unrecognised token; pricing it would make floorUnits/formatUnits allocate a multi-GB
+    // string (an OOM-DoS). Reject it as a malformed envelope before any amount math runs.
+    if (decimals > MAX_DECIMALS) {
+      throw new InvalidEnvelopeError(
+        `challenge for ${accept.asset} on ${accept.network} states ${decimals} decimals ` +
+          `(> ${MAX_DECIMALS}) — refusing to price it (no real token is that deep).`
       )
     }
     const symbol = described?.symbol ?? accept.extra?.symbol
