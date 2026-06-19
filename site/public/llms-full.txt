@@ -1,6 +1,6 @@
 # PipRail — full reference for agents
 
-> Last-Updated: 2026-06-19 · SDK-Version: 2.8.0 · MCP-Version: 0.7.0 · Type: APIService · License: MIT
+> Last-Updated: 2026-06-19 · SDK-Version: 2.9.0 · MCP-Version: 0.8.0 · Type: APIService · License: MIT
 
 > Accept and make x402 "402 Payment Required" crypto payments from any HTTP request, across 29 chains in 10 families, with no backend, no database, no account, and no fee. Payments settle straight into your own wallet, verified locally against your own RPC. `@piprail/sdk` is an open-source (MIT) TypeScript SDK that runs headless or in the browser. This file is the everything-in-one-fetch version: the pitch, real code, the chain list, and the error model.
 
@@ -265,7 +265,7 @@ A cite-ready, no-superlative summary of how PipRail differs:
 
 - **Coverage:** 29 chains across 10 families — 20 EVM mainnets plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger. Most x402 SDKs are EVM-only or EVM + Solana; PipRail reaches all ten with native, self-custodial drivers.
 - **Backendless by default:** payments settle wallet-to-wallet, verified against the merchant's own RPC. PipRail runs no service, holds no funds, and charges no protocol fee — where most x402 stacks route through a third-party facilitator.
-- **Budget-bound before any send:** `PIPRAIL_MAX_AMOUNT` (per payment) and `PIPRAIL_MAX_TOTAL` (lifetime per token) are enforced against the token's true on-chain decimals. An over-budget request comes back as `{ declined: true, reason }` and nothing moves — the agent can't overspend even if instructed to.
+- **Budget-bound before any send:** `PIPRAIL_MAX_AMOUNT` (per payment) and `PIPRAIL_MAX_TOTAL` (lifetime per token) are enforced against the token's true on-chain decimals. For a single "spend at most $X total, full stop" leash across every stablecoin and chain, `PIPRAIL_MAX_TOTAL_DENOM` (e.g. `USD:20.00`) sums them as one unit (a 1:1 unit-of-account sum, never a price oracle; native coins excluded); `PIPRAIL_MAX_PAYMENTS`/`PIPRAIL_MAX_PAYMENTS_PER_WINDOW` cap the *number* of payments. `PIPRAIL_SPEND_LOG` makes the whole budget survive a restart; `PIPRAIL_EVENT_LOG` + `PIPRAIL_WARN_AT_FRACTION` stream a notification as spend approaches a cap. An over-budget request comes back as `{ declined: true, reason }` and nothing moves — the agent can't overspend even if instructed to.
 - **Self-custodial:** the wallet key never leaves your machine. The MCP server runs locally, reads your RPC, and signs with your key. Zero custody.
 - **Quote before paying:** `piprail_quote_payment` shows the exact price without moving funds; `piprail_plan_payment` checks balance, gas, recipient-readiness, and policy in one read-only call — so the agent knows a payment will settle before broadcasting.
 - **Zero setup:** add your key to env vars and restart. No deploy, no API key to request, no account, no contract to write. Works in Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, and Cline.
