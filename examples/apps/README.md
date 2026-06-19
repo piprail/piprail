@@ -2,7 +2,7 @@
 
 The examples one level up are **mini examples** — focused, single-purpose snippets that prove one
 thing (gate a route, pay a 402, discover an endpoint) — and the **sandboxes**
-([`sdk-sandbox/`](../sdk-sandbox), [`mcp-sandbox/`](../mcp-sandbox)) are end-to-end test suites.
+([`sdk-sandbox/`](../basics/sdk-sandbox), [`mcp-sandbox/`](../basics/mcp-sandbox)) are end-to-end test suites.
 
 This folder is for the next tier up: **complete, runnable applications** that show PipRail inside a
 real product — a frontend, a backend, persistence, the whole shape. Each app here is self-contained

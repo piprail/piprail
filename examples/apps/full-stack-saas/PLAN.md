@@ -30,7 +30,7 @@ about the moment they go past "hello world":
 ## Stack (chosen for portability + understandability)
 
 - **Next.js (App Router)** — frontend pages **and** the gated API route in one repo, one `npm run dev`.
-  (The gate pattern is `createPaymentGate`, identical to the [`next-app-router/`](../../next-app-router)
+  (The gate pattern is `createPaymentGate`, identical to the [`next-app-router/`](../../basics/next-app-router)
   mini example — this app is that route + persistence + a UI.)
 - **Prisma + SQLite** — the SQL database. SQLite means zero setup (a file), and Prisma's schema reads
   as documentation. Swapping to Postgres/MySQL is a one-line datasource change (call that out in the README).
@@ -120,10 +120,10 @@ model UsedProof {                          // optional: SQL-backed replay store 
 - No auth/billing/multi-tenant accounts — it's a payments demo, not a SaaS starter kit.
 - No hosted infra — SQLite + `npm run dev`. (Note the Postgres one-liner for production.)
 - Don't reintroduce a "payments backend": the DB stores the merchant's *own* receipts via `onPaid`;
-  PipRail still verifies locally with no facilitator. The contrast with [`why-402/`](../../why-402)
+  PipRail still verifies locally with no facilitator. The contrast with [`why-402/`](../../basics/why-402)
   (the backend you'd need *without* x402) is worth a one-line callout.
 
 ---
 
-*When building: start from the [`next-app-router/`](../../next-app-router) mini example (the gate +
+*When building: start from the [`next-app-router/`](../../basics/next-app-router) mini example (the gate +
 route), add Prisma, wire `onPaid`/`isUsed`/`markUsed`, then the dashboard. Half a day, tops.*

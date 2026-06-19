@@ -148,14 +148,14 @@ expect a wait on TON (asynchronous settlement) and Tron (verified on the solidit
 
 ## A reference harness — the Anvil end-to-end
 
-For EVM you don't need mainnet at all: the `examples/sdk-sandbox` harness runs the same accept ↔
+For EVM you don't need mainnet at all: the `examples/basics/sdk-sandbox` harness runs the same accept ↔
 pay round-trip — USDC **and** the native coin — against a **local Anvil fork of Base** with fake
 funds, and asserts the second redemption is `tx_already_used`. It forks via a public RPC, deals
 itself fake USDC by writing contract storage, and skips cleanly if Anvil isn't installed — so
 it's a regression gate that costs nothing.
 
 ```bash
-cd examples/sdk-sandbox && npm install   # suite 05 imports the installed @piprail/sdk
+cd examples/basics/sdk-sandbox && npm install   # suite 05 imports the installed @piprail/sdk
 node run-all.mjs                          # suite 05 is the live on-chain round-trip
 ```
 
@@ -165,7 +165,7 @@ To exercise **working-tree** SDK code (it imports `../../../sdk/dist`), build fi
 
 ```bash
 npm run build:sdk
-node examples/sdk-sandbox/suites/07-exact-rail.mjs
+node examples/basics/sdk-sandbox/suites/07-exact-rail.mjs
 ```
 
 Use the fork to prove the *shape* of the loop, and a funded mainnet wallet to prove the *chain*.
