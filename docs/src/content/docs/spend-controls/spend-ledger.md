@@ -111,7 +111,7 @@ summary.byDenom[0] // → { denom: 'USD', totalFormatted: '0.30', count: 3, … 
 ```ts
 interface SpendDenomTotal {
   denom: string           // the unit of account, e.g. 'USD'
-  totalScaled: string     // cumulative value at DENOM_PRECISION (24 dp), as a string
+  totalScaled: string     // cumulative value at the DENOM_PRECISION fixed point, as a string
   totalFormatted: string  // human units, e.g. '0.30'
   count: number           // payments rolled into this denomination
 }

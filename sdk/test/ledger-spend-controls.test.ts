@@ -130,6 +130,18 @@ describe('SpendLedger — crash-safe against a POISONED store (adversarial regre
     }
   })
 
+  it('a NON-STRING denom never throws out of construction or reads (coerced to no-denomination)', () => {
+    // A tampered/future-version line could have denom = number/object/array — denom.toUpperCase()
+    // would otherwise crash the constructor. The record still tallies per-asset; the denom is dropped.
+    for (const denom of [5, {}, ['USD'], true]) {
+      let l: SpendLedger | undefined
+      expect(() => { l = new SpendLedger(memorySpendStore([poison({ amountBase: '50000', decimals: 6, denom })])) }).not.toThrow()
+      expect(l!.count()).toBe(1) // valid amountBase/decimals → still counted
+      expect(l!.summary().byDenom).toEqual([]) // bad denom dropped, no grand total
+      expect(l!.totalForDenom('USD')).toBe(0n)
+    }
+  })
+
   it('a mix of good + poisoned records keeps ONLY the good ones (totals stay exact)', () => {
     // Hydration reads decimals + denom OFF each record, so the good ones carry them.
     const l = new SpendLedger(memorySpendStore([

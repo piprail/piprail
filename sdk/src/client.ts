@@ -627,9 +627,9 @@ export class PipRailClient {
   // total + count caps span several chains (MultiChainPayer.fromWallets).
   private readonly ledger: SpendLedger
 
-  // Which `warnAtFraction` thresholds have already fired (one event per crossing per
-  // cap), keyed `<scope>:<label>:<fraction>` — so a warning isn't re-emitted every pay.
-  private readonly warnedThresholds = new Set<string>()
+  // `warnAtFraction` threshold dedup lives on the LEDGER (`ledger.markWarned`), so clients
+  // sharing one ledger (a cross-chain MultiChainPayer) fire each threshold once for the whole
+  // shared budget — not once per chain.
 
   // Resolved lazily on first request — this is what lets Solana (and future
   // families) auto-mount with no setup call.
@@ -1856,8 +1856,9 @@ export class PipRailClient {
   /**
    * Emit a `budget-threshold` event for each cap whose used-fraction just reached
    * `policy.warnAtFraction` — the early warning before a hard decline. Fires ONCE per
-   * crossing per cap (tracked in `warnedThresholds`). No-op when no `warnAtFraction` is
-   * set. Reads the just-computed {@link SessionBudget}; pure + isolated (via safeEmit).
+   * crossing per cap (deduped on the shared ledger via `markWarned`, so a cross-chain
+   * threshold fires once for the whole budget, not once per chain). No-op when no
+   * `warnAtFraction` is set. Reads the just-computed {@link SessionBudget}; isolated (safeEmit).
    */
   private emitThresholds(budget: SessionBudget): void {
     const frac = this.opts.policy?.warnAtFraction
@@ -1870,9 +1871,8 @@ export class PipRailClient {
       fraction: number
     ): void => {
       if (fraction < frac) return
-      const key = `${scope}:${label}`
-      if (this.warnedThresholds.has(key)) return
-      this.warnedThresholds.add(key)
+      // Dedup on the (possibly shared) ledger so clients on one cross-chain budget warn once.
+      if (!this.ledger.markWarned(`${scope}:${label}`)) return
       this.safeEmit({ kind: 'budget-threshold', scope, label, spentFormatted, capFormatted, fraction })
     }
     // Per-(network, asset) maxTotal

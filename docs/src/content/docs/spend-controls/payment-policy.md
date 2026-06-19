@@ -201,8 +201,15 @@ required. This is the `PolicyDenyCode` enum, carried on `quote.policyCode` (and 
 | `TOKEN` | Symbol not in `tokens`. |
 | `MAX_AMOUNT` | Payment exceeds `maxAmount`. |
 | `MAX_TOTAL` | Payment would push the per-asset total past `maxTotal`. |
+| `MAX_TOTAL_DENOM` | Payment would push the cross-token total past `maxTotalPerDenom` for its denomination. |
+| `MAX_PAYMENTS` | Payment would exceed the lifetime `maxPayments` count. |
 | `SESSION_EXPIRED` | The session deadline has passed. |
 | `WINDOW_TOTAL` | Payment would exceed `windowTotal` within the window. |
+| `WINDOW_COUNT` | Payment would exceed `maxPaymentsPerWindow` within the window. |
+
+The coarse `DeclineReasonCode` on the thrown `PaymentDeclinedError` maps these as: `MAX_TOTAL` /
+`MAX_TOTAL_DENOM` / `MAX_PAYMENTS` → `BUDGET`; `WINDOW_TOTAL` / `WINDOW_COUNT` → `OUTSIDE_WINDOW`;
+`SESSION_EXPIRED` → `SESSION_EXPIRED`; everything else → `POLICY`.
 
 Checks run in this order — session expiry → chains → hosts → unknown-token → tokens → maxAmount
 → maxTotal → windowTotal — with the first failure winning. Expiry is checked first because it's

@@ -213,6 +213,20 @@ describe('shared ledger — ONE budget across chains', () => {
     expect(q?.withinPolicy).toBe(false)
     expect(q?.policyCode).toBe('MAX_TOTAL_DENOM')
   })
+
+  it('budget-threshold fires ONCE across a shared cross-chain ledger (not once per chain)', async () => {
+    const events: PipRailEvent[] = []
+    const payer = MultiChainPayer.fromWallets({
+      wallets: { base: KEY, bnb: KEY },
+      // cap 0.20 USD, warn at 50%. Pay 0.05 on A then 0.05 on B → 0.10 = 50% → crosses ONCE.
+      policy: { maxTotalPerDenom: { USD: '0.20' }, warnAtFraction: 0.5 },
+      onEvent: (e: PipRailEvent) => events.push(e),
+    })
+    stubPay(A, '0xusdc', 'USDC'); await payer.clients[0]!.get(URL) // 0.05 USD (25%)
+    stubPay(B, '0xusdt', 'USDT'); await payer.clients[1]!.get(URL) // 0.10 USD (50%) — crosses on chain B
+    const denomWarnings = events.filter((e) => e.kind === 'budget-threshold' && e.scope === 'denom' && e.label === 'USD')
+    expect(denomWarnings).toHaveLength(1) // deduped on the shared ledger — exactly one, not one-per-chain
+  })
 })
 
 describe('construction validation — new caps fail loudly', () => {

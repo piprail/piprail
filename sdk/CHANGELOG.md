@@ -60,6 +60,11 @@ is **additive and opt-in**: omit the new fields and behaviour is byte-identical 
   - **Loud validation:** `expiresAt` (must be a representable epoch-ms), a non-plain-object
     `maxTotalPerDenom`, and a non-string `denomFor` value are all rejected at construction (the last
     would otherwise throw at PAY time, after settlement).
+  - **Poisoned `denom` (final-pass fix):** a hydrated store record with a non-string `denom` is
+    coerced to "no denomination" (it still tallies per-asset) rather than throwing
+    `denom.toUpperCase()` out of construction/reads — completing the crash-safety guarantee.
+  - **`budget-threshold` dedup is ledger-scoped:** on a shared cross-chain ledger
+    (`MultiChainPayer.fromWallets`) a threshold now fires ONCE for the whole budget, not once per chain.
 
 ## [2.8.0] — 2026-06-19 — Solana exact SPL-Memo conformance · TON canonical CAIP-2 (`tvm:-239`) · Toncoin→Gram
 

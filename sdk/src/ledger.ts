@@ -98,6 +98,11 @@ export class SpendLedger {
   /** Per-denomination running total, scaled to {@link DENOM_PRECISION}. Keyed by the
    *  UPPERCASE denomination so lookups are case-insensitive. */
   private readonly denomTotals = new Map<string, bigint>()
+  /** Threshold keys already warned (`warnAtFraction` fires once per crossing per cap).
+   *  Lives on the LEDGER — not the client — so clients SHARING one (a cross-chain
+   *  MultiChainPayer) dedupe together: a denomination/count threshold fires once across the
+   *  whole shared budget, not once per chain. */
+  private readonly warned = new Set<string>()
   private readonly store?: SpendStore
 
   /**
@@ -152,7 +157,12 @@ export class SpendLedger {
    *  stored record, or `null` when the record is corrupt and was skipped. */
   private ingest(r: SpendRecord, decimals: number, denom?: string): SpendRecord | null {
     if (!this.isTallyable(r, decimals)) return null
-    const rec: SpendRecord = { ...r, decimals, ...(denom ? { denom } : {}) }
+    // A hydrated record's `denom` is untrusted (a tampered/future-version store line could
+    // make it a number/object). Coerce anything that isn't a non-blank string to "no
+    // denomination" — the per-asset tally still records; only the denom bucket is skipped.
+    // This keeps `denom.toUpperCase()` below from throwing out of construction / a read.
+    const denomStr = typeof denom === 'string' && denom.trim() !== '' ? denom : undefined
+    const rec: SpendRecord = { ...r, decimals, ...(denomStr ? { denom: denomStr } : {}) }
     this.records.push(rec)
 
     const key = keyFor(rec.network, rec.asset)
@@ -172,12 +182,12 @@ export class SpendLedger {
       })
     }
 
-    if (denom) {
+    if (denomStr) {
       const scaled = scaleToDenom(BigInt(rec.amountBase), decimals)
       // A token finer than the accumulator can't be summed safely — exclude it from
       // the grand total (its per-asset total still tracks it). Never mis-count.
       if (scaled !== null) {
-        const k = denom.toUpperCase()
+        const k = denomStr.toUpperCase()
         this.denomTotals.set(k, (this.denomTotals.get(k) ?? 0n) + scaled)
       }
     }
@@ -217,6 +227,15 @@ export class SpendLedger {
   /** Total number of settled payments (across every chain + token). Powers `maxPayments`. */
   count(): number {
     return this.records.length
+  }
+
+  /** Mark a `warnAtFraction` threshold key as fired; returns `true` the FIRST time (so the
+   *  caller emits the `budget-threshold` event once) and `false` thereafter. Shared across
+   *  every client on this ledger, so a cross-chain threshold fires once for the whole budget. */
+  markWarned(key: string): boolean {
+    if (this.warned.has(key)) return false
+    this.warned.add(key)
+    return true
   }
 
   /**

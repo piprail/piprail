@@ -86,11 +86,12 @@ scale. (Proven: `client-spend-controls` "GRAND-TOTAL BYPASS regression".)
 ### 5. Reads never throw; the ledger is crash-safe against a poisoned store
 A `SpendStore` is **caller-owned** — a tampered, corrupt, or future-version JSONL file can carry
 anything. The ledger **validates every hydrated record** (`amountBase` a non-negative integer string,
-`decimals` an integer in `[0, MAX_DECIMALS]`) and **skips** the corrupt ones — so a poisoned line can
-never throw `BigInt(…)`/`formatUnits(…)` out of construction, and `spent()`/`budget()`/`summary()`
-**never throw** (ERRORS.md). `fileSpendStore` separately skips non-JSON lines. A bad timestamp fails
-**closed**: an unparseable `at` is counted *toward* the rolling window, never silently dropped from
-the cap. (Proven: `ledger-spend-controls` "crash-safe against a POISONED store", `node-spendstore`.)
+`decimals` an integer in `[0, MAX_DECIMALS]`) and **skips** the corrupt ones; a non-string `denom` is
+coerced to "no denomination" (the record still tallies per-asset). So a poisoned line can never throw
+`BigInt(…)`/`formatUnits(…)`/`denom.toUpperCase(…)` out of construction, and `spent()`/`budget()`/
+`summary()` **never throw** (ERRORS.md). `fileSpendStore` separately skips non-JSON lines. A bad
+timestamp fails **closed**: an unparseable `at` is counted *toward* the rolling window, never silently
+dropped from the cap. (Proven: `ledger-spend-controls` "crash-safe against a POISONED store", `node-spendstore`.)
 
 ### 6. Concurrency is best-effort by design (documented, not hidden)
 `maxTotal`, `maxTotalPerDenom`, and the count caps are checked against spend recorded *so far*; many
