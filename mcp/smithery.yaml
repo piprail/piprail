@@ -6,13 +6,11 @@ startCommand:
   type: stdio
   configSchema:
     type: object
-    required:
-      - piprailPrivateKey
     properties:
       piprailPrivateKey:
         type: string
-        title: Wallet private key
-        description: Your wallet's private key/seed for the chosen chain. Stays on your machine; the spend policy caps every payment.
+        title: Wallet private key (optional)
+        description: Your wallet's private key/seed for the chosen chain. Stays on your machine; the spend policy caps every payment. Optional — leave blank to boot in read-only mode (discover/quote/plan/budget/guide work; paying needs a key).
       piprailChain:
         type: string
         default: base
