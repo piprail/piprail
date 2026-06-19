@@ -74,10 +74,24 @@ export interface Config {
   schemes?: PaymentScheme[]
   /** Session TTL in seconds (PIPRAIL_TTL). Absent ⇒ no time limit. */
   ttlSeconds?: number
-  /** Rolling-window cap, human units (PIPRAIL_WINDOW_TOTAL). Set WITH windowSeconds or neither. */
+  /** Rolling-window cap, human units (PIPRAIL_WINDOW_TOTAL). Set WITH windowSeconds. */
   windowTotal?: string
-  /** Rolling-window width in seconds (PIPRAIL_WINDOW_SECONDS). Set WITH windowTotal or neither. */
+  /** Rolling-window width in seconds (PIPRAIL_WINDOW_SECONDS). Shared by windowTotal +
+   *  maxPaymentsPerWindow. */
   windowSeconds?: number
+  /** Cross-token GRAND TOTAL per denomination (PIPRAIL_MAX_TOTAL_DENOM, CSV `USD:20.00,EUR:5.00`).
+   *  One budget across every stablecoin of that unit and every funded chain. */
+  maxTotalPerDenom?: Record<string, string>
+  /** Lifetime cap on the NUMBER of payments, across every chain + token (PIPRAIL_MAX_PAYMENTS). */
+  maxPayments?: number
+  /** Rolling-window cap on the NUMBER of payments (PIPRAIL_MAX_PAYMENTS_PER_WINDOW; needs windowSeconds). */
+  maxPaymentsPerWindow?: number
+  /** Warn (via the event log) when spend crosses this fraction of any cap (PIPRAIL_WARN_AT_FRACTION, 0–1). */
+  warnAtFraction?: number
+  /** Durable spend-log file path (PIPRAIL_SPEND_LOG) — make the budget survive a restart. */
+  spendLog?: string
+  /** Where to mirror payment events (PIPRAIL_EVENT_LOG): `stderr` or a file path. Absent ⇒ no event sink. */
+  eventLog?: string
   /** Ask the human to approve each payment via MCP elicitation (PIPRAIL_CONFIRM).
    *  Default false — Mode A (the spend policy IS the consent). True ⇒ Mode B (supervised). */
   confirm: boolean
@@ -118,6 +132,14 @@ const KNOWN_PIPRAIL_VARS = [
   'PIPRAIL_TTL',
   'PIPRAIL_WINDOW_TOTAL',
   'PIPRAIL_WINDOW_SECONDS',
+  // Cross-token grand total + payment-count caps + threshold warning.
+  'PIPRAIL_MAX_TOTAL_DENOM',
+  'PIPRAIL_MAX_PAYMENTS',
+  'PIPRAIL_MAX_PAYMENTS_PER_WINDOW',
+  'PIPRAIL_WARN_AT_FRACTION',
+  // Durable budget + an operator event sink (both opt-in; no backend).
+  'PIPRAIL_SPEND_LOG',
+  'PIPRAIL_EVENT_LOG',
   // Ask-before-pay (Feature B, Mode B) + the agent guide (Feature C).
   'PIPRAIL_CONFIRM',
   'PIPRAIL_CONFIRM_TIMEOUT_MS',
@@ -408,12 +430,24 @@ export function parseConfig(env: Env = process.env): Config {
     )
   }
 
-  // 5b) The rolling window needs BOTH bounds or NEITHER — a half-armed leash (a cap
-  //     with no width, or a width with no cap) silently wouldn't bite. Mirror the SDK guard.
-  if ((parsed.windowTotal === undefined) !== (parsed.windowSeconds === undefined)) {
+  // 5b) The rolling window: `windowSeconds` is the shared width for the money cap
+  //     (windowTotal) AND the count cap (maxPaymentsPerWindow). A money cap needs the
+  //     width; a width alone bounds nothing. Mirror the SDK guard.
+  const wantsWindowCount = pick(env, 'PIPRAIL_MAX_PAYMENTS_PER_WINDOW').value !== undefined
+  if (parsed.windowTotal !== undefined && parsed.windowSeconds === undefined) {
     throw new ConfigError(
-      'PIPRAIL_WINDOW_TOTAL and PIPRAIL_WINDOW_SECONDS must be set together (or neither) — ' +
-        'a rolling-window cap needs both a budget and a window width.'
+      'PIPRAIL_WINDOW_TOTAL needs PIPRAIL_WINDOW_SECONDS — a rolling-window cap needs a window width.'
+    )
+  }
+  if (parsed.windowSeconds !== undefined && parsed.windowTotal === undefined && !wantsWindowCount) {
+    throw new ConfigError(
+      'PIPRAIL_WINDOW_SECONDS must accompany PIPRAIL_WINDOW_TOTAL and/or PIPRAIL_MAX_PAYMENTS_PER_WINDOW — ' +
+        'a window width alone bounds nothing.'
+    )
+  }
+  if (wantsWindowCount && parsed.windowSeconds === undefined) {
+    throw new ConfigError(
+      'PIPRAIL_MAX_PAYMENTS_PER_WINDOW needs PIPRAIL_WINDOW_SECONDS (the window it counts within).'
     )
   }
 
@@ -436,6 +470,50 @@ export function parseConfig(env: Env = process.env): Config {
     schemes = [...new Set(requested)] as PaymentScheme[]
   }
 
+  // 7) Cross-token grand total + count caps + threshold + log sinks (all opt-in; absent ⇒
+  //    byte-identical zero-config posture).
+  const denomRaw = pick(env, 'PIPRAIL_MAX_TOTAL_DENOM').value
+  let maxTotalPerDenom: Record<string, string> | undefined
+  if (denomRaw !== undefined) {
+    const map: Record<string, string> = {}
+    for (const pair of csv(denomRaw)) {
+      const m = /^([A-Za-z][A-Za-z0-9]*)\s*:\s*(\d+(?:\.\d+)?)$/.exec(pair)
+      if (!m) {
+        throw new ConfigError(
+          `Invalid PIPRAIL_MAX_TOTAL_DENOM entry "${pair}". Use DENOM:amount pairs, e.g. "USD:20.00,EUR:5.00".`
+        )
+      }
+      map[m[1]!.toUpperCase()] = m[2]!
+    }
+    if (Object.keys(map).length) maxTotalPerDenom = map
+  }
+
+  const posInt = (name: string, raw: string | undefined): number | undefined => {
+    if (raw === undefined) return undefined
+    if (!/^\d+$/.test(raw) || !Number.isSafeInteger(Number(raw)) || Number(raw) <= 0) {
+      throw new ConfigError(`${name} must be a positive integer.`)
+    }
+    return Number(raw)
+  }
+  const maxPayments = posInt('PIPRAIL_MAX_PAYMENTS', pick(env, 'PIPRAIL_MAX_PAYMENTS').value)
+  const maxPaymentsPerWindow = posInt(
+    'PIPRAIL_MAX_PAYMENTS_PER_WINDOW',
+    pick(env, 'PIPRAIL_MAX_PAYMENTS_PER_WINDOW').value
+  )
+
+  const warnRaw = pick(env, 'PIPRAIL_WARN_AT_FRACTION').value
+  let warnAtFraction: number | undefined
+  if (warnRaw !== undefined) {
+    const n = Number(warnRaw)
+    if (!Number.isFinite(n) || !(n > 0 && n <= 1)) {
+      throw new ConfigError('PIPRAIL_WARN_AT_FRACTION must be a number in (0, 1] (e.g. 0.8).')
+    }
+    warnAtFraction = n
+  }
+
+  const spendLog = pick(env, 'PIPRAIL_SPEND_LOG').value
+  const eventLog = pick(env, 'PIPRAIL_EVENT_LOG').value
+
   return {
     chain: parsed.chain,
     ...(accounts ? { chains: accounts } : {}),
@@ -452,6 +530,12 @@ export function parseConfig(env: Env = process.env): Config {
     ...(parsed.ttlSeconds != null ? { ttlSeconds: parsed.ttlSeconds } : {}),
     ...(parsed.windowTotal != null ? { windowTotal: parsed.windowTotal } : {}),
     ...(parsed.windowSeconds != null ? { windowSeconds: parsed.windowSeconds } : {}),
+    ...(maxTotalPerDenom ? { maxTotalPerDenom } : {}),
+    ...(maxPayments != null ? { maxPayments } : {}),
+    ...(maxPaymentsPerWindow != null ? { maxPaymentsPerWindow } : {}),
+    ...(warnAtFraction != null ? { warnAtFraction } : {}),
+    ...(spendLog ? { spendLog } : {}),
+    ...(eventLog ? { eventLog } : {}),
     confirm: parsed.confirm,
     ...(parsed.confirmTimeoutMs != null ? { confirmTimeoutMs: parsed.confirmTimeoutMs } : {}),
     guide: parsed.guide,
@@ -484,8 +568,9 @@ export function walletInputFor(account: {
   return { key: account.walletSecret }
 }
 
-/** The shared spend policy — the budget knobs every chain's client enforces (each
- *  client still tracks its OWN per-(network,asset) ledger; no cross-token sum). */
+/** The shared spend policy — the budget knobs every chain's client enforces. With a
+ *  SHARED ledger (multi-chain), the cross-token grand total + the payment-count caps
+ *  span every funded chain as ONE budget. */
 function policyFromConfig(config: Config): PaymentPolicy {
   return {
     maxAmount: config.maxAmount,
@@ -497,6 +582,11 @@ function policyFromConfig(config: Config): PaymentPolicy {
     ...(config.ttlSeconds != null ? { ttlSeconds: config.ttlSeconds } : {}),
     ...(config.windowTotal != null ? { windowTotal: config.windowTotal } : {}),
     ...(config.windowSeconds != null ? { windowSeconds: config.windowSeconds } : {}),
+    // Cross-token grand total + count caps + threshold warning (all opt-in).
+    ...(config.maxTotalPerDenom ? { maxTotalPerDenom: config.maxTotalPerDenom } : {}),
+    ...(config.maxPayments != null ? { maxPayments: config.maxPayments } : {}),
+    ...(config.maxPaymentsPerWindow != null ? { maxPaymentsPerWindow: config.maxPaymentsPerWindow } : {}),
+    ...(config.warnAtFraction != null ? { warnAtFraction: config.warnAtFraction } : {}),
   }
 }
 

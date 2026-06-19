@@ -4,6 +4,46 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.9.0] — 2026-06-19 — Cross-token grand total · payment-count caps · durable budget · richer spend observability
+
+Spend controls grow up — a single budget across every token and chain, caps on the *number* of
+payments, a budget that can survive a restart, and first-class decline/threshold events. Everything
+is **additive and opt-in**: omit the new fields and behaviour is byte-identical to 2.8.0.
+
+- **feat(policy): `maxTotalPerDenom` — the cross-token GRAND TOTAL.** Cap "$20 total across every
+  stablecoin and chain, full stop" with one number: `policy: { maxTotalPerDenom: { USD: '20.00', EUR: '5.00' } }`.
+  The SDK sums the human value of every token of that denomination (USDC/USDT/USD1/FDUSD/RLUSD → `USD`,
+  EURC → `EUR`; extend via `denomFor`) and refuses the payment that would breach it
+  (`reasonCode: 'BUDGET'`). **Not a price oracle** — PipRail still reads no market and never prices a
+  volatile coin; it's a user-declared unit-of-account sum (each token counted 1:1), and native/unknown
+  tokens are never in a bucket. Coexists with the per-asset `maxTotal`; the stricter cap wins. Exported
+  helpers: `denomOf`, `BUILTIN_DENOMS`, `DENOM_PRECISION`.
+- **feat(policy): payment-COUNT caps.** `maxPayments` (lifetime) and `maxPaymentsPerWindow`
+  (+ `windowSeconds`) cap the *number* of payments across every chain + token — a rate limit that
+  needs no oracle. (`windowSeconds` is now the shared width for the money window AND the count window.)
+- **feat(client): durable budget via a pluggable `spendStore`.** Pass `spendStore` and the spend
+  ledger hydrates at construction + persists every settle, so `maxTotal` / `maxTotalPerDenom` / the
+  count caps **survive a restart** — with no PipRail backend (you own the store, like the gate's
+  replay set). Ships `memorySpendStore` (from `@piprail/sdk`) and **`fileSpendStore(path)` from the new
+  `@piprail/sdk/node` entry** (a one-line local JSONL log; kept out of the browser bundle). `SpendLedger`
+  is now exported so several single-chain clients can SHARE one — `MultiChainPayer.fromWallets` does this
+  for you, making the grand total + count caps span every chain as ONE budget (also `spendStore` on its options).
+- **feat(client): richer spend observability.** New constructor option `onSpend(record, budget)` —
+  the ergonomic "log my spend locally" hook, fired after each settle. Two new additive `PipRailEvent`
+  kinds: **`payment-declined`** (the rich decline — typed `reasonCode`, fine `PolicyDenyCode`, the quote,
+  and a budget snapshot; `payment-failed` still fires too for back-compat) and **`budget-threshold`**
+  (an early warning the first time spend crosses `policy.warnAtFraction` of any cap).
+- **feat(client): budget surface extended (additive).** `client.budget()` now also returns
+  `byDenom: DenomRemaining[]` (the grand-total leash, previewable *before* any spend) and
+  `counts: CountStatus`; new reads `client.denomRemaining()`, `client.countStatus()`, and
+  `client.policy()` (the configured leash read back, also on `MultiChainPayer` + the `PayingClient`
+  interface). `client.spent()` / `SpendSummary` gains `byDenom: SpendDenomTotal[]`; `SpendRecord` now
+  carries `decimals` + `denom`. `formatSpendReport` appends the grand total when present.
+- **New deny codes** on `PolicyDenyCode`: `MAX_TOTAL_DENOM`, `MAX_PAYMENTS`, `WINDOW_COUNT` (the
+  coarse `DeclineReasonCode` set is unchanged — they map to `BUDGET` / `BUDGET` / `OUTSIDE_WINDOW`).
+- **New package entry `@piprail/sdk/node`** (`exports["./node"]`) for the Node-only `fileSpendStore`;
+  the core `@piprail/sdk` bundle stays browser-safe (no static `node:fs`).
+
 ## [2.8.0] — 2026-06-19 — Solana exact SPL-Memo conformance · TON canonical CAIP-2 (`tvm:-239`) · Toncoin→Gram
 
 - **chore(ton): native coin symbol `TON` → `GRAM` (Toncoin → Gram rebrand).** A TON community

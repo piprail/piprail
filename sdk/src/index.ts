@@ -27,6 +27,8 @@ export type {
   PayWarning,
   SessionBudget,
   SpendRemaining,
+  DenomRemaining,
+  CountStatus,
   PayingClient,
 } from './client.js'
 
@@ -39,12 +41,23 @@ export type { MultiChainPayerOptions } from './payer.js'
 /* ---------------------- agent spend controls (Tier 1) ---------------------- */
 
 export type { PaymentPolicy, PaymentIntent, PolicyDecision, PolicyDenyCode } from './policy.js'
-export { evaluatePolicy } from './policy.js'
+// `denomOf`/`BUILTIN_DENOMS`/`DENOM_PRECISION` back the cross-token grand total
+// (`maxTotalPerDenom`) — a unit-of-account sum, NOT a price oracle. Exported so a
+// caller can introspect or extend the denomination map.
+export { evaluatePolicy, denomOf, BUILTIN_DENOMS, DENOM_PRECISION } from './policy.js'
+// SpendLedger is exported so several single-chain clients can SHARE one (a cross-chain
+// grand total / count cap). `MultiChainPayer.fromWallets` does this for you.
+export { SpendLedger } from './ledger.js'
 export type {
   SpendRecord,
   SpendSummary,
   SpendAssetTotal,
+  SpendDenomTotal,
 } from './ledger.js'
+// Durable spend store — make the budget survive a restart. The interface + the in-memory
+// store are browser-safe here; the Node file store is `fileSpendStore` from `@piprail/sdk/node`.
+export { memorySpendStore } from './spendstore.js'
+export type { SpendStore } from './spendstore.js'
 
 /* ----------------------- agent toolkit (Tier 2) ----------------------- */
 

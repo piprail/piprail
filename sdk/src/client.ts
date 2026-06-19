@@ -63,11 +63,15 @@ const DEFAULT_SCHEMES: readonly PaymentScheme[] = ['onchain-proof']
 import {
   evaluatePolicy,
   resolveDeadline,
+  denomOf,
+  scaleToDenom,
+  DENOM_PRECISION,
   type PaymentIntent,
   type PaymentPolicy,
   type PolicyDenyCode,
 } from './policy.js'
-import { SpendLedger, type SpendSummary } from './ledger.js'
+import { SpendLedger, type SpendSummary, type SpendRecord } from './ledger.js'
+import type { SpendStore } from './spendstore.js'
 import { formatUnits, floorUnits } from './util/units.js'
 
 /** Observability events. `ref` is the proof — a chain-specific id (EVM tx hash, Solana signature, TON locator, Stellar tx hash). */
@@ -90,6 +94,15 @@ export type PipRailEvent =
    * conformant third-party-facilitator interop, where the lean SettleResponse has no
    * rich receipt — read `settle.transaction` for the on-chain settle tx there.
    */
+  /**
+   * The payment settled. `receipt` is PipRail's rich {@link X402Receipt} when the
+   * server returns one (its own gate, or a facilitator that echoes the full shape);
+   * `settle` is the standard x402 SettleResponse (`{ success, transaction, … }`) on
+   * conformant third-party-facilitator interop, where the lean SettleResponse has no
+   * rich receipt — read `settle.transaction` for the on-chain settle tx there. (For the
+   * spend RECORD + remaining budget after a settle, use the `onSpend` callback or
+   * `client.spent()`/`budget()`.)
+   */
   | { kind: 'payment-settled'; receipt: X402Receipt | null; settle?: SettleOutcome }
   | {
       kind: 'payment-failed'
@@ -102,6 +115,39 @@ export type PipRailEvent =
       code?: string
       /** Human-readable detail, when present (e.g. `"Paid 40000, required 500000."`). */
       detail?: string
+    }
+  /**
+   * The client REFUSED to pay before any on-chain send — the spend policy or an
+   * `onBeforePay` hook said no. A dedicated, richer companion to `payment-failed`
+   * (which ALSO still fires on a decline, unchanged): `reasonCode` is the typed
+   * {@link DeclineReasonCode}, `code` the fine-grained {@link PolicyDenyCode}, `quote`
+   * the priced requirement that was refused, and `budget` the spend leash at refusal.
+   * Listen for this to distinguish "I hit my cap" from a server-side failure cleanly.
+   */
+  | {
+      kind: 'payment-declined'
+      reason: string
+      reasonCode?: DeclineReasonCode
+      code?: PolicyDenyCode
+      quote?: PipRailQuote
+      budget: SessionBudget
+    }
+  /**
+   * Cumulative spend crossed `policy.warnAtFraction` (e.g. 0.8 = 80%) of a configured
+   * cap, BEFORE any hard decline — the early-warning signal. `scope` says which cap:
+   * `'asset'` (per-(network,asset) `maxTotal`), `'denom'` (`maxTotalPerDenom`), `'count'`
+   * (`maxPayments`), `'window'` (`windowTotal`), or `'window-count'` (`maxPaymentsPerWindow`).
+   * `label` names the specific cap (the symbol/network, the denomination, or the cap name);
+   * `fraction` is how far in (≥ warnAtFraction). Fires once per crossing per cap. Purely
+   * observational — it never blocks a payment.
+   */
+  | {
+      kind: 'budget-threshold'
+      scope: 'asset' | 'denom' | 'count' | 'window' | 'window-count'
+      label: string
+      spentFormatted: string
+      capFormatted: string
+      fraction: number
     }
 
 /**
@@ -275,6 +321,19 @@ export interface SessionBudget {
   }
   /** Per-(network, asset) money leash — ONE row per pair the ledger has seen. */
   byAsset: SpendRemaining[]
+  /**
+   * The cross-token GRAND TOTAL leash, one row per DENOMINATION the policy caps
+   * (`maxTotalPerDenom`). Unlike `byAsset`, these rows are present from the START
+   * (before any spend) because the cap is a single declared number — so an agent can
+   * preview "how much USD can I still spend, across everything" up front. Empty when
+   * no `maxTotalPerDenom` is configured.
+   */
+  byDenom: DenomRemaining[]
+  /**
+   * The payment-COUNT leash — settled count so far + the lifetime/window caps and
+   * what's left. `lifetimeCap`/`windowCap` are undefined when not configured.
+   */
+  counts: CountStatus
 }
 
 /**
@@ -297,6 +356,40 @@ export interface SpendRemaining {
   remainingBase?: string
   /** `remainingBase` in human units; undefined when unbounded. */
   remainingFormatted?: string
+}
+
+/**
+ * The cross-token GRAND-TOTAL leash for one DENOMINATION (e.g. `USD`) — the sum of
+ * every stablecoin of that unit across every chain, vs the `maxTotalPerDenom` cap.
+ * NOT a price-converted figure: tokens grouped as one unit, each counted 1:1.
+ */
+export interface DenomRemaining {
+  /** The denomination, e.g. `'USD'`. */
+  denom: string
+  /** Human-readable spend so far in this denomination, e.g. '12.34'. */
+  spentFormatted: string
+  /** The cap (human units), e.g. '20.00'. */
+  capFormatted: string
+  /** `max(0, cap − spent)` in human units. */
+  remainingFormatted: string
+  /** Fraction of the cap used so far (0–1+, clamped ≥ 0). */
+  fraction: number
+}
+
+/** The payment-COUNT leash — settled count + the configured lifetime/window caps. */
+export interface CountStatus {
+  /** Settled payments so far (across every chain + token). */
+  settled: number
+  /** Lifetime cap (`maxPayments`), or undefined when unbounded. */
+  lifetimeCap?: number
+  /** `max(0, lifetimeCap − settled)`, or undefined when unbounded. */
+  lifetimeRemaining?: number
+  /** Rolling-window cap (`maxPaymentsPerWindow`), or undefined when unset. */
+  windowCap?: number
+  /** Payments within the current window, or undefined when no window count cap. */
+  windowSettled?: number
+  /** `max(0, windowCap − windowSettled)`, or undefined when unset. */
+  windowRemaining?: number
 }
 
 /** Plain-language fix per receive-prerequisite, surfaced in PayOption.recipient.fix. */
@@ -381,6 +474,33 @@ export interface PipRailClientOptions {
   schemes?: PaymentScheme[]
   /** Logger hook. Default no-op. */
   onEvent?: (event: PipRailEvent) => void
+  /**
+   * Durable spend store — make the budget SURVIVE a restart. By default the spend
+   * ledger is in-memory and process-scoped (a restart zeroes `maxTotal` /
+   * `maxTotalPerDenom` / the count caps, so a crash-loop could re-spend). Pass a
+   * {@link SpendStore} and the ledger HYDRATES from it at construction and persists
+   * every settled payment, so caps resume where they left off — with NO PipRail
+   * backend (you own the store, like the gate's `isUsed`/`markUsed` replay set).
+   * One line for local persistence: `spendStore: fileSpendStore('./spend.jsonl')`
+   * from `@piprail/sdk/node`. The rolling window + session TTL stay process-scoped.
+   */
+  spendStore?: SpendStore
+  /**
+   * Advanced: share ONE {@link SpendLedger} across several single-chain clients so the
+   * cross-token grand total (`maxTotalPerDenom`) and the payment-count caps span ALL of
+   * them. `MultiChainPayer.fromWallets` sets this for you; reach for it directly only when
+   * composing clients by hand. Mutually exclusive with `spendStore` (the shared ledger
+   * owns the store) — passing both throws. Pass at most one client per (network, asset)
+   * into a shared ledger or `spent()` double-counts.
+   */
+  ledger?: SpendLedger
+  /**
+   * Fire-and-forget callback after EACH settled payment — the one-liner for "append my
+   * spend to a local log / push it somewhere". Receives the {@link SpendRecord} just
+   * written and the spend leash AFTER it. Isolated like `onEvent`: a throw is swallowed
+   * and can never abort a payment. (Same data also rides the `payment-settled` event.)
+   */
+  onSpend?: (record: SpendRecord, budget: SessionBudget) => void
 }
 
 /** Options for {@link PipRailClient.discover}. */
@@ -490,6 +610,9 @@ export interface PayingClient {
   register(url: string, opts?: RegisterOptions): Promise<RegisterOutcome[]>
   spent(): SpendSummary
   budget(): SessionBudget
+  /** The CONFIGURED spend policy, read back (so an agent can self-check its whole leash
+   *  without hitting a decline). `undefined` when no policy is set. */
+  policy(): PaymentPolicy | undefined
 }
 
 export class PipRailClient {
@@ -498,9 +621,15 @@ export class PipRailClient {
   private readonly retryTimeoutMs: number
   private readonly onEvent: (event: PipRailEvent) => void
 
-  // Per-asset tally of everything this client has paid (powers spent() and the
-  // policy's maxTotal cap).
-  private readonly ledger = new SpendLedger()
+  // Per-asset (+ per-denomination + count) tally of everything this client has paid —
+  // powers spent()/budget() and the maxTotal/maxTotalPerDenom/maxPayments caps. Either
+  // its own (optionally store-backed) ledger, or a SHARED one injected so the grand
+  // total + count caps span several chains (MultiChainPayer.fromWallets).
+  private readonly ledger: SpendLedger
+
+  // Which `warnAtFraction` thresholds have already fired (one event per crossing per
+  // cap), keyed `<scope>:<label>:<fraction>` — so a warning isn't re-emitted every pay.
+  private readonly warnedThresholds = new Set<string>()
 
   // Resolved lazily on first request — this is what lets Solana (and future
   // families) auto-mount with no setup call.
@@ -511,8 +640,18 @@ export class PipRailClient {
     this.maxRetries = Math.max(1, opts.maxPaymentRetries ?? 3)
     this.retryTimeoutMs = opts.retryTimeoutMs ?? 30_000
     this.onEvent = opts.onEvent ?? (() => undefined)
+    if (opts.ledger && opts.spendStore) {
+      throw new TypeError(
+        'Pass either `ledger` (a shared SpendLedger) or `spendStore`, not both — a shared ' +
+          'ledger already owns its store.'
+      )
+    }
+    // A shared ledger (cross-chain grand total) wins; else build our own, hydrating from
+    // the durable store when one is supplied (so caps survive a restart).
+    this.ledger = opts.ledger ?? new SpendLedger(opts.spendStore)
     this.assertPolicyAmountCaps(opts.policy)
     this.assertPolicyTimeOptions(opts.policy)
+    this.assertPolicySpendControls(opts.policy)
   }
 
   /**
@@ -534,6 +673,53 @@ export class PipRailClient {
         )
       }
     }
+    // Each grand-total cap must be a non-negative decimal string too.
+    if (policy.maxTotalPerDenom !== undefined) {
+      if (typeof policy.maxTotalPerDenom !== 'object' || policy.maxTotalPerDenom === null) {
+        throw new TypeError(
+          `policy.maxTotalPerDenom must be a { DENOM: amount } map (e.g. { USD: '20.00' }).`
+        )
+      }
+      for (const [denom, v] of Object.entries(policy.maxTotalPerDenom)) {
+        if (typeof v !== 'string' || !/^\d+(\.\d+)?$/.test(v)) {
+          throw new TypeError(
+            `policy.maxTotalPerDenom.${denom} must be a non-negative decimal string (e.g. '20.00'); ` +
+              `got ${JSON.stringify(v)}.`
+          )
+        }
+      }
+    }
+  }
+
+  /**
+   * Fail LOUDLY at construction on a misconfigured count / threshold control (a
+   * programmer error → `TypeError`): payment counts must be positive safe integers,
+   * `maxPaymentsPerWindow` needs `windowSeconds` (it shares the window), and
+   * `warnAtFraction` must be in (0, 1].
+   */
+  private assertPolicySpendControls(policy: PaymentPolicy | undefined): void {
+    if (!policy) return
+    for (const field of ['maxPayments', 'maxPaymentsPerWindow'] as const) {
+      const v = policy[field]
+      if (v === undefined) continue
+      if (!Number.isSafeInteger(v) || v <= 0) {
+        throw new TypeError(`policy.${field} must be a positive integer; got ${JSON.stringify(v)}.`)
+      }
+    }
+    if (policy.maxPaymentsPerWindow !== undefined && policy.windowSeconds === undefined) {
+      throw new TypeError(
+        'policy.maxPaymentsPerWindow needs policy.windowSeconds (the rolling window it counts ' +
+          'within) — set both, or neither.'
+      )
+    }
+    if (policy.warnAtFraction !== undefined) {
+      const f = policy.warnAtFraction
+      if (typeof f !== 'number' || !(f > 0 && f <= 1)) {
+        throw new TypeError(
+          `policy.warnAtFraction must be a number in (0, 1] (e.g. 0.8); got ${JSON.stringify(f)}.`
+        )
+      }
+    }
   }
 
   /**
@@ -549,10 +735,20 @@ export class PipRailClient {
     if (!policy) return
     const hasWindowTotal = policy.windowTotal !== undefined
     const hasWindowSeconds = policy.windowSeconds !== undefined
-    if (hasWindowTotal !== hasWindowSeconds) {
+    const hasWindowCount = policy.maxPaymentsPerWindow !== undefined
+    // `windowSeconds` is the shared width for BOTH the rolling money cap (`windowTotal`)
+    // and the rolling count cap (`maxPaymentsPerWindow`). A money window needs the width;
+    // a width alone (bounding neither) is a half-armed leash.
+    if (hasWindowTotal && !hasWindowSeconds) {
       throw new TypeError(
         'policy.windowTotal and policy.windowSeconds must be set together — a rolling-window ' +
           'cap can\'t be half-armed (set both, or neither).'
+      )
+    }
+    if (hasWindowSeconds && !hasWindowTotal && !hasWindowCount) {
+      throw new TypeError(
+        'policy.windowSeconds must be set together with policy.windowTotal and/or ' +
+          'policy.maxPaymentsPerWindow — a window width alone bounds nothing.'
       )
     }
     if (hasWindowSeconds && !(Number.isSafeInteger(policy.windowSeconds) && policy.windowSeconds! > 0)) {
@@ -685,16 +881,27 @@ export class PipRailClient {
   }
 
   /** Aggregated snapshot of every payment this client has settled — total
-   *  count, cumulative spend per token, and the individual records. */
+   *  count, cumulative spend per token, cumulative spend per denomination (the
+   *  cross-token grand total), and the individual records. */
   spent(): SpendSummary {
     return this.ledger.summary()
+  }
+
+  /** The CONFIGURED spend policy, read back unchanged — so an agent can self-check
+   *  its WHOLE leash (caps, allowlists, time, denom + count limits) without hitting a
+   *  decline. `undefined` when no policy is set. Pure; never throws. */
+  policy(): PaymentPolicy | undefined {
+    return this.opts.policy
   }
 
   /**
    * Read-only budget + time leash for a Mode-A (headless) agent — the policy IS
    * the consent, and this is how the agent SEES what's left of it before paying.
-   * Composes the in-memory ledger with the configured policy; never throws, moves
-   * no funds. PROCESS-SCOPED — every figure resets on restart (see {@link SessionBudget}).
+   * Composes the ledger with the configured policy: the per-asset money leash
+   * (`byAsset`), the cross-token GRAND TOTAL per denomination (`byDenom`, present
+   * from the start), and the payment-COUNT leash (`counts`). Never throws, moves no
+   * funds. The money/count figures persist if a `spendStore` is set; the time
+   * envelope is process-scoped (see {@link SessionBudget}).
    */
   budget(): SessionBudget {
     const view = this.sessionView()
@@ -706,7 +913,59 @@ export class PipRailClient {
         secondsRemaining: view?.secondsRemaining ?? null,
       },
       byAsset: this.remaining(),
+      byDenom: this.denomRemaining(),
+      counts: this.countStatus(),
     }
+  }
+
+  /**
+   * The cross-token GRAND-TOTAL leash — one row per denomination capped by
+   * `policy.maxTotalPerDenom`. Unlike `remaining()`, rows exist from the START
+   * (the cap is a single declared number, so headroom is previewable before any
+   * spend). `[]` when no `maxTotalPerDenom` is set. Pure; never throws; never a
+   * price-converted figure (tokens grouped as one unit, each 1:1).
+   */
+  denomRemaining(): DenomRemaining[] {
+    const caps = this.opts.policy?.maxTotalPerDenom
+    if (!caps) return []
+    return Object.entries(caps).map(([rawDenom, capStr]) => {
+      const denom = rawDenom.toUpperCase()
+      const spentScaled = this.ledger.totalForDenom(denom)
+      const capScaled = floorUnits(capStr, DENOM_PRECISION)
+      const remainingScaled = capScaled > spentScaled ? capScaled - spentScaled : 0n
+      const fraction =
+        capScaled === 0n
+          ? spentScaled > 0n
+            ? 1
+            : 0
+          : Number((spentScaled * 1_000_000n) / capScaled) / 1_000_000
+      return {
+        denom,
+        spentFormatted: formatUnits(spentScaled, DENOM_PRECISION),
+        capFormatted: formatUnits(capScaled, DENOM_PRECISION),
+        remainingFormatted: formatUnits(remainingScaled, DENOM_PRECISION),
+        fraction,
+      }
+    })
+  }
+
+  /** The payment-COUNT leash — settled count so far + the configured lifetime/window
+   *  caps and what's left. Pure; never throws. */
+  countStatus(): CountStatus {
+    const policy = this.opts.policy
+    const settled = this.ledger.count()
+    const out: CountStatus = { settled }
+    if (policy?.maxPayments !== undefined) {
+      out.lifetimeCap = policy.maxPayments
+      out.lifetimeRemaining = Math.max(0, policy.maxPayments - settled)
+    }
+    if (policy?.maxPaymentsPerWindow !== undefined && policy.windowSeconds !== undefined) {
+      const windowSettled = this.ledger.countSince(Date.now() - policy.windowSeconds * 1000)
+      out.windowCap = policy.maxPaymentsPerWindow
+      out.windowSettled = windowSettled
+      out.windowRemaining = Math.max(0, policy.maxPaymentsPerWindow - windowSettled)
+    }
+    return out
   }
 
   /**
@@ -1251,7 +1510,9 @@ export class PipRailClient {
       // Route the time-envelope denials to their own blocker (the typed code + the
       // `session` block tell "wait for the window to slide" from "session is over").
       blockers.push(
-        quote.policyCode === 'SESSION_EXPIRED' || quote.policyCode === 'WINDOW_TOTAL'
+        quote.policyCode === 'SESSION_EXPIRED' ||
+          quote.policyCode === 'WINDOW_TOTAL' ||
+          quote.policyCode === 'WINDOW_COUNT'
           ? 'OUTSIDE_WINDOW'
           : 'OUTSIDE_POLICY'
       )
@@ -1384,16 +1645,24 @@ export class PipRailClient {
       symbol,
       recognized: described != null,
     }
-    // Build the time context ONLY when a time policy is configured — otherwise
-    // pass `undefined` so the zero-config path runs no clock and no ledger scan
-    // (byte-identical to before). ONE `Date.now()` per quote feeds BOTH the
-    // expiry check and the rolling-window edge (same instant for one decision).
+    // Build the policy context ONLY when a cap that needs running totals is configured —
+    // otherwise pass `undefined` so the zero-config path runs no clock and no ledger scan
+    // (byte-identical to before). ONE `Date.now()` per quote feeds the expiry check, the
+    // rolling-window edge, AND the window count edge (same instant for one decision).
     const policy = this.opts.policy
     const hasWindow = !!policy && policy.windowTotal != null && policy.windowSeconds != null
+    const hasWindowCount =
+      !!policy && policy.maxPaymentsPerWindow != null && policy.windowSeconds != null
+    const hasDenomCap =
+      !!policy && policy.maxTotalPerDenom != null && Object.keys(policy.maxTotalPerDenom).length > 0
+    const hasCountCap = !!policy && policy.maxPayments != null
     const hasTimePolicy =
       !!policy && (policy.ttlSeconds != null || policy.expiresAt != null || hasWindow)
+    const needsCtx = hasTimePolicy || hasWindowCount || hasDenomCap || hasCountCap
+    // The intent's denomination (USD/EUR/…) for the cross-token grand total — pure, no oracle.
+    const denom = hasDenomCap ? denomOf(intent.symbol, intent.asset, policy) : undefined
     const now = Date.now()
-    const ctx = hasTimePolicy
+    const ctx = needsCtx
       ? {
           now,
           sessionStart: this.ledger.sessionStart,
@@ -1405,6 +1674,13 @@ export class PipRailClient {
                 now - policy!.windowSeconds! * 1000
               )
             : 0n,
+          // Running grand total on this intent's denomination, across the (shared) ledger.
+          spentInDenomScaled: denom ? this.ledger.totalForDenom(denom) : 0n,
+          // Settled-payment counts (lifetime + window) for the count caps.
+          paymentCount: hasCountCap ? this.ledger.count() : 0,
+          paymentCountInWindow: hasWindowCount
+            ? this.ledger.countSince(now - policy!.windowSeconds! * 1000)
+            : 0,
         }
       : undefined
     const decision = evaluatePolicy(
@@ -1447,12 +1723,11 @@ export class PipRailClient {
   private async authorize(quote: PipRailQuote): Promise<void> {
     if (!quote.withinPolicy) {
       const reason = `Payment refused by policy: ${quote.policyReason ?? 'not allowed'}`
-      const reasonCode = reasonCodeForPolicy(quote.policyCode)
-      // Emit `payment-failed` too (not only throw), so a consumer watching `onEvent` learns of a
-      // pre-send DECLINE just as it does a server rejection — the buyer is notified of EVERY failure.
-      // The event `code` is the SAME DeclineReasonCode the thrown error carries (one consistent value).
-      this.safeEmit({ kind: 'payment-failed', reason, code: reasonCode })
-      throw new PaymentDeclinedError(reason, { reasonCode })
+      this.refuse(reason, {
+        reasonCode: reasonCodeForPolicy(quote.policyCode),
+        policyCode: quote.policyCode,
+        quote,
+      })
     }
     const hook = this.opts.onBeforePay
     if (!hook) return
@@ -1461,35 +1736,151 @@ export class PipRailClient {
       approved = await hook(quote)
     } catch (err) {
       // A throwing decision hook means "do not pay" — fail safe, never pay.
-      const reason = 'onBeforePay threw — refusing to pay.'
-      this.safeEmit({ kind: 'payment-failed', reason, code: 'APPROVAL' })
-      throw new PaymentDeclinedError(reason, { cause: err, reasonCode: 'APPROVAL' })
+      this.refuse('onBeforePay threw — refusing to pay.', { reasonCode: 'APPROVAL', quote, cause: err })
     }
     if (!approved) {
       const reason =
         `onBeforePay declined ${quote.amountFormatted} ${quote.symbol ?? ''}`.trimEnd() +
         ` on ${quote.network}.`
-      this.safeEmit({ kind: 'payment-failed', reason, code: 'APPROVAL' })
-      throw new PaymentDeclinedError(reason, { reasonCode: 'APPROVAL' })
+      this.refuse(reason, { reasonCode: 'APPROVAL', quote })
     }
   }
 
-  /** Record a settled payment in the ledger (true decimals for the running total). */
+  /**
+   * Refuse a payment BEFORE any send: emit BOTH the legacy `payment-failed` (so existing
+   * `onEvent` consumers are unaffected) AND the richer, dedicated `payment-declined`
+   * (typed reasonCode + fine PolicyDenyCode + the quote + a budget snapshot), then throw
+   * the typed {@link PaymentDeclinedError}. Returns `never` so callers' control flow is
+   * exhaustive.
+   */
+  private refuse(
+    reason: string,
+    opts: {
+      reasonCode?: DeclineReasonCode
+      policyCode?: PolicyDenyCode
+      quote?: PipRailQuote
+      cause?: unknown
+    }
+  ): never {
+    this.safeEmit({ kind: 'payment-failed', reason, ...(opts.reasonCode ? { code: opts.reasonCode } : {}) })
+    this.safeEmit({
+      kind: 'payment-declined',
+      reason,
+      ...(opts.reasonCode ? { reasonCode: opts.reasonCode } : {}),
+      ...(opts.policyCode ? { code: opts.policyCode } : {}),
+      ...(opts.quote ? { quote: opts.quote } : {}),
+      budget: this.budget(),
+    })
+    throw new PaymentDeclinedError(reason, {
+      ...(opts.reasonCode ? { reasonCode: opts.reasonCode } : {}),
+      ...(opts.cause !== undefined ? { cause: opts.cause } : {}),
+    })
+  }
+
+  /** Record a settled payment in the ledger (TRUE decimals for the running total + the
+   *  denomination it counts toward in the grand total). Then fire the `onSpend` callback
+   *  with the record + the post-payment budget, and emit any `warnAtFraction` thresholds
+   *  this payment just crossed. All observability is isolated — a throwing hook never
+   *  affects the (already-settled) payment. */
   private recordSpend(quote: PipRailQuote, ref: string): void {
-    this.ledger.record(
-      {
-        url: quote.url,
-        host: hostOf(quote.url),
-        network: quote.network,
-        asset: quote.asset,
-        amountBase: quote.amount,
-        amountFormatted: quote.amountFormatted,
-        ...(quote.symbol ? { symbol: quote.symbol } : {}),
-        ref,
-        at: new Date().toISOString(),
-      },
-      quote.decimals
-    )
+    const denom = denomOf(quote.symbol, quote.asset, this.opts.policy)
+    const record: SpendRecord = {
+      url: quote.url,
+      host: hostOf(quote.url),
+      network: quote.network,
+      asset: quote.asset,
+      amountBase: quote.amount,
+      amountFormatted: quote.amountFormatted,
+      ...(quote.symbol ? { symbol: quote.symbol } : {}),
+      decimals: quote.decimals,
+      ...(denom ? { denom } : {}),
+      ref,
+      at: new Date().toISOString(),
+    }
+    this.ledger.record(record, quote.decimals, denom)
+    const budget = this.budget()
+    if (this.opts.onSpend) {
+      try {
+        this.opts.onSpend(record, budget)
+      } catch {
+        /* a spend hook must never affect an already-settled payment */
+      }
+    }
+    this.emitThresholds(budget)
+  }
+
+  /**
+   * Emit a `budget-threshold` event for each cap whose used-fraction just reached
+   * `policy.warnAtFraction` — the early warning before a hard decline. Fires ONCE per
+   * crossing per cap (tracked in `warnedThresholds`). No-op when no `warnAtFraction` is
+   * set. Reads the just-computed {@link SessionBudget}; pure + isolated (via safeEmit).
+   */
+  private emitThresholds(budget: SessionBudget): void {
+    const frac = this.opts.policy?.warnAtFraction
+    if (frac === undefined) return
+    const fire = (
+      scope: 'asset' | 'denom' | 'count' | 'window' | 'window-count',
+      label: string,
+      spentFormatted: string,
+      capFormatted: string,
+      fraction: number
+    ): void => {
+      if (fraction < frac) return
+      const key = `${scope}:${label}`
+      if (this.warnedThresholds.has(key)) return
+      this.warnedThresholds.add(key)
+      this.safeEmit({ kind: 'budget-threshold', scope, label, spentFormatted, capFormatted, fraction })
+    }
+    // Per-(network, asset) maxTotal
+    for (const r of budget.byAsset) {
+      if (r.capBase === undefined) continue
+      const cap = BigInt(r.capBase)
+      const spent = BigInt(r.spentBase)
+      const fraction = cap === 0n ? (spent > 0n ? 1 : 0) : Number((spent * 1_000_000n) / cap) / 1_000_000
+      fire(
+        'asset',
+        `${r.symbol ?? r.asset} on ${r.network}`,
+        formatUnits(spent, r.decimals),
+        formatUnits(cap, r.decimals),
+        fraction
+      )
+    }
+    // Cross-token grand total per denomination
+    for (const d of budget.byDenom) {
+      fire('denom', d.denom, d.spentFormatted, d.capFormatted, d.fraction)
+    }
+    // Rolling-window money cap (per spent (network, asset) — uses the live window slice).
+    const policy = this.opts.policy
+    if (policy?.windowTotal !== undefined && policy.windowSeconds !== undefined) {
+      const since = Date.now() - policy.windowSeconds * 1000
+      for (const r of budget.byAsset) {
+        const cap = floorUnits(policy.windowTotal, r.decimals)
+        const spent = this.ledger.totalSince(r.network, r.asset, since)
+        const fraction =
+          cap === 0n ? (spent > 0n ? 1 : 0) : Number((spent * 1_000_000n) / cap) / 1_000_000
+        fire(
+          'window',
+          `${r.symbol ?? r.asset} on ${r.network}`,
+          formatUnits(spent, r.decimals),
+          formatUnits(cap, r.decimals),
+          fraction
+        )
+      }
+    }
+    // Lifetime payment count
+    const c = budget.counts
+    if (c.lifetimeCap !== undefined && c.lifetimeCap > 0) {
+      fire('count', 'maxPayments', String(c.settled), String(c.lifetimeCap), c.settled / c.lifetimeCap)
+    }
+    if (c.windowCap !== undefined && c.windowCap > 0 && c.windowSettled !== undefined) {
+      fire(
+        'window-count',
+        'maxPaymentsPerWindow',
+        String(c.windowSettled),
+        String(c.windowCap),
+        c.windowSettled / c.windowCap
+      )
+    }
   }
 
   private async payAndConfirm(
@@ -2051,8 +2442,11 @@ function reasonCodeForPolicy(code: PolicyDenyCode | undefined): DeclineReasonCod
     case 'SESSION_EXPIRED':
       return 'SESSION_EXPIRED'
     case 'WINDOW_TOTAL':
+    case 'WINDOW_COUNT':
       return 'OUTSIDE_WINDOW'
     case 'MAX_TOTAL':
+    case 'MAX_TOTAL_DENOM':
+    case 'MAX_PAYMENTS':
       return 'BUDGET'
     case undefined:
       return undefined

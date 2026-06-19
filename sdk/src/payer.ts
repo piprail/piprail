@@ -36,7 +36,8 @@ import type {
 } from './client.js'
 import type { ChainSelector } from './drivers/types.js'
 import type { PaymentPolicy } from './policy.js'
-import type { SpendSummary } from './ledger.js'
+import { SpendLedger, type SpendSummary } from './ledger.js'
+import type { SpendStore } from './spendstore.js'
 import type { DiscoveredResource, RegisterOutcome } from './indexes.js'
 
 /**
@@ -57,9 +58,16 @@ export interface MultiChainPayerOptions {
   /** `{ chain → wallet }`. Iteration order is your chain PREFERENCE: across chains the
    *  first one that can settle wins (there's no oracle to compare gas across coins). */
   wallets: Record<string, WalletInput>
-  /** Spend policy applied to EVERY chain's client. Each client still keeps its own
-   *  per-(network,asset) ledger — there is no cross-token sum (no price oracle). */
+  /** Spend policy applied to EVERY chain's client. Because `fromWallets` gives every
+   *  client a SHARED ledger, the cross-token grand total (`maxTotalPerDenom`) and the
+   *  payment-count caps (`maxPayments`/`maxPaymentsPerWindow`) span ALL chains as ONE
+   *  budget — so `{ maxTotalPerDenom: { USD: '20' } }` means "$20 across every chain",
+   *  not $20 per chain. The per-asset `maxTotal` stays per (network, asset). */
   policy?: PaymentPolicy
+  /** Durable spend store for the SHARED ledger — make the whole cross-chain budget
+   *  survive a restart (hydrates once, persists every settle). One file backs every
+   *  chain. Use `fileSpendStore('./spend.jsonl')` from `@piprail/sdk/node`. */
+  spendStore?: SpendStore
   /** Per-chain RPC overrides, keyed by the same chain selector as `wallets`. */
   rpcUrls?: Record<string, string>
   /** Which schemes every client may settle. Default `['onchain-proof']` (unchanged). */
@@ -76,6 +84,10 @@ export interface MultiChainPayerOptions {
 
 export class MultiChainPayer implements PayingClient {
   private readonly _clients: PipRailClient[]
+  /** True when every client shares ONE ledger (the `fromWallets` path) — so spend +
+   *  budget are read from that single source, never concatenated (which would
+   *  double-count a shared ledger). */
+  private readonly _shared: boolean
 
   /**
    * Wrap an explicit, ordered set of single-chain clients — use this when a client
@@ -84,12 +96,18 @@ export class MultiChainPayer implements PayingClient {
    * at MOST one client per chain — two clients on the SAME network would double-count in
    * `spent()`/`budget()` and waste a plan round-trip (`fromWallets` can't produce this).
    * For the common case, prefer {@link MultiChainPayer.fromWallets}.
+   *
+   * For a cross-chain grand total / count cap via this path, build the clients with a
+   * SHARED `ledger` (`new SpendLedger(store?)` passed to each client's `ledger` option)
+   * and set `opts.shared = true` so reads come from that one ledger. `fromWallets` does
+   * this for you.
    */
-  constructor(clients: PipRailClient[]) {
+  constructor(clients: PipRailClient[], opts: { shared?: boolean } = {}) {
     if (clients.length === 0) {
       throw new TypeError('MultiChainPayer needs at least one PipRailClient.')
     }
     this._clients = [...clients]
+    this._shared = opts.shared ?? false
   }
 
   /**
@@ -105,21 +123,29 @@ export class MultiChainPayer implements PayingClient {
    *     solana:  { key: process.env.SOLANA_SECRET! },
    *     xrpl:    { key: process.env.XRPL_SEED! },
    *   },
-   *   policy: { maxAmount: '1.00', maxTotal: '20.00', tokens: ['USDC', 'USDT'] },
+   *   // ONE budget across all three chains: $20 total + at most 100 payments.
+   *   policy: { maxAmount: '1.00', maxTotalPerDenom: { USD: '20.00' }, maxPayments: 100 },
    * })
    * const res = await payer.get('https://api.example.com/paid')  // pays on the first funded chain that can settle
    * ```
+   *
+   * Every client shares ONE {@link SpendLedger} (optionally backed by `spendStore`), so
+   * the cross-token grand total + the count caps span all chains as a single budget.
    */
   static fromWallets(opts: MultiChainPayerOptions): MultiChainPayer {
     const entries = Object.entries(opts.wallets)
     if (entries.length === 0) {
       throw new TypeError('MultiChainPayer.fromWallets needs at least one wallet.')
     }
+    // ONE shared ledger across every chain — this is what makes maxTotalPerDenom + the
+    // count caps a single cross-chain budget (and `spendStore` persists the whole thing).
+    const ledger = new SpendLedger(opts.spendStore)
     const clients = entries.map(
       ([chain, wallet]) =>
         new PipRailClient({
           chain: chain as ChainSelector,
           wallet,
+          ledger,
           ...(opts.policy ? { policy: opts.policy } : {}),
           ...(opts.schemes ? { schemes: opts.schemes } : {}),
           ...(opts.rpcUrls?.[chain] ? { rpcUrl: opts.rpcUrls[chain] } : {}),
@@ -129,7 +155,7 @@ export class MultiChainPayer implements PayingClient {
           ...(opts.retryTimeoutMs != null ? { retryTimeoutMs: opts.retryTimeoutMs } : {}),
         })
     )
-    return new MultiChainPayer(clients)
+    return new MultiChainPayer(clients, { shared: true })
   }
 
   /** The underlying single-chain clients, in preference order. Reach for one of
@@ -235,22 +261,34 @@ export class MultiChainPayer implements PayingClient {
     return this._clients[0]!.register(url, opts)
   }
 
-  /** Aggregate spend across every chain — counts summed; per-(network,asset) rows
-   *  and records concatenated (no cross-chain collisions, never a cross-token sum). */
+  /**
+   * Aggregate spend across every chain. With a SHARED ledger (`fromWallets`), this reads
+   * that single ledger ONCE (its records already span every chain) — so the count and the
+   * cross-token `byDenom` grand total are correct and never double-counted. With
+   * independent clients (the explicit constructor), it concatenates: counts summed,
+   * per-(network,asset) `byAsset` + `byDenom` + records concatenated.
+   */
   spent(): SpendSummary {
+    if (this._shared) return this._clients[0]!.spent()
     const summaries = this._clients.map((c) => c.spent())
     return {
       count: summaries.reduce((n, s) => n + s.count, 0),
       byAsset: summaries.flatMap((s) => s.byAsset),
+      byDenom: summaries.flatMap((s) => s.byDenom),
       records: summaries.flatMap((s) => s.records),
     }
   }
 
-  /** A merged budget view: every chain's per-(network,asset) remaining rows, plus the
-   *  MOST-RESTRICTIVE session time envelope across chains (the soonest deadline wins).
-   *  Mirrors {@link PipRailClient.budget}'s shape so the agent toolkit reads it
-   *  unchanged; per-chain session detail is on each `clients[i].budget()`. */
+  /**
+   * A merged budget view. With a SHARED ledger (`fromWallets`) it's the single source of
+   * truth — `byAsset`/`byDenom`/`counts` already span every chain, so the grand-total and
+   * count leashes read as ONE budget. With independent clients it merges: per-(network,
+   * asset) rows + per-denom rows concatenated, counts summed, and the MOST-RESTRICTIVE
+   * session time envelope (the soonest deadline wins). Per-chain detail is on each
+   * `clients[i].budget()`.
+   */
   budget(): SessionBudget {
+    if (this._shared) return this._clients[0]!.budget()
     const budgets = this._clients.map((c) => c.budget())
     const session = budgets
       .map((b) => b.session)
@@ -259,7 +297,18 @@ export class MultiChainPayer implements PayingClient {
         if (s.secondsRemaining == null) return soonest
         return s.secondsRemaining < soonest.secondsRemaining ? s : soonest
       })
-    return { session, byAsset: budgets.flatMap((b) => b.byAsset) }
+    return {
+      session,
+      byAsset: budgets.flatMap((b) => b.byAsset),
+      byDenom: budgets.flatMap((b) => b.byDenom),
+      counts: { settled: budgets.reduce((n, b) => n + b.counts.settled, 0) },
+    }
+  }
+
+  /** The CONFIGURED spend policy (the shared policy `fromWallets` applies to every chain;
+   *  the first client's for the explicit constructor). `undefined` when none is set. */
+  policy(): PaymentPolicy | undefined {
+    return this._clients[0]!.policy()
   }
 }
 

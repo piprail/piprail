@@ -73,21 +73,26 @@ export function explainDecline(err: unknown): string {
 }
 
 /**
- * One line summarising spend so far, per (network, asset) — NEVER a single
- * cross-token figure (there is no price oracle). Count 0 → "no payments yet".
+ * One line summarising spend so far: a per-(network, asset) breakdown, plus — when the
+ * caller grouped tokens into a denomination (`maxTotalPerDenom`) — the cross-token GRAND
+ * TOTAL per unit (e.g. "$12.34 USD total"). The grand total is a sum of tokens declared as
+ * one unit, each 1:1 — NEVER a price-converted figure (no oracle). Count 0 → "no payments yet".
  *
- * NOTE: spend totals are in-memory for THIS process and reset on restart — a
- * convenience, not a durable ledger.
+ * NOTE: spend totals are in-memory unless a `spendStore` is configured (then they survive
+ * a restart); without one they reset per process — a convenience, not a durable ledger.
  */
 export function formatSpendReport(summary: SpendSummary): string {
   if (summary.count === 0) return 'No payments yet.'
-  return summary.byAsset
+  const perAsset = summary.byAsset
     .map(
       (a) =>
         `${a.totalFormatted} ${a.symbol ?? a.asset} on ${a.network} ` +
         `(${a.count} payment${a.count === 1 ? '' : 's'})`
     )
     .join('; ')
+  if (summary.byDenom.length === 0) return perAsset
+  const grand = summary.byDenom.map((d) => `${d.totalFormatted} ${d.denom} total`).join('; ')
+  return `${perAsset} — grand total: ${grand}`
 }
 
 /**

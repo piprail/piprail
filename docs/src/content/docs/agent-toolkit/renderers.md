@@ -118,23 +118,37 @@ try {
 
 ## formatSpendReport(summary)
 
-Render `client.spent()` — the in-memory spend ledger — as one line, broken out per
-`(network, asset)`. There is **no single cross-token total**: PipRail has no price oracle, so it
-never sums USDC and SOL into one figure.
+Render `client.spent()` — the spend ledger — as one line, broken out per `(network, asset)`,
+then **appends a cross-token grand total per denomination** when one is present. There is still
+**no price oracle**: a denomination total is a *unit-of-account sum* — it adds up every token the
+caller has grouped as one unit (e.g. USDC + USDT + PYUSD as `USD`) 1:1, never a price-converted
+figure, and never folds in a native coin or an unknown token (those have no denomination).
 
 ```ts
 import { formatSpendReport } from '@piprail/sdk'
 
 console.log(formatSpendReport(client.spent()))
-// → "0.30 USDC on eip155:8453 (3 payments); 0.05 USDC on solana:5eykt4Us… (1 payment)"
+// → "0.30 USDC on eip155:8453 (3 payments); 0.05 USDT on solana:5eykt4Us… (1 payment) — grand total: 0.35 USD total"
 ```
 
 A ledger with `count === 0` renders `No payments yet.`; otherwise each `byAsset` row becomes
-`<total> <symbol> on <network> (<n> payment(s))`, joined with `; `.
+`<total> <symbol> on <network> (<n> payment(s))`, joined with `; `. Then, for each row in
+`summary.byDenom` (a `SpendDenomTotal[]` of `{ denom, totalScaled, totalFormatted, count }`), it
+appends ` — grand total: <totalFormatted> <denom> total`. With no denominated spend, `byDenom`
+is empty and the line ends after the per-asset breakdown, exactly as before.
+
+The denomination grouping is driven by the policy's built-in units — `USDC`, `USDT`, `USD1`,
+`FDUSD`, `RLUSD` fold into `USD`, `EURC` into `EUR` — extensible per client via
+[`denomFor`](/spend-controls/total-budget/). When several clients share a ledger
+(`MultiChainPayer.fromWallets` or a shared `spendStore`), the grand total spans every chain. It
+is the read-side mirror of the
+[`maxTotalPerDenom`](/spend-controls/total-budget/) cap.
 
 :::note
-Spend totals are **in-memory for this process** and reset on restart — a convenience for an
-agent to account for its own session, not a durable ledger. See
+By default spend totals are **in-memory for this process** and reset on restart — a convenience
+for an agent to account for its own session. Pass a
+[`spendStore`](/spend-controls/spend-ledger/) (e.g. `fileSpendStore(path)`) to make them survive
+a restart; the store is caller-owned, never a backend. See
 [the spend ledger](/spend-controls/spend-ledger/) for the underlying `SpendSummary`.
 :::
 

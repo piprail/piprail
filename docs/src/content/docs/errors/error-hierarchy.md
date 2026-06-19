@@ -152,10 +152,14 @@ message.
 | `reasonCode` | Meaning | Retry? |
 | --- | --- | --- |
 | `'POLICY'` | A chain / host / token / per-payment cap refused it. | After fixing the target. |
-| `'BUDGET'` | The per-(network, asset) lifetime `maxTotal` cap. | No — budget exhausted. |
-| `'OUTSIDE_WINDOW'` | The rolling `windowTotal` cap. | Yes — once the window slides. |
+| `'BUDGET'` | A lifetime spend cap is exhausted — the per-(network, asset) `maxTotal`, the cross-token [`maxTotalPerDenom`](/spend-controls/total-budget/) grand total, or the [`maxPayments`](/spend-controls/payment-policy/) count. | No — budget exhausted. |
+| `'OUTSIDE_WINDOW'` | A rolling-window cap — `windowTotal` (value) or `maxPaymentsPerWindow` (count). | Yes — once the window slides. |
 | `'SESSION_EXPIRED'` | The session TTL elapsed. **Terminal.** | No — restart / extend the TTL. |
 | `'APPROVAL'` | An `onBeforePay` hook (e.g. MCP human-in-the-loop) declined. **Terminal.** | No — don't auto-retry. |
+
+The `DeclineReasonCode` set is unchanged. What grew is the finer-grained `PolicyDenyCode` on
+the underlying `quote.policyCode`, which folds into these five buckets:
+`MAX_TOTAL_DENOM` and `MAX_PAYMENTS` → `'BUDGET'`; `WINDOW_COUNT` → `'OUTSIDE_WINDOW'`.
 
 ```ts
 import { PaymentDeclinedError } from '@piprail/sdk'

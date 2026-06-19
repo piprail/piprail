@@ -218,12 +218,36 @@ session time envelope, and your spend so far. Use it in Mode A (headless) to sel
 paying, so you never discover the leash by hitting a decline. Read-only and idempotent; takes no
 arguments.
 
-Returns `{ spent, remaining, session, report }`, where `report` is a formatted line of the
-[spend ledger](/spend-controls/spend-ledger/).
+Returns `{ spent, remaining, session, report, grandTotal, counts, policy }`, where `report` is a
+formatted line of the [spend ledger](/spend-controls/spend-ledger/) and the last three mirror the
+[grand-total leash](/spend-controls/total-budget/):
+
+| Field | Meaning |
+| --- | --- |
+| `grandTotal` | The per-denomination [cross-token cap](/spend-controls/total-budget/) — one row per capped denomination (`{ denom, spentFormatted, capFormatted, remainingFormatted, fraction }`), present from the start. Empty when no `maxTotalPerDenom` is set. |
+| `counts` | The [payment-count leash](/spend-controls/total-budget/) — `{ settled, lifetimeCap?, lifetimeRemaining?, windowCap?, windowSettled?, windowRemaining? }`. `settled` is always present; the caps appear only when `maxPayments` / `maxPaymentsPerWindow` are set. |
+| `policy` | The configured [spend policy](/spend-controls/payment-policy/) read back, so the model sees the leash it's bound by (`undefined` when none is set). |
+
+```jsonc
+{ "spent": "0.10", "remaining": "19.90", "report": "…",
+  "session": { "expiresInSeconds": 3500 },
+  "grandTotal": [
+    { "denom": "USD", "spentFormatted": "0.10", "capFormatted": "20.00",
+      "remainingFormatted": "19.90", "fraction": 0.005 }
+  ],
+  "counts": { "settled": 1, "lifetimeCap": 100, "lifetimeRemaining": 99 },
+  "policy": { "maxTotalPerDenom": { "USD": "20.00" }, "maxPayments": 100 } }
+```
+
+The grand total is a **user-declared unit-of-account sum**, not a price oracle: tokens you group as
+one unit (USDC/USDT/… → `USD`) are summed 1:1; native and unknown tokens have no denomination and
+are never summed. It still spans chains when the server runs in multi-chain mode, because all chains
+share one ledger.
 
 :::note
-Totals and the time envelope are in-memory for **this** process and reset on restart — a
-convenience, not a durable ledger.
+By default, totals and the time envelope are in-memory for **this** process and reset on restart.
+Set `PIPRAIL_SPEND_LOG` to a path for a [durable store](/spend-controls/persistence/), and
+`grandTotal` + `counts` resume after a restart — still a caller-owned file, no backend.
 :::
 
 ## piprail_guide
@@ -243,8 +267,10 @@ off, the tools path is byte-identical.
 | --- | --- | --- |
 | `piprail_agent_guide` | prompt | The full agent contract — how to pay, reading a refusal, Mode A vs B. |
 | `piprail://guide` | resource (`text/markdown`) | The same `PIPRAIL_AGENT_GUIDE` text. |
-| `piprail://budget` | resource (`application/json`) | The live spend leash: `{ spent, remaining, session }`. |
+| `piprail://budget` | resource (`application/json`) | The live spend leash: `{ spent, remaining, session, grandTotal, counts, policy }` — the same payload `piprail_budget` returns. |
 
-The `piprail://budget` resource mirrors the running client's budget, so a client can poll the
-remaining leash as a resource read rather than a tool call. See [Modes](/mcp/modes/) for how the
-guide and the confirm hook fit together.
+The `piprail://budget` resource mirrors the running client's budget — including the
+[grand-total](/spend-controls/total-budget/) (`grandTotal`), payment-count leash (`counts`), and the
+configured policy read back (`policy`) — so a client can poll the remaining leash as a resource read
+rather than a tool call. See [Modes](/mcp/modes/) for how the guide and the confirm hook fit
+together.

@@ -72,9 +72,11 @@ Branch on \`code\` (always reliable). Key cases:
   once (enable the exact scheme); report it, don't retry the same call blindly.
 
 ## Knowing your leash — call piprail_budget
-piprail_budget tells you how much budget and time you have left, per
-(network, asset), plus your spend so far. Read-only; moves no funds. Use it in
-Mode A to self-check before paying.
+piprail_budget tells you how much budget and time you have left: per (network,
+asset) remaining, the cross-token GRAND TOTAL per denomination (e.g. how much
+USD you can still spend across every stablecoin and chain), the payment-count
+leash, the session time envelope, your spend so far, and the configured policy
+read back. Read-only; moves no funds. Use it in Mode A to self-check before paying.
 
 ## Two modes
 - Mode A (headless, default): you run FREE inside a pre-set budget + time
@@ -85,10 +87,15 @@ Mode A to self-check before paying.
   do NOT retry it as if it were a transient error.
 
 ## Hard facts
-- Spend caps are PER (network, asset). There is no single cross-token dollar cap —
-  budgets aren't summed across tokens (no price oracle).
-- Spend totals and the time envelope live IN-MEMORY for THIS process; they reset on restart
-  (a convenience, not a durable ledger).
+- Per-payment + per-(network, asset) caps always apply. A cross-token GRAND TOTAL per
+  denomination (maxTotalPerDenom, e.g. "$20 across every USD stablecoin + chain") is
+  OPTIONAL — it sums tokens declared as one unit, each 1:1; it is NOT a price oracle and
+  never prices a volatile native coin. Payment-COUNT caps (maxPayments / per-window) also
+  span every chain + token.
+- The time envelope lives IN-MEMORY for THIS process (resets on restart). The money + count
+  totals also reset on restart UNLESS a durable spend store is configured — then they resume.
+- A refusal arrives as declined:true with a reasonCode; 'BUDGET' covers the lifetime, denom,
+  and count caps; 'OUTSIDE_WINDOW' covers both the rolling money and rolling count windows.
 `
 
 /** Returns {@link PIPRAIL_AGENT_GUIDE} (a parity accessor for callers that prefer a function). */

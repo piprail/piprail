@@ -49,6 +49,11 @@ order, first-failure-wins, so the refusal reason is specific.
 | --- | --- | --- |
 | `maxAmount` | `string` | Per-payment ceiling (human units, e.g. `'0.10'`). |
 | `maxTotal` | `string` | Lifetime ceiling for this client, **per distinct asset**. |
+| `maxTotalPerDenom` | `Record<string, string>` | Cross-token grand total **per denomination** (`{ USD: '20.00' }`) — one cap across every stablecoin of that unit, on every chain. See [Total budget](/spend-controls/total-budget/). |
+| `denomFor` | `Record<string, string>` | Fold extra tokens into a denomination, by symbol or asset id (`{ PYUSD: 'USD' }`). Layered on the built-ins. |
+| `maxPayments` | `number` | Lifetime cap on the **number** of settled payments, across every chain and token. |
+| `maxPaymentsPerWindow` | `number` | Rolling-window cap on the payment **count**. Requires `windowSeconds`. |
+| `warnAtFraction` | `number` | In `(0, 1]`. Emit a `budget-threshold` event the first time spend crosses this fraction of any cap. |
 | `chains` | `ChainSelector[]` | Allowlist of chains the agent may pay on. |
 | `tokens` | `string[]` | Allowlist of token symbols, or the alias `'native'`. |
 | `hosts` | `string[]` | Allowlist of hosts — exact or `*.` wildcard. |
@@ -85,6 +90,15 @@ a single chain. For a single-currency budget, pair `maxTotal` with a one-token a
 ```ts
 policy: { maxTotal: '20.00', tokens: ['USDC'] }   // 20 USDC per chain, full stop
 ```
+
+:::caution[Per-token caps multiply across pairs]
+Because `maxTotal` is per `(network, asset)`, `maxTotal: '20.00'` with `tokens: ['USDC', 'USDT']`
+across Base *and* Solana does **not** mean "\$20 total" — it's \$20 for *each* of base-USDC,
+base-USDT, solana-USDC, … = \$20 × every (chain × token) pair. When you mean **one number across
+everything**, use [`maxTotalPerDenom`](/spend-controls/total-budget/) — `{ USD: '20.00' }` sums
+every USD stablecoin on every chain into a single cap (still oracle-free; see
+[Total budget](/spend-controls/total-budget/)).
+:::
 
 The running totals live in the [spend ledger](/spend-controls/spend-ledger/), which is
 process-scoped: every figure resets on restart. Shipping a fleet or a long-lived service? See
@@ -142,9 +156,10 @@ add a rolling rate limit on top of `maxTotal`. They have their own page:
 policy: { ttlSeconds: 3600, windowTotal: '1.00', windowSeconds: 60 }
 ```
 
-The rolling window requires **both** fields together — setting one without the other is a config
-error the client rejects at construction. See [Time envelope](/spend-controls/time-envelope/) for
-the full treatment.
+A rolling window needs `windowSeconds` *plus* at least one thing to limit — `windowTotal` (a spend
+cap) and/or `maxPaymentsPerWindow` (a count cap, see [Count caps](/spend-controls/total-budget/#cap-the-number-of-payments)).
+A lone `windowSeconds` with neither is a config error the client rejects at construction. See
+[Time envelope](/spend-controls/time-envelope/) for the full treatment.
 
 ## Seeing the verdict without paying
 

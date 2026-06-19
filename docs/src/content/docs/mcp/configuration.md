@@ -42,14 +42,20 @@ Each variable also accepts the shorter **alias** shown under its name.
 | `PIPRAIL_CHAINS` | no | — | **Multi-chain mode** — comma-separated chains (e.g. `base,polygon,solana`). Each takes its own `PIPRAIL_<CHAIN>_KEY` (+ optional `PIPRAIL_<CHAIN>_RPC_URL`); the server pays whichever chain a 402 asks for. Mutually exclusive with `PIPRAIL_CHAIN`/`PIPRAIL_PRIVATE_KEY`/`PIPRAIL_RPC_URL`. See [below](#pay-on-several-chains-from-one-server). |
 | `PIPRAIL_MAX_AMOUNT`<br/><small>aka `MAX_AMOUNT`</small> | no | `0.10` | Ceiling **per payment**, human units. |
 | `PIPRAIL_MAX_TOTAL`<br/><small>aka `MAX_TOTAL`</small> | no | `10.00` | Lifetime ceiling **per distinct token**, human units. |
+| `PIPRAIL_MAX_TOTAL_DENOM` | no | (none) | Cross-token **grand total** per denomination, e.g. `USD:20.00,EUR:5.00` — sums every token of that unit, across every chain. See [Total budget](/spend-controls/total-budget/). |
+| `PIPRAIL_MAX_PAYMENTS` | no | (none) | Lifetime cap on the **number** of settled payments, across every chain + token. |
+| `PIPRAIL_MAX_PAYMENTS_PER_WINDOW` | no | (none) | Rolling-window cap on the **count** of payments. Needs `PIPRAIL_WINDOW_SECONDS`. |
 | `PIPRAIL_TOKENS`<br/><small>aka `TOKENS`</small> | no | `USDC` *(USDT on any chain without native USDC — Tron, TON, Kaia)* | Comma-separated allowed token symbols, plus `native` for the chain's coin. |
 | `PIPRAIL_SCHEMES` | no | `onchain-proof` | Comma-separated payment schemes (see below). |
 | `PIPRAIL_HOSTS`<br/><small>aka `HOSTS`</small> | no | (any) | Comma-separated host allowlist — exact (`api.example.com`) or wildcard (`*.example.com`). |
 | `PIPRAIL_RPC_URL`<br/><small>aka `RPC_URL`</small> | no | chain default | Override the RPC endpoint; fold any API key into the URL. |
 | `PIPRAIL_ALLOW_UNKNOWN_TOKENS` | no | `false` | Pay tokens the SDK can't price? Keep `false`. |
 | `PIPRAIL_TTL` | no | (none) | Session deadline in seconds — terminal once past. |
-| `PIPRAIL_WINDOW_TOTAL` | no | (none) | Rolling-window budget, human units. Set **with** `PIPRAIL_WINDOW_SECONDS` or neither. |
-| `PIPRAIL_WINDOW_SECONDS` | no | (none) | Rolling-window width in seconds. |
+| `PIPRAIL_WINDOW_TOTAL` | no | (none) | Rolling-window budget, human units. Needs `PIPRAIL_WINDOW_SECONDS`. |
+| `PIPRAIL_WINDOW_SECONDS` | no | (none) | Rolling-window width in seconds — pairs with `PIPRAIL_WINDOW_TOTAL` and/or `PIPRAIL_MAX_PAYMENTS_PER_WINDOW`. |
+| `PIPRAIL_WARN_AT_FRACTION` | no | (none) | Emit a `budget-threshold` event the first time spend crosses this fraction `(0,1]` of any cap. |
+| `PIPRAIL_SPEND_LOG` | no | (none) | Path to a JSONL [spend store](/spend-controls/persistence/) — the budget survives a restart. |
+| `PIPRAIL_EVENT_LOG` | no | (none) | `stderr` or a file path — one-line-JSON sink for payment + budget events. |
 | `PIPRAIL_CONFIRM` | no | `false` | Mode B — ask the human to approve each payment via elicitation. |
 | `PIPRAIL_CONFIRM_TIMEOUT_MS` | no | `55000` | Approval window in ms; keep below your client's request timeout (≈60000). |
 | `PIPRAIL_GUIDE` | no | `true` | Expose the agent-guide prompt + the guide/budget resources. |
@@ -114,6 +120,44 @@ naming the ticker. The default is data-driven — it tracks what actually exists
 where it exists, else **USDT on any chain without native USDC** (Tron, TON, and the Kaia EVM preset),
 so a USDC-only policy would never silently block every payment. See [Chains](/mcp/chains/) for the full per-chain token story.
 
+## The grand total and the count caps
+
+`PIPRAIL_MAX_TOTAL` is per **distinct token** — across several stablecoins (or several chains) that
+silently multiplies. For one number across everything, set `PIPRAIL_MAX_TOTAL_DENOM`: a
+comma-separated list of `UNIT:AMOUNT` pairs that sums the **human value** of every token of that
+unit. See [Total budget](/spend-controls/total-budget/).
+
+```jsonc
+"env": {
+  "PIPRAIL_PRIVATE_KEY": "0xYOUR_PRIVATE_KEY",
+  "PIPRAIL_MAX_TOTAL_DENOM": "USD:20.00,EUR:5.00",  // $20 across ALL USD stablecoins, €5 across EURC
+  "PIPRAIL_MAX_PAYMENTS": "100",                     // …and at most 100 payments, ever
+  "PIPRAIL_MAX_PAYMENTS_PER_WINDOW": "10",           // …at most 10 within the rolling window
+  "PIPRAIL_WINDOW_SECONDS": "3600"
+}
+```
+
+- **`PIPRAIL_MAX_TOTAL_DENOM`** folds the built-in stablecoins (`USDC`, `USDT`, `USD1`, `FDUSD`,
+  `RLUSD` → `USD`; `EURC` → `EUR`) into one unit-of-account total. It is **not a price oracle** — a
+  token's unit is a static, ship-time label, summed 1:1; the chain's native coin and any unknown
+  token have no denomination and are never summed. It coexists with `PIPRAIL_MAX_TOTAL`; the
+  stricter cap wins.
+- **`PIPRAIL_MAX_PAYMENTS`** caps the lifetime *number* of settled payments (counts need no oracle,
+  so they span every chain and token, native included).
+- **`PIPRAIL_MAX_PAYMENTS_PER_WINDOW`** is a count cap over the rolling window — it requires
+  `PIPRAIL_WINDOW_SECONDS` (a count-only window is fine; it can share the same width as
+  `PIPRAIL_WINDOW_TOTAL`).
+
+:::note[Multi-chain shares one ledger]
+In multi-chain mode (`PIPRAIL_CHAINS`) every chain's client shares **one ledger**, so the grand
+total and the payment counts span **every funded chain** — `USD:20.00` means $20 total across base
+*and* polygon *and* solana combined. (Per-token `PIPRAIL_MAX_TOTAL` still keeps its own ledger per
+`(chain, token)`.)
+:::
+
+The `piprail_budget` tool and the `piprail://budget` resource report the grand total (`byDenom`), the
+payment counts, and the active policy alongside the per-asset rows.
+
 ## The time envelope
 
 On top of the money caps you can add a time leash — see [Time
@@ -130,10 +174,48 @@ rate-limits spend over a sliding interval.
 ```
 
 :::caution
-`PIPRAIL_WINDOW_TOTAL` and `PIPRAIL_WINDOW_SECONDS` must be set **together or not at all**. A
-cap with no width (or a width with no cap) is a half-armed leash that wouldn't bite, so the
-server refuses to start with only one.
+A window **width** needs a window **cap**, and vice versa. `PIPRAIL_WINDOW_SECONDS` must accompany
+`PIPRAIL_WINDOW_TOTAL` and/or `PIPRAIL_MAX_PAYMENTS_PER_WINDOW` (either or both), and each of those
+caps needs `PIPRAIL_WINDOW_SECONDS`. A lone `PIPRAIL_WINDOW_SECONDS` is a half-armed leash that
+wouldn't bite, so the server refuses to start with only one.
 :::
+
+## Survive a restart
+
+By default the budget is in-memory — the session *is* the process, so a restart zeroes the lifetime
+caps. Point `PIPRAIL_SPEND_LOG` at a file and the ledger hydrates from it at startup and appends each
+settled payment, so `PIPRAIL_MAX_TOTAL`, `PIPRAIL_MAX_TOTAL_DENOM`, and `PIPRAIL_MAX_PAYMENTS` resume
+where they left off. It's a plain JSONL file you own — no backend, no database.
+
+```jsonc
+"env": {
+  "PIPRAIL_PRIVATE_KEY": "0xYOUR_PRIVATE_KEY",
+  "PIPRAIL_MAX_TOTAL_DENOM": "USD:20.00",
+  "PIPRAIL_SPEND_LOG": "/data/piprail-spend.jsonl"
+}
+```
+
+In multi-chain mode the one file backs the single shared ledger, so the whole cross-chain grand
+total is durable. The time envelope (`PIPRAIL_TTL`) stays process-scoped on purpose. See
+[Persistence](/spend-controls/persistence/).
+
+## Watch the spend
+
+Two opt-in knobs surface what the wallet is doing without changing what it pays:
+
+```jsonc
+"env": {
+  "PIPRAIL_WARN_AT_FRACTION": "0.8",   // warn the first time spend crosses 80% of ANY cap
+  "PIPRAIL_EVENT_LOG": "stderr"        // or a file path
+}
+```
+
+- **`PIPRAIL_WARN_AT_FRACTION`** is a number in `(0,1]`. The first time spend crosses that fraction
+  of *any* cap (per-token, grand-total, count, or window), the server emits a `budget-threshold`
+  event — an early heads-up before a decline.
+- **`PIPRAIL_EVENT_LOG`** writes those events, plus every payment and decline, as one JSON object per
+  line. Use `stderr` to fold them into the server's log stream, or a path to keep a separate audit
+  file.
 
 ## Schemes — opt-in `exact`
 

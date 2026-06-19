@@ -27,8 +27,8 @@ import {
   ListResourcesRequestSchema,
   ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js'
-import { PipRailClient, MultiChainPayer, paymentTools, PIPRAIL_AGENT_GUIDE } from '@piprail/sdk'
-import type { PipRailClientOptions } from '@piprail/sdk'
+import { PipRailClient, MultiChainPayer, SpendLedger, paymentTools, PIPRAIL_AGENT_GUIDE } from '@piprail/sdk'
+import type { PipRailClientOptions, SpendStore, PipRailEvent } from '@piprail/sdk'
 import { VERSION } from './version.js'
 import { buildConfirmHook } from './confirm.js'
 
@@ -40,6 +40,12 @@ export interface McpServerOptions {
   confirmTimeoutMs?: number
   /** Expose the agent-guide prompt + the guide/budget resources. Default on. */
   guide?: boolean
+  /** Durable spend store (PIPRAIL_SPEND_LOG) — the budget survives a restart. In
+   *  multi-chain mode it backs the ONE shared ledger so the grand total spans chains. */
+  spendStore?: SpendStore
+  /** Operator event sink (PIPRAIL_EVENT_LOG) — every payment-settled / declined /
+   *  budget-threshold event, mirrored to stderr or a file as one-line JSON. */
+  onEvent?: (event: PipRailEvent) => void
 }
 
 /** Build a configured PipRail MCP server (and its paying client) ready to connect to a
@@ -68,21 +74,33 @@ export function createMcpServer(
   // Safe because PipRailClient's constructor never invokes onBeforePay — only
   // authorize() does, at pay-time, long after `server` is assigned and connected.
   let server: Server
-  const withConfirm = (o: PipRailClientOptions): PipRailClientOptions =>
-    opts?.confirm
-      ? {
-          ...o,
-          // An embedder-supplied hook wins; otherwise our elicitation hook.
-          onBeforePay: o.onBeforePay ?? buildConfirmHook(() => server, opts.confirmTimeoutMs),
-        }
-      : o
+
+  // Multi-chain ⇒ ONE shared ledger (optionally store-backed) so the cross-token grand
+  // total + the payment-count caps span every chain as a single budget. Single-chain ⇒
+  // pass the store straight to the lone client. (A client can't take both a shared ledger
+  // AND a store — the shared ledger owns it.)
+  const sharedLedger = Array.isArray(clientOptions) ? new SpendLedger(opts?.spendStore) : undefined
+
+  const decorate = (o: PipRailClientOptions): PipRailClientOptions => ({
+    ...o,
+    // Mode B: an embedder-supplied hook wins; otherwise our elicitation hook.
+    ...(opts?.confirm
+      ? { onBeforePay: o.onBeforePay ?? buildConfirmHook(() => server, opts.confirmTimeoutMs) }
+      : {}),
+    ...(opts?.onEvent ? { onEvent: opts.onEvent } : {}),
+    ...(sharedLedger
+      ? { ledger: sharedLedger }
+      : opts?.spendStore
+        ? { spendStore: opts.spendStore }
+        : {}),
+  })
 
   // Single chain ⇒ ONE PipRailClient (unchanged). Multi-chain ⇒ one client PER chain
-  // behind a MultiChainPayer that auto-routes a 402 to whichever chain can settle it.
-  // Both satisfy PayingClient, so paymentTools wraps either identically — same 7 tools.
+  // behind a MultiChainPayer (clients share the ledger above) that auto-routes a 402 to
+  // whichever chain can settle it. Both satisfy PayingClient — paymentTools wraps either.
   const client: PipRailClient | MultiChainPayer = Array.isArray(clientOptions)
-    ? new MultiChainPayer(clientOptions.map((o) => new PipRailClient(withConfirm(o))))
-    : new PipRailClient(withConfirm(clientOptions))
+    ? new MultiChainPayer(clientOptions.map((o) => new PipRailClient(decorate(o))), { shared: true })
+    : new PipRailClient(decorate(clientOptions))
 
   const tools = paymentTools(client) // 7 tools (discover · quote · plan · pay · register · budget · guide)
 
@@ -169,7 +187,14 @@ export function createMcpServer(
       }
       if (uri === 'piprail://budget') {
         const budget = client.budget()
-        const payload = { spent: client.spent(), remaining: budget.byAsset, session: budget.session }
+        const payload = {
+          spent: client.spent(),
+          remaining: budget.byAsset,
+          grandTotal: budget.byDenom, // cross-token spend cap per denomination (USD/EUR/…)
+          counts: budget.counts, // payment-count leash
+          session: budget.session,
+          policy: client.policy() ?? null,
+        }
         return {
           contents: [{ uri, mimeType: 'application/json', text: JSON.stringify(payload, null, 2) }],
         }

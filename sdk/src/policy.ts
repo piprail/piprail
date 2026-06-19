@@ -16,6 +16,89 @@ import { floorUnits } from './util/units.js'
 import type { Caip2 } from './x402.js'
 import type { ChainSelector } from './drivers/types.js'
 
+/**
+ * Fixed precision (decimal places) the cross-token GRAND-TOTAL accumulator sums
+ * in. Every payment's base-unit amount is scaled to this many decimals before it
+ * joins its denomination's running total, so tokens with DIFFERENT decimals
+ * (USDC 6dp, USD1 18dp, …) add up exactly with no floating point. 24dp covers
+ * every token PipRail ships (the deepest stablecoin is 18dp); a token finer than
+ * this can't be summed safely and is simply left out of the grand total.
+ */
+export const DENOM_PRECISION = 24
+
+/**
+ * Static, ship-time DENOMINATION labels for the SDK's built-in stablecoins — the
+ * unit of account each one represents, so a caller can cap "total USD across every
+ * stablecoin on every chain" with ONE number ({@link PaymentPolicy.maxTotalPerDenom}).
+ *
+ * This is **not a price oracle**. PipRail never reads a market and never prices a
+ * volatile coin. A denomination is the same kind of static, verified-at-ship-time
+ * metadata as a token's symbol or decimals; the grand total simply ADDS UP tokens
+ * you've grouped as the same unit, each counted 1:1. Native coins (ETH/BNB/SOL/…)
+ * and unrecognised tokens have NO denomination — they are never in a bucket (cap
+ * them with the per-asset `maxTotal` or the payment-count caps instead).
+ *
+ * Keys are UPPERCASE true symbols; extend per-policy via {@link PaymentPolicy.denomFor}.
+ */
+export const BUILTIN_DENOMS: Readonly<Record<string, string>> = {
+  USDC: 'USD',
+  USDT: 'USD',
+  USD1: 'USD',
+  FDUSD: 'USD',
+  RLUSD: 'USD',
+  EURC: 'EUR',
+}
+
+/**
+ * Resolve a token's denomination for the {@link PaymentPolicy.maxTotalPerDenom}
+ * grand total. Resolution order: the caller's `denomFor` override (matched first by
+ * exact on-chain asset id, then by case-insensitive TRUE symbol) → the built-in
+ * label ({@link BUILTIN_DENOMS}) → `undefined` (the token is not part of any grand
+ * total). The result is UPPERCASED so denomination keys are case-insensitive. Pure —
+ * no market read, no chain import.
+ */
+export function denomOf(
+  symbol: string | undefined,
+  asset: string | undefined,
+  policy: PaymentPolicy | undefined
+): string | undefined {
+  const override = policy?.denomFor
+  if (override) {
+    if (asset && override[asset] !== undefined) return override[asset].toUpperCase()
+    if (symbol) {
+      const hit = Object.entries(override).find(([k]) => k.toUpperCase() === symbol.toUpperCase())
+      if (hit) return hit[1].toUpperCase()
+    }
+  }
+  if (symbol) {
+    const builtin = BUILTIN_DENOMS[symbol.toUpperCase()]
+    if (builtin) return builtin
+  }
+  return undefined
+}
+
+/**
+ * Scale a base-unit amount to the {@link DENOM_PRECISION} grand-total accumulator.
+ * Exact for any token with ≤ DENOM_PRECISION decimals (every stablecoin PipRail
+ * ships). Returns `null` for a token finer than the accumulator (it can't be summed
+ * safely, so it's excluded from the grand total — never silently mis-counted).
+ */
+export function scaleToDenom(amountBase: bigint, decimals: number): bigint | null {
+  if (!Number.isSafeInteger(decimals) || decimals < 0 || decimals > DENOM_PRECISION) return null
+  return amountBase * 10n ** BigInt(DENOM_PRECISION - decimals)
+}
+
+/** Case-insensitive lookup of a denomination's cap in `maxTotalPerDenom`. */
+function capForDenom(
+  caps: Record<string, string> | undefined,
+  denom: string
+): string | undefined {
+  if (!caps) return undefined
+  if (caps[denom] !== undefined) return caps[denom]
+  const hit = Object.entries(caps).find(([k]) => k.toUpperCase() === denom.toUpperCase())
+  return hit?.[1]
+}
+
 export interface PaymentPolicy {
   /** Per-payment ceiling, human-readable (e.g. '0.10'). Compared using the
    *  token's TRUE decimals, so a server can't understate the price. */
@@ -63,8 +146,59 @@ export interface PaymentPolicy {
    * other is a config error (a half-armed leash is forbidden). Opt-in; heavier.
    */
   windowTotal?: string
-  /** Rolling-window width in seconds for {@link windowTotal}. REQUIRED together with it. */
+  /** Rolling-window width in seconds for {@link windowTotal}. REQUIRED together with it.
+   *  Shared by {@link maxPaymentsPerWindow} (the rolling payment-count cap). */
   windowSeconds?: number
+  /**
+   * Cross-chain, cross-token GRAND-TOTAL spend cap, keyed by DENOMINATION (a unit of
+   * account you declare): e.g. `{ USD: '20.00', EUR: '5.00' }`. The SDK sums the
+   * human-value of every token of that denomination — across every chain, when the
+   * paying clients share a ledger (`MultiChainPayer.fromWallets` or a shared
+   * `spendStore`) — and refuses a payment that would push the denomination's
+   * running total past the cap (`MAX_TOTAL_DENOM`).
+   *
+   * This is the single "spend at most $X total, full stop" leash. It is **NOT a price
+   * oracle** — PipRail never reads a market and never prices a volatile coin. A token's
+   * denomination is a static, ship-time label ({@link BUILTIN_DENOMS}: USDC/USDT/USD1/
+   * FDUSD/RLUSD → `'USD'`; EURC → `'EUR'`); the SDK just ADDS UP tokens you've grouped
+   * as one unit, each counted 1:1. Native coins and unrecognised tokens have NO
+   * denomination and never enter a bucket — cap those with {@link maxTotal} or
+   * {@link maxPayments}. Keys are case-insensitive. Coexists with the per-asset
+   * `maxTotal`; the stricter cap wins. Opt-in; omit for no grand total (default).
+   *
+   * Best-effort under concurrency (like `maxTotal`, see STANDARDS §7): many in-flight
+   * payments can race past it; the SDK ships no reservation system.
+   */
+  maxTotalPerDenom?: Record<string, string>
+  /**
+   * Fold EXTRA tokens into a denomination for the {@link maxTotalPerDenom} grand total,
+   * by TRUE symbol (`{ PYUSD: 'USD' }`) or by on-chain asset id (`{ '0x…': 'USD' }`).
+   * Your assertion of equivalence, layered ON TOP of the built-in labels — use it for a
+   * stablecoin the SDK doesn't ship a label for, or to group a custom token. Symbol keys
+   * are case-insensitive; asset-id keys match exactly and win over symbol.
+   */
+  denomFor?: Record<string, string>
+  /**
+   * Lifetime cap on the NUMBER of settled payments for this client/ledger — across
+   * EVERY chain and token (a count needs no price oracle, so it spans everything). A
+   * payment that would be the `(maxPayments + 1)`-th is refused (`MAX_PAYMENTS`). Opt-in.
+   */
+  maxPayments?: number
+  /**
+   * Rolling-window cap on the NUMBER of payments within {@link windowSeconds} — a rate
+   * limit independent of amount (`WINDOW_COUNT`). REQUIRED together with `windowSeconds`
+   * (which it shares with `windowTotal`); setting it without `windowSeconds` is a config
+   * error. Opt-in.
+   */
+  maxPaymentsPerWindow?: number
+  /**
+   * Emit a `budget-threshold` event (via the client's `onEvent`) the FIRST time
+   * cumulative spend crosses this fraction (0–1] of ANY configured cap — `maxTotal`,
+   * `maxTotalPerDenom`, `maxPayments`, `windowTotal`, or `maxPaymentsPerWindow` — so an
+   * agent/operator is warned BEFORE the hard decline. e.g. `0.8` = warn at 80%. Purely
+   * observational (never blocks a payment). Opt-in; omit for no warning (default).
+   */
+  warnAtFraction?: number
 }
 
 /** What the policy reasons over — built by the client from the chosen accept. */
@@ -98,8 +232,11 @@ export type PolicyDenyCode =
   | 'TOKEN'
   | 'MAX_AMOUNT'
   | 'MAX_TOTAL'
+  | 'MAX_TOTAL_DENOM'
+  | 'MAX_PAYMENTS'
   | 'SESSION_EXPIRED'
   | 'WINDOW_TOTAL'
+  | 'WINDOW_COUNT'
 
 export interface PolicyDecision {
   allowed: boolean
@@ -122,6 +259,16 @@ interface PolicyContext {
   sessionStart: number
   /** Base units spent on THIS (network, asset) within the rolling window; `0n` when no window cap. */
   spentInWindowBase: bigint
+  /**
+   * Running grand-total already spent on THIS intent's DENOMINATION, scaled to
+   * {@link DENOM_PRECISION}, across the (possibly shared, cross-chain) ledger.
+   * Powers `maxTotalPerDenom`. `0n` when no denom cap / the intent has no denomination.
+   */
+  spentInDenomScaled?: bigint
+  /** Total settled payments across the ledger so far — powers `maxPayments`. */
+  paymentCount?: number
+  /** Settled payments within the rolling window — powers `maxPaymentsPerWindow`. */
+  paymentCountInWindow?: number
 }
 
 const ALLOW: PolicyDecision = { allowed: true }
@@ -185,9 +332,11 @@ function chainMatches(intent: PaymentIntent, allowed: ChainSelector): boolean {
  *
  * Checks run in a pinned, deterministic order, first-failure-wins so the reason
  * is specific: **session expiry → chains → hosts → unknown-token → tokens →
- * maxAmount → maxTotal → windowTotal**. Expiry is first because it's
- * session-global (not asset-scoped) — an expired session must always report
- * expiry, not whichever other gate happens to also fail.
+ * maxAmount → maxTotal → maxTotalPerDenom → maxPayments → windowTotal →
+ * maxPaymentsPerWindow**. Expiry is first because it's session-global (not
+ * asset-scoped) — an expired session must always report expiry, not whichever
+ * other gate happens to also fail. The grand-total / count caps come after the
+ * per-asset caps so the most-specific money cap is reported first.
  */
 export function evaluatePolicy(
   intent: PaymentIntent,
@@ -265,6 +414,42 @@ export function evaluatePolicy(
     }
   }
 
+  // Cross-token GRAND TOTAL per declared denomination — the "spend at most $X total,
+  // full stop" leash. Sums human-value across every token of this denomination across
+  // every chain (NOT a price oracle — see BUILTIN_DENOMS). `ctx.spentInDenomScaled` is
+  // the client's running total at DENOM_PRECISION; only runs with a denom cap + ctx.
+  if (ctx && policy.maxTotalPerDenom) {
+    const denom = denomOf(intent.symbol, intent.asset, policy)
+    const capStr = denom ? capForDenom(policy.maxTotalPerDenom, denom) : undefined
+    if (denom && capStr !== undefined) {
+      const thisScaled = scaleToDenom(intent.amountBase, intent.decimals)
+      // A token finer than the accumulator can't be summed safely — it's excluded from
+      // the grand total (its per-asset maxTotal still applies), never mis-counted.
+      if (thisScaled !== null) {
+        const capScaled = floorUnits(capStr, DENOM_PRECISION)
+        if ((ctx.spentInDenomScaled ?? 0n) + thisScaled > capScaled) {
+          return deny(
+            'MAX_TOTAL_DENOM',
+            `this payment would push total ${denom} spend past ` +
+              `policy.maxTotalPerDenom.${denom} (${capStr}) — summed across every ` +
+              `${denom} token and chain.`
+          )
+        }
+      }
+    }
+  }
+
+  // Lifetime payment-COUNT cap — across every chain + token (counts need no oracle).
+  if (ctx && policy.maxPayments !== undefined) {
+    if ((ctx.paymentCount ?? 0) + 1 > policy.maxPayments) {
+      return deny(
+        'MAX_PAYMENTS',
+        `this payment would exceed policy.maxPayments (${policy.maxPayments}); ` +
+          `already settled ${ctx.paymentCount ?? 0}.`
+      )
+    }
+  }
+
   // Rolling window — LAST (heaviest), and ONLY when BOTH fields are set (a
   // half-armed leash is forbidden; the client also rejects one-without-the-other
   // at construction). `ctx.spentInWindowBase` is the client's pre-sliced total.
@@ -275,6 +460,18 @@ export function evaluatePolicy(
         'WINDOW_TOTAL',
         `this payment would exceed policy.windowTotal (${policy.windowTotal}) within the last ` +
           `${policy.windowSeconds}s on ${intent.symbol ?? intent.asset}.`
+      )
+    }
+  }
+
+  // Rolling payment-COUNT cap — a rate limit independent of amount, across every
+  // chain + token. Shares `windowSeconds` with `windowTotal`.
+  if (ctx && policy.maxPaymentsPerWindow !== undefined && policy.windowSeconds !== undefined) {
+    if ((ctx.paymentCountInWindow ?? 0) + 1 > policy.maxPaymentsPerWindow) {
+      return deny(
+        'WINDOW_COUNT',
+        `this payment would exceed policy.maxPaymentsPerWindow ` +
+          `(${policy.maxPaymentsPerWindow}) within the last ${policy.windowSeconds}s.`
       )
     }
   }
