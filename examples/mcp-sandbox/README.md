@@ -5,7 +5,7 @@ in `examples/` shows you *how to use* PipRail. This one **proves it works** — 
 spawns the real, published [`@piprail/mcp`](../../mcp) server as a subprocess,
 talks to it over the actual MCP stdio protocol exactly like Claude Desktop or
 Cursor would, and then attacks it: as a greedy AI **and** as a lying merchant,
-trying every trick to overspend. It can't. **158 checks, all green.**
+trying every trick to overspend. It can't. **169 checks, all green.**
 
 ```bash
 # From the repo root (tests your LOCAL build):
@@ -21,7 +21,7 @@ node run-all.mjs
 ▸ 04 · config / SDK-consumption surface (every chain, every wallet format)
 ▸ 05 · LIVE caps under real on-chain settlement (Anvil fork of Base)
 ── summary ──
-ALL 158 CHECKS PASSED
+ALL 169 CHECKS PASSED
 ```
 
 ---

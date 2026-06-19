@@ -70,6 +70,17 @@ First-party framework integrations live in their own top-level [`integrations/`]
 
 > Discovery is **$0 and backendless** — built on the open x402 indexes (402 Index, CDP Bazaar); PipRail hosts none of its own. `register()` lists your endpoint (no auth, any chain), `discover()` finds resources to pay, and the pure emitters turn your gate's config into the OpenAPI / `.well-known` / DNS artifacts crawlers read. See [docs.piprail.com/discovery](https://docs.piprail.com/discovery/discover-and-register/).
 
+## Full applications
+
+The folders above are **mini examples** — each proves one thing. [`apps/`](./apps) is the next tier up:
+**complete, runnable applications** (a frontend + backend + persistence) that show PipRail inside a
+real product. First up (📋 planned): a **metered-API SaaS** that gates an endpoint and **stores every
+paid receipt in a SQL database**, with a revenue dashboard — blueprint in
+[`apps/full-stack-saas/PLAN.md`](./apps/full-stack-saas/PLAN.md).
+
+> The database belongs to the *merchant's app*, never to PipRail — these show how to wire `onPaid` and a
+> SQL-backed replay store into **your** stack. PipRail itself stays backendless.
+
 ## Prove it works — the adversarial test harnesses
 
 These aren't payment apps — they're **runnable proofs**. Each exercises a real,
@@ -78,8 +89,8 @@ no real keys; the live settlement tests use a local Anvil fork of Base with fake
 
 | What | Folder | Proves |
 |---|---|---|
-| The **SDK**, both ends — `requirePayment`/`createPaymentGate` (merchant) **and** `PipRailClient` (payer) | [`sdk-sandbox/`](./sdk-sandbox) | the gate, the client, the spend policy, the wire codecs, the typed errors, a real on-chain round-trip (USDC + native), **and live discovery** (emit + register + discover vs. the real indexes) — **117 checks** |
-| The **MCP server** — spawned over real stdio, attacked as a greedy AI + a lying merchant | [`mcp-sandbox/`](./mcp-sandbox) | an AI **cannot break the spend policy**: caps can't be tricked or drained, proven on a real on-chain settlement; plus the discovery tools over MCP — **167 checks** |
+| The **SDK**, both ends — `requirePayment`/`createPaymentGate` (merchant) **and** `PipRailClient` (payer) | [`sdk-sandbox/`](./sdk-sandbox) | the gate, the client, the spend policy, the wire codecs, the typed errors, a real on-chain round-trip (USDC + native), **and live discovery** (emit + register + discover vs. the real indexes) — **284 checks** |
+| The **MCP server** — spawned over real stdio, attacked as a greedy AI + a lying merchant | [`mcp-sandbox/`](./mcp-sandbox) | an AI **cannot break the spend policy**: caps can't be tricked or drained, proven on a real on-chain settlement; plus the discovery tools over MCP — **169 checks** |
 
 > **The headline both prove:** the spend policy is the boundary, and it holds.
 > A merchant that lies about decimals / display amount / symbol can't push a
@@ -99,6 +110,10 @@ no real keys; the live settlement tests use a local Anvil fork of Base with fake
 - **MCP setup:** [docs.piprail.com/mcp](https://docs.piprail.com/mcp/overview/) — per-client config, all chains, wallet formats.
 
 Each example targets **Base + USDC** with a placeholder `payTo` — set your own wallet, then `npm install && npm start` in the folder.
+
+> **A note on `*.local.mjs`.** Any loose `*.local.mjs` files in this folder are **gitignored local
+> live-test harnesses** (real-money smoke tests against mainnet, run from a maintainer's machine with
+> `.secrets/` wallets). They're never committed and aren't part of the shipped examples — ignore them.
 
 ## Spread the word
 
