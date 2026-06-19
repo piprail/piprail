@@ -391,7 +391,7 @@ the buyer's-eye view of the rest, see the [client events](/making-payments/event
 
 The two hooks together let a gate persist a complete record — every settlement *and* every
 rejection — to your own store, with no PipRail backend or database in the path. This is the shape
-the runnable [`examples/payment-system/`](https://github.com/piprail/piprail/tree/main/examples/payment-system)
+the runnable [`examples/basics/payment-system/`](https://github.com/piprail/piprail/tree/main/examples/basics/payment-system)
 demo uses (merchant + buyer, both sides, success + failure persisted to SQLite with a `/ledger`
 dashboard):
 

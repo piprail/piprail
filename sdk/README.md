@@ -61,7 +61,7 @@ const res = await payer.get(url) // pays on the first chain that can settle — 
 ```
 
 Built on `planAcross` / `fetchAcross` (the same composable primitives, for when you
-already hold an array of clients). See [`examples/multi-chain`](../examples/multi-chain).
+already hold an array of clients). See [`examples/basics/multi-chain`](../examples/basics/multi-chain).
 
 The same app can **take** payments and **make** them. → [Making payments](https://docs.piprail.com/making-payments/piprail-client/)
 

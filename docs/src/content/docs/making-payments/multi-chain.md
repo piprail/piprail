@@ -271,7 +271,7 @@ PLAN: READY
 All three are payable, so **Base wins because it's listed first** — even though Arbitrum's
 gas is numerically smaller (the SDK won't compare ETH-gas against POL-gas without an
 oracle). `get()` then settles **only** that rail. To prefer Arbitrum, list it first. See the
-runnable [`examples/multi-chain`](https://github.com/piprail/piprail/tree/main/examples/multi-chain).
+runnable [`examples/basics/multi-chain`](https://github.com/piprail/piprail/tree/main/examples/basics/multi-chain).
 
 ## The primitives underneath
 
