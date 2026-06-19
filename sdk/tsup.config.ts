@@ -1,7 +1,10 @@
 import { defineConfig } from 'tsup'
 
 export default defineConfig({
-  entry: ['src/index.ts'],
+  // Two entries: the browser-safe core (`@piprail/sdk`) and the Node-only helpers
+  // (`@piprail/sdk/node` — fileSpendStore, which imports `node:fs`). Keeping the
+  // file store in its own entry is what lets the core bundle stay free of `node:`.
+  entry: ['src/index.ts', 'src/node.ts'],
   format: ['esm', 'cjs'],
   dts: true,
   // Code-split so each dynamically-imported non-EVM driver (Solana, TON, Tron,

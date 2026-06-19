@@ -230,9 +230,28 @@ describe('parseConfig — time envelope (PIPRAIL_TTL + rolling window)', () => {
   test('a TTL beyond 10 years is rejected', () => {
     expect(() => parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_TTL: '999999999' })).toThrow(/seconds/)
   })
-  test('window needs BOTH bounds — one alone is a ConfigError', () => {
-    expect(() => parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_WINDOW_TOTAL: '1.00' })).toThrow(/together/)
-    expect(() => parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_WINDOW_SECONDS: '60' })).toThrow(/together/)
+  test('windowTotal needs windowSeconds; a lone windowSeconds bounds nothing', () => {
+    expect(() => parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_WINDOW_TOTAL: '1.00' })).toThrow(
+      /WINDOW_SECONDS/
+    )
+    expect(() => parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_WINDOW_SECONDS: '60' })).toThrow(
+      /bounds nothing/
+    )
+  })
+  test('a count-only rolling window (maxPaymentsPerWindow + windowSeconds, no windowTotal) is allowed', () => {
+    const cfg = parseConfig({
+      PIPRAIL_PRIVATE_KEY: KEY,
+      PIPRAIL_MAX_PAYMENTS_PER_WINDOW: '10',
+      PIPRAIL_WINDOW_SECONDS: '3600',
+    })
+    expect(cfg.maxPaymentsPerWindow).toBe(10)
+    expect(cfg.windowSeconds).toBe(3600)
+    expect(cfg.windowTotal).toBeUndefined()
+  })
+  test('maxPaymentsPerWindow without windowSeconds is a ConfigError', () => {
+    expect(() => parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_MAX_PAYMENTS_PER_WINDOW: '5' })).toThrow(
+      /WINDOW_SECONDS/
+    )
   })
   test('both bounds set → windowTotal + windowSeconds', () => {
     const cfg = parseConfig({
@@ -302,5 +321,52 @@ describe('configToClientOptions — the time policy + the onBeforePay seam', () 
       })
     )
     expect(opts.policy).toMatchObject({ ttlSeconds: 3600, windowTotal: '1.00', windowSeconds: 60 })
+  })
+})
+
+describe('parseConfig — cross-token grand total + count caps + log sinks', () => {
+  test('PIPRAIL_MAX_TOTAL_DENOM parses to a { DENOM: amount } map (uppercased)', () => {
+    const cfg = parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_MAX_TOTAL_DENOM: 'usd:20.00,EUR:5.00' })
+    expect(cfg.maxTotalPerDenom).toEqual({ USD: '20.00', EUR: '5.00' })
+    expect(configToClientOptions(cfg).policy).toMatchObject({ maxTotalPerDenom: { USD: '20.00', EUR: '5.00' } })
+  })
+  test('a malformed denom entry is a ConfigError', () => {
+    expect(() => parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_MAX_TOTAL_DENOM: 'USD=20' })).toThrow(
+      /MAX_TOTAL_DENOM/
+    )
+    expect(() => parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_MAX_TOTAL_DENOM: 'USD:abc' })).toThrow(
+      ConfigError
+    )
+  })
+  test('count caps + warnAtFraction map into the policy', () => {
+    const cfg = parseConfig({
+      PIPRAIL_PRIVATE_KEY: KEY,
+      PIPRAIL_MAX_PAYMENTS: '100',
+      PIPRAIL_MAX_PAYMENTS_PER_WINDOW: '10',
+      PIPRAIL_WINDOW_SECONDS: '3600',
+      PIPRAIL_WARN_AT_FRACTION: '0.8',
+    })
+    expect(cfg).toMatchObject({ maxPayments: 100, maxPaymentsPerWindow: 10, warnAtFraction: 0.8 })
+    expect(configToClientOptions(cfg).policy).toMatchObject({
+      maxPayments: 100,
+      maxPaymentsPerWindow: 10,
+      warnAtFraction: 0.8,
+    })
+  })
+  test('rejects a non-positive count and an out-of-range warn fraction', () => {
+    expect(() => parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_MAX_PAYMENTS: '0' })).toThrow(/positive/)
+    expect(() => parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_WARN_AT_FRACTION: '1.5' })).toThrow(/0, 1/)
+  })
+  test('spend log + event log are parsed (no SDK policy fields — they wire the store/sink)', () => {
+    const cfg = parseConfig({
+      PIPRAIL_PRIVATE_KEY: KEY,
+      PIPRAIL_SPEND_LOG: '/tmp/spend.jsonl',
+      PIPRAIL_EVENT_LOG: 'stderr',
+    })
+    expect(cfg.spendLog).toBe('/tmp/spend.jsonl')
+    expect(cfg.eventLog).toBe('stderr')
+  })
+  test('an unknown new var is still caught by the typo guard', () => {
+    expect(() => parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_MAX_USD: '20' })).toThrow(/Unknown/)
   })
 })

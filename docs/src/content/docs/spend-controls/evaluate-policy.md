@@ -2,7 +2,7 @@
 title: evaluatePolicy()
 description: The pure, dependency-free heart of the spend leash — evaluate one payment intent against a policy and get a typed allow/deny decision back.
 sidebar:
-  order: 3
+  order: 4
 ---
 
 ## Introduction
@@ -87,7 +87,10 @@ Each guard refuses with one typed `PolicyDenyCode`, matching the field it enforc
 | `TOKEN` | The true symbol (or `'native'`) is not in `policy.tokens`. |
 | `MAX_AMOUNT` | The payment exceeds `policy.maxAmount` (per-payment ceiling). |
 | `MAX_TOTAL` | This payment would push per-asset lifetime spend past `policy.maxTotal`. |
+| `MAX_TOTAL_DENOM` | This payment would push the cross-token grand total for its denomination past `policy.maxTotalPerDenom` (e.g. all USD-unit tokens summed). |
+| `MAX_PAYMENTS` | The lifetime count of settled payments would exceed `policy.maxPayments`. |
 | `WINDOW_TOTAL` | This payment would exceed `policy.windowTotal` within the rolling window. |
+| `WINDOW_COUNT` | The number of payments in the rolling window would exceed `policy.maxPaymentsPerWindow`. |
 
 ## Evaluation order
 
@@ -95,12 +98,15 @@ Checks run in a pinned, deterministic order, **first-failure-wins**, so the repo
 the most specific one:
 
 ```
-session expiry → chains → hosts → unknown-token → tokens → maxAmount → maxTotal → windowTotal
+session expiry → chains → hosts → unknown-token → tokens → maxAmount
+              → maxTotal → maxTotalPerDenom → maxPayments → windowTotal → maxPaymentsPerWindow
 ```
 
 Expiry is first because it's session-global, not asset-scoped — an expired session must always
-report expiry, not whichever other gate also happens to fail. The window check is last because
-it's the heaviest.
+report expiry, not whichever other gate also happens to fail. The budget caps run cheapest-first:
+the per-asset `maxTotal`, then the cross-token `maxTotalPerDenom` (`MAX_TOTAL_DENOM`) and the
+lifetime `maxPayments` count (`MAX_PAYMENTS`), and the two rolling-window checks — `windowTotal`
+and the window count `maxPaymentsPerWindow` (`WINDOW_COUNT`) — last, because they're the heaviest.
 
 :::note
 The expiry check is **inclusive** (`now >= deadline` is expired), while the amount caps are
@@ -147,30 +153,41 @@ evaluatePolicy(intent, undefined, 0n)
 // → { allowed: true }
 ```
 
-## Time checks and the context
+## Checks that need the injected context
 
-Session expiry (`ttlSeconds` / `expiresAt`) and the rolling window (`windowTotal` +
-`windowSeconds`) need a clock. To keep `evaluatePolicy` pure, the client injects time through a
-private context — there is **no public way to pass it**. Calling `evaluatePolicy` directly (as in
-a unit test) skips both time-based checks; behaviour is byte-identical to a time-free policy, so
-`SESSION_EXPIRED` and `WINDOW_TOTAL` only fire through the live client.
+The third argument carries only the per-asset spend (`spentForAssetBase`). Several caps need
+more than that — a clock, the cross-token grand totals, or the settled-payment counts — and the
+client supplies all of it through the **same private context** it uses for the clock. There is
+**no public way to pass it**, so calling `evaluatePolicy` directly (as in a unit test) skips
+these checks entirely; behaviour is byte-identical to a policy without those fields. The
+context-dependent guards are:
 
-To test the time leash itself, drive it through the client's session surfaces — see the
+- **Session expiry** (`ttlSeconds` / `expiresAt`) and the **rolling window** (`windowTotal` +
+  `windowSeconds`) — need a clock; surface as `SESSION_EXPIRED` and `WINDOW_TOTAL`.
+- **Cross-token grand total** (`maxTotalPerDenom`) — needs the per-denomination sums the client
+  rolls up from its [spend ledger](/spend-controls/spend-ledger/); surfaces as `MAX_TOTAL_DENOM`.
+- **Payment counts** (`maxPayments`, `maxPaymentsPerWindow`) — need the settled-payment count
+  (lifetime and per-window); surface as `MAX_PAYMENTS` and `WINDOW_COUNT`.
+
+So `SESSION_EXPIRED`, `WINDOW_TOTAL`, `MAX_TOTAL_DENOM`, `MAX_PAYMENTS`, and `WINDOW_COUNT` all
+fire **only through the live client**, never from a bare `evaluatePolicy` call.
+
+To test these leashes, drive them through the client's session surfaces — see the
 [time envelope](/spend-controls/time-envelope/) page.
 
 ## Two enums, not one
 
-`evaluatePolicy` returns the fine-grained `PolicyDenyCode` (all eight codes above), which the
-client surfaces unchanged on a read-only [`quote()`](/making-payments/quote/) as `quote.policyCode`.
+`evaluatePolicy` returns the fine-grained `PolicyDenyCode` (every code in the table above), which
+the client surfaces unchanged on a read-only [`quote()`](/making-payments/quote/) as `quote.policyCode`.
 But when a live payment is actually refused, the thrown `PaymentDeclinedError` carries a **coarser**
-[`DeclineReasonCode`](/errors/error-hierarchy/) on `.reasonCode` — the client maps the eight
+[`DeclineReasonCode`](/errors/error-hierarchy/) on `.reasonCode` — the client maps the
 policy codes down to five:
 
 | `PolicyDenyCode` (read-only) | `DeclineReasonCode` (`catch`) |
 | --- | --- |
 | `SESSION_EXPIRED` | `SESSION_EXPIRED` (terminal — restart/extend the TTL, don't retry) |
-| `WINDOW_TOTAL` | `OUTSIDE_WINDOW` |
-| `MAX_TOTAL` | `BUDGET` |
+| `WINDOW_TOTAL` / `WINDOW_COUNT` | `OUTSIDE_WINDOW` |
+| `MAX_TOTAL` / `MAX_TOTAL_DENOM` / `MAX_PAYMENTS` | `BUDGET` |
 | `CHAIN` / `HOST` / `UNKNOWN_TOKEN` / `TOKEN` / `MAX_AMOUNT` | `POLICY` |
 
 ```ts

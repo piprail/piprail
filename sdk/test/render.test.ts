@@ -83,10 +83,11 @@ describe('explainDecline', () => {
 })
 
 describe('formatSpendReport', () => {
-  const empty: SpendSummary = { count: 0, byAsset: [], records: [] }
+  const empty: SpendSummary = { count: 0, byAsset: [], byDenom: [], records: [] }
   const two: SpendSummary = {
     count: 3,
     records: [],
+    byDenom: [],
     byAsset: [
       { network: 'eip155:8453', asset: '0xusdc', symbol: 'USDC', decimals: 6, totalBase: '120000', totalFormatted: '0.12', count: 2 },
       { network: 'solana:x', asset: 'mint', symbol: 'USDC', decimals: 6, totalBase: '50000', totalFormatted: '0.05', count: 1 },
@@ -95,10 +96,18 @@ describe('formatSpendReport', () => {
   it('says "no payments yet" when empty', () => {
     expect(formatSpendReport(empty)).toBe('No payments yet.')
   })
-  it('joins per-asset lines with "; " and NEVER sums across tokens', () => {
+  it('joins per-asset lines with "; " and does not sum across tokens WITHOUT a declared denom', () => {
     const out = formatSpendReport(two)
     expect(out).toBe('0.12 USDC on eip155:8453 (2 payments); 0.05 USDC on solana:x (1 payment)')
-    expect(out).not.toContain('0.17') // no cross-token aggregate
+    expect(out).not.toContain('0.17') // no implicit cross-token aggregate
+  })
+  it('appends the cross-token GRAND TOTAL when a denomination is present', () => {
+    const withDenom: SpendSummary = {
+      ...two,
+      byDenom: [{ denom: 'USD', totalScaled: '170000000000000000000000', totalFormatted: '0.17', count: 3 }],
+    }
+    const out = formatSpendReport(withDenom)
+    expect(out).toContain('grand total: 0.17 USD total')
   })
 })
 

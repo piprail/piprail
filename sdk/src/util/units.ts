@@ -4,15 +4,28 @@
  */
 
 /**
+ * Sane upper bound on a token's decimals. The deepest real token is NEAR's yoctoNEAR
+ * at 24dp; every stablecoin is ≤ 18. We cap WELL above that (no real token comes close)
+ * purely as a DoS guard: without it, a hostile 402 stating an absurd `decimals` (e.g. 1e9
+ * for an unrecognised token under `allowUnknownTokens`) would make `padStart`/`padEnd`
+ * below allocate a multi-GB string — an out-of-memory crash. 100 is generous headroom for
+ * any conceivable token while keeping the worst-case string tiny.
+ */
+export const MAX_DECIMALS = 100
+
+/**
  * Guard the `decimals` argument shared by the conversions below. A token's decimals is
- * always a non-negative safe integer, so a negative / fractional / NaN value is a config
- * bug (a malformed preset or a bad caller arg) that would otherwise silently corrupt the
- * bigint math via `padStart` / `slice` / `padEnd` — fail loudly instead.
- * (Decimals-hardening contributed by @samsamtrum, #25.)
+ * always a non-negative safe integer (and, defensively, ≤ {@link MAX_DECIMALS}), so a
+ * negative / fractional / NaN / absurdly-large value is a config bug (a malformed preset)
+ * or a hostile server — either of which would otherwise corrupt the bigint math via
+ * `padStart` / `slice` / `padEnd`, or exhaust memory. Fail loudly instead.
+ * (Decimals-hardening contributed by @samsamtrum, #25; upper-bound DoS guard added in 2.9.0.)
  */
 function assertValidDecimals(decimals: number, fn: string): void {
-  if (!Number.isSafeInteger(decimals) || decimals < 0) {
-    throw new Error(`${fn}: decimals must be a non-negative safe integer (got ${decimals}).`)
+  if (!Number.isSafeInteger(decimals) || decimals < 0 || decimals > MAX_DECIMALS) {
+    throw new Error(
+      `${fn}: decimals must be a non-negative integer ≤ ${MAX_DECIMALS} (got ${decimals}).`
+    )
   }
 }
 

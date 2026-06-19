@@ -1,5 +1,25 @@
 # @piprail/mcp changelog
 
+## [0.8.0] — 2026-06-19 — on `@piprail/sdk` 2.9.0 (cross-token grand total · count caps · durable budget · event sink)
+
+Surfaces the SDK 2.9.0 spend-controls upgrade through new env knobs. **Still the same 7 `piprail_*`
+tools** — existing configs keep working unchanged; the new knobs are all opt-in.
+
+- **`PIPRAIL_MAX_TOTAL_DENOM`** — the cross-token GRAND TOTAL: one cap per denomination across every
+  stablecoin and chain, e.g. `USD:20.00,EUR:5.00`. In multi-chain mode (`PIPRAIL_CHAINS`) the clients
+  now share ONE ledger, so the grand total + count caps span every funded chain as a single budget
+  (not per-chain). Not a price oracle — a unit-of-account sum, native coins excluded.
+- **`PIPRAIL_MAX_PAYMENTS`** + **`PIPRAIL_MAX_PAYMENTS_PER_WINDOW`** (with `PIPRAIL_WINDOW_SECONDS`) —
+  cap the *number* of payments (lifetime + rolling window), across every chain + token.
+- **`PIPRAIL_SPEND_LOG=/path`** — a durable local spend log: the budget (lifetime, grand total,
+  counts) **survives a server restart**, hydrated from this file. No backend; you own the file.
+- **`PIPRAIL_EVENT_LOG=stderr|/path`** — mirror payment events (settled / declined / budget-threshold)
+  as one-line JSON to stderr or a file — the operator's notification stream (stdout stays the protocol
+  channel). Pairs with **`PIPRAIL_WARN_AT_FRACTION`** (e.g. `0.8`) for an early "approaching cap" warning.
+- The **`piprail_budget`** tool + **`piprail://budget`** resource now also return `grandTotal`
+  (per-denomination cross-token cap), `counts` (the payment-count leash), and `policy` (the configured
+  leash read back) — so a model can self-check the whole budget up front.
+
 ## [0.7.0] — 2026-06-15 — on `@piprail/sdk` 2.1.0 (richer discover / register tools)
 
 Re-pins to **`@piprail/sdk` ^2.1.0**, the discoverability upgrade, and surfaces it through the two

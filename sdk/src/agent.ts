@@ -432,12 +432,14 @@ export function paymentTools(client: PayingClient): AgentTool[] {
       name: 'piprail_budget',
       description:
         'Read how much of your spend budget and time leash is left — per (network, asset) remaining, ' +
-        'the session time envelope, and your spend so far. Use it in Mode A (headless) to self-check ' +
-        'BEFORE paying, so you never discover the leash by hitting a decline. Read-only; moves no funds. ' +
-        'NOTE: totals and the time envelope are in-memory for THIS process and reset on restart.',
+        'the cross-token GRAND TOTAL per denomination (e.g. how much USD you can still spend across ' +
+        'every stablecoin and chain), the payment-count leash, the session time envelope, and your ' +
+        'spend so far. Use it in Mode A (headless) to self-check BEFORE paying, so you never discover ' +
+        'the leash by hitting a decline. Read-only; moves no funds. NOTE: the time envelope is in-memory ' +
+        'for THIS process; the money/count totals persist only if a spend store is configured.',
       annotations: {
         title: 'Check remaining budget',
-        readOnlyHint: true, // reads the in-memory ledger + policy; never pays
+        readOnlyHint: true, // reads the ledger + policy; never pays
         idempotentHint: true, // a pure read
       },
       parameters: { type: 'object', properties: {}, additionalProperties: false },
@@ -449,7 +451,10 @@ export function paymentTools(client: PayingClient): AgentTool[] {
           return {
             spent,
             remaining: budget.byAsset,
+            grandTotal: budget.byDenom, // cross-token spend cap per denomination (USD/EUR/…)
+            counts: budget.counts, // payment-count leash (settled + lifetime/window caps)
             session: budget.session,
+            policy: client.policy() ?? null, // the configured leash, read back
             report: formatSpendReport(spent),
           }
         } catch (err) {

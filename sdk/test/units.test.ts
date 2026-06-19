@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseUnits, formatUnits, floorUnits } from '../src/util/units.js'
+import { parseUnits, formatUnits, floorUnits, MAX_DECIMALS } from '../src/util/units.js'
 
 describe('parseUnits', () => {
   it('parses decimals into base units', () => {
@@ -48,5 +48,19 @@ describe('floorUnits — tolerant cap parsing for spend policy', () => {
     expect(() => floorUnits('-1', 2)).toThrow()
     expect(() => floorUnits('1.2.3', 2)).toThrow()
     expect(() => floorUnits('1', -1)).toThrow(/decimals/) // invalid decimals
+  })
+})
+
+describe('decimals upper bound — OOM/DoS guard (2.9.0)', () => {
+  it('accepts decimals up to MAX_DECIMALS (covers every real token)', () => {
+    expect(MAX_DECIMALS).toBeGreaterThanOrEqual(24) // NEAR yoctoNEAR is the deepest real token
+    expect(() => floorUnits('1', MAX_DECIMALS)).not.toThrow()
+    expect(formatUnits(1n, 24)).toBe('0.000000000000000000000001')
+  })
+  it('REJECTS an absurd decimals (a hostile 402 stating 1e9 would allocate a multi-GB string)', () => {
+    // The guard must fire BEFORE padStart/padEnd is reached — so this is fast, not an OOM.
+    expect(() => floorUnits('1', 1_000_000_000)).toThrow(new RegExp(`≤ ${MAX_DECIMALS}`))
+    expect(() => formatUnits(1n, 1_000_000_000)).toThrow(/decimals/)
+    expect(() => parseUnits('1', MAX_DECIMALS + 1)).toThrow(/decimals/)
   })
 })

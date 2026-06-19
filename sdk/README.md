@@ -53,7 +53,9 @@ const payer = MultiChainPayer.fromWallets({
     solana: { key: process.env.SOLANA_KEY },
     xrpl:   { key: process.env.XRPL_SEED },
   },
-  policy: { maxAmount: '1.00', maxTotal: '10.00', tokens: ['USDC', 'USDT'] }, // one budget, every chain
+  // ONE budget across every chain: $20 total + at most 100 payments. `maxTotalPerDenom`
+  // sums every USD stablecoin on every chain (not a price oracle — a 1:1 unit sum).
+  policy: { maxAmount: '1.00', maxTotalPerDenom: { USD: '20.00' }, maxPayments: 100 },
 })
 
 await payer.planPayment(url) // read-only: every chain ranked, payable-first in your listed order
@@ -74,7 +76,7 @@ The same app can **take** payments and **make** them. → [Making payments](http
 | **[Getting started](https://docs.piprail.com/getting-started/introduction/)** | Install · quickstart · how it works |
 | **[Accepting payments](https://docs.piprail.com/accepting-payments/require-payment-and-gate/)** | `requirePayment` · `createPaymentGate` · the `exact` rail |
 | **[Making payments](https://docs.piprail.com/making-payments/piprail-client/)** | `PipRailClient` · `quote` · `estimateCost` · `planPayment` · auto-route · `MultiChainPayer` |
-| **[Spend controls](https://docs.piprail.com/spend-controls/payment-policy/)** | Budgets · time envelope · the spend ledger |
+| **[Spend controls](https://docs.piprail.com/spend-controls/payment-policy/)** | Per-token + cross-token grand total · payment-count caps · time envelope · durable budget · the spend ledger |
 | **[Agent toolkit](https://docs.piprail.com/agent-toolkit/payment-tools/)** | `paymentTools` · the agent guide · NL renderers |
 | **[Discovery](https://docs.piprail.com/discovery/discover-and-register/)** | Find & be found on the open x402 indexes ($0, no backend) |
 | **[Chains & tokens](https://docs.piprail.com/chains/overview/)** | Every chain, per-family setup & caveats |

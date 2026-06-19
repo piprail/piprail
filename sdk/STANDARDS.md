@@ -126,6 +126,17 @@ grep -lE "from ['\"]viem" src/client.ts src/payer.ts src/x402.ts src/policy.ts s
   *so far*; many payments in flight at once could race past it. Agents that need a hard concurrent
   cap should serialise (the common case is sequential `await`ed calls). We don't add a reservation
   system — it would cost more simplicity than it's worth. State limits like this; never hide them.
+  The cross-token grand total (`maxTotalPerDenom`) and the payment-count caps share this property.
+- **`policy.maxTotalPerDenom` is a unit-of-account sum, NOT a price oracle.** It adds up only tokens
+  the caller grouped as one unit (the static `BUILTIN_DENOMS` labels + `denomFor`), each counted 1:1;
+  it never reads a market and never prices a volatile coin (native coins have no denomination and are
+  never in a bucket). This keeps the charter's "no price oracle / backendless" rule intact while still
+  giving "$X total across every stablecoin and chain". A token finer than `DENOM_PRECISION` (24dp) is
+  excluded from the grand total rather than mis-counted.
+- **The spend ledger is in-memory unless a `spendStore` is supplied.** Like the gate's replay set
+  (`isUsed`/`markUsed`), durability is a *caller-supplied* store, never a PipRail-hosted DB — the SDK
+  ships only the interface + a local `fileSpendStore`. The session time envelope stays process-scoped
+  regardless.
 - **`policy.chains` string entries match the configured selector form.** A `'base'` entry matches a
   client configured with `'base'`; an `{ id }` entry matches by resolved network. Use the same form
   you configured the client with (the pure policy layer can't resolve a name → id without the EVM table).

@@ -2,7 +2,7 @@
 title: "The time envelope (Mode A)"
 description: A spend policy that also bounds time — a session deadline plus a rolling rate-limit window — so a headless agent runs free inside a leash and the policy is the consent.
 sidebar:
-  order: 2
+  order: 3
 ---
 
 ## Introduction

@@ -174,6 +174,20 @@ describe('createMcpServer — the agent guide (prompts + resources)', () => {
     expect(parsed).toMatchObject({ spent: { count: 0 }, remaining: [] })
   })
 
+  test('the budget resource exposes the cross-token grand total + count leash', async () => {
+    const { mcp } = await connect({
+      clientOptions: { policy: { maxTotalPerDenom: { USD: '20.00' }, maxPayments: 100 } },
+    })
+    const budget = await mcp.readResource({ uri: 'piprail://budget' })
+    const parsed = JSON.parse((budget.contents[0] as { text: string }).text)
+    // grandTotal is previewable before any spend; counts surfaces the lifetime leash.
+    expect(parsed.grandTotal).toEqual([
+      { denom: 'USD', spentFormatted: '0', capFormatted: '20', remainingFormatted: '20', fraction: 0 },
+    ])
+    expect(parsed.counts).toMatchObject({ settled: 0, lifetimeCap: 100, lifetimeRemaining: 100 })
+    expect(parsed.policy).toMatchObject({ maxTotalPerDenom: { USD: '20.00' }, maxPayments: 100 })
+  })
+
   test('with guide off, the TOOLS path is byte-identical and prompts/resources are absent', async () => {
     const { mcp } = await connect({ serverOpts: { guide: false } })
     const { tools } = await mcp.listTools()

@@ -15,6 +15,11 @@ typed `PipRailEvent`.
 The hook is fire-and-forget: it returns nothing, and a throwing handler can never abort a
 payment (the call is isolated, mirroring the server gate's [`onPaid`](/accepting-payments/receipts-and-onpaid/)).
 
+A companion constructor option, [`onSpend`](#logging-spend-with-onspend), fires once after each
+settle with the [`SpendRecord`](/spend-controls/spend-ledger/) plus the current budget — the
+ergonomic "log my spend locally" hook, when all you want is a running spend line rather than the
+full per-stage stream.
+
 ## Basic use
 
 `onEvent` is a constructor option. Switch on `event.kind` and handle the stages you care about:
@@ -48,6 +53,8 @@ in order — never all of them.
 | `payment-unconfirmed` | Broadcast succeeded but local confirmation timed out. | `ref`, `reason` |
 | `payment-settled` | The server served the resource — the payment is done. | `receipt`, `settle?` |
 | `payment-failed` | The flow gave up — a server rejection, **or** a pre-send decline (policy / `onBeforePay` / no settleable rail). | `reason`, `code?`, `detail?` |
+| `payment-declined` | A pre-send decline — the **rich** companion to `payment-failed`, with a budget snapshot. | `reason`, `reasonCode?`, `code?`, `quote?`, `budget` |
+| `budget-threshold` | Spend first crossed `policy.warnAtFraction` of any cap — an early warning, **not** a failure. | `scope`, `label`, `spentFormatted`, `capFormatted`, `fraction` |
 
 ```ts
 export type PipRailEvent =
@@ -69,6 +76,24 @@ export type PipRailEvent =
       code?: string
       // Human-readable detail, when present — e.g. "Paid 40000, required 500000."
       detail?: string
+    }
+  // The rich pre-send decline — fires alongside `payment-failed`, carrying a budget snapshot.
+  | {
+      kind: 'payment-declined'
+      reason: string
+      reasonCode?: DeclineReasonCode // the coarse 'POLICY' | 'BUDGET' | 'OUTSIDE_WINDOW' | …
+      code?: PolicyDenyCode          // the fine guard, e.g. 'MAX_TOTAL_DENOM' | 'MAX_PAYMENTS'
+      quote?: PipRailQuote           // the read-only quote that was refused, when there was one
+      budget: SessionBudget          // remaining headroom at the moment of the decline
+    }
+  // An early warning — spend first crossed `policy.warnAtFraction` of some cap.
+  | {
+      kind: 'budget-threshold'
+      scope: 'asset' | 'denom' | 'count' | 'window' | 'window-count'
+      label: string                 // the asset, denomination, or window the cap belongs to
+      spentFormatted: string
+      capFormatted: string
+      fraction: number               // how far into the cap, e.g. 0.8
     }
 ```
 
@@ -227,6 +252,105 @@ A `payment-failed` after a `payment-broadcast` does not mean nothing left your w
 broadcast may have settled on-chain even though the server didn't accept the proof in time.
 Treat the `ref` as a thing to verify, not a payment to retry. (A pre-send decline never reaches
 broadcast, so there's nothing to recover — safe to retry from scratch once you've fixed the cause.)
+:::
+
+## payment-declined — the rich decline
+
+`payment-declined` is the **richer companion** to a pre-send decline. Every pre-send refusal still
+emits `payment-failed` exactly as before — that's unchanged, for back-compat — but `payment-declined`
+fires **as well**, and carries the full picture: the coarse `reasonCode`, the fine `code`, the
+refused `quote`, and a `budget` snapshot of remaining headroom at the moment of refusal. If you only
+care about the coarse value, stay on `payment-failed`; reach for `payment-declined` when you want to
+know *how close to the limit you were* without a second `client.budget()` read.
+
+- `reasonCode` is the coarse [`DeclineReasonCode`](/errors/error-hierarchy/) — the same value the
+  thrown [`PaymentDeclinedError`](/errors/why-payments-fail/) carries: `'POLICY'`, `'BUDGET'`,
+  `'OUTSIDE_WINDOW'`, `'SESSION_EXPIRED'`, or `'APPROVAL'`.
+- `code` is the fine [`PolicyDenyCode`](/spend-controls/evaluate-policy/) — *which* guard fired
+  (`'MAX_AMOUNT'`, `'MAX_TOTAL'`, `'MAX_TOTAL_DENOM'`, `'MAX_PAYMENTS'`, `'WINDOW_COUNT'`, …). The
+  newer cross-token and count guards map down to the coarse codes you already branch on:
+  `MAX_TOTAL_DENOM` and `MAX_PAYMENTS` → `'BUDGET'`, `WINDOW_COUNT` → `'OUTSIDE_WINDOW'`.
+- `budget` is the [`SessionBudget`](/spend-controls/total-budget/) — read `budget.byDenom` for the
+  cross-token grand total and `budget.counts` for the payment-count caps.
+
+```ts
+onEvent: (e) => {
+  if (e.kind !== 'payment-declined') return
+  // The fine guard tells you exactly which ceiling stopped it…
+  log.warn(`declined: ${e.code ?? e.reasonCode} — ${e.reason}`)
+  // …and the snapshot shows how close you were, no extra read needed.
+  for (const d of e.budget.byDenom) {
+    log.info(`${d.denom}: ${d.spentFormatted} / ${d.capFormatted} (${Math.round(d.fraction * 100)}%)`)
+  }
+}
+```
+
+:::note
+`payment-declined` fires only on a **pre-send** refusal — there is no `payment-declined` for a server
+rejection of a submitted proof (that's `payment-failed` with a `VerifyErrorCode`). It's emitted in
+addition to `payment-failed`, never instead of it, so existing `payment-failed` handlers keep working.
+:::
+
+## budget-threshold — an early warning
+
+Set [`policy.warnAtFraction`](/spend-controls/payment-policy/) (a number in `(0, 1]`) and the client
+emits a `budget-threshold` event the **first time** spend crosses that fraction of *any* cap — a
+per-asset `maxTotal`, a cross-token `maxTotalPerDenom`, a lifetime `maxPayments`, or either rolling
+window. It fires **once per crossing**, and it is **not** a failure — the payment that crossed the
+line still settled. Use it to top up funds or widen the leash before a hard decline ever happens.
+
+`scope` names what was crossed and `label` identifies the specific cap; `spentFormatted` /
+`capFormatted` / `fraction` describe how far in:
+
+```ts
+const client = new PipRailClient({
+  chain: 'base',
+  wallet: { key: process.env.AGENT_KEY! },
+  policy: { maxTotalPerDenom: { USD: '20.00' }, warnAtFraction: 0.8 },
+  onEvent: (e) => {
+    if (e.kind !== 'budget-threshold') return
+    // e.g. scope: 'denom', label: 'USD', spent: '16', cap: '20', fraction: 0.8
+    alerts.budget(`approaching ${e.scope} cap on ${e.label}: ${e.spentFormatted} / ${e.capFormatted}`)
+  },
+})
+```
+
+| `scope` | The cap it warns about |
+| --- | --- |
+| `asset` | A per-asset [`maxTotal`](/spend-controls/total-budget/) — `label` is the token symbol. |
+| `denom` | A cross-token [`maxTotalPerDenom`](/spend-controls/total-budget/) — `label` is the denomination (`'USD'`, `'EUR'`). |
+| `count` | The lifetime `maxPayments` count — `label` names the cap. |
+| `window` | The rolling `windowTotal` value cap. |
+| `window-count` | The rolling `maxPaymentsPerWindow` count cap. |
+
+## Logging spend with onSpend
+
+When you don't need the full per-stage stream and only want a tidy spend line after each successful
+payment, pass the `onSpend` constructor option instead. It fires once **after each settle** with the
+[`SpendRecord`](/spend-controls/spend-ledger/) just appended and the current
+[`SessionBudget`](/spend-controls/total-budget/) — same fire-and-forget, isolated contract as
+`onEvent` (a throwing handler is swallowed):
+
+```ts
+import { PipRailClient } from '@piprail/sdk'
+
+const client = new PipRailClient({
+  chain: 'base',
+  wallet: { key: process.env.AGENT_KEY! },
+  policy: { maxTotalPerDenom: { USD: '20.00' } },
+  onSpend: (record, budget) => {
+    // record.denom / record.decimals are present when the token has a known denomination
+    log.info(`paid ${record.amountFormatted} ${record.symbol} on ${record.network}`)
+    const usd = budget.byDenom.find((d) => d.denom === 'USD')
+    if (usd) log.info(`USD spent so far: ${usd.spentFormatted} / ${usd.capFormatted}`)
+  },
+})
+```
+
+:::tip
+`onSpend` is the live, per-settle counterpart to the after-the-fact
+[`client.spent()`](/spend-controls/spend-ledger/) — use the hook to stream spend as it happens, and
+`spent()` for a one-shot total (including its `byDenom` grand totals). Neither needs a backend.
 :::
 
 ## What the hook can't do

@@ -64,10 +64,30 @@ export function formatBanner(config: Config): string {
   if (config.hosts && config.hosts.length) lines.push(row('hosts', config.hosts.join(', ')))
   // Only shown when PIPRAIL_SCHEMES is set — so the zero-config banner stays byte-identical.
   if (config.schemes && config.schemes.length) lines.push(row('schemes', config.schemes.join(', ')))
+  // Cross-token grand total — the "one number across every stablecoin + chain" leash.
+  if (config.maxTotalPerDenom) {
+    lines.push(
+      row(
+        'grand total',
+        Object.entries(config.maxTotalPerDenom).map(([d, v]) => `${v} ${d}`).join(', ')
+      )
+    )
+  }
+  if (config.maxPayments != null) lines.push(row('max payments', String(config.maxPayments)))
   // Time envelope (Feature A) — only shown when configured.
   if (config.ttlSeconds != null) lines.push(row('session ttl', `${config.ttlSeconds}s`))
   if (config.windowTotal != null && config.windowSeconds != null) {
     lines.push(row('rate window', `${config.windowTotal} / ${config.windowSeconds}s`))
+  }
+  if (config.maxPaymentsPerWindow != null && config.windowSeconds != null) {
+    lines.push(row('rate (count)', `${config.maxPaymentsPerWindow} / ${config.windowSeconds}s`))
+  }
+  if (config.warnAtFraction != null) {
+    lines.push(row('warn at', `${Math.round(config.warnAtFraction * 100)}% of any cap`))
+  }
+  if (config.spendLog) lines.push(row('spend log', '(file — budget survives restart)'))
+  if (config.eventLog) {
+    lines.push(row('event log', config.eventLog.toLowerCase() === 'stderr' ? 'stderr' : '(file)'))
   }
   // Mode B (Feature B) — only shown when PIPRAIL_CONFIRM is on.
   if (config.confirm) {

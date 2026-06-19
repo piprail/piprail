@@ -9,12 +9,12 @@
     "source": "github",
     "subfolder": "mcp"
   },
-  "version": "0.7.0",
+  "version": "0.8.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@piprail/mcp",
-      "version": "0.7.0",
+      "version": "0.8.0",
       "transport": {
         "type": "stdio"
       },
@@ -47,6 +47,42 @@
         {
           "name": "PIPRAIL_MAX_TOTAL",
           "description": "Lifetime spend cap per token, in token units (default: 10.00).",
+          "isRequired": false,
+          "format": "string"
+        },
+        {
+          "name": "PIPRAIL_MAX_TOTAL_DENOM",
+          "description": "Cross-token GRAND TOTAL: one spend cap per denomination across every stablecoin and chain, e.g. USD:20.00,EUR:5.00. Not a price oracle — sums tokens of the same unit, each counted 1:1. Native coins are excluded.",
+          "isRequired": false,
+          "format": "string"
+        },
+        {
+          "name": "PIPRAIL_MAX_PAYMENTS",
+          "description": "Lifetime cap on the NUMBER of payments, across every chain + token (e.g. 100).",
+          "isRequired": false,
+          "format": "string"
+        },
+        {
+          "name": "PIPRAIL_MAX_PAYMENTS_PER_WINDOW",
+          "description": "Cap on the number of payments within PIPRAIL_WINDOW_SECONDS (a rolling rate limit; set PIPRAIL_WINDOW_SECONDS too).",
+          "isRequired": false,
+          "format": "string"
+        },
+        {
+          "name": "PIPRAIL_WARN_AT_FRACTION",
+          "description": "Emit an early-warning event when spend crosses this fraction of any cap, e.g. 0.8 (80%). Needs PIPRAIL_EVENT_LOG to be visible.",
+          "isRequired": false,
+          "format": "string"
+        },
+        {
+          "name": "PIPRAIL_SPEND_LOG",
+          "description": "Path to a local append-only spend log. When set, the budget (lifetime, grand total, counts) SURVIVES a restart — hydrated from this file. No backend; you own the file.",
+          "isRequired": false,
+          "format": "string"
+        },
+        {
+          "name": "PIPRAIL_EVENT_LOG",
+          "description": "Mirror payment events (settled / declined / budget-threshold) as one-line JSON to 'stderr' or a file path — the operator's notification stream. Default: off.",
           "isRequired": false,
           "format": "string"
         },

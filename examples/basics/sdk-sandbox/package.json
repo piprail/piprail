@@ -18,6 +18,7 @@
     "multichain": "node suites/09-multichain.mjs",
     "agent-toolkit": "node suites/10-agent-toolkit.mjs",
     "api-surface": "node suites/11-api-surface.mjs",
+    "spend-controls": "node suites/17-spend-controls.mjs",
     "exact-chains": "node suites/exact-chains.mjs",
     "live-exact": "node suites/live-exact.mjs",
     "live-nonevm": "node suites/live-nonevm-onchain-proof.mjs",

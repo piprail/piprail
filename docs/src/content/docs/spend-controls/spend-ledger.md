@@ -2,7 +2,7 @@
 title: The spend ledger
 description: The in-memory tally of everything a client has paid — spent() for the record, budget() for the leash, remaining() for what's left.
 sidebar:
-  order: 4
+  order: 5
 ---
 
 ## Introduction
@@ -14,6 +14,14 @@ full record, [`budget()`](#budget--the-session-leash) for the session leash, and
 [`remaining()`](#remaining--per-asset-headroom) for the headroom per token. The same ledger powers
 the lifetime cap — your [`policy.maxTotal`](/spend-controls/payment-policy/) is checked against it
 before any on-chain send.
+
+When you cap by [cross-token grand total or payment count](/spend-controls/total-budget/)
+(`maxTotalPerDenom`, `maxPayments`, …), the same ledger surfaces those leashes too:
+[`budget().byDenom`](#budgetbydenom--the-grand-total-leash) and
+[`budget().counts`](#budgetcounts--the-payment-count-leash) (with the standalone
+[`denomRemaining()`](#denomremaining--and-countstatus) / [`countStatus()`](#denomremaining--and-countstatus)
+readers), plus [`spent().byDenom`](#spentbydenom--the-grand-total-tally) and
+[`client.policy()`](#policy--read-the-policy-back).
 
 :::note
 The ledger is **process-scoped and in-memory** — every figure resets on restart, because the
@@ -46,6 +54,7 @@ console.log(summary.records[0].url)             // 'https://api.example.com/repo
 interface SpendSummary {
   count: number              // total settled payments
   byAsset: SpendAssetTotal[] // cumulative spend per (network, asset)
+  byDenom: SpendDenomTotal[] // cumulative spend per denomination (USD, EUR, …)
   records: SpendRecord[]     // every settled payment, in order
 }
 ```
@@ -60,8 +69,14 @@ interface SpendSummary {
 | `amountBase` | Base units paid, already scaled by decimals. |
 | `amountFormatted` | Human-readable amount, e.g. `'0.10'`. |
 | `symbol` | Token symbol, when known. |
+| `decimals` | Token decimals, when known — so a [durable store](/spend-controls/persistence/) rebuilds totals on reload without a second spend. |
+| `denom` | The token's [denomination](/spend-controls/total-budget/) (`'USD'`, `'EUR'`, …), when it has one — `undefined` for native + unrecognised tokens. |
 | `ref` | Proof ref — EVM tx hash, Solana signature, TON locator, Stellar tx hash. |
 | `at` | ISO timestamp of settlement. |
+
+The new `decimals` + `denom` fields are what let a [`SpendStore`](/spend-controls/persistence/)
+replay the ledger and rebuild both the per-asset totals **and** the cross-token grand total exactly,
+without waiting for the first live spend on a pair.
 
 ### SpendAssetTotal — the per-token tally
 
@@ -80,6 +95,28 @@ interface SpendAssetTotal {
 }
 ```
 
+### `spent().byDenom` — the grand-total tally
+
+When tokens share a [denomination](/spend-controls/total-budget/), `byDenom` rolls them into one
+unit-of-account line — USDC + USDT + FDUSD all land in `USD`. It's the **sum the
+[`maxTotalPerDenom`](/spend-controls/total-budget/) cap is checked against**, not a priced figure:
+each token is counted 1:1 as the unit you labelled it. Native coins and unrecognised tokens have no
+denomination, so they're never in a row here.
+
+```ts
+const summary = client.spent()
+summary.byDenom[0] // → { denom: 'USD', totalFormatted: '0.30', count: 3, … }
+```
+
+```ts
+interface SpendDenomTotal {
+  denom: string           // the unit of account, e.g. 'USD'
+  totalScaled: string     // cumulative value at the DENOM_PRECISION fixed point, as a string
+  totalFormatted: string  // human units, e.g. '0.30'
+  count: number           // payments rolled into this denomination
+}
+```
+
 ## `budget()` — the session leash
 
 `client.budget()` composes the ledger with your configured policy into a `SessionBudget`: the
@@ -91,7 +128,7 @@ never throws and moves no funds.
 const b = client.budget()
 console.log(b.session.secondsRemaining)        // 540 (or null — no time limit)
 console.log(b.byAsset[0].remainingFormatted)   // '0.70' (or undefined — unbounded)
-// → { session: { start, expiresAt, secondsRemaining }, byAsset: [ SpendRemaining, … ] }
+// → { session: {…}, byAsset: [ SpendRemaining, … ], byDenom: [ DenomRemaining, … ], counts: { … } }
 ```
 
 ```ts
@@ -102,12 +139,91 @@ interface SessionBudget {
     secondsRemaining: number | null // clamped ≥ 0, or null
   }
   byAsset: SpendRemaining[]        // the money half, per (network, asset)
+  byDenom: DenomRemaining[]        // the cross-token grand-total leash, per denomination
+  counts: CountStatus              // the payment-count leash
 }
 ```
 
 The `session` fields carry a real deadline only when the policy configures a [time
 envelope](/spend-controls/time-envelope/) (`ttlSeconds` or `expiresAt`); otherwise `expiresAt` and
 `secondsRemaining` are `null`. The `byAsset` rows are exactly what `remaining()` returns.
+
+### `budget().byDenom` — the grand-total leash
+
+One row per [denomination](/spend-controls/total-budget/) you've capped with `maxTotalPerDenom`.
+Unlike `byAsset`, these rows are present **from the start, before any spend** — the cap is a single
+declared number, not a per-token total that has to be discovered — so a headless agent can preview
+its full headroom up front.
+
+```ts
+const client = new PipRailClient({
+  chain: 'base',
+  wallet: { key: process.env.AGENT_KEY! },
+  policy: { maxTotalPerDenom: { USD: '20.00' } },
+})
+
+client.budget().byDenom
+// [{ denom: 'USD', spentFormatted: '0', capFormatted: '20', remainingFormatted: '20', fraction: 0 }]
+```
+
+```ts
+interface DenomRemaining {
+  denom: string              // the unit of account, e.g. 'USD'
+  spentFormatted: string     // human units spent so far across every token of this unit
+  capFormatted: string       // the maxTotalPerDenom cap, human units
+  remainingFormatted: string // max(0, cap − spent), human units
+  fraction: number           // spent / cap, in [0, 1]
+}
+```
+
+### `budget().counts` — the payment-count leash
+
+The [payment-count caps](/spend-controls/total-budget/#cap-the-number-of-payments)
+(`maxPayments`, `maxPaymentsPerWindow`) need no oracle, so `counts` always reflects every settled
+payment across every chain and token — including native coins. The cap and remaining fields appear
+only for the caps you configured.
+
+```ts
+client.budget().counts
+// { settled: 3, lifetimeCap: 100, lifetimeRemaining: 97, windowCap: 10, windowSettled: 3, windowRemaining: 7 }
+```
+
+```ts
+interface CountStatus {
+  settled: number            // total settled payments, all chains + tokens
+  lifetimeCap?: number       // maxPayments, when set
+  lifetimeRemaining?: number // max(0, lifetimeCap − settled)
+  windowCap?: number         // maxPaymentsPerWindow, when set
+  windowSettled?: number     // settled payments inside the current rolling window
+  windowRemaining?: number   // max(0, windowCap − windowSettled)
+}
+```
+
+### `denomRemaining()` and `countStatus()`
+
+Both leashes are also reachable directly, without the rest of the budget — handy when you only need
+one half:
+
+```ts
+client.denomRemaining() // → DenomRemaining[], same rows as budget().byDenom
+client.countStatus()    // → CountStatus, same as budget().counts
+```
+
+Both are pure, in-memory, and never throw.
+
+## `policy()` — read the policy back
+
+`client.policy()` returns the configured [`PaymentPolicy`](/spend-controls/payment-policy/) (or
+`undefined` if none was set), so an agent can introspect its own consent — what it's *allowed* to do
+— alongside `budget()`'s view of what's *left*. It's also on
+[`MultiChainPayer`](/making-payments/multi-chain/) and is part of the shared `PayingClient`
+interface.
+
+```ts
+const p = client.policy()
+console.log(p?.maxTotalPerDenom) // { USD: '20.00' }
+console.log(p?.maxPayments)      // 100
+```
 
 ## `remaining()` — per-asset headroom
 
@@ -141,7 +257,9 @@ The cap fields (`capBase`, `remainingBase`, `remainingFormatted`) are present on
 :::caution
 Decimals are known only after the first spend, so a fresh client with a `maxTotal` set returns
 `[]` from `remaining()` (and an empty `byAsset` from `budget()`) **until its first payment** on a
-pair. A never-spent token simply isn't a row yet.
+pair. A never-spent token simply isn't a row yet. (The cross-token
+[`byDenom`](#budgetbydenom--the-grand-total-leash) leash is different: its cap is a declared number,
+so those rows are present **from the start**.)
 :::
 
 ## How it feeds the lifetime cap

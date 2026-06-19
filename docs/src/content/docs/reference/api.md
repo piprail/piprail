@@ -94,15 +94,25 @@ watching `onEvent` alone now learns of **every** failure type, not just server r
 ## Spend controls
 
 The policy + ledger primitives. `evaluatePolicy` is the pure decision function the client and
-MCP both call before any spend.
+MCP both call before any spend. The ledger + store are how caps survive a restart and span chains
+— still no backend, no database, no fee: `SpendLedger` is in-memory and a `SpendStore` is a
+caller-owned file (or anything you implement).
 
 | Export | Kind | Marked |
 | --- | --- | --- |
 | `evaluatePolicy` | fn | **Headline** |
-| `PaymentPolicy`, `PaymentIntent`, `PolicyDecision`, `PolicyDenyCode` | type | — |
-| `SpendRecord`, `SpendSummary`, `SpendAssetTotal` | type | — |
+| `SpendLedger` | class | Share one across several clients for a cross-chain grand total (`MultiChainPayer.fromWallets` wires it for you) |
+| `memorySpendStore` | fn | A `SpendStore` backed by an in-memory array — `memorySpendStore(seed?)`; from `@piprail/sdk` |
+| `fileSpendStore` | fn | A durable JSONL `SpendStore` — `fileSpendStore(path)`; from `@piprail/sdk/node` (Node-only, keeps `node:fs` out of the browser bundle) |
+| `denomOf` | fn | Pure — `denomOf(symbol, asset, policy)` → the unit a token folds into, or none |
+| `BUILTIN_DENOMS`, `DENOM_PRECISION` | const | the built-in symbol→unit map (USDC/USDT/USD1/FDUSD/RLUSD → `'USD'`, EURC → `'EUR'`) and the fixed-point precision (`24`) |
+| `PaymentPolicy`, `PaymentIntent`, `PolicyDecision`, `PolicyDenyCode` | type | `PaymentPolicy` gained `maxTotalPerDenom` / `denomFor` / `maxPayments` / `maxPaymentsPerWindow` / `warnAtFraction`; `PolicyDenyCode` gained `MAX_TOTAL_DENOM` / `MAX_PAYMENTS` / `WINDOW_COUNT` |
+| `SpendStore` | type | `{ load(): SpendRecord[]; append(record): void }` — pass as the client's `spendStore` to persist the ledger (never throws) |
+| `SpendRecord`, `SpendSummary`, `SpendAssetTotal`, `SpendDenomTotal` | type | `SpendSummary` gained `byDenom: SpendDenomTotal[]`; `SpendRecord` gained optional `decimals` / `denom` |
+| `DenomRemaining`, `CountStatus` | type | the per-denomination remaining row + the payment-count status `SessionBudget` now also reports |
 
 See [Payment policy](/spend-controls/payment-policy/),
+[Total budget](/spend-controls/total-budget/),
 [Time envelope](/spend-controls/time-envelope/),
 [evaluatePolicy()](/spend-controls/evaluate-policy/), and
 [Spend ledger](/spend-controls/spend-ledger/).
