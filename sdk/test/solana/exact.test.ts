@@ -24,11 +24,13 @@ import {
 import bs58 from 'bs58'
 import { payExactSolana, verifyAndSettleExactSolana } from '../../src/drivers/solana/exact.js'
 import { createPaymentGate } from '../../src/index.js'
-import { SettlementError } from '../../src/errors.js'
+import { SettlementError, UnsupportedSchemeError } from '../../src/errors.js'
 import type { X402ExactAcceptEntry } from '../../src/x402.js'
 
 const NETWORK = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp' as const
 const BLOCKHASH = bs58.encode(Buffer.alloc(32, 1))
+// SPL-Memo program (category-exempt §2.2.2) — the scheme-MUST instruction the buyer now appends.
+const MEMO_PROGRAM = 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'
 
 const buyer = Keypair.generate()
 const feePayer = Keypair.generate() // the merchant's gas/relayer key (NOT payTo)
@@ -42,6 +44,7 @@ function makeAccept(over: {
   feePayer?: string
   decimals?: number
   tokenProgram?: 'spl-token' | 'token-2022'
+  memo?: string
 } = {}): X402ExactAcceptEntry {
   return {
     scheme: 'exact',
@@ -56,8 +59,25 @@ function makeAccept(over: {
       decimals: over.decimals ?? 6,
       tokenProgram: over.tokenProgram ?? 'spl-token',
       minConfirmations: 1,
+      ...(over.memo !== undefined ? { memo: over.memo } : {}),
     },
   }
+}
+
+/** Decompile a built buyer tx into `{ program, data }[]` (program = base58 id, data = UTF-8 text). */
+function decodeInstructions(b64: string): { program: string; data: Buffer }[] {
+  const tx = VersionedTransaction.deserialize(Buffer.from(b64, 'base64'))
+  return tx.message.compiledInstructions.map((ix) => ({
+    program: tx.message.staticAccountKeys[ix.programIdIndex]!.toBase58(),
+    data: Buffer.from(ix.data),
+  }))
+}
+
+/** The single SPL-Memo instruction's UTF-8 data from a built buyer tx (asserts exactly one Memo). */
+function memoText(b64: string): string {
+  const memos = decodeInstructions(b64).filter((ix) => ix.program === MEMO_PROGRAM)
+  expect(memos).toHaveLength(1)
+  return memos[0]!.data.toString('utf8')
 }
 
 // getAccountInfo → a non-null account means the recipient ATA EXISTS, so the buyer builds the
@@ -148,15 +168,40 @@ describe('SVM exact — buyer (payExactSolana)', () => {
     expect(nonce).toBe(bs58.encode(tx.signatures[bi]!)) // dedupe nonce = buyer signature
   })
 
-  it('builds the canonical 3-instruction form: [cu-limit, cu-price, TransferChecked]', async () => {
+  it('builds the canonical 4-instruction form: [cu-limit, cu-price, TransferChecked, Memo]', async () => {
     const { payload } = await payExactSolana({ connection: buyerConn as AnyConn, keypair: buyer, accept: makeAccept() })
     const tx = VersionedTransaction.deserialize(Buffer.from(payload.transaction, 'base64'))
     const COMPUTE_BUDGET = 'ComputeBudget111111111111111111111111111111'
     const programs = tx.message.compiledInstructions.map((ix) => tx.message.staticAccountKeys[ix.programIdIndex]!.toBase58())
-    expect(programs).toHaveLength(3)
+    expect(programs).toHaveLength(4)
     expect(programs[0]).toBe(COMPUTE_BUDGET)
     expect(programs[1]).toBe(COMPUTE_BUDGET)
     expect(programs[2]).toBe(TOKEN_PROGRAM_ID.toBase58())
+    expect(programs[3]).toBe(MEMO_PROGRAM) // [3] the spec-required SPL-Memo, inside Path-1's 3-to-7
+  })
+
+  it('emits the spec-required SPL-Memo: extra.memo verbatim when present', async () => {
+    const accept = makeAccept({ memo: 'order-abc-123' })
+    const { payload } = await payExactSolana({ connection: buyerConn as AnyConn, keypair: buyer, accept })
+    expect(memoText(payload.transaction)).toBe('order-abc-123') // exactly one Memo, data === extra.memo
+  })
+
+  it('emits a random ≥16-byte hex-nonce Memo when extra.memo is absent', async () => {
+    const { payload } = await payExactSolana({ connection: buyerConn as AnyConn, keypair: buyer, accept: makeAccept() })
+    const data = memoText(payload.transaction)
+    expect(data).toMatch(/^[0-9a-f]{32}$/) // 16 CSPRNG bytes, hex-encoded (32 ASCII chars)
+  })
+
+  it('the random-nonce Memo is unique across builds (concurrency uniqueness)', async () => {
+    const a = memoText((await buildPayload(makeAccept())).transaction)
+    const b = memoText((await buildPayload(makeAccept())).transaction)
+    expect(a).not.toBe(b) // two memo-less builds → different CSPRNG nonces
+  })
+
+  it('rejects an extra.memo over the 256-byte scheme cap', async () => {
+    const accept = makeAccept({ memo: 'x'.repeat(257) })
+    await expect(payExactSolana({ connection: buyerConn as AnyConn, keypair: buyer, accept })).rejects.toThrow(UnsupportedSchemeError)
+    await expect(payExactSolana({ connection: buyerConn as AnyConn, keypair: buyer, accept })).rejects.toThrow(/256/)
   })
 
   it('throws when the recipient token account does not exist (the exact rail cannot create it)', async () => {
@@ -468,11 +513,11 @@ describe('SVM exact — token coverage: USDC, USDT, token-2022, memo all gasless
     expect(res.ok).toBe(true)
   })
 
-  it('a rail with an extra.memo still settles (memo is isolation-safe, never the fee payer)', async () => {
-    const accept = makeAccept()
-    accept.extra.memo = 'order-abc-123'
+  it('a rail with an extra.memo emits exactly that Memo AND round-trips (memo is isolation-safe)', async () => {
+    const accept = makeAccept({ memo: 'order-abc-123' })
     const payload = await buildPayload(accept)
+    expect(memoText(payload.transaction)).toBe('order-abc-123') // the buyer USES extra.memo verbatim
     const res = await verifyAndSettleExactSolana({ connection: sellerConn(), feePayerKeypair: feePayer, payload, accept })
-    expect(res.ok).toBe(true)
+    expect(res.ok).toBe(true) // and the (always-present) Memo never breaks the gate's verify
   })
 })

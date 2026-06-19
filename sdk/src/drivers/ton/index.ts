@@ -77,7 +77,10 @@ function makeTonNetwork(preset: TonPreset, rpcUrl: string): ResolvedNetwork {
   return {
     family: 'ton',
     network,
-    supports: (n) => n === network,
+    // Accept the canonical `tvm:-239` and the legacy `ton:-239` directly, so a
+    // caller that bypasses `normalizeNetwork` and hands the raw legacy id to the
+    // driver still matches. The normalizeNetwork alias is the canonical seam.
+    supports: (n) => n === network || n === 'ton:-239',
 
     resolveToken(token: TokenInput): ResolvedToken {
       if (token === 'native') {

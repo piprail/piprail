@@ -242,9 +242,13 @@ falls back to `onchain-proof`).
 | **EVM** (EIP-3009 / Permit2) | nothing buyer-controlled | none needed — the buyer signs only an authorization; the relayer/facilitator derives gas at broadcast |
 
 The gate backs the caps with two more structural checks: it accepts **only the canonical transfer shape**
-for each rail (so no extra instruction can sneak in), and it rejects any close/rekey (Algorand) or
-fee-payer-in-an-instruction (Solana) that could sweep funds. So a relayer or facilitator can only ever pay
-a bounded fee to push the *signed* amount to the *trusted* `payTo`. Full detail and the honest-path numbers
+for each rail, and it rejects any close/rekey (Algorand) or fee-payer-in-an-instruction (Solana) that could
+sweep funds. On Solana the canonical shape includes the spec-required SPL-Memo (the rail's `extra.memo`,
+else a random hex nonce for uniqueness) — the gate tolerates that and any other category-exempt instruction;
+the real invariant isn't a literal instruction count but the single **bound `TransferChecked`** (its
+recipient, amount, and mint re-derived from the trusted rail), the **fee-payer isolation** (the fee payer in
+no instruction), and the **compute-budget caps** above. So a relayer or facilitator can only ever pay a
+bounded fee to push the *signed* amount to the *trusted* `payTo`. Full detail and the honest-path numbers
 are in [Gasless payments → Sponsor protection](/making-payments/gasless-payments/#sponsor-protection--the-fee-drain-guard);
 the constants live in `sdk/src/drivers/{algorand,solana,aptos,near}/exact.ts`.
 

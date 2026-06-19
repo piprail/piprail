@@ -61,9 +61,9 @@ describe('estimateCost — deterministic per-driver fees (native coin)', () => {
   })
 
   it('TON: ~0.01 TON native, ~0.05 TON jetton, 9dp', async () => {
-    const native = await tonDriver.resolve({ chain: 'ton' })!.estimateCost(accept('ton:-239', 'native'))
+    const native = await tonDriver.resolve({ chain: 'ton' })!.estimateCost(accept('tvm:-239', 'native'))
     expect(native).toMatchObject({ feeSymbol: 'TON', feeDecimals: 9, feeFormatted: '0.01' })
-    const jetton = await tonDriver.resolve({ chain: 'ton' })!.estimateCost(accept('ton:-239', 'EQjettonmaster'))
+    const jetton = await tonDriver.resolve({ chain: 'ton' })!.estimateCost(accept('tvm:-239', 'EQjettonmaster'))
     expect(jetton.feeFormatted).toBe('0.05')
   })
 
@@ -103,7 +103,7 @@ describe('estimateCost — agent-safe invariant: never throws, always a valid sh
   const cases: Array<[string, ResolveOptions, string]> = [
     ['evm', { chain: 'base', rpcUrl: DEAD }, 'eip155:8453'],
     ['solana', { chain: 'solana' }, 'solana:x'],
-    ['ton', { chain: 'ton' }, 'ton:-239'],
+    ['ton', { chain: 'ton' }, 'tvm:-239'],
     ['stellar', { chain: 'stellar' }, 'stellar:pubnet'],
     ['xrpl', { chain: 'xrpl', rpcUrl: DEAD }, 'xrpl:0'],
     ['tron', { chain: 'tron' }, 'tron:mainnet'],

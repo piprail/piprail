@@ -330,7 +330,7 @@ const SLUG_TO_CAIP2: Readonly<Record<string, Caip2>> = {
   bsc: 'eip155:56',
   // non-EVM families — values mirror each driver's bound caip2 exactly
   solana: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
-  ton: 'ton:-239',
+  ton: 'tvm:-239',
   tron: 'tron:mainnet',
   near: 'near:mainnet',
   sui: 'sui:mainnet',
@@ -340,11 +340,23 @@ const SLUG_TO_CAIP2: Readonly<Record<string, Caip2>> = {
   xrpl: 'xrpl:0',
 }
 
+/** Legacy CAIP-2 ids superseded by a corrected canonical id. PARSE-side only:
+ *  we still accept an inbound/foreign challenge that uses the old id, but we
+ *  EMIT the canonical one. (TON moved `ton:-239` → `tvm:-239`: the chainagnostic
+ *  registry has no `ton` namespace; the foundation TON scheme mandates `tvm`.) */
+const LEGACY_CAIP2_ALIAS: Readonly<Record<string, Caip2>> = {
+  'ton:-239': 'tvm:-239',
+}
+
 /** Normalize an index's network field to CAIP-2 when we recognise the slug;
  *  pass a value that's already CAIP-2 (`namespace:reference`) through unchanged.
+ *  A legacy/superseded CAIP-2 id is mapped to its canonical replacement first
+ *  (so a colon-bearing legacy id like `ton:-239` still canonicalizes).
  *  An unknown slug returns unchanged (no `:`), which the client treats as
  *  "unresolved — don't hide it" rather than a confident mismatch. */
 export function normalizeNetwork(network: string): string {
+  const legacy = LEGACY_CAIP2_ALIAS[network]
+  if (legacy) return legacy
   if (network.includes(':')) return network
   return SLUG_TO_CAIP2[network.toLowerCase()] ?? network
 }

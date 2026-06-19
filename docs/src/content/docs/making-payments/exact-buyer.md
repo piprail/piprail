@@ -62,7 +62,8 @@ automatically:
   (so a relayer can't redirect funds). Gasless per-payment too — **after a one-time `approve(Permit2)`**
   the SDK does lazily the first time you pay that token.
 - **`svm`** (Solana) — **any** SPL token (USDC, USDT, …). The client builds the SPL `TransferChecked`
-  with the merchant as the transaction **fee payer**, signs only its own slot, and sends the
+  with the merchant as the transaction **fee payer**, adds a spec-required SPL-Memo instruction (the rail's
+  `extra.memo`, else a random hex nonce) for transaction uniqueness, signs only its own slot, and sends the
   partially-signed transaction; the gate co-signs as fee payer and broadcasts. No EIP-3009 equivalent,
   no proxy, no approval — gasless for the buyer regardless of token. See
   [Gasless payments](/making-payments/gasless-payments/).

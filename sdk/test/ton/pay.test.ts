@@ -30,7 +30,7 @@ const wallet = {
 function jettonAccept(amount: string, nonce = 'test-nonce'): X402AcceptEntry {
   return {
     scheme: 'onchain-proof',
-    network: 'ton:-239',
+    network: 'tvm:-239',
     amount,
     asset: USDT_MASTER,
     payTo: PAY_TO,

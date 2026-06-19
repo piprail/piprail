@@ -8,8 +8,10 @@
  * intentionally absent; for USDe / bridged tokens pass a custom jetton via
  * `{ master, decimals }`.
  *
- * The CAIP-2 id uses TON's network global id (-239 = mainnet) per the
- * chain-agnostic standard.
+ * The CAIP-2 id uses the canonical `tvm` namespace + TON's network global id
+ * (`tvm:-239` = mainnet) per the chain-agnostic registry (which has no `ton`
+ * namespace) and the merged foundation TON exact scheme. The legacy `ton:-239`
+ * id is still accepted on parse (see `LEGACY_CAIP2_ALIAS` in indexes.ts).
  */
 
 export interface TonJettonInfo {
@@ -20,7 +22,7 @@ export interface TonJettonInfo {
 }
 
 export interface TonPreset {
-  caip2: `ton:${string}`
+  caip2: `tvm:${string}`
   /** Public default RPC — keyless toncenter, rate-limited. Pass your own
    * `rpcUrl` (and an API key in the URL/endpoint) in production. */
   defaultRpc: string
@@ -31,7 +33,7 @@ export interface TonPreset {
 export const TON_DECIMALS = 9
 
 export const TON_MAINNET: TonPreset = {
-  caip2: 'ton:-239',
+  caip2: 'tvm:-239',
   defaultRpc: 'https://toncenter.com/api/v2/jsonRPC',
   tokens: {
     // USD₮ (Tether) — native, dominant stablecoin on TON. Master + 6 decimals

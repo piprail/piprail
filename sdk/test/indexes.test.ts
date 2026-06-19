@@ -644,7 +644,7 @@ describe('normalizeNetwork — every family slug resolves to its driver caip2', 
     ['bnb', 'eip155:56'],
     ['bsc', 'eip155:56'],
     ['solana', 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp'],
-    ['ton', 'ton:-239'],
+    ['ton', 'tvm:-239'],
     ['tron', 'tron:mainnet'],
     ['near', 'near:mainnet'],
     ['sui', 'sui:mainnet'],
@@ -656,5 +656,15 @@ describe('normalizeNetwork — every family slug resolves to its driver caip2', 
     ['unknownchain', 'unknownchain'], // unknown slug passthrough (no ':')
   ])('%s → %s', (input, expected) => {
     expect(normalizeNetwork(input)).toBe(expected)
+  })
+
+  it('canonicalizes the legacy colon-bearing TON id ton:-239 → tvm:-239', () => {
+    // Regression guard for the LEGACY_CAIP2_ALIAS early-return: without it, a
+    // colon-bearing legacy id would wrongly pass through unchanged.
+    expect(normalizeNetwork('ton:-239')).toBe('tvm:-239')
+  })
+
+  it('passes the canonical TON id tvm:-239 through unchanged (idempotent)', () => {
+    expect(normalizeNetwork('tvm:-239')).toBe('tvm:-239')
   })
 })

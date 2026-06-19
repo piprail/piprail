@@ -393,10 +393,12 @@ Solana's `exact` rail (the ratified x402 `scheme_exact_svm`) is gasless by a dif
 EVM — and a simpler one:
 
 1. The **buyer** compiles the canonical SVM transaction — `[setComputeUnitLimit, setComputeUnitPrice,
-   TransferChecked]` (USDC, USDT, any SPL) — whose **fee payer** is whoever will sponsor it (the rail
-   advertises a `feePayer` pubkey: the facilitator's, or the merchant's relayer). It signs **only its
-   own** slot — leaving the fee-payer slot empty — and sends the partially-signed, base64 transaction.
-   The buyer never broadcasts and pays **no** SOL.
+   TransferChecked, Memo]` (USDC, USDT, any SPL) — whose **fee payer** is whoever will sponsor it (the rail
+   advertises a `feePayer` pubkey: the facilitator's, or the merchant's relayer). The buyer also includes a
+   spec-required **SPL-Memo** instruction (the rail's `extra.memo`, else a random ≥16-byte hex nonce) so
+   the transaction is unique; SPL-Memo is category-exempt, so four instructions stays inside the scheme's
+   fast path. It signs **only its own** slot — leaving the fee-payer slot empty — and sends the
+   partially-signed, base64 transaction. The buyer never broadcasts and pays **no** SOL.
 2. The **sponsor** completes + broadcasts it:
    - **Facilitator mode** (recommended) — the gate forwards the signed transaction to the facilitator's
      `/verify` + `/settle`; the **facilitator co-signs as fee payer and broadcasts, paying the gas**. So
@@ -538,9 +540,10 @@ sponsor is a **keyless facilitator** or your **self-settle relayer** — the gat
 *before* anyone co-signs, so the protection holds regardless of who pays. Two further guards back them up:
 the gate accepts only the **canonical transfer shape** for each rail (Algorand: exactly a two-txn
 `[axfer fee-0, fee-pool pay]` group with a consistent group id; Solana: exactly `[cu-limit, cu-price,
-TransferChecked]` with the fee payer in no instruction; Aptos: exactly a `primary_fungible_store::transfer`
-fee-payer transaction), and it rejects any **close/rekey** (Algorand) or fee-payer-in-an-instruction
-(Solana) that could sweep funds. See [the exact rail (seller) → what you verify](/accepting-payments/exact-rail-seller/#what-the-client-signs-and-what-you-verify)
+TransferChecked, Memo]` — the buyer adds a spec-required SPL-Memo (the rail's `extra.memo`, else a random
+hex nonce) for transaction uniqueness, with the fee payer in no instruction; Aptos: exactly a
+`primary_fungible_store::transfer` fee-payer transaction), and it rejects any **close/rekey** (Algorand) or
+fee-payer-in-an-instruction (Solana) that could sweep funds. See [the exact rail (seller) → what you verify](/accepting-payments/exact-rail-seller/#what-the-client-signs-and-what-you-verify)
 for the full verify model these caps sit inside, and
 [the exact rail (seller) → sponsor protection](/accepting-payments/exact-rail-seller/#sponsor-protection--the-fee-drain-guard)
 for the merchant-facing summary.
