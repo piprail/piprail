@@ -8,7 +8,7 @@ real local HTTP merchants, fake heterogeneous drivers, and a **real on-chain
 round-trip** (a local Anvil fork of Base, fake money). It complements the SDK's
 in-tree unit suite by proving the **published artifact** (currently `@piprail/sdk`
 ≥ 1.24.0) behaves end to end, and it doubles as living documentation.
-**212 checks, all green.**
+**284 checks, all green.**
 
 ```bash
 # Tests the installed @piprail/sdk (bump it in package.json to test a new release):
@@ -27,7 +27,7 @@ node run-all.mjs        # or: npm test
 ▸ 10 · agent toolkit — all 7 tools on PipRailClient AND MultiChainPayer
 ▸ 11 · API-surface sweep — every export reachable + every chain-free helper invoked
 ── summary ──
-ALL 212 CHECKS PASSED
+ALL 284 CHECKS PASSED
 ```
 
 > There are **two** sandboxes. [`../mcp-sandbox`](../mcp-sandbox) proves the
