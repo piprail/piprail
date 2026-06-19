@@ -1,6 +1,6 @@
 ---
 title: "TON"
-description: Take and make payments on TON (the Telegram blockchain) in USD₮ or native Toncoin — the one chain that needs a free RPC API key, plus its memo-bound proof.
+description: Take and make payments on TON (the Telegram blockchain) in USD₮ or native Gram (formerly Toncoin) — the one chain that needs a free RPC API key, plus its memo-bound proof.
 sidebar:
   order: 3
 ---
@@ -16,6 +16,41 @@ import { requirePayment } from '@piprail/sdk'
 
 requirePayment({ chain: 'ton', token: 'USDT', amount: '0.10', payTo: 'EQ…' })
 ```
+
+## TON, Gram & the network id
+
+Three names show up on this chain — here's the map, because it trips people up:
+
+| What | Value | Stays the same? |
+| --- | --- | --- |
+| **Network** (the blockchain) | The Open Network — **TON** | ✅ Select it with `chain: 'ton'`. |
+| **Native coin** (the token) | **Gram** · ticker `GRAM` | 🔁 Renamed from *Toncoin* (`TON`) on **2026-06-15**. |
+| **CAIP-2 network id** (on the wire) | **`tvm:-239`** | ✅ The canonical id x402 tooling matches on. |
+
+### The Gram rebrand is token-only
+
+On **2026-06-15**, a TON community governance vote renamed the native token **Toncoin → Gram** and
+its ticker **`TON` → `GRAM`**. It is a *presentation-layer* change: balances, addresses, smart
+contracts, jettons, and staking are untouched — **no migration, swap, or bridge**. So in the SDK,
+`chain: 'ton'` and `token: 'native'` are exactly as before; the only difference is that the native
+coin's **symbol now reads `GRAM`** (e.g. a 402's `extra.symbol`, and `estimateCost`'s `feeSymbol`).
+USD₮ and every other jetton are unaffected.
+
+### The network id is `tvm:-239` (not `ton:-239`)
+
+Every x402 payment labels its chain with a [CAIP-2](https://chainagnostic.org/CAIPs/caip-2)
+identifier — a universal `namespace:reference` string that lets any wallet, facilitator, or
+discovery index agree on **which chain** a payment is on. For TON mainnet that is **`tvm:-239`**:
+
+- **`tvm`** — the namespace for the **T**ON **V**irtual **M**achine family, per the
+  [chain-agnostic registry](https://namespaces.chainagnostic.org/tvm/caip2). (There is **no** `ton`
+  namespace — that was a non-canonical id some tools, PipRail included, used early on.)
+- **`-239`** — TON mainnet's *network global id*, a constant carried in every TON block. (Testnet is `-3`.)
+
+PipRail emits the canonical **`tvm:-239`** so its TON 402s are matchable by standard x402 clients and
+discovery indexes; an inbound challenge that still uses the legacy `ton:-239` is accepted and
+normalized on parse, so nothing breaks either way. (Unrelated: the SDK-internal proof **locator**
+`ton:<jetton-wallet>|<nonce>` is a private string, **not** the network id — it is unchanged.)
 
 ## Install the peer dependency
 
@@ -70,7 +105,7 @@ Name the symbol; the SDK fills in the jetton master and decimals.
 | Token | Built in | Notes |
 | --- | --- | --- |
 | `'USDT'` | Yes | USD₮ (Tether-native, dominant on TON). Master + 6 decimals verified on-chain. |
-| `'native'` | Yes | Toncoin (TON), 9 decimals (nanoton). |
+| `'native'` | Yes | Gram (ticker `GRAM`, formerly Toncoin/`TON`), 9 decimals (nanoton). |
 | custom jetton | — | Any other jetton via `{ master, decimals }` (e.g. USDe). |
 
 ```ts
@@ -86,22 +121,22 @@ absent and `token: 'USDC'` throws [`UnknownTokenError`](/errors/error-hierarchy/
 
 ## Receive prerequisite — none
 
-The merchant needs no setup. The payer's attached gas (~0.05 TON, leftover refunded)
+The merchant needs no setup. The payer's attached gas (~0.05 GRAM, leftover refunded)
 auto-deploys the merchant's jetton wallet on first receipt, so there's no trustline or opt-in to
 register — `planPayment()` won't raise `RECIPIENT_NOT_READY` for TON. The payer, however,
-**needs Toncoin for gas** even when paying USD₮ — budget it with
+**needs GRAM (the native coin) for gas** even when paying USD₮ — budget it with
 [`estimateCost()`](/making-payments/estimate-cost/), which reports the fee in the native coin.
 
 ```ts
 const { quote, cost } = await client.estimateCost('https://api.example.com/report')
-// → { quote: { amountFormatted: '0.10', symbol: 'USDT', … }, cost: { feeFormatted: '0.0…', feeSymbol: 'TON', feeDecimals: 9, basis: 'heuristic' } }
-// cost is the network fee in TON (the native gas coin), separate from the USD₮ payment
+// → { quote: { amountFormatted: '0.10', symbol: 'USDT', … }, cost: { feeFormatted: '0.0…', feeSymbol: 'GRAM', feeDecimals: 9, basis: 'heuristic' } }
+// cost is the network fee in GRAM (the native gas coin), separate from the USD₮ payment
 ```
 
 ## When the payer can't cover gas
 
-The headline TON caveat is that even a USD₮ payment burns Toncoin for gas, so a wallet flush with
-USD₮ but short on TON still can't settle. [`planPayment()`](/making-payments/plan-payment/) reports
+The headline TON caveat is that even a USD₮ payment burns GRAM (the native coin) for gas, so a wallet
+flush with USD₮ but short on GRAM still can't settle. [`planPayment()`](/making-payments/plan-payment/) reports
 that as a blocker without throwing; [`fetch()`](/making-payments/piprail-client/) throws a typed
 [`InsufficientFundsError`](/errors/error-hierarchy/) (`.code === 'INSUFFICIENT_FUNDS'`) so you can
 catch it and top up the right coin:
@@ -114,8 +149,8 @@ try {
   console.log(await res.text())
 } catch (err) {
   if (err instanceof InsufficientFundsError) {
-    // fund the payer — USD₮ for the payment, and TON for gas
-    console.error('Top up the TON wallet (USD₮ and/or Toncoin gas):', err.message)
+    // fund the payer — USD₮ for the payment, and GRAM for gas
+    console.error('Top up the TON wallet (USD₮ and/or GRAM gas):', err.message)
   } else {
     throw err
   }
@@ -131,7 +166,7 @@ if (!plan) {
 } else if (plan.payable) {
   await client.fetch('https://api.example.com/report')
 } else {
-  console.log(plan.fundingHint) // e.g. "needs ~0.05 TON for gas"
+  console.log(plan.fundingHint) // e.g. "add ~0.05 GRAM for gas"
 }
 ```
 

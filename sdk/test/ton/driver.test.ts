@@ -19,12 +19,13 @@ describe('auto-mount — naming "ton" is enough (no setup call)', () => {
     expect(accept.extra.decimals).toBe(6)
   })
 
-  it('builds a native TON (9-decimal) challenge', async () => {
+  it('builds a native Gram (9-decimal) challenge — ticker GRAM, network still tvm:-239', async () => {
     const gate = createPaymentGate({ chain: 'ton', token: 'native', amount: '1', payTo: PAY_TO })
     const accept = (await gate.challenge()).challenge.accepts[0]!
     expect(accept.asset).toBe('native')
     expect(accept.amount).toBe('1000000000') // 1 × 10^9
-    expect(accept.extra.symbol).toBe('TON')
+    expect(accept.network).toBe('tvm:-239') // network unchanged by the token rebrand
+    expect(accept.extra.symbol).toBe('GRAM') // Toncoin → Gram (ticker TON → GRAM), live 2026-06-15
   })
 })
 

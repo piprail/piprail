@@ -4,8 +4,15 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
-## [2.8.0] — 2026-06-19 — Solana exact SPL-Memo conformance + TON canonical CAIP-2 (`tvm:-239`)
+## [2.8.0] — 2026-06-19 — Solana exact SPL-Memo conformance · TON canonical CAIP-2 (`tvm:-239`) · Toncoin→Gram
 
+- **chore(ton): native coin symbol `TON` → `GRAM` (Toncoin → Gram rebrand).** A TON community
+  governance vote renamed the native token *Toncoin → Gram* (ticker `TON` → `GRAM`), live 2026-06-15.
+  It's a token-only, presentation-layer rename — the blockchain is still **The Open Network (TON)**, the
+  CAIP-2 network id stays `tvm:-239`, and addresses/contracts/jettons are unchanged (no migration). The
+  SDK now surfaces the native coin's symbol as `GRAM` (a 402's `extra.symbol`, `describeAsset`, and
+  `estimateCost`'s `feeSymbol`); `chain: 'ton'` and `token: 'native'` select it exactly as before, and
+  USD₮ / other jettons are unaffected.
 - **fix(ton): emit canonical CAIP-2 `tvm:-239` (was `ton:-239`)** — the chainagnostic CAIP-2 registry
   has no `ton` namespace and the merged foundation TON exact scheme mandates the `tvm` namespace, so a
   TON 402's `accepts[].network` (and slug resolution / receipts) now emit `tvm:-239`. This makes

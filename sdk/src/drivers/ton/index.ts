@@ -16,7 +16,7 @@
  */
 import { Address } from '@ton/core'
 import { JettonMaster, TonClient } from '@ton/ton'
-import { TON_MAINNET, TON_DECIMALS, type TonPreset } from './chains.js'
+import { TON_MAINNET, TON_DECIMALS, TON_NATIVE_SYMBOL, type TonPreset } from './chains.js'
 import { payTon } from './pay.js'
 import { verifyTon, extractIncoming } from './verify.js'
 import { assertTonWallet, resolveTonWallet, type TonWalletConfig } from './wallet.js'
@@ -84,7 +84,7 @@ function makeTonNetwork(preset: TonPreset, rpcUrl: string): ResolvedNetwork {
 
     resolveToken(token: TokenInput): ResolvedToken {
       if (token === 'native') {
-        return { asset: 'native', decimals: TON_DECIMALS, symbol: 'TON' }
+        return { asset: 'native', decimals: TON_DECIMALS, symbol: TON_NATIVE_SYMBOL }
       }
       if (typeof token === 'string') {
         const info = preset.tokens[token.toUpperCase()]
@@ -112,7 +112,7 @@ function makeTonNetwork(preset: TonPreset, rpcUrl: string): ResolvedNetwork {
     },
 
     describeAsset(asset: string) {
-      if (asset === 'native') return { symbol: 'TON', decimals: TON_DECIMALS }
+      if (asset === 'native') return { symbol: TON_NATIVE_SYMBOL, decimals: TON_DECIMALS }
       for (const info of Object.values(preset.tokens)) {
         if (info.master === asset) return { symbol: info.symbol, decimals: info.decimals }
       }
@@ -177,14 +177,15 @@ function makeTonNetwork(preset: TonPreset, rpcUrl: string): ResolvedNetwork {
     },
 
     async estimateCost(accept) {
-      // Native ~0.01 TON network fee; a jetton transfer attaches ~0.05 TON for
-      // gas + forwarding (leftover refunded). Nanoton = 9 decimals.
+      // Native ~0.01 GRAM network fee; a jetton transfer attaches ~0.05 GRAM for
+      // gas + forwarding (leftover refunded). Nanoton = 9 decimals. (GRAM is the
+      // native coin's post-2026-06-15 ticker; the network is still TON / tvm:-239.)
       const fee = accept.asset === 'native' ? 10_000_000n : 50_000_000n
       const detail =
         accept.asset === 'native'
-          ? '~0.01 TON network fee'
-          : '~0.05 TON attached for the jetton transfer (leftover refunded)'
-      return nativeCost({ symbol: 'TON', decimals: TON_DECIMALS, fee, basis: 'heuristic', detail })
+          ? `~0.01 ${TON_NATIVE_SYMBOL} network fee`
+          : `~0.05 ${TON_NATIVE_SYMBOL} attached for the jetton transfer (leftover refunded)`
+      return nativeCost({ symbol: TON_NATIVE_SYMBOL, decimals: TON_DECIMALS, fee, basis: 'heuristic', detail })
     },
 
     async balanceOf(wallet: WalletHandle, asset: string): Promise<WalletBalance> {

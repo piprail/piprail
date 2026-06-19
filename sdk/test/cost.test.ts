@@ -60,9 +60,10 @@ describe('estimateCost — deterministic per-driver fees (native coin)', () => {
     expect(token.feeSymbol).toBe('SOL')
   })
 
-  it('TON: ~0.01 TON native, ~0.05 TON jetton, 9dp', async () => {
+  it('TON: ~0.01 GRAM native, ~0.05 GRAM jetton, 9dp', async () => {
     const native = await tonDriver.resolve({ chain: 'ton' })!.estimateCost(accept('tvm:-239', 'native'))
-    expect(native).toMatchObject({ feeSymbol: 'TON', feeDecimals: 9, feeFormatted: '0.01' })
+    // Native ticker is GRAM since the 2026-06-15 Toncoin→Gram rebrand; network unchanged (tvm:-239).
+    expect(native).toMatchObject({ feeSymbol: 'GRAM', feeDecimals: 9, feeFormatted: '0.01' })
     const jetton = await tonDriver.resolve({ chain: 'ton' })!.estimateCost(accept('tvm:-239', 'EQjettonmaster'))
     expect(jetton.feeFormatted).toBe('0.05')
   })

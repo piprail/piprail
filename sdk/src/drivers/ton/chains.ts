@@ -29,7 +29,17 @@ export interface TonPreset {
   tokens: Record<string, TonJettonInfo>
 }
 
-/** Toncoin (native TON) is 9 decimals — nanoton. (Distinct from USD₮'s 6.) */
+/**
+ * The native coin's display symbol. The token was **renamed Toncoin → Gram** (ticker
+ * `TON` → `GRAM`) by a TON community governance vote, live **2026-06-15** — a
+ * presentation-layer rename of the *token only*. The blockchain is still **The Open
+ * Network (TON)**: the CAIP-2 network id stays `tvm:-239`, addresses/contracts/jettons
+ * are unchanged (no migration), and `chain: 'ton'` + `token: 'native'` select it exactly
+ * as before. We surface the current ticker `GRAM` as the native symbol; nothing else moves.
+ */
+export const TON_NATIVE_SYMBOL = 'GRAM'
+
+/** Native Gram (formerly Toncoin) is 9 decimals — nanoton. (Distinct from USD₮'s 6.) */
 export const TON_DECIMALS = 9
 
 export const TON_MAINNET: TonPreset = {

@@ -39,9 +39,9 @@ describe('describeAsset — trusted decimals/symbol per family (pure, no RPC)', 
     expect(net.describeAsset('So11111111111111111111111111111111111111112')).toBeNull()
   })
 
-  it('TON: native TON (9dp), built-in USD₮ master (6dp), unknown master', () => {
+  it('TON: native Gram (9dp), built-in USD₮ master (6dp), unknown master', () => {
     const net = tonDriver.resolve({ chain: 'ton' })!
-    expect(net.describeAsset('native')).toEqual({ symbol: 'TON', decimals: 9 })
+    expect(net.describeAsset('native')).toEqual({ symbol: 'GRAM', decimals: 9 }) // Toncoin → Gram (2026-06-15)
     expect(net.describeAsset('EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs')).toEqual({
       symbol: 'USDT',
       decimals: 6,
