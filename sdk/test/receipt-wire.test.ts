@@ -77,11 +77,28 @@ describe('receipt-wire · buildReceiptExtension / parseReceiptExtension round-tr
     expect(got).toEqual(want)
   })
 
-  it('a stock @x402 reader still finds info.receipt (byte-compatible envelope)', () => {
+  it('Tier-1 (unsigned): the chain-grounded record is at info.settlement; the spec slot info.receipt is ABSENT', () => {
     const res = settledResponse({ receipt: baseReceipt, resource: { url: 'https://x.test/r' } })
-    const header = decode(res.headers.get(HEADER_RESPONSE)!)
-    // The stock extractor path: extensions['offer-receipt'].info.receipt
-    expect(header.extensions[EXT_OFFER_RECEIPT].info.receipt).toEqual(baseReceipt)
+    const info = decode(res.headers.get(HEADER_RESPONSE)!).extensions[EXT_OFFER_RECEIPT].info
+    expect(info.settlement).toEqual(baseReceipt)
+    // A stock @x402 reader reads info.receipt → finds nothing (there is no SIGNED receipt for Tier-1).
+    expect(info.receipt).toBeUndefined()
+  })
+
+  it('Tier-2 (signed): the official SignedReceipt sits at the spec slot info.receipt (stock-reader byte-compatible)', () => {
+    const attestation = { format: 'eip712', signature: '0xsig', signer: '0xmerchant', payload: { version: 1 } }
+    const ext = buildReceiptExtension({ receipt: baseReceipt, resource: { url: 'https://x.test/r' }, attestation: attestation as never })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const info = (ext[EXT_OFFER_RECEIPT] as any).info
+    // The stock @x402/extensions extractor path: extensions['offer-receipt'].info.receipt = the SignedReceipt.
+    expect(info.receipt).toEqual(attestation)
+    expect(info.receipt.format).toBe('eip712') // {format,payload,signature} — what a stock reader expects
+    expect(info.settlement).toEqual(baseReceipt) // PipRail's chain-grounded record at its own sibling
+    // …and parseReceiptExtension round-trips it: receipt ← settlement, attestation ← info.receipt.
+    const res = new Response('ok', { status: 200, headers: { [HEADER_RESPONSE]: b64({ ...baseReceipt, extensions: ext }) } })
+    const got = parseReceiptExtension(res)
+    expect(got!.receipt).toEqual(baseReceipt)
+    expect(got!.attestation).toEqual(attestation)
   })
 
   it('returns null when there is no offer-receipt extension', () => {

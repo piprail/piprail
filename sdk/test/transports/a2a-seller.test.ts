@@ -130,15 +130,26 @@ describe('A2A seller — valid payload → completed + receipts + payment-comple
 })
 
 describe('A2A seller — rejected proof → conformant re-challenge (RETRYABLE)', () => {
-  it('a rejected onchain-proof → input-required re-challenge + x402.payment.error (NOT failed)', async () => {
+  it('a rejected onchain-proof → input-required re-challenge, status payment-failed (spec) + the error code', async () => {
     const pay = createA2APaymentHandler({ gate: baseGate() })
     const challenge = await pay.handleMessage({ kind: 'message' }, 'task-4')
     const task = await pay.handleMessage(proofMessage('task-4', challenge, '0xbadproof'), 'task-4')
-    expect(task.status.state).toBe('input-required') // retryable, never terminal failed
+    expect(task.status.state).toBe('input-required') // retryable, never terminal `failed`
     const meta = task.status.message!.metadata!
-    expect(meta[A2A_STATUS_KEY]).toBe('payment-required')
+    // STATUS distinguishes a rejected submission from a first challenge: the spec's Error-Handling
+    // table assigns an Invalid Payment `payment-failed` (NOT `payment-required`, which is the first challenge).
+    expect(meta[A2A_STATUS_KEY]).toBe('payment-failed')
     expect(meta[A2A_REQUIRED_KEY]).toBeDefined() // a fresh challenge to retry against
     expect(meta[A2A_ERROR_KEY]).toBe('INVALID_AMOUNT') // amount_too_low → INVALID_AMOUNT
+  })
+
+  it('a brand-new (empty-payload) request → status payment-required (distinct from a rejection)', async () => {
+    const pay = createA2APaymentHandler({ gate: baseGate() })
+    const task = await pay.handleMessage({ kind: 'message' }, 'task-4b')
+    const meta = task.status.message!.metadata!
+    expect(task.status.state).toBe('input-required')
+    expect(meta[A2A_STATUS_KEY]).toBe('payment-required') // first challenge, never payment-failed
+    expect(meta[A2A_ERROR_KEY]).toBeUndefined()
   })
 })
 
@@ -157,7 +168,26 @@ describe('A2A seller — settle-side SettlementError → failed + error + {succe
     expect(meta[A2A_STATUS_KEY]).toBe('payment-failed')
     expect(meta[A2A_ERROR_KEY]).toBe('SETTLEMENT_FAILED')
     const receipts = meta[A2A_RECEIPTS_KEY]!
-    expect((receipts[receipts.length - 1] as SettleOutcome).success).toBe(false)
+    const failed = receipts[receipts.length - 1] as SettleOutcome
+    expect(failed.success).toBe(false)
+    // The x402 v2 SettlementResponse marks `transaction` Required ('' if settlement failed) — emit it.
+    expect(failed.transaction).toBe('')
+    expect('transaction' in failed).toBe(true)
+  })
+
+  it('the per-task receipts[] history is BOUNDED (a pinned taskId + repeated throws cannot grow it unbounded)', async () => {
+    settleMode = 'throw'
+    const pay = createA2APaymentHandler({ gate: baseGate(exactGateCfg) })
+    const challenge = await pay.handleMessage({ kind: 'message' }, 'task-cap')
+    const ch = fromA2APaymentRequired(challenge)!
+    const exactRail = ch.accepts.find((a) => a.scheme === 'exact')!
+    let last
+    for (let i = 0; i < 200; i++) {
+      const payload = { x402Version: 2, accepted: exactRail, payload: { signature: '0xsig', authorization: AUTH() } }
+      last = await pay.handleMessage({ kind: 'message', taskId: 'task-cap', metadata: { [A2A_PAYLOAD_KEY]: payload } }, 'task-cap')
+    }
+    const receipts = last!.status.message!.metadata![A2A_RECEIPTS_KEY]!
+    expect(receipts.length).toBeLessThanOrEqual(64) // capped, not 200
   })
 })
 

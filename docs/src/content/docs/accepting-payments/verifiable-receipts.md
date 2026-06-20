@@ -22,10 +22,13 @@ createPaymentGate({
 ```
 
 Omitting `receipts` leaves the 402 **and** the 200 byte-for-byte identical to before — this is
-purely additive. The receipt rides on the `PAYMENT-RESPONSE` header inside a
-`extensions['offer-receipt'].info` block: a stock `@x402/extensions` reader finds
-`info.receipt` unchanged (**byte-compatible** with the x402 offer-receipt extension), while a
-PipRail client reconstructs the full self-contained [`PipRailReceipt`](/making-payments/verifying-receipts/).
+purely additive. The receipt rides on the `PAYMENT-RESPONSE` header inside an
+`extensions['offer-receipt'].info` block: PipRail's chain-grounded settlement record sits at
+`info.settlement` (a PipRail sibling), and — when you enable a Tier-2 attestation — the official
+SignedReceipt sits at the spec's `info.receipt` slot, so a stock `@x402/extensions` reader
+(`extractReceiptFromResponse` → `info.receipt`) reads the signed receipt unchanged
+(**byte-compatible** for the attested path). A PipRail client reconstructs the full self-contained
+[`PipRailReceipt`](/making-payments/verifying-receipts/) from both.
 
 ## Two tiers
 

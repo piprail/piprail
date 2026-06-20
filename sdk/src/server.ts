@@ -337,9 +337,10 @@ export interface RequirePaymentOptions {
   /**
    * Emit a **verifiable receipt** on every settled payment — a self-contained
    * {@link PipRailReceipt} that the buyer keeps and **anyone** re-verifies against the
-   * chain with only an RPC (no key, no backend, no PipRail account). It rides in a
-   * byte-compatible `extensions['offer-receipt'].info` block on the `PAYMENT-RESPONSE`
-   * header and stamps the challenge `nonce` onto the receipt so the five Template-A
+   * chain with only an RPC (no key, no backend, no PipRail account). It rides in an
+   * `extensions['offer-receipt'].info` block on the `PAYMENT-RESPONSE` header (the
+   * chain-grounded record at `info.settlement`; the optional Tier-2 SignedReceipt at the
+   * spec's `info.receipt` slot) and stamps the challenge `nonce` onto the receipt so the five Template-A
    * (memo/nonce-bound) families re-verify off-chain. **Default off → byte-identical.**
    *
    * - `true` / `{}`        → Tier-1 chain-grounded receipt (the settlement tx is the
@@ -376,9 +377,9 @@ export interface ReceiptOption {
    * ALSO signs the official x402 `offer-receipt` EIP-712 receipt with the merchant's own
    * wallet, attesting the one thing the chain can't: that the resource was actually
    * **served**. A verifier checks `recover(sig) === payTo` — zero new infra, the
-   * merchant's existing `payTo` key. The {@link SignedReceipt} rides in the
-   * `extensions['offer-receipt'].info.attestation` sibling; verify with
-   * {@link PipRailClient.verifyAttestation}.
+   * merchant's existing `payTo` key. The {@link SignedReceipt} rides at the official
+   * spec slot `extensions['offer-receipt'].info.receipt` (so a stock `@x402/extensions`
+   * reader reads it unchanged); verify with {@link PipRailClient.verifyAttestation}.
    *
    * - `{ wallet }` → the merchant's existing payTo key (EIP-712). EVM-only: on a non-EVM
    *   rail it **degrades to Tier-1 + a one-time warning**, never throws.
@@ -1199,7 +1200,7 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
    * onchain-proof; **omitted** for `exact`, which is digest-bound and carries no challenge
    * nonce — never the per-rail authorization nonce, close-out "Nonce semantics"). When
    * `receipts.attest` is set AND the rail is EVM, it ALSO signs a Tier-2 EIP-712 delivery
-   * attestation (`net.signReceipt`) and bundles it under `info.attestation`; a non-EVM rail
+   * attestation (`net.signReceipt`) and bundles it at the spec slot `info.receipt`; a non-EVM rail
    * (or the deferred JWS path) degrades to Tier-1 with a one-time warning. It is ISOLATED
    * exactly like `onPaid`: any throw in the receipt builder OR the signer degrades to the
    * plain/unsigned receipt header, never failing the 200.

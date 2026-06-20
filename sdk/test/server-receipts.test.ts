@@ -5,8 +5,8 @@
  * carries NO nonce (digest-bound; never the per-rail auth nonce — close-out "Nonce
  * semantics"), `includeTxHash:false` writes `transaction:''` (§5.3), and a throwing
  * receipt builder degrades to the plain header (never a 500), isolated like `onPaid`.
- * R2: `receipts:{ attest:{ wallet } }` on an EVM gate signs a Tier-2 EIP-712 attestation
- * into `info.attestation` (default tx present; false → signed+wire transaction ''); a
+ * R2: `receipts:{ attest:{ wallet } }` on an EVM gate signs a Tier-2 EIP-712 SignedReceipt
+ * at the spec slot `info.receipt` (default tx present; false → signed+wire transaction ''); a
  * NON-EVM gate degrades to Tier-1 + a one-time warning (no throw, no attestation).
  * Companion to `server-exact.test.ts` / `server-onpaid.test.ts`.
  */
@@ -191,9 +191,11 @@ describe('receipts · onchain-proof 200 stamps the CHALLENGE nonce + offer-recei
 
     const wire = decode(result.receiptHeader)
     const info = wire.extensions[EXT_OFFER_RECEIPT].info
-    expect(info.receipt.nonce).toBe(challengeNonce)
-    expect(info.receipt.scheme).toBe('onchain-proof')
-    expect(info.receipt.payTo).toBe(PAY_TO)
+    // PipRail's chain-grounded record at info.settlement (the spec's info.receipt is the SIGNED slot).
+    expect(info.settlement.nonce).toBe(challengeNonce)
+    expect(info.settlement.scheme).toBe('onchain-proof')
+    expect(info.settlement.payTo).toBe(PAY_TO)
+    expect(info.receipt).toBeUndefined() // Tier-1 (no attest) → no signed receipt at the spec slot
     expect(info.decimals).toBe(6)
     // resource.url is the gate-pinned value (default '' — the buyer's client fills the real URL).
     expect(info.resource.url).toBe('')
@@ -218,8 +220,8 @@ describe('receipts · exact 200 emits a receipt with NO challenge nonce (never t
     // it must never be the per-rail authorization nonce.
     expect(result.receipt.nonce).toBeUndefined()
     const wire = decode(result.receiptHeader)
-    expect(wire.extensions[EXT_OFFER_RECEIPT].info.receipt.scheme).toBe('exact')
-    expect(wire.extensions[EXT_OFFER_RECEIPT].info.receipt.nonce).toBeUndefined()
+    expect(wire.extensions[EXT_OFFER_RECEIPT].info.settlement.scheme).toBe('exact')
+    expect(wire.extensions[EXT_OFFER_RECEIPT].info.settlement.nonce).toBeUndefined()
     expect(JSON.stringify(wire)).not.toContain(authNonce)
   })
 })
@@ -233,7 +235,7 @@ describe('receipts · includeTxHash:false writes transaction:"" (§5.3), never a
     const wire = decode(result.receiptHeader)
     expect(wire.transaction).toBe('')
     expect('transaction' in wire).toBe(true) // present, empty — not omitted
-    expect(wire.extensions[EXT_OFFER_RECEIPT].info.receipt.transaction).toBe('')
+    expect(wire.extensions[EXT_OFFER_RECEIPT].info.settlement.transaction).toBe('')
   })
 })
 
@@ -260,14 +262,15 @@ describe('receipts · a throwing receipt builder degrades to the plain header (n
 
 const ATTEST = { wallet: { key: MERCHANT_KEY } }
 
-/** The signed-receipt block on a settled onchain-proof 200 (or null). */
+/** The signed-receipt block on a settled onchain-proof 200 (or null). It rides at the
+ *  spec slot info.receipt (a stock @x402 reader reads it there). */
 function attestationOn(receiptHeader: string) {
   const wire = decode(receiptHeader)
-  return wire.extensions?.[EXT_OFFER_RECEIPT]?.info?.attestation ?? null
+  return wire.extensions?.[EXT_OFFER_RECEIPT]?.info?.receipt ?? null
 }
 
 describe('receipts · R2 · EVM attest signs an EIP-712 delivery attestation (recover === payTo)', () => {
-  it('the 200 carries info.attestation; includeTxHash defaults TRUE (tx present + signed)', async () => {
+  it('the 200 carries the SignedReceipt at the spec slot info.receipt; includeTxHash defaults TRUE', async () => {
     const gate = gateWith({ receipts: { attest: ATTEST, resource: 'https://api.example.com/r' } })
     const { result } = await payProof(gate, `0x${'d'.repeat(64)}`)
     expect(result.kind).toBe('paid')
@@ -300,9 +303,9 @@ describe('receipts · R2 · EVM attest signs an EIP-712 delivery attestation (re
     const wire = decode(result.receiptHeader)
     // Wire receipt: suppressed tx is the empty string (§5.3), never a missing key.
     expect(wire.transaction).toBe('')
-    expect(wire.extensions[EXT_OFFER_RECEIPT].info.receipt.transaction).toBe('')
+    expect(wire.extensions[EXT_OFFER_RECEIPT].info.settlement.transaction).toBe('')
     // Signed attestation payload: transaction is '' too (signed empty-string, never omitted).
-    const att = wire.extensions[EXT_OFFER_RECEIPT].info.attestation
+    const att = wire.extensions[EXT_OFFER_RECEIPT].info.receipt
     expect(att.payload.transaction).toBe('')
     expect('transaction' in att.payload).toBe(true)
     // Still recovers payTo from the ''-message.
@@ -324,11 +327,11 @@ describe('receipts · R2 · a non-EVM gate with attest degrades to Tier-1 + a on
       const { result } = await payProof(gate)
       expect(result.kind).toBe('paid')
       if (result.kind !== 'paid') return
-      // Tier-1 still emitted (the offer-receipt block is present)…
+      // Tier-1 still emitted (the chain-grounded record is present)…
       const wire = decode(result.receiptHeader)
-      expect(wire.extensions[EXT_OFFER_RECEIPT].info.receipt).toBeTruthy()
-      // …but NO Tier-2 attestation on a non-EVM rail.
-      expect(wire.extensions[EXT_OFFER_RECEIPT].info.attestation).toBeUndefined()
+      expect(wire.extensions[EXT_OFFER_RECEIPT].info.settlement).toBeTruthy()
+      // …but NO Tier-2 SignedReceipt at the spec slot on a non-EVM rail.
+      expect(wire.extensions[EXT_OFFER_RECEIPT].info.receipt).toBeUndefined()
       // Warned (once) about the degrade — and no throw reached here.
       expect(warn).toHaveBeenCalled()
     } finally {
@@ -348,9 +351,9 @@ describe('receipts · R2 · a signing failure degrades to the unsigned Tier-1 re
       expect(result.kind).toBe('paid')
       if (result.kind !== 'paid') return
       const wire = decode(result.receiptHeader)
-      // Tier-1 block present, but no attestation (signing degraded), no crash.
-      expect(wire.extensions[EXT_OFFER_RECEIPT].info.receipt).toBeTruthy()
-      expect(wire.extensions[EXT_OFFER_RECEIPT].info.attestation).toBeUndefined()
+      // Tier-1 settlement record present, but no signed receipt (signing degraded), no crash.
+      expect(wire.extensions[EXT_OFFER_RECEIPT].info.settlement).toBeTruthy()
+      expect(wire.extensions[EXT_OFFER_RECEIPT].info.receipt).toBeUndefined()
     } finally {
       signerShouldThrow = false
       warn.mockRestore()

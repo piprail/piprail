@@ -670,12 +670,19 @@ export const EXT_OFFER_RECEIPT = 'offer-receipt'
 
 /**
  * Assemble the `extensions['offer-receipt']` block for a settled response — PURE
- * JSON, viem-free. Emits `{ info: { receipt, resource, decimals?, attestation? } }`:
- * a stock `@x402/extensions` reader picks `info.receipt` unchanged (byte-compatible),
- * while PipRail's {@link parseReceiptExtension} also reconstructs the self-contained
- * {@link PipRailReceipt}. The optional `schema` JSON-Schema sibling is owner-gated and
- * not emitted by default. The gate merges the returned record into the
- * SettlementResponse's `extensions` on the `PAYMENT-RESPONSE` header.
+ * JSON, viem-free. SPEC-FAITHFUL placement:
+ *  - `info.receipt` holds the official `offer-receipt` **SignedReceipt**
+ *    (`{ format, payload, signature }`) — present ONLY when a Tier-2 attestation was
+ *    signed — so a STOCK `@x402/extensions` reader (`extractReceiptFromResponse` →
+ *    `info.receipt`) reads it correctly. When there is no attestation (Tier-1,
+ *    chain-grounded) there is no signed artifact, so `info.receipt` is absent — a stock
+ *    reader correctly sees "no signed receipt" (because there isn't one).
+ *  - `info.settlement` holds PipRail's chain-grounded {@link X402Receipt} (the
+ *    settlement record {@link parseReceiptExtension} re-reads for `verifyReceipt`) — a
+ *    PipRail-namespaced sibling a stock reader ignores.
+ * The optional `schema` JSON-Schema sibling is owner-gated and not emitted by default.
+ * The gate merges the returned record into the SettlementResponse's `extensions` on the
+ * `PAYMENT-RESPONSE` header.
  */
 export function buildReceiptExtension(bundle: {
   receipt: X402Receipt
@@ -683,9 +690,10 @@ export function buildReceiptExtension(bundle: {
   decimals?: number
   attestation?: SignedReceipt
 }): Record<string, unknown> {
-  const info: Record<string, unknown> = { receipt: bundle.receipt, resource: bundle.resource }
+  const info: Record<string, unknown> = { settlement: bundle.receipt, resource: bundle.resource }
   if (typeof bundle.decimals === 'number') info.decimals = bundle.decimals
-  if (bundle.attestation) info.attestation = bundle.attestation
+  // The SPEC slot: the official SignedReceipt at info.receipt (Tier-2 only). Stock readers read it here.
+  if (bundle.attestation) info.receipt = bundle.attestation
   return { [EXT_OFFER_RECEIPT]: { info } }
 }
 
@@ -765,10 +773,13 @@ export function parseReceipt(response: Response): X402Receipt | null {
 
 /**
  * Read a {@link PipRailReceipt} back from a settled response's `PAYMENT-RESPONSE`
- * header (v2, or the v1 `X-PAYMENT-RESPONSE` fallback). Liberal/Postel: reads
- * `extensions['offer-receipt'].info.receipt` and TOLERATES + IGNORES a `schema`
- * sibling (or any unknown sibling) without failing. Returns `null` when no header,
- * no extension block, or an invalid inner receipt. Pure — no chain read.
+ * header (v2, or the v1 `X-PAYMENT-RESPONSE` fallback). Reads PipRail's chain-grounded
+ * settlement record from `extensions['offer-receipt'].info.settlement`, and the optional
+ * Tier-2 {@link SignedReceipt} from the spec slot `info.receipt`. Liberal/Postel: TOLERATES
+ * + IGNORES a `schema` sibling (or any unknown sibling), and — for robustness — also accepts
+ * the settlement record at `info.receipt` if it's there instead (an X402Receipt, distinguished
+ * from a SignedReceipt by {@link isValidReceipt}). Returns `null` when no header, no extension
+ * block, or no valid settlement record. Pure — no chain read.
  */
 export function parseReceiptExtension(response: Response): PipRailReceipt | null {
   const headerValue =
@@ -779,14 +790,26 @@ export function parseReceiptExtension(response: Response): PipRailReceipt | null
   const ext = parsed.extensions as Record<string, unknown> | undefined
   const block = ext?.[EXT_OFFER_RECEIPT] as Record<string, unknown> | undefined
   const info = block?.info as Record<string, unknown> | undefined // a `schema` sibling is ignored
-  if (!info || !isValidReceipt(info.receipt)) return null
+  if (!info) return null
+  // PipRail's chain-grounded X402Receipt lives at info.settlement; fall back to info.receipt only
+  // if THAT holds an X402Receipt (not a SignedReceipt) — isValidReceipt discriminates the two.
+  const settlement = isValidReceipt(info.settlement)
+    ? info.settlement
+    : isValidReceipt(info.receipt)
+      ? info.receipt
+      : undefined
+  if (!settlement) return null
+  // The Tier-2 attestation is the SignedReceipt at the spec slot info.receipt — but only when that
+  // ISN'T the settlement record itself (the legacy fallback case above).
+  const attestation =
+    info.receipt && info.receipt !== settlement ? (info.receipt as SignedReceipt) : undefined
   const res = info.resource as { url?: unknown } | undefined
   return {
     piprail: '1',
-    receipt: info.receipt,
+    receipt: settlement,
     resource: { url: res && typeof res.url === 'string' ? res.url : '' },
     ...(typeof info.decimals === 'number' ? { decimals: info.decimals } : {}),
-    ...(info.attestation ? { attestation: info.attestation as SignedReceipt } : {}),
+    ...(attestation ? { attestation } : {}),
   }
 }
 

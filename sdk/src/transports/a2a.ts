@@ -75,6 +75,11 @@ export const A2A_ERROR_KEY = 'x402.payment.error'
 /** The HTTP activation header a client sends to opt into the extension (§2.4). */
 export const A2A_EXTENSIONS_HEADER = 'X-A2A-Extensions'
 
+/** Hard cap on a single task's append-only `receipts[]` history — a real task holds 1–2 entries;
+ *  this bounds memory if a caller pins one taskId and streams throw-producing payloads (a degraded
+ *  backend). The tail is kept (the most recent settlement outcomes). */
+const MAX_TASK_RECEIPTS = 64
+
 /**
  * Map PipRail's lowercase {@link VerifyErrorCode} to the spec's screaming-snake error enum
  * (`errors.py:148-157` / spec §8.1) for `x402.payment.error`. We ALSO emit the raw PipRail
@@ -289,7 +294,13 @@ export function createA2APaymentHandler(options: A2APaymentHandlerOptions): A2AP
       'success' in entry &&
       entry.success === true &&
       prior.some((r) => 'transaction' in r && (r as X402Receipt).transaction === entry.transaction)
-    const receipts = isDup ? prior : [...prior, entry]
+    const next = isDup ? prior : [...prior, entry]
+    // BOUND the per-task history: a hostile/buggy caller pinning one taskId and sending payloads
+    // that each throw on the verify read (a degraded merchant backend) would otherwise append a
+    // failed SettleOutcome without limit (they never dedup) → unbounded memory under one task.
+    // Keep only the most-recent MAX_TASK_RECEIPTS (a real task holds 1–2). Append-only semantics
+    // for normal use are unchanged; only a pathological stream is capped.
+    const receipts = next.length > MAX_TASK_RECEIPTS ? next.slice(-MAX_TASK_RECEIPTS) : next
     store.set(taskId, { receipts }, ttlMs)
     return receipts
   }
@@ -317,10 +328,17 @@ export function createA2APaymentHandler(options: A2APaymentHandlerOptions): A2AP
     taskId: string,
     result: Extract<VerifyPaymentResult, { kind: 'challenge' | 'invalid' }>
   ): A2ATask {
+    // STATUS distinguishes a brand-new challenge from a REJECTED submission per the spec's
+    // Error-Handling table: a genuine first challenge is `payment-required`; a submitted-and-
+    // rejected proof (`kind:'invalid'` — expired/wrong-amount/replayed) is `payment-failed` (the
+    // status the spec assigns to an Invalid Payment) + the error code. The STATE stays the
+    // retryable `input-required` (PipRail's "here's a fresh challenge, try again" model — the spec
+    // permits input-required for a rejection), and the fresh challenge rides along so the buyer can retry.
+    const isReject = result.kind === 'invalid'
     const metadata: A2AMetadata = {
-      [A2A_STATUS_KEY]: 'payment-required',
+      [A2A_STATUS_KEY]: isReject ? 'payment-failed' : 'payment-required',
       [A2A_REQUIRED_KEY]: result.challenge,
-      ...(result.kind === 'invalid' ? { [A2A_ERROR_KEY]: toA2AErrorCode(result.error) } : {}),
+      ...(isReject ? { [A2A_ERROR_KEY]: toA2AErrorCode(result.error) } : {}),
     }
     return {
       kind: 'task',
@@ -344,9 +362,11 @@ export function createA2APaymentHandler(options: A2APaymentHandlerOptions): A2AP
     }
   }
 
-  /** Append a failed SettleOutcome to the history (B7). */
+  /** Append a failed SettleOutcome to the history (B7). The x402 v2 SettlementResponse marks
+   *  `transaction` Required ("empty string if settlement failed", spec §SettleResponse), so emit
+   *  `transaction: ''` — never a missing key — for a conformant A2A buyer reading receipts[]. */
   function appendReceiptFailed(taskId: string, code: string, detail: string): (X402Receipt | SettleOutcome)[] {
-    return appendReceipt(taskId, { success: false, errorReason: `${code}: ${detail}` })
+    return appendReceipt(taskId, { success: false, transaction: '', errorReason: `${code}: ${detail}` })
   }
 
   async function handleMessage(message: A2AMessage, taskId?: string): Promise<A2ATask> {
