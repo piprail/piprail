@@ -174,4 +174,4 @@ Gas is shown in the chain's native coin (ETH/SOL/TRX/…), never in fiat — Pip
 oracle. A `null` plan renders `"No payment required — the URL is not payment-gated."`; an
 unpayable plan renders `"NOT payable: <fundingHint>"`.
 
-See the [agent toolkit](/agent-toolkit/the-7-tools/) for how the MCP server wires this into a tool.
+See the [agent toolkit](/agent-toolkit/the-agent-tools/) for how the MCP server wires this into a tool.

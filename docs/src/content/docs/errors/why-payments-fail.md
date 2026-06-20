@@ -236,7 +236,7 @@ unused — re-present it once the merchant fixes their relayer. Re-paying would 
 ## When you'd rather not handle any of this
 
 Agents that should never let a payment failure crash the loop should drive PipRail through the
-[agent toolkit](/agent-toolkit/the-7-tools/): the `piprail_pay_request` tool catches **every**
+[agent toolkit](/agent-toolkit/the-agent-tools/): the `piprail_pay_request` tool catches **every**
 `PipRailError` and returns a structured result instead of an exception —
 `{ ok: false, code, reason, explain, ref?, reasonCode?, declined? }` — so a broadcast-but-unconfirmed
 timeout reaches the model with its `.ref` and the never-re-pay rule already explained.

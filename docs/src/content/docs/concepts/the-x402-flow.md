@@ -108,9 +108,9 @@ declines it, or the buyer abandons — is seen **only by the buyer**, because a 
 passive. Every rejection that *does* reach `verify()` fires `onFailed`.
 :::
 
-## Two schemes
+## Three schemes
 
-PipRail speaks two payment schemes:
+PipRail speaks three payment schemes:
 
 - **`onchain-proof`** (default) — the payer broadcasts their own transfer and proves it. No
   facilitator, works on every family. This is PipRail's native rail.
@@ -120,6 +120,11 @@ PipRail speaks two payment schemes:
   or to **get paid** — optionally **gasless**, by delegating settlement to a free facilitator like
   PayAI that broadcasts on Base and pays the gas (see
   [the exact rail seller](/accepting-payments/exact-rail-seller/)).
+- **`upto`** (opt-in) — the ratified x402 `upto` scheme: a **metered** rail (EVM-Permit2 only) where
+  the buyer signs a **maximum** and the merchant settles only the **actual** usage (≤ the max). Use it
+  for usage-based billing — per-token LLM charges, per-call APIs, pay-per-compute. See
+  [the upto rail seller](/accepting-payments/upto-rail-seller/) and
+  [the upto buyer](/making-payments/upto-buyer/).
 
 :::note
 The challenge **envelope** PipRail emits is x402 v2-conformant. The difference between

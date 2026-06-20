@@ -83,6 +83,8 @@ means that family simply doesn't offer the feature — the protocol layer skips 
 | Method | Available | Enables |
 | --- | --- | --- |
 | `resolveExactRail` / `settleExactSelf` / `payExact` | EVM + Solana + Algorand + Aptos + NEAR | Advertising, buying, and selling a standard [`exact` rail](/accepting-payments/exact-rail-seller/) (EVM EIP-3009/Permit2; Solana SVM; Algorand / Aptos fee-payer sponsored tx; NEAR NEP-366 SignedDelegateAction relayed by a fee-payer). |
+| `resolveUptoRail` / `payUpto` / `settleUptoSelf` | EVM-Permit2 only | Advertising, buying, and selling a standard metered [`upto` rail](/accepting-payments/upto-rail-seller/) — the buyer signs a max, the merchant self-settles the actual via a Permit2 witness transfer. |
+| `signReceipt` | EVM only | Tier-2 service-delivery attestation — sign the official x402 `offer-receipt` EIP-712 message so a buyer can [verify the resource was served](/making-payments/verifying-receipts/). |
 | `exactDomain` / `exactPermit2Supported` | EVM only | The EVM method-selection (EIP-3009 vs Permit2). |
 | `discoverySigner` | EVM today | SIWX [registration](/discovery/discover-and-register/) on open indexes. |
 

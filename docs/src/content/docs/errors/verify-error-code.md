@@ -36,6 +36,7 @@ family uses the same code for the same condition. An agent branches on `error`; 
 | `payment_expired` | Older than `maxTimeoutSeconds` (the replay window). | definitive |
 | `tx_already_used` | This proof was already redeemed — a replay. | definitive |
 | `signature_invalid` | The `exact`-rail authorization is invalid — the signed payload didn't validate against the trusted rail. On EVM the EIP-712 signature didn't recover to the payer; on Solana, Algorand, Aptos, and NEAR the signed transaction / atomic group / delegate-action is unparseable, the signer or structure is wrong, or it trips a fee-payer/relayer drain guard. | definitive |
+| `upto_settle_exceeds_max` | The [`upto` (metered) rail](/accepting-payments/upto-rail-seller/): the merchant's metered settle amount exceeds the maximum the buyer signed (`permitted.amount`). Gate/driver-enforced before any broadcast — nothing settles. | definitive |
 
 :::note
 This is also exactly what a **merchant** receives. When a submitted proof is rejected, the gate's

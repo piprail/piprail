@@ -60,7 +60,7 @@ The tools, in order:
 | `piprail_guide` | Read the agent contract — how to quote/plan/pay and read a refusal. | No |
 | `piprail_verify_receipt` | Re-verify a verifiable receipt against the chain (wallet-free). | No |
 
-Each tool is documented in detail on [The agent tools](/agent-toolkit/the-7-tools/).
+Each tool is documented in detail on [The agent tools](/agent-toolkit/the-agent-tools/).
 
 ## Wiring into a framework
 

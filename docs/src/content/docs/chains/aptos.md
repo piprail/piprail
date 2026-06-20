@@ -199,7 +199,7 @@ payments → Aptos](/making-payments/gasless-payments/#aptos--how-sponsored-tx-g
 
 Because your relayer co-signs a buyer-built transaction as the gas sponsor, the gate **caps the gas**
 the sponsor will pay before signing (`MAX_GAS_AMOUNT_CAP` = 100 000 units, `MAX_GAS_UNIT_PRICE_CAP` =
-2 000 octas/unit — ≤ 0.2 APT worst case) — so a buyer can't inflate `max_gas_amount × gas_unit_price` to
+2 000 octas/unit — ≤ 2.0 APT worst case, i.e. 100 000 × 2 000 = 200 000 000 octas) — so a buyer can't inflate `max_gas_amount × gas_unit_price` to
 drain it. See [sponsor protection](/making-payments/gasless-payments/#sponsor-protection--the-fee-drain-guard).
 
 :::note[`exact: true` on Aptos]

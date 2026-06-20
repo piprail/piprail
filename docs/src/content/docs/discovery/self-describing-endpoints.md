@@ -59,8 +59,13 @@ the gate already resolved (no new data):
 }
 ```
 
-When a gate dual-advertises a standard [`exact` rail](/accepting-payments/exact-rail-seller/), `pay[]`
-carries that rail too, with a `how` that tells a stock client it can pay it directly.
+When a gate dual-advertises a standard [`exact`](/accepting-payments/exact-rail-seller/) or metered
+[`upto`](/accepting-payments/upto-rail-seller/) rail, `pay[]` carries that rail too, with a `how`
+that tells a stock client it can pay it directly.
+
+When the gate offers [verifiable receipts](/accepting-payments/verifiable-receipts/)
+(`receipts: true`), the block also carries **`verifiableReceipts: true`** — so an agent knows, from
+the 402 alone, that a successful `200` will return a self-verifiable receipt it can re-check on-chain.
 
 ### `endpoint` — what the resource *does* (agent-readable)
 
@@ -274,7 +279,7 @@ The cold-start loop the [agent guide](/agent-toolkit/agent-guide/) teaches:
    and, when the merchant described the resource, `endpoint.{summary,input,output}` so it knows
    **what the endpoint does and returns before paying a cent**.
 3. It installs `@piprail/sdk` (or runs `npx -y @piprail/mcp`) and pays via the
-   [payment tools](/agent-toolkit/the-7-tools/).
+   [payment tools](/agent-toolkit/the-agent-tools/).
 
 Because the agent guide is exposed over the MCP (as a prompt and the `piprail://guide` resource), an
 MCP-connected agent already knows to read this block.

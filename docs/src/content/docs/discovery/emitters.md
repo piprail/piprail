@@ -185,6 +185,7 @@ The `DiscoveryDescriptor` fields:
 
 PipRail's own rails advertise `scheme: 'onchain-proof'`. A merchant who wants to be *usefully*
 listed on the open indexes should additionally offer a standard `exact` USDC rail on
-Base/Solana — the emitters carry whichever rails `gate.describe()` returns, so dual-advertising
-flows through automatically. See the [exact rail seller
-guide](/accepting-payments/exact-rail-seller/) for how to turn it on.
+Base/Solana — and can also advertise a metered [`upto` rail](/accepting-payments/upto-rail-seller/).
+The emitters carry whichever rails `gate.describe()` returns, so dual-advertising flows through
+automatically. See the [exact rail seller guide](/accepting-payments/exact-rail-seller/) for how to
+turn it on.

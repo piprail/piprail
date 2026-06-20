@@ -184,15 +184,18 @@ payable.
 ## piprail_budget — read the leash
 
 Reads how much spend budget and time leash is left: per-`(network, asset)` remaining, the
-session time envelope, and your spend so far. Use it in [Mode A (headless)](/mcp/modes/) to
-self-check *before* paying, rather than discovering the leash by hitting a decline.
+cross-token **grand total** per denomination, the **payment-count** leash, the session time
+envelope, and your spend so far. Use it in [Mode A (headless)](/mcp/modes/) to self-check
+*before* paying, rather than discovering the leash by hitting a decline.
 
 ```jsonc
 // piprail_budget()   — no arguments
-// → { spent, remaining, session, report }
+// → { spent, remaining, grandTotal, counts, session, policy, report }
 ```
 
-`remaining` is the per-`(network, asset)` budget; `report` is a one-line spend summary from
+`remaining` is the per-`(network, asset)` budget; `grandTotal` is the cross-token cap remaining
+**per denomination** (USD/EUR/…); `counts` is the payment-count leash; `policy` reads back the
+configured leash; `report` is a one-line spend summary from
 [`formatSpendReport()`](/agent-toolkit/renderers/). Takes no arguments. Read-only and idempotent.
 Backed by the client's spend ledger; see [Spend ledger](/spend-controls/spend-ledger/) and
 [Payment policy](/spend-controls/payment-policy/).
