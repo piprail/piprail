@@ -24,7 +24,7 @@ Two things: your **wallet private key** and (optionally) a **budget**. The defau
 
 Restart the client and the PipRail tools appear (VS Code uses `servers`, not `mcpServers`). **Never commit your key** — keep it in the client's `env` block. → [Per-client setup](https://docs.piprail.com/mcp/client-setup/) · [Configuration](https://docs.piprail.com/mcp/configuration/)
 
-**7 tools** — `piprail_discover` · `piprail_quote_payment` · `piprail_plan_payment` · `piprail_pay_request` · `piprail_register` · `piprail_budget` · `piprail_guide`. Only `piprail_pay_request` moves money; the rest are read-only. → [Tools reference](https://docs.piprail.com/mcp/tools/)
+**8 tools** — `piprail_discover` · `piprail_quote_payment` · `piprail_plan_payment` · `piprail_pay_request` · `piprail_register` · `piprail_budget` · `piprail_guide` · `piprail_verify_receipt`. Only `piprail_pay_request` moves money; the rest are read-only. → [Tools reference](https://docs.piprail.com/mcp/tools/)
 
 **No key? It still runs.** Without `PIPRAIL_PRIVATE_KEY` the server boots in **read-only mode** — discover, quote, register, budget, and guide all work; only `piprail_pay_request` (and `piprail_plan_payment`) ask for a wallet. Add a key when you're ready to actually pay.
 

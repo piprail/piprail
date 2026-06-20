@@ -22,7 +22,7 @@ const pkgVersion = (p) => JSON.parse(read(p)).version
 const sdkV = pkgVersion('sdk/package.json')
 const mcpV = pkgVersion('mcp/package.json')
 
-const TOOLS = ['piprail_discover', 'piprail_quote_payment', 'piprail_plan_payment', 'piprail_pay_request', 'piprail_register', 'piprail_budget', 'piprail_guide']
+const TOOLS = ['piprail_discover', 'piprail_quote_payment', 'piprail_plan_payment', 'piprail_pay_request', 'piprail_register', 'piprail_budget', 'piprail_guide', 'piprail_verify_receipt']
 const AEO_FILES = ['site/public/llms.txt', 'site/public/llms-full.txt']
 
 const checks = []
