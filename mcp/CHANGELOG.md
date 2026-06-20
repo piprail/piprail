@@ -1,6 +1,17 @@
 # @piprail/mcp changelog
 
-## [0.8.0] — 2026-06-19 — on `@piprail/sdk` 2.9.0 (cross-token grand total · count caps · durable budget · event sink)
+## [0.9.0] — 2026-06-20 — on `@piprail/sdk` 2.10.0 — an 8th tool: `piprail_verify_receipt`
+
+Surfaces the SDK 2.10.0 verifiable-receipts capability. **Now 8 `piprail_*` tools** (was 7) — existing
+configs keep working unchanged.
+
+- **`piprail_verify_receipt`** (new, read-only, **key-less**) — re-verify a PipRail verifiable receipt
+  against the chain: confirm a payment *really* settled (the funds provably moved to `payTo` for at least
+  the stated amount) **without trusting whoever handed you the receipt**. Pass the `PipRailReceipt` JSON
+  (from a prior `piprail_pay_request` `verifiableReceipt`, or any third party); returns the chain-recovered
+  verdict (`ok` / `onChain` / `matchesClaims` / `ageSeconds`). Works in read-only mode (no wallet).
+- **`piprail_pay_request`** now surfaces a `verifiableReceipt` in its result when the gate emitted one, so
+  an agent keeps a portable, third-party-verifiable proof of purchase.
 
 Surfaces the SDK 2.9.0 spend-controls upgrade through new env knobs. **Still the same 7 `piprail_*`
 tools** — existing configs keep working unchanged; the new knobs are all opt-in.

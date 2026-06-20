@@ -231,7 +231,7 @@ the same `PayingClient` interface, so anything that takes a `PipRailClient` take
 Because it implements the same `PayingClient` interface a `PipRailClient` does, the
 [agent toolkit](/agent-toolkit/payment-tools/) (`paymentTools`) and the
 [MCP server](/mcp/overview/) wrap it **unchanged** — point an LLM at one wallet or at a whole
-bundle and the 7 tools are identical.
+bundle and the tools are identical.
 
 ## Gasless `exact` works across chains
 

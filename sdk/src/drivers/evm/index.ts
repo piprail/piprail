@@ -16,6 +16,8 @@ import { payEvm } from './pay.js'
 import { verifyEvm } from './verify.js'
 import { readExactDomain, verifyAndSettleExactEvm, payExactEvm, resolveExactRailEvm } from './exact.js'
 import { payPermit2Evm, verifyAndSettlePermit2Evm, isPermit2ProxyChain } from './permit2.js'
+import { payUptoEvm, verifyAndSettleUptoEvm, resolveUptoRailEvm, isUptoProxyChain } from './upto.js'
+import { signReceiptEvm } from './receipt.js'
 import { networkForChain, chainIdFromNetwork } from '../../x402.js'
 import {
   ConfirmationTimeoutError,
@@ -258,6 +260,13 @@ function makeEvmNetwork(resolved: ResolvedChain): ResolvedNetwork {
       }
     },
 
+    // Tier-2 service-delivery attestation (EVM-only) — sign the official offer-receipt
+    // EIP-712 RECEIPT_TYPES with the bound (payTo) wallet. Chain-independent (domain
+    // chainId is hardcoded 1); viem lives in ./receipt.ts (a lazy chunk).
+    signReceipt(wallet: WalletHandle, input) {
+      return signReceiptEvm(wallet, input)
+    },
+
     async verify(ref, accept) {
       return verifyEvm({
         publicClient,
@@ -351,6 +360,47 @@ function makeEvmNetwork(resolved: ResolvedChain): ResolvedNetwork {
         chain: resolved.chain,
         payload,
         accept,
+      })
+    },
+
+    // Standard x402 `upto` (metered) rail — EVM-Permit2 ONLY. The metered sibling of the
+    // exact trio. resolveUptoRail advertises (Permit2-only, proxy-gated, relayer = facilitator);
+    // payUpto signs the MAX with witness.facilitator bound; settleUptoSelf self-settles the actual.
+    async resolveUptoRail({ asset, relayer }) {
+      const relayerAddress = (relayer._native as WalletAdapter).account.address
+      // The token's EIP-712 domain rides along for the optional EIP-2612 extension (best-effort).
+      const domain = asset === 'native' ? null : await readExactDomain(publicClient, asset).catch(() => null)
+      return resolveUptoRailEvm({
+        asset,
+        relayerAddress,
+        proxySupported: () => isUptoProxyChain(resolved.chainId),
+        domain,
+      })
+    },
+
+    async payUpto(wallet: WalletHandle, accept) {
+      const a = wallet._native as WalletAdapter
+      const { payload, payerFrom, nonce } = await payUptoEvm({
+        publicClient,
+        walletClient: a.walletClient,
+        account: a.account,
+        chainId: resolved.chainId,
+        chain: resolved.chain,
+        accept,
+      })
+      return { payload, accepted: accept, payerFrom, nonce }
+    },
+
+    async settleUptoSelf({ relayer, payload, accept, settleAmount }) {
+      const a = relayer._native as WalletAdapter
+      return verifyAndSettleUptoEvm({
+        publicClient,
+        walletClient: a.walletClient,
+        account: a.account,
+        chain: resolved.chain,
+        payload,
+        accept,
+        settleAmount,
       })
     },
   }

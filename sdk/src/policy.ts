@@ -139,7 +139,11 @@ export interface PaymentPolicy {
   /** Lifetime ceiling for this client, PER DISTINCT ASSET (network+asset).
    *  Summing across different tokens is unit-meaningless without a price
    *  oracle (which the SDK deliberately doesn't add), so each token gets its
-   *  own running cap. Pair with `tokens: ['USDC']` for a single-currency budget. */
+   *  own running cap. Pair with `tokens: ['USDC']` for a single-currency budget.
+   *  NOTE — the metered `upto` rail debits this (and `maxTotalPerDenom`/`windowTotal`)
+   *  by the authorized **MAX**, not the merchant's claimed settled actual, so an
+   *  under-reporting merchant can never loosen the leash; the settled actual is
+   *  surfaced on each spend record's `settledBase` for reconciliation. */
   maxTotal?: string
   /** Allowlist of chains the agent may pay on. A 402 on any other chain is
    *  declined. Strings match the configured selector; objects match by id. */

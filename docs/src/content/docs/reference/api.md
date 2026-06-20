@@ -30,6 +30,8 @@ the same logic, framework-free.
 | `deliverReceipt` | fn | Reliable receipt webhook — signed + retried POST to **your** endpoint |
 | `toInvalidBody` | fn | Deprecated |
 | `RequirePaymentOptions`, `AcceptOption`, `ExactRailOption` | type | carries `onPaid` / `onPaidError` / `awaitOnPaid` **and their failure mirrors `onFailed` / `onFailedError` / `awaitOnFailed`**; `mimeType` (→ v2 `resource.mimeType` + the self-describe `endpoint`) |
+| `UptoRailOption` | type | The `createPaymentGate({ upto })` rail option — metered / variable-amount billing (buyer signs a MAX, you settle the actual ≤ max). See [upto rail (seller)](/accepting-payments/upto-rail-seller/) |
+| `ReceiptOption` | type | The `createPaymentGate({ receipt })` rail option — emit a signed, anyone-verifiable [verifiable receipt](/accepting-payments/verifiable-receipts/) alongside the response |
 | `ChainSelector`, `TokenInput` | type | — |
 | `PaymentGate`, `VerifyPaymentResult` | type | — |
 | `PaidReceipt` | type | The enriched receipt `onPaid` receives |
@@ -73,6 +75,7 @@ per chain and auto-routes a 402 to whichever chain can settle it.
 | `PipRailQuote`, `PipRailCostQuote`, `PipRailEvent` | type | the `payment-failed` event gained `code?` / `detail?` and ALSO fires on a pre-send DECLINE (policy / `onBeforePay` / no settleable rail) |
 | `PaymentPlan`, `PayOption`, `PayBlocker`, `PayWarning` | type | — |
 | `SessionBudget`, `SpendRemaining` | type | — |
+| `ReceiptVerification` | type | The verdict returned by the static `PipRailClient.verifyReceipt` / `PipRailClient.verifyAttestation` — re-verify a [verifiable receipt](/making-payments/verifying-receipts/) against the chain, wallet-free (never throws). `client.lastReceipt()` returns the most recent one the client received. |
 
 See [Quote](/making-payments/quote/), [Estimate cost](/making-payments/estimate-cost/),
 [planPayment()](/making-payments/plan-payment/),
@@ -133,7 +136,7 @@ make a bound client legible to the model.
 | `buildSelfDescription`, `buildEndpointInfo`, `BRAND` | fn / const | the `extensions.piprail` self-description builder, the `endpoint` sub-block assembler, + brand single-source-of-truth |
 | `SelfDescription`, `SelfDescribeRail`, `SelfDescribeEndpoint` | type | the self-describe block, a rail in it, and the agent-readable `endpoint` (summary/input/output) |
 
-See [Payment tools](/agent-toolkit/payment-tools/), [The 7 tools](/agent-toolkit/the-7-tools/),
+See [Payment tools](/agent-toolkit/payment-tools/), [The agent tools](/agent-toolkit/the-7-tools/),
 [Renderers](/agent-toolkit/renderers/), [Agent guide](/agent-toolkit/agent-guide/), and
 [Challenge triage](/agent-toolkit/challenge-triage/).
 
@@ -207,15 +210,19 @@ format (server: `buildChallengeHeader` → verify → `buildReceiptHeader`; clie
 | Export | Kind |
 | --- | --- |
 | `pickAccept` | fn |
-| `parseChallenge`, `parseReceipt`, `parseSettleResponse` | fn |
-| `parseSignatureHeader`, `parseExactPaymentHeader` | fn |
-| `buildChallengeHeader`, `buildSignatureHeader`, `buildExactSignatureHeader`, `buildReceiptHeader` | fn |
+| `parseChallenge`, `parseReceipt`, `parseReceiptExtension`, `parseSettleResponse` | fn |
+| `parseSignatureHeader`, `parseExactPaymentHeader`, `parseUptoPaymentHeader` | fn |
+| `parseSignatureObject`, `parseExactObject`, `parseUptoObject`, `decodeBase64Json` | fn — the object-accepting parser **cores** the base64 header parsers wrap, for a transport that carries the SAME payload as raw JSON (A2A), fed via `gate.verifyObject` |
+| `buildChallengeHeader`, `buildSignatureHeader`, `buildExactSignatureHeader`, `buildUptoSignatureHeader`, `buildReceiptHeader` | fn |
+| `buildReceiptExtension`, `EXT_OFFER_RECEIPT` | fn / const | build the `extensions.piprail.receipt` block (the anyone-verifiable [verifiable receipt](/accepting-payments/verifiable-receipts/)) + the offer-receipt extension key |
 | `HEADER_REQUIRED`, `HEADER_SIGNATURE`, `HEADER_RESPONSE`, `HEADER_SIGNATURE_V1`, `HEADER_RESPONSE_V1` | const |
 | `Caip2`, `AssetId`, `AddressId` | type |
 | `VerifyResult`, `VerifyErrorCode` | type |
-| `X402AcceptEntry`, `X402ExactAcceptEntry`, `X402AnyAccept`, `X402Challenge` | type |
+| `X402AcceptEntry`, `X402ExactAcceptEntry`, `X402UptoAcceptEntry`, `X402AnyAccept`, `X402Challenge` | type |
 | `X402PaymentSignature`, `X402Receipt`, `X402ResourceObject`, `SettleOutcome` | type |
-| `ExactAuthorizationWire`, `ExactPaymentPayload`, `ParsedExactPayment` | type |
+| `PipRailReceipt`, `SignedReceipt` | type | the [verifiable receipt](/making-payments/verifying-receipts/) envelope + its signed form |
+| `ExactAuthorizationWire`, `ExactPaymentPayload`, `ExactPaymentPayloadAny`, `ParsedExactPayment` | type |
+| `Permit2Authorization`, `Permit2PaymentPayload`, `Permit2UptoAuthorization`, `Permit2UptoPaymentPayload`, `ParsedUptoPayment` | type | the Permit2 `exact` + `upto` wire payloads |
 
 See [Wire codecs](/reference/wire-codecs/) and [VerifyErrorCode](/errors/verify-error-code/).
 
@@ -242,6 +249,44 @@ respective drivers. See [Gasless payments](/making-payments/gasless-payments/).
 | `buildExactAuthorization` | fn | Deprecated — trusts the server-supplied domain |
 | `ExactAccept`, `ExactAuthorization`, `BuildExactParams` | type | — |
 | `Permit2Authorization`, `Permit2PaymentPayload`, `ExactPaymentPayloadAny` | type | the per-method wire payloads (EIP-3009 / Permit2 / SVM / Algorand / Aptos / NEAR); `ParsedExactPayment` is a union on `method` (`'eip3009'`/`'permit2'`/`'svm'`/`'algorand'`/`'aptos'`/`'near'`) |
+
+## Advanced: upto rail (EVM — metered / variable-amount Permit2)
+
+The `upto` (metered) scheme — the buyer signs a Permit2 witness transfer for a **MAX**, and the
+merchant settles the **actual** (≤ max) after serving. EVM-Permit2 **only**. The high-level paths are
+`createPaymentGate({ upto })` (seller) and `PipRailClient({ schemes: ['onchain-proof', 'upto'] })`
+(buyer) — these constants are the canonical proxy + witness types, for reference / advanced use. The
+proxy (vanity `…0002`, distinct from the exact `…0001`) is BOTH the signature `spender` and the
+seller's settle contract.
+
+| Export | Kind | Note |
+| --- | --- | --- |
+| `X402_UPTO_PERMIT2_PROXY` | const | The canonical x402 `upto` Permit2 proxy address (vanity `…0002`). |
+| `UPTO_PROXY_CHAIN_IDS`, `isUptoProxyChain` | const / fn | EVM chains where the `upto` Permit2 proxy is deployed (where the `upto` rail can settle). |
+| `PERMIT2_UPTO_WITNESS_TYPES` | const | The EIP-712 witness type set for the `upto` Permit2 signature. |
+
+See the [upto rail (seller)](/accepting-payments/upto-rail-seller/) page for how to wire it.
+
+## Advanced: A2A transport (x402 over Google Agent2Agent)
+
+The seller-side A2A adapter — the A2A analogue of `requirePayment`. Wrap a `PaymentGate` and map A2A
+`Task`/`Message` metadata ⇄ x402's existing envelopes, backendless: zero driver/scheme/chain changes,
+so every family rides A2A for free. The raw-JSON dispatch seam it relies on, `gate.verifyObject`, is a
+method on the already-exported `PaymentGate`.
+
+| Export | Kind | Note |
+| --- | --- | --- |
+| `createA2APaymentHandler` | fn | **Headline (A2A)** — wrap a `PaymentGate` into an A2A payment handler. |
+| `toA2APaymentRequired`, `toA2APaymentReceipts`, `toA2APaymentFailed` | fn | Map an x402 challenge / receipts / failure **into** A2A `Task`/`Message` metadata. |
+| `fromA2APaymentRequired`, `fromA2APaymentPayload` | fn | Read an A2A `payment-required` / payment payload back **out** of A2A metadata. |
+| `toA2AErrorCode`, `VERIFY_CODE_TO_A2A_ERROR` | fn / const | Map a `VerifyErrorCode` to its A2A error code. |
+| `A2A_X402_EXTENSION_URI_V01`, `A2A_X402_EXTENSION_URI_V02` | const | The x402-over-A2A extension URIs (v0.1 / v0.2). |
+| `A2A_STATUS_KEY`, `A2A_REQUIRED_KEY`, `A2A_PAYLOAD_KEY`, `A2A_RECEIPTS_KEY`, `A2A_ERROR_KEY` | const | The A2A `metadata` keys the envelopes ride on. |
+| `A2A_EXTENSIONS_HEADER` | const | The HTTP header that activates the A2A x402 extension. |
+| `A2APaymentHandler`, `A2APaymentHandlerOptions` | type | the handler + its options |
+| `A2AArtifact`, `A2AExtensionDeclaration`, `A2AMessage`, `A2AMetadata`, `A2APart`, `A2APaymentStatus`, `A2ATask`, `A2ATaskRecord`, `A2ATaskState`, `A2ATaskStore` | type | the A2A wire types |
+
+See [A2A transport](/accepting-payments/a2a-transport/).
 
 ## Advanced: exact facilitator (Mode B) — `facilitator.js`
 

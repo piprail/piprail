@@ -15,9 +15,12 @@ import type {
   Caip2,
   X402AcceptEntry,
   X402ExactAcceptEntry,
+  X402UptoAcceptEntry,
   X402AnyAccept,
   ExactPaymentPayloadAny,
+  Permit2UptoPaymentPayload,
   VerifyResult,
+  SignedReceipt,
 } from '../x402.js'
 import type { ChainInput } from './evm/chains.js'
 
@@ -228,6 +231,33 @@ export interface DiscoverySigner {
 }
 
 /**
+ * The official x402 `offer-receipt` §5.2 signed-field set a merchant attests over in
+ * Tier-2 — the SMALLER official payload (NOT PipRail's full {@link X402Receipt}),
+ * consumed by the optional EVM-only {@link ResolvedNetwork.signReceipt}. The gate
+ * maps PipRail's settlement data into it. `payTo` rides ALONGSIDE the signed fields
+ * purely so a verifier knows the expected signer (`recover === payTo`); it is NOT
+ * part of the EIP-712 message.
+ */
+export interface ReceiptInput {
+  /** The merchant `payTo` wallet — the signer a verifier checks `recover ===` against. NOT signed. */
+  payTo: string
+  /** CAIP-2 network the settlement happened on (signed `network`). */
+  network: string
+  /** The paid resource URL (signed `resourceUrl`). */
+  resourceUrl: string
+  /** The payer identifier — the on-chain sender (signed `payer`). */
+  payer: string
+  /** Unix SECONDS the receipt was issued (signed `issuedAt`). */
+  issuedAt: number
+  /**
+   * The settlement tx hash, or the empty string `''` when suppressed
+   * (`includeTxHash:false`). §5.3: the signed EIP-712 message MUST carry `''`,
+   * NEVER an omitted key — a verifier treats `''` as absence. Default `''`.
+   */
+  transaction?: string
+}
+
+/**
  * How a family advertises a standard `exact` rail for one asset — returned by
  * {@link ResolvedNetwork.resolveExactRail} and consumed by the gate to build the
  * `X402ExactAcceptEntry`. The `method` is the family's transfer method (EVM:
@@ -242,6 +272,22 @@ export interface ExactRailInfo {
   /** Family-specific `extra` keys merged into the exact accept (e.g. `{ name, version }`
    *  for EVM EIP-3009, `{ feePayer, tokenProgram }` for Solana, `{ feePayer }` for
    *  Algorand/Aptos/NEAR). */
+  extra?: Record<string, unknown>
+}
+
+/**
+ * How a family advertises a standard `upto` (metered) rail for one asset — the metered
+ * sibling of {@link ExactRailInfo}, returned by {@link ResolvedNetwork.resolveUptoRail}
+ * and consumed by the gate to build the `X402UptoAcceptEntry`. The `method` is always the
+ * PipRail-internal `'permit2-upto'` (upto is EVM-Permit2 only); `extra` is merged VERBATIM
+ * into the accept's `extra`, carrying `{ facilitatorAddress, name?, version? }` — the
+ * relayer address the buyer signs into `witness.facilitator` plus the token's EIP-712
+ * domain bits. Keeping the chain-specific shape behind this descriptor is what lets
+ * `server.ts` stay chain-agnostic — it never names a family, it just merges `extra`.
+ */
+export interface UptoRailInfo {
+  method: 'permit2-upto'
+  /** Family-specific `extra` keys merged into the upto accept: `{ facilitatorAddress, name?, version? }`. */
   extra?: Record<string, unknown>
 }
 
@@ -374,6 +420,21 @@ export interface ResolvedNetwork {
    */
   discoverySigner?(wallet: WalletHandle): DiscoverySigner | null
 
+  /**
+   * OPTIONAL (EVM-only today) — Tier-2 service-delivery attestation. Sign the
+   * official x402 `offer-receipt` EIP-712 `RECEIPT_TYPES` (the SMALLER official
+   * §5.2 payload) with the bound wallet — typically the merchant's existing `payTo`
+   * key — so a buyer can prove the resource was SERVED, the one thing the chain
+   * can't attest. A verifier ({@link PipRailClient.verifyAttestation}) re-recovers
+   * and checks `recover === payTo`. The signed domain is hardcoded `chainId:1` for
+   * EVERY network (uniform signing), so this is chain-independent and EVM-only by
+   * the optional `?` gate — non-EVM families omit it (no all-families mirror),
+   * exactly like {@link discoverySigner}/{@link payExact}. The gate calls it after
+   * settle when `receipts.attest` is set + the rail is EVM; the result rides in
+   * `extensions['offer-receipt'].info.attestation`. NEVER part of the payment path.
+   */
+  signReceipt?(wallet: WalletHandle, input: ReceiptInput): Promise<SignedReceipt>
+
   /* -------- server side -------- */
   /** Verify `ref` satisfies `accept`, RPC-only, in-process. */
   verify(ref: string, accept: X402AcceptEntry): Promise<VerifyResult>
@@ -445,6 +506,57 @@ export interface ResolvedNetwork {
     relayer: WalletHandle
     payload: ExactPaymentPayloadAny
     accept: X402ExactAcceptEntry
+  }): Promise<VerifyResult>
+
+  /**
+   * OPTIONAL (EVM-Permit2 ONLY) — advertise a standard `upto` (metered) rail for `asset`,
+   * or `null` when this asset/chain can't carry one (a native coin, a non-Permit2-proxy
+   * chain, a non-Permit2 token). The gate's rail-advertisement SPI for the metered rail —
+   * the parallel of {@link resolveExactRail}. The `relayer` becomes the bound
+   * `witness.facilitator` (upto is self-settle only in v1, no facilitator mode), so the
+   * returned `extra.facilitatorAddress` is the relayer's own address. The optional `?` IS
+   * the EVM-only gate — every non-EVM family omits it, so the gate never offers upto there.
+   * RPC-read (EVM reads the token's EIP-712 domain); never throws for a transient read.
+   */
+  resolveUptoRail?(input: { asset: string; relayer: WalletHandle }): Promise<UptoRailInfo | null>
+
+  /**
+   * OPTIONAL (EVM-Permit2 ONLY) — BUYER side: sign a Permit2 `PermitWitnessTransferFrom`
+   * authorization for the MAX (`accept.amount`), binding `witness.facilitator =
+   * accept.extra.facilitatorAddress` as the MIDDLE witness field. Re-derives the proxy +
+   * witness types internally; never trusts a server-supplied domain. The metered counterpart
+   * to {@link payExact}. The client frames the returned `payload` + `accepted` echo into the
+   * `PAYMENT-SIGNATURE` header; the merchant self-settles the actual. Returns the signed
+   * payload, the chosen-rail echo, the payer address, and the Permit2 nonce. THROWS a typed
+   * `PipRailError` when the signer is a contract / EIP-1271 / EIP-7702 account.
+   */
+  payUpto?(
+    wallet: WalletHandle,
+    accept: X402UptoAcceptEntry
+  ): Promise<{
+    payload: Permit2UptoPaymentPayload
+    accepted: X402UptoAcceptEntry
+    payerFrom: string
+    nonce: string
+  }>
+
+  /**
+   * OPTIONAL (EVM-Permit2 ONLY) — SELLER side: verify a standard x402 `upto` payment
+   * locally, then SELF-SETTLE the ACTUAL (`settleAmount`, ≤ the signed max) through the upto
+   * proxy from the merchant's `relayer`. The metered counterpart to {@link settleExactSelf}.
+   * Re-verifies the signature against `permitted.amount` (the signed MAX, NEVER the metered
+   * actual — verifying against the actual would reject every partial settle); guards
+   * `witness.facilitator === relayer.address`; clamps/rejects `settleAmount > max` with
+   * `upto_settle_exceeds_max`; SKIPS the on-chain tx when `settleAmount === 0n` (a synthetic
+   * zero-charge receipt with `transaction: ""`). RETURNS a `VerifyResult` for a client-fixable
+   * fault; THROWS {@link SettlementError} on a broadcast failure of a valid auth. Re-derives
+   * every checked field from the trusted `accept`, never the client echo.
+   */
+  settleUptoSelf?(input: {
+    relayer: WalletHandle
+    payload: Permit2UptoPaymentPayload
+    accept: X402UptoAcceptEntry
+    settleAmount: bigint
   }): Promise<VerifyResult>
 }
 

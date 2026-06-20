@@ -238,3 +238,42 @@ describe('planAcross — cross-chain merge', () => {
     expect(await planAcross([client(), client()], URL)).toBeNull()
   })
 })
+
+describe('read methods NEVER throw on a parseable-but-malformed accept (ERRORS.md read-method contract)', () => {
+  // A 402 that parses (valid challenge shape) but whose rail has a non-integer base-unit amount —
+  // buildQuote throws InvalidEnvelopeError. planPayment/canAfford/estimateCost must DEGRADE, not throw.
+  const malformed = (): X402AcceptEntry => ({
+    scheme: 'onchain-proof',
+    network: NET,
+    amount: '1.5', // non-integer base units → InvalidEnvelopeError in buildQuote
+    asset: USDC,
+    payTo: 'GMERCHANT',
+    maxTimeoutSeconds: 600,
+    extra: { nonce: 'n', decimals: 7, minConfirmations: 1, amountFormatted: '1.5', symbol: 'USDC' },
+  })
+
+  it('planPayment drops the malformed rail instead of throwing', async () => {
+    stub402([malformed()])
+    const plan = await client().planPayment(URL)
+    expect(plan).not.toBeNull()
+    expect(plan!.payable).toBe(false)
+    expect(plan!.options).toHaveLength(0) // the bad rail is dropped, not crashed
+  })
+
+  it('canAfford resolves false (never throws)', async () => {
+    stub402([malformed()])
+    await expect(client().canAfford(URL)).resolves.toBe(false)
+  })
+
+  it('estimateCost resolves null (never throws)', async () => {
+    stub402([malformed()])
+    await expect(client().estimateCost(URL)).resolves.toBeNull()
+  })
+
+  it('a GOOD rail alongside a malformed one still plans (bad dropped, good survives)', async () => {
+    stub402([malformed(), nativeAccept()])
+    const plan = await client().planPayment(URL)
+    expect(plan!.options).toHaveLength(1)
+    expect(plan!.options[0]!.accept.asset).toBe('native')
+  })
+})

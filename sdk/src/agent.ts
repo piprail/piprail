@@ -11,10 +11,11 @@
  * {@link MultiChainPayer} (one wallet per chain, auto-routing to whichever chain
  * the 402 asks for) — the tools are identical either way.
  */
-import { parseReceipt } from './x402.js'
+import { parseReceipt, parseReceiptExtension, type PipRailReceipt } from './x402.js'
 import { PaymentDeclinedError, PipRailError } from './errors.js'
 import { summarizePlan, explainDecline, formatSpendReport } from './render.js'
 import { PIPRAIL_AGENT_GUIDE } from './agentGuide.js'
+import { PipRailClient } from './client.js'
 import type { PayingClient, DiscoverOptions, RegisterOptions } from './client.js'
 
 /**
@@ -98,7 +99,7 @@ function toToolError(err: unknown): Record<string, unknown> {
 }
 
 /**
- * Seven tools wrapping a configured {@link PipRailClient}:
+ * Eight tools wrapping a configured {@link PipRailClient}:
  *   - `piprail_discover(query?)` — FIND payable resources on the open x402
  *     indexes, WITHOUT paying (the phone book — solves "what can I buy?").
  *   - `piprail_quote_payment(url)` — price a gated URL WITHOUT paying.
@@ -109,8 +110,10 @@ function toToolError(err: unknown): Record<string, unknown> {
  *     other agents can find it (402 Index, no signature).
  *   - `piprail_budget()` — read the remaining spend budget + time leash (Mode A self-check).
  *   - `piprail_guide()` — read the agent contract (how to quote/plan/pay + read a refusal).
+ *   - `piprail_verify_receipt(receipt, rpcUrl?)` — re-verify a verifiable receipt against the
+ *     chain WITHOUT a wallet (anyone-verifiable; never throws — returns a structured verdict).
  *
- * The first five are byte-identical in name + order to before; the two read-only
+ * The first five are byte-identical in name + order to before; the three read-only
  * tools are appended LAST. EVERY failure the pay tool sees comes back as a
  * STRUCTURED object (`{ ok:false, code, reason, explain, ref?, reasonCode?,
  * declined? }`) — never a thrown error — so the model reasons about it (and never
@@ -331,11 +334,15 @@ export function paymentTools(client: PayingClient): AgentTool[] {
             }
             res = await client.fetch(url, { method, headers, body })
           }
+          // Surface the verifiable receipt (when the gate emitted one) so the agent can KEEP it
+          // and later re-verify with piprail_verify_receipt — stamped with the URL we fetched.
+          const verifiable = parseReceiptExtension(res)
           return {
             status: res.status,
             ok: res.ok,
             body: await readBody(res),
             receipt: parseReceipt(res),
+            ...(verifiable ? { verifiableReceipt: { ...verifiable, resource: { url } } } : {}),
           }
         } catch (err) {
           // The single funnel: EVERY SDK failure reaches the model as a structured
@@ -475,6 +482,43 @@ export function paymentTools(client: PayingClient): AgentTool[] {
       },
       parameters: { type: 'object', properties: {}, additionalProperties: false },
       invoke: async () => ({ guide: PIPRAIL_AGENT_GUIDE }),
+    },
+    {
+      name: 'piprail_verify_receipt',
+      description:
+        'Re-verify a PipRail VERIFIABLE RECEIPT against the chain — confirm a payment REALLY settled ' +
+        '(the funds provably moved to payTo for AT LEAST the stated amount) WITHOUT trusting whoever handed ' +
+        'you the receipt. Read-only and WALLET-FREE: pass the PipRailReceipt JSON (from a prior ' +
+        'piprail_pay_request `verifiableReceipt`, or any third party). Returns { ok, onChain:{payTo,asset,' +
+        'amount,payer}, matchesClaims, ageSeconds, error? }: `ok` = the chain confirms the settlement; ' +
+        '`onChain.payer` is RE-DERIVED from the tx and `matchesClaims:false` means the receipt forged the ' +
+        'payer; `amount` is a verified lower bound. Pass `rpcUrl` for a chain outside the common presets.',
+      annotations: {
+        title: 'Verify a payment receipt',
+        readOnlyHint: true, // re-reads the chain; moves nothing, needs no wallet
+        idempotentHint: true,
+        openWorldHint: true, // reads an on-chain tx via RPC
+      },
+      parameters: {
+        type: 'object',
+        properties: {
+          receipt: {
+            type: 'object',
+            description: 'The PipRailReceipt JSON ({ piprail, receipt, resource, decimals? }) to re-verify.',
+          },
+          rpcUrl: {
+            type: 'string',
+            description: "Optional RPC URL for the receipt's chain (required for chains outside the common presets).",
+          },
+        },
+        required: ['receipt'],
+        additionalProperties: false,
+      },
+      invoke: async (args) => {
+        const receipt = args.receipt as unknown as PipRailReceipt
+        const opts = args.rpcUrl ? { rpcUrl: String(args.rpcUrl) } : undefined
+        return await PipRailClient.verifyReceipt(receipt, opts)
+      },
     },
   ]
 }

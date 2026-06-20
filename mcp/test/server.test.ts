@@ -79,7 +79,7 @@ async function connect(opts?: {
 }
 
 describe('createMcpServer — tool listing', () => {
-  test('exposes exactly the 7 SDK tools, each with an object JSON-Schema', async () => {
+  test('exposes exactly the 8 SDK tools, each with an object JSON-Schema', async () => {
     const { mcp } = await connect()
     const { tools } = await mcp.listTools()
     expect(tools.map((t) => t.name).sort()).toEqual([
@@ -90,6 +90,7 @@ describe('createMcpServer — tool listing', () => {
       'piprail_plan_payment',
       'piprail_quote_payment',
       'piprail_register',
+      'piprail_verify_receipt',
     ])
     for (const t of tools) {
       expect(t.description).toBeTruthy()
@@ -97,10 +98,10 @@ describe('createMcpServer — tool listing', () => {
     }
   })
 
-  test('READ-ONLY (no wallet): still exposes all 7 tools; read-only ones work', async () => {
+  test('READ-ONLY (no wallet): still exposes all 8 tools; read-only ones work', async () => {
     const { mcp } = await connect({ clientOptions: { wallet: undefined } })
     const { tools } = await mcp.listTools()
-    expect(tools).toHaveLength(7) // the tool surface is identical with or without a key
+    expect(tools).toHaveLength(8) // the tool surface is identical with or without a key
     // a read-only tool works with no wallet (static guide, no network)
     const guide = await mcp.callTool({ name: 'piprail_guide', arguments: {} })
     expect(guide.isError).toBeFalsy()
@@ -191,7 +192,7 @@ describe('createMcpServer — the agent guide (prompts + resources)', () => {
   test('with guide off, the TOOLS path is byte-identical and prompts/resources are absent', async () => {
     const { mcp } = await connect({ serverOpts: { guide: false } })
     const { tools } = await mcp.listTools()
-    expect(tools).toHaveLength(7) // tools unchanged
+    expect(tools).toHaveLength(8) // tools unchanged
     await expect(mcp.listPrompts()).rejects.toBeTruthy() // capability not advertised
   })
 })

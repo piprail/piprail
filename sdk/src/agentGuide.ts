@@ -34,17 +34,21 @@ and pay with the tools below.
 Always plan before you pay so you never commit to a payment you cannot finish.
 
 ## Gasless — the exact rail (zero gas for you)
-A 402 may offer up to two rails; you don't choose per payment — the client does, automatically:
+A 402 may offer up to three rails; you don't choose per payment — the client does, automatically:
 - onchain-proof (PipRail's default): you broadcast the payment yourself and pay the network gas
   (the native coin — ETH/SOL/…). Works on every chain.
 - exact (the ratified x402 rail, opt-in): you only SIGN; the server — or a facilitator it chose
   (e.g. PayAI) — broadcasts it, so you pay ZERO gas (you need only the token, no native coin). It
   works on EVM, Solana + Algorand, and the on-chain method (EIP-3009 / Permit2 / SVM / Algorand
   fee-pooled group) is picked automatically.
+- upto (the metered/variable x402 rail, opt-in, EVM): the amount you see is a MAXIMUM — you sign
+  a ceiling, the server meters real usage and settles the ACTUAL (<= the max). BUDGET AGAINST THE MAX:
+  the plan/policy treat the ceiling as the spend (a server may charge up to it), so a payable plan
+  means the MAX fits your budget; the settled actual is recorded for reconciliation.
 When the exact scheme is enabled AND balance-aware routing is on, paying picks the cheapest
 settleable rail — i.e. the gasless exact one. Nothing changes in your loop: quote → plan → pay is
-identical. The exact scheme is OPT-IN by the operator (MCP: PIPRAIL_SCHEMES=onchain-proof,exact);
-you can't enable it yourself, but you can report when a 402 needs it (see UNSUPPORTED_SCHEME below).
+identical. The exact/upto schemes are OPT-IN by the operator (MCP: PIPRAIL_SCHEMES=onchain-proof,exact,upto);
+you can't enable them yourself, but you can report when a 402 needs one (see UNSUPPORTED_SCHEME below).
 
 ## Reading a refusal — never crash, never double-spend
 A failed pay returns a STRUCTURED object, never a thrown error you must catch:

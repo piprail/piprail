@@ -252,6 +252,26 @@ describe('gate.describe() — feeds the emitters from the gate config', () => {
     expect(doc.paths['/report']!.get!['x-payment-info'].accepts[0]!.amount).toBe('50000')
   })
 
+  it('projects the upto rail with its MANDATORY extra.facilitatorAddress + method (reconstructable)', async () => {
+    const gate = createPaymentGate({
+      chain: { id: 8453, rpcUrl: 'https://base.example/rpc' },
+      token: { address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', decimals: 6, symbol: 'USDC' },
+      amount: '0.05',
+      payTo: PAY_TO,
+      // The relayer key both enables the upto rail and IS the facilitatorAddress the buyer signs over.
+      upto: { relayer: { key: '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' }, settleAmount: () => 0n },
+    })
+    const desc = await gate.describe('https://api.example.com/meter')
+    const upto = desc.accepts.find((r) => r.scheme === 'upto')!
+    expect(upto).toBeDefined()
+    expect(upto.amount).toBe('50000') // the MAX ceiling, base units
+    // The spec's normative MUST for the upto rail — without it a discoverer can't route the rail.
+    expect(upto.extra?.facilitatorAddress).toBe('0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266')
+    expect(upto.extra?.assetTransferMethod).toBe('permit2-upto')
+    // base pricing fields stay top-level (not duplicated into extra)
+    expect(upto.extra && 'decimals' in upto.extra).toBe(false)
+  })
+
   it('describes every offered rail (multi-chain)', async () => {
     const gate = createPaymentGate({
       accept: [

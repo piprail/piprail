@@ -85,7 +85,7 @@ present or absent, so a model reads it without instanceof checks.
 
 The guide points the model at `piprail_budget` to self-check before paying: it reports how much
 budget and time are left per `(network, asset)`, plus spend so far. Read-only — it moves no
-funds. See [the 7 tools](/agent-toolkit/the-7-tools/) for the full tool surface.
+funds. See [the agent tools](/agent-toolkit/the-7-tools/) for the full tool surface.
 
 ## Two modes
 

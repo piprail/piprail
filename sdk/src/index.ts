@@ -30,6 +30,7 @@ export type {
   DenomRemaining,
   CountStatus,
   PayingClient,
+  ReceiptVerification,
 } from './client.js'
 
 // Multi-chain buying: one buyer, one wallet per chain, auto-route to whichever
@@ -83,8 +84,10 @@ export type { SelfDescription, SelfDescribeRail, SelfDescribeEndpoint } from './
 export { requirePayment, createPaymentGate, toInvalidBody } from './server.js'
 export type {
   RequirePaymentOptions,
+  ReceiptOption,
   AcceptOption,
   ExactRailOption,
+  UptoRailOption,
   FailedPayment,
   ChainSelector,
   TokenInput,
@@ -160,6 +163,7 @@ export type {
   AlgorandToken,
   RecipientReason,
   WalletBalance,
+  ReceiptInput,
 } from './drivers/types.js'
 
 /* ----------------------------- errors ----------------------------- */
@@ -197,13 +201,24 @@ export {
   pickAccept,
   parseChallenge,
   parseReceipt,
+  parseReceiptExtension,
   parseSettleResponse,
   parseSignatureHeader,
   parseExactPaymentHeader,
+  parseUptoPaymentHeader,
+  // Object-accepting parser CORES (the base64 wrappers above call these) — for a transport
+  // that carries the SAME payload as RAW JSON (A2A), fed via `gate.verifyObject`.
+  parseSignatureObject,
+  parseExactObject,
+  parseUptoObject,
+  decodeBase64Json,
   buildChallengeHeader,
   buildSignatureHeader,
   buildExactSignatureHeader,
+  buildUptoSignatureHeader,
   buildReceiptHeader,
+  buildReceiptExtension,
+  EXT_OFFER_RECEIPT,
   HEADER_REQUIRED,
   HEADER_SIGNATURE,
   HEADER_RESPONSE,
@@ -218,11 +233,14 @@ export type {
   VerifyErrorCode,
   X402AcceptEntry,
   X402ExactAcceptEntry,
+  X402UptoAcceptEntry,
   X402AnyAccept,
   X402Challenge,
   X402PaymentSignature,
   X402Receipt,
   PaidReceipt,
+  PipRailReceipt,
+  SignedReceipt,
   X402ResourceObject,
   SettleOutcome,
   ExactAuthorizationWire,
@@ -230,7 +248,10 @@ export type {
   ExactPaymentPayloadAny,
   Permit2Authorization,
   Permit2PaymentPayload,
+  Permit2UptoAuthorization,
+  Permit2UptoPaymentPayload,
   ParsedExactPayment,
+  ParsedUptoPayment,
 } from './x402.js'
 
 /* ------------- x402 `exact`-scheme interop (EVM, EIP-3009) ------------- */
@@ -269,6 +290,22 @@ export {
   PERMIT2_PROXY_CHAIN_IDS,
   isPermit2ProxyChain,
 } from './drivers/evm/permit2.js'
+
+/* ----- x402 `upto`-scheme `permit2` variant (EVM, metered / variable-amount billing) ----- */
+
+// The `upto` (metered) scheme — buyer signs a Permit2 witness transfer for a MAX, merchant
+// settles the ACTUAL (≤ max) after serving. EVM-Permit2 ONLY. High-level usage:
+// `createPaymentGate({ upto: { relayer, settleAmount } })` SELLER (the supported handler shape
+// is a direct `gate.verify()` call that meters inside `settleAmount` — `requirePayment` is
+// UNSUPPORTED for upto) / `PipRailClient({ schemes: ['onchain-proof', 'upto'] })` BUYER. The
+// proxy (vanity `…0002`, distinct from the exact `…0001`) is BOTH the signature `spender` and
+// the seller's settle contract, and the witness's MIDDLE `facilitator` field binds who may settle.
+export {
+  X402_UPTO_PERMIT2_PROXY,
+  PERMIT2_UPTO_WITNESS_TYPES,
+  UPTO_PROXY_CHAIN_IDS,
+  isUptoProxyChain,
+} from './drivers/evm/upto.js'
 
 /* ------------------- discovery (find + be found, $0, no backend) ------------------- */
 
@@ -325,3 +362,45 @@ export type {
   DomainVerification,
 } from './indexes.js'
 export type { DiscoverOptions, RegisterOptions } from './client.js'
+
+/* ------------------- A2A transport (x402 over Google Agent2Agent) ------------------- */
+
+// The SELLER-side A2A adapter — the A2A analogue of `requirePayment`. Wrap a PaymentGate
+// and map A2A `Task`/`Message` metadata ⇄ x402's existing envelopes, backendless. ZERO
+// driver/scheme/chain changes — every family rides A2A for free. `verifyObject` (the raw-JSON
+// dispatch seam it relies on) is on the already-exported `PaymentGate`. The A2A BUYER
+// (`A2APayer`) + AP2 Embedded Flow are deferred (see the transport module's header).
+export {
+  createA2APaymentHandler,
+  toA2APaymentRequired,
+  toA2APaymentReceipts,
+  toA2APaymentFailed,
+  fromA2APaymentRequired,
+  fromA2APaymentPayload,
+  toA2AErrorCode,
+  VERIFY_CODE_TO_A2A_ERROR,
+  A2A_X402_EXTENSION_URI_V01,
+  A2A_X402_EXTENSION_URI_V02,
+  A2A_STATUS_KEY,
+  A2A_REQUIRED_KEY,
+  A2A_PAYLOAD_KEY,
+  A2A_RECEIPTS_KEY,
+  A2A_ERROR_KEY,
+  A2A_EXTENSIONS_HEADER,
+} from './transports/a2a.js'
+export type {
+  A2APaymentHandler,
+  A2APaymentHandlerOptions,
+} from './transports/a2a.js'
+export type {
+  A2AArtifact,
+  A2AExtensionDeclaration,
+  A2AMessage,
+  A2AMetadata,
+  A2APart,
+  A2APaymentStatus,
+  A2ATask,
+  A2ATaskRecord,
+  A2ATaskState,
+  A2ATaskStore,
+} from './transports/a2a-types.js'

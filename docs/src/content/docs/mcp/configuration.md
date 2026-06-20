@@ -234,7 +234,11 @@ chain + token — you never name it. See the [whole model in 30 seconds](/making
 }
 ```
 
-Valid values are `onchain-proof` and `exact`; an empty or unrecognized list is rejected. See
+Add `upto` to also pay **metered / variable-amount** x402 servers on EVM (Permit2): the wallet signs
+a **maximum**, the server meters real usage and settles the **actual ≤ that max**. The budget is
+debited against the MAX, so a payable plan means the ceiling fits your leash.
+
+Valid values are `onchain-proof`, `exact`, and `upto`; an empty or unrecognized list is rejected. See
 the [exact buyer rail](/making-payments/exact-buyer/) for what the standard scheme settles.
 
 ## Two modes — autonomous vs supervised

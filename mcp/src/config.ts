@@ -147,7 +147,7 @@ const KNOWN_PIPRAIL_VARS = [
 ] as const
 
 /** The payment schemes the MCP may enable via PIPRAIL_SCHEMES. */
-const VALID_SCHEMES = ['onchain-proof', 'exact'] as const
+const VALID_SCHEMES = ['onchain-proof', 'exact', 'upto'] as const
 
 /** Non-EVM family selectors the SDK accepts as a `chain` string. */
 const NON_EVM_CHAINS = [
@@ -451,7 +451,11 @@ export function parseConfig(env: Env = process.env): Config {
     )
   }
 
-  const tokens = parsed.tokens.length ? parsed.tokens : [defaultStable]
+  // SPLIT the fallback exactly like the schema-default path (`z.string().transform(csv)`):
+  // in multi-chain mode `defaultStable` is a comma-joined string (e.g. 'USDC,USDT'), so the old
+  // `[defaultStable]` produced ONE bogus token literally named "USDC,USDT" that no asset matches,
+  // silently blocking every payment. `csv()` yields the real per-chain allowlist.
+  const tokens = parsed.tokens.length ? parsed.tokens : csv(defaultStable)
 
   // 6) Optional payment schemes (comma-separated). ABSENT ⇒ leave it off so the SDK
   //    default ('onchain-proof' only) holds and the MCP zero-config posture is

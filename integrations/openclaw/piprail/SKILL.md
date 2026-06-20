@@ -35,7 +35,7 @@ chain — settling funds straight to the recipient's wallet, with **no facilitat
 
 PipRail plugs into OpenClaw as a **standard MCP server** — the published
 **[`@piprail/mcp`](https://www.npmjs.com/package/@piprail/mcp)** (`npx -y @piprail/mcp`) over stdio —
-so the agent gets all **7 tools** natively, capped by a budget it can't exceed.
+so the agent gets all **8 tools** natively, capped by a budget it can't exceed.
 
 ## Why PipRail (vs every other crypto skill)
 
@@ -52,7 +52,7 @@ and/or takes a cut. PipRail is different:
 - **A hard spend cap the model can't cross** — `PIPRAIL_MAX_TOTAL=5.00` and that's the ceiling, enforced
   in the SDK before any on-chain send. MIT open source.
 
-## The 7 tools your agent gets
+## The 8 tools your agent gets
 
 | Tool | What it does | Moves money? |
 | --- | --- | --- |
@@ -63,9 +63,10 @@ and/or takes a cut. PipRail is different:
 | `piprail_register` | List your own x402 API so other agents find it — add a category + tags for findability | no |
 | `piprail_budget` | Read remaining spend + time leash | no |
 | `piprail_guide` | Read the agent contract (how to quote → plan → pay) | no |
+| `piprail_verify_receipt` | Re-verify a payment receipt against the chain, wallet-free | no |
 
-Only `piprail_pay_request` moves funds. **Five tools — `discover`, `quote`, `register`, `budget`,
-`guide` — work with no key at all**; `pay` and `plan` (it reads *your* balance) need your wallet.
+Only `piprail_pay_request` moves funds. **Six tools — `discover`, `quote`, `register`, `budget`,
+`guide`, `verify_receipt` — work with no key at all**; `pay` and `plan` (it reads *your* balance) need your wallet.
 
 ## Install
 
@@ -131,7 +132,7 @@ Agent: [piprail_pay_request(url)]  → paid 0.001 USDC (tx 0x…). ETH: $3,247.1
 ## Learn more
 
 - **Docs:** [docs.piprail.com/integrations/openclaw](https://docs.piprail.com/integrations/openclaw/) ·
-  [the 7 tools](https://docs.piprail.com/mcp/tools/) · [spend controls](https://docs.piprail.com/spend-controls/payment-policy/)
+  [the 8 tools](https://docs.piprail.com/mcp/tools/) · [spend controls](https://docs.piprail.com/spend-controls/payment-policy/)
 - **Source (MIT):** [github.com/piprail/piprail](https://github.com/piprail/piprail) — ⭐ a star helps others find it
 - **Follow:** [@piprailhq on X](https://x.com/piprailhq) — new chains, ship logs, agent-payment tips
 - **Live payable demo:** [piprail.com/x402/demo](https://piprail.com/x402/demo)

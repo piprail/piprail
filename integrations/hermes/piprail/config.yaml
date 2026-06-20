@@ -21,7 +21,7 @@ mcp_servers:
       PIPRAIL_MAX_TOTAL: "5.00"
       PIPRAIL_TOKENS: "USDC"
     tools:
-      # All seven tools. To let the agent read/plan but never auto-spend, drop piprail_pay_request.
+      # All eight tools. To let the agent read/plan but never auto-spend, drop piprail_pay_request.
       include:
         - piprail_discover
         - piprail_quote_payment
@@ -30,5 +30,6 @@ mcp_servers:
         - piprail_register
         - piprail_budget
         - piprail_guide
+        - piprail_verify_receipt
       prompts: false      # PipRail is tools-only
       resources: false    # PipRail is tools-only

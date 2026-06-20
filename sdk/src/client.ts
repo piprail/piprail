@@ -1,4 +1,4 @@
-import { resolveNetwork } from './drivers/index.js'
+import { resolveNetwork, familyForChain } from './drivers/index.js'
 import type {
   ResolvedNetwork,
   WalletHandle,
@@ -28,16 +28,22 @@ import {
   HEADER_SIGNATURE,
   buildSignatureHeader,
   buildExactSignatureHeader,
+  buildUptoSignatureHeader,
   parseChallenge,
   parseReceipt,
+  parseReceiptExtension,
   parseSettleResponse,
+  chainIdFromNetwork,
   type Caip2,
   type X402AcceptEntry,
   type X402ExactAcceptEntry,
+  type X402UptoAcceptEntry,
   type X402AnyAccept,
   type X402Challenge,
   type X402PaymentSignature,
   type X402Receipt,
+  type PipRailReceipt,
+  type VerifyErrorCode,
   type SettleOutcome,
 } from './x402.js'
 import {
@@ -54,8 +60,9 @@ import {
 } from './errors.js'
 
 /** The payment schemes a client can settle: PipRail's native `onchain-proof` (the
- *  default) and the standard x402 `exact` rail (EVM EIP-3009/Permit2 + Solana SVM + Algorand, opt-in). */
-export type PaymentScheme = 'onchain-proof' | 'exact'
+ *  default), the standard x402 `exact` rail (EVM EIP-3009/Permit2 + Solana SVM + Algorand,
+ *  opt-in), and the standard x402 `upto` (metered) rail (EVM-Permit2, opt-in). */
+export type PaymentScheme = 'onchain-proof' | 'exact' | 'upto'
 
 /** The scheme set when none is configured — `onchain-proof` only, so the zero-config
  *  path is byte-identical to before the `exact` buyer rail existed (defaults never change). */
@@ -615,6 +622,41 @@ export interface PayingClient {
   policy(): PaymentPolicy | undefined
 }
 
+/**
+ * The verdict from {@link PipRailClient.verifyReceipt} — a {@link PipRailReceipt}
+ * re-verified against the chain, never trusting the receipt's claims. `ok` is the
+ * chain's confirmation that the settlement is real (≥`amount` of `asset` moved to
+ * `payTo`); `onChain` is RE-DERIVED from the tx (`payer` genuinely so; `amount` is a
+ * VERIFIED LOWER BOUND — drivers threshold-check `paid >= required` then echo the
+ * accept amount); `matchesClaims` is whether the re-derived `payer` equals the
+ * receipt's claimed `payer` (a forged payer → `false` even when `ok` is `true`).
+ *
+ * Re-verification is **durable** for digest-bound (Template-B) families (EVM, Solana,
+ * Tron, Sui, Aptos, native coins — the driver reads the tx by hash/digest) and
+ * **recency-bounded / best-effort** for the account-watch families (Stellar, XRPL,
+ * Algorand, TON), whose drivers scan only recent merchant-account history — an old
+ * receipt there can return `transfer_not_found` even though it once settled.
+ */
+export interface ReceiptVerification {
+  /** The chain confirms the settlement (≥`amount` moved to `payTo`). */
+  ok: boolean
+  /** Fields RE-DERIVED from the on-chain tx. `payer` is genuinely re-derived; `amount`
+   *  is a verified LOWER BOUND (the chain confirms at least this much moved). */
+  onChain: { payTo: string; asset: string; amount: string; payer: string }
+  /** Does the re-derived on-chain `payer` match the receipt's claimed `payer`? */
+  matchesClaims: boolean
+  /** Informational age of the receipt (seconds since `verifiedAt`); NOT a validity gate. */
+  ageSeconds: number
+  /** The closed verification code when `ok` is false (reuses the driver vocabulary). */
+  error?: VerifyErrorCode
+}
+
+/** The synthetic-accept window for {@link PipRailClient.verifyReceipt}: a large but
+ *  FINITE sentinel so a driver's `payment_expired` branch can't fire on a legitimately
+ *  old receipt (age is reported via `ageSeconds`, never a validity gate for Template-B).
+ *  Finite (not `Infinity`) so a driver's `Number`/`BigInt` math stays well-defined. */
+const RECEIPT_VERIFY_WINDOW_SECONDS = 100 * 365 * 24 * 60 * 60 // ~100 years
+
 export class PipRailClient {
   private readonly opts: PipRailClientOptions
   private readonly maxRetries: number
@@ -634,6 +676,11 @@ export class PipRailClient {
   // Resolved lazily on first request — this is what lets Solana (and future
   // families) auto-mount with no setup call.
   private bound?: Promise<{ net: ResolvedNetwork; wallet: WalletHandle | undefined }>
+
+  // The verifiable receipt from the most recent settled fetch (null if the server emitted
+  // none). Captured pure (no chain read) and surfaced via lastReceipt(); the resource URL is
+  // stamped from the URL this client actually fetched (authoritative over the gate's default).
+  private lastReceiptValue: PipRailReceipt | null = null
 
   constructor(opts: PipRailClientOptions) {
     this.opts = opts
@@ -814,6 +861,155 @@ export class PipRailClient {
     }
   }
 
+  /**
+   * Capture the verifiable receipt from a settled response (pure — no chain read), stamping
+   * the resource URL this client actually fetched (authoritative over the gate's default ''). A
+   * settled fetch with no receipt extension sets it to `null` so {@link lastReceipt} reflects the
+   * latest fetch. Never throws — a malformed header just yields `null`.
+   */
+  private captureReceipt(response: Response, url: string): void {
+    try {
+      const parsed = parseReceiptExtension(response)
+      this.lastReceiptValue = parsed ? { ...parsed, resource: { url } } : null
+    } catch {
+      this.lastReceiptValue = null
+    }
+  }
+
+  /**
+   * The verifiable {@link PipRailReceipt} from the most recent settled `fetch` — the
+   * self-contained record the buyer KEEPS and anyone re-verifies against the chain
+   * (see {@link PipRailClient.verifyReceipt}). `null` when the last settled fetch carried
+   * no receipt (the gate's `receipts` option was off) or no payment has settled yet. Pure.
+   */
+  lastReceipt(): PipRailReceipt | null {
+    return this.lastReceiptValue
+  }
+
+  /**
+   * Re-verify ANY {@link PipRailReceipt} against the chain — the anyone-can-run primitive.
+   * Re-reads `receipt.transaction` via the receipt's own network driver and re-derives
+   * `payTo`/`asset`/`payer` from the tx, **never trusting the receipt's claims**: a forged
+   * `payTo`/`asset`/over-stated `amount` makes the driver's `verify()` fail (`ok:false`); a
+   * forged `payer` surfaces as `matchesClaims:false`. Static + WALLET-FREE — a third party
+   * verifies with only a chain + RPC, no PipRail account. **Never throws** (an RPC error or a
+   * malformed receipt → `{ ok:false, error }`). Viem-free here — the chain read happens inside
+   * the lazily-mounted family driver (the protocol layer pulls no chain libs). Durable for
+   * digest-bound families; recency-bounded for the account-watch families (see
+   * {@link ReceiptVerification}).
+   */
+  static async verifyReceipt(
+    receipt: PipRailReceipt,
+    opts?: { rpcUrl?: string }
+  ): Promise<ReceiptVerification> {
+    // Guard the bundle shape BEFORE any deref — a malformed/foreign receipt must yield a
+    // structured verdict, never throw (the never-throw contract; ERRORS.md read-method rule).
+    const r = receipt?.receipt as X402Receipt | undefined
+    if (!r || typeof r !== 'object') {
+      return { ok: false, onChain: { payTo: '', asset: '', amount: '', payer: '' }, matchesClaims: false, ageSeconds: 0, error: 'tx_not_found' }
+    }
+    const claimed = { payTo: r.payTo ?? '', asset: r.asset ?? '', amount: r.amount ?? '', payer: r.payer ?? '' }
+    const ageSeconds = receiptAgeSeconds(r.verifiedAt)
+    try {
+      const chain = chainSelectorForNetwork(r.network, opts?.rpcUrl)
+      const net = await resolveNetwork({
+        chain,
+        ...(opts?.rpcUrl ? { rpcUrl: opts.rpcUrl } : {}),
+      })
+      // A SYNTHETIC trusted accept rebuilt from the receipt's claims — `verify()` re-derives
+      // every field from the chain and checks the tx paid AT LEAST this amount to this payTo.
+      const accept: X402AcceptEntry = {
+        scheme: 'onchain-proof',
+        network: r.network,
+        amount: r.amount,
+        asset: r.asset,
+        payTo: r.payTo,
+        maxTimeoutSeconds: RECEIPT_VERIFY_WINDOW_SECONDS,
+        extra: {
+          nonce: r.nonce ?? '', // the challenge/memo nonce — REQUIRED for Template-A re-verify
+          decimals: receipt.decimals ?? 6, // B10c — Stellar/XRPL/TON re-scale by it; 6 = USDC fallback
+          minConfirmations: 0,
+          amountFormatted: '',
+        },
+      }
+      // B10b — NEAR's verify() decodes `<senderId>:<hash>`; a bare hash → senderId='' → spurious
+      // miss. Reconstruct the composite ref from the receipt's payer (the NEAR account) + tx hash.
+      const ref =
+        familyForChain(chain) === 'near' ? `${r.payer}:${r.transaction}` : r.transaction
+      const result = await net.verify(ref, accept)
+      if (!result.ok) {
+        return { ok: false, onChain: claimed, matchesClaims: false, ageSeconds, error: result.error }
+      }
+      const oc = result.receipt
+      const onChain = { payTo: oc.payTo, asset: oc.asset, amount: oc.amount, payer: oc.payer }
+      // `payer` is the one field genuinely re-derived from the tx (the rest are pinned by the
+      // synthetic accept the chain already validated against). A forged claimed payer → false.
+      const matchesClaims = sameAddress(oc.payer, r.payer)
+      return { ok: true, onChain, matchesClaims, ageSeconds }
+    } catch {
+      // An unknown network, unmounted driver, or RPC failure — never throw (ERRORS.md).
+      return { ok: false, onChain: claimed, matchesClaims: false, ageSeconds, error: 'tx_not_found' }
+    }
+  }
+
+  /**
+   * Verify the OPTIONAL Tier-2 service-delivery attestation on a {@link PipRailReceipt}
+   * — the merchant's signed proof that the resource was actually SERVED (the one thing
+   * the chain can't attest). For an EVM EIP-712 attestation this re-recovers the signer
+   * from the signature over the official `offer-receipt` typed data and checks
+   * `recover === receipt.payTo` (spec §4.5.1 / §5.5) — the classic EIP-712 footgun made
+   * safe (`recoverTypedDataAddress` returns a WRONG address rather than throwing on a bad
+   * signature, so the equality check is the real verification). A tampered signature →
+   * `{ ok:false }`, never a throw.
+   *
+   * Static + wallet-free. **Never throws** (a malformed/absent attestation, an unsupported
+   * format, or a recovery fault → `{ ok:false, reason }`). Viem-free HERE — the recover runs
+   * inside the lazily-imported EVM receipt driver (a lazy chunk), so the protocol layer pulls
+   * no chain libs. The JWS format defers to R3 (`{ ok:false, reason:'jws-not-loaded' }`).
+   */
+  static async verifyAttestation(
+    receipt: PipRailReceipt
+  ): Promise<{ ok: boolean; signer?: string; reason?: string }> {
+    const att = receipt?.attestation
+    if (!att || typeof att !== 'object' || typeof att.signature !== 'string') {
+      return { ok: false, reason: 'no-attestation' }
+    }
+    // R3: a JWS attestation needs `jose`/DID resolution behind the lazy `receipts-jws`
+    // subpath — not loaded in the base bundle. Defer rather than throw.
+    if ((att as { format?: unknown }).format === 'jws') {
+      return { ok: false, reason: 'jws-not-loaded' }
+    }
+    const r = receipt.receipt as X402Receipt | undefined
+    if (!r || typeof r !== 'object') return { ok: false, reason: 'no-receipt' }
+    // Per §5.5: verify over the payload EXACTLY as transmitted. Prefer the attestation's
+    // own signed `payload`; fall back to the receipt's fields for a payload-less attestation.
+    const payload = (att as { payload?: Record<string, unknown> }).payload ?? {}
+    const network = typeof payload.network === 'string' ? payload.network : r.network
+    const resourceUrl =
+      typeof payload.resourceUrl === 'string' ? payload.resourceUrl : receipt.resource?.url ?? ''
+    const payer = typeof payload.payer === 'string' ? payload.payer : r.payer
+    const issuedAt =
+      typeof payload.issuedAt === 'number' ? payload.issuedAt : receiptIssuedAtSeconds(r.verifiedAt)
+    const transaction =
+      typeof payload.transaction === 'string' ? payload.transaction : r.transaction ?? ''
+    try {
+      // Lazy chunk: viem-based recovery lives ONLY in the EVM receipt driver. A dynamic
+      // import keeps the protocol layer viem-free + the lazy-chunk grep green.
+      const { verifyReceiptAttestationEvm } = await import('./drivers/evm/receipt.js')
+      return await verifyReceiptAttestationEvm({
+        payTo: r.payTo,
+        network,
+        resourceUrl,
+        payer,
+        issuedAt,
+        transaction,
+        signature: att.signature,
+      })
+    } catch {
+      return { ok: false, reason: 'verify-failed' }
+    }
+  }
+
   /** Auto-mount the chain's driver, resolve the network, and bind the wallet — once. */
   private ensure(): Promise<{ net: ResolvedNetwork; wallet: WalletHandle | undefined }> {
     return (this.bound ??= (async () => {
@@ -910,9 +1106,18 @@ export class PipRailClient {
   ): Promise<PipRailCostQuote | null> {
     const res = await fetch(url, { ...(init ?? {}), method: init?.method ?? 'GET' })
     if (res.status !== 402) return null
-    const { net, accept, quote } = await this.resolveChallenge(url, res, this.resolveSchemes())
-    const cost = await net.estimateCost(accept)
-    return { quote, cost }
+    try {
+      const { net, accept, quote } = await this.resolveChallenge(url, res, this.resolveSchemes())
+      const cost = await net.estimateCost(accept)
+      return { quote, cost }
+    } catch (err) {
+      // A parseable-but-malformed rail (buildQuote → InvalidEnvelopeError on a bad amount/asset/
+      // decimals), or an unparseable challenge, leaves nothing to estimate — return null rather than
+      // throw out of a read method. (UnsupportedScheme/NoCompatibleAccept stay the resolveChallenge
+      // contract — "this client can't pay this scheme" is a real signal, not a cost-read failure.)
+      if (err instanceof InvalidEnvelopeError) return null
+      throw err
+    }
   }
 
   /** Aggregated snapshot of every payment this client has settled — total
@@ -1318,13 +1523,27 @@ export class PipRailClient {
     // Budget + approval gate — both refuse BEFORE any on-chain send OR any signature.
     await this.authorize(quote)
 
+    // Standard `upto` (metered) rail: route BEFORE exact (AUDIT B9 — the compiler can't catch an
+    // unhandled upto case in if/else form, so an unrouted upto accept would otherwise reach the
+    // onchain-proof fall-through below and be mis-paid). The buyer SIGNS a Permit2 authorization
+    // for the MAX; the server settles the ACTUAL after serving.
+    if (accept.scheme === 'upto') {
+      return this.payUptoRail(net, wallet, accept, url, init, quote)
+    }
+
     // Standard `exact` rail: a separate, conservative pay path — the buyer SIGNS an
     // EIP-3009 authorization and the server/facilitator broadcasts it (never payAndConfirm).
     if (accept.scheme === 'exact') {
       return this.payExactRail(net, wallet, accept, url, init, quote)
     }
 
-    // PipRail's native `onchain-proof` rail — BYTE-IDENTICAL to before.
+    // PipRail's native `onchain-proof` rail — BYTE-IDENTICAL to before. AUDIT B9: ASSERT the
+    // fall-through is genuinely onchain-proof so a stray scheme can't be paid as onchain-proof.
+    if (accept.scheme !== 'onchain-proof') {
+      throw new UnsupportedSchemeError(
+        `internal: unrouted accept scheme '${(accept as { scheme: string }).scheme}' reached the onchain-proof pay path.`
+      )
+    }
     const { ref, confirmed } = await this.payAndConfirm(net, wallet, accept)
     const response = await this.retryWithProof(url, init, accept, ref, confirmed)
     this.recordSpend(quote, ref)
@@ -1458,6 +1677,25 @@ export class PipRailClient {
         )
       )
     }
+    // Standard `upto` (metered) rails — opt-in (OFF by default), gathered only when the bound
+    // driver can pay them (the EVM-only `payUpto` SPI), supports the network, recognises the
+    // token (true decimals power the MAX-budget cap), and the rail carries a facilitatorAddress
+    // to bind. Same shape as the exact gather; the buyer budgets the MAX (§3.5).
+    if (schemes.includes('upto')) {
+      out.push(
+        ...challenge.accepts.filter(
+          (a): a is X402UptoAcceptEntry =>
+            a.scheme === 'upto' &&
+            this.supportsNetwork(net, a.network) &&
+            typeof net.payUpto === 'function' &&
+            net.describeAsset(a.asset) != null &&
+            typeof a.extra?.facilitatorAddress === 'string' &&
+            a.extra.facilitatorAddress.length > 0 &&
+            Number.isInteger(a.maxTimeoutSeconds) &&
+            a.maxTimeoutSeconds > 0
+        )
+      )
+    }
     return out
   }
 
@@ -1487,12 +1725,17 @@ export class PipRailClient {
       }
     }
     // Analyse every rail in parallel; one rail's read failure never sinks the others
-    // (analyzeRail catches its own reads → 'unknown', never throws for an RPC hiccup).
-    const analysed = await Promise.all(
-      candidates.map((accept) =>
-        this.analyzeRail(net, wallet, accept, url, challenge.resource.description)
+    // (analyzeRail catches its own reads → 'unknown'). A rail whose accept is PARSEABLE-but-malformed
+    // (bad amount/asset/decimals → buildQuote throws) is DROPPED here rather than thrown — planPayment/
+    // canAfford must NEVER throw on a hostile/buggy merchant's 402 (ERRORS.md read-method contract; the
+    // only sanctioned throw is on an UNPARSEABLE challenge). A dropped rail simply isn't a payable option.
+    const analysed = (
+      await Promise.all(
+        candidates.map((accept) =>
+          this.analyzeRail(net, wallet, accept, url, challenge.resource.description).catch(() => null)
+        )
       )
-    )
+    ).filter((o): o is PayOption => o !== null)
     const options = rankOptions(analysed)
     const best = options.find((o) => o.state === 'payable') ?? null
     const status: PaymentPlan['status'] = best
@@ -1532,10 +1775,11 @@ export class PipRailClient {
 
     const amount = BigInt(accept.amount)
     const fee = safeBig(cost.fee)
-    // A standard `exact` rail: the buyer SIGNS an EIP-3009 authorization and the
+    // A standard `exact` OR `upto` rail: the buyer SIGNS an authorization and the
     // server/facilitator BROADCASTS it, so the buyer spends ~0 gas — only the token
-    // funds it, and native-coin gas is irrelevant to payability.
-    const isExact = accept.scheme === 'exact'
+    // funds it, and native-coin gas is irrelevant to payability. For `upto`, `amount`
+    // is the MAX (the budget/affordability ceiling — the server MAY charge up to it).
+    const isExact = accept.scheme === 'exact' || accept.scheme === 'upto'
     const isNative = accept.asset === 'native'
     const blockers: PayBlocker[] = []
     const warnings: PayWarning[] = []
@@ -1825,16 +2069,46 @@ export class PipRailClient {
    *  denomination it counts toward in the grand total). Then fire the `onSpend` callback
    *  with the record + the post-payment budget, and emit any `warnAtFraction` thresholds
    *  this payment just crossed. All observability is isolated — a throwing hook never
-   *  affects the (already-settled) payment. */
-  private recordSpend(quote: PipRailQuote, ref: string): void {
+   *  affects the (already-settled) payment.
+   *
+   *  `settledAmountBase` is the SINGLE upto ledger-reconciliation seam: the quote (and thus
+   *  the policy/budget) gates on the MAX, and for the metered `upto` rail the budgeted amount
+   *  RECORDED is ALSO the authorized MAX — the only buyer-provable bound. The merchant's
+   *  claimed actual is UNTRUSTED (a malicious merchant can settle the MAX on-chain yet report
+   *  a tiny `SettleOutcome.amount`); recording it would let an under-report silently loosen a
+   *  cumulative cap (`maxTotal`/`maxTotalPerDenom`/`windowTotal`) past the buyer's real on-chain
+   *  spend (POL-1). So the cap-bearing `amountBase` is the MAX; the clamped actual is surfaced
+   *  separately on `settledBase`/`settledFormatted` for transparency (it equals the receipt's
+   *  amount). When absent (onchain-proof/exact) this is byte-identical to before. */
+  private recordSpend(quote: PipRailQuote, ref: string, settledAmountBase?: string): void {
     const denom = denomOf(quote.symbol, quote.asset, this.opts.policy)
+    // The budget always debits the authorized MAX (quote.amount) — for upto that keeps the
+    // cumulative caps merchant-proof; for onchain-proof/exact the MAX *is* the paid amount.
+    const amountBase = quote.amount
+    const amountFormatted = quote.amountFormatted
+    // METERED upto: also surface the merchant-claimed settled ACTUAL, clamped to ≤ the MAX so a
+    // hostile/non-conformant server cannot inflate even the informational figure. Display-only.
+    let settledBase: string | undefined
+    let settledFormatted: string | undefined
+    if (settledAmountBase !== undefined && /^\d+$/.test(settledAmountBase)) {
+      try {
+        const claimed = BigInt(settledAmountBase)
+        const max = BigInt(quote.amount)
+        const shown = claimed < max ? claimed : max
+        settledBase = shown.toString()
+        settledFormatted = formatUnits(shown, quote.decimals)
+      } catch {
+        /* a parse miss simply omits the informational actual — the MAX is still budgeted */
+      }
+    }
     const record: SpendRecord = {
       url: quote.url,
       host: hostOf(quote.url),
       network: quote.network,
       asset: quote.asset,
-      amountBase: quote.amount,
-      amountFormatted: quote.amountFormatted,
+      amountBase,
+      amountFormatted,
+      ...(settledBase !== undefined ? { settledBase, settledFormatted } : {}),
       ...(quote.symbol ? { symbol: quote.symbol } : {}),
       decimals: quote.decimals,
       ...(denom ? { denom } : {}),
@@ -2037,6 +2311,7 @@ export class PipRailClient {
 
       if (lastResponse.status !== 402) {
         const receipt = parseReceipt(lastResponse)
+        this.captureReceipt(lastResponse, url)
         this.safeEmit({ kind: 'payment-settled', receipt })
         return lastResponse
       }
@@ -2180,6 +2455,7 @@ export class PipRailClient {
       // (a receipt-less 2xx counts as affirmative).
       if (response.ok && !(settle && settle.success === false)) {
         const receipt = parseReceipt(response)
+        this.captureReceipt(response, url)
         this.safeEmit({ kind: 'payment-settled', receipt, ...(settle ? { settle } : {}) })
         // Record the spend EXACTLY ONCE, on this affirmative-settle path only. Prefer the
         // facilitator's on-chain settle tx; fall back to the nonce when it echoes none (`||`,
@@ -2215,6 +2491,128 @@ export class PipRailClient {
       `exact: server still returned 402 after submitting the signed authorization ` +
         `(nonce=${nonce}). Last rejection: ${why}. Re-present the SAME authorization — do NOT ` +
         `re-sign a fresh nonce; verify authorizationState(${payerFrom}, ${nonce}) first. ref=${nonce}.`,
+      { ref: nonce }
+    )
+  }
+
+  /**
+   * The standard `upto` (metered) buyer path — a near-clone of {@link payExactRail} with TWO
+   * deltas: (1) it signs a Permit2-upto authorization for the MAX via `payUpto` + frames it
+   * with `buildUptoSignatureHeader`; (2) it records the ACTUAL settled amount (read off the
+   * SettleResponse's required `amount` field, via `recordSpend(quote, ref, settle.amount)`) in
+   * the ledger — the budget gated on the MAX, the ledger records the ACTUAL. A server that omits
+   * `settle.amount` FAILS SAFE to the MAX (over-counts, never under-counts). The buyer SIGNS, the
+   * merchant self-settles — the buyer never broadcasts.
+   */
+  private async payUptoRail(
+    net: ResolvedNetwork,
+    wallet: WalletHandle,
+    accept: X402UptoAcceptEntry,
+    url: string,
+    init: (RequestInit & { autoRoute?: boolean; schemes?: PaymentScheme[] }) | undefined,
+    quote: PipRailQuote
+  ): Promise<Response> {
+    if (!net.payUpto) {
+      // gatherCandidates only yields an upto rail when payUpto exists — defensive.
+      throw new UnsupportedSchemeError(
+        `the ${net.family} family can't pay a standard 'upto' rail (EVM-Permit2 only today).`
+      )
+    }
+    // A caller who aborts BEFORE we sign/send hasn't moved any funds — surface their AbortError.
+    throwIfAborted(init?.signal)
+
+    // Sign ONCE — a fresh Permit2 nonce is generated here and reused on every retry below.
+    const { payload, accepted, payerFrom, nonce } = await net.payUpto(wallet, accept)
+    const headers = new Headers(init?.headers)
+    headers.set(HEADER_SIGNATURE, buildUptoSignatureHeader({ accepted, payload }))
+
+    const rejectDefinitive = (why: string): never => {
+      this.safeEmit({ kind: 'payment-failed', reason: `upto: facilitator rejected nonce=${nonce} (${why})`, code: why })
+      throw new MaxRetriesExceededError(
+        `upto: the server rejected the payment (${why}). Fix the cause, then re-present the ` +
+          `SAME signed authorization (nonce=${nonce}) — do NOT re-sign a fresh nonce. ref=${nonce}.`,
+        { ref: nonce }
+      )
+    }
+
+    const deadline = Date.now() + Math.max(1, Math.floor(accept.maxTimeoutSeconds / 2)) * 1000
+    const maxAttempts = Math.min(this.maxRetries, 3)
+    let lastReason: { error: string; detail: string } | null = null
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      if (attempt > 0) {
+        if (Date.now() >= deadline) break
+        await new Promise((r) => setTimeout(r, Math.min(2000, 400 * 2 ** (attempt - 1))))
+      }
+      throwIfAborted(init?.signal)
+
+      const budget = Math.min(this.retryTimeoutMs, deadline - Date.now())
+      if (budget <= 0) break
+      const timeoutController = new AbortController()
+      const timeoutId = setTimeout(() => timeoutController.abort(), budget)
+      const signal: AbortSignal =
+        init?.signal && typeof AbortSignal.any === 'function'
+          ? AbortSignal.any([timeoutController.signal, init.signal])
+          : timeoutController.signal
+
+      let response: Response
+      try {
+        response = await fetch(url, { ...(init ?? {}), headers, signal })
+      } catch (err) {
+        throw new PaymentTimeoutError(
+          `upto: no response after submitting the authorization (nonce=${nonce}) to ` +
+            `${hostOf(url)}. The merchant may have already settled it — verify on-chain before ` +
+            `re-presenting; do NOT re-pay.`,
+          { cause: err, ref: nonce }
+        )
+      } finally {
+        clearTimeout(timeoutId)
+      }
+
+      const settle = parseSettleResponse(response)
+
+      if (response.status === 402) {
+        if (settle && settle.success === false) rejectDefinitive(settle.errorReason ?? 'the server reported success:false')
+        lastReason = (await readInvalidReason(response)) ?? lastReason
+        continue
+      }
+
+      // Non-402. Settled iff it's a 2xx whose SettleResponse does NOT say success:false.
+      if (response.ok && !(settle && settle.success === false)) {
+        const receipt = parseReceipt(response)
+        this.captureReceipt(response, url)
+        this.safeEmit({ kind: 'payment-settled', receipt, ...(settle ? { settle } : {}) })
+        // A $0 metered settle has transaction "" — `||` falls through to a nonce ref for the audit
+        // trail. The budget debits the authorized MAX (merchant-proof, POL-1); the merchant-claimed
+        // settled actual (settle.amount, or the receipt's) is passed only to be surfaced — clamped
+        // ≤ the MAX — on the record's informational settledBase/settledFormatted.
+        const ref = settle?.transaction || receipt?.transaction || `upto-nonce:${nonce}`
+        const settledAmount = settle?.amount ?? receipt?.amount
+        this.recordSpend(quote, ref, settledAmount)
+        return response
+      }
+
+      if (response.status >= 500) {
+        this.safeEmit({ kind: 'payment-failed', reason: `upto: server ${response.status} — authorization nonce=${nonce} not settled` })
+        return response
+      }
+      if (settle && settle.success === false) rejectDefinitive(settle.errorReason ?? 'the server reported success:false')
+      this.safeEmit({ kind: 'payment-failed', reason: `upto: server ${response.status} — authorization nonce=${nonce} not settled` })
+      return response
+    }
+
+    const why = lastReason
+      ? `${lastReason.error}${lastReason.detail ? ` — ${lastReason.detail}` : ''}`
+      : 'server gave no reason'
+    this.safeEmit({
+      kind: 'payment-failed',
+      reason: `upto: 402 after submitting authorization nonce=${nonce} (${why})`,
+      ...(lastReason ? { code: lastReason.error, detail: lastReason.detail } : {}),
+    })
+    throw new MaxRetriesExceededError(
+      `upto: server still returned 402 after submitting the signed authorization ` +
+        `(nonce=${nonce}). Last rejection: ${why}. Re-present the SAME authorization — do NOT ` +
+        `re-sign a fresh nonce. ref=${nonce}.`,
       { ref: nonce }
     )
   }
@@ -2566,4 +2964,57 @@ async function readInvalidReason(
   const settle = parseSettleResponse(response)
   if (settle?.errorReason) return { error: settle.errorReason, detail: '' }
   return null
+}
+
+/* ----------------------------- receipt re-verification helpers ----------------------------- */
+
+/** The common EVM chains whose receipts re-verify with NO caller-supplied RPC — chainId →
+ *  preset name (the preset carries a default RPC; `opts.rpcUrl` still overrides). PURE data:
+ *  just strings, NO viem/preset-object import, so the protocol layer stays viem-free and the
+ *  lazy-chunk grep green. A receipt on any other EVM chain needs `verifyReceipt(_, { rpcUrl })`. */
+const EVM_PRESET_FOR_CHAINID: Readonly<Record<number, string>> = {
+  1: 'ethereum',
+  8453: 'base',
+  137: 'polygon',
+  42161: 'arbitrum',
+  10: 'optimism',
+  43114: 'avalanche',
+  56: 'bnb',
+}
+
+/** Map a receipt's CAIP-2 `network` to a `chain` selector `resolveNetwork` accepts. EVM
+ *  (`eip155:N`) → a common-preset name (default RPC) or `{ id, rpcUrl }` for a custom chain;
+ *  every non-EVM namespace IS its family slug — except TON's `tvm`, which maps to `ton`
+ *  (the chain-agnostic registry has no `ton` namespace). Pure/synchronous. */
+function chainSelectorForNetwork(network: string, rpcUrl?: string): ChainSelector {
+  const chainId = chainIdFromNetwork(network)
+  if (chainId !== null) {
+    const preset = EVM_PRESET_FOR_CHAINID[chainId]
+    if (preset) return preset as ChainSelector
+    return { id: chainId, rpcUrl: rpcUrl ?? '' } as ChainSelector
+  }
+  const namespace = network.split(':')[0] ?? ''
+  return (namespace === 'tvm' ? 'ton' : namespace) as ChainSelector
+}
+
+/** Informational receipt age in seconds (never a validity gate). 0 on an unparseable `verifiedAt`. */
+function receiptAgeSeconds(verifiedAt: string): number {
+  const t = Date.parse(verifiedAt)
+  if (Number.isNaN(t)) return 0
+  return Math.max(0, Math.round((Date.now() - t) / 1000))
+}
+
+/** The receipt's `issuedAt` in unix SECONDS — derived from `verifiedAt` for a Tier-2
+ *  attestation that carries no signed `payload.issuedAt` (fallback). 0 on unparseable input;
+ *  the EVM verifier treats it as a literal field, so a mismatch just fails recovery cleanly. */
+function receiptIssuedAtSeconds(verifiedAt: string): number {
+  const t = Date.parse(verifiedAt)
+  if (Number.isNaN(t)) return 0
+  return Math.floor(t / 1000)
+}
+
+/** Compare two on-chain addresses tolerantly (EVM checksum-insensitive; non-EVM addresses
+ *  don't collide on case, so lowercasing is safe). Used to cross-check the re-derived payer. */
+function sameAddress(a: string, b: string): boolean {
+  return typeof a === 'string' && typeof b === 'string' && a.toLowerCase() === b.toLowerCase()
 }

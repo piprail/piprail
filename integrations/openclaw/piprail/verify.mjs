@@ -7,7 +7,7 @@
 // every tool OpenClaw exposes works; the only thing it can't do is OpenClaw's
 // own LLM loop deciding WHEN to call them (that's OpenClaw's job, not ours).
 //
-//   node verify.mjs                 # offline: handshake + 7 tools + read-only calls
+//   node verify.mjs                 # offline: handshake + 8 tools + read-only calls
 //   node verify.mjs --live          # + quote the live demo + prove the budget cap
 //   PIPRAIL_MCP_BIN=../../../mcp/dist/bin.js node verify.mjs --live   # test a local build
 //
@@ -20,7 +20,7 @@ const LIVE = process.argv.includes('--live')
 const DEMO = 'https://piprail.com/x402/demo' // live payable x402 endpoint: 0.01 USDC on Base
 const EXPECTED = [
   'piprail_budget', 'piprail_discover', 'piprail_guide', 'piprail_pay_request',
-  'piprail_plan_payment', 'piprail_quote_payment', 'piprail_register',
+  'piprail_plan_payment', 'piprail_quote_payment', 'piprail_register', 'piprail_verify_receipt',
 ].sort()
 
 const localBin = process.env.PIPRAIL_MCP_BIN
@@ -76,12 +76,12 @@ const watchdog = setTimeout(() => { console.error('⏱️  timed out after 180s'
 try {
   console.log(`\nPipRail × OpenClaw — verifying via ${localBin ? 'local build' : 'npx -y @piprail/mcp'}${LIVE ? ' (--live)' : ''}\n`)
 
-  // ── 1. Protocol: handshake + the 7 tools (this is what OpenClaw connects to) ──
+  // ── 1. Protocol: handshake + the 8 tools (this is what OpenClaw connects to) ──
   console.log('1. MCP server (what OpenClaw spawns from mcp.servers)')
   await withServer({}, async (send) => {
     const { tools } = await send('tools/list', {})
     const names = tools.map((t) => t.name).sort()
-    if (JSON.stringify(names) === JSON.stringify(EXPECTED)) pass(`all 7 tools served: ${names.join(', ')}`)
+    if (JSON.stringify(names) === JSON.stringify(EXPECTED)) pass(`all 8 tools served: ${names.join(', ')}`)
     else fail(`tool set mismatch — got ${names.join(', ')}`)
     if (tools.every((t) => t.inputSchema?.type === 'object')) pass('every tool has a valid object inputSchema (OpenClaw passes it through)')
     else fail('a tool is missing its object inputSchema')
@@ -115,7 +115,7 @@ try {
 
   clearTimeout(watchdog)
   console.log(failures === 0
-    ? `\n🎉 PASS — OpenClaw will spawn this server and get all 7 working tools, budget-bound.${LIVE ? ' Live quote + spend cap proven.' : ''}\n`
+    ? `\n🎉 PASS — OpenClaw will spawn this server and get all 8 working tools, budget-bound.${LIVE ? ' Live quote + spend cap proven.' : ''}\n`
     : `\n❌ ${failures} check(s) failed.\n`)
   process.exit(failures === 0 ? 0 : 1)
 } catch (e) {

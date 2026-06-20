@@ -131,8 +131,18 @@ export async function payTronNative(params: {
   accept: X402AcceptEntry
 }): Promise<string> {
   const { client, from, privateKey, accept } = params
+  // tronweb's sendTrx takes the sun amount as a JS number, so a value above 2^53-1 would silently
+  // round to a DIFFERENT amount than the merchant priced. Guard it (the project's safe-integer rule)
+  // and fail loudly rather than broadcast the wrong value. (The TRC-20 path keeps amount as a string.)
+  const sun = BigInt(accept.amount)
+  if (sun > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new InsufficientFundsError(
+      `Tron native amount ${accept.amount} sun exceeds the safe-integer range tronweb.sendTrx accepts — ` +
+        `price this resource in a smaller native amount or a TRC-20 token.`
+    )
+  }
   try {
-    const unsigned = await client.transactionBuilder.sendTrx(accept.payTo, Number(accept.amount), from)
+    const unsigned = await client.transactionBuilder.sendTrx(accept.payTo, Number(sun), from)
     const signed = await client.trx.sign(unsigned, privateKey)
     const broadcast = await client.trx.sendRawTransaction(signed)
     if (broadcast.result === true || broadcast.txid || broadcast.transaction?.txID) {

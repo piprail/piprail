@@ -114,6 +114,16 @@ describe('payTronNative — plain TransferContract (digest-bound; no contract ca
     expect(captured.args).toBeUndefined() // not a smart-contract call
   })
 
+  it('rejects an amount beyond JS safe-integer range rather than silently broadcasting the wrong value', async () => {
+    const { client, captured } = mockClient()
+    // 2^53 sun > Number.MAX_SAFE_INTEGER — Number() would round it to a DIFFERENT value.
+    const huge: X402AcceptEntry = { ...nativeAccept(), amount: '9007199254740993' }
+    await expect(
+      payTronNative({ client, from: FROM, privateKey: PK, accept: huge })
+    ).rejects.toBeInstanceOf(InsufficientFundsError)
+    expect(captured.native).toBeUndefined() // guarded BEFORE any broadcast
+  })
+
   it('maps an insufficient-TRX broadcast failure → InsufficientFundsError', async () => {
     const { client } = mockClient({ result: false, code: 'CONTRACT_VALIDATE_ERROR', message: 'balance is not sufficient' })
     await expect(

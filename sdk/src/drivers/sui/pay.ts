@@ -17,9 +17,15 @@ import type { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519'
 import { InsufficientFundsError, toInsufficientFundsError } from '../../errors.js'
 import type { X402AcceptEntry } from '../../x402.js'
 
-/** The slice of SuiJsonRpcClient the pay path needs — adapted from a real client in index.ts. */
+/** The slice of SuiJsonRpcClient the pay path needs — adapted from a real client in index.ts.
+ *  `getCoins` is the PAGINATED `suix_getCoins` (public fullnodes cap each page at ~50 objects),
+ *  so it carries `cursor`/`nextCursor`/`hasNextPage` + each coin's `balance` to page + early-stop. */
 export interface SuiPayClient {
-  getCoins(input: { owner: string; coinType: string }): Promise<{ data: { coinObjectId: string }[] }>
+  getCoins(input: { owner: string; coinType: string; cursor?: string | null }): Promise<{
+    data: { coinObjectId: string; balance: string }[]
+    nextCursor?: string | null
+    hasNextPage: boolean
+  }>
   signAndExecuteTransaction(input: {
     signer: Ed25519Keypair
     transaction: Transaction
@@ -45,13 +51,29 @@ export async function paySui(params: PaySuiParams): Promise<string> {
       const [coin] = tx.splitCoins(tx.gas, [amount])
       tx.transferObjects([coin], accept.payTo)
     } else {
-      const coins = await client.getCoins({ owner: sender, coinType: accept.asset })
-      if (!coins.data.length) {
+      // `suix_getCoins` is paginated (~50 objects/page) — a fragmented wallet (many small coins,
+      // common for an agent making micropayments) can hold ample balance spread beyond the first
+      // page. Page through, gathering coin objects until they cover the amount (early-stop so a
+      // wallet with one big coin doesn't fetch every page), then merge + split the exact amount.
+      const ids: string[] = []
+      let gathered = 0n
+      let cursor: string | null | undefined
+      do {
+        const page = await client.getCoins({ owner: sender, coinType: accept.asset, cursor })
+        for (const c of page.data) {
+          ids.push(c.coinObjectId)
+          gathered += BigInt(c.balance)
+          if (gathered >= amount) break
+        }
+        cursor = page.hasNextPage ? page.nextCursor : null
+      } while (gathered < amount && cursor)
+      if (!ids.length) {
         throw new InsufficientFundsError(
           `Sui wallet holds no ${accept.asset} coin objects to pay from.`
         )
       }
-      const ids = coins.data.map((c) => c.coinObjectId)
+      // If still short after exhausting all pages, attempt anyway — splitCoins reverts and maps to
+      // InsufficientFundsError (the prior behaviour), but only after we've truly seen every coin.
       const primary = ids[0]!
       if (ids.length > 1) {
         tx.mergeCoins(tx.object(primary), ids.slice(1).map((id) => tx.object(id)))

@@ -46,7 +46,7 @@ export const BRAND = {
  * human-readable view of an `accepts[]` entry (no nonce; this is long-lived metadata).
  */
 export interface SelfDescribeRail {
-  scheme: 'onchain-proof' | 'exact'
+  scheme: 'onchain-proof' | 'exact' | 'upto'
   network: string
   asset: string
   payTo: string
@@ -99,6 +99,10 @@ export interface SelfDescription {
   docs: { home: string; agents: string; pay: string }
   /** Where the open discovery artifacts live on this origin. */
   discovery: { openapi: string; wellKnown: string }
+  /** Present (and `true`) ONLY when this gate issues verifiable receipts (`receipts` on) —
+   *  so a crawler/agent reading the 402 knows the 200 will carry a self-verifiable
+   *  `extensions['offer-receipt']` receipt. Absent by default (byte-identical). */
+  verifiableReceipts?: true
   /** A one-line human summary (the gate sets it from `describeChallenge`). */
   instruction?: string
 }
@@ -112,10 +116,14 @@ const WHAT =
  * and points at the SDK, because on the non-EVM families that have no standard `exact`
  * rail it is the only on-ramp a stranger has.
  */
-function howFor(scheme: 'onchain-proof' | 'exact'): string {
-  return scheme === 'exact'
-    ? 'Standard x402 exact rail — sign an EIP-3009 / Permit2 / SVM authorization; any stock x402 client (e.g. @x402/fetch) can pay this.'
-    : 'Pay this amount on-chain to payTo, then resubmit with a payment-signature header carrying the proof ref + nonce. Easiest with @piprail/sdk (see sdk.install).'
+function howFor(scheme: 'onchain-proof' | 'exact' | 'upto'): string {
+  if (scheme === 'exact') {
+    return 'Standard x402 exact rail — sign an EIP-3009 / Permit2 / SVM authorization; any stock x402 client (e.g. @x402/fetch) can pay this.'
+  }
+  if (scheme === 'upto') {
+    return 'Standard x402 upto (metered) rail — sign a Permit2 authorization for the MAX amount; the server settles the ACTUAL (≤ max) after serving. BUDGET AGAINST THE MAX — the server MAY fully charge it. EVM-Permit2 only; enable with schemes:[\'upto\'].'
+  }
+  return 'Pay this amount on-chain to payTo, then resubmit with a payment-signature header carrying the proof ref + nonce. Easiest with @piprail/sdk (see sdk.install).'
 }
 
 function railOf(a: X402AnyAccept): SelfDescribeRail {
@@ -147,6 +155,9 @@ export function buildSelfDescription(input: {
    *  byte-identical). Built from the gate's `description`/`mimeType`/`discovery` descriptor
    *  via {@link buildEndpointInfo}. */
   endpoint?: SelfDescribeEndpoint
+  /** True when the gate's `receipts` option is on — stamps the additive `verifiableReceipts`
+   *  flag so a reader knows the 200 will carry a self-verifiable receipt. */
+  verifiableReceipts?: boolean
 }): SelfDescription {
   return {
     name: 'PipRail',
@@ -159,6 +170,7 @@ export function buildSelfDescription(input: {
     mcp: { run: BRAND.mcpRun, tool: 'piprail_pay_request' },
     docs: { home: BRAND.home, agents: BRAND.docs, pay: BRAND.payDocs },
     discovery: { openapi: '/openapi.json', wellKnown: '/.well-known/x402' },
+    ...(input.verifiableReceipts ? { verifiableReceipts: true as const } : {}),
     ...(input.instruction ? { instruction: input.instruction } : {}),
   }
 }

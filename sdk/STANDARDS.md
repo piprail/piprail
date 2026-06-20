@@ -113,7 +113,7 @@ grep -E "from ?['\"]@(solana|ton|stellar)" dist/index.js   # → expect NO match
 # (includes the pure agent-ergonomics modules render/classify/agentGuide/selfdescribe;
 #  VALUE imports of chain-agnostic modules — errors.ts, render.ts's BRAND from
 #  selfdescribe.ts — are allowed; the grep targets viem):
-grep -lE "from ['\"]viem" src/client.ts src/payer.ts src/x402.ts src/policy.ts src/ledger.ts src/server.ts src/agent.ts src/render.ts src/classify.ts src/agentGuide.ts src/selfdescribe.ts src/facilitators.ts src/discovery.ts src/landing.ts  # → expect NO matches
+grep -lE "from ['\"]viem" src/client.ts src/payer.ts src/x402.ts src/policy.ts src/ledger.ts src/server.ts src/agent.ts src/render.ts src/classify.ts src/agentGuide.ts src/selfdescribe.ts src/facilitators.ts src/discovery.ts src/landing.ts src/transports/a2a.ts src/transports/a2a-types.ts  # → expect NO matches
 ```
 
 `prepublishOnly` runs build + test + both typechecks. Never ship with any of these red.

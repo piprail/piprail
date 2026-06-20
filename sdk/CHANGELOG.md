@@ -4,6 +4,68 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.10.0] — 2026-06-20 — x402 parity: verifiable receipts · the `upto` metered rail · A2A transport
+
+Four ratified-x402 capabilities, all **additive and opt-in** — omit the new options and the 402, the
+200, and the pay path are byte-identical to 2.9.0.
+
+- **feat(receipts): verifiable receipts — chain-grounded (no key) + optional EIP-712 attestation.**
+  `receipts: true` on a gate emits a self-contained `PipRailReceipt` on every settled payment, in a
+  byte-compatible `extensions['offer-receipt'].info` block. **Anyone** re-verifies it against the chain
+  with only an RPC: `PipRailClient.verifyReceipt(receipt)` re-reads the settlement tx and re-derives
+  `payTo`/`asset`/`payer`, **ignoring the receipt's claims** (never throws; `amount` is a verified lower
+  bound; `payer` genuinely re-derived). `client.lastReceipt()` captures it after a paid `fetch`. The new
+  additive wire field is `X402Receipt.nonce?` (required to re-verify the five memo-bound families:
+  Stellar/XRPL/NEAR/Algorand/TON). **Tier 2 (EVM-only):** `receipts: { attest: { wallet } }` also signs
+  the official x402 offer-receipt EIP-712 `RECEIPT_TYPES` with the merchant's existing `payTo` wallet —
+  attesting the one thing the chain can't (that the resource was *served*); verify with
+  `PipRailClient.verifyAttestation`. `includeTxHash` defaults **true** (PipRail-default verifiability — a
+  deliberate, documented divergence from the reference privacy-default; flip to `false` for the §5.3
+  empty-string privacy path). New exports: `buildReceiptExtension`, `parseReceiptExtension`,
+  `PipRailReceipt`, `SignedReceipt`, `ReceiptInput`, `ReceiptOption`, `ReceiptVerification`.
+- **feat(upto): the ratified `upto` (metered / variable-amount) rail — EVM-Permit2, self-settle.** The
+  buyer signs a Permit2 authorization for a **maximum**; the merchant serves, meters, then self-settles
+  the **actual** (`≤ max`) from its own relayer through the on-chain `x402UptoPermit2Proxy` — backendless,
+  no fee. Opt in with `upto: { relayer, settleAmount }` and meter inside `settleAmount` on a direct
+  `gate.verify()` call (`requirePayment` throws for `upto` — it settles before the handler serves). A
+  zero charge settles nothing on-chain. New `X402UptoAcceptEntry` / `Permit2UptoAuthorization` types +
+  `parseUptoPaymentHeader` / `buildUptoSignatureHeader` codecs.
+- **feat(transport): A2A — `gate.verifyObject()` + the A2A seller handler.** `gate.verifyObject(payload)`
+  verifies a raw-JSON payment object (not just a base64 HTTP header), and `createA2APaymentHandler(gate)`
+  maps a gate onto Google's A2A JSON-RPC Task/Message metadata — **sharing one replay set with HTTP**.
+  Backendless, zero `@a2a` dependency. The parser cores `parseSignatureObject`/`parseExactObject` are now
+  exported. *(The A2A buyer, AP2 carriage, and the live-Google-interop emit-version finalization trail.)*
+- **feat(agent/mcp): an 8th tool — `piprail_verify_receipt`** (read-only, key-less) re-verifies a receipt
+  against the chain; `piprail_pay_request` now surfaces the `verifiableReceipt`.
+- **fix:** a batch of correctness hardening from an adversarial multi-agent audit — require the replay
+  store's `isUsed`/`markUsed` as a pair (a lone one silently disabled double-spend protection); the read
+  methods (`planPayment`/`canAfford`/`estimateCost`) degrade instead of throwing on a malformed accept;
+  Sui coin pagination; Stellar custom-asset decimals; Tron native safe-integer; and more.
+- **fix:** a second adversarial multi-agent conformance pass (vs the cloned x402 spec) hardened the new
+  surfaces — **upto cumulative caps are now merchant-proof:** the budget debits the authorized **MAX**
+  (a merchant that under-reports its settled `amount` can no longer loosen `maxTotal`/`maxTotalPerDenom`/
+  `windowTotal`); the metered actual is surfaced on `SpendRecord.settledBase`. The `upto` driver now
+  enforces **strict** `permitted.amount === advertised max` at verify time (an over-permit is rejected —
+  x402 `scheme_upto_evm` §Phase 3). `describe()` now projects the upto rail's mandatory
+  `extra.facilitatorAddress` (+ the exact rail's EIP-712 domain) so a discovered rail is reconstructable.
+  A2A conformance: a rejected proof re-challenges as `payment-rejected` (the spec status that pairs with
+  the retryable `input-required`, not the terminal `payment-failed`) carrying a failure receipt with
+  `network` + `transaction:''`. The agent guide + `paymentTools` JSDoc now document the upto rail and the
+  8th tool.
+- **fix:** a third verification pass (regression-focused) caught two **doc copy-paste bugs** that would
+  brick a user's code — the `upto` seller + Tier-2 receipt examples used the pre-v2 `{ privateKey }`
+  wallet field (which throws `WrongFamilyError`) instead of the unified `{ key }`. Also: the A2A
+  terminal-`failed` receipt now carries the attempted `network`; the A2A `fulfill` doc/example returns a
+  structurally valid artifact (`{ name, parts }`); the MCP config docs + registry `server.json` now list
+  `upto`; and a **regression test** locks the merchant-proof cumulative leash (a sequence of
+  under-reporting `upto` payments is refused by `maxTotal`/`maxTotalPerDenom`/`windowTotal`).
+- **fix:** a fourth, end-to-end pass (every flow traced hop-by-hop + a clean-room standards sign-off,
+  which came back **CONFORMANT on all four wire formats**, and a live MCP-pays-the-`upto`-rail proof)
+  found only doc-accuracy gaps + one low edge case: A2A failure receipts now attribute `network` from
+  the buyer's submitted payload (covering multi-network gates + v1-flat exact payloads), and the whole
+  docs-site is updated to the **8-tool** surface (the new `piprail_verify_receipt`) with the 2.10.0
+  receipts/upto/A2A APIs documented in the reference. No SDK behavior change beyond the A2A edge fix.
+
 ## [2.9.0] — 2026-06-19 — Cross-token grand total · payment-count caps · durable budget · richer spend observability
 
 Spend controls grow up — a single budget across every token and chain, caps on the *number* of
