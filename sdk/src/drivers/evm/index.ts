@@ -17,6 +17,7 @@ import { verifyEvm } from './verify.js'
 import { readExactDomain, verifyAndSettleExactEvm, payExactEvm, resolveExactRailEvm } from './exact.js'
 import { payPermit2Evm, verifyAndSettlePermit2Evm, isPermit2ProxyChain } from './permit2.js'
 import { payUptoEvm, verifyAndSettleUptoEvm, resolveUptoRailEvm, isUptoProxyChain } from './upto.js'
+import { signReceiptEvm } from './receipt.js'
 import { networkForChain, chainIdFromNetwork } from '../../x402.js'
 import {
   ConfirmationTimeoutError,
@@ -257,6 +258,13 @@ function makeEvmNetwork(resolved: ResolvedChain): ResolvedNetwork {
         signMessage: (message: string) =>
           a.walletClient.signMessage({ account: a.account, message }),
       }
+    },
+
+    // Tier-2 service-delivery attestation (EVM-only) — sign the official offer-receipt
+    // EIP-712 RECEIPT_TYPES with the bound (payTo) wallet. Chain-independent (domain
+    // chainId is hardcoded 1); viem lives in ./receipt.ts (a lazy chunk).
+    signReceipt(wallet: WalletHandle, input) {
+      return signReceiptEvm(wallet, input)
     },
 
     async verify(ref, accept) {

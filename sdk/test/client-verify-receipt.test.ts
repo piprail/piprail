@@ -10,10 +10,14 @@
  * Plus Template-A nonce (missing memo nonce → unverifiable) and never-throws (driver throw → ok:false).
  */
 import { describe, it, expect, beforeEach } from 'vitest'
+import { privateKeyToAccount } from 'viem/accounts'
+import { createWalletClient, http } from 'viem'
+import { base } from 'viem/chains'
 import { PipRailClient } from '../src/client.js'
 import { registerDriver } from '../src/drivers/index.js'
-import type { PaymentDriver } from '../src/drivers/types.js'
-import type { PipRailReceipt, X402Receipt } from '../src/x402.js'
+import { signReceiptEvm } from '../src/drivers/evm/receipt.js'
+import type { PaymentDriver, WalletHandle } from '../src/drivers/types.js'
+import type { PipRailReceipt, X402Receipt, SignedReceipt } from '../src/x402.js'
 
 // Mutable knobs the fake drivers read, so each test drives the same verify() differently.
 const state = {
@@ -198,6 +202,87 @@ describe('verifyReceipt · never throws', () => {
       const v = await PipRailClient.verifyReceipt(bad as never)
       expect(v.ok).toBe(false)
       expect(v.matchesClaims).toBe(false)
+    }
+  })
+})
+
+/* ─────────────────────── R2 — verifyAttestation (Tier-2) ─────────────────────── */
+
+const MERCHANT_KEY = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as const
+const merchant = privateKeyToAccount(MERCHANT_KEY)
+const MERCHANT = merchant.address
+
+function merchantWallet(): WalletHandle {
+  const walletClient = createWalletClient({ account: merchant, chain: base, transport: http('http://localhost:0') })
+  return { _native: { account: merchant, walletClient } }
+}
+
+/** A PipRailReceipt with a REAL Tier-2 attestation signed by `payTo`'s key. */
+async function attestedReceipt(over: Partial<X402Receipt> = {}): Promise<PipRailReceipt> {
+  const r: X402Receipt = {
+    scheme: 'onchain-proof', success: true, network: 'eip155:8453',
+    transaction: `0x${'ab'.repeat(32)}`, asset: '0xusdc', amount: '50000',
+    payer: '0xrealpayer', payTo: MERCHANT, verifiedAt: '2024-01-01T00:00:00.000Z', ...over,
+  }
+  const attestation = await signReceiptEvm(merchantWallet(), {
+    payTo: r.payTo, network: r.network, resourceUrl: 'https://x.test/r',
+    payer: r.payer, issuedAt: Math.floor(Date.parse(r.verifiedAt) / 1000), transaction: r.transaction,
+  })
+  return { piprail: '1', receipt: r, resource: { url: 'https://x.test/r' }, decimals: 6, attestation }
+}
+
+describe('verifyAttestation · R2 — EVM recover === payTo', () => {
+  it('{ ok:true, signer } for a payTo-signed receipt', async () => {
+    const v = await PipRailClient.verifyAttestation(await attestedReceipt())
+    expect(v.ok).toBe(true)
+    expect(v.signer?.toLowerCase()).toBe(MERCHANT.toLowerCase())
+  })
+
+  it('{ ok:false } when recover !== payTo (the receipt claims a different merchant)', async () => {
+    const bundle = await attestedReceipt()
+    // Forge the claimed payTo to a different address — recovery no longer matches.
+    bundle.receipt.payTo = '0x1111111111111111111111111111111111111111'
+    const v = await PipRailClient.verifyAttestation(bundle)
+    expect(v.ok).toBe(false)
+    expect(v.reason).toBe('signer-mismatch')
+  })
+
+  it('{ ok:false } when the signed payload is tampered after signing', async () => {
+    const bundle = await attestedReceipt()
+    // Mutate the signed payload's payer — the recovered signer changes → mismatch.
+    const att = bundle.attestation as unknown as { payload: Record<string, unknown> }
+    att.payload = { ...att.payload, payer: '0xTAMPERED' }
+    const v = await PipRailClient.verifyAttestation(bundle)
+    expect(v.ok).toBe(false)
+  })
+})
+
+describe('verifyAttestation · R2 — never throws on malformed/absent input', () => {
+  it('a receipt with NO attestation → { ok:false, reason:"no-attestation" }', async () => {
+    const v = await PipRailClient.verifyAttestation(receipt())
+    expect(v.ok).toBe(false)
+    expect(v.reason).toBe('no-attestation')
+  })
+
+  it('a JWS-format attestation defers to R3 → { ok:false, reason:"jws-not-loaded" }', async () => {
+    const bundle = receipt()
+    bundle.attestation = { format: 'jws', signature: 'eyJ...', signer: MERCHANT } as unknown as SignedReceipt
+    const v = await PipRailClient.verifyAttestation(bundle)
+    expect(v.ok).toBe(false)
+    expect(v.reason).toBe('jws-not-loaded')
+  })
+
+  it('a garbage signature → { ok:false }, never a throw', async () => {
+    const bundle = receipt()
+    bundle.attestation = { format: 'eip712', signature: '0xdeadbeef', signer: MERCHANT } as unknown as SignedReceipt
+    const v = await PipRailClient.verifyAttestation(bundle)
+    expect(v.ok).toBe(false)
+  })
+
+  it('a totally malformed bundle → { ok:false }, never a throw', async () => {
+    for (const bad of [null, undefined, 42, { piprail: '1' }]) {
+      const v = await PipRailClient.verifyAttestation(bad as never)
+      expect(v.ok).toBe(false)
     }
   })
 })

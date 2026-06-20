@@ -20,6 +20,7 @@ import type {
   ExactPaymentPayloadAny,
   Permit2UptoPaymentPayload,
   VerifyResult,
+  SignedReceipt,
 } from '../x402.js'
 import type { ChainInput } from './evm/chains.js'
 
@@ -230,6 +231,33 @@ export interface DiscoverySigner {
 }
 
 /**
+ * The official x402 `offer-receipt` §5.2 signed-field set a merchant attests over in
+ * Tier-2 — the SMALLER official payload (NOT PipRail's full {@link X402Receipt}),
+ * consumed by the optional EVM-only {@link ResolvedNetwork.signReceipt}. The gate
+ * maps PipRail's settlement data into it. `payTo` rides ALONGSIDE the signed fields
+ * purely so a verifier knows the expected signer (`recover === payTo`); it is NOT
+ * part of the EIP-712 message.
+ */
+export interface ReceiptInput {
+  /** The merchant `payTo` wallet — the signer a verifier checks `recover ===` against. NOT signed. */
+  payTo: string
+  /** CAIP-2 network the settlement happened on (signed `network`). */
+  network: string
+  /** The paid resource URL (signed `resourceUrl`). */
+  resourceUrl: string
+  /** The payer identifier — the on-chain sender (signed `payer`). */
+  payer: string
+  /** Unix SECONDS the receipt was issued (signed `issuedAt`). */
+  issuedAt: number
+  /**
+   * The settlement tx hash, or the empty string `''` when suppressed
+   * (`includeTxHash:false`). §5.3: the signed EIP-712 message MUST carry `''`,
+   * NEVER an omitted key — a verifier treats `''` as absence. Default `''`.
+   */
+  transaction?: string
+}
+
+/**
  * How a family advertises a standard `exact` rail for one asset — returned by
  * {@link ResolvedNetwork.resolveExactRail} and consumed by the gate to build the
  * `X402ExactAcceptEntry`. The `method` is the family's transfer method (EVM:
@@ -391,6 +419,21 @@ export interface ResolvedNetwork {
    * REQUIRED methods. Returns `null` if the bound wallet can't sign.
    */
   discoverySigner?(wallet: WalletHandle): DiscoverySigner | null
+
+  /**
+   * OPTIONAL (EVM-only today) — Tier-2 service-delivery attestation. Sign the
+   * official x402 `offer-receipt` EIP-712 `RECEIPT_TYPES` (the SMALLER official
+   * §5.2 payload) with the bound wallet — typically the merchant's existing `payTo`
+   * key — so a buyer can prove the resource was SERVED, the one thing the chain
+   * can't attest. A verifier ({@link PipRailClient.verifyAttestation}) re-recovers
+   * and checks `recover === payTo`. The signed domain is hardcoded `chainId:1` for
+   * EVERY network (uniform signing), so this is chain-independent and EVM-only by
+   * the optional `?` gate — non-EVM families omit it (no all-families mirror),
+   * exactly like {@link discoverySigner}/{@link payExact}. The gate calls it after
+   * settle when `receipts.attest` is set + the rail is EVM; the result rides in
+   * `extensions['offer-receipt'].info.attestation`. NEVER part of the payment path.
+   */
+  signReceipt?(wallet: WalletHandle, input: ReceiptInput): Promise<SignedReceipt>
 
   /* -------- server side -------- */
   /** Verify `ref` satisfies `accept`, RPC-only, in-process. */

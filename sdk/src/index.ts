@@ -163,6 +163,7 @@ export type {
   AlgorandToken,
   RecipientReason,
   WalletBalance,
+  ReceiptInput,
 } from './drivers/types.js'
 
 /* ----------------------------- errors ----------------------------- */

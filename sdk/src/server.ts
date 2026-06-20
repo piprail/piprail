@@ -370,6 +370,24 @@ export interface ReceiptOption {
    * Default `''` (the buyer's client fills it).
    */
   resource?: string
+  /**
+   * **Tier-2 — service-delivery attestation (OPTIONAL, EVM-only).** When set, the gate
+   * ALSO signs the official x402 `offer-receipt` EIP-712 receipt with the merchant's own
+   * wallet, attesting the one thing the chain can't: that the resource was actually
+   * **served**. A verifier checks `recover(sig) === payTo` — zero new infra, the
+   * merchant's existing `payTo` key. The {@link SignedReceipt} rides in the
+   * `extensions['offer-receipt'].info.attestation` sibling; verify with
+   * {@link PipRailClient.verifyAttestation}.
+   *
+   * - `{ wallet }` → the merchant's existing payTo key (EIP-712). EVM-only: on a non-EVM
+   *   rail it **degrades to Tier-1 + a one-time warning**, never throws.
+   * - `{ jws }`    → a managed JWS signer (did:web/key) — **R3, not yet implemented**
+   *   (the type slot is reserved). Supplying it today degrades to Tier-1 + a warning.
+   *
+   * Signing failures degrade to the unsigned Tier-1 receipt (isolated exactly like
+   * `onPaid`) — they never fail the 200.
+   */
+  attest?: { wallet: unknown } | { jws: unknown }
 }
 
 export type VerifyPaymentResult =
@@ -540,6 +558,18 @@ function normaliseExactOption(
  *  definitive rejection. Used to flag {@link FailedPayment.transient}. */
 const TRANSIENT_VERIFY_CODES = new Set<VerifyErrorCode>(['tx_not_found', 'insufficient_confirmations'])
 
+/** Derive the official receipt `issuedAt` (unix SECONDS) for a Tier-2 attestation from the
+ *  receipt's `verifiedAt` timestamp. Falls back to "now" when `verifiedAt` is unparseable
+ *  (e.g. a driver stub's `'now'` literal) — never NaN, so the EIP-712 `BigInt(issuedAt)` is
+ *  always well-defined (spec §5.2 requires an integer unix-seconds `issuedAt`). */
+function nowUnixSeconds(verifiedAt?: string): number {
+  if (verifiedAt) {
+    const t = Date.parse(verifiedAt)
+    if (!Number.isNaN(t)) return Math.floor(t / 1000)
+  }
+  return Math.floor(Date.now() / 1000)
+}
+
 export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
   const minConfirmations = options.minConfirmations ?? 1
   const maxTimeoutSeconds = options.maxTimeoutSeconds ?? 600
@@ -554,6 +584,25 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     typeof options.receipts === 'object' ? options.receipts : {}
   const receiptIncludeTxHash = receiptOpt.includeTxHash !== false // default true
   const receiptResourceUrl = receiptOpt.resource ?? ''
+  // Tier-2 attestation (opt-in). A `{ wallet }` enables EVM EIP-712 signing; a `{ jws }`
+  // is reserved for R3 (unimplemented) and degrades to Tier-1. Resolved once; the JWS
+  // path is recognised here only to warn-and-degrade, never to sign.
+  const attestWallet =
+    receiptOpt.attest && 'wallet' in receiptOpt.attest ? receiptOpt.attest.wallet : undefined
+  const attestJws = receiptOpt.attest && 'jws' in receiptOpt.attest
+  // A one-time warning when `attest` is set but the rail can't sign (non-EVM, or the
+  // deferred JWS path) — fires at most once per gate, never throws, never logs a secret.
+  let attestWarned = false
+  function warnAttestDegrade(reason: string): void {
+    if (attestWarned) return
+    attestWarned = true
+    try {
+      // eslint-disable-next-line no-console
+      console.warn(`[piprail] receipts.attest ${reason}; emitting an unsigned Tier-1 receipt instead.`)
+    } catch {
+      /* a console shim that throws must never break the request */
+    }
+  }
 
   // Lazy, memoized resolution. Auto-mounts each option's driver, validates its
   // payTo, and resolves its token (asset + decimals) exactly once. One element
@@ -1137,15 +1186,18 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
    * verifiable-receipt extension onto the `PAYMENT-RESPONSE` header. The `nonce` is the
    * **trusted challenge nonce** the gate bound the rail against (`sig.payload.nonce` for
    * onchain-proof; **omitted** for `exact`, which is digest-bound and carries no challenge
-   * nonce — never the per-rail authorization nonce, close-out "Nonce semantics"). It is
-   * ISOLATED exactly like `onPaid`: any throw in the receipt builder degrades to the plain
-   * receipt header (the byte-identical default), never failing the 200.
+   * nonce — never the per-rail authorization nonce, close-out "Nonce semantics"). When
+   * `receipts.attest` is set AND the rail is EVM, it ALSO signs a Tier-2 EIP-712 delivery
+   * attestation (`net.signReceipt`) and bundles it under `info.attestation`; a non-EVM rail
+   * (or the deferred JWS path) degrades to Tier-1 with a one-time warning. It is ISOLATED
+   * exactly like `onPaid`: any throw in the receipt builder OR the signer degrades to the
+   * plain/unsigned receipt header, never failing the 200.
    */
-  function buildPaidResult(
+  async function buildPaidResult(
     spec: ResolvedSpec,
     receipt: X402Receipt,
     nonce?: string
-  ): VerifyPaymentResult {
+  ): Promise<VerifyPaymentResult> {
     if (!receiptsOn) {
       return { kind: 'paid', receipt, receiptHeader: buildReceiptHeader(receipt) }
     }
@@ -1156,14 +1208,57 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
         // §5.3: a suppressed tx is the empty string on the wire, never a missing key.
         ...(receiptIncludeTxHash ? {} : { transaction: '' }),
       }
+      // Tier-2 (opt-in): sign the official EIP-712 delivery attestation when an EVM
+      // wallet is supplied. The signer is ISOLATED — a failure degrades to the unsigned
+      // Tier-1 receipt (never fails the 200), mirroring `onPaid`'s isolation.
+      const attestation = await maybeSignAttestation(spec, stamped)
       const extensions = buildReceiptExtension({
         receipt: stamped,
         resource: { url: receiptResourceUrl },
         decimals: spec.decimals,
+        ...(attestation ? { attestation } : {}),
       })
       return { kind: 'paid', receipt: stamped, receiptHeader: buildReceiptHeader(stamped, extensions) }
     } catch {
       return { kind: 'paid', receipt, receiptHeader: buildReceiptHeader(receipt) }
+    }
+  }
+
+  /**
+   * Sign the Tier-2 service-delivery attestation, or degrade gracefully. Returns the
+   * {@link SignedReceipt} only when `receipts.attest = { wallet }` is set AND the resolved
+   * rail's family exposes the optional EVM-only `signReceipt` SPI. A non-EVM rail or the
+   * deferred `{ jws }` path warns ONCE and returns `undefined` (Tier-1). NEVER throws —
+   * the §5.3 empty-string `transaction` rule is honored (a suppressed tx signs `''`).
+   */
+  async function maybeSignAttestation(
+    spec: ResolvedSpec,
+    stamped: X402Receipt
+  ): Promise<import('./x402.js').SignedReceipt | undefined> {
+    if (attestJws) {
+      warnAttestDegrade('JWS attestation is not yet implemented (R3)')
+      return undefined
+    }
+    if (attestWallet === undefined) return undefined
+    if (typeof spec.net.signReceipt !== 'function') {
+      warnAttestDegrade(`is EVM-only; the ${spec.net.family} rail can't sign an EIP-712 attestation`)
+      return undefined
+    }
+    try {
+      const wallet = spec.net.bindWallet(attestWallet)
+      return await spec.net.signReceipt(wallet, {
+        payTo: spec.payTo,
+        network: spec.net.network,
+        resourceUrl: receiptResourceUrl,
+        payer: stamped.payer,
+        issuedAt: nowUnixSeconds(stamped.verifiedAt),
+        // §5.3: the signed message carries the empty string for a suppressed tx, never omitted.
+        transaction: receiptIncludeTxHash ? stamped.transaction : '',
+      })
+    } catch {
+      // A bad wallet / signer fault degrades to the unsigned Tier-1 receipt (isolated like onPaid).
+      warnAttestDegrade('signing failed')
+      return undefined
     }
   }
 
@@ -1271,7 +1366,7 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     await deliverOnPaid(spec, result.receipt)
     // onchain-proof is memo/digest-bound by the CHALLENGE nonce the buyer echoed — stamp it
     // so Template-A families re-verify off-chain (the trusted value, never a client-forgeable field).
-    return buildPaidResult(spec, result.receipt, sig.payload.nonce)
+    return await buildPaidResult(spec, result.receipt, sig.payload.nonce)
   }
 
   /**
@@ -1445,7 +1540,7 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     // `exact` is digest-bound (verified by tx/digest, not a memo nonce) and carries NO challenge
     // nonce — pass none. The in-scope `nonce` here is the per-rail AUTHORIZATION/dedupe key, which
     // must NOT be stamped as the receipt's challenge nonce (close-out "Nonce semantics").
-    return buildPaidResult(spec, result.receipt)
+    return await buildPaidResult(spec, result.receipt)
   }
 
   /**
@@ -1575,7 +1670,7 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     await deliverOnPaid(spec, result.receipt)
     // `upto` is digest-bound (verified by the Permit2 signature, not a memo nonce) and carries NO
     // challenge nonce — pass none (the in-scope `nonce` is the per-rail Permit2 dedupe key).
-    return buildPaidResult(spec, result.receipt)
+    return await buildPaidResult(spec, result.receipt)
   }
 
   /**

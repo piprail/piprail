@@ -1,23 +1,38 @@
 /**
- * Receipts R1 — gate emission. Proves the `receipts` opt-in stamps a verifiable
+ * Receipts R1 + R2 — gate emission. R1: the `receipts` opt-in stamps a verifiable
  * `extensions['offer-receipt'].info` block + the CHALLENGE nonce onto the 200's
- * PAYMENT-RESPONSE header, that the default (no option) 200 is byte-identical to today,
- * that the exact 200 carries NO nonce (it is digest-bound; never the per-rail auth nonce —
- * close-out "Nonce semantics"), that `includeTxHash:false` writes `transaction:''` (§5.3),
- * and that a throwing receipt builder degrades to the plain receipt header (never a 500),
- * isolated exactly like `onPaid`. Companion to `server-exact.test.ts` / `server-onpaid.test.ts`.
+ * PAYMENT-RESPONSE header, the default (no option) 200 is byte-identical, the exact 200
+ * carries NO nonce (digest-bound; never the per-rail auth nonce — close-out "Nonce
+ * semantics"), `includeTxHash:false` writes `transaction:''` (§5.3), and a throwing
+ * receipt builder degrades to the plain header (never a 500), isolated like `onPaid`.
+ * R2: `receipts:{ attest:{ wallet } }` on an EVM gate signs a Tier-2 EIP-712 attestation
+ * into `info.attestation` (default tx present; false → signed+wire transaction ''); a
+ * NON-EVM gate degrades to Tier-1 + a one-time warning (no throw, no attestation).
+ * Companion to `server-exact.test.ts` / `server-onpaid.test.ts`.
  */
 import { describe, it, expect, vi } from 'vitest'
+import { privateKeyToAccount } from 'viem/accounts'
+import { createWalletClient, http } from 'viem'
+import { base } from 'viem/chains'
 import { createPaymentGate } from '../src/server.js'
+import { PipRailClient } from '../src/client.js'
 import * as x402 from '../src/x402.js'
 import { buildSignatureHeader, EXT_OFFER_RECEIPT } from '../src/x402.js'
 import { proofAccepts } from './_dual-rail.js'
 import { registerDriver } from '../src/drivers/index.js'
-import type { PaymentDriver } from '../src/drivers/types.js'
+import type { PaymentDriver, WalletHandle } from '../src/drivers/types.js'
 import { resolveExactRailEvm } from '../src/drivers/evm/exact.js'
+import { signReceiptEvm } from '../src/drivers/evm/receipt.js'
 
-const PAY_TO = '0x2222222222222222222222222222222222222222'
+// A fixed merchant key → the gate's payTo IS its address, so a Tier-2 attestation signed
+// with it recovers === payTo (the spec §4.5.1 payTo-signing path).
+const MERCHANT_KEY = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as const
+const merchantAccount = privateKeyToAccount(MERCHANT_KEY)
+const PAY_TO = merchantAccount.address
 const USDC = '0xusdc'
+
+// Test knob: force the fake EVM driver's signReceipt to throw (signer-fault isolation test).
+let signerShouldThrow = false
 
 // A fake EVM driver: onchain-proof verify echoes the trusted accept; exact self-settle
 // returns an `exact` receipt. No RPC. The exact receipt's tx is DISTINCT from the auth nonce.
@@ -37,7 +52,16 @@ const fakeEvm: PaymentDriver = {
           : { asset: USDC, decimals: 6, symbol: 'USDC' },
       describeAsset: () => ({ symbol: 'USDC', decimals: 6 }),
       assertValidPayTo: () => undefined,
-      bindWallet: (w) => ({ _native: w }),
+      // A real viem adapter for a { key } wallet (so Tier-2 attestation signs for real);
+      // any other shape passes through opaquely (the existing payment-path tests don't sign).
+      bindWallet: (w) => {
+        if (typeof w === 'object' && w !== null && 'key' in w) {
+          const acct = privateKeyToAccount((w as { key: `0x${string}` }).key)
+          const walletClient = createWalletClient({ account: acct, chain: base, transport: http('http://localhost:0') })
+          return { _native: { account: acct, walletClient } }
+        }
+        return { _native: w }
+      },
       send: async () => `0x${'1'.repeat(64)}`,
       confirm: async () => ({ height: '1' }),
       estimateCost: async () => ({ feeSymbol: 'ETH', feeDecimals: 18, fee: '0', feeFormatted: '0', basis: 'heuristic' as const }),
@@ -69,10 +93,48 @@ const fakeEvm: PaymentDriver = {
           payTo: accept.payTo, verifiedAt: 'now',
         },
       }),
+      // Tier-2 attestation — real EIP-712 signing via the production EVM driver. A test knob
+      // forces a signer fault to prove the gate isolates it (degrades to Tier-1, never a 500).
+      signReceipt: (w: WalletHandle, input) => {
+        if (signerShouldThrow) throw new Error('signer boom')
+        return signReceiptEvm(w, input)
+      },
     }
   },
 }
 registerDriver(fakeEvm)
+
+// A NON-EVM fake (Solana) with NO signReceipt — so `attest` must degrade to Tier-1 + a warning.
+const SOL_NET = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp'
+const fakeSolana: PaymentDriver = {
+  family: 'solana',
+  resolve(opts) {
+    if (opts.chain !== 'solana') return null
+    return {
+      family: 'solana',
+      network: SOL_NET as never,
+      supports: (n) => n === SOL_NET,
+      resolveToken: () => ({ asset: 'SoLusDcMint', decimals: 6, symbol: 'USDC' }),
+      describeAsset: () => ({ symbol: 'USDC', decimals: 6 }),
+      assertValidPayTo: () => undefined,
+      bindWallet: (w) => ({ _native: w }),
+      send: async () => 'sig',
+      confirm: async () => ({ height: '1' }),
+      estimateCost: async () => ({ feeSymbol: 'SOL', feeDecimals: 9, fee: '0', feeFormatted: '0', basis: 'heuristic' as const }),
+      balanceOf: async () => ({ token: 0n, native: 0n }),
+      recipientReady: async () => ({ ready: 'n/a' as const }),
+      verify: async (ref, accept) => ({
+        ok: true,
+        receipt: {
+          scheme: 'onchain-proof', success: true, network: accept.network, transaction: ref,
+          asset: accept.asset, amount: accept.amount, payer: 'SoLpayer', payTo: accept.payTo, verifiedAt: 'now',
+        },
+      }),
+      // NO signReceipt — the optional `?` is the EVM-only gate; `attest` degrades here.
+    }
+  },
+}
+registerDriver(fakeSolana)
 
 const b64 = (o: unknown) => Buffer.from(JSON.stringify(o), 'utf8').toString('base64')
 const decode = (s: string) => JSON.parse(Buffer.from(s, 'base64').toString('utf8'))
@@ -190,6 +252,108 @@ describe('receipts · a throwing receipt builder degrades to the plain header (n
       expect('extensions' in wire).toBe(false)
     } finally {
       spy.mockRestore()
+    }
+  })
+})
+
+/* ─────────────────────── R2 — Tier-2 EIP-712 attestation ─────────────────────── */
+
+const ATTEST = { wallet: { key: MERCHANT_KEY } }
+
+/** The signed-receipt block on a settled onchain-proof 200 (or null). */
+function attestationOn(receiptHeader: string) {
+  const wire = decode(receiptHeader)
+  return wire.extensions?.[EXT_OFFER_RECEIPT]?.info?.attestation ?? null
+}
+
+describe('receipts · R2 · EVM attest signs an EIP-712 delivery attestation (recover === payTo)', () => {
+  it('the 200 carries info.attestation; includeTxHash defaults TRUE (tx present + signed)', async () => {
+    const gate = gateWith({ receipts: { attest: ATTEST, resource: 'https://api.example.com/r' } })
+    const { result } = await payProof(gate, `0x${'d'.repeat(64)}`)
+    expect(result.kind).toBe('paid')
+    if (result.kind !== 'paid') return
+
+    const att = attestationOn(result.receiptHeader)
+    expect(att).not.toBeNull()
+    expect(att.format).toBe('eip712')
+    expect(typeof att.signature).toBe('string')
+    expect(att.signer.toLowerCase()).toBe(PAY_TO.toLowerCase())
+    // Default includeTxHash:true → the SIGNED payload carries the real tx hash.
+    expect(att.payload.transaction).toBe(`0x${'d'.repeat(64)}`)
+    expect(att.payload.payer).toBe('0xpayer')
+    expect(att.payload.resourceUrl).toBe('https://api.example.com/r')
+
+    // The whole bundle re-verifies via the client (recover === payTo).
+    const bundle = x402.parseReceiptExtension(
+      new Response(null, { headers: { 'payment-response': result.receiptHeader } })
+    )
+    expect(bundle).not.toBeNull()
+    const v = await PipRailClient.verifyAttestation(bundle!)
+    expect(v.ok).toBe(true)
+    expect(v.signer?.toLowerCase()).toBe(PAY_TO.toLowerCase())
+  })
+
+  it('includeTxHash:false → the SIGNED payload AND the wire receipt carry transaction:""', async () => {
+    const gate = gateWith({ receipts: { attest: ATTEST, includeTxHash: false } })
+    const { result } = await payProof(gate)
+    if (result.kind !== 'paid') return
+    const wire = decode(result.receiptHeader)
+    // Wire receipt: suppressed tx is the empty string (§5.3), never a missing key.
+    expect(wire.transaction).toBe('')
+    expect(wire.extensions[EXT_OFFER_RECEIPT].info.receipt.transaction).toBe('')
+    // Signed attestation payload: transaction is '' too (signed empty-string, never omitted).
+    const att = wire.extensions[EXT_OFFER_RECEIPT].info.attestation
+    expect(att.payload.transaction).toBe('')
+    expect('transaction' in att.payload).toBe(true)
+    // Still recovers payTo from the ''-message.
+    const v = await PipRailClient.verifyAttestation(
+      x402.parseReceiptExtension(new Response(null, { headers: { 'payment-response': result.receiptHeader } }))!
+    )
+    expect(v.ok).toBe(true)
+  })
+})
+
+describe('receipts · R2 · a non-EVM gate with attest degrades to Tier-1 + a one-time warning', () => {
+  it('emits NO attestation, still serves 200, warns once, never throws', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    try {
+      const gate = createPaymentGate({
+        chain: 'solana', token: 'USDC', amount: '0.05', payTo: 'SoLmerchant',
+        receipts: { attest: ATTEST },
+      })
+      const { result } = await payProof(gate)
+      expect(result.kind).toBe('paid')
+      if (result.kind !== 'paid') return
+      // Tier-1 still emitted (the offer-receipt block is present)…
+      const wire = decode(result.receiptHeader)
+      expect(wire.extensions[EXT_OFFER_RECEIPT].info.receipt).toBeTruthy()
+      // …but NO Tier-2 attestation on a non-EVM rail.
+      expect(wire.extensions[EXT_OFFER_RECEIPT].info.attestation).toBeUndefined()
+      // Warned (once) about the degrade — and no throw reached here.
+      expect(warn).toHaveBeenCalled()
+    } finally {
+      warn.mockRestore()
+    }
+  })
+})
+
+describe('receipts · R2 · a signing failure degrades to the unsigned Tier-1 receipt (never a 500)', () => {
+  it('a throwing signReceipt falls back to Tier-1 + warns, still 200', async () => {
+    // Force the signer to throw — the gate must isolate it like onPaid (degrade, never 500).
+    signerShouldThrow = true
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    try {
+      const gate = gateWith({ receipts: { attest: ATTEST } })
+      const { result } = await payProof(gate)
+      expect(result.kind).toBe('paid')
+      if (result.kind !== 'paid') return
+      const wire = decode(result.receiptHeader)
+      // Tier-1 block present, but no attestation (signing degraded), no crash.
+      expect(wire.extensions[EXT_OFFER_RECEIPT].info.receipt).toBeTruthy()
+      expect(wire.extensions[EXT_OFFER_RECEIPT].info.attestation).toBeUndefined()
+    } finally {
+      signerShouldThrow = false
+      warn.mockRestore()
     }
   })
 })

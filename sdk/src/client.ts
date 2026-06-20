@@ -952,6 +952,64 @@ export class PipRailClient {
     }
   }
 
+  /**
+   * Verify the OPTIONAL Tier-2 service-delivery attestation on a {@link PipRailReceipt}
+   * — the merchant's signed proof that the resource was actually SERVED (the one thing
+   * the chain can't attest). For an EVM EIP-712 attestation this re-recovers the signer
+   * from the signature over the official `offer-receipt` typed data and checks
+   * `recover === receipt.payTo` (spec §4.5.1 / §5.5) — the classic EIP-712 footgun made
+   * safe (`recoverTypedDataAddress` returns a WRONG address rather than throwing on a bad
+   * signature, so the equality check is the real verification). A tampered signature →
+   * `{ ok:false }`, never a throw.
+   *
+   * Static + wallet-free. **Never throws** (a malformed/absent attestation, an unsupported
+   * format, or a recovery fault → `{ ok:false, reason }`). Viem-free HERE — the recover runs
+   * inside the lazily-imported EVM receipt driver (a lazy chunk), so the protocol layer pulls
+   * no chain libs. The JWS format defers to R3 (`{ ok:false, reason:'jws-not-loaded' }`).
+   */
+  static async verifyAttestation(
+    receipt: PipRailReceipt
+  ): Promise<{ ok: boolean; signer?: string; reason?: string }> {
+    const att = receipt?.attestation
+    if (!att || typeof att !== 'object' || typeof att.signature !== 'string') {
+      return { ok: false, reason: 'no-attestation' }
+    }
+    // R3: a JWS attestation needs `jose`/DID resolution behind the lazy `receipts-jws`
+    // subpath — not loaded in the base bundle. Defer rather than throw.
+    if ((att as { format?: unknown }).format === 'jws') {
+      return { ok: false, reason: 'jws-not-loaded' }
+    }
+    const r = receipt.receipt as X402Receipt | undefined
+    if (!r || typeof r !== 'object') return { ok: false, reason: 'no-receipt' }
+    // Per §5.5: verify over the payload EXACTLY as transmitted. Prefer the attestation's
+    // own signed `payload`; fall back to the receipt's fields for a payload-less attestation.
+    const payload = (att as { payload?: Record<string, unknown> }).payload ?? {}
+    const network = typeof payload.network === 'string' ? payload.network : r.network
+    const resourceUrl =
+      typeof payload.resourceUrl === 'string' ? payload.resourceUrl : receipt.resource?.url ?? ''
+    const payer = typeof payload.payer === 'string' ? payload.payer : r.payer
+    const issuedAt =
+      typeof payload.issuedAt === 'number' ? payload.issuedAt : receiptIssuedAtSeconds(r.verifiedAt)
+    const transaction =
+      typeof payload.transaction === 'string' ? payload.transaction : r.transaction ?? ''
+    try {
+      // Lazy chunk: viem-based recovery lives ONLY in the EVM receipt driver. A dynamic
+      // import keeps the protocol layer viem-free + the lazy-chunk grep green.
+      const { verifyReceiptAttestationEvm } = await import('./drivers/evm/receipt.js')
+      return await verifyReceiptAttestationEvm({
+        payTo: r.payTo,
+        network,
+        resourceUrl,
+        payer,
+        issuedAt,
+        transaction,
+        signature: att.signature,
+      })
+    } catch {
+      return { ok: false, reason: 'verify-failed' }
+    }
+  }
+
   /** Auto-mount the chain's driver, resolve the network, and bind the wallet — once. */
   private ensure(): Promise<{ net: ResolvedNetwork; wallet: WalletHandle | undefined }> {
     return (this.bound ??= (async () => {
@@ -2932,6 +2990,15 @@ function receiptAgeSeconds(verifiedAt: string): number {
   const t = Date.parse(verifiedAt)
   if (Number.isNaN(t)) return 0
   return Math.max(0, Math.round((Date.now() - t) / 1000))
+}
+
+/** The receipt's `issuedAt` in unix SECONDS — derived from `verifiedAt` for a Tier-2
+ *  attestation that carries no signed `payload.issuedAt` (fallback). 0 on unparseable input;
+ *  the EVM verifier treats it as a literal field, so a mismatch just fails recovery cleanly. */
+function receiptIssuedAtSeconds(verifiedAt: string): number {
+  const t = Date.parse(verifiedAt)
+  if (Number.isNaN(t)) return 0
+  return Math.floor(t / 1000)
 }
 
 /** Compare two on-chain addresses tolerantly (EVM checksum-insensitive; non-EVM addresses
