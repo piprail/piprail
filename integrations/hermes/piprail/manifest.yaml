@@ -34,7 +34,7 @@ auth:
       required: false
       secret: true
 
-# All seven tools on by default — a true one-step install. Safety is the spend POLICY
+# All eight tools on by default — a true one-step install. Safety is the spend POLICY
 # (PIPRAIL_MAX_AMOUNT / PIPRAIL_MAX_TOTAL default to small caps the model cannot exceed),
 # not tool-hiding. To make it read/plan-only, drop piprail_pay_request from this list.
 tools:
@@ -46,6 +46,7 @@ tools:
     - piprail_register
     - piprail_budget
     - piprail_guide
+    - piprail_verify_receipt
 
 post_install: |
   PipRail pays x402 URLs from a self-custodial wallet you control — funds go straight to the

@@ -10,7 +10,7 @@ gets all **7 PipRail tools**, capped by a spend policy it cannot exceed. This fo
 > **No bespoke plugin code.** Hermes is Python; `@piprail/sdk` is TypeScript with no Python bindings,
 > so there is **no in-process path** — and none is needed. The integration *is* the `@piprail/mcp`
 > server plus one config entry. Tested against both the local build and the published
-> `npx -y @piprail/mcp`: MCP handshake + all 7 tools (see [`verify.mjs`](./verify.mjs)).
+> `npx -y @piprail/mcp`: MCP handshake + all 8 tools (see [`verify.mjs`](./verify.mjs)).
 
 ## Why PipRail
 
@@ -36,7 +36,7 @@ mcp_servers:
       PIPRAIL_MAX_TOTAL: "5.00"
 ```
 
-Then run **`/reload-mcp`** in a session (or start a new one) and the seven tools appear as
+Then run **`/reload-mcp`** in a session (or start a new one) and the eight tools appear as
 `mcp_piprail_*`. Equivalents: `hermes mcp add piprail --command npx --args -y @piprail/mcp`, or — once
 the [catalog PR](#publishing-maintainers) merges — **`hermes mcp install piprail`**.
 
@@ -67,10 +67,10 @@ The full env reference:
 > **Non-EVM chains** need their SDK peer library available alongside the server — see
 > [docs.piprail.com/mcp/chains](https://docs.piprail.com/mcp/chains/). EVM chains need no extra peers.
 
-## The 7 tools
+## The 8 tools
 
 `piprail_discover` · `piprail_quote_payment` · `piprail_plan_payment` · **`piprail_pay_request`** ·
-`piprail_register` · `piprail_budget` · `piprail_guide`. Only `piprail_pay_request` moves money; the
+`piprail_register` · `piprail_budget` · `piprail_guide` · `piprail_verify_receipt`. Only `piprail_pay_request` moves money; the
 rest are read-only. In Hermes they surface to the model namespaced as `mcp_piprail_*`. Full reference:
 [docs.piprail.com/mcp/tools](https://docs.piprail.com/mcp/tools/).
 
@@ -79,7 +79,7 @@ rest are read-only. In Hermes they surface to the model namespaced as `mcp_pipra
 **One-command test** (zero dependencies — spawns the server the way Hermes does and drives the tools):
 
 ```bash
-node verify.mjs                # offline: handshake + all 7 tools + read-only calls
+node verify.mjs                # offline: handshake + all 8 tools + read-only calls
 node verify.mjs --live         # + quote the LIVE demo + prove the budget cap refuses overspend
 PIPRAIL_MCP_BIN=../../../mcp/dist/bin.js node verify.mjs --live   # test a local build
 ```

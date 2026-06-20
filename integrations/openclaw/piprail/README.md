@@ -9,7 +9,7 @@ discoverable listing for it.
 
 > **No bespoke plugin code.** The integration *is* the `@piprail/mcp` server plus an MCP config entry —
 > nothing to build or maintain beyond the SDK/MCP we already ship. Tested against both the local build
-> and the published `npx -y @piprail/mcp`: MCP handshake + all 7 tools.
+> and the published `npx -y @piprail/mcp`: MCP handshake + all 8 tools.
 
 ## Why PipRail
 
@@ -58,10 +58,10 @@ Copy [`.env.example`](./.env.example) and fill in a **funded** wallet key. The f
 > **Non-EVM chains** need their SDK peer library available alongside the server — see
 > [docs.piprail.com/mcp/chains](https://docs.piprail.com/mcp/chains/). EVM chains need no extra peers.
 
-## The 7 tools
+## The 8 tools
 
 `piprail_discover` · `piprail_quote_payment` · `piprail_plan_payment` · **`piprail_pay_request`** ·
-`piprail_register` · `piprail_budget` · `piprail_guide`. Only `piprail_pay_request` moves money; the
+`piprail_register` · `piprail_budget` · `piprail_guide` · `piprail_verify_receipt`. Only `piprail_pay_request` moves money; the
 rest are read-only. Full reference: [docs.piprail.com/mcp/tools](https://docs.piprail.com/mcp/tools/).
 
 ## Verify it works
@@ -69,7 +69,7 @@ rest are read-only. Full reference: [docs.piprail.com/mcp/tools](https://docs.pi
 **One-command test** (zero dependencies — spawns the server the way OpenClaw does and drives the tools):
 
 ```bash
-node verify.mjs                # offline: handshake + all 7 tools + read-only calls
+node verify.mjs                # offline: handshake + all 8 tools + read-only calls
 node verify.mjs --live         # + quote the LIVE demo + prove the budget cap refuses overspend
 PIPRAIL_MCP_BIN=../../../mcp/dist/bin.js node verify.mjs --live   # test a local build
 ```
