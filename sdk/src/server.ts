@@ -1575,8 +1575,10 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
         const pct = s.slice(0, -1).trim()
         if (!/^\d+(\.\d+)?$/.test(pct)) return null
         // floor( max * pct / 100 ) — integer math via base-unit scaling to avoid float drift.
-        // Scale the percentage to 4 dp of precision, then divide back out.
-        const pctScaled = parseUnits(pct, 4) // e.g. "50" → 500000 (50.0000)
+        // Scale the percentage to 4 dp, FLOORING excess precision (e.g. "33.333333%" → 33.3333%) —
+        // `floorUnits` truncates rather than throwing, matching the "$X"/decimal branches below and
+        // the documented "FLOORED" semantics (parseUnits would throw on >4dp → a misleading reject).
+        const pctScaled = floorUnits(pct, 4) // e.g. "50" → 500000 (50.0000)
         return (maxAmount * pctScaled) / (100n * 10n ** 4n)
       }
       if (s.startsWith('$')) {

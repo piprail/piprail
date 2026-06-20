@@ -179,6 +179,16 @@ describe('upto rail — the callback-meter lifecycle (the supported direct gate.
       const res = await gate.verify(uptoHeader(upto))
       if (res.kind === 'paid') expect(res.receipt.amount).toBe('1858')
     }
+    // a HIGH-PRECISION percent (>4dp) FLOORS to 4dp like "$X"/decimal — it must NOT misreport
+    // as upto_settle_exceeds_max. "33.333333%" → floor 33.3333% of 500000 = 166666 (not a reject).
+    {
+      const gate = meterGate(() => '33.333333%')
+      const { challenge } = await gate.challenge()
+      const upto = challenge.accepts.find((a) => a.scheme === 'upto')!
+      const res = await gate.verify(uptoHeader(upto))
+      expect(res.kind).toBe('paid')
+      if (res.kind === 'paid') expect(res.receipt.amount).toBe('166666')
+    }
   })
 
   it('CLAMP — a callback returning > max is rejected (upto_settle_exceeds_max), never over-settled', async () => {
