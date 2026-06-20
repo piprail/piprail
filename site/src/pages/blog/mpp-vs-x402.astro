@@ -64,7 +64,7 @@ const faqs = [
   },
   {
     q: 'What is Tempo?',
-    a: 'Tempo is an EVM-compatible Layer-1 blockchain incubated by Stripe and Paradigm, with sub-second finality and gas paid in stablecoins. It went live on mainnet on March 18, 2026. It runs a permissioned validator set — Stripe, Visa, Zodia Custody and MoneyGram among the confirmed validators — and includes a protocol-level policy registry that supports issuer allow/block lists, emergency freezing, and Travel Rule compliance.',
+    a: 'Tempo is an EVM-compatible Layer-1 blockchain incubated by Stripe and Paradigm, with sub-second finality and gas paid in stablecoins. It went live on mainnet on March 18, 2026. It runs a permissioned validator set — Stripe, Visa, Zodia Custody and MoneyGram among the confirmed validators — and includes a protocol-level policy registry that supports issuer allow/block lists and emergency freezing.',
   },
   {
     q: 'Is x402 free? What does it cost to use?',
@@ -229,7 +229,7 @@ const rows: { k: string; mpp: string; x402: string }[] = [
 
         <h2>The custodial rail: MPP, Stripe and Tempo</h2>
 
-        <p>MPP’s settlement layer is <a href="https://www.paradigm.xyz/2025/09/tempo-payments-first-blockchain">Tempo</a>, an EVM-compatible Layer-1 incubated by Stripe and Paradigm that went live on mainnet in March 2026. It is fast — sub-second finality — and its gas is paid in stablecoins, so a transfer can cost a fraction of a cent. On paper it looks like any other modern chain. The difference is who runs it. Tempo is <em>permissioned</em>: it launched with a closed validator set that includes Stripe, Visa, Zodia Custody and MoneyGram, and it ships with a protocol-level policy registry that can maintain allow- and block-lists, freeze funds in an emergency, and enforce Travel Rule compliance. That is a deliberate design choice, and for a regulated payments business it is a feature, not a bug.</p>
+        <p>MPP’s flagship settlement layer is <a href="https://www.paradigm.xyz/2025/09/tempo-payments-first-blockchain">Tempo</a>, an EVM-compatible Layer-1 incubated by Stripe and Paradigm that went live on mainnet in March 2026. It is fast — sub-second finality — and its gas is paid in stablecoins, so a transfer can cost a fraction of a cent. On paper it looks like any other modern chain. The difference is who runs it. Tempo is <em>permissioned</em>: it runs a closed validator set that includes Stripe, Visa, Zodia Custody and MoneyGram, and it ships with a protocol-level policy registry that can maintain allow- and block-lists and freeze funds in an emergency. That is a deliberate design choice, and for a regulated payments business it is a feature, not a bug.</p>
 
         <p>For the merchant, MPP rides on top of Stripe’s existing rails. You accept it the way you already accept Stripe payments — a few lines against the same APIs — and the funds arrive as a balance in your Stripe account. You can take cards or stablecoins; an agent can pay with a Shared Payment Token that never exposes the buyer’s real credentials. Then Stripe pays you out, on its schedule, to your bank — in your local currency, roughly two days later for the default US card payout — or, if you prefer, in USDC to a wallet. Through the whole journey, the money is held by Stripe (or by Bridge, the stablecoin custodian Stripe owns) until it lands with you.</p>
 
