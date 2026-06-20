@@ -282,7 +282,7 @@ function defaultTaskStore(): A2ATaskStore {
  * import { createPaymentGate, createA2APaymentHandler } from '@piprail/sdk'
  *
  * const gate = createPaymentGate({ chain: 'base', token: 'USDC', amount: '0.05', payTo: '0x…' })
- * const pay = createA2APaymentHandler({ gate, fulfill: async () => [{ kind: 'text', text: 'done' }] })
+ * const pay = createA2APaymentHandler({ gate, fulfill: async () => [{ name: 'result', parts: [{ kind: 'text', text: 'done' }] }] })
  * a2aAgent.on('message/send', ({ message, taskId }) => pay.handleMessage(message, taskId))
  * ```
  */
@@ -370,9 +370,10 @@ export function createA2APaymentHandler(options: A2APaymentHandlerOptions): A2AP
     }
   }
 
-  /** Build a `failed` Task for a SETTLEMENT-side error (the money never moved). */
-  function failedTask(taskId: string, code: string, detail: string): A2ATask {
-    const receipts = appendReceiptFailed(taskId, code, detail)
+  /** Build a `failed` Task for a SETTLEMENT-side error (the money never moved). `network` is the
+   *  CAIP-2 the buyer attempted (from the submitted payload) so the failure receipt carries it. */
+  function failedTask(taskId: string, code: string, detail: string, network?: string): A2ATask {
+    const receipts = appendReceiptFailed(taskId, code, detail, network)
     const metadata: A2AMetadata = {
       [A2A_STATUS_KEY]: 'payment-failed',
       [A2A_ERROR_KEY]: toA2AErrorCode(code),
@@ -425,13 +426,14 @@ export function createA2APaymentHandler(options: A2APaymentHandlerOptions): A2AP
       // A SettlementError (the relayer/facilitator never moved funds — the merchant's fault, not
       // the buyer's) → terminal `failed`. Re-submitting the same auth won't help until the merchant
       // fixes their relayer. The discriminator is "did the money move": here it did NOT.
+      const attempted = networkFromPayload(inbound.raw)
       if (err instanceof SettlementError) {
-        return failedTask(id, 'settlement_failed', err.message)
+        return failedTask(id, 'settlement_failed', err.message, attempted)
       }
       // Any other throw (an RPC blip on the verify read) is transient — surface as a `failed`
       // with the message, NOT a silent crash. The buyer's still-valid proof can be re-presented.
       const detail = err instanceof Error ? err.message : String(err)
-      return failedTask(id, 'tx_reverted', detail)
+      return failedTask(id, 'tx_reverted', detail, attempted)
     }
 
     switch (result.kind) {
@@ -493,6 +495,14 @@ export function createA2APaymentHandler(options: A2APaymentHandlerOptions): A2AP
 function singleNetworkOf(challenge: X402Challenge): string | undefined {
   const nets = new Set((challenge.accepts ?? []).map((a) => a.network).filter(Boolean))
   return nets.size === 1 ? [...nets][0] : undefined
+}
+
+/** Best-effort CAIP-2 network the buyer attempted, read from a submitted payment payload's
+ *  `accepted.network`, for a terminal-failure receipt's `network` field. Tolerates any shape
+ *  (the verify already failed) — returns `undefined` when absent/malformed. */
+function networkFromPayload(raw: unknown): string | undefined {
+  const accepted = (raw as { accepted?: { network?: unknown } } | null)?.accepted
+  return accepted && typeof accepted.network === 'string' ? accepted.network : undefined
 }
 
 /** A fresh A2A task id when the caller didn't supply one. */

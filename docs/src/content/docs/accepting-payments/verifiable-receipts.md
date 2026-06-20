@@ -57,7 +57,7 @@ checks `recover(signature) === payTo`, so key-to-service binding collapses to an
 ```ts
 createPaymentGate({
   chain: 'base', token: 'USDC', amount: '0.05', payTo: '0xMerchant…',
-  receipts: { attest: { wallet: { privateKey: process.env.PAYTO_KEY } } },
+  receipts: { attest: { wallet: { key: process.env.PAYTO_KEY } } },
 })
 ```
 

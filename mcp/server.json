@@ -94,7 +94,7 @@
         },
         {
           "name": "PIPRAIL_SCHEMES",
-          "description": "Comma-separated payment schemes to settle (default: onchain-proof). Add 'exact' (onchain-proof,exact) to also pay standard x402 servers GASLESS on EVM + Solana (method auto-selected).",
+          "description": "Comma-separated payment schemes to settle (default: onchain-proof). Add 'exact' (onchain-proof,exact) to also pay standard x402 servers GASLESS on EVM + Solana (method auto-selected). Add 'upto' to also pay metered x402 servers on EVM (Permit2): sign a MAX, the server settles the actual <= max.",
           "isRequired": false,
           "format": "string"
         }

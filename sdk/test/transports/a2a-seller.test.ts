@@ -107,7 +107,8 @@ describe('A2A seller — no payload → input-required + x402.payment.required',
 
 describe('A2A seller — valid payload → completed + receipts + payment-completed', () => {
   it('settles an onchain-proof payload → completed Task carrying an X402Receipt + an artifact', async () => {
-    const pay = createA2APaymentHandler({ gate: baseGate(), fulfill: async () => [{ kind: 'text', name: 'result', text: '42' } as never] })
+    // Canonical A2AArtifact shape: content lives under `parts` (not flat kind/text) — matches the docs.
+    const pay = createA2APaymentHandler({ gate: baseGate(), fulfill: async () => [{ name: 'result', parts: [{ kind: 'text', text: '42' }] }] })
     const challenge = await pay.handleMessage({ kind: 'message' }, 'task-2')
     const task = await pay.handleMessage(proofMessage('task-2', challenge), 'task-2')
     expect(task.status.state).toBe('completed')
@@ -118,6 +119,7 @@ describe('A2A seller — valid payload → completed + receipts + payment-comple
     expect((receipts[0] as X402Receipt).success).toBe(true)
     expect((receipts[0] as X402Receipt).transaction).toBe('0xgoodproof')
     expect(task.artifacts).toHaveLength(1)
+    expect(task.artifacts![0]!.parts![0]).toMatchObject({ kind: 'text', text: '42' }) // content in `parts`
   })
 
   it('a handler built WITHOUT fulfill still completes (metadata-only receipt, no artifacts)', async () => {
@@ -192,6 +194,8 @@ describe('A2A seller — settle-side SettlementError → failed + error + {succe
     // The x402 v2 SettlementResponse marks `transaction` Required ('' if settlement failed) — emit it.
     expect(failed.transaction).toBe('')
     expect('transaction' in failed).toBe(true)
+    // The terminal failure receipt also carries the network the buyer attempted (from the payload).
+    expect(failed.network).toBe('eip155:8453')
   })
 
   it('the per-task receipts[] history is BOUNDED (a pinned taskId + repeated throws cannot grow it unbounded)', async () => {

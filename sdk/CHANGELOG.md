@@ -52,6 +52,13 @@ Four ratified-x402 capabilities, all **additive and opt-in** — omit the new op
   the retryable `input-required`, not the terminal `payment-failed`) carrying a failure receipt with
   `network` + `transaction:''`. The agent guide + `paymentTools` JSDoc now document the upto rail and the
   8th tool.
+- **fix:** a third verification pass (regression-focused) caught two **doc copy-paste bugs** that would
+  brick a user's code — the `upto` seller + Tier-2 receipt examples used the pre-v2 `{ privateKey }`
+  wallet field (which throws `WrongFamilyError`) instead of the unified `{ key }`. Also: the A2A
+  terminal-`failed` receipt now carries the attempted `network`; the A2A `fulfill` doc/example returns a
+  structurally valid artifact (`{ name, parts }`); the MCP config docs + registry `server.json` now list
+  `upto`; and a **regression test** locks the merchant-proof cumulative leash (a sequence of
+  under-reporting `upto` payments is refused by `maxTotal`/`maxTotalPerDenom`/`windowTotal`).
 
 ## [2.9.0] — 2026-06-19 — Cross-token grand total · payment-count caps · durable budget · richer spend observability
 

@@ -20,7 +20,7 @@ const gate = createPaymentGate({ chain: 'base', token: 'USDC', amount: '0.05', p
 
 const pay = createA2APaymentHandler({
   gate, // ← pass the SAME gate your HTTP path uses (shared replay set — see below)
-  fulfill: async ({ receipt }) => [{ kind: 'text', text: `Paid ${receipt.amount} — here's your result.` }],
+  fulfill: async ({ receipt }) => [{ name: 'result', parts: [{ kind: 'text', text: `Paid ${receipt.amount} — here's your result.` }] }],
 })
 
 // Wire it into your A2A server's message/send handler:
@@ -53,7 +53,8 @@ The status values follow the A2A spec's lifecycle table exactly: the retryable `
 state is only ever paired with `payment-required` (a fresh challenge) or `payment-rejected` (a
 submitted proof that didn't verify); `payment-failed` is reserved for the terminal `failed` state.
 Every failure carries a conformant receipt in the append-only `x402.payment.receipts` array
-(`{ success: false, transaction: "", network, errorReason }`).
+(`{ success: false, transaction: "", errorReason }`, plus `network` when the gate resolves a
+single chain — best-effort, omitted only for a multi-chain gate).
 
 ## `gate.verifyObject(payload)` — the raw-JSON verify seam
 

@@ -38,7 +38,7 @@ const gate = createPaymentGate({
   chain: 'base', token: 'USDC', payTo: '0xMerchant…',
   amount: '0.50', // the MAXIMUM ceiling the buyer authorizes
   upto: {
-    relayer: { privateKey: process.env.RELAYER_KEY }, // your gas key = the bound facilitator
+    relayer: { key: process.env.RELAYER_KEY }, // your gas key = the bound facilitator
     settleAmount: ({ maxAmount }) => meterTokensUsed() * PRICE_PER_TOKEN, // the ACTUAL, after serving
   },
 })

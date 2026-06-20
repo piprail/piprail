@@ -231,6 +231,45 @@ describe('upto — the ledger budgets the MAX (merchant-proof), and surfaces the
   })
 })
 
+describe('upto — cumulative caps are MERCHANT-PROOF (POL-1 regression guard)', () => {
+  // The load-bearing invariant + the user's top concern: a merchant that UNDER-reports its settled
+  // amount must NOT be able to push true on-chain spend past a cumulative cap. With per-upto MAX
+  // 0.50 and a cap of 1.20, exactly floor(1.20/0.50)=2 payments fit — REGARDLESS of the merchant
+  // reporting amount '1' (≈0). If the budget counted the reported actual, ~unbounded payments would
+  // fit; counting the MAX stops at 2. Each case drives a 3rd fetch and asserts it is DECLINED.
+  const underReport = () => settle200({ amount: '1' }) // merchant claims ~0 settled, every time
+
+  it('maxTotal: 2 settle, the 3rd is declined; the ledger counts 2×MAX, not 2×reported', async () => {
+    stub([uptoAccept()], underReport)
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['upto'], policy: { maxTotal: '1.20', tokens: ['USDC'] } })
+    expect((await client.fetch(URL)).status).toBe(200) // payment 1 — cumulative MAX 0.50
+    expect((await client.fetch(URL)).status).toBe(200) // payment 2 — cumulative MAX 1.00
+    await expect(client.fetch(URL)).rejects.toBeInstanceOf(PaymentDeclinedError) // 3rd would be 1.50 > 1.20
+    const spend = client.spent()
+    expect(spend.count).toBe(2)
+    expect(spend.byAsset[0]!.totalBase).toBe('1000000') // 2×MAX (500000), NOT 2×reported (2)
+    expect(spend.records.every((r) => r.settledBase === '1')).toBe(true) // the actual is surfaced, not counted
+  })
+
+  it('maxTotalPerDenom (cross-token grand total): same floor(C/M)=2, 3rd declined', async () => {
+    stub([uptoAccept()], underReport)
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['upto'], policy: { maxTotalPerDenom: { USD: '1.20' } } })
+    expect((await client.fetch(URL)).status).toBe(200)
+    expect((await client.fetch(URL)).status).toBe(200)
+    await expect(client.fetch(URL)).rejects.toBeInstanceOf(PaymentDeclinedError)
+    expect(client.spent().count).toBe(2)
+  })
+
+  it('windowTotal (rolling): 2 settle, 3rd declined within the window', async () => {
+    stub([uptoAccept()], underReport)
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['upto'], policy: { windowTotal: '1.20', windowSeconds: 3600 } })
+    expect((await client.fetch(URL)).status).toBe(200)
+    expect((await client.fetch(URL)).status).toBe(200)
+    await expect(client.fetch(URL)).rejects.toBeInstanceOf(PaymentDeclinedError)
+    expect(client.spent().count).toBe(2)
+  })
+})
+
 describe('upto — dual-rail selection (onchain-proof preferred when both enabled)', () => {
   it('mixed [onchain-proof, upto] with both schemes on → pays ONCHAIN-PROOF (bucket order), not upto', async () => {
     stub([onchainAccept(), uptoAccept()], () => settle200())
