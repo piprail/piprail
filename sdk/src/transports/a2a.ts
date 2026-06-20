@@ -24,15 +24,21 @@
  *  • B7 — `receipts[]` is the UNION `(X402Receipt | SettleOutcome)[]` (it carries FAILED
  *    attempts); a fulfill-throws-AFTER-settle ends the Task `completed` with the successful
  *    receipt + an error annotation (NEVER re-challenge / failed — the money already moved).
- *  • Emit strict `x402Version: 2` (the inbound object-cores absorb v1). The emit version is
- *    the deferred B8 live-interop ship-gate — do NOT change it here.
+ *  • Emit `x402Version: 2` — RESOLVED 2026-06-21: v2 IS the live x402 standard. A live cross-check
+ *    against Google's official libs (reproducible harness in `examples/a2a-interop/`) showed the canonical
+ *    `x402` lib (2.13.1, V2: `amount` / CAIP-2 / nested `accepted`) parses our PaymentRequired +
+ *    PaymentPayload byte-identically, while the legacy v0.1 `x402_a2a` package (x402Version 1,
+ *    `maxAmountRequired`, chain slugs) is bitrotted. Inbound v1 object-cores are absorbed for the
+ *    standard `exact` scheme; PipRail-native `onchain-proof` is always v2 (never sent v1-flat).
+ *  • Merchant statuses are spec-bounded: `payment-required` (incl. a retryable re-challenge of a
+ *    rejected proof) / `payment-completed` / `payment-failed`. `payment-rejected` + `payment-submitted`
+ *    are CLIENT→merchant statuses we never emit.
  *
  * ── DEFERRED (NOT built here — see the x402-parity/03-a2a-transport plan) ──────
- *  • Phase 4 — the A2A BUYER (`A2APayer`): trails on live interop.
- *  • Phase 5 — AP2 `CartMandate`/`PaymentMandate` carriage (payment-carriage only, no
- *    mandate-trust machinery).
- *  • B8 ship-gate — the live Google `adk-demo` reference-client run + the final v1-vs-v2
- *    emit-version decision (a live-runtime gate, not buildable offline).
+ *  • Phase 4 — the A2A BUYER (`A2APayer`): the HTTP buyer mints the payload that rides A2A today.
+ *  • Phase 5 — AP2 `CartMandate`/`PaymentMandate` carriage (the Embedded Flow; no mandate-trust machinery).
+ *  • B8 ship-gate — RESOLVED at the wire level (above). A live `adk-demo` AGENT run is blocked by that
+ *    package's dependency bitrot (won't import on current `x402`/`a2a-sdk`), not by PipRail.
  */
 
 import type { PaymentGate, RequirePaymentOptions, VerifyPaymentResult } from '../server.js'
@@ -350,18 +356,19 @@ export function createA2APaymentHandler(options: A2APaymentHandlerOptions): A2AP
         status: { state: 'input-required', message: { kind: 'message', role: 'agent', taskId, metadata } },
       }
     }
-    // A SUBMITTED proof was REJECTED (expired/wrong-amount/replayed). The spec's status/state table
-    // pairs the retryable `input-required` only with `payment-required` or `payment-rejected` —
-    // `payment-failed` is reserved for the TERMINAL `failed` state. So a retryable rejection is
-    // `payment-rejected` (A2A §Lifecycle), carrying the error code, a failure receipt in the
-    // append-only `receipts[]` history (the a2a.md Invalid-Payment example mandates one, with
-    // `network` + `transaction:''`), and a fresh challenge so the buyer can retry on the same task.
-    // Prefer the network the buyer ACTUALLY attempted (from its submitted payload) — that's the
+    // A SUBMITTED proof was REJECTED (expired/wrong-amount/replayed). Per the A2A x402 spec (§5.1)
+    // and Google's reference merchant executor, the merchant's only RETRYABLE status is
+    // `payment-required` — `payment-rejected` is a CLIENT→merchant status (the client rejecting the
+    // offered requirements), and `payment-failed` is reserved for a TERMINAL settlement failure.
+    // So a retryable rejection re-issues `payment-required` on the SAME task, distinguished from a
+    // first challenge by the appended failure receipt (the a2a.md Invalid-Payment example mandates
+    // one, `network` + `transaction:''`) and the `x402.payment.error` code — so the buyer can fix +
+    // retry. Prefer the network the buyer ACTUALLY attempted (from its submitted payload) — the
     // right attribution even on a multi-network gate where singleNetworkOf can't pick one.
     const network = attempted ?? singleNetworkOf(result.challenge)
     const receipts = appendReceiptFailed(taskId, result.error, result.detail, network)
     const metadata: A2AMetadata = {
-      [A2A_STATUS_KEY]: 'payment-rejected',
+      [A2A_STATUS_KEY]: 'payment-required',
       [A2A_ERROR_KEY]: toA2AErrorCode(result.error),
       [A2A_REQUIRED_KEY]: result.challenge,
       ...toA2APaymentReceipts(receipts),

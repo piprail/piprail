@@ -4,6 +4,27 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.11.0] — 2026-06-21 — A2A interop hardening: spec-correct merchant status + verified x402-V2 conformance
+
+A2A transport correctness, after a **live cross-check against Google's official `x402` / `x402_a2a`
+libraries** (reproducible harness + verdict in `examples/a2a-interop/`). One behavior fix on the A2A rejection path;
+HTTP and every other rail are byte-identical to 2.10.0.
+
+- **fix(a2a): a rejected proof now re-challenges as `payment-required`, not the client-only
+  `payment-rejected`.** Per the A2A x402 spec §5.1 and Google's reference merchant executor, a MERCHANT
+  emits only `payment-required` / `payment-completed` / `payment-failed`; `payment-rejected` and
+  `payment-submitted` are CLIENT→merchant statuses. A rejection is now signalled by the appended failure
+  receipt + the `x402.payment.error` code — the retry loop and the `input-required` state are unchanged.
+- **interop: PipRail's A2A envelopes are byte-conformant with the current x402 V2 standard.** The
+  canonical `x402` lib parses our `PaymentRequired` + `PaymentPayload` (CAIP-2 networks, `amount`,
+  `x402Version: 2`, nested `accepted`); the five `x402.payment.*` keys + the extension URI match
+  `x402_a2a` verbatim. The deferred emit-version question is resolved — **v2** (the live standard; the
+  legacy v0.1 `x402-a2a` package is bitrotted and not targeted). New always-on guard:
+  `test/transports/a2a-wire-conformance.test.ts`; reproducible cross-check harness: `examples/a2a-interop/`.
+- **docs(a2a):** the A2A guide is now fully runnable — a real `@a2a-js/sdk` `AgentExecutor` mount, a
+  complete AgentCard, where the buyer's payload comes from, and the co-resident one-gate pattern.
+- No public API change. A2A remains seller-side (the `A2APayer` buyer + AP2 mandate carriage stay deferred).
+
 ## [2.10.0] — 2026-06-20 — x402 parity: verifiable receipts · the `upto` metered rail · A2A transport
 
 Four ratified-x402 capabilities, all **additive and opt-in** — omit the new options and the 402, the

@@ -12,7 +12,7 @@
 //   LIVE (Base mainnet, tiny USDC — only with the .secrets wallet):
 //     a REAL onchain-proof payment, verified + settled THROUGH the A2A handler (not gate.verify)
 //     → a `completed` Task carrying a real X402Receipt + a result artifact. Plus a bogus-proof
-//     rejection → a conformant `payment-rejected` re-challenge (a free RPC read, no spend).
+//     rejection → a conformant `payment-required` re-challenge + error + failure receipt (free RPC read, no spend).
 //
 import { createServer } from 'node:http'
 import {
@@ -130,7 +130,7 @@ try {
 }
 
 // A BOGUS proof (a tx that doesn't exist) → a conformant, RETRYABLE rejection. Free RPC read, no spend.
-group('live — a bogus proof → payment-rejected re-challenge + a failure receipt (no money moves)')
+group('live — a bogus proof → payment-required re-challenge + error + failure receipt (no money moves)')
 {
   const rejectGate = baseGate()
   const rpay = createA2APaymentHandler({ gate: rejectGate })
@@ -139,10 +139,15 @@ group('live — a bogus proof → payment-rejected re-challenge + a failure rece
   const accept = ch.accepts.find((a) => a.scheme === 'onchain-proof')
   const payload = { x402Version: 2, accepted: { scheme: 'onchain-proof', network: accept.network, asset: accept.asset }, payload: { nonce: 'echoed', txHash: '0x' + 'de'.repeat(32) } }
   const task = await rpay.handleMessage({ kind: 'message', taskId: 'task-bad', metadata: { [A2A_PAYLOAD_KEY]: payload } }, 'task-bad')
+  const meta = task.status.message?.metadata ?? {}
   check(task.status.state === 'input-required', 'a rejected proof stays RETRYABLE (input-required), never terminal `failed`')
-  check(task.status.message?.metadata?.[A2A_STATUS_KEY] === 'payment-rejected', 'metadata status === payment-rejected (distinct from the first payment-required)')
-  check(!!task.status.message?.metadata?.[A2A_ERROR_KEY], 'an x402.payment.error code is attached')
-  check(!!task.status.message?.metadata?.[A2A_REQUIRED_KEY], 'a FRESH challenge is attached to retry against')
+  // Per the A2A x402 spec, the MERCHANT's retryable status is `payment-required` (NOT the
+  // client-only `payment-rejected`); the rejection is signalled by the error code + a failure receipt.
+  check(meta[A2A_STATUS_KEY] === 'payment-required', 'merchant re-challenge status === payment-required (spec; not the client-only payment-rejected)')
+  check(!!meta[A2A_ERROR_KEY], 'an x402.payment.error code is attached (marks it a rejection, not a first challenge)')
+  const failed = (meta[A2A_RECEIPTS_KEY] ?? []).slice(-1)[0]
+  check(failed?.success === false && failed?.transaction === '', 'a failure receipt (success:false, transaction:"") is appended')
+  check(!!meta[A2A_REQUIRED_KEY], 'a FRESH challenge is attached to retry against')
 }
 }
 
