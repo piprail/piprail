@@ -13,7 +13,7 @@ they can pay [x402](https://x402.org)-gated APIs, data feeds, and AI services **
 
 PipRail plugs into OpenClaw as a **standard MCP server** — the published
 **[`@piprail/mcp`](/mcp/overview/)** (`npx -y @piprail/mcp`). OpenClaw spawns it over stdio, the agent
-gets all **[7 tools](/mcp/tools/)** natively, and a spend policy the model **cannot exceed** is baked
+gets **[all the PipRail tools](/mcp/tools/)** natively, and a spend policy the model **cannot exceed** is baked
 in. There's no bespoke plugin to build or maintain — the integration is the MCP server plus one config
 entry.
 
@@ -75,7 +75,7 @@ Defaults are deliberately small and safe (0.10 per payment, 10.00 lifetime, USDC
 env reference is on the [Configuration](/mcp/configuration/) page; the wallet key format your chain
 expects is in [Wallets by family](/making-payments/wallets-by-family/).
 
-## The 7 tools
+## The tools
 
 | Tool | What it does | Moves money? |
 | --- | --- | --- |
@@ -86,8 +86,9 @@ expects is in [Wallets by family](/making-payments/wallets-by-family/).
 | `piprail_register` | List your own x402 API so other agents find it | no |
 | `piprail_budget` | Read remaining spend + time leash | no |
 | `piprail_guide` | Read the agent contract (quote → plan → pay) | no |
+| `piprail_verify_receipt` | Re-verify a receipt against the chain (wallet-free) | no |
 
-Only `piprail_pay_request` moves funds. Full reference: [the 7 tools](/mcp/tools/).
+Only `piprail_pay_request` moves funds. Full reference: [the tools](/mcp/tools/).
 
 ## The agent workflow
 

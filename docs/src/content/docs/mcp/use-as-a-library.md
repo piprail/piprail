@@ -19,7 +19,7 @@ flow. For full control, the lower-level pieces are also exported: `parseConfig` 
 
 A few more primitives are exported for embedders: **`walletInputFor`** (a `{ chain, walletSecret?,
 nearAccountId? }` → the SDK's `WalletInput` — shape a wallet from your own config), **`TOOL_NAMES`**
-(the frozen list of the 7 `piprail_*` tool names), **`VERSION`** (the package version string), the
+(the frozen list of the `piprail_*` tool names), **`VERSION`** (the package version string), the
 boot-banner helpers **`formatBanner`** / **`printBanner`** / **`chainWarnings`** (the stderr banner +
 per-chain caveats), and the **`ConfigError`** class + **`Config`** / **`ChainAccount`** types.
 
@@ -81,7 +81,7 @@ const { server } = createMcpServer(configToClientOptionsList(config), {
 })
 ```
 
-`createMcpServer` returns a low-level `Server` from `@modelcontextprotocol/sdk` with all seven
+`createMcpServer` returns a low-level `Server` from `@modelcontextprotocol/sdk` with all the
 [payment tools](/mcp/tools/) already registered. It connects no transport and reads no chain, so
 it's testable without a wallet or RPC.
 

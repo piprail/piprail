@@ -1,19 +1,19 @@
 ---
-title: The 7 tools
-description: The seven tools paymentTools() hands an LLM — what each one does, its arguments, and which of them moves funds.
+title: The agent tools
+description: The tools paymentTools() hands an LLM — what each one does, its arguments, and which of them moves funds.
 sidebar:
   order: 2
 ---
 
 ## Introduction
 
-`paymentTools(client)` returns seven [`AgentTool`](/agent-toolkit/payment-tools/) descriptors
+`paymentTools(client)` returns the [`AgentTool`](/agent-toolkit/payment-tools/) descriptors
 wrapping a configured [`PipRailClient`](/making-payments/piprail-client/). Together they give
 a model the full loop: **find** a payable resource, **price** it, **check** it can pay, then
-**pay** it — plus list a resource of its own, read its remaining budget, and read the agent
-contract.
+**pay** it — plus list a resource of its own, read its remaining budget, read the agent
+contract, and re-verify a receipt it (or anyone) holds.
 
-Only one of the seven moves funds. The other six are read-only or write to an external index;
+Only one of the eight moves funds; the other seven are read-only or write to an external index —
 none of them can spend. The model can't bypass the spend policy either — every payment routes
 through the same `policy` / `onBeforePay` guard on the client these tools wrap.
 
@@ -25,10 +25,10 @@ const client = new PipRailClient({
   wallet: { key: process.env.AGENT_KEY! },
 })
 
-const tools = paymentTools(client) // → seven AgentTool descriptors, ready to register
+const tools = paymentTools(client) // → the AgentTool descriptors, ready to register
 ```
 
-## The seven at a glance
+## The tools at a glance
 
 | Tool | Purpose | Moves funds? |
 | --- | --- | --- |
@@ -39,9 +39,10 @@ const tools = paymentTools(client) // → seven AgentTool descriptors, ready to 
 | `piprail_register` | List a resource *you* run on the open indexes. | No — writes a listing |
 | `piprail_budget` | Read remaining budget + time leash. | No — read-only |
 | `piprail_guide` | Read the agent contract (how to quote / plan / pay). | No — read-only |
+| `piprail_verify_receipt` | Re-verify a verifiable receipt against the chain (wallet-free). | No — read-only |
 
-The first five are byte-identical in name and order to earlier versions; the two pure reads
-(`piprail_budget`, `piprail_guide`) are appended last.
+The first five are byte-identical in name and order to earlier versions; the read-only tools
+(`piprail_budget`, `piprail_guide`, and `piprail_verify_receipt`) are appended last.
 
 ## piprail_discover — find what's payable
 
@@ -213,3 +214,35 @@ which declines are terminal), the never-re-pay rule for broadcast-but-unconfirme
 
 Takes no arguments. Read-only and idempotent. Call it once if unsure how to use these tools.
 The full text also has its own page: [the agent guide](/agent-toolkit/agent-guide/).
+
+## piprail_verify_receipt — re-verify a receipt
+
+Re-verifies a PipRail **verifiable receipt** against the chain — confirms a payment *really*
+settled (the funds provably moved to `payTo` for **at least** the stated amount) **without**
+trusting whoever handed over the receipt. Read-only and **wallet-free**: it takes a
+`PipRailReceipt` JSON — the `verifiableReceipt` a prior `piprail_pay_request` returned, or a
+receipt handed over by any third party.
+
+| Arg | Type | Purpose |
+| --- | --- | --- |
+| `receipt` | object | The `PipRailReceipt` JSON (`{ piprail, receipt, resource, decimals? }`) to re-verify (required). |
+| `rpcUrl` | string | Optional RPC URL for the receipt's chain — required for chains outside the common presets. |
+
+```jsonc
+// piprail_verify_receipt({ receipt })
+// → {
+//     ok: true,                               // the chain confirms the settlement
+//     onChain: { payTo, asset, amount, payer }, // payer is RE-DERIVED from the tx
+//     matchesClaims: true,                    // false ⇒ the receipt forged the payer
+//     ageSeconds: 42,
+//     error: null                             // a chain/RPC problem comes back HERE, never thrown
+//   }
+```
+
+`onChain.amount` is a verified **lower bound**, and `matchesClaims: false` flags a forged payer.
+Read-only and open-world (it reads the on-chain tx via RPC). Unlike the other tools it **never
+throws** — there's no wallet and no payment, so a chain or RPC failure is reported in `error`
+rather than raised. It wraps the static
+[`PipRailClient.verifyReceipt`](/making-payments/verifying-receipts/), so the same anyone-verifiable
+check is available in code; see [Verifying receipts](/making-payments/verifying-receipts/) and
+[Verifiable receipts](/accepting-payments/verifiable-receipts/).

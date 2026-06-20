@@ -334,7 +334,8 @@ export function createA2APaymentHandler(options: A2APaymentHandlerOptions): A2AP
    *  model is "here's a fresh challenge, try again"); only a SettlementError maps to `failed`. */
   function reChallengeTask(
     taskId: string,
-    result: Extract<VerifyPaymentResult, { kind: 'challenge' | 'invalid' }>
+    result: Extract<VerifyPaymentResult, { kind: 'challenge' | 'invalid' }>,
+    attempted?: string
   ): A2ATask {
     // A genuine first/re-issued challenge (no proof was submitted to reject) → `payment-required`,
     // no receipt — identical to toA2APaymentRequired but on an existing task.
@@ -355,7 +356,9 @@ export function createA2APaymentHandler(options: A2APaymentHandlerOptions): A2AP
     // `payment-rejected` (A2A §Lifecycle), carrying the error code, a failure receipt in the
     // append-only `receipts[]` history (the a2a.md Invalid-Payment example mandates one, with
     // `network` + `transaction:''`), and a fresh challenge so the buyer can retry on the same task.
-    const network = singleNetworkOf(result.challenge)
+    // Prefer the network the buyer ACTUALLY attempted (from its submitted payload) — that's the
+    // right attribution even on a multi-network gate where singleNetworkOf can't pick one.
+    const network = attempted ?? singleNetworkOf(result.challenge)
     const receipts = appendReceiptFailed(taskId, result.error, result.detail, network)
     const metadata: A2AMetadata = {
       [A2A_STATUS_KEY]: 'payment-rejected',
@@ -419,6 +422,9 @@ export function createA2APaymentHandler(options: A2APaymentHandlerOptions): A2AP
     // ── payload present → run the SAME dispatch as HTTP on the RAW object (B4) ──────
     // gate.verifyObject reads sig.payload.nonce off the object exactly as HTTP does, re-derives
     // every trusted field from the merchant's own config, and shares the gate's ONE replay set.
+    // The network the buyer ATTEMPTED (from its payload, v2 or v1-flat) attributes every failure
+    // receipt's `network` — even on a multi-network gate where the challenge can't pick one.
+    const attempted = networkFromPayload(inbound.raw)
     let result: VerifyPaymentResult
     try {
       result = await gate.verifyObject(inbound.raw)
@@ -426,7 +432,6 @@ export function createA2APaymentHandler(options: A2APaymentHandlerOptions): A2AP
       // A SettlementError (the relayer/facilitator never moved funds — the merchant's fault, not
       // the buyer's) → terminal `failed`. Re-submitting the same auth won't help until the merchant
       // fixes their relayer. The discriminator is "did the money move": here it did NOT.
-      const attempted = networkFromPayload(inbound.raw)
       if (err instanceof SettlementError) {
         return failedTask(id, 'settlement_failed', err.message, attempted)
       }
@@ -439,12 +444,12 @@ export function createA2APaymentHandler(options: A2APaymentHandlerOptions): A2AP
     switch (result.kind) {
       case 'challenge':
         // No usable proof in the payload (e.g. a malformed/empty payload object) → re-challenge.
-        return reChallengeTask(id, result)
+        return reChallengeTask(id, result, attempted)
 
       case 'invalid':
         // A rejected proof (wrong amount, expired, replayed, transient RPC lag, …) → a conformant
         // re-challenge (RETRYABLE) carrying the reason — mirrors the HTTP `kind:'invalid'` 402.
-        return reChallengeTask(id, result)
+        return reChallengeTask(id, result, attempted)
 
       case 'paid': {
         // The money MOVED. From here the proof is final (at-most-once). Append the success receipt
@@ -497,12 +502,15 @@ function singleNetworkOf(challenge: X402Challenge): string | undefined {
   return nets.size === 1 ? [...nets][0] : undefined
 }
 
-/** Best-effort CAIP-2 network the buyer attempted, read from a submitted payment payload's
- *  `accepted.network`, for a terminal-failure receipt's `network` field. Tolerates any shape
- *  (the verify already failed) — returns `undefined` when absent/malformed. */
+/** Best-effort CAIP-2 network the buyer attempted, read from a submitted payment payload, for a
+ *  failure receipt's `network` field. Reads the v2 `accepted.network` first, then the v1-FLAT
+ *  top-level `network` (parseExactObject accepts both). Tolerates any shape (the verify already
+ *  failed) — returns `undefined` when absent/malformed. */
 function networkFromPayload(raw: unknown): string | undefined {
-  const accepted = (raw as { accepted?: { network?: unknown } } | null)?.accepted
-  return accepted && typeof accepted.network === 'string' ? accepted.network : undefined
+  const v = raw as { accepted?: { network?: unknown }; network?: unknown } | null
+  if (v && typeof v.accepted?.network === 'string') return v.accepted.network
+  if (v && typeof v.network === 'string') return v.network
+  return undefined
 }
 
 /** A fresh A2A task id when the caller didn't supply one. */

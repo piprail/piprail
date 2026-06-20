@@ -59,6 +59,12 @@ Four ratified-x402 capabilities, all **additive and opt-in** — omit the new op
   structurally valid artifact (`{ name, parts }`); the MCP config docs + registry `server.json` now list
   `upto`; and a **regression test** locks the merchant-proof cumulative leash (a sequence of
   under-reporting `upto` payments is refused by `maxTotal`/`maxTotalPerDenom`/`windowTotal`).
+- **fix:** a fourth, end-to-end pass (every flow traced hop-by-hop + a clean-room standards sign-off,
+  which came back **CONFORMANT on all four wire formats**, and a live MCP-pays-the-`upto`-rail proof)
+  found only doc-accuracy gaps + one low edge case: A2A failure receipts now attribute `network` from
+  the buyer's submitted payload (covering multi-network gates + v1-flat exact payloads), and the whole
+  docs-site is updated to the **8-tool** surface (the new `piprail_verify_receipt`) with the 2.10.0
+  receipts/upto/A2A APIs documented in the reference. No SDK behavior change beyond the A2A edge fix.
 
 ## [2.9.0] — 2026-06-19 — Cross-token grand total · payment-count caps · durable budget · richer spend observability
 

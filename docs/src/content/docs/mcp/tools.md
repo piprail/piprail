@@ -1,24 +1,25 @@
 ---
 title: "Tools reference"
-description: The seven MCP tools the PipRail server exposes — what each takes, what it returns, which one moves funds, and the guide prompt and resources that ride alongside them.
+description: The MCP tools the PipRail server exposes — what each takes, what it returns, which one moves funds, and the guide prompt and resources that ride alongside them.
 sidebar:
   order: 5
 ---
 
 ## Introduction
 
-The PipRail MCP server advertises **seven tools**, built by the SDK's
+The PipRail MCP server advertises **eight tools**, built by the SDK's
 [`paymentTools(client)`](/agent-toolkit/payment-tools/) and dropped straight onto the wire — the
 SDK descriptors carry draft-07 JSON Schema, so the server forwards them untouched. Only
 `piprail_pay_request` moves funds; `piprail_register` writes a listing to an external index
-(so it's not flagged read-only) but moves none; the other five are read-only. Every result is
+(so it's not flagged read-only) but moves none; the other six are read-only. Every result is
 emitted **both** as a text block and as `structuredContent`, so a client that ignores structured
 output still reads the text.
 
 ```jsonc
 // every tool, in advertised order
 "piprail_discover" · "piprail_quote_payment" · "piprail_plan_payment" ·
-"piprail_pay_request" · "piprail_register" · "piprail_budget" · "piprail_guide"
+"piprail_pay_request" · "piprail_register" · "piprail_budget" · "piprail_guide" ·
+"piprail_verify_receipt"
 ```
 
 Each tool carries advisory [MCP annotations](/agent-toolkit/the-7-tools/) (`readOnlyHint`,
@@ -256,6 +257,34 @@ Read the PipRail agent contract — the quote → plan → pay loop, how to read
 declines are terminal), the never-re-pay rule, and Mode A vs Mode B. Read-only and idempotent;
 takes no arguments. Returns `{ guide }`, the full `PIPRAIL_AGENT_GUIDE` string. Call it once if
 you're unsure how to use these tools.
+
+## piprail_verify_receipt
+
+Re-verify a PipRail **verifiable receipt** against the chain — confirm a payment **really** settled
+(the funds provably moved to `payTo` for **at least** the stated amount) **without** trusting whoever
+handed you the receipt. Read-only and **wallet-free**: pass the `PipRailReceipt` JSON from a prior
+`piprail_pay_request` `verifiableReceipt`, or any third party. Read-only and idempotent.
+
+| Argument | Type | Meaning |
+| --- | --- | --- |
+| `receipt` | object (required) | The `PipRailReceipt` JSON (`{ piprail, receipt, resource, decimals? }`) to re-verify. |
+| `rpcUrl` | string | Optional RPC URL for the receipt's chain (required for chains outside the common presets). |
+
+Returns `{ ok, onChain: { payTo, asset, amount, payer }, matchesClaims, ageSeconds, error? }`. `ok`
+is `true` when the chain confirms the settlement; `onChain.payer` is **re-derived** from the
+transaction, so `matchesClaims: false` means the receipt forged the payer; `amount` is a verified
+**lower bound**. It is read-only and open-world (it reads the on-chain tx via RPC). Unlike most
+tools it **never throws** — a chain or RPC problem comes back in the `error` field, never as an
+exception. It calls the static [`PipRailClient.verifyReceipt`](/making-payments/verifying-receipts/),
+so the same check is available wallet-free in code; see
+[Verifying receipts](/making-payments/verifying-receipts/) and
+[Verifiable receipts](/accepting-payments/verifiable-receipts/).
+
+```jsonc
+{ "ok": true,
+  "onChain": { "payTo": "0xMerchant", "asset": "0x…", "amount": "100000", "payer": "0xBuyer" },
+  "matchesClaims": true, "ageSeconds": 42 }
+```
 
 ## The guide prompt and resources
 

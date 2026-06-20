@@ -1,6 +1,6 @@
 ---
 title: paymentTools()
-description: Turn a configured PipRailClient into seven framework-agnostic tool descriptors an LLM can call — with the spend policy baked in so the model can't overspend.
+description: Turn a configured PipRailClient into framework-agnostic tool descriptors an LLM can call — with the spend policy baked in so the model can't overspend.
 sidebar:
   order: 1
 ---
@@ -8,7 +8,7 @@ sidebar:
 ## Introduction
 
 `paymentTools(client)` hands an LLM the ability to discover, quote, plan, and pay x402
-resources. It returns an array of seven framework-agnostic [`AgentTool`](#the-agenttool-shape)
+resources. It returns an array of framework-agnostic [`AgentTool`](#the-agenttool-shape)
 descriptors — each a `name` + `description` + JSON Schema `parameters` + an `invoke` function —
 that adapt to MCP, the Vercel AI SDK, OpenAI/Anthropic function-calling, or LangChain in a
 couple of lines.
@@ -20,7 +20,7 @@ that client, the model can't bypass it — every payment goes through the same `
 
 `paymentTools()` accepts any `PayingClient` — a single-chain `PipRailClient` **or** a
 [`MultiChainPayer`](/making-payments/multi-chain/) (one wallet per chain, auto-routing to
-whichever chain the 402 asks for). The seven tools are identical either way.
+whichever chain the 402 asks for). The tools are identical either way.
 
 ## Basic use
 
@@ -37,7 +37,7 @@ const client = new PipRailClient({
   autoRoute: true,                      // and auto-prefer the cheapest settleable rail (the gasless one)
   policy: { maxTotal: '5.00' },
 })
-const tools = paymentTools(client) // → AgentTool[] of length 7
+const tools = paymentTools(client) // → AgentTool[] of length 8
 ```
 
 :::tip[Make the agent gasless]
@@ -47,7 +47,7 @@ const tools = paymentTools(client) // → AgentTool[] of length 7
 opt-in; the zero-config default stays `onchain-proof`. See [Gasless payments](/making-payments/gasless-payments/).
 :::
 
-The seven tools, in order:
+The tools, in order:
 
 | Tool | What it does | Pays? |
 | --- | --- | --- |
@@ -58,8 +58,9 @@ The seven tools, in order:
 | `piprail_register` | List a resource you run on the open indexes. | No |
 | `piprail_budget` | Read remaining budget + time leash (Mode A self-check). | No |
 | `piprail_guide` | Read the agent contract — how to quote/plan/pay and read a refusal. | No |
+| `piprail_verify_receipt` | Re-verify a verifiable receipt against the chain (wallet-free). | No |
 
-Each tool is documented in detail on [The 7 tools](/agent-toolkit/the-7-tools/).
+Each tool is documented in detail on [The agent tools](/agent-toolkit/the-7-tools/).
 
 ## Wiring into a framework
 
@@ -126,7 +127,7 @@ interface ToolAnnotations {
 Two tools are `readOnlyHint: false`: `piprail_pay_request` and `piprail_register`. Only
 `piprail_pay_request` is `destructiveHint: true` with `idempotentHint: false` (it moves value,
 and paying twice means two payments); `piprail_register` is `destructiveHint: false` (it writes
-a listing to an external index but moves no funds). The other five tools are `readOnlyHint: true`.
+a listing to an external index but moves no funds). The other six tools are `readOnlyHint: true`.
 
 :::caution
 `readOnlyHint`, `destructiveHint`, and friends are advisory. A client must never gate a payment

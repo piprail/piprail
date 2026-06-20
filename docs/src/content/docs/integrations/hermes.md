@@ -14,7 +14,7 @@ spend more than the cap you set.
 
 PipRail plugs into Hermes as a **standard MCP server** — the published
 **[`@piprail/mcp`](/mcp/overview/)** (`npx -y @piprail/mcp`). Hermes spawns it over stdio, the agent
-gets all **[7 tools](/mcp/tools/)** (namespaced `mcp_piprail_*`, e.g. `mcp_piprail_piprail_pay_request` —
+gets **[all the PipRail tools](/mcp/tools/)** (namespaced `mcp_piprail_*`, e.g. `mcp_piprail_piprail_pay_request` —
 Hermes prefixes the server name, so the `piprail_pay_request` tool surfaces as
 `mcp_piprail_piprail_pay_request`; the doubled prefix is expected, not a typo), and a spend policy the model
 **cannot exceed** is baked in. There's no bespoke plugin to build — Hermes is Python and
@@ -29,7 +29,7 @@ provider's wallet, verified locally against **your own RPC**.
 
 ## Setup
 
-**Quickest — one command.** Adds the server and (after a quick "enable all 7 tools?" prompt) saves it to
+**Quickest — one command.** Adds the server and (after a quick "enable all tools?" prompt) saves it to
 `~/.hermes/config.yaml`:
 
 ```bash
@@ -63,6 +63,7 @@ mcp_servers:
         - piprail_register
         - piprail_budget
         - piprail_guide
+        - piprail_verify_receipt
 ```
 
 Run **`/reload-mcp`** in a session (or start a new one) and the `mcp_piprail_*` tools appear.
@@ -101,7 +102,7 @@ Defaults are deliberately small and safe (0.10 per payment, 10.00 lifetime, USDC
 env reference is on the [Configuration](/mcp/configuration/) page; the wallet key format your chain
 expects is in [Wallets by family](/making-payments/wallets-by-family/).
 
-## The 7 tools
+## The tools
 
 | Tool | What it does | Moves money? |
 | --- | --- | --- |
@@ -112,10 +113,11 @@ expects is in [Wallets by family](/making-payments/wallets-by-family/).
 | `piprail_register` | List your own x402 API so other agents find it | no |
 | `piprail_budget` | Read remaining spend + time leash | no |
 | `piprail_guide` | Read the agent contract (quote → plan → pay) | no |
+| `piprail_verify_receipt` | Re-verify a receipt against the chain (wallet-free) | no |
 
 Only `piprail_pay_request` moves funds; in Hermes they surface as `mcp_piprail_*`. To let the agent
 read and plan but never auto-spend, drop `piprail_pay_request` from the server's `tools.include`. Full
-reference: [the 7 tools](/mcp/tools/).
+reference: [the tools](/mcp/tools/).
 
 ## The agent workflow
 

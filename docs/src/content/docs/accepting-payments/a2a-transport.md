@@ -53,8 +53,9 @@ The status values follow the A2A spec's lifecycle table exactly: the retryable `
 state is only ever paired with `payment-required` (a fresh challenge) or `payment-rejected` (a
 submitted proof that didn't verify); `payment-failed` is reserved for the terminal `failed` state.
 Every failure carries a conformant receipt in the append-only `x402.payment.receipts` array
-(`{ success: false, transaction: "", errorReason }`, plus `network` when the gate resolves a
-single chain — best-effort, omitted only for a multi-chain gate).
+(`{ success: false, transaction: "", errorReason }`, plus `network` when it can be attributed —
+the buyer's submitted rail for a settlement failure, or the challenge's single rail for a
+rejection; best-effort, omitted only when genuinely ambiguous).
 
 ## `gate.verifyObject(payload)` — the raw-JSON verify seam
 

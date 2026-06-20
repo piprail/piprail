@@ -64,10 +64,11 @@ as a CLI argument — `argv` leaks in process listings and shell history.
 ### Restart, and the tools appear
 
 Drop the server into your client's config, then restart the client. The full set of
-[seven `piprail_*` tools](/mcp/tools/) registers over stdio — `piprail_pay_request` to pay (the
+[`piprail_*` tools](/mcp/tools/) registers over stdio — `piprail_pay_request` to pay (the
 only value-moving tool), `piprail_plan_payment` / `piprail_quote_payment` / `piprail_discover` to
 look without spending, `piprail_register` to list a resource you run, `piprail_budget` to read the
-remaining leash, and `piprail_guide` to read the agent contract. See
+remaining leash, `piprail_guide` to read the agent contract, and `piprail_verify_receipt` to
+re-verify a receipt against the chain wallet-free. See
 [Client setup](/mcp/client-setup/) for the exact config-file path and shape for each client.
 
 :::tip
@@ -138,5 +139,5 @@ PipRail MCP server v… — ready on stdio (READ-ONLY — no wallet key)
   wallet key     NONE — read-only mode. discover/quote/register/budget/guide work; set PIPRAIL_PRIVATE_KEY to pay.
 ```
 
-With a key set, the banner names which env var supplied it and all 7 tools are live. If the tools
+With a key set, the banner names which env var supplied it and all the tools are live. If the tools
 don't appear after a restart, check your client's MCP log — see the [FAQ](/mcp/faq/) for common causes.

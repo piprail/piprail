@@ -18,6 +18,7 @@ import {
   A2A_ERROR_KEY,
   A2A_X402_EXTENSION_URI_V01,
   A2A_X402_EXTENSION_URI_V02,
+  A2A_EXTENSIONS_HEADER,
 } from '../../src/transports/a2a.js'
 import type { A2AMessage, A2ATask } from '../../src/transports/a2a-types.js'
 import { registerDriver } from '../../src/drivers/index.js'
@@ -198,6 +199,21 @@ describe('A2A seller — settle-side SettlementError → failed + error + {succe
     expect(failed.network).toBe('eip155:8453')
   })
 
+  it('sources the failure-receipt network from a v1-FLAT payload (top-level network, no accepted.network)', async () => {
+    settleMode = 'throw'
+    const pay = createA2APaymentHandler({ gate: baseGate(exactGateCfg) })
+    const challenge = await pay.handleMessage({ kind: 'message' }, 'task-5b')
+    const exactRail = fromA2APaymentRequired(challenge)!.accepts.find((a) => a.scheme === 'exact')!
+    const { network, ...acceptedNoNet } = exactRail as unknown as Record<string, unknown> // strip accepted.network
+    // v1-FLAT shape: network at the TOP level, not under `accepted` — networkFromPayload must read it.
+    const payload = { x402Version: 1, network, accepted: acceptedNoNet, payload: { signature: '0xsig', authorization: AUTH() } }
+    const task = await pay.handleMessage({ kind: 'message', taskId: 'task-5b', metadata: { [A2A_PAYLOAD_KEY]: payload } }, 'task-5b')
+    const receipts = task.status.message!.metadata![A2A_RECEIPTS_KEY]!
+    const failed = receipts[receipts.length - 1] as SettleOutcome
+    expect(failed.success).toBe(false)
+    expect(failed.network).toBe('eip155:8453') // sourced from the top-level v1-flat field, not accepted.network
+  })
+
   it('the per-task receipts[] history is BOUNDED (a pinned taskId + repeated throws cannot grow it unbounded)', async () => {
     settleMode = 'throw'
     const pay = createA2APaymentHandler({ gate: baseGate(exactGateCfg) })
@@ -338,6 +354,12 @@ describe('A2A seller — agentCardExtension', () => {
   it('omits `required` by default', () => {
     const pay = createA2APaymentHandler({ gate: baseGate() })
     expect('required' in pay.agentCardExtension()).toBe(false)
+  })
+
+  // The spec-mandated activation header name (a2a.md §Extension Activation) — value-pinned so a
+  // future typo in the exported constant is caught (mirrors the URI pins above).
+  it('exports the spec-exact extension-activation header name', () => {
+    expect(A2A_EXTENSIONS_HEADER).toBe('X-A2A-Extensions')
   })
 })
 
