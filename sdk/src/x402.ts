@@ -336,6 +336,15 @@ export interface X402Receipt {
   payer: AddressId
   payTo: AddressId
   verifiedAt: string
+  /**
+   * NEW (additive, optional). The challenge nonce this settlement was bound to —
+   * the value `genNonce()` minted into the 402 and echoed back as the buyer's
+   * `payload.nonce` (NOT an exact-rail authorization/delegate nonce). REQUIRED to
+   * re-verify Template-A families (Stellar/XRPL/NEAR/Algorand/TON) off-chain via a
+   * synthetic accept; informational on digest-bound (Template-B) families. Omitted
+   * unless the gate's `receipts` option is on, so a default 200 stays byte-identical.
+   */
+  nonce?: string
 }
 
 /**
@@ -368,6 +377,49 @@ export interface PaidReceipt extends X402Receipt {
    * is at-least-once across instances — dedupe persistence and webhook delivery on this.
    */
   idempotencyKey: string
+}
+
+/**
+ * The OPTIONAL Tier-2 EIP-712 delivery attestation — the official offer-receipt
+ * `SignedReceipt`. Populated only when the merchant enables `receipts: { attest }`
+ * (a separate phase); absent for Tier-1 chain-grounded receipts. Kept open for
+ * forward-compat with the spec's typed-data fields, filled in by the EVM
+ * `signReceipt` SPI; verification is `PipRailClient.verifyAttestation`.
+ */
+export interface SignedReceipt {
+  /** The EIP-712 signature over the receipt typed-data. */
+  signature: string
+  /** The recovered signer the verifier expects to equal the merchant `payTo`. */
+  signer: AddressId
+  [extra: string]: unknown
+}
+
+/**
+ * The self-contained, portable receipt a buyer KEEPS and **anyone** re-verifies
+ * against the chain with only an RPC — no key, no backend, no PipRail account.
+ * It bundles the verified {@link X402Receipt} (which carries `nonce` for Template-A
+ * re-verification) with the reconstruction metadata a third party needs to rebuild
+ * the trusted accept and re-run the driver's `verify()`: what was paid for
+ * (`resource`) and the asset `decimals` (Stellar/XRPL/TON need it to re-scale the
+ * amount). Rides the wire in `extensions['offer-receipt'].info` on the
+ * `PAYMENT-RESPONSE` header; {@link PipRailClient.verifyReceipt} re-verifies it.
+ */
+export interface PipRailReceipt {
+  /** Receipt-format version — distinct from `x402Version`. */
+  piprail: '1'
+  /** The verified settlement (carries the challenge `nonce` for Template-A re-verify). */
+  receipt: X402Receipt
+  /** What was paid for — the challenge's resource URL. */
+  resource: { url: string }
+  /**
+   * ADDITIVE. The asset's on-chain decimals — threaded into the synthetic accept's
+   * `extra.decimals` so Stellar/XRPL/TON `verify()` can re-scale the wire amount.
+   * Receipt-bundle metadata only (the gate already knows it via {@link PaidReceipt});
+   * NOT on the minimal wire {@link X402Receipt}.
+   */
+  decimals?: number
+  /** OPTIONAL Tier-2 attestation — present only when the merchant signed it. */
+  attestation?: SignedReceipt
 }
 
 /**
@@ -501,6 +553,30 @@ export function buildReceiptHeader(receipt: X402Receipt): string {
   return toBase64Json(receipt)
 }
 
+/** The x402 extension key for verifiable delivery receipts (the `offer-receipt` extension). */
+export const EXT_OFFER_RECEIPT = 'offer-receipt'
+
+/**
+ * Assemble the `extensions['offer-receipt']` block for a settled response — PURE
+ * JSON, viem-free. Emits `{ info: { receipt, resource, decimals?, attestation? } }`:
+ * a stock `@x402/extensions` reader picks `info.receipt` unchanged (byte-compatible),
+ * while PipRail's {@link parseReceiptExtension} also reconstructs the self-contained
+ * {@link PipRailReceipt}. The optional `schema` JSON-Schema sibling is owner-gated and
+ * not emitted by default. The gate merges the returned record into the
+ * SettlementResponse's `extensions` on the `PAYMENT-RESPONSE` header.
+ */
+export function buildReceiptExtension(bundle: {
+  receipt: X402Receipt
+  resource: { url: string }
+  decimals?: number
+  attestation?: SignedReceipt
+}): Record<string, unknown> {
+  const info: Record<string, unknown> = { receipt: bundle.receipt, resource: bundle.resource }
+  if (typeof bundle.decimals === 'number') info.decimals = bundle.decimals
+  if (bundle.attestation) info.attestation = bundle.attestation
+  return { [EXT_OFFER_RECEIPT]: { info } }
+}
+
 /* ----------------------------- build (client) ----------------------------- */
 
 export function buildSignatureHeader(signature: X402PaymentSignature): string {
@@ -557,6 +633,33 @@ export function parseReceipt(response: Response): X402Receipt | null {
   if (!headerValue) return null
   const parsed = fromBase64Json<unknown>(headerValue)
   return isValidReceipt(parsed) ? parsed : null
+}
+
+/**
+ * Read a {@link PipRailReceipt} back from a settled response's `PAYMENT-RESPONSE`
+ * header (v2, or the v1 `X-PAYMENT-RESPONSE` fallback). Liberal/Postel: reads
+ * `extensions['offer-receipt'].info.receipt` and TOLERATES + IGNORES a `schema`
+ * sibling (or any unknown sibling) without failing. Returns `null` when no header,
+ * no extension block, or an invalid inner receipt. Pure — no chain read.
+ */
+export function parseReceiptExtension(response: Response): PipRailReceipt | null {
+  const headerValue =
+    response.headers.get(HEADER_RESPONSE) ?? response.headers.get(HEADER_RESPONSE_V1)
+  if (!headerValue) return null
+  const parsed = fromBase64Json<Record<string, unknown>>(headerValue)
+  if (!parsed || typeof parsed !== 'object') return null
+  const ext = parsed.extensions as Record<string, unknown> | undefined
+  const block = ext?.[EXT_OFFER_RECEIPT] as Record<string, unknown> | undefined
+  const info = block?.info as Record<string, unknown> | undefined // a `schema` sibling is ignored
+  if (!info || !isValidReceipt(info.receipt)) return null
+  const res = info.resource as { url?: unknown } | undefined
+  return {
+    piprail: '1',
+    receipt: info.receipt,
+    resource: { url: res && typeof res.url === 'string' ? res.url : '' },
+    ...(typeof info.decimals === 'number' ? { decimals: info.decimals } : {}),
+    ...(info.attestation ? { attestation: info.attestation as SignedReceipt } : {}),
+  }
 }
 
 /**
