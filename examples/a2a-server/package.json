@@ -1,0 +1,13 @@
+{
+  "name": "@piprail/example-a2a-server",
+  "private": true,
+  "type": "module",
+  "version": "0.0.1",
+  "description": "Mount the PipRail A2A seller handler in a REAL @a2a-js/sdk server and round-trip it through the SDK's request handler — proves the documented A2A mount actually runs against Google's canonical JS A2A runtime.",
+  "scripts": { "test": "node test.mjs" },
+  "dependencies": {
+    "@piprail/sdk": "^2.11.0",
+    "@a2a-js/sdk": "^0.3.0"
+  },
+  "engines": { "node": ">=20" }
+}
