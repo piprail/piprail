@@ -55,8 +55,10 @@ carriage are not built — today your HTTP buyer mints the payload that rides A2
 [Where the payload comes from](#where-the-buyers-payload-comes-from)). The legacy standalone
 `x402-a2a` 0.1.0 Python package targets the older x402 **V1** schema (chain slugs, `maxAmountRequired`,
 `x402Version: 1`) and is currently un-runnable on the live stack — PipRail deliberately tracks the
-current **V2** standard, not that frozen snapshot. The `@a2a-js/sdk` wiring below is the canonical
-shape; verify it against your A2A server's exact executor API.
+current **V2** standard, not that frozen snapshot. The `@a2a-js/sdk` mount below is **proven to run**
+end-to-end against `@a2a-js/sdk` 0.3 — see the runnable
+[`examples/a2a-server`](https://github.com/piprail/piprail/tree/main/examples/a2a-server) (it round-trips
+a request through the SDK's own `ResultManager`).
 :::
 
 ## Mount it in `@a2a-js/sdk`
@@ -71,6 +73,7 @@ npm i @piprail/sdk @a2a-js/sdk express
 
 ```ts
 import express from 'express'
+import { randomUUID } from 'node:crypto'
 import type { AgentCard, Task } from '@a2a-js/sdk'
 import {
   type AgentExecutor, type RequestContext, type ExecutionEventBus,
@@ -92,8 +95,14 @@ const pay = createA2APaymentHandler({
 class X402Executor implements AgentExecutor {
   async execute(ctx: RequestContext, bus: ExecutionEventBus): Promise<void> {
     const task = await pay.handleMessage(ctx.userMessage, ctx.taskId)
-    task.contextId = ctx.contextId // PipRail tracks only taskId; the A2A runtime owns contextId
-    bus.publish(task as unknown as Task) // PipRail's A2ATask is a structural subset of the SDK's Task
+    // Stamp the SDK-required, host-owned identifiers the runtime correlates events by (messageId /
+    // artifactId / contextId). PipRail's A2A types are transport metadata only (zero @a2a dep, by
+    // design), so the adapter supplies these.
+    const msg = task.status.message
+    if (msg) { msg.messageId ??= randomUUID(); msg.parts ??= [] }
+    for (const a of task.artifacts ?? []) a.artifactId ??= randomUUID()
+    task.contextId = ctx.contextId
+    bus.publish(task as unknown as Task)
     bus.finished()
   }
   async cancelTask(): Promise<void> {} // PipRail holds no long-running work to cancel
@@ -124,6 +133,13 @@ That's the whole seller: the AgentCard (with the x402 extension declaration) is 
 [`A2AExtensionDeclaration`](#metadata-keys) — `{ uri, description }`, plus `required: true` when you
 set it. On a hand-built card, make sure `capabilities.extensions` is initialised to an array before
 you push onto it.
+
+:::tip[Runnable proof]
+[`examples/a2a-server`](https://github.com/piprail/piprail/tree/main/examples/a2a-server) mounts
+exactly this and round-trips a request **through the real `@a2a-js/sdk` `ResultManager`** — the
+AgentCard advertises the extension, the `x402.payment.required` challenge reaches the client intact,
+and a bogus proof re-challenges without throwing. `npm test` in that folder.
+:::
 
 ## Where the buyer's payload comes from
 
