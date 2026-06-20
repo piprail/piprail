@@ -30,6 +30,7 @@ export type {
   DenomRemaining,
   CountStatus,
   PayingClient,
+  ReceiptVerification,
 } from './client.js'
 
 // Multi-chain buying: one buyer, one wallet per chain, auto-route to whichever
@@ -83,6 +84,7 @@ export type { SelfDescription, SelfDescribeRail, SelfDescribeEndpoint } from './
 export { requirePayment, createPaymentGate, toInvalidBody } from './server.js'
 export type {
   RequirePaymentOptions,
+  ReceiptOption,
   AcceptOption,
   ExactRailOption,
   FailedPayment,
@@ -197,6 +199,7 @@ export {
   pickAccept,
   parseChallenge,
   parseReceipt,
+  parseReceiptExtension,
   parseSettleResponse,
   parseSignatureHeader,
   parseExactPaymentHeader,
@@ -204,6 +207,8 @@ export {
   buildSignatureHeader,
   buildExactSignatureHeader,
   buildReceiptHeader,
+  buildReceiptExtension,
+  EXT_OFFER_RECEIPT,
   HEADER_REQUIRED,
   HEADER_SIGNATURE,
   HEADER_RESPONSE,
@@ -223,6 +228,8 @@ export type {
   X402PaymentSignature,
   X402Receipt,
   PaidReceipt,
+  PipRailReceipt,
+  SignedReceipt,
   X402ResourceObject,
   SettleOutcome,
   ExactAuthorizationWire,

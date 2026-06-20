@@ -1,4 +1,4 @@
-import { resolveNetwork } from './drivers/index.js'
+import { resolveNetwork, familyForChain } from './drivers/index.js'
 import type {
   ResolvedNetwork,
   WalletHandle,
@@ -30,7 +30,9 @@ import {
   buildExactSignatureHeader,
   parseChallenge,
   parseReceipt,
+  parseReceiptExtension,
   parseSettleResponse,
+  chainIdFromNetwork,
   type Caip2,
   type X402AcceptEntry,
   type X402ExactAcceptEntry,
@@ -38,6 +40,8 @@ import {
   type X402Challenge,
   type X402PaymentSignature,
   type X402Receipt,
+  type PipRailReceipt,
+  type VerifyErrorCode,
   type SettleOutcome,
 } from './x402.js'
 import {
@@ -615,6 +619,41 @@ export interface PayingClient {
   policy(): PaymentPolicy | undefined
 }
 
+/**
+ * The verdict from {@link PipRailClient.verifyReceipt} — a {@link PipRailReceipt}
+ * re-verified against the chain, never trusting the receipt's claims. `ok` is the
+ * chain's confirmation that the settlement is real (≥`amount` of `asset` moved to
+ * `payTo`); `onChain` is RE-DERIVED from the tx (`payer` genuinely so; `amount` is a
+ * VERIFIED LOWER BOUND — drivers threshold-check `paid >= required` then echo the
+ * accept amount); `matchesClaims` is whether the re-derived `payer` equals the
+ * receipt's claimed `payer` (a forged payer → `false` even when `ok` is `true`).
+ *
+ * Re-verification is **durable** for digest-bound (Template-B) families (EVM, Solana,
+ * Tron, Sui, Aptos, native coins — the driver reads the tx by hash/digest) and
+ * **recency-bounded / best-effort** for the account-watch families (Stellar, XRPL,
+ * Algorand, TON), whose drivers scan only recent merchant-account history — an old
+ * receipt there can return `transfer_not_found` even though it once settled.
+ */
+export interface ReceiptVerification {
+  /** The chain confirms the settlement (≥`amount` moved to `payTo`). */
+  ok: boolean
+  /** Fields RE-DERIVED from the on-chain tx. `payer` is genuinely re-derived; `amount`
+   *  is a verified LOWER BOUND (the chain confirms at least this much moved). */
+  onChain: { payTo: string; asset: string; amount: string; payer: string }
+  /** Does the re-derived on-chain `payer` match the receipt's claimed `payer`? */
+  matchesClaims: boolean
+  /** Informational age of the receipt (seconds since `verifiedAt`); NOT a validity gate. */
+  ageSeconds: number
+  /** The closed verification code when `ok` is false (reuses the driver vocabulary). */
+  error?: VerifyErrorCode
+}
+
+/** The synthetic-accept window for {@link PipRailClient.verifyReceipt}: a large but
+ *  FINITE sentinel so a driver's `payment_expired` branch can't fire on a legitimately
+ *  old receipt (age is reported via `ageSeconds`, never a validity gate for Template-B).
+ *  Finite (not `Infinity`) so a driver's `Number`/`BigInt` math stays well-defined. */
+const RECEIPT_VERIFY_WINDOW_SECONDS = 100 * 365 * 24 * 60 * 60 // ~100 years
+
 export class PipRailClient {
   private readonly opts: PipRailClientOptions
   private readonly maxRetries: number
@@ -634,6 +673,11 @@ export class PipRailClient {
   // Resolved lazily on first request — this is what lets Solana (and future
   // families) auto-mount with no setup call.
   private bound?: Promise<{ net: ResolvedNetwork; wallet: WalletHandle | undefined }>
+
+  // The verifiable receipt from the most recent settled fetch (null if the server emitted
+  // none). Captured pure (no chain read) and surfaced via lastReceipt(); the resource URL is
+  // stamped from the URL this client actually fetched (authoritative over the gate's default).
+  private lastReceiptValue: PipRailReceipt | null = null
 
   constructor(opts: PipRailClientOptions) {
     this.opts = opts
@@ -811,6 +855,92 @@ export class PipRailClient {
       this.onEvent(event)
     } catch {
       /* a logging hook must never abort a payment */
+    }
+  }
+
+  /**
+   * Capture the verifiable receipt from a settled response (pure — no chain read), stamping
+   * the resource URL this client actually fetched (authoritative over the gate's default ''). A
+   * settled fetch with no receipt extension sets it to `null` so {@link lastReceipt} reflects the
+   * latest fetch. Never throws — a malformed header just yields `null`.
+   */
+  private captureReceipt(response: Response, url: string): void {
+    try {
+      const parsed = parseReceiptExtension(response)
+      this.lastReceiptValue = parsed ? { ...parsed, resource: { url } } : null
+    } catch {
+      this.lastReceiptValue = null
+    }
+  }
+
+  /**
+   * The verifiable {@link PipRailReceipt} from the most recent settled `fetch` — the
+   * self-contained record the buyer KEEPS and anyone re-verifies against the chain
+   * (see {@link PipRailClient.verifyReceipt}). `null` when the last settled fetch carried
+   * no receipt (the gate's `receipts` option was off) or no payment has settled yet. Pure.
+   */
+  lastReceipt(): PipRailReceipt | null {
+    return this.lastReceiptValue
+  }
+
+  /**
+   * Re-verify ANY {@link PipRailReceipt} against the chain — the anyone-can-run primitive.
+   * Re-reads `receipt.transaction` via the receipt's own network driver and re-derives
+   * `payTo`/`asset`/`payer` from the tx, **never trusting the receipt's claims**: a forged
+   * `payTo`/`asset`/over-stated `amount` makes the driver's `verify()` fail (`ok:false`); a
+   * forged `payer` surfaces as `matchesClaims:false`. Static + WALLET-FREE — a third party
+   * verifies with only a chain + RPC, no PipRail account. **Never throws** (an RPC error or a
+   * malformed receipt → `{ ok:false, error }`). Viem-free here — the chain read happens inside
+   * the lazily-mounted family driver (the protocol layer pulls no chain libs). Durable for
+   * digest-bound families; recency-bounded for the account-watch families (see
+   * {@link ReceiptVerification}).
+   */
+  static async verifyReceipt(
+    receipt: PipRailReceipt,
+    opts?: { rpcUrl?: string }
+  ): Promise<ReceiptVerification> {
+    const r = receipt.receipt
+    const claimed = { payTo: r.payTo, asset: r.asset, amount: r.amount, payer: r.payer }
+    const ageSeconds = receiptAgeSeconds(r.verifiedAt)
+    try {
+      const chain = chainSelectorForNetwork(r.network, opts?.rpcUrl)
+      const net = await resolveNetwork({
+        chain,
+        ...(opts?.rpcUrl ? { rpcUrl: opts.rpcUrl } : {}),
+      })
+      // A SYNTHETIC trusted accept rebuilt from the receipt's claims — `verify()` re-derives
+      // every field from the chain and checks the tx paid AT LEAST this amount to this payTo.
+      const accept: X402AcceptEntry = {
+        scheme: 'onchain-proof',
+        network: r.network,
+        amount: r.amount,
+        asset: r.asset,
+        payTo: r.payTo,
+        maxTimeoutSeconds: RECEIPT_VERIFY_WINDOW_SECONDS,
+        extra: {
+          nonce: r.nonce ?? '', // the challenge/memo nonce — REQUIRED for Template-A re-verify
+          decimals: receipt.decimals ?? 6, // B10c — Stellar/XRPL/TON re-scale by it; 6 = USDC fallback
+          minConfirmations: 0,
+          amountFormatted: '',
+        },
+      }
+      // B10b — NEAR's verify() decodes `<senderId>:<hash>`; a bare hash → senderId='' → spurious
+      // miss. Reconstruct the composite ref from the receipt's payer (the NEAR account) + tx hash.
+      const ref =
+        familyForChain(chain) === 'near' ? `${r.payer}:${r.transaction}` : r.transaction
+      const result = await net.verify(ref, accept)
+      if (!result.ok) {
+        return { ok: false, onChain: claimed, matchesClaims: false, ageSeconds, error: result.error }
+      }
+      const oc = result.receipt
+      const onChain = { payTo: oc.payTo, asset: oc.asset, amount: oc.amount, payer: oc.payer }
+      // `payer` is the one field genuinely re-derived from the tx (the rest are pinned by the
+      // synthetic accept the chain already validated against). A forged claimed payer → false.
+      const matchesClaims = sameAddress(oc.payer, r.payer)
+      return { ok: true, onChain, matchesClaims, ageSeconds }
+    } catch {
+      // An unknown network, unmounted driver, or RPC failure — never throw (ERRORS.md).
+      return { ok: false, onChain: claimed, matchesClaims: false, ageSeconds, error: 'tx_not_found' }
     }
   }
 
@@ -2037,6 +2167,7 @@ export class PipRailClient {
 
       if (lastResponse.status !== 402) {
         const receipt = parseReceipt(lastResponse)
+        this.captureReceipt(lastResponse, url)
         this.safeEmit({ kind: 'payment-settled', receipt })
         return lastResponse
       }
@@ -2180,6 +2311,7 @@ export class PipRailClient {
       // (a receipt-less 2xx counts as affirmative).
       if (response.ok && !(settle && settle.success === false)) {
         const receipt = parseReceipt(response)
+        this.captureReceipt(response, url)
         this.safeEmit({ kind: 'payment-settled', receipt, ...(settle ? { settle } : {}) })
         // Record the spend EXACTLY ONCE, on this affirmative-settle path only. Prefer the
         // facilitator's on-chain settle tx; fall back to the nonce when it echoes none (`||`,
@@ -2566,4 +2698,48 @@ async function readInvalidReason(
   const settle = parseSettleResponse(response)
   if (settle?.errorReason) return { error: settle.errorReason, detail: '' }
   return null
+}
+
+/* ----------------------------- receipt re-verification helpers ----------------------------- */
+
+/** The common EVM chains whose receipts re-verify with NO caller-supplied RPC — chainId →
+ *  preset name (the preset carries a default RPC; `opts.rpcUrl` still overrides). PURE data:
+ *  just strings, NO viem/preset-object import, so the protocol layer stays viem-free and the
+ *  lazy-chunk grep green. A receipt on any other EVM chain needs `verifyReceipt(_, { rpcUrl })`. */
+const EVM_PRESET_FOR_CHAINID: Readonly<Record<number, string>> = {
+  1: 'ethereum',
+  8453: 'base',
+  137: 'polygon',
+  42161: 'arbitrum',
+  10: 'optimism',
+  43114: 'avalanche',
+  56: 'bnb',
+}
+
+/** Map a receipt's CAIP-2 `network` to a `chain` selector `resolveNetwork` accepts. EVM
+ *  (`eip155:N`) → a common-preset name (default RPC) or `{ id, rpcUrl }` for a custom chain;
+ *  every non-EVM namespace IS its family slug — except TON's `tvm`, which maps to `ton`
+ *  (the chain-agnostic registry has no `ton` namespace). Pure/synchronous. */
+function chainSelectorForNetwork(network: string, rpcUrl?: string): ChainSelector {
+  const chainId = chainIdFromNetwork(network)
+  if (chainId !== null) {
+    const preset = EVM_PRESET_FOR_CHAINID[chainId]
+    if (preset) return preset as ChainSelector
+    return { id: chainId, rpcUrl: rpcUrl ?? '' } as ChainSelector
+  }
+  const namespace = network.split(':')[0] ?? ''
+  return (namespace === 'tvm' ? 'ton' : namespace) as ChainSelector
+}
+
+/** Informational receipt age in seconds (never a validity gate). 0 on an unparseable `verifiedAt`. */
+function receiptAgeSeconds(verifiedAt: string): number {
+  const t = Date.parse(verifiedAt)
+  if (Number.isNaN(t)) return 0
+  return Math.max(0, Math.round((Date.now() - t) / 1000))
+}
+
+/** Compare two on-chain addresses tolerantly (EVM checksum-insensitive; non-EVM addresses
+ *  don't collide on case, so lowercasing is safe). Used to cross-check the re-derived payer. */
+function sameAddress(a: string, b: string): boolean {
+  return typeof a === 'string' && typeof b === 'string' && a.toLowerCase() === b.toLowerCase()
 }

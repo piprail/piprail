@@ -75,7 +75,7 @@ function stubFetch(onProof: () => Response) {
 const client = (over = {}) => new PipRailClient({ chain: 'stellar', wallet: { key: 'x' }, ...over })
 
 describe('paymentTools — framework-agnostic descriptors', () => {
-  it('exposes the 7 tools (first 5 byte-identical in order; budget + guide appended last)', () => {
+  it('exposes the 8 tools (first 5 byte-identical in order; budget + guide + verify_receipt appended last)', () => {
     const tools = paymentTools(client())
     expect(tools.map((t) => t.name)).toEqual([
       'piprail_discover',
@@ -85,6 +85,7 @@ describe('paymentTools — framework-agnostic descriptors', () => {
       'piprail_register',
       'piprail_budget',
       'piprail_guide',
+      'piprail_verify_receipt',
     ])
     for (const t of tools) {
       expect(typeof t.description).toBe('string')
@@ -93,10 +94,11 @@ describe('paymentTools — framework-agnostic descriptors', () => {
     }
   })
 
-  it('the two appended tools are read-only + idempotent (move no funds)', () => {
+  it('the appended read tools are read-only + idempotent (move no funds)', () => {
     const ann = Object.fromEntries(paymentTools(client()).map((t) => [t.name, t.annotations]))
     expect(ann['piprail_budget']).toMatchObject({ readOnlyHint: true, idempotentHint: true })
     expect(ann['piprail_guide']).toMatchObject({ readOnlyHint: true, idempotentHint: true })
+    expect(ann['piprail_verify_receipt']).toMatchObject({ readOnlyHint: true, idempotentHint: true })
   })
 
   it('declares an outputSchema ONLY on the stable read tools (quote/plan/budget)', () => {

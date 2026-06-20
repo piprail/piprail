@@ -140,6 +140,14 @@ describe('buildSelfDescription', () => {
     expect('endpoint' in sd).toBe(false)
   })
 
+  it('omits `verifiableReceipts` by default (byte-identical), present + true only when receipts on', () => {
+    expect('verifiableReceipts' in buildSelfDescription({ accepts: [onchainProof] })).toBe(false)
+    expect(
+      'verifiableReceipts' in buildSelfDescription({ accepts: [onchainProof], verifiableReceipts: false })
+    ).toBe(false)
+    expect(buildSelfDescription({ accepts: [onchainProof], verifiableReceipts: true }).verifiableReceipts).toBe(true)
+  })
+
   it('includes an `endpoint` block when one is provided (agent-readability)', () => {
     const sd = buildSelfDescription({
       accepts: [onchainProof],

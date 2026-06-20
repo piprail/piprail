@@ -549,8 +549,18 @@ export function buildChallengeHeader(challenge: X402Challenge): string {
   return toBase64Json(challenge)
 }
 
-export function buildReceiptHeader(receipt: X402Receipt): string {
-  return toBase64Json(receipt)
+/**
+ * Build the PAYMENT-RESPONSE header from a settled {@link X402Receipt}. When `extensions`
+ * is supplied (the gate's `receipts` option is on), it rides as an `extensions` sibling on
+ * the SettlementResponse — a standard x402 reader ignores it, {@link parseReceiptExtension}
+ * reconstructs the {@link PipRailReceipt}. Omit it (the default) and the header is
+ * byte-identical to before this feature.
+ */
+export function buildReceiptHeader(
+  receipt: X402Receipt,
+  extensions?: Record<string, unknown>
+): string {
+  return toBase64Json(extensions ? { ...receipt, extensions } : receipt)
 }
 
 /** The x402 extension key for verifiable delivery receipts (the `offer-receipt` extension). */

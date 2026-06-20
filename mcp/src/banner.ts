@@ -18,6 +18,7 @@ export const TOOL_NAMES = [
   'piprail_register',
   'piprail_budget',
   'piprail_guide',
+  'piprail_verify_receipt',
 ] as const
 
 const row = (label: string, value: string): string => `  ${label.padEnd(15)}${value}`

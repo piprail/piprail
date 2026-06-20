@@ -274,11 +274,11 @@ afterEach(() => {
 })
 
 describe('createMcpServer — multi-chain server', () => {
-  test('builds a MultiChainPayer over both chains, exposing the same 7 tools', async () => {
+  test('builds a MultiChainPayer over both chains, exposing the same 8 tools', async () => {
     const { mcp, client } = await connectMulti()
     expect(client).toBeInstanceOf(MultiChainPayer)
     const { tools } = await mcp.listTools()
-    expect(tools).toHaveLength(7)
+    expect(tools).toHaveLength(8)
   })
 
   test('the plan tool merges both chains; the pay tool routes to the first-listed chain', async () => {

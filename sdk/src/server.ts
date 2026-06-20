@@ -31,6 +31,7 @@ import { firstKeylessFacilitator } from './facilitators.js'
 import {
   buildChallengeHeader,
   buildReceiptHeader,
+  buildReceiptExtension,
   parseSignatureHeader,
   parseExactPaymentHeader,
   HEADER_REQUIRED,
@@ -281,6 +282,43 @@ export interface RequirePaymentOptions {
    * byte-identical default of before this feature). See {@link buildSelfDescription}.
    */
   selfDescribe?: boolean
+  /**
+   * Emit a **verifiable receipt** on every settled payment — a self-contained
+   * {@link PipRailReceipt} that the buyer keeps and **anyone** re-verifies against the
+   * chain with only an RPC (no key, no backend, no PipRail account). It rides in a
+   * byte-compatible `extensions['offer-receipt'].info` block on the `PAYMENT-RESPONSE`
+   * header and stamps the challenge `nonce` onto the receipt so the five Template-A
+   * (memo/nonce-bound) families re-verify off-chain. **Default off → byte-identical.**
+   *
+   * - `true` / `{}`        → Tier-1 chain-grounded receipt (the settlement tx is the
+   *                          authority — re-verified via the driver's own `verify()`).
+   * - `{ includeTxHash }`  → see {@link ReceiptOption}. Default `true` (PipRail inverts
+   *                          the official privacy-default; the open chain is the pitch).
+   *
+   * Purely additive metadata a standard x402 client ignores; the `accepts[]`, status,
+   * and pay path are unchanged. {@link PipRailClient.verifyReceipt} re-verifies it.
+   */
+  receipts?: boolean | ReceiptOption
+}
+
+/** Tuning for the {@link RequirePaymentOptions.receipts} verifiable-receipt emission. */
+export interface ReceiptOption {
+  /**
+   * Put the settlement tx hash in the receipt. **Default `true`** — PipRail inverts the
+   * official x402 privacy-default (which omits it) because the whole pitch is the open,
+   * self-verifiable chain. Set `false` for a privacy-minded merchant: the wire
+   * `transaction` becomes the empty string `''` (per spec §5.3, never a missing key) and
+   * the Tier-1 receipt is no longer third-party on-chain-verifiable (it carries no tx to
+   * re-read) — use Tier-2 attestation for that case.
+   */
+  includeTxHash?: boolean
+  /**
+   * The canonical resource URL to embed in the merchant-emitted receipt (what was paid
+   * for). The buyer's {@link PipRailClient.lastReceipt} also fills this from the URL it
+   * fetched, so set it here only to ground the raw header a third party reads directly.
+   * Default `''` (the buyer's client fills it).
+   */
+  resource?: string
 }
 
 export type VerifyPaymentResult =
@@ -444,6 +482,13 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
   // Expand the `exact: true` shorthand once. ALL exact logic below reads `exactOption`, not
   // `options.exact`, so the default (omit `exact`) path stays byte-identical (onchain-proof only).
   const exactOption = normaliseExactOption(options.exact)
+  // Verifiable-receipt emission (default OFF → byte-identical). `buildPaidResult` reads these,
+  // never `options.receipts`, so the no-option path is untouched.
+  const receiptsOn = options.receipts !== undefined && options.receipts !== false
+  const receiptOpt: ReceiptOption =
+    typeof options.receipts === 'object' ? options.receipts : {}
+  const receiptIncludeTxHash = receiptOpt.includeTxHash !== false // default true
+  const receiptResourceUrl = receiptOpt.resource ?? ''
 
   // Lazy, memoized resolution. Auto-mounts each option's driver, validates its
   // payTo, and resolves its token (asset + decimals) exactly once. One element
@@ -796,6 +841,7 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
             accepts,
             instruction: describeChallenge({ x402Version: 2, resource: { url: resourceUrl }, accepts }),
             ...(endpointInfo ? { endpoint: endpointInfo } : {}),
+            ...(receiptsOn ? { verifiableReceipts: true } : {}),
           })
     // DEEP-MERGE the `piprail` key: a rejection's { code, detail } (from opts.extensions) and the
     // self-describe fields coexist as SIBLINGS, rejection keys WINNING on collision — `client.ts`
@@ -931,6 +977,41 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     else void fireOnPaid(paid)
   }
 
+  /**
+   * Build the settled `kind:'paid'` result — and, when `receipts` is on, stamp a
+   * verifiable-receipt extension onto the `PAYMENT-RESPONSE` header. The `nonce` is the
+   * **trusted challenge nonce** the gate bound the rail against (`sig.payload.nonce` for
+   * onchain-proof; **omitted** for `exact`, which is digest-bound and carries no challenge
+   * nonce — never the per-rail authorization nonce, close-out "Nonce semantics"). It is
+   * ISOLATED exactly like `onPaid`: any throw in the receipt builder degrades to the plain
+   * receipt header (the byte-identical default), never failing the 200.
+   */
+  function buildPaidResult(
+    spec: ResolvedSpec,
+    receipt: X402Receipt,
+    nonce?: string
+  ): VerifyPaymentResult {
+    if (!receiptsOn) {
+      return { kind: 'paid', receipt, receiptHeader: buildReceiptHeader(receipt) }
+    }
+    try {
+      const stamped: X402Receipt = {
+        ...receipt,
+        ...(nonce ? { nonce } : {}),
+        // §5.3: a suppressed tx is the empty string on the wire, never a missing key.
+        ...(receiptIncludeTxHash ? {} : { transaction: '' }),
+      }
+      const extensions = buildReceiptExtension({
+        receipt: stamped,
+        resource: { url: receiptResourceUrl },
+        decimals: spec.decimals,
+      })
+      return { kind: 'paid', receipt: stamped, receiptHeader: buildReceiptHeader(stamped, extensions) }
+    } catch {
+      return { kind: 'paid', receipt, receiptHeader: buildReceiptHeader(receipt) }
+    }
+  }
+
   /** Surface an `onFailed` throw through the optional `onFailedError` seam — itself isolated,
    *  the mirror of {@link reportOnPaidError}. */
   function reportOnFailedError(error: unknown, failure: FailedPayment): void {
@@ -1032,7 +1113,9 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     }
     await settleTx(ref, true)
     await deliverOnPaid(spec, result.receipt)
-    return { kind: 'paid', receipt: result.receipt, receiptHeader: buildReceiptHeader(result.receipt) }
+    // onchain-proof is memo/digest-bound by the CHALLENGE nonce the buyer echoed — stamp it
+    // so Template-A families re-verify off-chain (the trusted value, never a client-forgeable field).
+    return buildPaidResult(spec, result.receipt, sig.payload.nonce)
   }
 
   /**
@@ -1203,7 +1286,10 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     }
     await settleTx(nonce, true)
     await deliverOnPaid(spec, result.receipt)
-    return { kind: 'paid', receipt: result.receipt, receiptHeader: buildReceiptHeader(result.receipt) }
+    // `exact` is digest-bound (verified by tx/digest, not a memo nonce) and carries NO challenge
+    // nonce — pass none. The in-scope `nonce` here is the per-rail AUTHORIZATION/dedupe key, which
+    // must NOT be stamped as the receipt's challenge nonce (close-out "Nonce semantics").
+    return buildPaidResult(spec, result.receipt)
   }
 
   /**

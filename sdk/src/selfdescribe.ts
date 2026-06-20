@@ -99,6 +99,10 @@ export interface SelfDescription {
   docs: { home: string; agents: string; pay: string }
   /** Where the open discovery artifacts live on this origin. */
   discovery: { openapi: string; wellKnown: string }
+  /** Present (and `true`) ONLY when this gate issues verifiable receipts (`receipts` on) —
+   *  so a crawler/agent reading the 402 knows the 200 will carry a self-verifiable
+   *  `extensions['offer-receipt']` receipt. Absent by default (byte-identical). */
+  verifiableReceipts?: true
   /** A one-line human summary (the gate sets it from `describeChallenge`). */
   instruction?: string
 }
@@ -147,6 +151,9 @@ export function buildSelfDescription(input: {
    *  byte-identical). Built from the gate's `description`/`mimeType`/`discovery` descriptor
    *  via {@link buildEndpointInfo}. */
   endpoint?: SelfDescribeEndpoint
+  /** True when the gate's `receipts` option is on — stamps the additive `verifiableReceipts`
+   *  flag so a reader knows the 200 will carry a self-verifiable receipt. */
+  verifiableReceipts?: boolean
 }): SelfDescription {
   return {
     name: 'PipRail',
@@ -159,6 +166,7 @@ export function buildSelfDescription(input: {
     mcp: { run: BRAND.mcpRun, tool: 'piprail_pay_request' },
     docs: { home: BRAND.home, agents: BRAND.docs, pay: BRAND.payDocs },
     discovery: { openapi: '/openapi.json', wellKnown: '/.well-known/x402' },
+    ...(input.verifiableReceipts ? { verifiableReceipts: true as const } : {}),
     ...(input.instruction ? { instruction: input.instruction } : {}),
   }
 }

@@ -102,7 +102,7 @@ export function createMcpServer(
     ? new MultiChainPayer(clientOptions.map((o) => new PipRailClient(decorate(o))), { shared: true })
     : new PipRailClient(decorate(clientOptions))
 
-  const tools = paymentTools(client) // 7 tools (discover · quote · plan · pay · register · budget · guide)
+  const tools = paymentTools(client) // 8 tools (discover · quote · plan · pay · register · budget · guide · verify_receipt)
 
   // Elicitation is a CLIENT capability — the server only declares tools (+ the
   // guide's prompts/resources when enabled).
