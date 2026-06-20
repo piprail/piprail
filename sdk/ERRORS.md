@@ -91,6 +91,7 @@ a code, and you must use the same code other drivers use for the same condition.
 | `payment_expired` | older than `maxTimeoutSeconds` (replay window); on `exact`, an expired/not-yet-valid EIP-3009 authorization | definitive | all |
 | `tx_already_used` | this proof was already redeemed (replay); on `exact`, an on-chain-consumed authorization nonce | definitive | the **gate** (+ EVM `exact` via `authorizationState`) |
 | `signature_invalid` | `exact` rail: the EIP-712 authorization signature didn't recover to the payer | definitive | EVM `exact` |
+| `upto_settle_exceeds_max` | `upto` (metered) rail: the merchant's metered settle amount exceeds the buyer-signed MAX (`permitted.amount`) | definitive | EVM `upto` (maps the spec's `invalid_upto_evm_payload_settlement_exceeds_amount`) |
 
 **Family-specificity is structural, not drift.** Account-watch chains (TON, Stellar) scan the
 merchant account and can't tell "wrong recipient" from "no payment", so both collapse to
@@ -186,6 +187,7 @@ Every `PaymentDriver` / `ResolvedNetwork` method has a fixed error behaviour:
 | `verify(ref, accept)` | **return** a `VerifyResult` with a canonical `VerifyErrorCode`. **Guard every RPC read** so a transient failure returns `tx_not_found` — `verify()` must not throw for an RPC hiccup. Re-derive the watched account from the trusted `accept`, never the client ref. |
 | `exactDomain?(asset)` *(optional, EVM)* | **never throw for a non-EIP-3009 token** — return `null` (the gate raises a clear config error). May throw only on a hard RPC failure at gate setup. |
 | `settleExactSelf?(input)` *(optional, EVM)* | **return** a `VerifyResult` for a CLIENT-fixable fault (`signature_invalid`/`wrong_recipient`/`amount_too_low`/`payment_expired`/`tx_already_used`/`tx_reverted` → 402); **throw `SettlementError`** when a valid+simulated payment fails to BROADCAST (relayer/RPC → 5xx). Re-derive every checked field from the trusted `accept`, never the client echo. |
+| `settleUptoSelf?(input)` *(optional, EVM-Permit2)* | the metered sibling of `settleExactSelf` — **return** a `VerifyResult` for a CLIENT-fixable fault (same set, plus `upto_settle_exceeds_max` when the metered `settleAmount` exceeds the signed MAX); **throw `SettlementError`** on a broadcast failure of a valid auth (→ 5xx). Re-verifies the signature against `permitted.amount` (the signed MAX), NEVER the metered actual; `settleAmount === 0n` returns a synthetic zero-charge receipt (`transaction:""`) with NO broadcast. Re-derive every checked field from the trusted `accept`. |
 | `confirm(ref, n)` | broadcast-but-not-confirmed / timeout → `ConfirmationTimeoutError`. |
 | `estimateCost(accept, opts?)` | **never throw** — guard the RPC read and fall back to a `'heuristic'` constant; always return a valid `CostEstimate`. |
 | `balanceOf(wallet, asset)` | **never throw** — RPC-read-only. A field whose read was unavailable (transient/rate-limit) returns `null`, NOT `0` (a false 0 reads as "broke"). For `asset==='native'`, `token === native`. |

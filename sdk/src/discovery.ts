@@ -29,8 +29,9 @@ import type { Caip2, AssetId, AddressId } from './x402.js'
  * consumed by every emitter below.
  */
 export interface PaymentRail {
-  /** `onchain-proof` (PipRail's default) or the standard `exact` rail (dual-advertise). */
-  scheme: 'onchain-proof' | 'exact'
+  /** `onchain-proof` (PipRail's default), the standard `exact` rail, or the standard `upto`
+   *  (metered) rail (dual-advertise). */
+  scheme: 'onchain-proof' | 'exact' | 'upto'
   network: Caip2
   asset: AssetId
   payTo: AddressId

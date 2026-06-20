@@ -46,7 +46,7 @@ export const BRAND = {
  * human-readable view of an `accepts[]` entry (no nonce; this is long-lived metadata).
  */
 export interface SelfDescribeRail {
-  scheme: 'onchain-proof' | 'exact'
+  scheme: 'onchain-proof' | 'exact' | 'upto'
   network: string
   asset: string
   payTo: string
@@ -116,10 +116,14 @@ const WHAT =
  * and points at the SDK, because on the non-EVM families that have no standard `exact`
  * rail it is the only on-ramp a stranger has.
  */
-function howFor(scheme: 'onchain-proof' | 'exact'): string {
-  return scheme === 'exact'
-    ? 'Standard x402 exact rail — sign an EIP-3009 / Permit2 / SVM authorization; any stock x402 client (e.g. @x402/fetch) can pay this.'
-    : 'Pay this amount on-chain to payTo, then resubmit with a payment-signature header carrying the proof ref + nonce. Easiest with @piprail/sdk (see sdk.install).'
+function howFor(scheme: 'onchain-proof' | 'exact' | 'upto'): string {
+  if (scheme === 'exact') {
+    return 'Standard x402 exact rail — sign an EIP-3009 / Permit2 / SVM authorization; any stock x402 client (e.g. @x402/fetch) can pay this.'
+  }
+  if (scheme === 'upto') {
+    return 'Standard x402 upto (metered) rail — sign a Permit2 authorization for the MAX amount; the server settles the ACTUAL (≤ max) after serving. BUDGET AGAINST THE MAX — the server MAY fully charge it. EVM-Permit2 only; enable with schemes:[\'upto\'].'
+  }
+  return 'Pay this amount on-chain to payTo, then resubmit with a payment-signature header carrying the proof ref + nonce. Easiest with @piprail/sdk (see sdk.install).'
 }
 
 function railOf(a: X402AnyAccept): SelfDescribeRail {

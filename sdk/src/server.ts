@@ -17,7 +17,7 @@
  * single-process by design; pass your own `isUsed`/`markUsed` to share it.
  */
 
-import { parseUnits, formatUnits } from './util/units.js'
+import { parseUnits, formatUnits, floorUnits } from './util/units.js'
 import { resolveNetwork } from './drivers/index.js'
 import type { ResolvedNetwork, TokenInput, ChainSelector, WalletHandle } from './drivers/types.js'
 import { buildBazaarExtension } from './discovery.js'
@@ -25,7 +25,7 @@ import type { ResourceDescription, PaymentRail, DiscoveryDescriptor } from './di
 import { describeChallenge } from './render.js'
 import { buildSelfDescription, buildEndpointInfo } from './selfdescribe.js'
 import { renderLandingPage } from './landing.js'
-import { SettlementError } from './errors.js'
+import { SettlementError, PipRailError } from './errors.js'
 import { settleViaFacilitator, fetchFacilitatorFeePayer } from './facilitator.js'
 import { firstKeylessFacilitator } from './facilitators.js'
 import {
@@ -34,20 +34,24 @@ import {
   buildReceiptExtension,
   parseSignatureHeader,
   parseExactPaymentHeader,
+  parseUptoPaymentHeader,
   HEADER_REQUIRED,
   HEADER_SIGNATURE,
   HEADER_RESPONSE,
   HEADER_SIGNATURE_V1,
   HEADER_RESPONSE_V1,
   type AddressId,
+  type Caip2,
   type X402AcceptEntry,
   type X402ExactAcceptEntry,
+  type X402UptoAcceptEntry,
   type X402AnyAccept,
   type X402Challenge,
   type X402Receipt,
   type PaidReceipt,
   type X402PaymentSignature,
   type ParsedExactPayment,
+  type ParsedUptoPayment,
   type VerifyResult,
   type VerifyErrorCode,
 } from './x402.js'
@@ -121,6 +125,44 @@ export interface ExactRailOption {
    *  token supports it, else Permit2 — so a non-EIP-3009 token like Binance-Peg USDC on BNB
    *  "just works". Force `'eip3009'` or `'permit2'` to pin one. Ignored on Solana (always SVM). */
   method?: 'eip3009' | 'permit2' | 'auto'
+}
+
+/**
+ * Opt into ALSO advertising a standard x402 `upto` (metered / variable-amount) rail beside the
+ * default `onchain-proof` rail — for usage-billed APIs (pay-per-LLM-token, per-byte, per-query).
+ * The buyer signs a Permit2 authorization for `amount` as a **MAXIMUM**; the merchant serves the
+ * resource, meters the **actual** usage, then **self-settles** `actual ≤ max` through the
+ * canonical `x402UptoPermit2Proxy` from its own `relayer` (which IS the bound `witness.facilitator`
+ * — backendless, no third-party facilitator). **EVM-Permit2 ONLY** (the upto spec bans EIP-3009 and
+ * has no non-EVM variant); native coins and non-Permit2 chains never carry it. Self-settle ONLY in
+ * v1 (no facilitator mode). Omitting `upto` leaves the gate byte-identical to today.
+ *
+ * **⚠ UNSUPPORTED through the Express `requirePayment` middleware** — it settles BEFORE the route
+ * handler serves, so the metered usage isn't known yet; constructing `requirePayment({ upto })`
+ * THROWS. The supported handler shape is a **direct `gate.verify(header)` call** where the metering
+ * happens INSIDE the `settleAmount` callback: serve/compute enough to know usage → `await
+ * gate.verify(header)` whose `settleAmount` returns that usage → write the body + the receipt header.
+ */
+export interface UptoRailOption {
+  /** REQUIRED — the gas-paying relayer wallet that settles AND is the bound `witness.facilitator`
+   *  (a `{ key }` or a bring-your-own EVM `{ walletClient }`). Distinct from `payTo`, the receive
+   *  address — though here they MAY be the same key (the proxy binds `witness.to` separately). */
+  relayer: unknown
+  /**
+   * REQUIRED — the merchant callback that picks the ACTUAL charge AFTER serving (the
+   * deferred-settle lifecycle). Called with the metered context; return a `bigint` (base units),
+   * or a string in the x402 SettlementOverrides forms — raw atomic (`"1858"`), `"NN%"` of the max
+   * (floored), or `"$X"` (rounded to the token's decimals). `"0"`/`0n` ⇒ a zero-charge receipt with
+   * NO on-chain tx. The gate clamps to ≤ the advertised max and rejects-over-max defensively
+   * (`upto_settle_exceeds_max`). On the direct `gate.verify()` path this is where you meter usage.
+   */
+  settleAmount: (ctx: {
+    maxAmount: bigint
+    asset: string
+    network: Caip2
+    decimals: number
+    request?: unknown
+  }) => bigint | string | Promise<bigint | string>
 }
 
 /**
@@ -263,6 +305,15 @@ export interface RequirePaymentOptions {
    * byte-identical).
    */
   exact?: boolean | ExactRailOption
+  /**
+   * ALSO advertise a standard x402 `upto` (metered / variable-amount) rail — for usage-billed
+   * APIs (pay-per-LLM-token, per-byte, …). Opt-in, EVM-Permit2 ONLY, self-settle ONLY. See
+   * {@link UptoRailOption}. The buyer signs for a MAX; you meter + settle the ACTUAL after serving
+   * via the `settleAmount` callback. **UNSUPPORTED through `requirePayment` (the Express middleware
+   * settles before the route handler serves) — constructing `requirePayment({ upto })` THROWS;** use
+   * a direct `gate.verify()` call and meter inside `settleAmount`. Omitted ⇒ byte-identical to today.
+   */
+  upto?: UptoRailOption
   /**
    * Make this gate's 402 self-describing for the open indexes — **x402scan REQUIRES
    * an input schema or it won't list the resource.** Set `true` for a no-input GET,
@@ -412,6 +463,18 @@ interface ResolvedExactRail {
   mode: ResolvedExactMode
 }
 
+/** A resolved standard `upto` (metered) rail bound to one spec — self-settle ONLY (the
+ *  merchant's own relayer is the bound `witness.facilitator`). Present when `options.upto`
+ *  is set and the spec's family/asset can carry it (EVM ERC-20 via the Permit2 upto proxy). */
+interface ResolvedUptoRail {
+  /** Always the PipRail-internal `'permit2-upto'` (upto is EVM-Permit2 only). */
+  method: 'permit2-upto'
+  /** Driver-supplied keys merged verbatim into the accept's `extra` — `{ facilitatorAddress, name?, version? }`. */
+  extra?: Record<string, unknown>
+  /** The bound relayer that settles (and is the witness.facilitator). */
+  relayer: WalletHandle
+}
+
 /** One fully-resolved payment option — its bound network, token, and recipient.
  *  A gate holds an array of these (one per offered chain), resolved once. */
 interface ResolvedSpec {
@@ -424,6 +487,8 @@ interface ResolvedSpec {
   payTo: AddressId
   /** A standard `exact` rail for this spec, when opted in + supported (EVM or Solana). */
   exact?: ResolvedExactRail
+  /** A standard `upto` (metered) rail for this spec, when opted in + supported (EVM-Permit2). */
+  upto?: ResolvedUptoRail
 }
 
 /**
@@ -502,6 +567,9 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
       // facilitator-incompatible token). Surfaced ONLY if NOTHING carries exact — so a
       // graceful per-rail drop stays quiet on a gate that has another working exact rail.
       const exactSkips: string[] = []
+      // Specs that couldn't carry `upto` (native / non-Permit2 chain / non-EVM family) — named
+      // in the loud throw below when NOTHING carries it (upto is an explicit opt-in).
+      const uptoSkips: string[] = []
       const specs = await Promise.all(
         accepts.map(async (a): Promise<ResolvedSpec> => {
           const net = await resolveNetwork({ chain: a.chain, rpcUrl: a.rpcUrl ?? options.rpcUrl })
@@ -521,9 +589,25 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
             if (outcome.rail) spec.exact = outcome.rail
             else if (outcome.skipReason) exactSkips.push(outcome.skipReason)
           }
+          if (options.upto) {
+            const upto = await resolveUptoRail(net, asset)
+            if (upto) spec.upto = upto
+            else uptoSkips.push(`${net.network}/${asset}`)
+          }
           return spec
         })
       )
+      // Upto was requested but NOTHING could carry it (a native coin, a non-Permit2-proxy chain,
+      // a non-EVM family). Self-settle only + EVM-Permit2 only — a narrow rail by design. Throw
+      // loudly (an explicit opt-in that can't be honoured is a config error), naming the cause.
+      if (options.upto && !specs.some((s) => s.upto)) {
+        throw new Error(
+          'requirePayment: `upto` (the metered rail) was requested but none of the offered rails support it ' +
+            `(tried: ${uptoSkips.join(', ') || 'none'}). The \`upto\` scheme is EVM-Permit2 ONLY — an ERC-20 on a ` +
+            'chain with the x402UptoPermit2Proxy deployed (Ethereum/Base/Arbitrum/Optimism/Polygon/BNB), NOT a ' +
+            'native coin, NOT a non-EVM family. (Native coins + non-Permit2 chains can never carry `upto`.)'
+        )
+      }
       // Exact was requested but NOTHING could carry it (no keyless facilitator for the chain, a
       // facilitator that's unreachable, a native/non-exact family, …). Two postures, by intent:
       //  • `exact: true` / `settle: 'keyless'` is a SOFT, best-effort "be gasless where I can" flag —
@@ -696,6 +780,34 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     return { rail: { method: info.method, ...(info.extra ? { extra: info.extra } : {}), mode } }
   }
 
+  /**
+   * Resolve a standard `upto` (metered) rail for one spec — the metered sibling of
+   * {@link resolveExactRail}, but far simpler (self-settle ONLY, no facilitator mode, no
+   * EIP-3009 vs Permit2 choice). Binds the merchant's own `relayer` (which becomes the bound
+   * `witness.facilitator`) and delegates the chain-specific "can this asset/chain carry upto +
+   * what `extra`" decision to the driver's {@link ResolvedNetwork.resolveUptoRail} SPI (EVM-only;
+   * Permit2-proxy-gated, reads the token's EIP-712 domain). Returns the resolved rail, or `null`
+   * when the family/asset/chain can't carry upto (a native coin, a non-proxy chain, a non-EVM
+   * family). `server.ts` stays chain-agnostic — it never names a family, it just merges `extra`.
+   */
+  async function resolveUptoRail(
+    net: ResolvedNetwork,
+    asset: string
+  ): Promise<ResolvedUptoRail | null> {
+    const cfg = options.upto!
+    if (!net.resolveUptoRail) return null // family has no `upto` (metered) settlement
+    if (cfg.relayer === undefined) {
+      throw new Error(
+        "requirePayment: `upto` needs a `relayer` wallet (the gas-paying key that self-settles the " +
+          'metered actual AND is the bound witness.facilitator), e.g. upto: { relayer: { key }, settleAmount }.'
+      )
+    }
+    const relayer = net.bindWallet(cfg.relayer)
+    const info = await net.resolveUptoRail({ asset, relayer })
+    if (!info) return null // this asset/chain can't carry upto → onchain-proof only here
+    return { method: info.method, ...(info.extra ? { extra: info.extra } : {}), relayer }
+  }
+
   // Replay protection. The built-in store reserves the proof ref synchronously
   // (its critical section has no await), so two concurrent requests carrying
   // the same proof can't both be redeemed. A reservation is released if
@@ -811,13 +923,40 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     }
   }
 
-  /** Dual-advertise: for each spec, the standard `exact` rail first (when enabled),
-   *  then the `onchain-proof` rail. A standard client picks `exact`; a PipRail client
-   *  picks `onchain-proof`. */
+  /** The standard `upto` (metered) rail for a spec (only when `spec.upto` is resolved).
+   *  Advertises `amount` = the MAX ceiling + `extra.facilitatorAddress` (the relayer the buyer
+   *  signs into `witness.facilitator`). The driver's `extra` (`{ facilitatorAddress, name?,
+   *  version? }`) is merged verbatim. */
+  function buildUptoAccept(s: ResolvedSpec): X402UptoAcceptEntry {
+    const rail = s.upto!
+    return {
+      scheme: 'upto',
+      network: s.net.network,
+      amount: s.amountBase.toString(), // the authorized MAX (base units)
+      asset: s.asset,
+      payTo: s.payTo,
+      maxTimeoutSeconds,
+      extra: {
+        assetTransferMethod: 'permit2-upto',
+        // facilitatorAddress comes from rail.extra; the spread below carries it (+ name/version).
+        facilitatorAddress: (rail.extra?.facilitatorAddress as string) ?? '',
+        minConfirmations,
+        decimals: s.decimals,
+        amountFormatted: s.amountFormatted,
+        ...(s.symbol ? { symbol: s.symbol } : {}),
+        ...(rail.extra as Partial<X402UptoAcceptEntry['extra']>),
+      },
+    }
+  }
+
+  /** Dual-advertise: for each spec, the standard `exact` rail first (when enabled), then the
+   *  `upto` (metered) rail (when enabled), then the `onchain-proof` rail. A standard client
+   *  picks `exact`/`upto`; a PipRail client picks `onchain-proof`. */
   function buildAccepts(specs: ResolvedSpec[], nonce: string): X402AnyAccept[] {
     const out: X402AnyAccept[] = []
     for (const s of specs) {
       if (s.exact) out.push(buildExactAccept(s))
+      if (s.upto) out.push(buildUptoAccept(s))
       out.push(buildAccept(s, nonce))
     }
     return out
@@ -1084,6 +1223,7 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
         ...(s.symbol ? { symbol: s.symbol } : {}),
       }
       if (s.exact) accepts.push({ scheme: 'exact', ...base })
+      if (s.upto) accepts.push({ scheme: 'upto', ...base })
       accepts.push({ scheme: 'onchain-proof', ...base })
     }
     return {
@@ -1309,6 +1449,136 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
   }
 
   /**
+   * Resolve the merchant's `settleAmount` return into a base-unit `bigint` clamped to `[0, max]`.
+   * Accepts the x402 SettlementOverrides forms for ergonomic parity with the reference:
+   *   • a `bigint`     — raw base units, used verbatim;
+   *   • `"NN%"`        — that percent of the max, FLOORED (e.g. `"50%"` of 50000 → 25000);
+   *   • `"$X"`         — a fiat-style decimal rounded to the token's decimals (`"$0.02"` @ 6dp → 20000);
+   *   • a raw atomic   — a plain integer string (`"1858"`), used verbatim;
+   *   • a decimal      — a plain decimal string (`"0.02"`), scaled by decimals.
+   * Returns `null` for an UNPARSEABLE form (a merchant bug → the caller releases the nonce + rejects).
+   * Negative or NaN never escapes; the final clamp-over-max is enforced in the driver (and re-checked
+   * here defensively isn't needed — the driver rejects `> max` with `upto_settle_exceeds_max`).
+   */
+  function resolveSettleAmount(raw: bigint | string, maxAmount: bigint, decimals: number): bigint | null {
+    if (typeof raw === 'bigint') return raw < 0n ? null : raw
+    const s = raw.trim()
+    if (s.length === 0) return null
+    try {
+      if (s.endsWith('%')) {
+        const pct = s.slice(0, -1).trim()
+        if (!/^\d+(\.\d+)?$/.test(pct)) return null
+        // floor( max * pct / 100 ) — integer math via base-unit scaling to avoid float drift.
+        // Scale the percentage to 4 dp of precision, then divide back out.
+        const pctScaled = parseUnits(pct, 4) // e.g. "50" → 500000 (50.0000)
+        return (maxAmount * pctScaled) / (100n * 10n ** 4n)
+      }
+      if (s.startsWith('$')) {
+        const amt = s.slice(1).trim()
+        return floorUnits(amt, decimals) // a "$X" fiat-style figure at the token's decimals
+      }
+      // A plain integer is raw atomic units; a plain decimal is scaled by decimals.
+      if (/^\d+$/.test(s)) return BigInt(s)
+      return floorUnits(s, decimals)
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * Verify + SELF-SETTLE a standard `upto` (metered) payment — Shape (A), callback-meter, inside
+   * one `verify()` call (zero persistence, backendless). The metered sibling of {@link verifyExact}.
+   * Lifecycle (§3.4): match the rail → CLAIM the Permit2 nonce (before metering, so even a
+   * zero-charge burns it) → call the merchant's `settleAmount(ctx)` to get the metered actual →
+   * `settleUptoSelf` the actual (≤ max; `0n` ⇒ a zero-charge receipt, no broadcast).
+   *
+   * AUDIT B3: the `settleAmount(ctx)` call AND `settleUptoSelf` are wrapped in ONE try/catch after
+   * the nonce is claimed — on ANY throw `settleTx(nonce, false)` RELEASES the nonce (so the buyer's
+   * still-valid authorization can be re-presented), rejects + fires onFailed, and rethrows ONLY
+   * `SettlementError` (a genuine broadcast failure → gate 5xx); on a non-ok result also releases.
+   * A SUCCESSFUL settle burns the nonce (at-most-once); a failure releases it.
+   */
+  async function verifyUpto(upto: ParsedUptoPayment): Promise<VerifyPaymentResult> {
+    const specs = await ready()
+    const uptoSpecs = specs.filter((s) => s.upto)
+    if (uptoSpecs.length === 0) {
+      return rejection('transfer_not_found', 'This resource offers no standard `upto` (metered) rail.')
+    }
+    // Match the rail exactly like exact: v2 echoes CAIP-2 network + asset; a v1 flat slug falls
+    // back to the single offered upto rail (and is dropped if ambiguous across multiple).
+    const isCaip = upto.network.includes(':')
+    let candidates = isCaip ? uptoSpecs.filter((s) => s.net.network === upto.network) : uptoSpecs
+    if (upto.asset) {
+      candidates = candidates.filter((s) => s.asset.toLowerCase() === upto.asset!.toLowerCase())
+    }
+    let spec = candidates[0]
+    if (!isCaip && !upto.asset && uptoSpecs.length > 1) spec = undefined
+    if (!spec && !isCaip && !upto.asset && uptoSpecs.length === 1) spec = uptoSpecs[0]
+    if (!spec || !spec.upto) {
+      return rejection(
+        'transfer_not_found',
+        `No \`upto\` rail offered for ${upto.network}${upto.asset ? `/${upto.asset}` : ''} ` +
+          `(offered: ${uptoSpecs.map((s) => `${s.asset}@${s.net.network}`).join(', ')}).`
+      )
+    }
+
+    // Replay-claim the Permit2 nonce — BEFORE metering, so even a zero-charge burns it (at-most-once).
+    const nonce = upto.payload.permit2Authorization.nonce
+    if (await claimTx(nonce)) {
+      return rejection('tx_already_used', `Authorization nonce ${nonce} was already redeemed.`)
+    }
+
+    const accept = buildUptoAccept(spec)
+    const relayer = spec.upto.relayer
+    let result: VerifyResult
+    try {
+      // 1) METER — the merchant callback picks the actual charge (this is where usage is read on
+      //    the direct gate.verify() path). It's arbitrary merchant code → inside the guarded region.
+      const rawAmount = await options.upto!.settleAmount({
+        maxAmount: spec.amountBase,
+        asset: spec.asset,
+        network: spec.net.network,
+        decimals: spec.decimals,
+        ...(upto.raw ? { request: upto.raw } : {}),
+      })
+      const settleAmount = resolveSettleAmount(rawAmount, spec.amountBase, spec.decimals)
+      if (settleAmount === null) {
+        // An unparseable settleAmount form is a merchant bug — release the nonce + reject (the
+        // buyer's auth survives for a corrected re-present), do NOT rethrow as a SettlementError.
+        await settleTx(nonce, false)
+        return rejection(
+          'upto_settle_exceeds_max',
+          `The settleAmount callback returned an unparseable amount (${String(rawAmount)}). Return a bigint, ` +
+            `a raw/"NN%"/"$X" string, or 0.`
+        )
+      }
+      // 2) SETTLE — verify vs the signed MAX + self-settle the actual (0n ⇒ zero receipt, no broadcast).
+      result = await spec.net.settleUptoSelf!({ relayer, payload: upto.payload, accept, settleAmount })
+    } catch (err) {
+      // AUDIT B3: any throw after the nonce was claimed RELEASES it (the buyer's authorization is
+      // still valid + re-presentable), then rethrow ONLY a SettlementError (a real broadcast failure
+      // → gate 5xx). A non-SettlementError throw (e.g. the merchant's settleAmount callback threw) is
+      // NOT a settlement failure — the release + a rejection lets the still-valid auth be re-presented.
+      await settleTx(nonce, false)
+      if (err instanceof SettlementError) throw err
+      return rejection(
+        'tx_reverted',
+        `upto: metering/settle failed (${err instanceof Error ? err.message : String(err)}).`
+      )
+    }
+
+    if (!result.ok) {
+      await settleTx(nonce, false)
+      return rejection(result.error, result.detail)
+    }
+    await settleTx(nonce, true)
+    await deliverOnPaid(spec, result.receipt)
+    // `upto` is digest-bound (verified by the Permit2 signature, not a memo nonce) and carries NO
+    // challenge nonce — pass none (the in-scope `nonce` is the per-rail Permit2 dedupe key).
+    return buildPaidResult(spec, result.receipt)
+  }
+
+  /**
    * Verify an incoming `payment-signature` header value AND fire the merchant-side notification
    * for the verdict. On a settled proof, `onPaid` has already fired inside (record-before-serve);
    * here we fire `onFailed` on a REJECTED proof — so the merchant is notified of a failure exactly
@@ -1344,7 +1614,13 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
       return verifyOnchainProof(sig)
     }
 
-    // 2) standard `exact` (EIP-3009)? Accepts either the `PAYMENT-SIGNATURE` (v2) or
+    // 2) standard `upto` (metered)? Checked BEFORE exact — its parser is gated strictly on
+    //    `scheme === 'upto'` + a `witness.facilitator` string, so it never matches an exact
+    //    Permit2 payload (no facilitator) and vice-versa. Scheme-discriminated, no ambiguity.
+    const upto = parseUptoPaymentHeader(raw)
+    if (upto) return verifyUpto(upto)
+
+    // 3) standard `exact` (EIP-3009)? Accepts either the `PAYMENT-SIGNATURE` (v2) or
     //    `X-PAYMENT` (v1) header value — the inner payload is identical.
     const exact = parseExactPaymentHeader(raw)
     if (exact) return verifyExact(exact)
@@ -1386,6 +1662,22 @@ export type ExpressLikeMiddleware = (
 export function requirePayment(
   options: RequirePaymentOptions
 ): ExpressLikeMiddleware {
+  // AUDIT B2: the `upto` (metered) rail is UNSUPPORTED through this Express middleware — it calls
+  // `gate.verify()` then `next()` to the route handler, so settlement (inside `verifyUpto`) happens
+  // BEFORE the handler serves and the metered usage isn't known yet. There is NO post-serve hook
+  // (a `res.on('finish')` settle would fire after the body is flushed, can't influence it, and
+  // re-introduces cross-call state — Shape (B), a permanent non-goal). Fail LOUD at construction
+  // rather than silently mis-settle. Onchain-proof/exact gates are unaffected (no `upto`).
+  if (options.upto) {
+    throw new (class extends PipRailError {
+      readonly code = 'UNSUPPORTED_SCHEME'
+    })(
+      "requirePayment: the 'upto' (metered) rail is unsupported through the Express middleware — it " +
+        'settles before the route handler serves, so metered usage is unknown at settle time. Call ' +
+        'gate.verify() directly (createPaymentGate) and meter inside settleAmount; see ' +
+        'docs/accepting-payments/upto-rail-seller.md.'
+    )
+  }
   const gate = createPaymentGate(options)
   return async (req, res, next) => {
     let result: VerifyPaymentResult

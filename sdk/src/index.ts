@@ -87,6 +87,7 @@ export type {
   ReceiptOption,
   AcceptOption,
   ExactRailOption,
+  UptoRailOption,
   FailedPayment,
   ChainSelector,
   TokenInput,
@@ -203,9 +204,11 @@ export {
   parseSettleResponse,
   parseSignatureHeader,
   parseExactPaymentHeader,
+  parseUptoPaymentHeader,
   buildChallengeHeader,
   buildSignatureHeader,
   buildExactSignatureHeader,
+  buildUptoSignatureHeader,
   buildReceiptHeader,
   buildReceiptExtension,
   EXT_OFFER_RECEIPT,
@@ -223,6 +226,7 @@ export type {
   VerifyErrorCode,
   X402AcceptEntry,
   X402ExactAcceptEntry,
+  X402UptoAcceptEntry,
   X402AnyAccept,
   X402Challenge,
   X402PaymentSignature,
@@ -237,7 +241,10 @@ export type {
   ExactPaymentPayloadAny,
   Permit2Authorization,
   Permit2PaymentPayload,
+  Permit2UptoAuthorization,
+  Permit2UptoPaymentPayload,
   ParsedExactPayment,
+  ParsedUptoPayment,
 } from './x402.js'
 
 /* ------------- x402 `exact`-scheme interop (EVM, EIP-3009) ------------- */
@@ -276,6 +283,22 @@ export {
   PERMIT2_PROXY_CHAIN_IDS,
   isPermit2ProxyChain,
 } from './drivers/evm/permit2.js'
+
+/* ----- x402 `upto`-scheme `permit2` variant (EVM, metered / variable-amount billing) ----- */
+
+// The `upto` (metered) scheme — buyer signs a Permit2 witness transfer for a MAX, merchant
+// settles the ACTUAL (≤ max) after serving. EVM-Permit2 ONLY. High-level usage:
+// `createPaymentGate({ upto: { relayer, settleAmount } })` SELLER (the supported handler shape
+// is a direct `gate.verify()` call that meters inside `settleAmount` — `requirePayment` is
+// UNSUPPORTED for upto) / `PipRailClient({ schemes: ['onchain-proof', 'upto'] })` BUYER. The
+// proxy (vanity `…0002`, distinct from the exact `…0001`) is BOTH the signature `spender` and
+// the seller's settle contract, and the witness's MIDDLE `facilitator` field binds who may settle.
+export {
+  X402_UPTO_PERMIT2_PROXY,
+  PERMIT2_UPTO_WITNESS_TYPES,
+  UPTO_PROXY_CHAIN_IDS,
+  isUptoProxyChain,
+} from './drivers/evm/upto.js'
 
 /* ------------------- discovery (find + be found, $0, no backend) ------------------- */
 

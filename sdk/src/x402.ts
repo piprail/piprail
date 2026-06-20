@@ -131,8 +131,54 @@ export interface X402ExactAcceptEntry {
   }
 }
 
-/** A challenge `accepts[]` entry — either PipRail's `onchain-proof` rail or a standard `exact` rail. */
-export type X402AnyAccept = X402AcceptEntry | X402ExactAcceptEntry
+/**
+ * A standard x402 `upto` rail (EVM / Permit2) — variable-amount / metered billing.
+ * The buyer signs a Permit2 `PermitWitnessTransferFrom` authorization for `amount`
+ * as a **MAXIMUM**; the merchant serves the resource, meters the **actual** usage, then
+ * self-settles `actual ≤ max` through the canonical `x402UptoPermit2Proxy` from its own
+ * relayer (which is the bound `witness.facilitator`). EVM-Permit2 ONLY — the upto spec
+ * bans EIP-3009 (it fixes the amount at sign time) and has no non-EVM variant. A SEPARATE
+ * accept type from {@link X402ExactAcceptEntry}: the only wire delta vs the exact Permit2
+ * rail is `scheme: 'upto'` and the `witness.facilitator` field, but keeping them distinct
+ * leaves the exact parser/union untouched and lets the gate/client route on `scheme`.
+ */
+export interface X402UptoAcceptEntry {
+  scheme: 'upto'
+  network: Caip2
+  /** The authorized MAXIMUM in base units (already scaled by decimals). The merchant
+   *  settles the ACTUAL (≤ this) after serving. */
+  amount: string
+  asset: AssetId
+  payTo: AddressId
+  maxTimeoutSeconds: number
+  extra: {
+    /** PipRail-INTERNAL discriminant — the on-wire x402 value of `assetTransferMethod`
+     *  is plain `'permit2'`; `'permit2-upto'` is OURS, to keep our parser unambiguous
+     *  from the exact Permit2 rail. The spec-conformant discriminant a foreign client
+     *  reads is `scheme: 'upto'`. */
+    assetTransferMethod: 'permit2-upto'
+    /** The address bound into `witness.facilitator`. In self-settle this is the merchant's
+     *  own relayer; the buyer MUST sign over it; only this address can settle (the proxy
+     *  reverts `UnauthorizedFacilitator()` otherwise). */
+    facilitatorAddress: string
+    /** The Permit2 domain is fixed (`"Permit2"`), but the token's `name`/`version` ride
+     *  along for the optional EIP-2612 gas-sponsoring extension. Read/re-derived on-chain,
+     *  never assumed. */
+    name?: string
+    version?: string
+    /** Confirmations the gate waits for before granting access — a PipRail convenience. */
+    minConfirmations?: number
+    /** Token decimals — a PipRail convenience (standard clients ignore unknown keys). */
+    decimals?: number
+    /** Human-readable MAX, e.g. "0.50". */
+    amountFormatted?: string
+    symbol?: string
+  }
+}
+
+/** A challenge `accepts[]` entry — PipRail's `onchain-proof` rail, a standard `exact`
+ *  rail, or a standard `upto` (metered) rail. */
+export type X402AnyAccept = X402AcceptEntry | X402ExactAcceptEntry | X402UptoAcceptEntry
 
 export interface X402Challenge {
   x402Version: 2
@@ -211,6 +257,37 @@ export interface Permit2Authorization {
 export interface Permit2PaymentPayload {
   signature: string
   permit2Authorization: Permit2Authorization
+}
+
+/**
+ * The `permit2Authorization` a payer signs for the x402 `upto` (metered) EVM scheme.
+ * Identical to {@link Permit2Authorization} EXCEPT the witness carries a `facilitator`
+ * field as its **MIDDLE** member (`{ to, facilitator, validAfter }`) — the only delta
+ * from the exact Permit2 witness. The EIP-712 witness type is
+ * `Witness(address to,address facilitator,uint256 validAfter)`. `permitted.amount` is
+ * the signed **MAXIMUM**; the merchant settles the ACTUAL (≤ max). `spender` is the
+ * canonical **x402UptoPermit2Proxy**. All numeric fields are DECIMAL strings on the wire.
+ */
+export interface Permit2UptoAuthorization {
+  /** What may be pulled: the ERC-20 token + the signed MAXIMUM base-unit amount. */
+  permitted: { token: string; amount: string }
+  /** The payer (token owner). */
+  from: string
+  /** The signature's allowed spender — the canonical x402UptoPermit2Proxy. */
+  spender: string
+  /** Permit2 unordered nonce (a uint256, decimal string). Single-use via its bitmap. */
+  nonce: string
+  /** Unix-seconds signature expiry. */
+  deadline: string
+  /** The proxy-enforced witness: funds go ONLY to `to`, only the bound `facilitator` can
+   *  settle, and not before `validAfter`. `facilitator` is the MIDDLE field. */
+  witness: { to: string; facilitator: string; validAfter: string }
+}
+
+/** The `payload` a client sends for the `upto` rail: a signature + its Permit2 upto authorization. */
+export interface Permit2UptoPaymentPayload {
+  signature: string
+  permit2Authorization: Permit2UptoAuthorization
 }
 
 /**
@@ -315,8 +392,22 @@ export type ParsedExactPayment =
   | (ParsedExactBase & { method: 'aptos'; payload: ExactAptosPaymentPayload })
   | (ParsedExactBase & { method: 'near'; payload: ExactNearPaymentPayload })
 
+/**
+ * What {@link parseUptoPaymentHeader} extracts from an inbound `upto` payment — the
+ * metered-rail sibling of {@link ParsedExactPayment}. A single PipRail-internal
+ * `method: 'permit2-upto'` discriminant (the on-wire `scheme` is `'upto'`). `network`/
+ * `asset` are the CLIENT's claim — used only to MATCH an offered rail; the gate re-derives
+ * every verified field from its own trusted rail. Kept separate from the exact parse path
+ * so an upto payload (scheme `'upto'`, witness carries `facilitator`) never matches the
+ * exact parser and vice-versa.
+ */
+export type ParsedUptoPayment = ParsedExactBase & {
+  method: 'permit2-upto'
+  payload: Permit2UptoPaymentPayload
+}
+
 export interface X402Receipt {
-  scheme: 'onchain-proof' | 'exact'
+  scheme: 'onchain-proof' | 'exact' | 'upto'
   /**
    * x402 v2 SettlementResponse: settlement succeeded. Always `true` here — a
    * failed verification returns a 402, never a receipt.
@@ -447,6 +538,7 @@ export type VerifyErrorCode =
   | 'payment_expired' // older than maxTimeoutSeconds (replay window) — definitive
   | 'tx_already_used' // proof already redeemed (replay) — definitive (gate-enforced)
   | 'signature_invalid' // exact rail: the authorization is invalid — EVM: the EIP-712 signature didn't recover to the payer; Solana: the SVM tx signer/structure is invalid — definitive
+  | 'upto_settle_exceeds_max' // upto rail: the metered settle amount exceeds the signed MAX (permitted.amount) — definitive (gate/driver-enforced)
 
 /** The shape every driver's `verify()` returns. Shared by drivers + protocol. */
 export type VerifyResult =
@@ -610,6 +702,22 @@ export function buildExactSignatureHeader(input: {
   return toBase64Json({ x402Version: 2, accepted: input.accepted, payload: input.payload })
 }
 
+/**
+ * Build the v2 PAYMENT-SIGNATURE header value for a standard x402 `upto` (metered)
+ * payment: base64 of `{ x402Version: 2, accepted, payload }`. `accepted` is the chosen
+ * upto rail echoed back VERBATIM from the challenge's `accepts[]`; `payload` is the
+ * Permit2-upto `{ signature, permit2Authorization }` the buyer's EVM driver produced
+ * (the witness carries `facilitator`). Chain-agnostic (pure JSON/base64). Round-trips
+ * through {@link parseUptoPaymentHeader}. (The `exact` counterpart is
+ * {@link buildExactSignatureHeader}.)
+ */
+export function buildUptoSignatureHeader(input: {
+  accepted: X402UptoAcceptEntry
+  payload: Permit2UptoPaymentPayload
+}): string {
+  return toBase64Json({ x402Version: 2, accepted: input.accepted, payload: input.payload })
+}
+
 /* ----------------------------- parse ----------------------------- */
 
 /**
@@ -684,6 +792,13 @@ export interface SettleOutcome {
   network?: string
   payer?: string
   errorReason?: string
+  /**
+   * The ACTUAL settled amount in atomic units, when the SettleResponse carries it
+   * (the x402 `upto` scheme makes this field REQUIRED — may be `"0"`). The upto buyer
+   * reads it to record the metered ACTUAL spend in its ledger rather than the signed MAX.
+   * Absent for `onchain-proof`/`exact` settle responses (they fix the amount up front).
+   */
+  amount?: string
 }
 
 /**
@@ -708,6 +823,9 @@ export function parseSettleResponse(response: Response): SettleOutcome | null {
     ...(typeof parsed.network === 'string' ? { network: parsed.network } : {}),
     ...(typeof parsed.payer === 'string' ? { payer: parsed.payer } : {}),
     ...(typeof parsed.errorReason === 'string' ? { errorReason: parsed.errorReason } : {}),
+    // The upto SettleResponse's REQUIRED `amount` (actual settled atomic units) — string
+    // passthrough so the upto buyer records ACTUAL, not MAX. Absent on onchain-proof/exact.
+    ...(typeof parsed.amount === 'string' ? { amount: parsed.amount } : {}),
   }
 }
 
@@ -837,6 +955,63 @@ export function parseExactPaymentHeader(value: string): ParsedExactPayment | nul
   return null
 }
 
+/**
+ * Parse an inbound `upto` (metered) payment from a base64 header value
+ * (`PAYMENT-SIGNATURE` v2 or `X-PAYMENT` v1). A SEPARATE parser from
+ * {@link parseExactPaymentHeader}, gated strictly on `scheme === 'upto'` AND a
+ * `witness.facilitator` STRING — so an upto payload never matches the exact parser and an
+ * exact Permit2 payload (no `witness.facilitator`) never matches this one. Returns null
+ * when the value isn't a recognisable `upto` payment.
+ */
+export function parseUptoPaymentHeader(value: string): ParsedUptoPayment | null {
+  const parsed = fromBase64Json<unknown>(value)
+  if (!parsed || typeof parsed !== 'object') return null
+  const v = parsed as Record<string, unknown>
+
+  // v2 carries the chosen rail in `accepted`; v1 is flat (scheme/network at top).
+  const accepted = (v.accepted ?? null) as Record<string, unknown> | null
+  const scheme = (accepted?.scheme ?? v.scheme) as unknown
+  if (scheme !== 'upto') return null
+
+  const network = (accepted?.network ?? v.network) as unknown
+  if (typeof network !== 'string') return null
+
+  const payload = v.payload as Record<string, unknown> | undefined
+  if (!payload || typeof payload !== 'object') return null
+
+  const signature = payload.signature
+  if (typeof signature !== 'string') return null
+
+  // Permit2-upto shape: payload.permit2Authorization { permitted{token,amount}, from, spender,
+  // nonce, deadline, witness{to, FACILITATOR, validAfter} }. The middle `facilitator` field is
+  // what distinguishes the upto witness from the exact one — REQUIRE it as a string.
+  const p2 = payload.permit2Authorization as Record<string, unknown> | undefined
+  if (!p2 || typeof p2 !== 'object') return null
+  const permitted = p2.permitted as Record<string, unknown> | undefined
+  const witness = p2.witness as Record<string, unknown> | undefined
+  if (!permitted || typeof permitted !== 'object' || !witness || typeof witness !== 'object') return null
+  if (typeof permitted.token !== 'string' || typeof permitted.amount !== 'string') return null
+  if (
+    typeof witness.to !== 'string' ||
+    typeof witness.facilitator !== 'string' ||
+    typeof witness.validAfter !== 'string'
+  ) {
+    return null
+  }
+  for (const k of ['from', 'spender', 'nonce', 'deadline'] as const) {
+    if (typeof p2[k] !== 'string') return null
+  }
+
+  const x402Version = typeof v.x402Version === 'number' ? v.x402Version : 2
+  const asset = accepted && typeof accepted.asset === 'string' ? accepted.asset : undefined
+  const base = { x402Version, network, ...(asset ? { asset } : {}), raw: v }
+  return {
+    ...base,
+    method: 'permit2-upto',
+    payload: { signature, permit2Authorization: p2 as unknown as Permit2UptoAuthorization },
+  }
+}
+
 function isValidChallenge(value: unknown): value is X402Challenge {
   if (!value || typeof value !== 'object') return false
   const v = value as Record<string, unknown>
@@ -854,8 +1029,10 @@ function isValidChallenge(value: unknown): value is X402Challenge {
 function isValidReceipt(value: unknown): value is X402Receipt {
   if (!value || typeof value !== 'object') return false
   const v = value as Record<string, unknown>
-  if (v.scheme !== 'onchain-proof' && v.scheme !== 'exact') return false
+  if (v.scheme !== 'onchain-proof' && v.scheme !== 'exact' && v.scheme !== 'upto') return false
   // v2 SettlementResponse names the proof ref `transaction`; tolerate legacy `txHash`.
+  // NB: a $0 upto settle carries `transaction: ""` (empty STRING, never a missing key) per
+  // spec §5.3 — `typeof === 'string'` already admits it; do NOT add a non-empty check here.
   if (typeof v.transaction !== 'string' && typeof v.txHash !== 'string') return false
   if (typeof v.payer !== 'string') return false
   return true

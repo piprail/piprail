@@ -28,6 +28,7 @@ import {
   HEADER_SIGNATURE,
   buildSignatureHeader,
   buildExactSignatureHeader,
+  buildUptoSignatureHeader,
   parseChallenge,
   parseReceipt,
   parseReceiptExtension,
@@ -36,6 +37,7 @@ import {
   type Caip2,
   type X402AcceptEntry,
   type X402ExactAcceptEntry,
+  type X402UptoAcceptEntry,
   type X402AnyAccept,
   type X402Challenge,
   type X402PaymentSignature,
@@ -58,8 +60,9 @@ import {
 } from './errors.js'
 
 /** The payment schemes a client can settle: PipRail's native `onchain-proof` (the
- *  default) and the standard x402 `exact` rail (EVM EIP-3009/Permit2 + Solana SVM + Algorand, opt-in). */
-export type PaymentScheme = 'onchain-proof' | 'exact'
+ *  default), the standard x402 `exact` rail (EVM EIP-3009/Permit2 + Solana SVM + Algorand,
+ *  opt-in), and the standard x402 `upto` (metered) rail (EVM-Permit2, opt-in). */
+export type PaymentScheme = 'onchain-proof' | 'exact' | 'upto'
 
 /** The scheme set when none is configured — `onchain-proof` only, so the zero-config
  *  path is byte-identical to before the `exact` buyer rail existed (defaults never change). */
@@ -1462,13 +1465,27 @@ export class PipRailClient {
     // Budget + approval gate — both refuse BEFORE any on-chain send OR any signature.
     await this.authorize(quote)
 
+    // Standard `upto` (metered) rail: route BEFORE exact (AUDIT B9 — the compiler can't catch an
+    // unhandled upto case in if/else form, so an unrouted upto accept would otherwise reach the
+    // onchain-proof fall-through below and be mis-paid). The buyer SIGNS a Permit2 authorization
+    // for the MAX; the server settles the ACTUAL after serving.
+    if (accept.scheme === 'upto') {
+      return this.payUptoRail(net, wallet, accept, url, init, quote)
+    }
+
     // Standard `exact` rail: a separate, conservative pay path — the buyer SIGNS an
     // EIP-3009 authorization and the server/facilitator broadcasts it (never payAndConfirm).
     if (accept.scheme === 'exact') {
       return this.payExactRail(net, wallet, accept, url, init, quote)
     }
 
-    // PipRail's native `onchain-proof` rail — BYTE-IDENTICAL to before.
+    // PipRail's native `onchain-proof` rail — BYTE-IDENTICAL to before. AUDIT B9: ASSERT the
+    // fall-through is genuinely onchain-proof so a stray scheme can't be paid as onchain-proof.
+    if (accept.scheme !== 'onchain-proof') {
+      throw new UnsupportedSchemeError(
+        `internal: unrouted accept scheme '${(accept as { scheme: string }).scheme}' reached the onchain-proof pay path.`
+      )
+    }
     const { ref, confirmed } = await this.payAndConfirm(net, wallet, accept)
     const response = await this.retryWithProof(url, init, accept, ref, confirmed)
     this.recordSpend(quote, ref)
@@ -1602,6 +1619,25 @@ export class PipRailClient {
         )
       )
     }
+    // Standard `upto` (metered) rails — opt-in (OFF by default), gathered only when the bound
+    // driver can pay them (the EVM-only `payUpto` SPI), supports the network, recognises the
+    // token (true decimals power the MAX-budget cap), and the rail carries a facilitatorAddress
+    // to bind. Same shape as the exact gather; the buyer budgets the MAX (§3.5).
+    if (schemes.includes('upto')) {
+      out.push(
+        ...challenge.accepts.filter(
+          (a): a is X402UptoAcceptEntry =>
+            a.scheme === 'upto' &&
+            this.supportsNetwork(net, a.network) &&
+            typeof net.payUpto === 'function' &&
+            net.describeAsset(a.asset) != null &&
+            typeof a.extra?.facilitatorAddress === 'string' &&
+            a.extra.facilitatorAddress.length > 0 &&
+            Number.isInteger(a.maxTimeoutSeconds) &&
+            a.maxTimeoutSeconds > 0
+        )
+      )
+    }
     return out
   }
 
@@ -1681,10 +1717,11 @@ export class PipRailClient {
 
     const amount = BigInt(accept.amount)
     const fee = safeBig(cost.fee)
-    // A standard `exact` rail: the buyer SIGNS an EIP-3009 authorization and the
+    // A standard `exact` OR `upto` rail: the buyer SIGNS an authorization and the
     // server/facilitator BROADCASTS it, so the buyer spends ~0 gas — only the token
-    // funds it, and native-coin gas is irrelevant to payability.
-    const isExact = accept.scheme === 'exact'
+    // funds it, and native-coin gas is irrelevant to payability. For `upto`, `amount`
+    // is the MAX (the budget/affordability ceiling — the server MAY charge up to it).
+    const isExact = accept.scheme === 'exact' || accept.scheme === 'upto'
     const isNative = accept.asset === 'native'
     const blockers: PayBlocker[] = []
     const warnings: PayWarning[] = []
@@ -1974,16 +2011,35 @@ export class PipRailClient {
    *  denomination it counts toward in the grand total). Then fire the `onSpend` callback
    *  with the record + the post-payment budget, and emit any `warnAtFraction` thresholds
    *  this payment just crossed. All observability is isolated — a throwing hook never
-   *  affects the (already-settled) payment. */
-  private recordSpend(quote: PipRailQuote, ref: string): void {
+   *  affects the (already-settled) payment.
+   *
+   *  `settledAmountBase` is the SINGLE upto ledger-reconciliation seam: the quote (and thus
+   *  the policy/budget) gates on the MAX, but for the metered `upto` rail the ACTUAL settled
+   *  amount (read off `SettleOutcome.amount`) is what gets RECORDED — over-counting spend is
+   *  never possible, under-counting (which would slip the leash) is. When absent
+   *  (onchain-proof/exact), `quote.amount` is recorded exactly as before (byte-identical). */
+  private recordSpend(quote: PipRailQuote, ref: string, settledAmountBase?: string): void {
     const denom = denomOf(quote.symbol, quote.asset, this.opts.policy)
+    // Record the ACTUAL when given (upto); fall back to the MAX otherwise. A malformed
+    // settledAmountBase (a non-conformant server) FAILS SAFE to the MAX — re-derive both the
+    // base amount and the human/denom figures from the same trusted number.
+    let amountBase = quote.amount
+    let amountFormatted = quote.amountFormatted
+    if (settledAmountBase !== undefined && /^\d+$/.test(settledAmountBase)) {
+      amountBase = settledAmountBase
+      try {
+        amountFormatted = formatUnits(BigInt(settledAmountBase), quote.decimals)
+      } catch {
+        amountFormatted = quote.amountFormatted // keep the MAX-derived human string on a parse miss
+      }
+    }
     const record: SpendRecord = {
       url: quote.url,
       host: hostOf(quote.url),
       network: quote.network,
       asset: quote.asset,
-      amountBase: quote.amount,
-      amountFormatted: quote.amountFormatted,
+      amountBase,
+      amountFormatted,
       ...(quote.symbol ? { symbol: quote.symbol } : {}),
       decimals: quote.decimals,
       ...(denom ? { denom } : {}),
@@ -2366,6 +2422,127 @@ export class PipRailClient {
       `exact: server still returned 402 after submitting the signed authorization ` +
         `(nonce=${nonce}). Last rejection: ${why}. Re-present the SAME authorization — do NOT ` +
         `re-sign a fresh nonce; verify authorizationState(${payerFrom}, ${nonce}) first. ref=${nonce}.`,
+      { ref: nonce }
+    )
+  }
+
+  /**
+   * The standard `upto` (metered) buyer path — a near-clone of {@link payExactRail} with TWO
+   * deltas: (1) it signs a Permit2-upto authorization for the MAX via `payUpto` + frames it
+   * with `buildUptoSignatureHeader`; (2) it records the ACTUAL settled amount (read off the
+   * SettleResponse's required `amount` field, via `recordSpend(quote, ref, settle.amount)`) in
+   * the ledger — the budget gated on the MAX, the ledger records the ACTUAL. A server that omits
+   * `settle.amount` FAILS SAFE to the MAX (over-counts, never under-counts). The buyer SIGNS, the
+   * merchant self-settles — the buyer never broadcasts.
+   */
+  private async payUptoRail(
+    net: ResolvedNetwork,
+    wallet: WalletHandle,
+    accept: X402UptoAcceptEntry,
+    url: string,
+    init: (RequestInit & { autoRoute?: boolean; schemes?: PaymentScheme[] }) | undefined,
+    quote: PipRailQuote
+  ): Promise<Response> {
+    if (!net.payUpto) {
+      // gatherCandidates only yields an upto rail when payUpto exists — defensive.
+      throw new UnsupportedSchemeError(
+        `the ${net.family} family can't pay a standard 'upto' rail (EVM-Permit2 only today).`
+      )
+    }
+    // A caller who aborts BEFORE we sign/send hasn't moved any funds — surface their AbortError.
+    throwIfAborted(init?.signal)
+
+    // Sign ONCE — a fresh Permit2 nonce is generated here and reused on every retry below.
+    const { payload, accepted, payerFrom, nonce } = await net.payUpto(wallet, accept)
+    const headers = new Headers(init?.headers)
+    headers.set(HEADER_SIGNATURE, buildUptoSignatureHeader({ accepted, payload }))
+
+    const rejectDefinitive = (why: string): never => {
+      this.safeEmit({ kind: 'payment-failed', reason: `upto: facilitator rejected nonce=${nonce} (${why})`, code: why })
+      throw new MaxRetriesExceededError(
+        `upto: the server rejected the payment (${why}). Fix the cause, then re-present the ` +
+          `SAME signed authorization (nonce=${nonce}) — do NOT re-sign a fresh nonce. ref=${nonce}.`,
+        { ref: nonce }
+      )
+    }
+
+    const deadline = Date.now() + Math.max(1, Math.floor(accept.maxTimeoutSeconds / 2)) * 1000
+    const maxAttempts = Math.min(this.maxRetries, 3)
+    let lastReason: { error: string; detail: string } | null = null
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      if (attempt > 0) {
+        if (Date.now() >= deadline) break
+        await new Promise((r) => setTimeout(r, Math.min(2000, 400 * 2 ** (attempt - 1))))
+      }
+      throwIfAborted(init?.signal)
+
+      const budget = Math.min(this.retryTimeoutMs, deadline - Date.now())
+      if (budget <= 0) break
+      const timeoutController = new AbortController()
+      const timeoutId = setTimeout(() => timeoutController.abort(), budget)
+      const signal: AbortSignal =
+        init?.signal && typeof AbortSignal.any === 'function'
+          ? AbortSignal.any([timeoutController.signal, init.signal])
+          : timeoutController.signal
+
+      let response: Response
+      try {
+        response = await fetch(url, { ...(init ?? {}), headers, signal })
+      } catch (err) {
+        throw new PaymentTimeoutError(
+          `upto: no response after submitting the authorization (nonce=${nonce}) to ` +
+            `${hostOf(url)}. The merchant may have already settled it — verify on-chain before ` +
+            `re-presenting; do NOT re-pay.`,
+          { cause: err, ref: nonce }
+        )
+      } finally {
+        clearTimeout(timeoutId)
+      }
+
+      const settle = parseSettleResponse(response)
+
+      if (response.status === 402) {
+        if (settle && settle.success === false) rejectDefinitive(settle.errorReason ?? 'the server reported success:false')
+        lastReason = (await readInvalidReason(response)) ?? lastReason
+        continue
+      }
+
+      // Non-402. Settled iff it's a 2xx whose SettleResponse does NOT say success:false.
+      if (response.ok && !(settle && settle.success === false)) {
+        const receipt = parseReceipt(response)
+        this.captureReceipt(response, url)
+        this.safeEmit({ kind: 'payment-settled', receipt, ...(settle ? { settle } : {}) })
+        // A $0 metered settle has transaction "" — `||` falls through to a nonce ref for the audit
+        // trail. Record the ACTUAL settled amount (settle.amount, or the receipt's), NOT the MAX;
+        // a server that echoes neither FAILS SAFE to the MAX inside recordSpend.
+        const ref = settle?.transaction || receipt?.transaction || `upto-nonce:${nonce}`
+        const settledAmount = settle?.amount ?? receipt?.amount
+        this.recordSpend(quote, ref, settledAmount)
+        return response
+      }
+
+      if (response.status >= 500) {
+        this.safeEmit({ kind: 'payment-failed', reason: `upto: server ${response.status} — authorization nonce=${nonce} not settled` })
+        return response
+      }
+      if (settle && settle.success === false) rejectDefinitive(settle.errorReason ?? 'the server reported success:false')
+      this.safeEmit({ kind: 'payment-failed', reason: `upto: server ${response.status} — authorization nonce=${nonce} not settled` })
+      return response
+    }
+
+    const why = lastReason
+      ? `${lastReason.error}${lastReason.detail ? ` — ${lastReason.detail}` : ''}`
+      : 'server gave no reason'
+    this.safeEmit({
+      kind: 'payment-failed',
+      reason: `upto: 402 after submitting authorization nonce=${nonce} (${why})`,
+      ...(lastReason ? { code: lastReason.error, detail: lastReason.detail } : {}),
+    })
+    throw new MaxRetriesExceededError(
+      `upto: server still returned 402 after submitting the signed authorization ` +
+        `(nonce=${nonce}). Last rejection: ${why}. Re-present the SAME authorization — do NOT ` +
+        `re-sign a fresh nonce. ref=${nonce}.`,
       { ref: nonce }
     )
   }

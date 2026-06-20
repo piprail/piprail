@@ -113,6 +113,30 @@ describe('x402 v2 envelope conformance', () => {
     expect(parsed!.transaction).toBe(`0x${'e'.repeat(64)}`)
   })
 
+  it('parses a scheme:"upto" SettlementResponse — incl. a $0 metered settle (amount:"0", transaction:"")', () => {
+    // A non-zero metered settle.
+    const paid: X402Receipt = {
+      scheme: 'upto',
+      success: true,
+      network: 'eip155:8453',
+      transaction: `0x${'d'.repeat(64)}`,
+      asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+      amount: '1858', // the metered ACTUAL, ≤ the signed MAX
+      payer: '0x2222222222222222222222222222222222222222',
+      payTo: PAY_TO,
+      verifiedAt: '2026-06-20T00:00:00.000Z',
+    }
+    const paidRes = new Response(null, { status: 200, headers: { [HEADER_RESPONSE]: buildReceiptHeader(paid) } })
+    const parsedPaid = parseReceipt(paidRes)
+    expect(parsedPaid).not.toBeNull()
+    expect(parsedPaid!.scheme).toBe('upto')
+    expect(parsedPaid!.amount).toBe('1858')
+    // A $0 metered settle — transaction is the empty STRING (spec §5.3), and it MUST still validate.
+    const zero: X402Receipt = { ...paid, amount: '0', transaction: '' }
+    const zeroRes = new Response(null, { status: 200, headers: { [HEADER_RESPONSE]: buildReceiptHeader(zero) } })
+    expect(parseReceipt(zeroRes)).toEqual(zero)
+  })
+
   it('rejects a receipt that has neither `transaction` nor legacy `txHash`', () => {
     const bad = {
       scheme: 'onchain-proof',

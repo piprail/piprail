@@ -15,8 +15,10 @@ import type {
   Caip2,
   X402AcceptEntry,
   X402ExactAcceptEntry,
+  X402UptoAcceptEntry,
   X402AnyAccept,
   ExactPaymentPayloadAny,
+  Permit2UptoPaymentPayload,
   VerifyResult,
 } from '../x402.js'
 import type { ChainInput } from './evm/chains.js'
@@ -246,6 +248,22 @@ export interface ExactRailInfo {
 }
 
 /**
+ * How a family advertises a standard `upto` (metered) rail for one asset — the metered
+ * sibling of {@link ExactRailInfo}, returned by {@link ResolvedNetwork.resolveUptoRail}
+ * and consumed by the gate to build the `X402UptoAcceptEntry`. The `method` is always the
+ * PipRail-internal `'permit2-upto'` (upto is EVM-Permit2 only); `extra` is merged VERBATIM
+ * into the accept's `extra`, carrying `{ facilitatorAddress, name?, version? }` — the
+ * relayer address the buyer signs into `witness.facilitator` plus the token's EIP-712
+ * domain bits. Keeping the chain-specific shape behind this descriptor is what lets
+ * `server.ts` stay chain-agnostic — it never names a family, it just merges `extra`.
+ */
+export interface UptoRailInfo {
+  method: 'permit2-upto'
+  /** Family-specific `extra` keys merged into the upto accept: `{ facilitatorAddress, name?, version? }`. */
+  extra?: Record<string, unknown>
+}
+
+/**
  * A driver bound to one concrete network — what the gate and client hold. Each
  * method's error behaviour is fixed by the SDK error standard (see ERRORS.md §5):
  * `resolveToken`/`assertValidPayTo`/`bindWallet` throw `WrongFamilyError` /
@@ -445,6 +463,57 @@ export interface ResolvedNetwork {
     relayer: WalletHandle
     payload: ExactPaymentPayloadAny
     accept: X402ExactAcceptEntry
+  }): Promise<VerifyResult>
+
+  /**
+   * OPTIONAL (EVM-Permit2 ONLY) — advertise a standard `upto` (metered) rail for `asset`,
+   * or `null` when this asset/chain can't carry one (a native coin, a non-Permit2-proxy
+   * chain, a non-Permit2 token). The gate's rail-advertisement SPI for the metered rail —
+   * the parallel of {@link resolveExactRail}. The `relayer` becomes the bound
+   * `witness.facilitator` (upto is self-settle only in v1, no facilitator mode), so the
+   * returned `extra.facilitatorAddress` is the relayer's own address. The optional `?` IS
+   * the EVM-only gate — every non-EVM family omits it, so the gate never offers upto there.
+   * RPC-read (EVM reads the token's EIP-712 domain); never throws for a transient read.
+   */
+  resolveUptoRail?(input: { asset: string; relayer: WalletHandle }): Promise<UptoRailInfo | null>
+
+  /**
+   * OPTIONAL (EVM-Permit2 ONLY) — BUYER side: sign a Permit2 `PermitWitnessTransferFrom`
+   * authorization for the MAX (`accept.amount`), binding `witness.facilitator =
+   * accept.extra.facilitatorAddress` as the MIDDLE witness field. Re-derives the proxy +
+   * witness types internally; never trusts a server-supplied domain. The metered counterpart
+   * to {@link payExact}. The client frames the returned `payload` + `accepted` echo into the
+   * `PAYMENT-SIGNATURE` header; the merchant self-settles the actual. Returns the signed
+   * payload, the chosen-rail echo, the payer address, and the Permit2 nonce. THROWS a typed
+   * `PipRailError` when the signer is a contract / EIP-1271 / EIP-7702 account.
+   */
+  payUpto?(
+    wallet: WalletHandle,
+    accept: X402UptoAcceptEntry
+  ): Promise<{
+    payload: Permit2UptoPaymentPayload
+    accepted: X402UptoAcceptEntry
+    payerFrom: string
+    nonce: string
+  }>
+
+  /**
+   * OPTIONAL (EVM-Permit2 ONLY) — SELLER side: verify a standard x402 `upto` payment
+   * locally, then SELF-SETTLE the ACTUAL (`settleAmount`, ≤ the signed max) through the upto
+   * proxy from the merchant's `relayer`. The metered counterpart to {@link settleExactSelf}.
+   * Re-verifies the signature against `permitted.amount` (the signed MAX, NEVER the metered
+   * actual — verifying against the actual would reject every partial settle); guards
+   * `witness.facilitator === relayer.address`; clamps/rejects `settleAmount > max` with
+   * `upto_settle_exceeds_max`; SKIPS the on-chain tx when `settleAmount === 0n` (a synthetic
+   * zero-charge receipt with `transaction: ""`). RETURNS a `VerifyResult` for a client-fixable
+   * fault; THROWS {@link SettlementError} on a broadcast failure of a valid auth. Re-derives
+   * every checked field from the trusted `accept`, never the client echo.
+   */
+  settleUptoSelf?(input: {
+    relayer: WalletHandle
+    payload: Permit2UptoPaymentPayload
+    accept: X402UptoAcceptEntry
+    settleAmount: bigint
   }): Promise<VerifyResult>
 }
 
