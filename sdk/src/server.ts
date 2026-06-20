@@ -715,7 +715,23 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
   // custom store is checked, then marked only on success; make the check
   // atomic (SET NX) if you need the same concurrency guarantee, and give it its
   // own TTL (the window) so it stays bounded too.
-  const hasCustomStore = Boolean(options.isUsed || options.markUsed)
+  // A custom replay store needs BOTH a read (isUsed) and a write (markUsed). Supplying only one
+  // would silently disable replay protection — the OR-gate activates the custom-store branch (so the
+  // in-memory fallback is bypassed) while the missing half no-ops: only `isUsed` ⇒ nothing is ever
+  // recorded (every proof replays); only `markUsed` ⇒ nothing is ever rejected. Fail loudly at
+  // construction instead of half-arming a security control. Neither-supplied (default) and
+  // both-supplied (intended) paths are unchanged → byte-identical.
+  const hasIsUsed = typeof options.isUsed === 'function'
+  const hasMarkUsed = typeof options.markUsed === 'function'
+  if (hasIsUsed !== hasMarkUsed) {
+    throw new Error(
+      'requirePayment/createPaymentGate: `isUsed` and `markUsed` must be provided TOGETHER — a custom ' +
+        'replay store needs both a read and a write. Supplying only ' +
+        (hasIsUsed ? '`isUsed`' : '`markUsed`') +
+        ' silently disables replay protection (double-spend). Provide both, or neither (the built-in in-memory store).'
+    )
+  }
+  const hasCustomStore = hasIsUsed && hasMarkUsed
   const localUsed = new Map<string, number>() // ref(lowercased) → expiry epoch-ms
   const replayWindowMs = maxTimeoutSeconds * 1000
 

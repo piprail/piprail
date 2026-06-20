@@ -250,12 +250,21 @@ describe('hostile/malformed 402 accept — typed InvalidEnvelopeError, never a r
   }
   const base = { scheme: 'onchain-proof', network: NETWORK, amount: '500000', payTo: 'GMERCHANT', maxTimeoutSeconds: 600 }
 
-  it('a 402 whose accept OMITS `extra` on an UNRECOGNISED token → InvalidEnvelopeError across the read surface', async () => {
+  it('a 402 whose accept OMITS `extra` on an UNRECOGNISED token → `quote` throws a TYPED InvalidEnvelopeError (never a raw TypeError)', async () => {
     stub402({ ...base, asset: 'UNKNOWN-ASSET' }) // describeAsset → null, and no extra → decimals unknown
+    // `quote` prices ONE rail — a malformed rail surfaces as a typed InvalidEnvelopeError, not a raw crash.
+    await expect(newClient().quote(RESOURCE)).rejects.toBeInstanceOf(InvalidEnvelopeError)
+  })
+
+  it('the SURVEY read methods (planPayment/canAfford/estimateCost) DEGRADE on a malformed rail — never throw (ERRORS.md)', async () => {
+    stub402({ ...base, asset: 'UNKNOWN-ASSET' })
     const c = newClient()
-    for (const m of ['quote', 'estimateCost', 'planPayment', 'canAfford'] as const) {
-      await expect(c[m](RESOURCE), `${m} must throw InvalidEnvelopeError`).rejects.toBeInstanceOf(InvalidEnvelopeError)
-    }
+    // The challenge is PARSEABLE (only the rail is bad) — per their docstrings these never throw here;
+    // the unusable rail is dropped, so the plan is simply not payable.
+    const plan = await c.planPayment(RESOURCE)
+    expect(plan?.payable ?? false).toBe(false)
+    await expect(c.canAfford(RESOURCE)).resolves.toBe(false)
+    await expect(c.estimateCost(RESOURCE)).resolves.toBeNull()
   })
 
   it('a 402 missing `extra` on a RECOGNISED token still prices gracefully (SDK decimals, no TypeError)', async () => {

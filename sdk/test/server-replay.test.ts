@@ -60,6 +60,20 @@ registerDriver(fakeEvm)
 function gate(maxTimeoutSeconds = 60) {
   return createPaymentGate({ chain: { id: 56, rpcUrl: 'x' }, token: 'USDC', amount: '0.05', payTo: PAY_TO, maxTimeoutSeconds })
 }
+
+describe('replay store — isUsed/markUsed must be supplied as a PAIR (fail loud, never half-arm)', () => {
+  const base = { chain: { id: 56, rpcUrl: 'x' }, token: 'USDC', amount: '0.05', payTo: PAY_TO } as const
+  it('throws at construction when ONLY isUsed is given (writes would no-op → every proof replays)', () => {
+    expect(() => createPaymentGate({ ...base, isUsed: () => false })).toThrow(/together/i)
+  })
+  it('throws at construction when ONLY markUsed is given (reads always false → nothing rejected)', () => {
+    expect(() => createPaymentGate({ ...base, markUsed: () => {} })).toThrow(/together/i)
+  })
+  it('accepts BOTH (the intended custom-store config) and NEITHER (built-in store)', () => {
+    expect(() => createPaymentGate({ ...base, isUsed: () => false, markUsed: () => {} })).not.toThrow()
+    expect(() => createPaymentGate({ ...base })).not.toThrow()
+  })
+})
 async function pay(g: ReturnType<typeof gate>, tx: string) {
   const { challenge } = await g.challenge()
   const accept = proofAccepts(challenge)[0]!

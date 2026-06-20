@@ -8,16 +8,26 @@ const USDC = '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7
 const PAY_TO = new Ed25519Keypair().getPublicKey().toSuiAddress()
 
 interface Captured {
-  getCoinsArgs?: { owner: string; coinType: string }
+  getCoinsArgs?: { owner: string; coinType: string; cursor?: string | null }
+  getCoinsCalls: number
   executed?: boolean
 }
 
-function mockClient(opts?: { coins?: number; execThrows?: Error }) {
-  const captured: Captured = {}
+function mockClient(opts?: { coins?: number; coinBalance?: bigint; pageSize?: number; execThrows?: Error }) {
+  const captured: Captured = { getCoinsCalls: 0 }
+  const total = opts?.coins ?? 1
+  const bal = opts?.coinBalance ?? 50000n
+  const allCoins = Array.from({ length: total }, (_, i) => ({ coinObjectId: `0xcoin${i}`, balance: String(bal) }))
+  const pageSize = opts?.pageSize ?? Math.max(total, 1)
   const client: SuiPayClient = {
     async getCoins(input) {
+      captured.getCoinsCalls += 1
       captured.getCoinsArgs = input
-      return { data: Array.from({ length: opts?.coins ?? 1 }, (_, i) => ({ coinObjectId: `0xcoin${i}` })) }
+      const start = input.cursor ? Number(input.cursor) : 0
+      const end = start + pageSize
+      const data = allCoins.slice(start, end)
+      const hasNextPage = end < allCoins.length
+      return { data, nextCursor: hasNextPage ? String(end) : null, hasNextPage }
     },
     async signAndExecuteTransaction() {
       if (opts?.execThrows) throw opts.execThrows
@@ -47,6 +57,21 @@ describe('paySui — builds + executes a coin transfer (digest-bound)', () => {
     expect(ref).toBe('SUIDIGEST123')
     expect(captured.getCoinsArgs?.coinType).toBe(USDC)
     expect(captured.executed).toBe(true)
+  })
+
+  it('a FRAGMENTED wallet (coins spread across pages) pages through getCoins until covered', async () => {
+    // 5 coins of 20_000 each = 100_000 total, but only 2 per page; amount is 50_000.
+    const { client, captured } = mockClient({ coins: 5, coinBalance: 20_000n, pageSize: 2 })
+    const ref = await paySui({ client, keypair: new Ed25519Keypair(), accept: usdcAccept() })
+    expect(ref).toBe('SUIDIGEST123')
+    expect(captured.getCoinsCalls).toBeGreaterThan(1) // it followed nextCursor past page 1
+    expect(captured.executed).toBe(true)
+  })
+
+  it('stops paging early once enough balance is gathered (one big coin → a single page)', async () => {
+    const { client, captured } = mockClient({ coins: 100, coinBalance: 50_000n, pageSize: 1 })
+    await paySui({ client, keypair: new Ed25519Keypair(), accept: usdcAccept() })
+    expect(captured.getCoinsCalls).toBe(1) // first coin already covers the amount — no needless paging
   })
 
   it('native SUI does not fetch coins (splits from gas)', async () => {

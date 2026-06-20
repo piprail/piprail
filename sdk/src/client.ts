@@ -899,8 +899,13 @@ export class PipRailClient {
     receipt: PipRailReceipt,
     opts?: { rpcUrl?: string }
   ): Promise<ReceiptVerification> {
-    const r = receipt.receipt
-    const claimed = { payTo: r.payTo, asset: r.asset, amount: r.amount, payer: r.payer }
+    // Guard the bundle shape BEFORE any deref — a malformed/foreign receipt must yield a
+    // structured verdict, never throw (the never-throw contract; ERRORS.md read-method rule).
+    const r = receipt?.receipt as X402Receipt | undefined
+    if (!r || typeof r !== 'object') {
+      return { ok: false, onChain: { payTo: '', asset: '', amount: '', payer: '' }, matchesClaims: false, ageSeconds: 0, error: 'tx_not_found' }
+    }
+    const claimed = { payTo: r.payTo ?? '', asset: r.asset ?? '', amount: r.amount ?? '', payer: r.payer ?? '' }
     const ageSeconds = receiptAgeSeconds(r.verifiedAt)
     try {
       const chain = chainSelectorForNetwork(r.network, opts?.rpcUrl)
@@ -1040,9 +1045,18 @@ export class PipRailClient {
   ): Promise<PipRailCostQuote | null> {
     const res = await fetch(url, { ...(init ?? {}), method: init?.method ?? 'GET' })
     if (res.status !== 402) return null
-    const { net, accept, quote } = await this.resolveChallenge(url, res, this.resolveSchemes())
-    const cost = await net.estimateCost(accept)
-    return { quote, cost }
+    try {
+      const { net, accept, quote } = await this.resolveChallenge(url, res, this.resolveSchemes())
+      const cost = await net.estimateCost(accept)
+      return { quote, cost }
+    } catch (err) {
+      // A parseable-but-malformed rail (buildQuote → InvalidEnvelopeError on a bad amount/asset/
+      // decimals), or an unparseable challenge, leaves nothing to estimate — return null rather than
+      // throw out of a read method. (UnsupportedScheme/NoCompatibleAccept stay the resolveChallenge
+      // contract — "this client can't pay this scheme" is a real signal, not a cost-read failure.)
+      if (err instanceof InvalidEnvelopeError) return null
+      throw err
+    }
   }
 
   /** Aggregated snapshot of every payment this client has settled — total
@@ -1617,12 +1631,17 @@ export class PipRailClient {
       }
     }
     // Analyse every rail in parallel; one rail's read failure never sinks the others
-    // (analyzeRail catches its own reads → 'unknown', never throws for an RPC hiccup).
-    const analysed = await Promise.all(
-      candidates.map((accept) =>
-        this.analyzeRail(net, wallet, accept, url, challenge.resource.description)
+    // (analyzeRail catches its own reads → 'unknown'). A rail whose accept is PARSEABLE-but-malformed
+    // (bad amount/asset/decimals → buildQuote throws) is DROPPED here rather than thrown — planPayment/
+    // canAfford must NEVER throw on a hostile/buggy merchant's 402 (ERRORS.md read-method contract; the
+    // only sanctioned throw is on an UNPARSEABLE challenge). A dropped rail simply isn't a payable option.
+    const analysed = (
+      await Promise.all(
+        candidates.map((accept) =>
+          this.analyzeRail(net, wallet, accept, url, challenge.resource.description).catch(() => null)
+        )
       )
-    )
+    ).filter((o): o is PayOption => o !== null)
     const options = rankOptions(analysed)
     const best = options.find((o) => o.state === 'payable') ?? null
     const status: PaymentPlan['status'] = best

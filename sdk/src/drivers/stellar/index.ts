@@ -153,9 +153,14 @@ function makeStellarNetwork(preset: StellarPreset, rpcUrl: string): ResolvedNetw
           `chain ${network} is Stellar; a custom token must be { issuer, code, decimals }.`
         )
       }
+      // Stellar precision is UNIVERSALLY 7dp — Horizon reports every amount as a 7-decimal string,
+      // regardless of any per-asset `decimals` the caller passes (there is no ERC-20-style per-asset
+      // scale on Stellar). Normalize to STELLAR_DECIMALS so the challenge `amountBase`, the wire
+      // `amount`, and `verify()`'s 7dp parse all agree — a caller's `decimals: 2` would otherwise make
+      // verify's parseUnits throw on '0.0500000' and reject a correct payment as amount_too_low.
       return {
         asset: stellarAssetId(t.code, t.issuer),
-        decimals: t.decimals,
+        decimals: STELLAR_DECIMALS,
         symbol: t.symbol ?? t.code,
       }
     },

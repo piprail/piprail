@@ -55,6 +55,19 @@ describe('parseConfig — multi-chain mode (PIPRAIL_CHAINS)', () => {
     expect(cfg.tokens.sort()).toEqual(['USDC', 'USDT'])
   })
 
+  test('an empty-but-present PIPRAIL_TOKENS falls back to the SPLIT union, not one bogus "USDC,USDT" token', () => {
+    // A separators-only value csv-reduces to [] → the fallback path fires. The fix splits the
+    // comma-joined defaultStable (was `[defaultStable]` → a single token no asset matches → all pays blocked).
+    const cfg = parseConfig({
+      PIPRAIL_CHAINS: 'base,tron',
+      PIPRAIL_BASE_KEY: EVM_KEY,
+      PIPRAIL_TRON_KEY: EVM_KEY,
+      PIPRAIL_TOKENS: ' , , ',
+    })
+    expect(cfg.tokens.sort()).toEqual(['USDC', 'USDT'])
+    expect(cfg.tokens).not.toContain('USDC,USDT')
+  })
+
   test('a chain with no key is read-only; the server is read-only only if ALL are', () => {
     const partial = parseConfig({ PIPRAIL_CHAINS: 'base,solana', PIPRAIL_BASE_KEY: EVM_KEY })
     expect(partial.readOnly).toBe(false) // base is funded

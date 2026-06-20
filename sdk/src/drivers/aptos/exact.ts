@@ -66,7 +66,9 @@ const BUYER_MAX_GAS_AMOUNT = 50_000
 /** Inbound caps that bound the fee payer's exposure (a malicious buyer could otherwise set a huge
  *  `max_gas_amount × gas_unit_price`, forcing the sponsor to reserve — and risk being charged — a
  *  large sum). The structural check already pins the tx to a ~5k-gas transfer, so these are generous
- *  ceilings, not tight limits: 100k units × 2000 octas/unit ⇒ ≤ 0.2 APT worst-case reservation. */
+ *  ceilings, not tight limits: 100k units × 2000 octas/unit = 200_000_000 octas ⇒ ≤ 2 APT worst-case
+ *  reservation (8-decimal octas). The reservation is released post-tx; the structural ~5k-gas pin means
+ *  the actual charge stays sub-cent — the cap is a finite backstop, not the real cost. */
 const MAX_GAS_AMOUNT_CAP = 100_000n
 const MAX_GAS_UNIT_PRICE_CAP = 2_000n
 

@@ -191,4 +191,13 @@ describe('verifyReceipt · never throws', () => {
     const v = await PipRailClient.verifyReceipt(receipt({ network: 'doge:1' }))
     expect(v.ok).toBe(false)
   })
+
+  it('a MALFORMED receipt bundle (no inner .receipt, or null) → { ok:false }, never a throw', async () => {
+    // The MCP tool hands verifyReceipt whatever the model passes — it must degrade, not throw.
+    for (const bad of [{ piprail: '1' } as unknown, null as unknown, undefined as unknown, 42 as unknown]) {
+      const v = await PipRailClient.verifyReceipt(bad as never)
+      expect(v.ok).toBe(false)
+      expect(v.matchesClaims).toBe(false)
+    }
+  })
 })

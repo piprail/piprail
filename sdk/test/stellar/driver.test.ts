@@ -51,6 +51,21 @@ describe('Stellar tokens — USDC/EURC built in, custom by { issuer, code, decim
     expect(accept.extra.symbol).toBe('XYZ')
   })
 
+  it('NORMALISES a custom asset declared with sub-7 decimals to 7 (Stellar is universally 7dp)', async () => {
+    // A caller passing decimals:2 would otherwise make verify() parse Horizon's 7dp '0.0500000'
+    // at 2dp → parseUnits throws → a correct payment rejected amount_too_low. Clamp to 7 so the
+    // challenge amountBase, the wire amount, and verify all agree.
+    const gate = createPaymentGate({
+      chain: 'stellar',
+      token: { issuer: USDC_ISSUER, code: 'FOO', decimals: 2, symbol: 'FOO' },
+      amount: '0.05',
+      payTo: PAY_TO,
+    })
+    const accept = (await gate.challenge()).challenge.accepts[0]!
+    expect(accept.extra.decimals).toBe(7) // not the caller's 2
+    expect(accept.amount).toBe('500000') // 0.05 @ 7dp, consistent with Horizon's 7dp report
+  })
+
   it('rejects an unknown built-in symbol with a typed UnknownTokenError', async () => {
     const gate = createPaymentGate({ chain: 'stellar', token: 'DOGE', amount: '0.05', payTo: PAY_TO })
     const err = await gate.challenge().catch((e) => e)
