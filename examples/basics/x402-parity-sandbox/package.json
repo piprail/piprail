@@ -1,0 +1,24 @@
+{
+  "name": "@piprail/example-x402-parity-sandbox",
+  "private": true,
+  "type": "module",
+  "version": "0.0.1",
+  "description": "Live end-to-end test harness for the x402-PARITY features of the PUBLISHED @piprail/sdk + @piprail/mcp — verifiable receipts, the `upto` metered rail, the merchant-proof spend leash (POL-1), and the A2A (Google Agent2Agent) transport — plus the MCP's 8th tool, piprail_verify_receipt. Installs the real npm packages (NOT the workspace build) so it proves what `npm i @piprail/sdk` actually ships works on Base mainnet.",
+  "scripts": {
+    "test": "node run-all.mjs",
+    "receipts": "node suites/01-verifiable-receipts.mjs",
+    "upto": "node suites/02-upto-metered.mjs",
+    "policy": "node suites/03-policy-merchant-proof.mjs",
+    "a2a": "node suites/04-a2a-google.mjs",
+    "mcp": "node suites/05-mcp-verify-receipt.mjs"
+  },
+  "comment": "Static assertions run with no funded wallet, no secrets, and spend nothing (a few read public RPC read-only). The LIVE sections spend TINY amounts of real Base-mainnet USDC and only run when ../../../.secrets/wallets/evm-wallet.json is present; otherwise they self-skip cleanly. The dependency pins are the LATEST PUBLISHED versions on purpose — this harness is a guarantee about the npm artifact, not the working tree (the workspace build is tested by ../sdk-sandbox), and lib/env.mjs throws if @piprail/sdk ever resolves outside this sandbox.",
+  "dependencies": {
+    "@piprail/sdk": "^2.10.0",
+    "@piprail/mcp": "^0.9.0",
+    "viem": "^2.21.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
