@@ -42,6 +42,11 @@ export interface PaymentRail {
   decimals: number
   symbol?: string
   maxTimeoutSeconds: number
+  /** Rail-IDENTITY extra a discoverer needs to reconstruct/route the rail, mirrored from the
+   *  live 402's `accept.extra` — the `upto` rail's MANDATORY `facilitatorAddress`, the `exact`
+   *  rail's EIP-712 domain (`name`/`version`), and the `assetTransferMethod`. Omitted for the
+   *  `onchain-proof` rail (it needs none). The base pricing fields stay top-level on the rail. */
+  extra?: Record<string, unknown>
 }
 
 /** One discoverable resource: its URL, how to call it, and how to pay it. */

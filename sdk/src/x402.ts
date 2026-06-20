@@ -152,10 +152,11 @@ export interface X402UptoAcceptEntry {
   payTo: AddressId
   maxTimeoutSeconds: number
   extra: {
-    /** PipRail-INTERNAL discriminant — the on-wire x402 value of `assetTransferMethod`
-     *  is plain `'permit2'`; `'permit2-upto'` is OURS, to keep our parser unambiguous
-     *  from the exact Permit2 rail. The spec-conformant discriminant a foreign client
-     *  reads is `scheme: 'upto'`. */
+    /** PipRail's transfer-method tag for the upto rail. This literal `'permit2-upto'` IS what
+     *  rides on the wire in `extra.assetTransferMethod` — it's a NON-STANDARD extra key (the
+     *  upto spec defines no `assetTransferMethod`; the discriminant a conformant foreign client
+     *  keys off is `scheme: 'upto'` + the Permit2 witness shape, and it ignores this unknown key).
+     *  We carry it so OUR parser stays unambiguous from the exact Permit2 rail. */
     assetTransferMethod: 'permit2-upto'
     /** The address bound into `witness.facilitator`. In self-settle this is the merchant's
      *  own relayer; the buyer MUST sign over it; only this address can settle (the proxy
@@ -671,10 +672,12 @@ export const EXT_OFFER_RECEIPT = 'offer-receipt'
 /**
  * Assemble the `extensions['offer-receipt']` block for a settled response — PURE
  * JSON, viem-free. SPEC-FAITHFUL placement:
- *  - `info.receipt` holds the official `offer-receipt` **SignedReceipt**
- *    (`{ format, payload, signature }`) — present ONLY when a Tier-2 attestation was
- *    signed — so a STOCK `@x402/extensions` reader (`extractReceiptFromResponse` →
- *    `info.receipt`) reads it correctly. When there is no attestation (Tier-1,
+ *  - `info.receipt` holds the official `offer-receipt` **SignedReceipt** (the canonical
+ *    `{ format, payload, signature }` a STOCK `@x402/extensions` reader
+ *    (`extractReceiptFromResponse` → `info.receipt`) consumes, PLUS an additive `signer` —
+ *    the recovered signer address, a convenience a stock reader ignores and a verifier
+ *    re-derives from the signature anyway, so it's never trusted on the wire) — present
+ *    ONLY when a Tier-2 attestation was signed. When there is no attestation (Tier-1,
  *    chain-grounded) there is no signed artifact, so `info.receipt` is absent — a stock
  *    reader correctly sees "no signed receipt" (because there isn't one).
  *  - `info.settlement` holds PipRail's chain-grounded {@link X402Receipt} (the

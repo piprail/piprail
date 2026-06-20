@@ -50,7 +50,7 @@ Listed in the official **MCP registry** as [`io.github.piprail/mcp`](https://reg
 |---|---|
 | **[Overview](https://docs.piprail.com/mcp/overview/)** · **[Getting started](https://docs.piprail.com/mcp/getting-started/)** | What it is · first run |
 | **[Client setup](https://docs.piprail.com/mcp/client-setup/)** · **[Configuration](https://docs.piprail.com/mcp/configuration/)** | Per-client config · every env var |
-| **[Tools](https://docs.piprail.com/mcp/tools/)** · **[Modes](https://docs.piprail.com/mcp/modes/)** | The 7 tools · headless vs supervised |
+| **[Tools](https://docs.piprail.com/mcp/tools/)** · **[Modes](https://docs.piprail.com/mcp/modes/)** | The 8 tools · headless vs supervised |
 | **[Security](https://docs.piprail.com/mcp/security/)** · **[Chains](https://docs.piprail.com/mcp/chains/)** | Why it's safe · per-chain setup |
 | **[Use as a library](https://docs.piprail.com/mcp/use-as-a-library/)** · **[FAQ](https://docs.piprail.com/mcp/faq/)** | Embed it · common questions |
 

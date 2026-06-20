@@ -366,10 +366,18 @@ export async function verifyAndSettleUptoEvm(input: {
   if (witnessFacilitator !== relayerAddress) {
     return { ok: false, error: 'signature_invalid', detail: `Authorization binds facilitator ${witnessFacilitator}, not this relayer ${relayerAddress}; only the bound facilitator can settle.` }
   }
-  // The signed MAX must cover the rail's advertised ceiling — the buyer must have authorized at
-  // least what the gate offered (parity with the exact rail's `permittedAmount < requiredAmount`).
+  // The signed MAX must EQUAL the rail's advertised ceiling. x402 conformance (scheme_upto_evm
+  // §Phase 3 step 4: "permitted.amount equals the amount from requirements"; reference
+  // facilitator permit2.ts rejects `permitted.amount !== requirements.amount`). Unlike the exact
+  // rail (which settles the fixed amount, so `>=` is safe), upto settles a metered actual UP TO
+  // `permitted.amount` — so an OVER-permit (`>` the ceiling) would let a hostile/buggy meter
+  // settle MORE than the buyer was shown. Strict equality binds exposure to exactly the advertised
+  // max. (PipRail's own buyer signs `accept.amount` verbatim, so this never rejects an honest flow.)
   if (permittedAmount < maxAmount) {
-    return { ok: false, error: 'amount_too_low', detail: `Permitted (signed MAX) ${permittedAmount}, rail max ${maxAmount}.` }
+    return { ok: false, error: 'amount_too_low', detail: `Permitted (signed MAX) ${permittedAmount} is below the rail max ${maxAmount}.` }
+  }
+  if (permittedAmount > maxAmount) {
+    return { ok: false, error: 'upto_settle_exceeds_max', detail: `Permitted (signed MAX) ${permittedAmount} exceeds the advertised rail max ${maxAmount}; sign exactly the ceiling.` }
   }
   // Metered actual must NOT exceed the signed MAX — the core upto invariant. Reject BEFORE
   // broadcast (the on-chain `AmountExceedsPermitted` is the redundant second guard). A negative

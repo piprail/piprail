@@ -27,10 +27,21 @@ export interface SpendRecord {
   host: string
   network: Caip2
   asset: string
-  /** Base units paid (already scaled by decimals). */
+  /** Base units that count toward the budget. For onchain-proof/exact this is the paid
+   *  amount. For the metered `upto` rail it is the authorized **MAX** (not the merchant's
+   *  claimed actual) — the only buyer-provable bound, so a malicious merchant that settles
+   *  the MAX on-chain but under-reports the actual can never loosen a cumulative cap
+   *  (`maxTotal` / `maxTotalPerDenom` / `windowTotal`). See {@link settledBase} for the actual. */
   amountBase: string
-  /** Human-readable amount, e.g. '0.05'. */
+  /** Human-readable {@link amountBase}, e.g. '0.05'. */
   amountFormatted: string
+  /** METERED `upto` ONLY: the merchant-claimed settled **actual**, clamped to `≤` the
+   *  authorized MAX (`amountBase`). Informational — surfaced for transparency/reconciliation
+   *  (and equal to the receipt's amount); it does NOT feed any cap (those tally the MAX).
+   *  Absent for onchain-proof/exact (where the actual IS the budgeted amount). */
+  settledBase?: string
+  /** Human-readable {@link settledBase}. */
+  settledFormatted?: string
   symbol?: string
   /** TRUE token decimals. Carried on the record so a {@link SpendStore} can rebuild
    *  exact totals + the grand total on reload (the client stamps it on every settle). */

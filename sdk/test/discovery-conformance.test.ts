@@ -36,6 +36,9 @@ function isV2Envelope(challenge: any): true | string {
     if (typeof a.scheme !== 'string') return 'scheme missing'
     // An `exact` rail MUST advertise the token's EIP-712 domain so a buyer can sign.
     if (a.scheme === 'exact' && (!a.extra?.name || !a.extra?.version)) return 'exact rail missing EIP-712 domain (extra.name/version)'
+    // An `upto` rail MUST advertise the facilitatorAddress the buyer signs into witness.facilitator
+    // (scheme_upto_evm §2 — the spec's normative MUST; only the bound facilitator can settle).
+    if (a.scheme === 'upto' && !a.extra?.facilitatorAddress) return 'upto rail missing extra.facilitatorAddress'
   }
   return true
 }
@@ -107,6 +110,20 @@ describe('x402 conformance — the live wire a real index validates', () => {
     expect(isV2Envelope(challenge)).toBe(true)
     expect(passesX402Scan(challenge)).toBe(true)
     expect(JSON.stringify((challenge.extensions as any)?.bazaar)).not.toContain('nonce')
+  })
+
+  it('a gate offering the upto rail emits a conformant wire carrying extra.facilitatorAddress', async () => {
+    const gate = createPaymentGate({
+      chain: 'base', token: 'USDC', amount: '0.05', payTo: PAY_TO, discovery: true,
+      upto: { relayer: { key: '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' }, settleAmount: () => 0n },
+    })
+    const { challenge } = await gate.challenge('https://piprail.com/x402/meter')
+    expect(isV2Envelope(challenge)).toBe(true) // the new upto branch is satisfied
+    const upto = challenge.accepts.find((a) => a.scheme === 'upto')!
+    expect(upto.extra?.facilitatorAddress).toBe('0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266')
+    // and the gate would FAIL the conformance check if facilitatorAddress were dropped:
+    const stripped = { ...challenge, accepts: [{ ...upto, extra: { ...upto.extra, facilitatorAddress: '' } }] }
+    expect(isV2Envelope(stripped)).toBe('upto rail missing extra.facilitatorAddress')
   })
 
   it('REJECTS the things x402scan rejects (so the gate is meaningful, not vacuous)', async () => {

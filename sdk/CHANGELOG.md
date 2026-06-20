@@ -41,6 +41,17 @@ Four ratified-x402 capabilities, all **additive and opt-in** — omit the new op
   store's `isUsed`/`markUsed` as a pair (a lone one silently disabled double-spend protection); the read
   methods (`planPayment`/`canAfford`/`estimateCost`) degrade instead of throwing on a malformed accept;
   Sui coin pagination; Stellar custom-asset decimals; Tron native safe-integer; and more.
+- **fix:** a second adversarial multi-agent conformance pass (vs the cloned x402 spec) hardened the new
+  surfaces — **upto cumulative caps are now merchant-proof:** the budget debits the authorized **MAX**
+  (a merchant that under-reports its settled `amount` can no longer loosen `maxTotal`/`maxTotalPerDenom`/
+  `windowTotal`); the metered actual is surfaced on `SpendRecord.settledBase`. The `upto` driver now
+  enforces **strict** `permitted.amount === advertised max` at verify time (an over-permit is rejected —
+  x402 `scheme_upto_evm` §Phase 3). `describe()` now projects the upto rail's mandatory
+  `extra.facilitatorAddress` (+ the exact rail's EIP-712 domain) so a discovered rail is reconstructable.
+  A2A conformance: a rejected proof re-challenges as `payment-rejected` (the spec status that pairs with
+  the retryable `input-required`, not the terminal `payment-failed`) carrying a failure receipt with
+  `network` + `transaction:''`. The agent guide + `paymentTools` JSDoc now document the upto rail and the
+  8th tool.
 
 ## [2.9.0] — 2026-06-19 — Cross-token grand total · payment-count caps · durable budget · richer spend observability
 

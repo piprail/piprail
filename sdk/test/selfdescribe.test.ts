@@ -5,6 +5,7 @@ import {
   BRAND,
   type X402AcceptEntry,
   type X402ExactAcceptEntry,
+  type X402UptoAcceptEntry,
 } from '../src/index.js'
 
 const PAYTO = '0x28Dc25bf88BF06fc0a3Af1747D1aA4a21f313ed0'
@@ -28,6 +29,16 @@ const exactRail: X402ExactAcceptEntry = {
   payTo: PAYTO,
   maxTimeoutSeconds: 600,
   extra: { assetTransferMethod: 'eip3009', amountFormatted: '0.01', symbol: 'USDC', decimals: 6 },
+}
+
+const uptoRail: X402UptoAcceptEntry = {
+  scheme: 'upto',
+  network: 'eip155:8453',
+  amount: '50000', // the authorized MAX (0.05 USDC)
+  asset: USDC,
+  payTo: PAYTO,
+  maxTimeoutSeconds: 600,
+  extra: { assetTransferMethod: 'permit2-upto', facilitatorAddress: PAYTO, amountFormatted: '0.05', symbol: 'USDC', decimals: 6 },
 }
 
 describe('buildSelfDescription', () => {
@@ -58,6 +69,16 @@ describe('buildSelfDescription', () => {
     expect(sd.pay.map((r) => r.scheme)).toEqual(['exact', 'onchain-proof'])
     expect(sd.pay[0]!.how).toMatch(/standard x402/i)
     expect(sd.pay[1]!.how).toMatch(/@piprail\/sdk/i)
+  })
+
+  it('upto rail: described with scheme `upto`, the MAX amount, and a rail-specific `how`', () => {
+    const sd = buildSelfDescription({ accepts: [uptoRail, onchainProof] })
+    expect(sd.pay.map((r) => r.scheme)).toEqual(['upto', 'onchain-proof'])
+    expect(sd.pay[0]).toMatchObject({ scheme: 'upto', amount: '50000', asset: USDC, symbol: 'USDC' })
+    expect(sd.pay[0]!.how).toBeTruthy() // a non-empty how-text (the metered rail is explained)
+    // verifiableReceipts gating is independent of the rail set (additive, off by default).
+    expect('verifiableReceipts' in buildSelfDescription({ accepts: [uptoRail] })).toBe(false)
+    expect(buildSelfDescription({ accepts: [uptoRail], verifiableReceipts: true }).verifiableReceipts).toBe(true)
   })
 
   it('multi-chain: a rail per accept, mirroring network/asset', () => {

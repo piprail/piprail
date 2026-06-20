@@ -99,8 +99,10 @@ interface ReceiptOption {
    *  this from the URL it fetched; set it here to ground the raw header a third party reads.
    *  Default '' (the client fills it). */
   resource?: string
-  /** Tier-2: also sign an EIP-712 delivery attestation with the merchant's payTo wallet (EVM). */
-  attest?: { wallet: unknown }
+  /** Tier-2: also sign an EIP-712 delivery attestation with the merchant's payTo wallet (EVM).
+   *  The `{ jws }` arm is a reserved future managed-signer (R3) — not yet implemented; supplying
+   *  it today degrades to a Tier-1 chain-grounded receipt with a one-time warning, never throws. */
+  attest?: { wallet: unknown } | { jws: unknown }
 }
 ```
 

@@ -147,9 +147,18 @@ export function toA2APaymentReceipts(receipts: (X402Receipt | SettleOutcome)[]):
 export function toA2APaymentFailed(
   code: VerifyErrorCode | string,
   detail: string,
-  receipts: (X402Receipt | SettleOutcome)[] = []
+  receipts: (X402Receipt | SettleOutcome)[] = [],
+  network?: string
 ): A2AMetadata {
-  const entry: SettleOutcome = { success: false, errorReason: `${code}: ${detail}` }
+  // The x402 v2 SettlementResponse marks `transaction` Required ("empty string if settlement
+  // failed", spec §SettleResponse) and the a2a.md failure-receipt example also carries `network`
+  // — emit both (transaction:'' is never a missing key) so a conformant A2A buyer reads it cleanly.
+  const entry: SettleOutcome = {
+    success: false,
+    transaction: '',
+    ...(network ? { network } : {}),
+    errorReason: `${code}: ${detail}`,
+  }
   return {
     [A2A_STATUS_KEY]: 'payment-failed',
     [A2A_ERROR_KEY]: toA2AErrorCode(code),
@@ -270,8 +279,7 @@ function defaultTaskStore(): A2ATaskStore {
  *
  * @example
  * ```ts
- * import { createPaymentGate } from '@piprail/sdk'
- * import { createA2APaymentHandler } from '@piprail/sdk/a2a'
+ * import { createPaymentGate, createA2APaymentHandler } from '@piprail/sdk'
  *
  * const gate = createPaymentGate({ chain: 'base', token: 'USDC', amount: '0.05', payTo: '0x…' })
  * const pay = createA2APaymentHandler({ gate, fulfill: async () => [{ kind: 'text', text: 'done' }] })
@@ -328,17 +336,32 @@ export function createA2APaymentHandler(options: A2APaymentHandlerOptions): A2AP
     taskId: string,
     result: Extract<VerifyPaymentResult, { kind: 'challenge' | 'invalid' }>
   ): A2ATask {
-    // STATUS distinguishes a brand-new challenge from a REJECTED submission per the spec's
-    // Error-Handling table: a genuine first challenge is `payment-required`; a submitted-and-
-    // rejected proof (`kind:'invalid'` — expired/wrong-amount/replayed) is `payment-failed` (the
-    // status the spec assigns to an Invalid Payment) + the error code. The STATE stays the
-    // retryable `input-required` (PipRail's "here's a fresh challenge, try again" model — the spec
-    // permits input-required for a rejection), and the fresh challenge rides along so the buyer can retry.
-    const isReject = result.kind === 'invalid'
+    // A genuine first/re-issued challenge (no proof was submitted to reject) → `payment-required`,
+    // no receipt — identical to toA2APaymentRequired but on an existing task.
+    if (result.kind !== 'invalid') {
+      const metadata: A2AMetadata = {
+        [A2A_STATUS_KEY]: 'payment-required',
+        [A2A_REQUIRED_KEY]: result.challenge,
+      }
+      return {
+        kind: 'task',
+        id: taskId,
+        status: { state: 'input-required', message: { kind: 'message', role: 'agent', taskId, metadata } },
+      }
+    }
+    // A SUBMITTED proof was REJECTED (expired/wrong-amount/replayed). The spec's status/state table
+    // pairs the retryable `input-required` only with `payment-required` or `payment-rejected` —
+    // `payment-failed` is reserved for the TERMINAL `failed` state. So a retryable rejection is
+    // `payment-rejected` (A2A §Lifecycle), carrying the error code, a failure receipt in the
+    // append-only `receipts[]` history (the a2a.md Invalid-Payment example mandates one, with
+    // `network` + `transaction:''`), and a fresh challenge so the buyer can retry on the same task.
+    const network = singleNetworkOf(result.challenge)
+    const receipts = appendReceiptFailed(taskId, result.error, result.detail, network)
     const metadata: A2AMetadata = {
-      [A2A_STATUS_KEY]: isReject ? 'payment-failed' : 'payment-required',
+      [A2A_STATUS_KEY]: 'payment-rejected',
+      [A2A_ERROR_KEY]: toA2AErrorCode(result.error),
       [A2A_REQUIRED_KEY]: result.challenge,
-      ...(isReject ? { [A2A_ERROR_KEY]: toA2AErrorCode(result.error) } : {}),
+      ...toA2APaymentReceipts(receipts),
     }
     return {
       kind: 'task',
@@ -363,10 +386,21 @@ export function createA2APaymentHandler(options: A2APaymentHandlerOptions): A2AP
   }
 
   /** Append a failed SettleOutcome to the history (B7). The x402 v2 SettlementResponse marks
-   *  `transaction` Required ("empty string if settlement failed", spec §SettleResponse), so emit
-   *  `transaction: ''` — never a missing key — for a conformant A2A buyer reading receipts[]. */
-  function appendReceiptFailed(taskId: string, code: string, detail: string): (X402Receipt | SettleOutcome)[] {
-    return appendReceipt(taskId, { success: false, transaction: '', errorReason: `${code}: ${detail}` })
+   *  `transaction` Required ("empty string if settlement failed", spec §SettleResponse) and the
+   *  a2a.md failure-receipt example also carries `network` — emit `transaction: ''` (never a
+   *  missing key) plus `network` when known, for a conformant A2A buyer reading receipts[]. */
+  function appendReceiptFailed(
+    taskId: string,
+    code: string,
+    detail: string,
+    network?: string
+  ): (X402Receipt | SettleOutcome)[] {
+    return appendReceipt(taskId, {
+      success: false,
+      transaction: '',
+      ...(network ? { network } : {}),
+      errorReason: `${code}: ${detail}`,
+    })
   }
 
   async function handleMessage(message: A2AMessage, taskId?: string): Promise<A2ATask> {
@@ -453,6 +487,14 @@ export function createA2APaymentHandler(options: A2APaymentHandlerOptions): A2AP
 
 /* ----------------------------- small helpers ----------------------------- */
 
+/** The single CAIP-2 network a challenge's rails all share, for a failure receipt's `network`
+ *  field — `undefined` if the challenge offers rails on more than one network (then we can't
+ *  attribute the rejection to one) or none. Best-effort; the SettleOutcome field is optional. */
+function singleNetworkOf(challenge: X402Challenge): string | undefined {
+  const nets = new Set((challenge.accepts ?? []).map((a) => a.network).filter(Boolean))
+  return nets.size === 1 ? [...nets][0] : undefined
+}
+
 /** A fresh A2A task id when the caller didn't supply one. */
 function newTaskId(): string {
   return `task-${globalThis.crypto.randomUUID()}`
@@ -468,7 +510,8 @@ function resourceUrlFromMessage(message: A2AMessage): string {
   return ''
 }
 
-// Re-export the duck-typed A2A shapes so a consumer imports everything from `@piprail/sdk/a2a`.
+// Re-export the duck-typed A2A shapes so a consumer imports everything from `@piprail/sdk`
+// (all A2A symbols are surfaced from the main entry; there is no separate subpath).
 export type {
   A2AArtifact,
   A2AExtensionDeclaration,

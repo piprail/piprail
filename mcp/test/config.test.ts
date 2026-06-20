@@ -183,6 +183,13 @@ describe('parseConfig — PIPRAIL_SCHEMES', () => {
     ])
   })
 
+  test('accepts the metered `upto` scheme', () => {
+    expect(parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_SCHEMES: 'exact,upto' }).schemes).toEqual([
+      'exact',
+      'upto',
+    ])
+  })
+
   test('rejects an unknown scheme with a clear error', () => {
     expect(() => parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_SCHEMES: 'exact,bogus' })).toThrow(
       /Invalid PIPRAIL_SCHEMES/

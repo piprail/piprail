@@ -99,7 +99,7 @@ function toToolError(err: unknown): Record<string, unknown> {
 }
 
 /**
- * Seven tools wrapping a configured {@link PipRailClient}:
+ * Eight tools wrapping a configured {@link PipRailClient}:
  *   - `piprail_discover(query?)` — FIND payable resources on the open x402
  *     indexes, WITHOUT paying (the phone book — solves "what can I buy?").
  *   - `piprail_quote_payment(url)` — price a gated URL WITHOUT paying.
@@ -110,8 +110,10 @@ function toToolError(err: unknown): Record<string, unknown> {
  *     other agents can find it (402 Index, no signature).
  *   - `piprail_budget()` — read the remaining spend budget + time leash (Mode A self-check).
  *   - `piprail_guide()` — read the agent contract (how to quote/plan/pay + read a refusal).
+ *   - `piprail_verify_receipt(receipt, rpcUrl?)` — re-verify a verifiable receipt against the
+ *     chain WITHOUT a wallet (anyone-verifiable; never throws — returns a structured verdict).
  *
- * The first five are byte-identical in name + order to before; the two read-only
+ * The first five are byte-identical in name + order to before; the three read-only
  * tools are appended LAST. EVERY failure the pay tool sees comes back as a
  * STRUCTURED object (`{ ok:false, code, reason, explain, ref?, reasonCode?,
  * declined? }`) — never a thrown error — so the model reasons about it (and never

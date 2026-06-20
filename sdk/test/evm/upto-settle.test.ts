@@ -299,6 +299,12 @@ describe('verifyAndSettleUptoEvm — field checks vs the TRUSTED accept (pre-RPC
     const r = await settleThrowing(pay(), accept({ amount: '99999999999999999999' }))
     expect(r).toMatchObject({ ok: false, error: 'amount_too_low' })
   })
+  it('rejects an OVER-permit (permitted MAX > the rail max) → upto_settle_exceeds_max (x402 strict-equality)', async () => {
+    // x402 conformance: at verify time permitted.amount MUST EQUAL the advertised ceiling. An
+    // over-permit would let a hostile meter settle MORE than advertised; reject it pre-broadcast.
+    const r = await settleThrowing(pay(), accept({ amount: '1' }))
+    expect(r).toMatchObject({ ok: false, error: 'upto_settle_exceeds_max' })
+  })
   it('rejects an expired deadline → payment_expired', async () => {
     const r = await settleThrowing(pay({ deadline: String(Math.floor(Date.now() / 1000) - 10) }), accept())
     expect(r).toMatchObject({ ok: false, error: 'payment_expired' })

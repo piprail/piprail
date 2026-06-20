@@ -2,7 +2,8 @@
  * The buyer-side `upto` (metered) rail wired into PipRailClient (opt-in `schemes`). Drives a
  * FAKE evm driver (with `payUpto` + `describeAsset`) so no real chain/RPC is touched. Pins the
  * scheme gating (OFF by default), the conservative pay path, BUDGET-AGAINST-THE-MAX, and the
- * SINGLE ledger-reconciliation seam: RECORD THE ACTUAL (settle.amount), fail-safe-to-MAX.
+ * merchant-proof ledger seam: the cap-bearing amount IS the authorized MAX (an under-reporting
+ * merchant can't slip a cumulative leash, POL-1), with the settled actual surfaced on settledBase.
  */
 import { describe, it, expect, afterEach, beforeEach } from 'vitest'
 import {
@@ -169,36 +170,64 @@ describe('upto — budget AGAINST THE MAX (the overcharge guard)', () => {
   })
 })
 
-describe('upto — the ledger records the ACTUAL (settle.amount), not the MAX', () => {
-  it('records the ACTUAL settled amount off the SettleResponse, re-deriving the human + denom', async () => {
+describe('upto — the ledger budgets the MAX (merchant-proof), and surfaces the settled ACTUAL', () => {
+  it('budgets the authorized MAX (amountBase) but records the settled ACTUAL on settledBase/Formatted', async () => {
     stub([uptoAccept()], () => settle200({ transaction: '0xMETERED', amount: '120000' }))
     const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['upto'] })
     await client.fetch(URL)
     const spend = client.spent()
     expect(spend.count).toBe(1)
     expect(spend.records[0]!.ref).toBe('0xMETERED')
-    expect(spend.records[0]!.amountBase).toBe('120000') // the ACTUAL, NOT the 500000 MAX
-    expect(spend.records[0]!.amountFormatted).toBe('0.12') // re-derived from the actual
-    expect(spend.byAsset[0]!.totalBase).toBe('120000')
+    // The cap-bearing figure is the authorized MAX — a merchant cannot loosen a budget by
+    // under-reporting the actual (POL-1). The cumulative tally uses this, so byAsset === MAX.
+    expect(spend.records[0]!.amountBase).toBe('500000') // the MAX, NOT the 120000 actual
+    expect(spend.records[0]!.amountFormatted).toBe('0.5')
+    expect(spend.byAsset[0]!.totalBase).toBe('500000')
+    // The merchant-claimed settled actual is surfaced for transparency (it equals the receipt's).
+    expect(spend.records[0]!.settledBase).toBe('120000')
+    expect(spend.records[0]!.settledFormatted).toBe('0.12')
   })
 
-  it('a $0 metered settle records 0 (and the ref falls through to the nonce when transaction is "")', async () => {
+  it('a malicious UNDER-REPORT cannot slip the cumulative leash — the cap still debits the MAX', async () => {
+    // Merchant settles up to the MAX on-chain but reports amount:"1". The budget must still
+    // debit the authorized MAX, so a maxTotal leash holds against the true on-chain exposure.
+    stub([uptoAccept()], () => settle200({ transaction: '0xUNDER', amount: '1' }))
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['upto'] })
+    await client.fetch(URL)
+    const spend = client.spent()
+    expect(spend.records[0]!.amountBase).toBe('500000') // MAX debited — leash-safe
+    expect(spend.records[0]!.settledBase).toBe('1') // the claimed actual, surfaced only
+    expect(spend.byAsset[0]!.totalBase).toBe('500000')
+  })
+
+  it('clamps a hostile OVER-report of the actual to the MAX (settledBase never exceeds amountBase)', async () => {
+    // A server claiming an actual ABOVE the signed max cannot inflate even the informational figure.
+    stub([uptoAccept()], () => settle200({ transaction: '0xOVER', amount: '999999999' }))
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['upto'] })
+    await client.fetch(URL)
+    const spend = client.spent()
+    expect(spend.records[0]!.amountBase).toBe('500000')
+    expect(spend.records[0]!.settledBase).toBe('500000') // clamped to the MAX
+  })
+
+  it('a $0 metered settle budgets the MAX but surfaces settledBase "0" (ref falls through to nonce)', async () => {
     stub([uptoAccept()], () => settle200({ transaction: '', amount: '0' }))
     const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['upto'] })
     await client.fetch(URL)
     const spend = client.spent()
     expect(spend.count).toBe(1)
-    expect(spend.records[0]!.amountBase).toBe('0')
+    expect(spend.records[0]!.amountBase).toBe('500000') // MAX budgeted
+    expect(spend.records[0]!.settledBase).toBe('0') // a true zero-charge, surfaced
     expect(spend.records[0]!.ref).toMatch(/^upto-nonce:/) // transaction:"" → nonce ref for the audit trail
   })
 
-  it('FAIL-SAFE: a non-conformant server that OMITS settle.amount records the MAX (never under-counts)', async () => {
-    // No `amount` in the SettleResponse → recordSpend falls back to the quote MAX.
+  it('a non-conformant server that OMITS settle.amount budgets the MAX with no settledBase', async () => {
     stub([uptoAccept()], () => settle200({ transaction: '0xNOAMOUNT' }))
     const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['upto'] })
     await client.fetch(URL)
     const spend = client.spent()
-    expect(spend.records[0]!.amountBase).toBe('500000') // the MAX — over-counts, never slips the leash
+    expect(spend.records[0]!.amountBase).toBe('500000') // the MAX
+    expect(spend.records[0]!.settledBase).toBeUndefined() // no actual to surface
   })
 })
 

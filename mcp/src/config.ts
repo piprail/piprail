@@ -147,7 +147,7 @@ const KNOWN_PIPRAIL_VARS = [
 ] as const
 
 /** The payment schemes the MCP may enable via PIPRAIL_SCHEMES. */
-const VALID_SCHEMES = ['onchain-proof', 'exact'] as const
+const VALID_SCHEMES = ['onchain-proof', 'exact', 'upto'] as const
 
 /** Non-EVM family selectors the SDK accepts as a `chain` string. */
 const NON_EVM_CHAINS = [

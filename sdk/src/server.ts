@@ -1315,6 +1315,19 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     else void fireOnFailed(failure)
   }
 
+  /** Pick the rail-IDENTITY fields out of a built `accept.extra` for {@link describe}'s projection —
+   *  the EIP-712 domain (`name`/`version`), the `assetTransferMethod`, and the upto rail's
+   *  `facilitatorAddress`. Returns `{ extra }` (or `{}` when there's nothing identity-bearing) so the
+   *  base pricing fields (decimals/symbol/amount) stay top-level and aren't duplicated. */
+  function railExtra(full: Record<string, unknown>): { extra?: Record<string, unknown> } {
+    const out: Record<string, unknown> = {}
+    for (const k of ['assetTransferMethod', 'facilitatorAddress', 'name', 'version'] as const) {
+      const v = full[k]
+      if (v !== undefined && v !== '') out[k] = v
+    }
+    return Object.keys(out).length > 0 ? { extra: out } : {}
+  }
+
   async function describe(resourceUrl = ''): Promise<ResourceDescription> {
     const specs = await ready()
     const accepts: PaymentRail[] = []
@@ -1329,8 +1342,11 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
         maxTimeoutSeconds,
         ...(s.symbol ? { symbol: s.symbol } : {}),
       }
-      if (s.exact) accepts.push({ scheme: 'exact', ...base })
-      if (s.upto) accepts.push({ scheme: 'upto', ...base })
+      // Mirror the rail-IDENTITY extra a discoverer needs to reconstruct the rail, straight from
+      // the SAME builders the live 402 uses (so discovery == the challenge): the exact rail's
+      // EIP-712 domain (name/version) + method, and the upto rail's MANDATORY facilitatorAddress.
+      if (s.exact) accepts.push({ scheme: 'exact', ...base, ...railExtra(buildExactAccept(s).extra) })
+      if (s.upto) accepts.push({ scheme: 'upto', ...base, ...railExtra(buildUptoAccept(s).extra) })
       accepts.push({ scheme: 'onchain-proof', ...base })
     }
     return {

@@ -2072,23 +2072,33 @@ export class PipRailClient {
    *  affects the (already-settled) payment.
    *
    *  `settledAmountBase` is the SINGLE upto ledger-reconciliation seam: the quote (and thus
-   *  the policy/budget) gates on the MAX, but for the metered `upto` rail the ACTUAL settled
-   *  amount (read off `SettleOutcome.amount`) is what gets RECORDED — over-counting spend is
-   *  never possible, under-counting (which would slip the leash) is. When absent
-   *  (onchain-proof/exact), `quote.amount` is recorded exactly as before (byte-identical). */
+   *  the policy/budget) gates on the MAX, and for the metered `upto` rail the budgeted amount
+   *  RECORDED is ALSO the authorized MAX — the only buyer-provable bound. The merchant's
+   *  claimed actual is UNTRUSTED (a malicious merchant can settle the MAX on-chain yet report
+   *  a tiny `SettleOutcome.amount`); recording it would let an under-report silently loosen a
+   *  cumulative cap (`maxTotal`/`maxTotalPerDenom`/`windowTotal`) past the buyer's real on-chain
+   *  spend (POL-1). So the cap-bearing `amountBase` is the MAX; the clamped actual is surfaced
+   *  separately on `settledBase`/`settledFormatted` for transparency (it equals the receipt's
+   *  amount). When absent (onchain-proof/exact) this is byte-identical to before. */
   private recordSpend(quote: PipRailQuote, ref: string, settledAmountBase?: string): void {
     const denom = denomOf(quote.symbol, quote.asset, this.opts.policy)
-    // Record the ACTUAL when given (upto); fall back to the MAX otherwise. A malformed
-    // settledAmountBase (a non-conformant server) FAILS SAFE to the MAX — re-derive both the
-    // base amount and the human/denom figures from the same trusted number.
-    let amountBase = quote.amount
-    let amountFormatted = quote.amountFormatted
+    // The budget always debits the authorized MAX (quote.amount) — for upto that keeps the
+    // cumulative caps merchant-proof; for onchain-proof/exact the MAX *is* the paid amount.
+    const amountBase = quote.amount
+    const amountFormatted = quote.amountFormatted
+    // METERED upto: also surface the merchant-claimed settled ACTUAL, clamped to ≤ the MAX so a
+    // hostile/non-conformant server cannot inflate even the informational figure. Display-only.
+    let settledBase: string | undefined
+    let settledFormatted: string | undefined
     if (settledAmountBase !== undefined && /^\d+$/.test(settledAmountBase)) {
-      amountBase = settledAmountBase
       try {
-        amountFormatted = formatUnits(BigInt(settledAmountBase), quote.decimals)
+        const claimed = BigInt(settledAmountBase)
+        const max = BigInt(quote.amount)
+        const shown = claimed < max ? claimed : max
+        settledBase = shown.toString()
+        settledFormatted = formatUnits(shown, quote.decimals)
       } catch {
-        amountFormatted = quote.amountFormatted // keep the MAX-derived human string on a parse miss
+        /* a parse miss simply omits the informational actual — the MAX is still budgeted */
       }
     }
     const record: SpendRecord = {
@@ -2098,6 +2108,7 @@ export class PipRailClient {
       asset: quote.asset,
       amountBase,
       amountFormatted,
+      ...(settledBase !== undefined ? { settledBase, settledFormatted } : {}),
       ...(quote.symbol ? { symbol: quote.symbol } : {}),
       decimals: quote.decimals,
       ...(denom ? { denom } : {}),
@@ -2572,8 +2583,9 @@ export class PipRailClient {
         this.captureReceipt(response, url)
         this.safeEmit({ kind: 'payment-settled', receipt, ...(settle ? { settle } : {}) })
         // A $0 metered settle has transaction "" — `||` falls through to a nonce ref for the audit
-        // trail. Record the ACTUAL settled amount (settle.amount, or the receipt's), NOT the MAX;
-        // a server that echoes neither FAILS SAFE to the MAX inside recordSpend.
+        // trail. The budget debits the authorized MAX (merchant-proof, POL-1); the merchant-claimed
+        // settled actual (settle.amount, or the receipt's) is passed only to be surfaced — clamped
+        // ≤ the MAX — on the record's informational settledBase/settledFormatted.
         const ref = settle?.transaction || receipt?.transaction || `upto-nonce:${nonce}`
         const settledAmount = settle?.amount ?? receipt?.amount
         this.recordSpend(quote, ref, settledAmount)
