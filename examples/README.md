@@ -56,7 +56,7 @@ If a payer just sends a raw transfer to your wallet, you can't discover the pric
 | **Pay across chains** — one buyer, a wallet per chain, auto-route to whichever the 402 asks for (`MultiChainPayer`) | [`multi-chain/`](./basics/multi-chain) |
 | Expose payment as MCP tools — **build your own** server | [`mcp/`](./basics/mcp) |
 
-> **Most agents write no code.** The published [`@piprail/mcp`](../mcp) server gives any MCP client (Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, Cline) all **seven** tools (discover · quote · plan · pay · register · budget · guide), budget-capped — just `npx -y @piprail/mcp` with your key + chain in `env`. The [`mcp/`](./basics/mcp) folder is the minimal from-scratch version, for when you want to embed or customize it.
+> **Most agents write no code.** The published [`@piprail/mcp`](../mcp) server gives any MCP client (Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, Cline) all **eight** tools (discover · quote · plan · pay · register · budget · guide · verify_receipt), budget-capped — just `npx -y @piprail/mcp` with your key + chain in `env`. The [`mcp/`](./basics/mcp) folder is the minimal from-scratch version, for when you want to embed or customize it.
 
 ## Integrations
 
@@ -84,13 +84,17 @@ paid receipt in a SQL database**, with a revenue dashboard — blueprint in
 ## Prove it works — the adversarial test harnesses
 
 These aren't payment apps — they're **runnable proofs**. Each exercises a real,
-published package end-to-end (no mocks) and tries hard to break it. No real money,
-no real keys; the live settlement tests use a local Anvil fork of Base with fake funds.
+published package end-to-end (no mocks) and tries hard to break it. Most use no real
+money or keys — the live settlement tests use a local Anvil fork of Base with fake funds.
+(The one exception, [`x402-parity-sandbox/`](./basics/x402-parity-sandbox), settles **tiny
+real** amounts on Base mainnet against the **published** npm packages, and self-skips its
+live legs when no funded test wallet is present.)
 
 | What | Folder | Proves |
 |---|---|---|
 | The **SDK**, both ends — `requirePayment`/`createPaymentGate` (merchant) **and** `PipRailClient` (payer) | [`sdk-sandbox/`](./basics/sdk-sandbox) | the gate, the client, the spend policy, the wire codecs, the typed errors, a real on-chain round-trip (USDC + native), **and live discovery** (emit + register + discover vs. the real indexes) — **284 checks** |
 | The **MCP server** — spawned over real stdio, attacked as a greedy AI + a lying merchant | [`mcp-sandbox/`](./basics/mcp-sandbox) | an AI **cannot break the spend policy**: caps can't be tricked or drained, proven on a real on-chain settlement; plus the discovery tools over MCP — **169 checks** |
+| The **x402-parity** features against the **published** `@piprail/sdk` + `@piprail/mcp` | [`x402-parity-sandbox/`](./basics/x402-parity-sandbox) | verifiable receipts (R1+R2), the `upto` metered rail, the merchant-proof spend leash, the **A2A (Google Agent2Agent)** transport, and the MCP's 8th tool `piprail_verify_receipt` — each proven **live on Base mainnet** on what `npm i` actually ships |
 
 > **The headline both prove:** the spend policy is the boundary, and it holds.
 > A merchant that lies about decimals / display amount / symbol can't push a
