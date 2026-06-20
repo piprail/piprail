@@ -134,16 +134,18 @@ describe('A2A seller — valid payload → completed + receipts + payment-comple
 })
 
 describe('A2A seller — rejected proof → conformant re-challenge (RETRYABLE)', () => {
-  it('a rejected onchain-proof → input-required re-challenge, status payment-rejected (spec) + error + a failure receipt', async () => {
+  it('a rejected onchain-proof → input-required re-challenge, merchant status payment-required (spec) + error + a failure receipt', async () => {
     const pay = createA2APaymentHandler({ gate: baseGate() })
     const challenge = await pay.handleMessage({ kind: 'message' }, 'task-4')
     const task = await pay.handleMessage(proofMessage('task-4', challenge, '0xbadproof'), 'task-4')
     expect(task.status.state).toBe('input-required') // retryable, never terminal `failed`
     const meta = task.status.message!.metadata!
-    // The spec's status/state table pairs the retryable `input-required` only with `payment-required`
-    // (a first challenge) or `payment-rejected` (a rejected submission) — `payment-failed` is reserved
-    // for the TERMINAL `failed` state. So a retryable rejection is `payment-rejected`.
-    expect(meta[A2A_STATUS_KEY]).toBe('payment-rejected')
+    // Per the A2A x402 spec §5.1 + Google's reference merchant executor, the merchant's only
+    // retryable status is `payment-required` (it re-issues a challenge). `payment-rejected` is a
+    // CLIENT→merchant status (the client rejecting the offered requirements); `payment-failed` is
+    // the TERMINAL settlement failure. A rejected proof is distinguished from a FIRST challenge by
+    // the appended failure receipt + the `x402.payment.error` code — NOT by the status string.
+    expect(meta[A2A_STATUS_KEY]).toBe('payment-required')
     expect(meta[A2A_REQUIRED_KEY]).toBeDefined() // a fresh challenge to retry against
     expect(meta[A2A_ERROR_KEY]).toBe('INVALID_AMOUNT') // amount_too_low → INVALID_AMOUNT
     // The a2a.md Invalid-Payment example mandates a failure receipt with network + transaction:''.
@@ -154,13 +156,15 @@ describe('A2A seller — rejected proof → conformant re-challenge (RETRYABLE)'
     expect(failed.network).toBe('eip155:8453') // attributed to the challenge's single rail network
   })
 
-  it('a brand-new (empty-payload) request → status payment-required (distinct from a rejection)', async () => {
+  it('a FIRST challenge (empty payload) is payment-required with NO error/receipt — distinct from a rejection re-challenge', async () => {
     const pay = createA2APaymentHandler({ gate: baseGate() })
     const task = await pay.handleMessage({ kind: 'message' }, 'task-4b')
     const meta = task.status.message!.metadata!
     expect(task.status.state).toBe('input-required')
-    expect(meta[A2A_STATUS_KEY]).toBe('payment-required') // first challenge, never payment-failed
+    expect(meta[A2A_STATUS_KEY]).toBe('payment-required')
+    // The discriminator vs a rejection: a first challenge has NO error code and NO failure receipt.
     expect(meta[A2A_ERROR_KEY]).toBeUndefined()
+    expect(meta[A2A_RECEIPTS_KEY]).toBeUndefined()
   })
 
   it('the exported toA2APaymentFailed helper emits a conformant receipt (success:false + transaction:"" + network)', () => {
