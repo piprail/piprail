@@ -14,7 +14,7 @@ const title = '@piprail/mcp — budget-bound x402 payment wallet for AI agents (
 const description =
   'Hand any MCP client a local, budget-capped payment wallet. Agents autonomously pay x402 URLs across 29 chains — Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, Cline. No backend, no custody, no integration.'
 
-// The seven tools your agent gets — only piprail_pay_request moves money.
+// The eight tools your agent gets — only piprail_pay_request moves money.
 const tools = [
   { name: 'piprail_discover', d: 'Find payable x402 APIs on the open indexes.' },
   { name: 'piprail_quote_payment', d: 'Read a URL’s exact price — without paying.' },
@@ -23,6 +23,7 @@ const tools = [
   { name: 'piprail_register', d: 'List an endpoint you run so other agents find it.' },
   { name: 'piprail_budget', d: 'Read remaining spend + time leash.' },
   { name: 'piprail_guide', d: 'Read the agent contract (quote → plan → pay).' },
+  { name: 'piprail_verify_receipt', d: 'Re-verify a payment receipt on-chain — wallet-free.' },
 ]
 
 // Trimmed to the trust + decision questions (the how-to lives in the docs). Keeps the FAQ schema.
@@ -96,11 +97,11 @@ const faqLd = {
       </div>
     </section>
 
-    <!-- The seven tools -->
+    <!-- The eight tools -->
     <section class="border-t border-white/10 py-16 sm:py-20">
-      <SectionHeading title="Seven tools, the moment it connects.">
-        A complete, safe payment workflow — <span class="text-neutral-200">discover → quote → plan → pay</span>.
-        Only <code class="text-neutral-300">piprail_pay_request</code> moves money; the rest are read-only.
+      <SectionHeading title="Eight tools, the moment it connects.">
+        A complete, safe payment workflow — <span class="text-neutral-200">discover → quote → plan → pay</span>, then
+        <span class="text-neutral-200">verify</span>. Only <code class="text-neutral-300">piprail_pay_request</code> moves money; the rest are read-only.
       </SectionHeading>
       <ul class="grid gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
         {tools.map((t) => (
@@ -123,7 +124,7 @@ const faqLd = {
     <!-- Framework integrations -->
     <section id="integrations" class="scroll-mt-24 border-t border-white/10 py-16 sm:py-20">
       <SectionHeading title="Drop it into your framework.">
-        First-party integrations wrap this same MCP server — the agent gets all seven tools, budget-bound, with no config wrangling.
+        First-party integrations wrap this same MCP server — the agent gets all eight tools, budget-bound, with no config wrangling.
       </SectionHeading>
       <!-- live integrations — the same reusable component as the home page (src/components/IntegrationCard.astro) -->
       <div class="space-y-4">

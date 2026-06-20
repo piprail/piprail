@@ -69,6 +69,7 @@ const mcpTools = [
   { name: 'piprail_register', desc: 'list an endpoint you run so other agents find it' },
   { name: 'piprail_budget', desc: 'read the remaining spend budget + time leash' },
   { name: 'piprail_guide', desc: 'read the agent contract — how to quote, plan, pay' },
+  { name: 'piprail_verify_receipt', desc: 're-verify a payment receipt on-chain — wallet-free, trustless' },
 ]
 
 // Top questions only — the rest live on /sdk, /mcp, /chains, /discovery (each with its own schema).
@@ -87,7 +88,7 @@ const faqs = [
   },
   {
     q: `How do I let Claude or Cursor pay for things autonomously?`,
-    a: `Install the PipRail MCP server: add a small config block to your MCP client (Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, or Cline) that runs "npx -y @piprail/mcp" with your wallet key, chain, and spend caps. The agent gains seven tools — piprail_discover (find payable APIs), piprail_quote_payment, piprail_plan_payment, piprail_pay_request, piprail_register (list its own), piprail_budget (read its remaining budget), and piprail_guide (the agent contract) — so it finds and pays x402-gated APIs on its own across ${total} chains. It runs locally with your own wallet, and the spend policy is enforced before any on-chain send, so the model literally cannot overspend.`,
+    a: `Install the PipRail MCP server: add a small config block to your MCP client (Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, or Cline) that runs "npx -y @piprail/mcp" with your wallet key, chain, and spend caps. The agent gains eight tools — piprail_discover (find payable APIs), piprail_quote_payment, piprail_plan_payment, piprail_pay_request, piprail_register (list its own), piprail_budget (read its remaining budget), piprail_guide (the agent contract), and piprail_verify_receipt (re-verify a payment receipt on-chain) — so it finds and pays x402-gated APIs on its own across ${total} chains. It runs locally with your own wallet, and the spend policy is enforced before any on-chain send, so the model literally cannot overspend.`,
   },
   {
     q: `Which chains and tokens does PipRail support?`,
@@ -479,9 +480,9 @@ const howToLd = {
             </div>
           </div>
 
-          <!-- the seven tools, given room to breathe in a full-width grid -->
+          <!-- the eight tools, given room to breathe in a full-width grid -->
           <div class="mt-10 border-t border-white/10 pt-8 sm:mt-12">
-            <p class="mb-5 text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">Seven tools your agent gets</p>
+            <p class="mb-5 text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">Eight tools your agent gets</p>
             <ul class="grid gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
               {mcpTools.map((t) => (
                 <li class="flex items-start gap-3">
@@ -502,7 +503,7 @@ const howToLd = {
     <section id="integrations" class="scroll-mt-24 border-t border-white/10 py-20 sm:py-24">
       <SectionHeading title="Use it where your agents already live.">
         Drop PipRail into the frameworks agents are built in — <span class="text-neutral-200">no payment code</span>.
-        Each integration just wraps <code class="text-neutral-300">@piprail/mcp</code>, so the agent gets all seven
+        Each integration just wraps <code class="text-neutral-300">@piprail/mcp</code>, so the agent gets all eight
         tools, budget-bound — straight to your wallet.
       </SectionHeading>
 

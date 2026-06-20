@@ -24,6 +24,8 @@ export default defineConfig({
     '/making-payments/': '/making-payments/piprail-client/',
     '/spend-controls/': '/spend-controls/payment-policy/',
     '/agent-toolkit/': '/agent-toolkit/payment-tools/',
+    // The detailed tool reference was renamed off its old (now-stale) "7 tools" slug.
+    '/agent-toolkit/the-7-tools/': '/agent-toolkit/the-agent-tools/',
     '/discovery/': '/discovery/self-describing-endpoints/',
     '/chains/': '/chains/overview/',
     '/errors/': '/errors/error-model/',

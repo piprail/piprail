@@ -66,8 +66,10 @@ interface SpendSummary {
 | `url` / `host` | The resource paid for, and its hostname. |
 | `network` | The chain, as a [CAIP-2](/reference/wire-codecs/) id (e.g. `eip155:8453`). |
 | `asset` | The token paid (address or native marker). |
-| `amountBase` | Base units paid, already scaled by decimals. |
-| `amountFormatted` | Human-readable amount, e.g. `'0.10'`. |
+| `amountBase` | Base units that count against the caps — for the [metered `upto` rail](/accepting-payments/upto-rail-seller/) this is the **authorized MAX**, not the merchant's claimed actual. |
+| `amountFormatted` | Human-readable `amountBase`, e.g. `'0.10'`. |
+| `settledBase` | Merchant-claimed settled **actual** (upto rail only), clamped to ≤ `amountBase`. **Informational** — it does **not** feed the caps. Absent for `onchain-proof` / `exact` rails (where actual = amount). |
+| `settledFormatted` | Human-readable `settledBase`, when present. |
 | `symbol` | Token symbol, when known. |
 | `decimals` | Token decimals, when known — so a [durable store](/spend-controls/persistence/) rebuilds totals on reload without a second spend. |
 | `denom` | The token's [denomination](/spend-controls/total-budget/) (`'USD'`, `'EUR'`, …), when it has one — `undefined` for native + unrecognised tokens. |

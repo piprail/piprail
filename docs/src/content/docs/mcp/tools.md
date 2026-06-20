@@ -22,7 +22,7 @@ output still reads the text.
 "piprail_verify_receipt"
 ```
 
-Each tool carries advisory [MCP annotations](/agent-toolkit/the-7-tools/) (`readOnlyHint`,
+Each tool carries advisory [MCP annotations](/agent-toolkit/the-agent-tools/) (`readOnlyHint`,
 `destructiveHint`, `openWorldHint`, …). They are hints only — the real boundary is the
 [spend policy](/spend-controls/payment-policy/), enforced before any send.
 
@@ -231,7 +231,7 @@ formatted line of the [spend ledger](/spend-controls/spend-ledger/) and the last
 
 ```jsonc
 { "spent": "0.10", "remaining": "19.90", "report": "…",
-  "session": { "expiresInSeconds": 3500 },
+  "session": { "start": "2026-06-10T00:00:00Z", "expiresAt": "2026-06-10T02:00:00Z", "secondsRemaining": 3500 },
   "grandTotal": [
     { "denom": "USD", "spentFormatted": "0.10", "capFormatted": "20.00",
       "remainingFormatted": "19.90", "fraction": 0.005 }
@@ -296,7 +296,7 @@ off, the tools path is byte-identical.
 | --- | --- | --- |
 | `piprail_agent_guide` | prompt | The full agent contract — how to pay, reading a refusal, Mode A vs B. |
 | `piprail://guide` | resource (`text/markdown`) | The same `PIPRAIL_AGENT_GUIDE` text. |
-| `piprail://budget` | resource (`application/json`) | The live spend leash: `{ spent, remaining, session, grandTotal, counts, policy }` — the same payload `piprail_budget` returns. |
+| `piprail://budget` | resource (`application/json`) | The live spend leash: `{ spent, remaining, grandTotal, counts, session, policy }` — the same as the `piprail_budget` tool, minus the one-line `report` summary (the resource omits it). |
 
 The `piprail://budget` resource mirrors the running client's budget — including the
 [grand-total](/spend-controls/total-budget/) (`grandTotal`), payment-count leash (`counts`), and the

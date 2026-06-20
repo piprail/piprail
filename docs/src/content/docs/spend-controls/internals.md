@@ -51,6 +51,17 @@ decimals: each payment contributes `amountBase × 10^(DENOM_PRECISION − decima
 
 `DENOM_PRECISION` is pinned to `MAX_DECIMALS` (100) **on purpose** — see the bypass below.
 
+## Metered `upto` rails — MAX vs actual
+
+The metered [`upto` rail](/accepting-payments/upto-rail-seller/) records two numbers per payment. The
+buyer signs a **maximum**; the merchant self-settles the **actual** usage (≤ that max). The cap
+accounting always charges the **authorized MAX** ([`SpendRecord.amountBase`](/spend-controls/spend-ledger/))
+— never the merchant's self-reported actual — so an under-reporting merchant **cannot** loosen
+`maxTotal` / `maxTotalPerDenom` / `windowTotal` / the count caps. The true actual is kept
+**informationally** on [`settledBase`](/spend-controls/spend-ledger/) (clamped to ≤ the max) and never
+feeds a cap. Counting the MAX is the security property: the leash binds to what the buyer
+*authorized*, not what the merchant *claimed*.
+
 ## Security & robustness invariants
 
 The spend policy is a security boundary; it was hardened against an adversarial review that

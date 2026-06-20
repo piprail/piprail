@@ -177,7 +177,7 @@ two-channel model.
 ## What an AI agent receives
 
 The two channels are designed so a model never sees a raw exception. The
-[agent toolkit](/agent-toolkit/the-7-tools/) funnels everything: its `piprail_pay_request` tool
+[agent toolkit](/agent-toolkit/the-agent-tools/) funnels everything: its `piprail_pay_request` tool
 catches **every** `PipRailError` and returns a structured `{ ok: false, code, reason, explain,
 ref?, reasonCode?, declined? }` instead of letting it crash the loop — so a broadcast-but-unconfirmed
 `PAYMENT_TIMEOUT` reaches the model with its `.ref` and the never-re-pay rule attached. Only a

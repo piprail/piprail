@@ -48,7 +48,7 @@ order, first-failure-wins, so the refusal reason is specific.
 | Field | Type | Limits |
 | --- | --- | --- |
 | `maxAmount` | `string` | Per-payment ceiling (human units, e.g. `'0.10'`). |
-| `maxTotal` | `string` | Lifetime ceiling for this client, **per distinct asset**. |
+| `maxTotal` | `string` | Lifetime ceiling for this client, **per distinct asset**. For the metered [`upto` rail](/accepting-payments/upto-rail-seller/), this (and `maxTotalPerDenom` / `windowTotal`) is debited by the **authorized MAX**, not the merchant's claimed actual — so an under-reporting merchant can't loosen the cap. The true actual is surfaced on the ledger's [`settledBase`](/spend-controls/spend-ledger/). |
 | `maxTotalPerDenom` | `Record<string, string>` | Cross-token grand total **per denomination** (`{ USD: '20.00' }`) — one cap across every stablecoin of that unit, on every chain. See [Total budget](/spend-controls/total-budget/). |
 | `denomFor` | `Record<string, string>` | Fold extra tokens into a denomination, by symbol or asset id (`{ PYUSD: 'USD' }`). Layered on the built-ins. |
 | `maxPayments` | `number` | Lifetime cap on the **number** of settled payments, across every chain and token. |

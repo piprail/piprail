@@ -136,7 +136,7 @@ make a bound client legible to the model.
 | `buildSelfDescription`, `buildEndpointInfo`, `BRAND` | fn / const | the `extensions.piprail` self-description builder, the `endpoint` sub-block assembler, + brand single-source-of-truth |
 | `SelfDescription`, `SelfDescribeRail`, `SelfDescribeEndpoint` | type | the self-describe block, a rail in it, and the agent-readable `endpoint` (summary/input/output) |
 
-See [Payment tools](/agent-toolkit/payment-tools/), [The agent tools](/agent-toolkit/the-7-tools/),
+See [Payment tools](/agent-toolkit/payment-tools/), [The agent tools](/agent-toolkit/the-agent-tools/),
 [Renderers](/agent-toolkit/renderers/), [Agent guide](/agent-toolkit/agent-guide/), and
 [Challenge triage](/agent-toolkit/challenge-triage/).
 
