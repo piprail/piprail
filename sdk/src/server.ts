@@ -32,9 +32,10 @@ import {
   buildChallengeHeader,
   buildReceiptHeader,
   buildReceiptExtension,
-  parseSignatureHeader,
-  parseExactPaymentHeader,
-  parseUptoPaymentHeader,
+  parseSignatureObject,
+  parseExactObject,
+  parseUptoObject,
+  decodeBase64Json,
   HEADER_REQUIRED,
   HEADER_SIGNATURE,
   HEADER_RESPONSE,
@@ -446,6 +447,16 @@ export interface PaymentGate {
   verify(
     paymentSignature: string | string[] | undefined
   ): Promise<VerifyPaymentResult>
+  /**
+   * Verify an already-decoded PaymentPayload OBJECT (raw JSON, not base64) — the
+   * additive seam for non-HTTP transports (A2A carries the payload as raw JSON
+   * `metadata`, never a base64 header). Runs the EXACT SAME dispatch as {@link verify}
+   * (upto → exact → onchain-proof), reading `sig.payload.nonce` from the object exactly
+   * as the HTTP path does — so it adds ZERO new verification state and shares the gate's
+   * one replay set. `verify(b64)` is the base64 path and stays byte-identical; this only
+   * skips the decode. The same `onPaid`/`onFailed` hooks fire.
+   */
+  verifyObject(payload: unknown): Promise<VerifyPaymentResult>
   /**
    * Describe this gate's payment options as static, nonce-free discovery
    * metadata — feed it to the emitters in `discovery.ts` (`buildOpenApi` /
@@ -1683,23 +1694,43 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
   async function verify(
     paymentSignature: string | string[] | undefined
   ): Promise<VerifyPaymentResult> {
-    const result = await resolveVerdict(paymentSignature)
+    const raw = normaliseHeader(paymentSignature)
+    // The base64 path: decode once, then run the SAME object-dispatch as verifyObject.
+    // `decodeBase64Json` returns null on garbage / a missing header — both fall through
+    // to a fresh challenge inside resolveVerdictObject, byte-identical to before this split.
+    const result = await resolveVerdictObject(raw === undefined ? undefined : decodeBase64Json(raw))
     if (result.kind === 'invalid') await deliverOnFailed(result)
     return result
   }
 
-  /** Route a `payment-signature` to the right verifier (or a fresh challenge). The pure dispatch —
-   *  `verify()` wraps it to fire the failure hook so EVERY rejection path is covered by one seam. */
-  async function resolveVerdict(
-    paymentSignature: string | string[] | undefined
-  ): Promise<VerifyPaymentResult> {
-    const raw = normaliseHeader(paymentSignature)
-    if (!raw) return asChallenge()
+  /**
+   * Verify an already-decoded PaymentPayload OBJECT (raw JSON, not base64) — the non-HTTP
+   * transport seam (§3.7). Runs the SAME dispatch as {@link verify} on a plain object,
+   * skipping only the base64 decode, and fires `onFailed` on a rejection exactly as the
+   * HTTP path does. NO new verification state: the dispatch reads `sig.payload.nonce` from
+   * the object, the gate re-derives every trusted field from its own config, and the one
+   * replay set (`localUsed` / injected `isUsed`/`markUsed`) is shared across transports.
+   */
+  async function verifyObject(payload: unknown): Promise<VerifyPaymentResult> {
+    const result = await resolveVerdictObject(payload)
+    if (result.kind === 'invalid') await deliverOnFailed(result)
+    return result
+  }
+
+  /**
+   * Route an already-decoded PaymentPayload OBJECT to the right verifier (or a fresh
+   * challenge). The pure dispatch over the object-accepting parser cores — shared by the
+   * base64 `verify()` path (which decodes first) and the raw-JSON `verifyObject()` path.
+   * `verify()`/`verifyObject()` wrap it to fire the failure hook so EVERY rejection path
+   * is covered by one seam. `undefined`/`null` (no payload) → a fresh 402.
+   */
+  async function resolveVerdictObject(obj: unknown): Promise<VerifyPaymentResult> {
+    if (obj === undefined || obj === null) return asChallenge()
 
     // 1) onchain-proof? A usable proof carries a v2 `accepted` with the network + asset
-    //    it claims. parseSignatureHeader stays lenient for transitional callers (a
+    //    it claims. parseSignatureObject stays lenient for transitional callers (a
     //    legacy top-level `scheme` with no `accepted`), so guard the missing field here.
-    const sig = parseSignatureHeader(raw)
+    const sig = parseSignatureObject(obj)
     if (
       sig &&
       sig.accepted &&
@@ -1712,19 +1743,18 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     // 2) standard `upto` (metered)? Checked BEFORE exact — its parser is gated strictly on
     //    `scheme === 'upto'` + a `witness.facilitator` string, so it never matches an exact
     //    Permit2 payload (no facilitator) and vice-versa. Scheme-discriminated, no ambiguity.
-    const upto = parseUptoPaymentHeader(raw)
+    const upto = parseUptoObject(obj)
     if (upto) return verifyUpto(upto)
 
-    // 3) standard `exact` (EIP-3009)? Accepts either the `PAYMENT-SIGNATURE` (v2) or
-    //    `X-PAYMENT` (v1) header value — the inner payload is identical.
-    const exact = parseExactPaymentHeader(raw)
+    // 3) standard `exact` (EIP-3009)? The inner payload is identical across v1/v2 wire shapes.
+    const exact = parseExactObject(obj)
     if (exact) return verifyExact(exact)
 
     // Unparseable / legacy-with-no-`accepted` → a fresh 402, never a 500.
     return asChallenge()
   }
 
-  return { challenge, verify, describe, landingPage }
+  return { challenge, verify, verifyObject, describe, landingPage }
 }
 
 /* ----------------------------- Express middleware ----------------------------- */

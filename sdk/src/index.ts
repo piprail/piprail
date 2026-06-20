@@ -206,6 +206,12 @@ export {
   parseSignatureHeader,
   parseExactPaymentHeader,
   parseUptoPaymentHeader,
+  // Object-accepting parser CORES (the base64 wrappers above call these) — for a transport
+  // that carries the SAME payload as RAW JSON (A2A), fed via `gate.verifyObject`.
+  parseSignatureObject,
+  parseExactObject,
+  parseUptoObject,
+  decodeBase64Json,
   buildChallengeHeader,
   buildSignatureHeader,
   buildExactSignatureHeader,
@@ -356,3 +362,45 @@ export type {
   DomainVerification,
 } from './indexes.js'
 export type { DiscoverOptions, RegisterOptions } from './client.js'
+
+/* ------------------- A2A transport (x402 over Google Agent2Agent) ------------------- */
+
+// The SELLER-side A2A adapter — the A2A analogue of `requirePayment`. Wrap a PaymentGate
+// and map A2A `Task`/`Message` metadata ⇄ x402's existing envelopes, backendless. ZERO
+// driver/scheme/chain changes — every family rides A2A for free. `verifyObject` (the raw-JSON
+// dispatch seam it relies on) is on the already-exported `PaymentGate`. The A2A BUYER
+// (`A2APayer`) + AP2 Embedded Flow are deferred (see the transport module's header).
+export {
+  createA2APaymentHandler,
+  toA2APaymentRequired,
+  toA2APaymentReceipts,
+  toA2APaymentFailed,
+  fromA2APaymentRequired,
+  fromA2APaymentPayload,
+  toA2AErrorCode,
+  VERIFY_CODE_TO_A2A_ERROR,
+  A2A_X402_EXTENSION_URI_V01,
+  A2A_X402_EXTENSION_URI_V02,
+  A2A_STATUS_KEY,
+  A2A_REQUIRED_KEY,
+  A2A_PAYLOAD_KEY,
+  A2A_RECEIPTS_KEY,
+  A2A_ERROR_KEY,
+  A2A_EXTENSIONS_HEADER,
+} from './transports/a2a.js'
+export type {
+  A2APaymentHandler,
+  A2APaymentHandlerOptions,
+} from './transports/a2a.js'
+export type {
+  A2AArtifact,
+  A2AExtensionDeclaration,
+  A2AMessage,
+  A2AMetadata,
+  A2APart,
+  A2APaymentStatus,
+  A2ATask,
+  A2ATaskRecord,
+  A2ATaskState,
+  A2ATaskStore,
+} from './transports/a2a-types.js'

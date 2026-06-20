@@ -616,6 +616,16 @@ function fromBase64Json<T>(b64: string): T | null {
   }
 }
 
+/**
+ * Decode a base64-JSON wire value into a plain object (or `null` on garbage) — the
+ * inverse of {@link buildSignatureHeader}/{@link buildExactSignatureHeader}. Exported
+ * so a transport that carries the SAME payload as RAW JSON (A2A) can round-trip a
+ * base64 fixture into the object the `…Object` parser cores / `gate.verifyObject` consume.
+ */
+export function decodeBase64Json(value: string): unknown {
+  return fromBase64Json<unknown>(value)
+}
+
 function toBase64Json(value: object): string {
   return encodeBase64(JSON.stringify(value))
 }
@@ -829,9 +839,15 @@ export function parseSettleResponse(response: Response): SettleOutcome | null {
   }
 }
 
-/** Parse a PAYMENT-SIGNATURE header value (server side). */
-export function parseSignatureHeader(value: string): X402PaymentSignature | null {
-  const parsed = fromBase64Json<unknown>(value)
+/**
+ * Parse an already-decoded `onchain-proof` PaymentPayload OBJECT (server side) —
+ * the object-accepting CORE of {@link parseSignatureHeader}. Identical logic to the
+ * base64 entry-point below, minus the `fromBase64Json` decode: this is what the A2A
+ * transport feeds raw JSON metadata into (A2A carries the payload as raw JSON, not
+ * base64), via `gate.verifyObject`. {@link parseSignatureHeader} is the thin base64
+ * wrapper — byte-identical to before this split on the HTTP path.
+ */
+export function parseSignatureObject(parsed: unknown): X402PaymentSignature | null {
   if (!parsed || typeof parsed !== 'object') return null
   const v = parsed as Record<string, unknown>
   // x402 v2 carries the chosen requirement in `accepted`; tolerate the legacy
@@ -846,6 +862,12 @@ export function parseSignatureHeader(value: string): X402PaymentSignature | null
   return parsed as X402PaymentSignature
 }
 
+/** Parse a PAYMENT-SIGNATURE header value (server side). A thin base64 wrapper over
+ *  {@link parseSignatureObject} — byte-identical to before the object-core split. */
+export function parseSignatureHeader(value: string): X402PaymentSignature | null {
+  return parseSignatureObject(fromBase64Json<unknown>(value))
+}
+
 /**
  * Parse an inbound `exact` payment from a base64 header value (`PAYMENT-SIGNATURE`
  * v2 or `X-PAYMENT` v1). Tolerant of BOTH wire shapes — the inner
@@ -855,7 +877,18 @@ export function parseSignatureHeader(value: string): X402PaymentSignature | null
  * `onchain-proof` proof, or malformed).
  */
 export function parseExactPaymentHeader(value: string): ParsedExactPayment | null {
-  const parsed = fromBase64Json<unknown>(value)
+  return parseExactObject(fromBase64Json<unknown>(value))
+}
+
+/**
+ * Parse an already-decoded `exact` PaymentPayload OBJECT — the object-accepting CORE
+ * of {@link parseExactPaymentHeader}, identical logic minus the base64 decode. It
+ * absorbs the v1/v2 wire skew (the `accepted` wrapper vs flat `scheme`/`network`) and
+ * the six exact-method discriminants. The A2A transport feeds raw JSON metadata here
+ * (via `gate.verifyObject`); {@link parseExactPaymentHeader} is the thin base64 wrapper,
+ * byte-identical to before this split on the HTTP path.
+ */
+export function parseExactObject(parsed: unknown): ParsedExactPayment | null {
   if (!parsed || typeof parsed !== 'object') return null
   const v = parsed as Record<string, unknown>
 
@@ -964,7 +997,17 @@ export function parseExactPaymentHeader(value: string): ParsedExactPayment | nul
  * when the value isn't a recognisable `upto` payment.
  */
 export function parseUptoPaymentHeader(value: string): ParsedUptoPayment | null {
-  const parsed = fromBase64Json<unknown>(value)
+  return parseUptoObject(fromBase64Json<unknown>(value))
+}
+
+/**
+ * Parse an already-decoded `upto` (metered) PaymentPayload OBJECT — the object-accepting
+ * CORE of {@link parseUptoPaymentHeader}, identical logic minus the base64 decode. Gated
+ * strictly on `scheme === 'upto'` + a `witness.facilitator` string. The A2A transport feeds
+ * raw JSON metadata here (via `gate.verifyObject`); {@link parseUptoPaymentHeader} is the thin
+ * base64 wrapper, byte-identical to before this split on the HTTP path.
+ */
+export function parseUptoObject(parsed: unknown): ParsedUptoPayment | null {
   if (!parsed || typeof parsed !== 'object') return null
   const v = parsed as Record<string, unknown>
 
