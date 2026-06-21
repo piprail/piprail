@@ -10,8 +10,8 @@ sidebar:
 `paymentTools(client)` hands an LLM the ability to discover, quote, plan, and pay x402
 resources. It returns an array of framework-agnostic [`AgentTool`](#the-agenttool-shape)
 descriptors — each a `name` + `description` + JSON Schema `parameters` + an `invoke` function —
-that adapt to MCP, the Vercel AI SDK, OpenAI/Anthropic function-calling, or LangChain in a
-couple of lines.
+that adapt to MCP, the Vercel AI SDK, OpenAI/Anthropic function-calling, LangChain, or
+[elizaOS](/integrations/elizaos/) in a couple of lines.
 
 The toolkit ships **zero dependencies**: it's plain data plus an `invoke` closure over the
 [`PipRailClient`](/making-payments/piprail-client/) you pass in. Because the budget rides on
@@ -69,13 +69,13 @@ everywhere: expose `name` + `description` + `parameters`, and route the runtime'
 `invoke`.
 
 ```ts
-// Vercel AI SDK
+// Vercel AI SDK (v5/v6 — note: AI SDK v4 used `parameters` instead of `inputSchema`)
 import { tool, jsonSchema } from 'ai'
 
 const aiTools = Object.fromEntries(
   paymentTools(client).map((t) => [
     t.name,
-    tool({ description: t.description, parameters: jsonSchema(t.parameters), execute: t.invoke }),
+    tool({ description: t.description, inputSchema: jsonSchema(t.parameters), execute: t.invoke }),
   ]),
 )
 ```
@@ -84,6 +84,10 @@ For OpenAI/Anthropic function-calling, the `name`, `description`, and `parameter
 into the `tools` array; dispatch the model's `tool_use` block to the matching `invoke`. The
 [`@piprail/mcp`](/mcp/getting-started/) server wires these same descriptors into an MCP server —
 see [Use as a library](/mcp/use-as-a-library/) if you want to host them yourself.
+
+**Ready-made wiring:** [elizaOS](/integrations/elizaos/) (a native plugin built on these exact
+descriptors), [OpenClaw](/integrations/openclaw/), and [Hermes](/integrations/hermes/) ship this
+wiring pre-built — see the [Integrations](/integrations/) section.
 
 ## The AgentTool shape
 

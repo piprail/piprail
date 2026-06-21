@@ -2,17 +2,17 @@
 
 **Drop PipRail into the frameworks where agents already live — no payment code.** Each integration
 wraps the same thing we already ship: [`@piprail/sdk`](../sdk)'s `paymentTools()` and the published
-[`@piprail/mcp`](../mcp) server (7 tools, budget-bound). Nothing new to build.
+[`@piprail/mcp`](../mcp) server (8 tools, budget-bound). Nothing new to build.
 
 Each framework gets its own folder under `integrations/<framework>/`, with PipRail's artifact inside
 (`integrations/<framework>/piprail/`) — so the structure scales as we add frameworks.
 
 | Integration | Folder | What it gives you | Status |
 |---|---|---|---|
-| **OpenClaw** 🦞 | [`openclaw/piprail/`](./openclaw/piprail) | A [ClawHub](https://github.com/openclaw/clawhub) skill (published under **@piprail**) that hands an OpenClaw agent the 7 PipRail tools, budget-bound — via `@piprail/mcp` as an MCP server. `clawhub install piprail`. | ✅ built + tested |
-| **Hermes** 🛤️ | [`hermes/piprail/`](./hermes/piprail) | A [Hermes](https://github.com/NousResearch/hermes-agent) MCP catalog entry (`manifest.yaml`) + Skills Hub skill — add one `mcp_servers` block to `~/.hermes/config.yaml` and the agent gets the 7 PipRail tools, budget-bound. | ✅ built + tested |
+| **OpenClaw** 🦞 | [`openclaw/piprail/`](./openclaw/piprail) | A [ClawHub](https://github.com/openclaw/clawhub) skill (published under **@piprail**) that hands an OpenClaw agent the 8 PipRail tools, budget-bound — via `@piprail/mcp` as an MCP server. `clawhub install piprail`. | ✅ built + tested |
+| **Hermes** 🛤️ | [`hermes/piprail/`](./hermes/piprail) | A [Hermes](https://github.com/NousResearch/hermes-agent) MCP catalog entry (`manifest.yaml`) + Skills Hub skill — add one `mcp_servers` block to `~/.hermes/config.yaml` and the agent gets the 8 PipRail tools, budget-bound. | ✅ built + tested |
 | _Vercel AI SDK · Mastra_ | _`vercel/piprail/` (soon)_ | `paymentTools()` as Vercel AI SDK / Mastra tools. | planned |
-| _ElizaOS_ | _`elizaos/piprail/` (soon)_ | A PipRail plugin + an MCP-monetization guide. | planned |
+| **elizaOS** 🤖 | [`elizaos/piprail/`](./elizaos/piprail) | A **native** elizaOS plugin (`elizaos-plugin-piprail`) that wraps `paymentTools()` as 6 budget-bound agent actions (pay / quote / plan / discover / budget / guide). | ✅ built + live-tested |
 
 > **Any MCP client can use PipRail today** without a dedicated integration — point it at
 > `npx -y @piprail/mcp`. See [docs.piprail.com/mcp/client-setup](https://docs.piprail.com/mcp/client-setup/).

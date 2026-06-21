@@ -1,0 +1,42 @@
+{
+  "name": "elizaos-plugin-piprail",
+  "version": "0.1.0",
+  "description": "Self-custody, multi-chain x402 payer for elizaOS — give an agent a budget-bound wallet to pay HTTP 402 APIs across many chains, no facilitator or fee.",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" }
+  },
+  "files": ["dist"],
+  "license": "MIT",
+  "keywords": ["elizaos", "elizaos-plugin", "x402", "payments", "usdc", "agent", "self-custody"],
+  "homepage": "https://github.com/piprail/piprail",
+  "repository": { "type": "git", "url": "https://github.com/piprail/piprail.git", "directory": "integrations/elizaos/piprail" },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "smoke": "node smoke.mjs"
+  },
+  "dependencies": {
+    "@piprail/sdk": "^2.13.1"
+  },
+  "peerDependencies": {
+    "@elizaos/core": "^1.7.2"
+  },
+  "devDependencies": {
+    "@elizaos/core": "^1.7.2",
+    "tsup": "^8",
+    "typescript": "^5"
+  },
+  "agentConfig": {
+    "pluginType": "elizaos:plugin:1.0.0",
+    "pluginParameters": {
+      "PIPRAIL_PRIVATE_KEY": { "type": "string", "required": true, "sensitive": true, "description": "Hex private key (0x...) for the payment wallet the agent spends from." },
+      "PIPRAIL_CHAIN": { "type": "string", "required": false, "default": "base", "sensitive": false, "description": "Chain to pay on (e.g. base, bnb, polygon, solana). Defaults to base." },
+      "PIPRAIL_MAX_AMOUNT": { "type": "string", "required": false, "sensitive": false, "description": "Per-payment ceiling in human units, e.g. 0.10." },
+      "PIPRAIL_MAX_TOTAL": { "type": "string", "required": false, "sensitive": false, "description": "Lifetime spend ceiling, e.g. 5.00." }
+    }
+  }
+}

@@ -46,6 +46,11 @@ the raw key into the config file — treat that file as a secret.
 | Cline | `cline_mcp_settings.json` (edited from the MCP Servers panel) | `mcpServers` | Yes |
 | OpenClaw | `~/.openclaw/openclaw.json` | **`mcp.servers`** (nested) | **No** — file is a secret |
 | Hermes | `~/.hermes/config.yaml` (**YAML**) | **`mcp_servers`** | Yes — `${VAR}` from `~/.hermes/.env` |
+| Goose | `~/.config/goose/config.yaml` (**YAML**) | **`extensions`** (nested, `type: stdio`) | Yes |
+
+Goose runs `@piprail/mcp` as a stdio **extension** — add it under `extensions:` with `cmd: npx`,
+`args: [-y, @piprail/mcp]`, `type: stdio`, and the `PIPRAIL_*` env (or use `goose configure` →
+Add Extension → Command-line). Every other MCP client works the same way via `npx -y @piprail/mcp`.
 
 ## Claude Desktop
 
