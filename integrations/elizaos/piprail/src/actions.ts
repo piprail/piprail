@@ -29,10 +29,17 @@ const SPECS: Spec[] = [
     similes: ['PAY', 'PAY_402', 'PURCHASE', 'BUY', 'PIPRAIL_PAY_REQUEST'],
     description: 'Pay for a gated x402 URL (one that returned HTTP 402 Payment Required) and return the unlocked resource. Stays within the spend policy.',
     arg: 'url',
-    describe: (r) =>
-      r.ok
-        ? `Paid${recv(r) ? ` (${recv(r)})` : ''}.${body(r) ? `\n${body(r)}` : ''}`
-        : `Payment declined: ${str(r.explain ?? r.reason ?? r.code ?? 'unknown')}`,
+    describe: (r) => {
+      // A receipt means money moved — report it as Paid even if the unlocked resource then returned
+      // a non-2xx, so the agent never mistakes a settled payment for a decline and re-pays it.
+      if (r.receipt) {
+        const tx = recv(r)
+        return r.ok
+          ? `Paid${tx ? ` (${tx})` : ''}.${body(r) ? `\n${body(r)}` : ''}`
+          : `Paid${tx ? ` (${tx})` : ''}, but the resource returned HTTP ${str(r.status)}.`
+      }
+      return `Payment declined: ${str(r.explain ?? r.reason ?? r.code ?? 'unknown')}`
+    },
     examples: [ex('pay https://api.example.com/premium', 'Paying that x402 endpoint now.', 'PIPRAIL_PAY')],
   },
   {
@@ -137,15 +144,18 @@ function toAction(spec: Spec): Action {
             await callback?.({ text: 'Please include the URL you want me to handle.', actions: [spec.name] })
             return { success: false, text: 'No URL found in the message.' }
           }
-          // Strip trailing punctuation/markdown the greedy \S+ may have captured.
-          args.url = m[0].replace(/[)\]}>.,;'"]+$/, '')
+          // Strip trailing sentence punctuation the greedy \S+ may have captured — but NOT brackets
+          // (a URL can legitimately end in ')' / ']', e.g. a Wikipedia-style or signed URL).
+          args.url = m[0].replace(/[.,;:!?'"]+$/, '')
         } else if (spec.arg === 'query') {
           args.query = text
         }
         const tool = findTool(getClient(runtime), spec.tool)
         const result = (await tool.invoke(args)) as Record<string, unknown>
         const reply = spec.describe(result)
-        const ok = result?.ok !== false // pay/plan declines return { ok:false }, never a throw
+        // A receipt means money moved → success even if the resource then errored (don't signal a
+        // retry). pay/plan declines return { ok:false } with NO receipt.
+        const ok = result?.ok !== false || !!result?.receipt
         await callback?.({ text: reply, actions: [spec.name] })
         return ok
           ? { success: true, text: reply, data: { result } }

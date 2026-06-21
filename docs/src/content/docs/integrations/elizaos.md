@@ -55,8 +55,10 @@ confirmation** — bounded only by the spend policy. Keep `PIPRAIL_MAX_AMOUNT` /
 conservative, fund the wallet with only what the agent may spend, and treat the key as hot.
 :::
 
-**Read-only first:** omit `PIPRAIL_PRIVATE_KEY` and the plugin still loads — the read actions work,
-only `PIPRAIL_PAY` needs the wallet.
+**Wallet required.** The plugin needs `PIPRAIL_PRIVATE_KEY` (a self-custodial key) — *every* action
+validates against the wallet, so set it before the agent will offer any PipRail action. (For a
+key-less read-only mode — discover / quote / budget / guide with no wallet — use the
+[MCP server](/mcp/overview/) instead, which boots read-only.)
 
 ## Configure
 
@@ -64,7 +66,7 @@ The plugin reads these from the character's `settings` / `settings.secrets` (via
 
 | Setting | Required | Default | Purpose |
 | --- | --- | --- | --- |
-| `PIPRAIL_PRIVATE_KEY` | only to **pay** | — | Self-custodial wallet key (EVM `0x…`, Solana base58, …). Put it in `settings.secrets`. Omit for read-only. Not an API key. |
+| `PIPRAIL_PRIVATE_KEY` | **yes** | — | Self-custodial wallet key (EVM `0x…`, Solana base58, …). Put it in `settings.secrets`. Every action requires it. Not an API key. |
 | `PIPRAIL_CHAIN` | — | `base` | Which chain to pay on — any EVM, or `solana`/`ton`/`tron`/`near`/`sui`/`aptos`/`algorand`/`stellar`/`xrpl`. |
 | `PIPRAIL_MAX_AMOUNT` | — | `0.10` | Max per payment → `policy.maxAmount` |
 | `PIPRAIL_MAX_TOTAL` | — | `5.00` | Lifetime budget → `policy.maxTotal` |
