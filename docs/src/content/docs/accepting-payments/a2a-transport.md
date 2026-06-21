@@ -1,6 +1,6 @@
 ---
 title: A2A transport (seller)
-description: Accept x402 payments over Google's Agent2Agent (A2A) JSON-RPC, not just HTTP — map a PipRail gate onto A2A Task/Message metadata with one handler, sharing the same replay set as your HTTP gate. Backendless, additive, x402-V2-conformant.
+description: Accept x402 payments over the Agent2Agent (A2A) protocol's JSON-RPC, not just HTTP — map a PipRail gate onto A2A Task/Message metadata with one handler, sharing the same replay set as your HTTP gate. Backendless, additive, x402-V2-conformant.
 sidebar:
   order: 9
 ---
@@ -8,10 +8,20 @@ sidebar:
 ## Introduction
 
 x402 is **transport-agnostic**: the same payment envelope rides over plain HTTP **or** over
-[Google's Agent2Agent (A2A)](https://a2a-protocol.org/) JSON-RPC. Over HTTP a 402 is a status
+[the Agent2Agent (A2A) protocol](https://a2a-protocol.org/)'s JSON-RPC. Over HTTP a 402 is a status
 code and a header; over A2A a payment is a **Task** that moves `input-required → completed`, with
 the x402 envelope carried in the Task/Message `metadata` under five namespaced `x402.payment.*`
 keys instead of base64 headers.
+
+:::note[Which A2A package?]
+A2A is an **open protocol** — created by Google, now stewarded by the **Linux Foundation**
+([a2a-protocol.org](https://a2a-protocol.org/), protocol v1.0). The official JavaScript runtime is
+**[`@a2a-js/sdk`](https://github.com/a2aproject/a2a-js)** (the `a2aproject` org; Apache-2.0;
+Google-maintained), which is exactly what the [mount below](#mount-it-in-a2a-js-sdk) uses. PipRail's
+A2A types are **duck-typed** (zero `@a2a` dependency), so any conformant A2A runtime works — `@a2a-js/sdk`
+is just the one we prove against. The x402 **extension** keys + URI come from Google's
+[`a2a-x402`](https://github.com/google-agentic-commerce/a2a-x402) reference (`x402_a2a`).
+:::
 
 PipRail gives you the A2A **seller** side as a thin adapter over the exact same
 [`PaymentGate`](/accepting-payments/require-payment-and-gate/) you already use for HTTP — no second
@@ -27,17 +37,28 @@ const gate = createPaymentGate({ chain: 'base', token: 'USDC', amount: '0.05', p
 const pay = createA2APaymentHandler({
   gate, // ← the SAME gate your HTTP path uses (one shared replay set — see "Co-resident with HTTP")
   fulfill: async ({ receipt }) => [
-    { name: 'result', parts: [{ kind: 'text', text: `Paid ${receipt.amount} — here's your result.` }] },
+    // `receipt` is the X402Receipt: `receipt.amount` is BASE units (e.g. "10000"), `receipt.asset`,
+    // `receipt.transaction`, … — format with the token's decimals if you want a human amount.
+    { name: 'result', parts: [{ kind: 'text', text: `Settled (tx ${receipt.transaction}) — here's your result.` }] },
   ],
 })
 
-const task = await pay.handleMessage(message, taskId) // → a complete A2A Task
+const task = await pay.handleMessage(message, taskId) // → a transport-metadata A2A Task
 ```
 
-`handleMessage(message, taskId?)` takes an inbound A2A message and returns a complete A2A **Task**;
-the payment state rides in `task.status.message.metadata` under the `x402.payment.*` keys, keyed off
-a coarse A2A Task `state`. You wire that into your A2A server's executor — see
+`handleMessage(message, taskId?)` takes an inbound A2A message and returns a **transport-metadata** A2A
+**Task**; the payment state rides in `task.status.message.metadata` under the `x402.payment.*` keys, keyed
+off a coarse A2A Task `state`. You wire that into your A2A server's executor — see
 [Mount it in `@a2a-js/sdk`](#mount-it-in-a2a-js-sdk) for a full, runnable server.
+
+:::note[Transport metadata, not host ids]
+The returned Task carries the x402 **payment** state, not the host-owned identifiers the `@a2a-js/sdk`
+runtime requires — `Task.contextId`, `status.message.messageId`/`parts`, and `artifacts[].artifactId` are
+all REQUIRED in the SDK's own types, and the **host adapter** (your `AgentExecutor`) stamps them before
+`bus.publish` (the mount below does exactly this). That's deliberate: PipRail's A2A types are duck-typed
+with **zero `@a2a` dependency**, so the same handler works against any A2A runtime. If you publish PipRail's
+Task to a **non-`@a2a-js/sdk`** runtime, assign those ids yourself.
+:::
 
 :::note[Interop status — verified at the wire level]
 The seller handler is **conformant with the current x402 standard (V2)**: the canonical
@@ -86,8 +107,8 @@ const gate = createPaymentGate({ chain: 'base', token: 'USDC', amount: '0.05', p
 
 const pay = createA2APaymentHandler({
   gate,
-  fulfill: async ({ taskId, receipt }) => [
-    { name: 'result', parts: [{ kind: 'text', text: `Forecast for ${taskId}: clear skies (paid ${receipt.amount}).` }] },
+  fulfill: async ({ taskId }) => [
+    { name: 'result', parts: [{ kind: 'text', text: `Forecast for ${taskId}: clear skies.` }] },
   ],
 })
 
@@ -146,15 +167,19 @@ and a bogus proof re-challenges without throwing. `npm test` in that folder.
 A2A carries the buyer's payment as a **raw JSON object** under `x402.payment.payload` — the *same*
 object the HTTP path base64-encodes into the `payment-signature` header. Until the A2A `A2APayer`
 buyer ships, the simplest way to produce one is to pay an HTTP 402 with a
-[`PipRailClient`](/making-payments/piprail-client/) and lift the decoded payload:
+[`PipRailClient`](/making-payments/piprail-client/) and decode the `payment-signature` it sends:
 
 ```ts
 import { PipRailClient, decodeBase64Json, HEADER_SIGNATURE, A2A_PAYLOAD_KEY } from '@piprail/sdk'
 
-// The buyer pays a normal 402 once (HTTP) to mint a real proof…
+// The buyer pays a normal HTTP 402 once — its PipRailClient retries the request with the proof in the
+// `payment-signature` header:
 const client = new PipRailClient({ chain: 'base', wallet: { key: process.env.KEY } })
-// …then the base64 payment-signature it produced decodes to the exact object A2A wants:
-const buyerPayload = decodeBase64Json(paymentSignatureHeaderValue)
+await client.fetch('https://merchant.example/api/resource')
+
+// Wherever that request lands (your HTTP gate, or a capturing fetch — `req` is the inbound request),
+// the base64 `payment-signature` header it carried decodes to the EXACT object A2A wants:
+const buyerPayload = decodeBase64Json(req.headers[HEADER_SIGNATURE])
 
 // Hand it to a Merchant Agent over A2A:
 const submission = { kind: 'message', role: 'user', taskId, metadata: { [A2A_PAYLOAD_KEY]: buyerPayload } }
@@ -178,30 +203,40 @@ exactly, then dresses the verdict in an A2A Task. Each step pairs a Task `state`
 | 1. Service request | `message/send` with **no** `x402.payment.payload` | a fresh challenge in `x402.payment.required` | `input-required` · `payment-required` |
 | 2. Buyer submits a proof | `message/send` carrying `x402.payment.payload` | dispatched through `gate.verifyObject` | — |
 | 3a. **Valid** (`kind: 'paid'`) | — | the served artifacts + a success receipt | `completed` · `payment-completed` |
-| 3b. **Rejected** (`kind: 'invalid'`) | — | a fresh challenge + a failure receipt + error code — **retryable** | `input-required` · `payment-required` |
+| 3b. **Rejected** (`kind: 'invalid'`) | — | a fresh challenge + a failure receipt + error code — **retryable** | `input-required` · `payment-failed` |
 | 3c. No usable proof (`kind: 'challenge'`) | — | a fresh challenge | `input-required` · `payment-required` |
 | 3d. **Settlement error** (`SettlementError` thrown) | — | a **terminal** failure | `failed` · `payment-failed` |
 | 3e. Settle OK but `fulfill` threw | — | the success receipt + an error-annotation artifact | `completed` · `payment-completed` |
 
-Read the pairings carefully — they're the part most adapters get wrong:
+Read the pairings carefully — they're the part most adapters get wrong. The key idea: the
+**`x402.payment.status`** says *what happened to the payment*, while the A2A Task **`state`** says
+*whether you can retry*. A failed payment is `payment-failed` either way — `input-required` when it's
+retryable, `failed` when it's terminal.
 
-- **`input-required` + `payment-required`** — the merchant's challenge. Used for the **first** 402
-  **and** for re-challenging a **rejected** proof (3b). A rejected proof is distinguished from a
-  first challenge not by the status string but by the **failure receipt** appended to
-  `x402.payment.receipts[]` and the **`x402.payment.error`** code — so the buyer can fix the issue
-  (expired / wrong amount / replayed) and retry on the **same** `taskId`.
+- **`input-required` + `payment-required`** — a genuine challenge: the **first** 402 (no payload
+  yet) or a present-but-empty payload (3c). No payment has failed, so the status is
+  `payment-required` with **no** error code and **no** failure receipt.
+- **`input-required` + `payment-failed`** — a submitted proof that **failed verification** (expired /
+  wrong amount / replayed; 3b). Per the spec a failed payment is `payment-failed`, but it's still
+  **retryable**: the Task stays `input-required`, a fresh challenge is re-issued in
+  `x402.payment.required`, and the reason rides in the appended **failure receipt** +
+  **`x402.payment.error`** code — so the buyer can fix the issue and retry on the **same** `taskId`.
 - **`completed` + `payment-completed`** — the money moved. The success receipt is in
   `x402.payment.receipts[]` and the served work is in the Task's `artifacts[]`.
 - **`failed` + `payment-failed`** — a settlement-side error: the relayer/facilitator never moved
-  funds (only on the [`exact` rail](/accepting-payments/exact-rail-seller/)). **Terminal** —
-  re-submitting the same authorization won't help until the merchant fixes their relayer.
+  funds (only on the [`exact` rail](/accepting-payments/exact-rail-seller/)). Same status as a
+  rejection, but **terminal** (`state: failed`) — re-submitting the same authorization won't help
+  until the merchant fixes their relayer.
 
-:::note[Why not `payment-rejected`?]
-The A2A x402 spec (§5.1) and Google's reference merchant executor define **`payment-rejected`** and
-**`payment-submitted`** as **client→merchant** statuses (the *client* rejecting your offered
-requirements, or submitting a payload). A *merchant* never emits them. A merchant's only statuses are
-`payment-required`, `payment-completed`, and `payment-failed`. PipRail follows the reference: a
-rejected proof re-issues `payment-required` (retryable), and a settlement failure is the terminal
+:::note[Why `payment-failed` for a rejection, and why not `payment-rejected`?]
+The A2A x402 spec (§9) is a MUST: *"If a payment fails, the server MUST set the x402.payment.status
+to payment-failed"* — and its worked example is an **expired signature** (a verification failure),
+which emits `payment-failed` + `EXPIRED_PAYMENT`. Google's reference merchant executor matches it
+exactly (`verify_response.is_valid == false → record_payment_failure → PAYMENT_FAILED`), while
+leaving the Task `state` `input-required` for retry. So **retryability lives on the Task `state`, not
+the status**. Separately, **`payment-rejected`** and **`payment-submitted`** are **client→merchant**
+statuses (the *client* rejecting your offered requirements, or submitting a payload) — a *merchant*
+never emits them. A merchant's only statuses are `payment-required`, `payment-completed`, and
 `payment-failed`.
 :::
 
@@ -333,7 +368,9 @@ A fulfill artifact is `{ name, parts: [{ kind: 'text', text }] }` — the conten
 **not** flat on the artifact. Returning `[{ name: 'result', text: '…' }]` puts the text where no A2A
 reader looks. Each part is an `A2APart` (`kind: 'text' | 'data' | 'file'`). `fulfill` is optional —
 omit it for a metadata-only "payment accepted" completion (the Task still reaches `completed` with the
-receipt, just with no artifacts attached).
+receipt, just with no artifacts attached). You don't set `artifactId` — the host adapter assigns it (it's
+a required `@a2a-js/sdk` field; the mount above stamps it). If you publish to a non-`@a2a-js/sdk` runtime,
+assign one yourself.
 :::
 
 The `taskStore` holds only the per-task receipt history (`A2ATaskRecord = { receipts? }`) — no nonce,

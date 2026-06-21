@@ -36,8 +36,10 @@ try {
   // 3. A bogus follow-up proof on the SAME task → a retryable re-challenge (no crash through the SDK).
   const bogus = { x402Version: 2, accepted: { scheme: 'onchain-proof', network: required.accepts[0].network, asset: required.accepts[0].asset }, payload: { nonce: 'x', txHash: '0x' + 'de'.repeat(32) } }
   const rechallenge = await handler.sendMessage({ message: userMsg({ taskId: result.id, metadata: { [A2A_PAYLOAD_KEY]: bogus } }) })
-  ok(rechallenge?.status?.state === 'input-required', 'a bogus proof re-challenges (input-required) through the SDK — never throws')
-  ok(rechallenge?.status?.message?.metadata?.[A2A_STATUS_KEY] === 'payment-required', 'the re-challenge status is payment-required (spec-correct merchant status)')
+  ok(rechallenge?.status?.state === 'input-required', 'a bogus proof stays RETRYABLE (input-required) through the SDK — never throws')
+  // Per a2a.md §9 (+ Google's reference executor), a payment that fails verification → status
+  // `payment-failed`; retry rides on the input-required TASK STATE, not the status.
+  ok(rechallenge?.status?.message?.metadata?.[A2A_STATUS_KEY] === 'payment-failed', 'the re-challenge status is payment-failed (spec §9 merchant status; retry via input-required state)')
 
   console.log('\n════════ ' + (pass ? 'PASSED ✓ — the documented @a2a-js/sdk mount RUNS end-to-end' : 'FAILED ✗') + ' ════════')
 } catch (err) {

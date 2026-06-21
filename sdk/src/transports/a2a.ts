@@ -1,7 +1,9 @@
 /**
- * x402-over-A2A — the SELLER-side transport adapter (Google Agent2Agent).
+ * x402-over-A2A — the SELLER-side transport adapter for the Agent2Agent (A2A) protocol.
  *
- * A2A is x402's third official transport (alongside HTTP and MCP). It carries PipRail's
+ * A2A is an open protocol (created by Google, now a Linux Foundation project — a2a-protocol.org;
+ * official JS runtime `@a2a-js/sdk` from the `a2aproject` org). It is x402's third official transport
+ * (alongside HTTP and MCP). It carries PipRail's
  * BYTE-IDENTICAL `PaymentRequired`/`PaymentPayload`/`SettlementResponse` envelopes inside
  * A2A `Task`/`Message` JSON-RPC `metadata` (five namespaced `x402.payment.*` keys) keyed
  * off a coarse A2A Task state — instead of base64 HTTP headers. It is a thin codec + adapter
@@ -30,9 +32,15 @@
  *    PaymentPayload byte-identically, while the legacy v0.1 `x402_a2a` package (x402Version 1,
  *    `maxAmountRequired`, chain slugs) is bitrotted. Inbound v1 object-cores are absorbed for the
  *    standard `exact` scheme; PipRail-native `onchain-proof` is always v2 (never sent v1-flat).
- *  • Merchant statuses are spec-bounded: `payment-required` (incl. a retryable re-challenge of a
- *    rejected proof) / `payment-completed` / `payment-failed`. `payment-rejected` + `payment-submitted`
- *    are CLIENT→merchant statuses we never emit.
+ *  • Merchant statuses are spec-bounded: `payment-required` (a genuine first/no-proof challenge) /
+ *    `payment-completed` / `payment-failed`. A SUBMITTED proof that fails verification (expired /
+ *    wrong-amount / replayed) emits `payment-failed` — the a2a.md §9 rule ("If a payment fails, the
+ *    server MUST set x402.payment.status to payment-failed") and its EXPIRED-signature example, which
+ *    Google's reference executor matches verbatim (`is_valid == false → record_payment_failure →
+ *    PAYMENT_FAILED`). Retryability rides on the A2A Task `state` (`input-required`), NOT the status —
+ *    so a rejection is `payment-failed` + `input-required` (retry) while a terminal settlement error is
+ *    `payment-failed` + `failed`. `payment-rejected` + `payment-submitted` are CLIENT→merchant statuses
+ *    we never emit.
  *
  * ── DEFERRED (NOT built here — see the x402-parity/03-a2a-transport plan) ──────
  *  • Phase 4 — the A2A BUYER (`A2APayer`): the HTTP buyer mints the payload that rides A2A today.
@@ -96,11 +104,18 @@ const MAX_TASK_RECEIPTS = 64
 export const VERIFY_CODE_TO_A2A_ERROR: Record<string, string> = {
   payment_expired: 'EXPIRED_PAYMENT',
   tx_already_used: 'DUPLICATE_NONCE',
+  // Genuine amount mismatches only — the spec defines INVALID_AMOUNT as "the payment amount does
+  // not match the required amount" (a2a.md §9.1), so keep it strictly for amount errors.
   amount_too_low: 'INVALID_AMOUNT',
   upto_settle_exceeds_max: 'INVALID_AMOUNT',
   signature_invalid: 'INVALID_SIGNATURE',
-  transfer_not_found: 'INVALID_AMOUNT',
-  wrong_recipient: 'INVALID_AMOUNT',
+  // NOT amount mismatches — a proof for an unoffered asset/network, or paid to the wrong recipient.
+  // The spec's 7-member enum (errors.py x402ErrorCode) has no WRONG_RECIPIENT/TRANSFER_NOT_FOUND, so
+  // these map to SETTLEMENT_FAILED — its explicit catch-all "the transaction failed on-chain for a
+  // reason other than the above" (a2a.md §9.1) — never INVALID_AMOUNT, which would mislead a buyer
+  // into retrying with a corrected amount. The raw PipRail code still rides in extensions.piprail.
+  transfer_not_found: 'SETTLEMENT_FAILED',
+  wrong_recipient: 'SETTLEMENT_FAILED',
   tx_reverted: 'SETTLEMENT_FAILED',
   tx_not_found: 'EXPIRED_PAYMENT',
   insufficient_confirmations: 'EXPIRED_PAYMENT',
@@ -121,6 +136,12 @@ export function toA2AErrorCode(code: string): string {
  * Build the `input-required` payment-request Task carrying the challenge as RAW JSON
  * (NOT base64) in `x402.payment.required` + `x402.payment.status = 'payment-required'`.
  * `parts` are any human-readable message parts the merchant wants alongside it.
+ *
+ * Returns a **transport-metadata** Task: it carries the x402 `payment` state, NOT the host-owned
+ * ids the `@a2a-js/sdk` runtime requires (`Task.contextId`, `status.message.messageId`/`parts`,
+ * `artifacts[].artifactId` are all REQUIRED in the SDK's types). The host adapter stamps those
+ * before publishing — see the `@a2a-js/sdk` mount in the docs / `examples/a2a-server/lib.mjs`.
+ * This keeps the protocol layer chain- and runtime-agnostic (zero `@a2a` dependency).
  */
 export function toA2APaymentRequired(
   taskId: string,
@@ -237,9 +258,15 @@ export interface A2APaymentHandler {
    * `gate.verify()`'s `VerifyPaymentResult` exactly:
    *  - no payload yet            → Task `input-required` + `x402.payment.required`
    *  - payload, verified+settled → Task `completed` + `x402.payment.receipts` + artifacts
-   *  - payload, rejected         → Task `input-required` re-challenge (RETRYABLE)
+   *  - payload, rejected         → Task `input-required` re-challenge, status `payment-failed` (RETRYABLE)
    *  - settle threw (relayer)    → Task `failed` + `x402.payment.error`  (NOT retryable)
    *  - settle OK but fulfill threw → Task `completed` + receipt + error annotation (B7)
+   *
+   * The returned Task is **transport metadata only** — it carries the x402 `payment.*` state but NOT
+   * the host-owned ids the `@a2a-js/sdk` runtime requires (`Task.contextId`, `status.message.messageId`
+   * /`parts`, `artifacts[].artifactId`). The host adapter (the `AgentExecutor`) stamps those before
+   * `bus.publish` — see the mount in the docs / `examples/a2a-server/lib.mjs`. This keeps the protocol
+   * layer free of any `@a2a` dependency.
    */
   handleMessage(message: A2AMessage, taskId?: string): Promise<A2ATask>
   /** Stamp the x402 extension into an AgentCard's `capabilities.extensions` (§2.4). */
@@ -304,9 +331,14 @@ export function createA2APaymentHandler(options: A2APaymentHandlerOptions): A2AP
     const prior = store.get(taskId)?.receipts ?? []
     // Dedupe a successful X402Receipt on its settlement tx (the idempotency key) so a
     // re-presented proof never double-lists. Failed SettleOutcomes have no tx → always append.
+    // A tx-SUPPRESSED success (`receipts.includeTxHash:false` → `transaction:''`) must ALSO always
+    // append: an empty string is not an idempotency key, and a prior failure receipt also carries
+    // `transaction:''`, so deduping on it would silently drop the success and ship a `payment-completed`
+    // task carrying only the earlier failure. Same "empty tx never dedupes" reasoning as failures.
     const isDup =
       'success' in entry &&
       entry.success === true &&
+      entry.transaction !== '' &&
       prior.some((r) => 'transaction' in r && (r as X402Receipt).transaction === entry.transaction)
     const next = isDup ? prior : [...prior, entry]
     // BOUND the per-task history: a hostile/buggy caller pinning one taskId and sending payloads
@@ -356,19 +388,22 @@ export function createA2APaymentHandler(options: A2APaymentHandlerOptions): A2AP
         status: { state: 'input-required', message: { kind: 'message', role: 'agent', taskId, metadata } },
       }
     }
-    // A SUBMITTED proof was REJECTED (expired/wrong-amount/replayed). Per the A2A x402 spec (§5.1)
-    // and Google's reference merchant executor, the merchant's only RETRYABLE status is
-    // `payment-required` — `payment-rejected` is a CLIENT→merchant status (the client rejecting the
-    // offered requirements), and `payment-failed` is reserved for a TERMINAL settlement failure.
-    // So a retryable rejection re-issues `payment-required` on the SAME task, distinguished from a
-    // first challenge by the appended failure receipt (the a2a.md Invalid-Payment example mandates
-    // one, `network` + `transaction:''`) and the `x402.payment.error` code — so the buyer can fix +
-    // retry. Prefer the network the buyer ACTUALLY attempted (from its submitted payload) — the
-    // right attribution even on a multi-network gate where singleNetworkOf can't pick one.
+    // A SUBMITTED proof was REJECTED (expired/wrong-amount/replayed). Per the a2a.md §9 rule — "If a
+    // payment fails, the server MUST set x402.payment.status to payment-failed" — and its worked
+    // EXPIRED-signature example (a verification failure, exactly this `kind:'invalid'` class) emitting
+    // `payment-failed` + `x402.payment.error`, the merchant status is `payment-failed`. Google's
+    // reference executor matches it verbatim: `verify_response.is_valid == false → _fail_payment →
+    // record_payment_failure`, which sets `PAYMENT_FAILED` + the error code + a failure receipt while
+    // leaving the Task `state` `input-required`. RETRYABILITY is carried by that `input-required`
+    // state, NOT by the status — so this stays retryable: we re-issue `x402.payment.required` on the
+    // SAME task with a fresh challenge so the buyer can fix + retry. (`payment-rejected` is the OTHER,
+    // client→merchant status — the client rejecting our offered requirements — which we never emit.)
+    // Prefer the network the buyer ACTUALLY attempted (from its submitted payload) — the right
+    // attribution even on a multi-network gate where singleNetworkOf can't pick one.
     const network = attempted ?? singleNetworkOf(result.challenge)
     const receipts = appendReceiptFailed(taskId, result.error, result.detail, network)
     const metadata: A2AMetadata = {
-      [A2A_STATUS_KEY]: 'payment-required',
+      [A2A_STATUS_KEY]: 'payment-failed',
       [A2A_ERROR_KEY]: toA2AErrorCode(result.error),
       [A2A_REQUIRED_KEY]: result.challenge,
       ...toA2APaymentReceipts(receipts),

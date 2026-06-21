@@ -4,6 +4,46 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.13.0] — 2026-06-21 — A2A hardening: spec-correct `payment-failed`, schema-contract precision + exhaustive edge-case coverage
+
+An extreme-hardening pass on the **x402-over-A2A seller transport**, audited against the **real
+`@a2a-js/sdk` 0.3.13 types**, the **a2a-x402 spec (v0.1+v0.2)**, Google's **reference `x402_a2a`
+executor**, and the canonical **x402 V2** lib. Net: **zero runtime defects found** — the wire is
+schema-perfect. This ships the two correctness fixes plus a comprehensive test + doc-precision pass.
+HTTP and every other rail are byte-identical to 2.12.0; additive, defaults unchanged.
+
+- **fix(a2a): a rejected (failed-verification) proof now emits `x402.payment.status: payment-failed`,
+  not `payment-required`.** a2a.md §9 is a MUST — *"If a payment fails, the server MUST set
+  x402.payment.status to payment-failed"* — and its worked **expired-signature** example (a
+  verification failure) emits `payment-failed`. Google's reference executor matches it verbatim
+  (`verify_response.is_valid == false → record_payment_failure → PAYMENT_FAILED`). **Retryability is
+  unchanged** — it rides on the A2A Task `state` (`input-required`), with a fresh challenge re-issued in
+  `x402.payment.required` + the failure receipt + the `x402.payment.error` code. (2.11.0 correctly
+  removed the client-only `payment-rejected` but landed on `payment-required`; this is the final notch.)
+  A genuine first/no-proof challenge is still `payment-required`.
+- **fix(a2a): a tx-suppressed success receipt (`receipts.includeTxHash:false`) is no longer dropped**
+  when an earlier failed attempt on the same task shares the empty `transaction`. The `receipts[]`
+  dedupe now skips the empty-string transaction (an empty tx is not an idempotency key), so a
+  `payment-completed` task always carries its success receipt. Default (`includeTxHash:true`) unaffected.
+- **fix(a2a): `wrong_recipient` / `transfer_not_found` map to the spec's `SETTLEMENT_FAILED`, not
+  `INVALID_AMOUNT`.** Neither is an amount mismatch; the a2a.md §9.1 enum has no recipient/not-found
+  member, so its catch-all `SETTLEMENT_FAILED` is the correct nearest fit — a buyer is no longer told to
+  retry with a "corrected amount" when the real issue is a recipient/asset. The raw PipRail code still
+  rides in `extensions.piprail`. `INVALID_AMOUNT` is now reserved for genuine amount errors.
+- **test: +24 A2A coverage cases** (the suite is now exhaustive) — the `payment-failed` rejection
+  contract; standard **`exact` (EIP-3009) happy-path settle over A2A** (the scheme a real Google client
+  sends); the **`upto` metered rail over A2A** incl. a `$0` settle; **multi-chain CAIP-2 rail selection**;
+  the **forged-`accepted` guard** (an unoffered network/asset can't redirect funds); the
+  tx-suppressed-dedupe regression; `fulfill` throwing a non-Error / returning `undefined`; `newTaskId`
+  minting; TTL-eviction + receipts-cap **boundary** (tail-preserving) cases; the host-adapter
+  required-field-set contract; and the **error-enum codomain guard** (every emitted code is one of the 7
+  canonical `x402ErrorCode` members).
+- **docs: the A2A guide is corrected + sharpened** — the lifecycle table/prose pair a rejection with
+  `payment-failed` (retry via `input-required`); a new **"Which A2A package?"** note (A2A is a Linux
+  Foundation project, official runtime `@a2a-js/sdk`); a **transport-metadata** note (PipRail emits x402
+  payment state; the host adapter stamps the SDK-required `contextId`/`messageId`/`artifactId`);
+  `receipt.amount` clarified as base units; the buyer-payload snippet made internally consistent.
+
 ## [2.12.0] — 2026-06-21 — BNB: the `U` (United Stables) token + Binance `permit2-exact` interop
 
 BNB Chain max-out — full token parity with Binance's own x402 set, plus tolerance for Binance's
