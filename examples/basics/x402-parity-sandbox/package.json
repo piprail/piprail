@@ -14,7 +14,7 @@
   },
   "comment": "Static assertions run with no funded wallet, no secrets, and spend nothing (a few read public RPC read-only). The LIVE sections spend TINY amounts of real Base-mainnet USDC and only run when ../../../.secrets/wallets/evm-wallet.json is present; otherwise they self-skip cleanly. The dependency pins are the LATEST PUBLISHED versions on purpose — this harness is a guarantee about the npm artifact, not the working tree (the workspace build is tested by ../sdk-sandbox), and lib/env.mjs throws if @piprail/sdk ever resolves outside this sandbox.",
   "dependencies": {
-    "@piprail/sdk": "^2.11.0",
+    "@piprail/sdk": "^2.13.1",
     "@piprail/mcp": "^0.9.0",
     "viem": "^2.21.0"
   },

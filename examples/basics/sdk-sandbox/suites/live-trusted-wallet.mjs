@@ -87,9 +87,9 @@ export async function run() {
       const out = await payTool.invoke({ url })
       check(`${fam.chain}: pay tool returns a structured decline (declined + reasonCode:POLICY)`, out?.declined === true && out?.code === 'PAYMENT_DECLINED' && out?.reasonCode === 'POLICY' && typeof out?.explain === 'string', JSON.stringify({ declined: out?.declined, reasonCode: out?.reasonCode }))
 
-      // The toolkit now ships 7 tools incl. the read-only budget + guide.
+      // The toolkit now ships 8 tools incl. the read-only budget + guide.
       const names = paymentTools(guarded).map((t) => t.name)
-      check(`${fam.chain}: paymentTools() exposes piprail_budget + piprail_guide (7 tools)`, names.length === 7 && names.includes('piprail_budget') && names.includes('piprail_guide'), `${names.length} tools`)
+      check(`${fam.chain}: paymentTools() exposes piprail_budget + piprail_guide (8 tools)`, names.length === 8 && names.includes('piprail_budget') && names.includes('piprail_guide'), `${names.length} tools`)
     } catch (e) {
       check(`${fam.chain} trusted-wallet live`, false, e.stack ?? e.message)
     } finally {
