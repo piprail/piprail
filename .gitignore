@@ -127,3 +127,6 @@ Screenshot*.png
 .claude/skills/branding/design/**/frames/
 .claude/skills/branding/design/**/sample/
 .claude/skills/branding/design/**/__pycache__/
+
+# Live test harnesses anywhere (they read keys from .secrets at runtime) — never commit
+**/*.local.mjs
