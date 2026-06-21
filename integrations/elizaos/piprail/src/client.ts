@@ -6,6 +6,16 @@ import type { IAgentRuntime } from '@elizaos/core'
 // error). The policy is the hard cap the model cannot exceed.
 const clients = new Map<string, PipRailClient>()
 
+// getSetting returns string | boolean | number | null. Coerce to a trimmed string (or a default)
+// so a JSON number/boolean in the character config can't slip a non-string into the SDK — the
+// spend-cap validator throws a TypeError on a non-string, and that throw would abort the agent run.
+function setting(runtime: IAgentRuntime, key: string, fallback: string): string {
+  const v = runtime.getSetting(key)
+  if (v == null) return fallback
+  const s = typeof v === 'string' ? v.trim() : String(v)
+  return s || fallback
+}
+
 export function getClient(runtime: IAgentRuntime): PipRailClient {
   const id = String(runtime.agentId)
   let client = clients.get(id)
@@ -13,12 +23,12 @@ export function getClient(runtime: IAgentRuntime): PipRailClient {
     const key = runtime.getSetting('PIPRAIL_PRIVATE_KEY')
     if (!key) throw new Error('PIPRAIL_PRIVATE_KEY is not set in the character settings.')
     client = new PipRailClient({
-      chain: ((runtime.getSetting('PIPRAIL_CHAIN') as string) || 'base') as ChainSelector,
+      chain: setting(runtime, 'PIPRAIL_CHAIN', 'base') as ChainSelector,
       wallet: { key: String(key) },
       schemes: ['onchain-proof', 'exact'], // 'exact' also pays standard x402 servers, gasless for the buyer
       policy: {
-        maxAmount: (runtime.getSetting('PIPRAIL_MAX_AMOUNT') as string) || '0.10',
-        maxTotal: (runtime.getSetting('PIPRAIL_MAX_TOTAL') as string) || '5.00',
+        maxAmount: setting(runtime, 'PIPRAIL_MAX_AMOUNT', '0.10'),
+        maxTotal: setting(runtime, 'PIPRAIL_MAX_TOTAL', '5.00'),
       },
     })
     clients.set(id, client)

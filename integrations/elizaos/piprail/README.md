@@ -46,6 +46,12 @@ See [`character.example.json`](./character.example.json).
 > programmatic rather than conversational) is also available directly via `@piprail/sdk` or the
 > `@piprail/mcp` MCP server.
 
+> **Security — `PIPRAIL_PAY` moves real money autonomously.** It is the only action that spends, and it
+> pays **without a per-payment human confirmation**, bounded *only* by the spend policy. The action is
+> offered only when the message contains a URL, but a prompt-injected 402 URL that reaches the agent
+> can be paid up to `PIPRAIL_MAX_AMOUNT`. Keep `PIPRAIL_MAX_AMOUNT` / `PIPRAIL_MAX_TOTAL` conservative,
+> fund the wallet with only what the agent may spend, and treat the key as hot.
+
 ## Config (character `settings` / `secrets`)
 
 | Setting | Required | Default | Notes |

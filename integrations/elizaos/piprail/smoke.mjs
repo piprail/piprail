@@ -13,6 +13,7 @@ const checks = [
   ['every action has a string description', actions.every((a) => typeof a.description === 'string' && a.description.length > 0)],
   ['every action has validate + handler fns', actions.every((a) => typeof a.validate === 'function' && typeof a.handler === 'function')],
   ['every action has similes', actions.every((a) => Array.isArray(a.similes) && a.similes.length > 0)],
+  ['every action ships >=1 few-shot example (elizaOS drops zero-example actions)', actions.every((a) => Array.isArray(a.examples) && a.examples.length > 0)],
 ]
 
 let ok = true
