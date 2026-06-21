@@ -1629,6 +1629,10 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[2.12.0]: https://www.npmjs.com/package/@piprail/sdk
+[2.11.0]: https://www.npmjs.com/package/@piprail/sdk
+[2.10.0]: https://www.npmjs.com/package/@piprail/sdk
+[2.9.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.8.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.7.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.6.0]: https://www.npmjs.com/package/@piprail/sdk

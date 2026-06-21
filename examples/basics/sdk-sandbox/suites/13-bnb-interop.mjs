@@ -28,6 +28,7 @@ const ANVIL_URL = `http://127.0.0.1:${PORT}`
 const TOK = {
   USDC:  getAddress('0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d'), // Binance-Peg → Permit2
   FDUSD: getAddress('0xc5f0f7b66764F6ec8C8Dff7BA683102295E16409'), // EIP-3009
+  U:     getAddress('0xcE24439F2D9C6a2289F741120FE202248B666666'), // United Stables — EIP-3009
 }
 const ERC20 = parseAbi(['function balanceOf(address) view returns (uint256)'])
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -122,7 +123,8 @@ export async function run() {
     const dealtA = await dealToken(test, pub, TOK.FDUSD, payerA.address, parseUnits('100', 18))
     const dealtB = await dealToken(test, pub, TOK.FDUSD, payerB.address, parseUnits('100', 18))
     const dealtC = await dealToken(test, pub, TOK.USDC, payerC.address, parseUnits('100', 18))
-    check('dealt FDUSD + USDC to the test payers on the fork', dealtA && dealtB && dealtC, `FDUSD/A=${dealtA} FDUSD/B=${dealtB} USDC/C=${dealtC}`)
+    const dealtU = await dealToken(test, pub, TOK.U, payerA.address, parseUnits('100', 18)) // U → payer A
+    check('dealt FDUSD + USDC + U to the test payers on the fork', dealtA && dealtB && dealtC && dealtU, `FDUSD/A=${dealtA} FDUSD/B=${dealtB} USDC/C=${dealtC} U/A=${dealtU}`)
     if (!(dealtA && dealtC)) { note('SKIPPED — could not locate a token balance slot on this fork.'); return }
 
     // ── G1 · EIP-3009 (FDUSD) — PipRail client ↔ PipRail gate (gasless buyer) ──────────
@@ -207,7 +209,41 @@ export async function run() {
       check('merchant received the FDUSD from the slug-labelled rail', (await balOf(TOK.FDUSD, merchant)) - before === parseUnits('0.02', 18), `delta=${fmt((await balOf(TOK.FDUSD, merchant)) - before)}`)
     }
 
-    note('BNB hard-interop complete: gasless EIP-3009, foreign @x402 interop, Permit2 proxy, slug findability, self-describe discoverability.')
+    // ── G5 · EIP-3009 (U / United Stables) — PipRail ↔ PipRail (gasless buyer) ───────────
+    group('13 · U eip3009 — PipRail ↔ PipRail (the NEW United Stables token, gasless buyer)')
+    if (dealtU) {
+      const gate = createPaymentGate({ chain: 'bnb', token: 'U', amount: '0.02', payTo: merchant, rpcUrl: ANVIL_URL, exact: { settle: 'self', relayer: { key: keyR } } })
+      const c = await gate.challenge('http://x/paid')
+      const exact = c.challenge.accepts.find((a) => a.scheme === 'exact')
+      check('gate auto-selects EIP-3009 for U (no Permit2 approve)', exact?.extra?.assetTransferMethod === 'eip3009', `method=${exact?.extra?.assetTransferMethod}`)
+      check('gate read U EIP-712 domain on-chain (United Stables / v1)', exact?.extra?.name === 'United Stables' && exact?.extra?.version === '1', `name=${exact?.extra?.name} v=${exact?.extra?.version}`)
+
+      const { server, url, getLastSig } = await serve(gate, PORT + 5); servers.push(server)
+      const before = await balOf(TOK.U, merchant)
+      const client = new PipRailClient({ chain: 'bnb', wallet: { key: keyA }, schemes: ['exact'], rpcUrl: ANVIL_URL })
+      const res = await client.fetch(url)
+      check('PipRail client pays the U gate → 200 (gasless EIP-3009)', res.status === 200, `status=${res.status}`)
+      check('merchant received exactly 0.02 U', (await balOf(TOK.U, merchant)) - before === parseUnits('0.02', 18), `delta=${fmt((await balOf(TOK.U, merchant)) - before)}`)
+      const replay = await fetch(url, { headers: { [HEADER_SIGNATURE]: getLastSig() } })
+      check('replay of the U authorization is rejected (402)', replay.status === 402, `status=${replay.status}`)
+    } else { note('SKIPPED G5 — could not deal U on this fork.') }
+
+    // ── G6 · permit2-exact label tolerance — pay a Binance-b402-dialect 402 (USDC) ───────
+    group('13 · permit2-exact label — PipRail pays a Binance-dialect "permit2-exact" 402')
+    {
+      const gate = createPaymentGate({ chain: 'bnb', token: 'USDC', amount: '0.02', payTo: merchant, rpcUrl: ANVIL_URL, exact: { settle: 'self', relayer: { key: keyR } } })
+      // Relabel the served rail's method from 'permit2' to Binance's 'permit2-exact' (the gate's
+      // trusted verify is untouched — it settles on payload shape, not the label).
+      const toBinance = (challenge) => { for (const a of challenge.accepts) if (a.extra?.assetTransferMethod === 'permit2') a.extra.assetTransferMethod = 'permit2-exact'; return challenge }
+      const { server, url, getLastSig } = await serve(gate, PORT + 6, toBinance); servers.push(server)
+      const before = await balOf(TOK.USDC, merchant)
+      const client = new PipRailClient({ chain: 'bnb', wallet: { key: keyC }, schemes: ['exact'], rpcUrl: ANVIL_URL })
+      let res; try { res = await client.fetch(url) } catch (e) { res = { status: 0, err: e.message } }
+      check('PipRail pays a "permit2-exact"-labelled 402 (Binance b402 dialect → routes to Permit2)', res.status === 200, res.err ? `threw: ${res.err}` : `status=${res.status}`)
+      check('merchant received the USDC from the permit2-exact rail', (await balOf(TOK.USDC, merchant)) - before === parseUnits('0.02', 18), `delta=${fmt((await balOf(TOK.USDC, merchant)) - before)}`)
+    }
+
+    note('BNB hard-interop complete: gasless EIP-3009 (FDUSD + U), foreign @x402 interop, Permit2 proxy, permit2-exact dialect, slug findability, self-describe discoverability.')
   } finally {
     for (const s of servers) await close(s)
     anvil.child.kill('SIGKILL')
