@@ -1,5 +1,5 @@
 {
-  "name": "elizaos-plugin-piprail",
+  "name": "@piprail/elizaos-plugin",
   "version": "0.1.0",
   "description": "Self-custody, multi-chain x402 payer for elizaOS — give an agent a budget-bound wallet to pay HTTP 402 APIs across many chains, no facilitator or fee.",
   "type": "module",

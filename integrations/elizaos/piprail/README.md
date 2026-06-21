@@ -1,4 +1,4 @@
-# elizaos-plugin-piprail
+# @piprail/elizaos-plugin
 
 Give an [elizaOS](https://github.com/elizaOS/eliza) agent a **budget-bound, self-custody wallet** to
 pay **x402** ("HTTP 402 Payment Required") APIs across many chains — no facilitator, no fee. It wraps
@@ -11,7 +11,7 @@ the **buy-side** counterpart: let your agent *pay* for things, on any supported 
 ## Install
 
 ```bash
-npm install elizaos-plugin-piprail
+npm install @piprail/elizaos-plugin
 ```
 
 Add it to your character and provide a funded wallet key + caps:
@@ -19,7 +19,7 @@ Add it to your character and provide a funded wallet key + caps:
 ```jsonc
 {
   "name": "PayBot",
-  "plugins": ["elizaos-plugin-piprail"],
+  "plugins": ["@piprail/elizaos-plugin"],
   "settings": {
     "PIPRAIL_CHAIN": "base",
     "PIPRAIL_MAX_AMOUNT": "0.10",   // per-payment cap
