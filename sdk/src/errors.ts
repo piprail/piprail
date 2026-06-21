@@ -140,10 +140,12 @@ export class MaxRetriesExceededError extends PipRailError {
   /**
    * The proof ref — recover with it, don't re-pay. Its meaning depends on the
    * scheme: for `onchain-proof` it's the already-broadcast transaction ref
-   * (re-verify or re-submit it). For a standard `exact` rail it's the EIP-3009
-   * authorization NONCE (a `0x…` 32-byte value, NOT a tx hash) — re-PRESENT the
-   * same signed authorization, never re-sign a fresh nonce; check the token's
-   * `authorizationState(from, nonce)` before assuming it didn't settle.
+   * (re-verify or re-submit it). For a standard `exact` rail it's the authorization's
+   * single-use marker (NOT a tx hash) — re-PRESENT the same signed authorization, never
+   * re-sign a fresh nonce, and verify it on-chain before assuming it didn't settle. On
+   * EVM that marker is the EIP-3009 NONCE (a `0x…` value), checked via the token's
+   * `authorizationState(from, nonce)`; the non-EVM `exact` rails key off their own marker
+   * (Solana tx signature, Algorand group id, Aptos account sequence number, NEAR access-key nonce).
    */
   readonly ref?: string
   constructor(message: string, options?: ErrorOptions & { ref?: string }) {

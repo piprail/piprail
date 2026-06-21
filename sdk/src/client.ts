@@ -80,6 +80,7 @@ import {
 import { SpendLedger, type SpendSummary, type SpendRecord } from './ledger.js'
 import type { SpendStore } from './spendstore.js'
 import { formatUnits, floorUnits, MAX_DECIMALS } from './util/units.js'
+import { exactSettleCheckHint } from './util/exactRecovery.js'
 
 /** Observability events. `ref` is the proof — a chain-specific id (EVM tx hash, Solana signature, TON locator, Stellar tx hash). */
 export type PipRailEvent =
@@ -2369,7 +2370,7 @@ export class PipRailClient {
     if (!net.payExact) {
       // gatherCandidates only yields an exact rail when payExact exists — defensive.
       throw new UnsupportedSchemeError(
-        `the ${net.family} family can't pay a standard 'exact' rail (supported on EVM, Solana, Algorand + NEAR today).`
+        `the ${net.family} family can't pay a standard 'exact' rail (supported on EVM, Solana, Algorand, Aptos + NEAR today).`
       )
     }
     // A caller who aborts BEFORE we sign/send hasn't moved any funds — surface their
@@ -2429,8 +2430,9 @@ export class PipRailClient {
         // surface the nonce so the caller verifies on-chain before doing anything else.
         throw new PaymentTimeoutError(
           `exact: no response after submitting the authorization (nonce=${nonce}) to ` +
-            `${hostOf(url)}. The facilitator may have already settled it — verify on-chain with ` +
-            `authorizationState(${payerFrom}, ${nonce}) before re-presenting; do NOT re-pay.`,
+            `${hostOf(url)}. The facilitator may have already settled it — verify on-chain via ` +
+            `${exactSettleCheckHint(net.family, payerFrom, nonce)} before re-presenting the SAME ` +
+            `signed authorization; do NOT re-pay.`,
           { cause: err, ref: nonce }
         )
       } finally {
@@ -2460,7 +2462,7 @@ export class PipRailClient {
         // Record the spend EXACTLY ONCE, on this affirmative-settle path only. Prefer the
         // facilitator's on-chain settle tx; fall back to the nonce when it echoes none (`||`,
         // so a misbehaving `transaction:''` doesn't become the audit ref).
-        const ref = settle?.transaction || receipt?.transaction || `eip3009-nonce:${nonce}`
+        const ref = settle?.transaction || receipt?.transaction || `${net.family === 'evm' ? 'eip3009' : net.family}-nonce:${nonce}`
         this.recordSpend(quote, ref)
         return response
       }
@@ -2490,7 +2492,7 @@ export class PipRailClient {
     throw new MaxRetriesExceededError(
       `exact: server still returned 402 after submitting the signed authorization ` +
         `(nonce=${nonce}). Last rejection: ${why}. Re-present the SAME authorization — do NOT ` +
-        `re-sign a fresh nonce; verify authorizationState(${payerFrom}, ${nonce}) first. ref=${nonce}.`,
+        `re-sign a fresh nonce; verify on-chain via ${exactSettleCheckHint(net.family, payerFrom, nonce)} first. ref=${nonce}.`,
       { ref: nonce }
     )
   }
