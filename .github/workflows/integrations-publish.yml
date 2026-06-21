@@ -78,12 +78,13 @@ jobs:
 
       - name: Verify + summarize
         run: |
-          # The publish step is the source of truth (it exits non-zero on a real failure). npm's read
-          # API can lag minutes behind a new scoped/provenance publish, so poll a while and then WARN
-          # rather than fail — a successful publish must never show as a failed run.
+          # The publish step is the source of truth (it exits non-zero on a real failure). This step is
+          # informational and MUST NEVER fail the run — npm's read API can lag minutes behind a new
+          # publish, and GitHub runs `run:` with `bash -e`, so disable errexit and exit 0 explicitly.
+          set +e
           LIVE="propagating"
           for i in $(seq 1 16); do
-            V=$(npm view "${{ steps.pkg.outputs.name }}@${{ steps.pkg.outputs.version }}" version 2>/dev/null)
+            V=$(npm view "${{ steps.pkg.outputs.name }}@${{ steps.pkg.outputs.version }}" version 2>/dev/null || true)
             if [ -n "$V" ]; then LIVE="$V"; break; fi
             sleep 15
           done
@@ -99,6 +100,5 @@ jobs:
             echo "- registry read API reports version: **$LIVE**"
             echo "- npm: https://www.npmjs.com/package/${{ steps.pkg.outputs.name }}"
           } >> "$GITHUB_STEP_SUMMARY"
-          if [ "$LIVE" = "propagating" ]; then
-            echo "::warning::Publish step succeeded; npm's read API is still propagating the new version (not a failure)."
-          fi
+          [ "$LIVE" = "propagating" ] && echo "::warning::Publish step succeeded; npm's read API is still propagating the new version (not a failure)."
+          exit 0
