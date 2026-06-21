@@ -47,7 +47,7 @@ All amounts are `bigint` base units. Caps are decimal **strings** parsed with th
 decimals (the SDK's own, never the server's `extra.decimals`) so a lying server can't understate a
 price. The cross-token grand total sums in a **fixed-point accumulator** at `DENOM_PRECISION`
 decimals: each payment contributes `amountBase × 10^(DENOM_PRECISION − decimals)`, so tokens with
-*different* decimals (USDC 6dp + DAI 18dp) add up **exactly** with no floating-point drift.
+*different* decimals (USDC 6dp + USD1 18dp) add up **exactly** with no floating-point drift.
 
 `DENOM_PRECISION` is pinned to `MAX_DECIMALS` (100) **on purpose** — see the bypass below.
 

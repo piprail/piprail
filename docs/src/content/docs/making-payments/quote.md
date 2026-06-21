@@ -128,6 +128,9 @@ if (quote && !quote.withinPolicy) {
 | `UNKNOWN_TOKEN` | An unrecognised token, refused by policy. |
 | `SESSION_EXPIRED` | The session's time envelope has ended. |
 | `WINDOW_TOTAL` | The rolling-window spend cap is exhausted. |
+| `MAX_TOTAL_DENOM` | Would exceed the cross-token grand-total cap for the denomination (`maxTotalPerDenom`). |
+| `MAX_PAYMENTS` | Would exceed the lifetime cap on settled payments (`maxPayments`). |
+| `WINDOW_COUNT` | The rolling-window payment-count cap (`maxPaymentsPerWindow`) is exhausted. |
 
 :::note
 `quote()` only *reports* the verdict — it never refuses. `fetch()` enforces it: a payment that

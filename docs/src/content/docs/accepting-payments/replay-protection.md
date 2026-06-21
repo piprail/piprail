@@ -213,8 +213,12 @@ const gate = createPaymentGate({
 | `isUsed` | `(ref: string) => boolean \| Promise<boolean>` | Before verifying — return `true` if this proof was already redeemed. |
 | `markUsed` | `(ref: string) => void \| Promise<void>` | After a payment verifies successfully — record the redeemed proof. |
 
-Providing either hook switches the gate off its built-in set entirely; `markUsed` fires only on
-success, so a custom store never records a proof that failed verification.
+Provide **both** `isUsed` and `markUsed` together to switch the gate off its built-in set
+entirely — they're validated as a pair at gate construction, and building a gate
+(`requirePayment` / `createPaymentGate`) with only one **throws immediately** (only `isUsed`
+would record nothing, so every proof replays; only `markUsed` would reject nothing — either
+silently disables replay protection). `markUsed` fires only on success, so a custom store never
+records a proof that failed verification.
 
 :::caution
 The built-in set reserves a ref **synchronously**, so two concurrent requests carrying the same

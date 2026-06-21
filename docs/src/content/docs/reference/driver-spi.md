@@ -213,13 +213,17 @@ to fix the **recipient**, not its own balance:
 Several methods carry an optional `?`. Because they're optional, omitting one leaves today's
 behaviour and **does not** trigger the "implement in all families" rule for required methods — a
 family ships them only when its chain supports them. The `exact`-rail methods are implemented by
-**EVM**, **Solana**, **Algorand**, **Aptos**, and **NEAR** today; `exactDomain` / `exactPermit2Supported` are EVM-specific.
+**EVM**, **Solana**, **Algorand**, **Aptos**, and **NEAR** today; `exactDomain` / `exactPermit2Supported`, `signReceipt`, and the `upto` trio (`resolveUptoRail` / `payUpto` / `settleUptoSelf`) are EVM-specific.
 
 | Method | Purpose |
 | --- | --- |
 | `resolveExactRail(input)` | Server side. Resolve the chain-specific `exact` rail descriptor for an asset — `{ method, extra }` (EVM `eip3009`/`permit2` + EIP-712 `name`/`version`; Solana `svm` + `feePayer`/`tokenProgram`; Algorand `algorand` + `feePayer`; Aptos `aptos` + `feePayer`; NEAR `near` + `feePayer`), or `null` when the asset/chain can't carry `exact`. This is what keeps `server.ts` family-agnostic — it never names a family, it just merges the returned `extra` into the rail. |
 | `payExact(wallet, accept)` | Buyer side. Sign the `exact` payment so a PipRail agent can pay **any** standard x402 `exact` server: an EIP-3009 `transferWithAuthorization` (EVM), a partial-signed `TransferChecked` transaction (Solana, plus a spec-required SPL-Memo for uniqueness), a sender-signed fee-payer (sponsored) transfer (Algorand, Aptos), or a NEP-366 `SignedDelegateAction` wrapping one NEP-141 `ft_transfer` that a relayer prepays gas (+ 1 yocto) and submits (NEAR). Omitting it means no `exact` rail is ever gathered/paid on that family. |
 | `settleExactSelf(input)` | Server side (Mode A). Verify a standard `exact` payment locally, then self-settle by broadcasting from the merchant's relayer wallet (EVM: `transferWithAuthorization` / the Permit2 proxy; Solana: co-sign as fee payer; Algorand / Aptos: add the fee-payer signature and submit; NEAR: relay the buyer's `SignedDelegateAction` via the merchant's relayer, which prepays gas + the 1 yocto so the buyer stays gasless). |
+| `resolveUptoRail(input)` | Server side (**EVM-Permit2**). Advertise a metered `upto` rail for an asset — the metered sibling of `resolveExactRail`; returns an `UptoRailInfo` (the `relayer` becomes the bound `witness.facilitator`), or `null` when the asset/chain can't carry `upto`. |
+| `payUpto(wallet, accept)` | Buyer side (**EVM-Permit2**). Sign a Permit2 `PermitWitnessTransferFrom` witness for the signed MAX (`accept.amount`) — the metered counterpart to `payExact`; returns the signed payload, the rail echo, the payer address, and the Permit2 nonce. |
+| `settleUptoSelf(input)` | Server side (**EVM-Permit2**). Verify a standard `upto` payment locally, then self-settle the actual (`settleAmount` ≤ the signed max) through the upto proxy from the merchant's `relayer` — the metered counterpart to `settleExactSelf`. |
+| `signReceipt(wallet, input)` | Server side (**EVM**). Sign the official x402 offer-receipt §5.2 EIP-712 message (`ReceiptInput` → `SignedReceipt`) with the bound wallet, so a buyer can prove the resource was *served* — verified by `PipRailClient.verifyAttestation`. Never part of the payment path. |
 | `exactDomain(asset)` | Server side (**EVM**). Read an EIP-3009 token's on-chain EIP-712 domain (`name`/`version`); `null` when the asset isn't EIP-3009. |
 | `exactPermit2Supported()` | Server side (**EVM**). Whether the x402 Permit2 proxy is deployed on this chain (gates the Permit2 fallback). |
 | `discoverySigner(wallet)` | A signer for **discovery only** (ownership proofs / SIWX index registration), never the payment path. |

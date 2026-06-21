@@ -146,7 +146,7 @@ refusal is specific. Session expiry runs **first** because it's session-global, 
 an expired session always reports expiry, never some other gate that happens to also fail.
 
 ```text
-session expiry → chains → hosts → unknown-token → tokens → maxAmount → maxTotal → windowTotal
+session expiry → chains → hosts → unknown-token → tokens → maxAmount → maxTotal → maxTotalPerDenom → maxPayments → windowTotal → maxPaymentsPerWindow
 ```
 
 Both time guards collapse to a single decline `reasonCode` on the client, distinct from the

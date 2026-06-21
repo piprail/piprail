@@ -157,8 +157,8 @@ list of codes.
 The client keeps an in-memory ledger, the basis for lifetime spend caps:
 
 ```ts
-client.spent()      // { count, byAsset, records } — everything settled this session
-client.budget()     // { session, byAsset } — remaining per-asset leash + the time envelope
+client.spent()      // { count, byAsset, byDenom, records } — everything settled this session
+client.budget()     // { session, byAsset, byDenom, counts } — per-asset + cross-token (byDenom) + count leashes + the time envelope
 client.remaining()  // SpendRemaining[] — remaining budget per (network, asset)
 ```
 
@@ -185,7 +185,9 @@ const resources = await client.discover({ query: 'weather' })
 
 `client.discoverySigner()` returns the wallet's **discovery signer** — a `{ address, signMessage }`
 used only to *sign in* to indexes that require a wallet signature (x402scan's SIWX), never to move
-funds. It resolves to `null` on a family that has no discovery signer (today it's EVM-only). You
+funds. It resolves to `null` on a family that has no discovery signer (today it's EVM-only), or on
+a read-only client constructed without a `wallet` (no key to sign with — it returns `null` rather
+than throwing `WalletRequiredError`). You
 rarely call it directly — `register(url, { targets: ['x402scan'] })` uses it under the hood — but
 it's there if you sign an index challenge by hand.
 
@@ -198,7 +200,10 @@ const signer = await client.discoverySigner()
 
 Pass `onEvent` to watch the lifecycle — `payment-required`, `payment-broadcast`,
 `payment-confirmed`, `payment-settled`, `payment-failed` (plus `payment-unconfirmed` when the
-broadcast lands but local confirmation times out) — for logging or a UI.
+broadcast lands but local confirmation times out), `payment-declined` (the rich pre-send refusal
+with a budget snapshot), and `budget-threshold` (early warning when cumulative spend first crosses
+`policy.warnAtFraction` of any cap) — for logging or a UI. See [Events](/making-payments/events/)
+for the full union and per-event fields.
 
 ## Constructor options
 
@@ -210,8 +215,11 @@ broadcast lands but local confirmation times out) — for logging or a UI.
 | `policy` | The [spend policy](/spend-controls/payment-policy/) — caps, allowlists, time window. |
 | `onBeforePay` | Approval hook — receives the `PipRailQuote`; returning `false` **or throwing** refuses the payment (`PaymentDeclinedError`, `reasonCode: 'APPROVAL'`), before any send. |
 | `onEvent` | Lifecycle observability callback. |
+| `onSpend` | Fire-and-forget `(record, budget) => void` after each settle; isolated like `onEvent` (a throw is swallowed). Same data rides the `payment-settled` event. See [Events](/making-payments/events/). |
+| `spendStore` | Durable spend store so lifetime caps survive a restart — the ledger hydrates from it at construction and appends each settle (no backend; you own the store). See [Persistence](/spend-controls/persistence/). |
+| `ledger` | Advanced: share one `SpendLedger` across single-chain clients for a cross-token / cross-chain grand total (`MultiChainPayer.fromWallets` wires this). **Mutually exclusive with `spendStore`** — passing both throws. See [Total budget](/spend-controls/total-budget/). |
 | `autoRoute` | Default for `fetch`'s cheapest-rail routing (default off). |
-| `schemes` | Which schemes to settle — `['onchain-proof']` (default) or add `'exact'`. |
+| `schemes` | Which schemes to settle — `['onchain-proof']` (default); add `'exact'` (the [gasless standard rail](/making-payments/exact-buyer/)) and/or `'upto'` (the [metered rail](/making-payments/upto-buyer/), EVM-Permit2 only). |
 | `maxPaymentRetries` / `retryTimeoutMs` | Retry/timeout tuning (defaults: 3 attempts, 30_000 ms). |
 
 Next: [`planPayment()`](/making-payments/plan-payment/) — the readiness check every agent should

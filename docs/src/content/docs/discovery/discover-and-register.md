@@ -137,7 +137,7 @@ sources that don't measure them (Bazaar), so treat a missing field as "unknown,"
 Results are **cross-scheme** — the open indexes mostly carry the mainstream `exact` scheme, not
 PipRail's `onchain-proof`, and a result may also offer a metered
 [`upto`](/accepting-payments/upto-rail-seller/) rail. `fetch()` pays `onchain-proof` rails by
-default; to pay a standard `exact` rail (EVM via EIP-3009/Permit2, plus Solana SVM) or an `upto`
+default; to pay a standard `exact` rail (EVM via EIP-3009/Permit2, plus Solana SVM, Algorand, Aptos, and NEAR) or an `upto`
 rail, opt in with `schemes: ['onchain-proof', 'exact', 'upto']` — or call `quote()` to learn which
 scheme a resource needs. The advertised `priceUsd` is a coarse pre-filter; always re-confirm with
 `quote()` before paying.

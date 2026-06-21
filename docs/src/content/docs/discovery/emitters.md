@@ -35,7 +35,7 @@ const resource = await gate.describe('https://api.example.com/report')
 
 A `ResourceDescription` has `url`, an optional `method`/`description`, and an `accepts: PaymentRail[]`.
 Each `PaymentRail` is the static, nonce-free shape of one payment option — `scheme`
-(`'onchain-proof'` or `'exact'`), `network` (CAIP-2), `asset`, `payTo`, `amount` (base units),
+(`'onchain-proof'`, `'exact'`, or `'upto'`), `network` (CAIP-2), `asset`, `payTo`, `amount` (base units),
 `amountFormatted` (e.g. `'0.10'`), `decimals`, an optional `symbol`, and `maxTimeoutSeconds`.
 The emitters below consume `ResourceDescription[]` and never invent anything not already in it.
 

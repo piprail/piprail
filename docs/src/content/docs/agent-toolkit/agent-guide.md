@@ -9,8 +9,9 @@ sidebar:
 
 `PIPRAIL_AGENT_GUIDE` is the PipRail contract written *for the model*: one tight Markdown
 string an LLM reads once and then drives the [payment tools](/agent-toolkit/payment-tools/)
-correctly with near-zero other docs. It covers the quote → plan → pay loop, how to read a
-refusal without crashing or double-spending, and the difference between the two operating modes.
+correctly with near-zero other docs. It covers the quote → plan → pay loop, the three settlement
+rails it can pay (`onchain-proof`, `exact`, `upto`), how to read a refusal without crashing or
+double-spending, and the difference between the two operating modes.
 
 It's a pure static constant — no imports, no I/O — so you can prepend it to any agent's system
 prompt, MCP or not.
@@ -44,6 +45,21 @@ can't finish:
 
 The rule it states plainly: *always plan before you pay.* If `payable` is `false`, the model is
 told not to attempt the payment — `fundingHint` says exactly what to fix.
+
+## The rails it teaches: onchain-proof, exact, upto
+
+A 402 may offer up to three settlement rails. The model doesn't pick one per payment — the client
+does, automatically — but the guide tells it what each rail costs and how to budget for it:
+
+| Rail | What it does |
+| --- | --- |
+| `onchain-proof` | PipRail's default. The buyer broadcasts the payment itself and pays the network gas (the native coin — ETH/SOL/…). Works on every chain. |
+| `exact` | The ratified x402 rail (opt-in). The buyer only *signs* → the server (or a facilitator it chose) broadcasts, so the buyer pays **zero gas** and needs only the token, no native coin. EVM/Solana/Algorand/Aptos/NEAR — see [Gasless payments](/making-payments/gasless-payments/). |
+| `upto` | The metered/variable x402 rail (opt-in, EVM-Permit2 only). The buyer signs a **MAX**; the server meters real usage and settles the actual `≤` max. The model **budgets against the MAX** — see [Paying the upto rail](/making-payments/upto-buyer/). |
+
+The `exact` and `upto` schemes are **operator opt-in** (`PIPRAIL_SCHEMES=onchain-proof,exact,upto`).
+The model can't enable them itself, but it can report a 402 that needs one — surfaced as
+`UNSUPPORTED_SCHEME` (see below).
 
 ## Reading a refusal — never crash, never double-spend
 
@@ -83,9 +99,11 @@ present or absent, so a model reads it without instanceof checks.
 
 ## Knowing its leash — `piprail_budget`
 
-The guide points the model at `piprail_budget` to self-check before paying: it reports how much
-budget and time are left per `(network, asset)`, plus spend so far. Read-only — it moves no
-funds. See [the agent tools](/agent-toolkit/the-agent-tools/) for the full tool surface.
+The guide points the model at `piprail_budget` to self-check before paying: it reports the
+per-`(network, asset)` budget remaining, the cross-token grand total remaining per denomination,
+the payment-count leash, the session time envelope, your spend so far, and the configured policy
+read back. Read-only — it moves no funds. See [the agent tools](/agent-toolkit/the-agent-tools/)
+for the full tool surface.
 
 ## Two modes
 
@@ -103,12 +121,18 @@ See [Modes](/mcp/modes/) for how the MCP server selects A or B.
 
 ## Hard facts it pins
 
-The guide closes with two facts the model must not get wrong:
+The guide closes with the caps and persistence facts the model must not get wrong:
 
-- **Spend caps are per `(network, asset)`.** There is no single cross-token dollar cap — budgets
-  aren't summed across tokens, because there's no price oracle.
-- **Spend totals and the time envelope live in-memory for this process** — they reset on restart.
-  It's a convenience, not a durable [ledger](/spend-controls/spend-ledger/).
+- **Per-payment + per-`(network, asset)` caps always apply.** On top of them an *optional*
+  cross-token **grand total per denomination** (`maxTotalPerDenom`, e.g. "$20 across every USD
+  stablecoin + chain") sums tokens declared as one unit, each 1:1 — **not** a price oracle, and it
+  never prices a volatile native coin. **Payment-count caps** (`maxPayments` / per-window) also
+  span every chain + token. See [Total budget](/spend-controls/total-budget/).
+- **The time envelope lives in-memory for this process** and resets on restart. The money + count
+  totals also reset on restart **unless a durable spend store is configured** — then they resume.
+  See [Persistence](/spend-controls/persistence/).
+- **A refusal arrives as `declined: true` with a `reasonCode`** — `BUDGET` covers the lifetime,
+  denom, and count caps; `OUTSIDE_WINDOW` covers both the rolling money and rolling count windows.
 
 ## How the MCP server serves it
 

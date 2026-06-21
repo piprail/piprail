@@ -17,7 +17,7 @@ of lines that read one header in and write three back out.
 import { createPaymentGate } from '@piprail/sdk'
 
 const gate = createPaymentGate({ chain: 'base', token: 'USDC', amount: '0.10', payTo: '0xYourWallet' })
-// → PaymentGate: { challenge(url?), verify(header), describe(url?), landingPage(challenge) }
+// → PaymentGate: { challenge(url?), verify(header), verifyObject(payload), describe(url?), landingPage(challenge) }
 ```
 
 `createPaymentGate` returns a [`PaymentGate`](/accepting-payments/require-payment-and-gate/) — the

@@ -269,7 +269,7 @@ A cite-ready, no-superlative summary of how PipRail differs:
 - **Self-custodial:** the wallet key never leaves your machine. The MCP server runs locally, reads your RPC, and signs with your key. Zero custody.
 - **Quote before paying:** `piprail_quote_payment` shows the exact price without moving funds; `piprail_plan_payment` checks balance, gas, recipient-readiness, and policy in one read-only call — so the agent knows a payment will settle before broadcasting.
 - **Zero setup:** add your key to env vars and restart. No deploy, no API key to request, no account, no contract to write. Works in Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, and Cline.
-- **Native coin is a first-class payment asset on every chain:** ETH, SOL, TON, TRX, NEAR, SUI, APT, ALGO, XLM, and XRP all pay, verified locally — no exceptions. USDC ships almost everywhere, USDT on most chains, EURC on Stellar, RLUSD on XRPL.
+- **Native coin is a first-class payment asset on every chain:** ETH, SOL, TON, TRX, NEAR, SUI, APT, ALGO, XLM, and XRP all pay, verified locally — no exceptions. USDC ships almost everywhere, USDT on most chains, EURC on Ethereum, Base, Avalanche & Stellar, RLUSD on XRPL.
 - **Same eight tools in every MCP client:** the protocol is standard — you're not locked into one model or vendor.
 
 ## Discovery — get found, find others

@@ -121,20 +121,23 @@ operator enables it (`schemes: ['onchain-proof', 'exact']`) — the ratified
 [`exact`](/making-payments/exact-buyer/) rail, where the buyer only **signs** and the server/facilitator
 broadcasts, so the buyer pays **zero gas** (on EVM + Solana + Algorand + Aptos + NEAR; the method — EIP-3009/Permit2/SVM/Algorand/Aptos/NEAR — is
 auto-selected). With [`autoRoute`](/making-payments/fetch-and-autoroute/) on, it pays the cheapest settleable
-rail, which is the gasless `exact` one. Returns the HTTP status, the response body, and a payment
-receipt if one settled. The agent doesn't choose the rail or method — the client does.
+rail, which is the gasless `exact` one. Returns the HTTP status, the response body, a payment
+receipt if one settled, and a `verifiableReceipt` when the gate emitted one. The agent doesn't
+choose the rail or method — the client does.
 
 | Arg | Type | Purpose |
 | --- | --- | --- |
 | `url` | string | Full URL to fetch (required). |
 | `method` | string | HTTP method, default `'GET'`. |
-| `body` | object \| string | Optional request body for POST/PUT — a JSON object or a string. |
+| `body` | object \| string | Optional request body for POST/PUT. An object is JSON-serialised and sent with `content-type: application/json` set automatically; a string is sent verbatim with no content-type set. |
 
 ```jsonc
 // piprail_pay_request({ url, method, body })
 { "url": "https://api.example.com/jobs", "method": "POST", "body": { "topic": "weather" } }
-// → { status: 200, ok: true, body: {…}, receipt: { network, transaction, payTo, … } | null }
+// → { status: 200, ok: true, body: {…}, receipt: { network, transaction, payTo, … } | null, verifiableReceipt? }
 //   receipt is the parsed X402Receipt, or null when nothing settled (e.g. the URL wasn't gated)
+//   verifiableReceipt is present only when the gate emitted one — the PipRailReceipt JSON
+//   ({ piprail: "1", receipt, resource, … }, stamped with the fetched URL), re-checkable via piprail_verify_receipt
 ```
 
 :::danger

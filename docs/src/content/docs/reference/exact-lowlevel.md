@@ -28,7 +28,9 @@ inside the transaction, not as a separate wire field; see [Gasless payments](/ma
 (The chain's native coin — incl. SOL — is never `exact`-payable.)
 
 :::note
-Everything here is exported from `@piprail/sdk`. The buyer/seller engines that wire these
+Everything here is exported from `@piprail/sdk`, except `ExactSvmPaymentPayload` (and the
+sibling non-EVM payload types), which are variants of the exported `ExactPaymentPayloadAny`
+union, not importable individually. The buyer/seller engines that wire these
 pieces together (`payExactEvm`, `verifyAndSettleExactEvm`) are internal — reach for the
 high-level paths instead of reimplementing them.
 :::

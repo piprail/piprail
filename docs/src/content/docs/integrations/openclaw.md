@@ -36,6 +36,24 @@ top-level `mcpServers`), and you can manage the block with `openclaw mcp set` / 
         "command": "npx",
         "args": ["-y", "@piprail/mcp"],
         "env": {
+          "PIPRAIL_CHAIN": "base"
+        }
+      }
+    }
+  }
+}
+```
+
+**No key needed** — this is the whole config and it boots **read-only** (discover/quote/register/budget/guide all work). Add `PIPRAIL_PRIVATE_KEY` plus a cap (`PIPRAIL_MAX_TOTAL`) only when you want the agent to actually pay:
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "piprail": {
+        "command": "npx",
+        "args": ["-y", "@piprail/mcp"],
+        "env": {
           "PIPRAIL_PRIVATE_KEY": "0xYOUR_PRIVATE_KEY",
           "PIPRAIL_CHAIN": "base",
           "PIPRAIL_MAX_AMOUNT": "0.10",

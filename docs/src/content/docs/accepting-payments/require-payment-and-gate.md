@@ -77,12 +77,13 @@ needs to retry. (The legacy `toInvalidBody` helper omits it and is deprecated.)
 
 ## The PaymentGate object
 
-`createPaymentGate` returns a `PaymentGate` with four methods — all driven by you, none of
+`createPaymentGate` returns a `PaymentGate` with five methods — all driven by you, none of
 which move anything on-chain except an actual verified payment:
 
 | Method | Returns | Use |
 | --- | --- | --- |
 | `gate.verify(header)` | `Promise<VerifyPaymentResult>` | Verify the inbound `payment-signature` header on each request. |
+| `gate.verifyObject(payload)` | `Promise<VerifyPaymentResult>` | Verify an already-decoded `PaymentPayload` **object** (raw JSON, not a base64 header) — the seam for non-HTTP transports like A2A, which carry the payload as JSON metadata. Runs the identical dispatch as `verify`, shares the same replay set, and fires the same `onPaid`/`onFailed`; you normally let the transport call it. See [A2A transport](/accepting-payments/a2a-transport/). |
 | `gate.challenge(url?)` | `Promise<{ challenge, requiredHeader }>` | Mint a fresh 402 challenge (new nonce) for a URL — when you issue the 402 yourself. |
 | `gate.describe(url?)` | `Promise<ResourceDescription>` | Static, nonce-free metadata for discovery emitters (no nonce minted). |
 | `gate.landingPage(challenge)` | `string` | Render the self-describing HTML landing page for a human who opens the gated URL in a browser (from a `challenge`). |
@@ -200,6 +201,8 @@ verdict, so it does **not** fire `onFailed`.
 | `generateNonce` | Custom per-challenge nonce generator. Default `crypto.randomUUID()`. |
 | `isUsed` / `markUsed` | Pluggable replay store for multi-instance deploys. |
 | `exact` | Also accept the standard `exact` scheme — zero-config keyless (`exact: true`, Mode 0 — start here), your own relayer (`settle: 'self'`, Mode A), or a named facilitator (`settle: { facilitator }`, Mode B). |
+| `upto` | Also advertise the metered / variable-amount [`upto` rail](/accepting-payments/upto-rail-seller/) (buyer signs a MAX; you settle the actual). EVM-Permit2 only; settle with a direct `gate.verify()` — it **throws through `requirePayment`**. |
+| `receipts` | Emit a verifiable [receipt](/accepting-payments/verifiable-receipts/) on every settled payment — a self-contained, anyone-re-verifiable record. Default off. |
 | `selfDescribe` | Self-describe every 402 with an [`extensions.piprail`](/discovery/self-describing-endpoints/) block. Default `true`; set `false` to omit. |
 | `discovery` | Emit the discovery manifest so crawlers can find this endpoint. |
 

@@ -45,7 +45,7 @@ gas-funded key at all — settlement is fully gasless end to end (see
 | Who broadcasts | The client | The server / facilitator |
 | Buyer pays gas | Yes (native coin) | No (~0) |
 | Pays which servers | PipRail gates | Any standard x402 server |
-| Proof | Tx ref, verified locally | A signed EIP-3009 authorization, a Permit2 witness, **or** a partial-signed Solana transaction |
+| Proof | Tx ref, verified locally | A signed EIP-3009 authorization, a Permit2 witness, a partial-signed Solana transaction, an Algorand fee-pooled ASA group, an Aptos sponsored (fee-payer) transaction, **or** a NEAR NEP-366 SignedDelegateAction |
 
 ## What exact can settle
 
@@ -218,6 +218,13 @@ authorization **nonce** — the EIP-3009 nonce (a `0x…` 32-byte value) or, on 
 Permit2 nonce (a uint256). It is *not* a tx hash. Recover by checking the nonce's on-chain state
 (EIP-3009 `authorizationState(from, nonce)`, or the Permit2 nonce bitmap) and re-presenting the
 **same** authorization — never re-sign:
+
+On the non-EVM `exact` rails the `.ref` is likewise the family's single-use marker, recovered
+differently: **Solana** — the buyer's transaction signature (a duplicate signature is the chain's
+replay guard; plus the SPL-Memo nonce when present); **Algorand** — the atomic group / transaction
+id; **Aptos** — the sender's account sequence number; **NEAR** — the access-key nonce (carried as
+`accountId:nonce`). The discipline is identical: verify the marker on-chain, re-present the *same*
+signed payload, never re-sign and never re-pay.
 
 ```ts
 import { PaymentTimeoutError, MaxRetriesExceededError } from '@piprail/sdk'
