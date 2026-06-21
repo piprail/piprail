@@ -1,0 +1,35 @@
+name: integrations-publish
+
+# Publish a standalone integration package (e.g. integrations/elizaos/piprail → elizaos-plugin-piprail)
+# to npm, using the repo's NPM_TOKEN secret (CI-grade → bypasses 2FA). These packages are NOT npm
+# workspaces and have no tag-CI of their own, so this is their sanctioned publish path. The core
+# @piprail/sdk + @piprail/mcp still publish via their own signed-tag release workflows — not here.
+on:
+  workflow_dispatch:
+    inputs:
+      directory:
+        description: Path to the integration package to publish
+        required: true
+        default: integrations/elizaos/piprail
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: 'https://registry.npmjs.org'
+      - name: Install, build, gate
+        working-directory: ${{ inputs.directory }}
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+          npm run typecheck
+          npm run smoke
+      - name: Publish to npm
+        working-directory: ${{ inputs.directory }}
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
