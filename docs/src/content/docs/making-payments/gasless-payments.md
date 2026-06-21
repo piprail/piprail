@@ -193,11 +193,11 @@ The rest of this section breaks the 🟢/🔵 tiers down by *how* `exact` is sig
 
 | Token | Gasless on |
 |---|---|
-| **USDC** (native Circle) | Ethereum · Base · Arbitrum · Optimism · Polygon · Avalanche · **Sonic · Linea · Celo · Unichain · World Chain · Sei · HyperEVM · Monad · zkSync Era · Injective** |
+| **USDC** (native Circle) | Ethereum · Base · Arbitrum · Optimism · Polygon · Avalanche · **Sonic · Linea · Celo · Unichain · World Chain · Sei · HyperEVM · Monad · zkSync Era · Injective · Scroll · Mantle** |
 | **EURC** | Ethereum · Base · Avalanche |
 | **FDUSD**, **USD1**, **U** | BNB Chain |
 
-*(**17 EIP-3009-gasless chains (the 16 native-USDC chains above plus BNB via FDUSD/USD1/U), and counting.** Every native Circle USDC is the same Circle FiatToken contract that
+*(**19 EIP-3009-gasless chains (the 18 native-USDC chains above plus BNB via FDUSD/USD1/U), and counting.** Every native Circle USDC is the same Circle FiatToken contract that
 implements EIP-3009 — so naming the chain is all it takes, no proxy and no approval. Each chain above
 was verified on-chain before shipping: `authorizationState` present, EIP-712 domain `version` 2, and the
 chain's real `eth_chainId` matched. The list grows as Circle issues native USDC on more chains.)*

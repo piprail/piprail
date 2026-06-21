@@ -24,7 +24,7 @@ turning it off (below).
 :::note
 The point is reach: even an `onchain-proof`-only endpoint that stock tooling *cannot pay* is no longer
 invisible — the block tells the caller to install `@piprail/sdk` and pay. For the non-EVM families that
-have no standard `exact` rail at all (XRPL, TON, NEAR, Stellar, Tron, Sui), this block
+have no standard `exact` rail at all (XRPL, TON, Stellar, Tron, Sui), this block
 is the *entire* interop story.
 :::
 

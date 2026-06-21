@@ -237,7 +237,8 @@ any SPL token, the merchant is the fee payer), **Algorand**, **Aptos**, and **NE
 L1s. The codecs in the table below are the EVM tier (EIP-3009 + Permit2); the non-EVM payloads — SVM's
 `{ transaction }` shape (`ExactSvmPaymentPayload`), Algorand (`ExactAlgorandPaymentPayload`), Aptos
 (`ExactAptosPaymentPayload`), NEAR (`ExactNearPaymentPayload`) — are built/verified inside their
-respective drivers. See [Gasless payments](/making-payments/gasless-payments/).
+respective drivers — they are variants of the exported `ExactPaymentPayloadAny` union (reached via
+`ParsedExactPayment`), not importable individually. See [Gasless payments](/making-payments/gasless-payments/).
 
 | Export | Kind | Note |
 | --- | --- | --- |
@@ -318,6 +319,7 @@ contract; the rest are the contract's types.
 | --- | --- |
 | `registerDriver` | fn |
 | `PaymentDriver`, `ChainFamily` | type |
+| `ReceiptInput` | type |
 | `ResolvedNetwork`, `ResolveOptions`, `ResolvedToken`, `CostEstimate` | type |
 | `WalletHandle`, `WalletBalance`, `DiscoverySigner`, `ConfirmInfo` | type |
 | `RecipientReason` | type |

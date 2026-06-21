@@ -225,7 +225,7 @@ the same `PayingClient` interface, so anything that takes a `PipRailClient` take
 | `fetch` / `get` / `post` | Pay on the chosen chain and return the unlocked response. `post` accepts a string/`FormData`/`URLSearchParams`/`ArrayBuffer`/`Blob` (sent as-is) or a plain object (JSON), exactly like `PipRailClient.post`. |
 | `discover(opts?)` | Find payable resources across every funded chain, deduped by URL (a network-scoped query is chain-independent, so one client answers it). |
 | `register(url, opts?)` | List a resource you run (goes through your first chain; pass `opts.network` to advertise a specific chain). |
-| `spent()` / `budget()` | Aggregated across all chains — per-(network, asset) rows concatenated (never a cross-token sum); `budget()` reports the soonest-expiring session window. |
+| `spent()` / `budget()` | Aggregated across all chains. With a **shared ledger** (the `fromWallets` path) they read that one ledger, so `byDenom` is the cross-token grand total and count caps span every chain as **one** budget (`byAsset` stays per-(network, asset)). With **independent** (array) clients they concatenate per-(network, asset) rows and sum counts. `budget()` reports the soonest-expiring window. |
 | `clients` | The underlying single-chain clients, in preference order, for chain-specific reads (`estimateCost`, per-chain `budget()`, `discoverySigner`) that don't make sense merged. |
 
 Because it implements the same `PayingClient` interface a `PipRailClient` does, the

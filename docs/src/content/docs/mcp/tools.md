@@ -120,7 +120,7 @@ client is configured for — PipRail's backendless on-chain rail, or the standar
 `readOnlyHint: false`, `destructiveHint: true`, `idempotentHint: false`.
 
 It always hands the model a **structured outcome — success *or* failure** — never an exception.
-A settled fetch returns `{ status, ok, body, receipt }`; anything that goes wrong (a refused
+A settled fetch returns `{ status, ok, body, receipt, verifiableReceipt? }`; anything that goes wrong (a refused
 payment, a server rejection, a broadcast that didn't confirm) comes back as a structured
 `{ ok: false, … }` object the agent can branch on. The two shapes are below.
 
@@ -128,15 +128,20 @@ payment, a server rejection, a broadcast that didn't confirm) comes back as a st
 | --- | --- | --- |
 | `url` | string (required) | Full URL to fetch. |
 | `method` | string | HTTP method, default `GET`. |
-| `body` | object \| string | Request body for POST/PUT (a JSON object is serialised to JSON). |
+| `body` | object \| string | Request body for POST/PUT. An object is JSON-serialised and sent with `content-type: application/json` set automatically; a string is sent verbatim with no content-type set. |
 
-On success it returns `{ status, ok, body, receipt }`, where `receipt` is the parsed payment
-[receipt](/accepting-payments/receipts-and-onpaid/) if one settled.
+On success it returns `{ status, ok, body, receipt, verifiableReceipt? }`, where `receipt` is the
+parsed payment [receipt](/accepting-payments/receipts-and-onpaid/) if one settled.
+`verifiableReceipt` is present only when the gate emitted a verifiable-receipt extension — the
+`PipRailReceipt` JSON (`{ piprail, receipt, resource, … }`, where `piprail` is the literal string
+`"1"`) stamped with the URL you fetched, which you keep and later re-check with
+`piprail_verify_receipt`.
 
 ```jsonc
 { "status": 200, "ok": true,
   "body": { "...": "the resource you paid for" },
-  "receipt": { "transaction": "0x…", "network": "eip155:8453", "payer": "0xYourWallet" } }
+  "receipt": { "transaction": "0x…", "network": "eip155:8453", "payer": "0xYourWallet" },
+  "verifiableReceipt": { "piprail": "1", "receipt": { "...": "…" }, "resource": "https://…" } }
 ```
 
 ### Every failure is structured — never a crash

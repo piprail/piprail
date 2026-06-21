@@ -182,7 +182,10 @@ and **upsert on the `idempotency-key` header** — `deliverReceipt`'s retries an
 
 It retries `408`/`429`/`5xx` and transport errors; a permanent `4xx` stops immediately. By default
 `retries: 5` (up to 6 POSTs) with a 10s per-attempt timeout. Tune it
-with `retries`, `timeoutMs`, `backoff`, `headers`, and observe each try with `onAttempt`:
+with `retries`, `timeoutMs`, `backoff`, `headers`, `signatureHeader` (the signature header name,
+default `piprail-signature`), `idempotencyHeader` (the dedupe-key header name, default
+`idempotency-key`), and `fetchImpl` (inject a `fetch` for tests / non-global-fetch runtimes;
+defaults to `globalThis.fetch`) — and observe each try with `onAttempt`:
 
 ```ts
 const result = await deliverReceipt(receipt, {
@@ -193,6 +196,44 @@ const result = await deliverReceipt(receipt, {
 })
 if (!result.delivered) deadLetter.push(receipt)   // give up gracefully after the budget
 ```
+
+### The `DeliverResult`
+
+`deliverReceipt` returns a `DeliverResult` and **never throws**, so this returned value is the
+*only* delivery signal — inspect `error`/`attempts` on a dead-letter path:
+
+```ts
+interface DeliverResult {
+  delivered: boolean        // true iff the endpoint returned 2xx within the attempt budget
+  attempts: number          // total POSTs made (1 + retries used)
+  status?: number           // final HTTP status, when the last attempt got a response
+  error?: string            // final error, when delivery failed
+}
+```
+
+If no `fetch` is available — neither a global nor an injected `fetchImpl` — it sends nothing and
+returns `{ delivered: false, attempts: 0, error: 'no fetch implementation available' }`.
+
+### The `DeliverAttempt`
+
+The `onAttempt` callback gets a `DeliverAttempt` per try, for logging/metrics:
+
+```ts
+interface DeliverAttempt {
+  attempt: number           // 1-based attempt number
+  ok: boolean               // did the endpoint return a 2xx?
+  status?: number           // HTTP status, when a response was received
+  error?: string            // transport/abort error message, when no response was received
+  willRetry: boolean        // will another attempt follow?
+}
+```
+
+:::caution[Signing needs Web Crypto]
+Signing uses Web Crypto (`crypto.subtle`) — always present on Node ≥20 and modern browsers. On a
+runtime that lacks it the body is sent **unsigned, with no `piprail-signature` header**. A receiver
+must therefore treat a **missing** signature as unauthenticated and **reject** it — never silently
+accept.
+:::
 
 For a queue instead of a webhook, keep the hook fast and let your worker do the heavy lifting:
 

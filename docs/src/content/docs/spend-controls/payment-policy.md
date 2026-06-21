@@ -212,7 +212,7 @@ The coarse `DeclineReasonCode` on the thrown `PaymentDeclinedError` maps these a
 `SESSION_EXPIRED` → `SESSION_EXPIRED`; everything else → `POLICY`.
 
 Checks run in this order — session expiry → chains → hosts → unknown-token → tokens → maxAmount
-→ maxTotal → windowTotal — with the first failure winning. Expiry is checked first because it's
+→ maxTotal → maxTotalPerDenom → maxPayments → windowTotal → maxPaymentsPerWindow — with the first failure winning. Expiry is checked first because it's
 session-global: an expired session always reports expiry, not whichever cap also happens to fail.
 
 ## Catching a refusal
@@ -253,13 +253,13 @@ try {
 
 :::note
 `quote.policyCode` (the read-only `PolicyDenyCode`) is finer-grained than the
-`PaymentDeclinedError.reasonCode` (`DeclineReasonCode`) you catch — the client maps the eight
+`PaymentDeclinedError.reasonCode` (`DeclineReasonCode`) you catch — the client maps the eleven
 policy codes down to five decline reasons:
 
 | `quote.policyCode` | `err.reasonCode` |
 | --- | --- |
-| `MAX_TOTAL` | `BUDGET` |
-| `WINDOW_TOTAL` | `OUTSIDE_WINDOW` |
+| `MAX_TOTAL` · `MAX_TOTAL_DENOM` · `MAX_PAYMENTS` | `BUDGET` |
+| `WINDOW_TOTAL` · `WINDOW_COUNT` | `OUTSIDE_WINDOW` |
 | `SESSION_EXPIRED` | `SESSION_EXPIRED` |
 | `CHAIN` · `HOST` · `UNKNOWN_TOKEN` · `TOKEN` · `MAX_AMOUNT` | `POLICY` |
 
