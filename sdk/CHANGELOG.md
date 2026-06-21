@@ -4,6 +4,32 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.13.1] — 2026-06-21 — Family-correct `exact`-rail recovery hints (no EVM-only assumptions on non-EVM rails)
+
+A correctness pass on the family-agnostic `exact` buyer path: its failure/timeout messages and one
+audit-ref fallback hardcoded the **EVM-only** `authorizationState(from, nonce)` recovery and a stale
+EVM-centric family list, even when paying a Solana / Algorand / Aptos / NEAR `exact` rail. The wire,
+the settlement, and every default are **unchanged** — this only corrects user-facing text + an
+internal label, and documents a signing prerequisite. Proven on Base + Solana mainnet (live `exact`
++ `onchain-proof` settlements, all clean).
+
+- **fix(client): `PaymentTimeoutError` + `MaxRetriesExceededError` recovery hints are now
+  family-correct.** Both `exact`-path messages named the EVM `authorizationState(from, nonce)` for
+  every family; they now name the real single-use marker per family (EVM EIP-3009 nonce / Permit2
+  bitmap · Solana tx signature · Algorand group id · Aptos sequence number · NEAR access-key nonce),
+  via a new pure `util/exactRecovery.ts` helper (chain-agnostic, with a safe default for any future
+  family).
+- **fix(client): the affirmative-settle audit-ref fallback** (used only when the facilitator echoes
+  no settle/receipt tx) was labelled `eip3009-nonce:` on every family; it's now `<family>-nonce:`
+  (EVM keeps `eip3009-nonce:`). No effect when a settle/receipt tx is present — the normal case.
+- **fix(client): the "can't pay an `exact` rail" error listed `EVM, Solana, Algorand + NEAR`** —
+  now correctly includes **Aptos**.
+- **docs(receipts): `DeliverReceiptOptions.secret`** now documents that signing uses Web Crypto
+  (`crypto.subtle`, always present on Node ≥ 20 / modern browsers); on a runtime without it the body
+  is sent unsigned with no signature header, so a receiver must reject a *missing* signature.
+- **docs:** `errors/error-hierarchy` + `errors/why-payments-fail` exact-recovery passages now
+  describe the per-family marker, not just the EVM one.
+
 ## [2.13.0] — 2026-06-21 — A2A hardening: spec-correct `payment-failed`, schema-contract precision + exhaustive edge-case coverage
 
 An extreme-hardening pass on the **x402-over-A2A seller transport**, audited against the **real

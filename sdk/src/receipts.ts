@@ -29,7 +29,11 @@ export interface DeliverReceiptOptions {
   url: string
   /**
    * Shared secret. When set, the raw JSON body is signed HMAC-SHA256 and sent as
-   * `<signatureHeader>: sha256=<hex>` so the receiver can verify authenticity.
+   * `<signatureHeader>: sha256=<hex>` so the receiver can verify authenticity. Signing uses Web
+   * Crypto (`crypto.subtle`) — always present on the supported runtimes (Node ≥ 20, modern
+   * browsers). On a runtime that lacks it the body is sent **unsigned, with no signature header**,
+   * so a receiver must treat a *missing* signature as unauthenticated (reject it), never silently
+   * accept an unsigned body.
    */
   secret?: string
   /** Extra retry attempts after the first send (default 5 → up to 6 POSTs total). */

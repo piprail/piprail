@@ -138,9 +138,13 @@ try {
 }
 ```
 
-For an `exact` rail, `MaxRetriesExceededError.ref` is the EIP-3009 authorization **nonce**
-(a `0x…` value, not a tx hash) — re-present the same signed authorization, and check the
-token's `authorizationState(from, nonce)` before assuming it didn't settle.
+For an `exact` rail, `.ref` is the authorization's single-use marker (not a tx hash) — re-present
+the same signed authorization, and verify it on-chain before assuming it didn't settle. On EVM
+that's the EIP-3009 authorization **nonce** (a `0x…` value), checked via the token's
+`authorizationState(from, nonce)`; the non-EVM `exact` rails key off their own marker (Solana — the
+buyer's tx signature; Algorand — the group/tx id; Aptos — the sender's account sequence number;
+NEAR — the access-key nonce). See [the exact-buyer recovery section](/making-payments/exact-buyer/)
+for the per-family detail.
 
 ## Why a payment was declined — `DeclineReasonCode`
 

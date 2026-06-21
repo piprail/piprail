@@ -231,6 +231,7 @@ describe('exact pay path — correctness invariants', () => {
     const err = await client.fetch(URL).catch((e) => e)
     expect(err).toBeInstanceOf(PaymentTimeoutError)
     expect(err.ref).toMatch(/^0x[0-9a-f]{64}$/) // the authorization nonce
+    expect(err.message).toContain('authorizationState') // EVM rail still gets the EVM-correct recovery hint
     expect(h.proofReqs()).toBe(1) // submitted once, NOT re-POSTed
     expect(client.spent().count).toBe(0)
   })
