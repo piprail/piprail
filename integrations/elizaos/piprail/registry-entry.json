@@ -1,5 +1,5 @@
 {
-  "package": "elizaos-plugin-piprail",
+  "package": "@piprail/elizaos-plugin",
   "repository": "github:piprail/piprail",
   "kind": "plugin",
   "description": "Self-custody, multi-chain x402 payer — give an elizaOS agent a budget-bound wallet to pay HTTP 402 APIs across many chains, with no facilitator or fee.",

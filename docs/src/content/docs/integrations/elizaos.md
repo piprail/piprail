@@ -13,21 +13,21 @@ they can pay [x402](https://x402.org)-gated APIs, data feeds, and AI services **
 
 Unlike the [OpenClaw](/integrations/openclaw/) and [Hermes](/integrations/hermes/) integrations (which
 wire the [`@piprail/mcp`](/mcp/overview/) server over stdio), elizaOS gets a **native plugin** —
-[`elizaos-plugin-piprail`](https://github.com/piprail/piprail/tree/main/integrations/elizaos/piprail).
+[`@piprail/elizaos-plugin`](https://github.com/piprail/piprail/tree/main/integrations/elizaos/piprail).
 It wraps the SDK's [`paymentTools`](/agent-toolkit/payment-tools/) directly into **six elizaOS actions**.
 It has no payment logic of its own — it delegates to the published
 [`@piprail/sdk`](https://www.npmjs.com/package/@piprail/sdk), so the agent's own key signs against your
 own RPC: **self-custody, no facilitator, no fee**, and a spend policy the model **cannot exceed**.
 
 :::tip[elizaOS has a sell-side x402 plugin — this is the buy side]
-`@elizaos/plugin-x402` lets an agent *charge* for its services. `elizaos-plugin-piprail` is the
+`@elizaos/plugin-x402` lets an agent *charge* for its services. `@piprail/elizaos-plugin` is the
 counterpart: it lets an agent *pay* — autonomously, across [every chain](/chains/overview/), budget-bound.
 :::
 
 ## Setup
 
 ```bash
-npm install elizaos-plugin-piprail
+npm install @piprail/elizaos-plugin
 ```
 
 List the plugin in your character and give it a funded wallet key + caps:
@@ -35,7 +35,7 @@ List the plugin in your character and give it a funded wallet key + caps:
 ```jsonc
 {
   "name": "PayBot",
-  "plugins": ["elizaos-plugin-piprail"],
+  "plugins": ["@piprail/elizaos-plugin"],
   "settings": {
     "PIPRAIL_CHAIN": "base",
     "PIPRAIL_MAX_AMOUNT": "0.10",   // per-payment cap
@@ -45,7 +45,7 @@ List the plugin in your character and give it a funded wallet key + caps:
 }
 ```
 
-In a TypeScript character you can instead `import { piprailPlugin } from 'elizaos-plugin-piprail'` and
+In a TypeScript character you can instead `import { piprailPlugin } from '@piprail/elizaos-plugin'` and
 put the object in `plugins: [piprailPlugin]`. See
 [`character.example.json`](https://github.com/piprail/piprail/tree/main/integrations/elizaos/piprail/character.example.json).
 

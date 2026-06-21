@@ -1,6 +1,6 @@
 {
   "name": "PayBot",
-  "plugins": ["elizaos-plugin-piprail"],
+  "plugins": ["@piprail/elizaos-plugin"],
   "settings": {
     "PIPRAIL_CHAIN": "base",
     "PIPRAIL_MAX_AMOUNT": "0.10",
