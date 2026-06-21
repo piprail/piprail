@@ -27,7 +27,7 @@ export const chains: ChainEntry[] = [
   { name: 'Stellar', slug: 'stellar', tokens: ['usdc', 'eurc'], family: 'Stellar', setup: 'Recipient needs a one-time trustline for the asset and an activated, reserve-funded account; native XLM needs no trustline.' },
   { name: 'XRP Ledger', slug: 'xrpl', tokens: ['usdc', 'rlusd'], family: 'XRPL', setup: 'Recipient needs a one-time trustline for the asset and an activated, reserve-funded account; native XRP needs no trustline.' },
   { name: 'Base', slug: 'base', tokens: ['usdc', 'eurc'], family: 'EVM' },
-  { name: 'BNB Chain', slug: 'bnb', tokens: ['usdc', 'usdt', 'fdusd', 'usd1'], family: 'EVM' },
+  { name: 'BNB Chain', slug: 'bnb', tokens: ['usdc', 'usdt', 'fdusd', 'usd1', 'u'], family: 'EVM' },
   { name: 'Arbitrum', slug: 'arbitrum', tokens: ['usdc', 'usdt'], family: 'EVM' },
   { name: 'Polygon', slug: 'polygon', tokens: ['usdc', 'usdt'], family: 'EVM' },
   { name: 'Optimism', slug: 'optimism', tokens: ['usdc', 'usdt'], family: 'EVM' },
