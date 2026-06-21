@@ -190,7 +190,8 @@ function makeEvmNetwork(resolved: ResolvedChain): ResolvedNetwork {
       // server / merchant-chosen facilitator broadcasts it — so the BUYER spends ~0
       // gas. Report a gasless estimate so the planner never blocks it on native funds.
       if (accept.scheme === 'exact') {
-        const permit2 = accept.extra.assetTransferMethod === 'permit2'
+        const m = accept.extra.assetTransferMethod
+        const permit2 = m === 'permit2' || m === 'permit2-exact'
         return nativeCost({
           symbol,
           decimals,
@@ -280,10 +281,12 @@ function makeEvmNetwork(resolved: ResolvedChain): ResolvedNetwork {
     // `assetTransferMethod`: `permit2` (any ERC-20 — e.g. Binance-Peg USDC on BNB, signs a
     // Permit2 witness transfer + lazily does the one-time approval) or `eip3009` (re-derives
     // the token's EIP-712 domain on-chain + signs transferWithAuthorization). Never broadcasts.
+    // `permit2-exact` is Binance b402's foreign-dialect alias for `permit2` — treated identically.
     // Throws UnsupportedSchemeError for a contract signer (or a non-EIP-3009 token on the eip3009 path).
     async payExact(wallet: WalletHandle, accept) {
       const a = wallet._native as WalletAdapter
-      if (accept.extra.assetTransferMethod === 'permit2') {
+      const method = accept.extra.assetTransferMethod
+      if (method === 'permit2' || method === 'permit2-exact') {
         const { payload, payerFrom, nonce } = await payPermit2Evm({
           publicClient,
           walletClient: a.walletClient,

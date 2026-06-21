@@ -122,25 +122,25 @@ export const KNOWN_FACILITATORS: Readonly<Record<Caip2, ReadonlyArray<KnownFacil
       note: 'Pieverse — keyless, sponsors gas (Monad USDC EIP-3009). LIVE-settled on Monad 2026-06-17 (tx 0x00cfeb93876e5ef57dcb002510038b7304913233ca286d7ab33c72a8b119eb0d).',
     },
   ],
-  // BNB Chain (eip155:56). Dexter keyless-settles the EVM EIP-3009 exact rail — but ONLY for BNB's
-  // EIP-3009 tokens (FDUSD / USD1); BNB's USDC/USDT are Binance-Peg (Permit2), which no facilitator
+  // BNB Chain (eip155:56). Dexter + Pieverse keyless-settle the EVM EIP-3009 exact rail for BNB's
+  // EIP-3009 tokens (FDUSD / USD1 / U); BNB's USDC/USDT are Binance-Peg (Permit2), which no facilitator
   // settles. Dexter also enforces a ~$0.003 dynamic settlement floor on BNB, so a sub-$0.003 payment
   // is rejected (amount_too_low) — fine for real prices, but the floor is real. LIVE-settled with
-  // FDUSD, buyer paid zero BNB — this beats the BNB token-overlap wall that blocked AEON/Pieverse.
+  // FDUSD + U, buyer paid zero BNB — this beats the BNB token-overlap wall that blocked AEON/Pieverse.
   'eip155:56': [
     {
       url: 'https://x402.dexter.cash',
       keyless: true,
       schemes: ['exact'],
       settles: ['eip3009'],
-      note: 'Dexter — keyless, gas-sponsored. BNB EIP-3009 tokens FDUSD/USD1 ONLY (Binance-Peg USDC/USDT are Permit2 → not facilitator-settleable); ~$0.003 dynamic floor. LIVE-settled on BNB 2026-06-17 with FDUSD (tx 0x6d9eb4e4939f3f3c74cb19424cc7822d66ec8ed5c5c7c330d9f88a5f9ad59e9e).',
+      note: 'Dexter — keyless, gas-sponsored. BNB EIP-3009 tokens FDUSD/USD1/U (Binance-Peg USDC/USDT are Permit2 → not facilitator-settleable); ~$0.003 dynamic floor. LIVE-settled on BNB 2026-06-17 with FDUSD (tx 0x6d9eb4e4939f3f3c74cb19424cc7822d66ec8ed5c5c7c330d9f88a5f9ad59e9e); accepts U (verify confirmed 2026-06-21).',
     },
     {
       url: 'https://facilitator.pieverse.io',
       keyless: true,
       schemes: ['exact'],
       settles: ['eip3009'],
-      note: 'Pieverse — keyless, sponsors gas. BNB EIP-3009 tokens FDUSD/USD1 (same Binance-Peg caveat as Dexter). LIVE-settled on BNB 2026-06-17 with FDUSD (tx 0xb9c76affc45bd07a51559efd813ca71516fc30625478724476c2cf42fc2203d3) — a 2nd keyless BNB facilitator (failover for Dexter).',
+      note: 'Pieverse — keyless, sponsors gas. BNB EIP-3009 tokens FDUSD/USD1/U (same Binance-Peg caveat as Dexter). LIVE-settled on BNB with FDUSD 2026-06-17 (tx 0xb9c76affc45bd07a51559efd813ca71516fc30625478724476c2cf42fc2203d3) AND with the U / United Stables token 2026-06-21 (tx 0x2b3b8c51ae81df441551301c44a64652c84c796af3b9d03ec58ea38f1cb013d5, buyer 0 BNB) — a 2nd keyless BNB facilitator (failover for Dexter).',
     },
   ],
   // HyperEVM (eip155:999). Ultravioleta DAO keyless-settles the EVM EIP-3009 exact rail (HyperEVM's

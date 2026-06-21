@@ -93,11 +93,15 @@ export const CHAINS = {
       // Binance-Peg (NOT EIP-3009) → the `exact` rail uses Permit2.
       USDC: { address: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d', decimals: 18, symbol: 'USDC' },
       USDT: { address: '0x55d398326f99059fF775485246999027B3197955', decimals: 18, symbol: 'USDT' },
-      // FDUSD + USD1 ARE EIP-3009 (transferWithAuthorization) → the `exact` rail uses the gasless,
-      // no-Permit2-approve path. Both hardcode EIP-712 domain version "1" (no version() — the SDK
-      // derives it from DOMAIN_SEPARATOR). Verified on-chain (symbol/decimals/domain match).
+      // FDUSD, USD1 + U ARE EIP-3009 (transferWithAuthorization) → the `exact` rail uses the gasless,
+      // no-Permit2-approve path. All three hardcode EIP-712 domain version "1" (no version() — the
+      // SDK derives it from DOMAIN_SEPARATOR). Verified on-chain (symbol/decimals/domain match).
       FDUSD: { address: '0xc5f0f7b66764F6ec8C8Dff7BA683102295E16409', decimals: 18, symbol: 'FDUSD' },
       USD1: { address: '0x8d0D000Ee44948FC98c9B98A4FA4921476f08B0d', decimals: 18, symbol: 'USD1' },
+      // U (United Stables) — the first-listed token in Binance's own x402 set (U/USD1/USDT/USDC) and
+      // the BNB Agent Survival Pack settlement unit. EIP-3009 (domain name "United Stables",
+      // version "1" derived from DOMAIN_SEPARATOR 0x358738…1679b6). On-chain-verified 2026-06-21.
+      U: { address: '0xcE24439F2D9C6a2289F741120FE202248B666666', decimals: 18, symbol: 'U' },
     },
   },
   avalanche: {

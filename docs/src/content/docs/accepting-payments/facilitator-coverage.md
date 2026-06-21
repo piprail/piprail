@@ -31,11 +31,11 @@ fee-payer rail the gate also **bounds the fee** a buyer can make the sponsor pay
 |---|---|---|---|
 | **[PayAI](https://facilitator.payai.network/)** | ✅ keyless | ✅ **Base, Polygon, Arbitrum, Avalanche, Sei, Solana** | Base, Solana, Avalanche, Polygon, Arbitrum, Sei +24 |
 | **[Ultravioleta DAO](https://facilitator.ultravioletadao.xyz/)** | ✅ keyless | ✅ **Ethereum, Polygon, Arbitrum, Optimism, Unichain, HyperEVM, Base, Monad** | HyperEVM, Base, Monad, Celo, Unichain, Optimism, Scroll, Ethereum, Arbitrum, Polygon, Avalanche, BNB + Solana, Stellar, Sui, Algorand, NEAR, XRPL (18 listed — but Celo/Scroll/Avalanche `contract_call_failed`; non-EVM advertise-only) |
-| **[Dexter](https://x402.dexter.cash/)** | ✅ keyless | ✅ **Base, Polygon, Arbitrum, Optimism, Avalanche, BNB** | Base, BNB, Solana, Polygon, Arbitrum, Optimism, Avalanche *(BNB: FDUSD/USD1 only; ~$0.003 dynamic floor — sub-floor payments rejected)* |
+| **[Dexter](https://x402.dexter.cash/)** | ✅ keyless | ✅ **Base, Polygon, Arbitrum, Optimism, Avalanche, BNB** | Base, BNB, Solana, Polygon, Arbitrum, Optimism, Avalanche *(BNB: FDUSD/USD1/U only; ~$0.003 dynamic floor — sub-floor payments rejected)* |
 | **[Corbits](https://corbits.dev/)** | ✅ keyless | ✅ **Solana, Base, Polygon, Monad** | Solana, Base, Polygon, Monad +38 |
 | **[Polygon Labs](https://x402.polygon.technology/)** | ✅ keyless | ✅ **Polygon** | Polygon (the official Polygon facilitator) |
 | **[GoPlausible](https://facilitator.goplausible.xyz/)** | ✅ keyless | ✅ **Algorand + Base** | **Algorand** (the only keyless Algorand facilitator), Base, Solana |
-| **[Pieverse](https://facilitator.pieverse.io/)** | ✅ keyless | ✅ **Monad + BNB** | Monad, BNB, Base *(BNB: FDUSD/USD1)* |
+| **[Pieverse](https://facilitator.pieverse.io/)** | ✅ keyless | ✅ **Monad + BNB** | Monad, BNB, Base *(BNB: FDUSD/USD1/U)* |
 | **[Cascade](https://facilitator.cascade.fyi/)** | ✅ keyless | ✅ **Base** | Base, Solana |
 | **[Satoshi (bitcoinsapi)](https://facilitator.bitcoinsapi.com/)** | ✅ keyless | ✅ **Base** | Base, Solana |
 | **[OpenFacilitator](https://www.openfacilitator.io/)** | ✅ keyless | ✅ Solana | Base, Solana, Stacks |
@@ -116,7 +116,7 @@ settled a real mainnet payment with no key, buyer paid zero gas (see
 - **Avalanche** (`eip155:43114`) → **PayAI + Dexter** (`eip3009`) *(live-settled 2026-06-18)*
 - **Sei** (`eip155:1329`) → **PayAI** (`eip3009`) *(live-settled 2026-06-18)*
 - **Unichain** (`eip155:130`) → **Ultravioleta DAO** (`eip3009`) *(live-settled 2026-06-18)*
-- **BNB** (`eip155:56`) → **Dexter** + **Pieverse** (`eip3009`) — *live-settled 2026-06-17 with FDUSD.* BNB's USDC/USDT are Binance-Peg (Permit2, not facilitator-settleable), so keyless BNB works only for the **EIP-3009 tokens FDUSD/USD1**, and Dexter enforces a **~$0.003 dynamic floor**. This beats the BNB token-overlap wall — and Pieverse settles FDUSD too, so BNB now has two keyless facilitators.
+- **BNB** (`eip155:56`) → **Dexter** + **Pieverse** (`eip3009`) — *live-settled 2026-06-17 with FDUSD; U live-settled 2026-06-21 via Pieverse (buyer 0 BNB).* BNB's USDC/USDT are Binance-Peg (Permit2, not facilitator-settleable), so keyless BNB works only for the **EIP-3009 tokens FDUSD/USD1/U**, and Dexter enforces a **~$0.003 dynamic floor**. This beats the BNB token-overlap wall — both Dexter and Pieverse accept U, and Pieverse settles FDUSD too, so BNB now has two keyless facilitators.
 - **Monad** (`eip155:143`) → Corbits + **Ultravioleta DAO** + **Pieverse** (`eip3009`) *(live-settled 2026-06-17)*
 - **HyperEVM** (`eip155:999`) → Ultravioleta DAO (`eip3009`) *(live-settled 2026-06-17)*
 - **Algorand** (`algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=`) → **GoPlausible** (`algorand`) — *new, live-settled 2026-06-17.* Atomic-group fee pooling: GoPlausible's sponsor pools the whole group fee, so **both the buyer AND the merchant pay 0 ALGO**. The first non-EVM/non-Solana keyless chain.

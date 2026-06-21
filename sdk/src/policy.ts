@@ -51,6 +51,7 @@ export const BUILTIN_DENOMS: Readonly<Record<string, string>> = {
   USDT: 'USD',
   USD1: 'USD',
   FDUSD: 'USD',
+  U: 'USD', // United Stables — BNB EIP-3009 stablecoin (1:1 USDC/USDT/USD1-backed)
   RLUSD: 'USD',
   EURC: 'EUR',
 }

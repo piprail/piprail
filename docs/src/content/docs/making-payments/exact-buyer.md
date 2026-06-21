@@ -82,7 +82,7 @@ automatically:
 
 | Works on `exact` | Stays on `onchain-proof` |
 | --- | --- |
-| EVM EIP-3009 (USDC / EURC; FDUSD & USD1 on BNB) | The other non-EVM families (TON, Tron, Sui, Stellar, XRPL) |
+| EVM EIP-3009 (USDC / EURC; FDUSD, USD1 & U on BNB) | The other non-EVM families (TON, Tron, Sui, Stellar, XRPL) |
 | EVM Permit2 — any ERC-20 (e.g. Binance-Peg USDC on BNB) | The chain's native coin (incl. SOL, ALGO, APT, NEAR) |
 | Solana SVM — any SPL token (USDC / USDT) | A contract / EIP-1271 / EIP-7702 signer (EVM) |
 | Algorand ASA (USDCa) · Aptos FA (USDC / USD₮) · NEAR NEP-141 (USDC / USDT, via NEP-366 meta-tx) | |

@@ -51,6 +51,7 @@ describe('denomOf — the unit-of-account label (NOT a price oracle)', () => {
     expect(denomOf('USDT', '0xusdt', undefined)).toBe('USD')
     expect(denomOf('USD1', '0x', undefined)).toBe('USD')
     expect(denomOf('FDUSD', '0x', undefined)).toBe('USD')
+    expect(denomOf('U', '0x', undefined)).toBe('USD')
     expect(denomOf('RLUSD', 'rlusd', undefined)).toBe('USD')
     expect(denomOf('EURC', '0xeurc', undefined)).toBe('EUR')
     expect(BUILTIN_DENOMS.USDC).toBe('USD')

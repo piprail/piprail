@@ -138,7 +138,7 @@ unit. See [Total budget](/spend-controls/total-budget/).
 ```
 
 - **`PIPRAIL_MAX_TOTAL_DENOM`** folds the built-in stablecoins (`USDC`, `USDT`, `USD1`, `FDUSD`,
-  `RLUSD` → `USD`; `EURC` → `EUR`) into one unit-of-account total. It is **not a price oracle** — a
+  `U`, `RLUSD` → `USD`; `EURC` → `EUR`) into one unit-of-account total. It is **not a price oracle** — a
   token's unit is a static, ship-time label, summed 1:1; the chain's native coin and any unknown
   token have no denomination and are never summed. It coexists with `PIPRAIL_MAX_TOTAL`; the
   stricter cap wins.

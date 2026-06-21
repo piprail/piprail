@@ -99,7 +99,7 @@ requirePayment({
 })
 ```
 
-On BNB the exact rail covers Binance-Peg USDC/USDT (Permit2) and FDUSD/USD1 (gasless EIP-3009) —
+On BNB the exact rail covers Binance-Peg USDC/USDT (Permit2) and FDUSD/USD1/U (gasless EIP-3009) —
 see [Gasless payments](/making-payments/gasless-payments/).
 
 ## 7. Keep keys safe

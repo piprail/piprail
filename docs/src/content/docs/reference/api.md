@@ -108,7 +108,7 @@ caller-owned file (or anything you implement).
 | `memorySpendStore` | fn | A `SpendStore` backed by an in-memory array — `memorySpendStore(seed?)`; from `@piprail/sdk` |
 | `fileSpendStore` | fn | A durable JSONL `SpendStore` — `fileSpendStore(path)`; from `@piprail/sdk/node` (Node-only, keeps `node:fs` out of the browser bundle) |
 | `denomOf` | fn | Pure — `denomOf(symbol, asset, policy)` → the unit a token folds into, or none |
-| `BUILTIN_DENOMS`, `DENOM_PRECISION` | const | the built-in symbol→unit map (USDC/USDT/USD1/FDUSD/RLUSD → `'USD'`, EURC → `'EUR'`) and the fixed-point precision (`24`) |
+| `BUILTIN_DENOMS`, `DENOM_PRECISION` | const | the built-in symbol→unit map (USDC/USDT/USD1/FDUSD/U/RLUSD → `'USD'`, EURC → `'EUR'`) and the fixed-point precision (`24`) |
 | `PaymentPolicy`, `PaymentIntent`, `PolicyDecision`, `PolicyDenyCode` | type | `PaymentPolicy` gained `maxTotalPerDenom` / `denomFor` / `maxPayments` / `maxPaymentsPerWindow` / `warnAtFraction`; `PolicyDenyCode` gained `MAX_TOTAL_DENOM` / `MAX_PAYMENTS` / `WINDOW_COUNT` |
 | `SpendStore` | type | `{ load(): SpendRecord[]; append(record): void }` — pass as the client's `spendStore` to persist the ledger (never throws) |
 | `SpendRecord`, `SpendSummary`, `SpendAssetTotal`, `SpendDenomTotal` | type | `SpendSummary` gained `byDenom: SpendDenomTotal[]`; `SpendRecord` gained optional `decimals` / `denom` |

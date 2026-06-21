@@ -63,6 +63,19 @@ describe('readExactDomain — derive version from DOMAIN_SEPARATOR (no version()
     )
     expect(d).toEqual({ name: 'World Liberty Financial USD', version: '1' })
   })
+
+  it('U (United Stables) on BNB → derives version "1" from the real on-chain DOMAIN_SEPARATOR', async () => {
+    const d = await readExactDomain(
+      fakePublic({
+        name: () => 'United Stables',
+        authorizationState: () => false,
+        version: throwing, // U has no version() (reverts)
+        DOMAIN_SEPARATOR: () => '0x358738403e5a61fdc30a8be78a60f289cbe4d2545b735a344b6229c70c1679b6',
+      }),
+      '0xcE24439F2D9C6a2289F741120FE202248B666666'
+    )
+    expect(d).toEqual({ name: 'United Stables', version: '1' })
+  })
 })
 
 describe('readExactDomain — safely returns null (→ permit2 / onchain-proof fallback)', () => {

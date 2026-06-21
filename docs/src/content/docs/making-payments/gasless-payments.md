@@ -111,7 +111,7 @@ group, Aptos uses its fee-payer (sponsored) transaction, NEAR uses its NEP-366 m
 | | **EIP-3009** (EVM, gold path) | **Permit2** (EVM) | **SVM** (Solana) |
 |---|---|---|---|
 | Works on | tokens with `transferWithAuthorization` | **any** ERC-20 | **any** SPL token |
-| Examples (built-in presets) | Circle **USDC** & **EURC**, **FDUSD**, **USD1** | Binance-Peg USDC/USDT on BNB | Solana **USDC** & **USDT** |
+| Examples (built-in presets) | Circle **USDC** & **EURC**, **FDUSD**, **USD1**, **U** | Binance-Peg USDC/USDT on BNB | Solana **USDC** & **USDT** |
 | What the buyer signs | an EIP-3009 authorization (off-chain) | a Permit2 witness transfer (off-chain) | the SPL `TransferChecked` **transaction** (partial-sign) |
 | Who broadcasts | merchant relayer / **facilitator** | merchant relayer (**self-settle only**) | relayer / **facilitator** (the **fee payer**) |
 | Extra contract needed | **none** | the canonical **Permit2** + the **x402ExactPermit2Proxy** | **none** |
@@ -195,9 +195,9 @@ The rest of this section breaks the 🟢/🔵 tiers down by *how* `exact` is sig
 |---|---|
 | **USDC** (native Circle) | Ethereum · Base · Arbitrum · Optimism · Polygon · Avalanche · **Sonic · Linea · Celo · Unichain · World Chain · Sei · HyperEVM · Monad · zkSync Era · Injective** |
 | **EURC** | Ethereum · Base · Avalanche |
-| **FDUSD**, **USD1** | BNB Chain |
+| **FDUSD**, **USD1**, **U** | BNB Chain |
 
-*(**17 EIP-3009-gasless chains (the 16 native-USDC chains above plus BNB via FDUSD/USD1), and counting.** Every native Circle USDC is the same Circle FiatToken contract that
+*(**17 EIP-3009-gasless chains (the 16 native-USDC chains above plus BNB via FDUSD/USD1/U), and counting.** Every native Circle USDC is the same Circle FiatToken contract that
 implements EIP-3009 — so naming the chain is all it takes, no proxy and no approval. Each chain above
 was verified on-chain before shipping: `authorizationState` present, EIP-712 domain `version` 2, and the
 chain's real `eth_chainId` matched. The list grows as Circle issues native USDC on more chains.)*
@@ -371,19 +371,20 @@ Sei, Unichain, Base, BNB, HyperEVM, Monad**, Solana, **or Algorand** — 13 chai
 
 BNB is the instructive case because it uses *both* methods at once. Circle has not issued native USDC
 on BNB, so its USDC/USDT are **Binance-Peg** (18-decimal) wrappers that **aren't EIP-3009** → they go
-via **Permit2**. But **FDUSD** and **USD1** (both in the `bnb` preset) **are** EIP-3009 → they go the
-clean gasless path, **no approval at all**. PipRail auto-selects: USDC/USDT → Permit2, FDUSD/USD1 →
-EIP-3009. All four are live-proven on BNB mainnet.
+via **Permit2**. But **FDUSD**, **USD1**, and **U** (United Stables — all three in the `bnb` preset)
+**are** EIP-3009 → they go the clean gasless path, **no approval at all**. PipRail auto-selects:
+USDC/USDT → Permit2, FDUSD/USD1/U → EIP-3009. All five are live-proven on BNB mainnet.
 
 **BNB is now fully both-sides-gasless via a keyless facilitator too** — but *only* on the EIP-3009 tokens.
 A keyless facilitator settles `eip3009` (not PipRail's Permit2 proxy), so `exact: true` on BNB with
-**FDUSD** or **USD1** auto-picks **[Dexter](https://x402.dexter.cash/)** — neither buyer nor merchant
-pays gas (live-settled on BNB mainnet with FDUSD). USDC/USDT (Permit2) stay **self-settle only** (your
-relayer pays the gas). One caveat: Dexter enforces a **~$0.003 dynamic floor** on BNB, so a sub-$0.003
-payment is rejected — fine for real prices. This is the BNB token-overlap wall (which blocked AEON/
-Pieverse) finally beaten: route through the native EIP-3009 stablecoins.
+**FDUSD**, **USD1**, or **U** auto-picks a keyless facilitator (**[Dexter](https://x402.dexter.cash/)** or
+**Pieverse**) — neither buyer nor merchant pays gas (live-settled on BNB mainnet: FDUSD via Dexter, and
+**U via Pieverse** 2026-06-21 — buyer *and* merchant paid 0 BNB). USDC/USDT (Permit2) stay
+**self-settle only** (your relayer pays the gas). One caveat: Dexter enforces a **~$0.003 dynamic floor**
+on BNB, so a sub-$0.003 payment is rejected — fine for real prices. This is the BNB token-overlap wall
+(which blocked AEON/Pieverse) finally beaten: route through the native EIP-3009 stablecoins.
 
-A wrinkle PipRail handles for you: FDUSD and USD1 hardcode their EIP-712 domain version (`"1"`) and
+A wrinkle PipRail handles for you: FDUSD, USD1, and U hardcode their EIP-712 domain version (`"1"`) and
 don't expose `version()`, so [`readExactDomain`](/reference/exact-lowlevel/) **derives the version from
 the on-chain `DOMAIN_SEPARATOR`** — making any `version()`-less EIP-3009 token first-class with no config.
 
