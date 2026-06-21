@@ -16,7 +16,9 @@ export function buildHandler({ payTo = DEFAULT_PAYTO, rpcUrl = 'https://base-rpc
 
   const pay = createA2APaymentHandler({
     gate,
-    fulfill: fulfill ?? (async ({ receipt }) => [{ name: 'result', parts: [{ kind: 'text', text: `Paid ${receipt.amount} — here's your result.` }] }]),
+    // `receipt.amount` is BASE units (e.g. "10000" for 0.01 USDC); reference receipt.transaction here
+    // rather than print a raw amount as if it were human-readable.
+    fulfill: fulfill ?? (async ({ receipt }) => [{ name: 'result', parts: [{ kind: 'text', text: `Settled (tx ${receipt.transaction}) — here's your result.` }] }]),
   })
 
   class X402Executor {

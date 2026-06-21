@@ -9,6 +9,7 @@ import { describe, it, expect } from 'vitest'
 import {
   createPaymentGate,
   createA2APaymentHandler,
+  VERIFY_CODE_TO_A2A_ERROR,
   A2A_STATUS_KEY,
   A2A_REQUIRED_KEY,
   A2A_PAYLOAD_KEY,
@@ -21,6 +22,13 @@ import {
 const PAYTO = '0x28Dc25bf88BF06fc0a3Af1747D1aA4a21f313ed0'
 const newPay = () => createA2APaymentHandler({ gate: createPaymentGate({ chain: 'base', token: 'USDC', amount: '0.01', payTo: PAYTO }) })
 
+/** The 7 canonical x402 A2A error codes — `x402ErrorCode.get_all_codes()` in Google's reference
+ *  `x402_a2a/types/errors.py` + the spec/v0.2 §9.1 table. Every value we emit MUST be one of these. */
+const SPEC_X402_ERROR_CODES = new Set([
+  'INSUFFICIENT_FUNDS', 'INVALID_SIGNATURE', 'EXPIRED_PAYMENT', 'DUPLICATE_NONCE',
+  'NETWORK_MISMATCH', 'INVALID_AMOUNT', 'SETTLEMENT_FAILED',
+])
+
 describe('A2A wire conformance — current x402 V2 (regression guard vs v1 drift)', () => {
   it('the five metadata keys + the extension URI + the activation header are the spec-exact strings', () => {
     // Identical to Google's official x402_a2a constants (state.py / config.py).
@@ -32,6 +40,14 @@ describe('A2A wire conformance — current x402 V2 (regression guard vs v1 drift
     expect(A2A_EXTENSIONS_HEADER).toBe('X-A2A-Extensions')
     expect(A2A_X402_EXTENSION_URI_V01).toBe('https://github.com/google-a2a/a2a-x402/v0.1')
     expect(newPay().agentCardExtension().uri).toBe(A2A_X402_EXTENSION_URI_V01)
+  })
+
+  it('every VERIFY_CODE_TO_A2A_ERROR target is one of the 7 canonical x402ErrorCode members', () => {
+    // Pins the codomain to the spec enum (errors.py x402ErrorCode.get_all_codes() / spec §9.1), so a
+    // future mapping can't drift to a made-up code a conformant A2A buyer wouldn't recognise.
+    for (const v of Object.values(VERIFY_CODE_TO_A2A_ERROR)) {
+      expect(SPEC_X402_ERROR_CODES.has(v)).toBe(true)
+    }
   })
 
   it('the emitted PaymentRequired is x402 V2, not v1', async () => {

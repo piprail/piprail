@@ -1,9 +1,9 @@
 /**
- * Minimal, DUCK-TYPED Google Agent2Agent (A2A) shapes — the structural surface the
- * PipRail A2A transport reads/writes, and NOTHING more. Like `ExpressLikeRequest` in
- * `server.ts`, these declare only the fields the adapter touches, so any A2A runtime's
- * objects (the official `@a2a-js/sdk`, ADK, or a hand-rolled JSON-RPC handler) satisfy
- * them structurally — **with ZERO `@a2a` dependency**.
+ * Minimal, DUCK-TYPED Agent2Agent (A2A) shapes — the structural surface the PipRail A2A
+ * transport reads/writes, and NOTHING more. Like `ExpressLikeRequest` in `server.ts`, these
+ * declare only the fields the adapter touches, so any A2A runtime's objects (the official
+ * `@a2a-js/sdk` — `a2aproject` org, the Linux Foundation A2A project — ADK, or a hand-rolled
+ * JSON-RPC handler) satisfy them structurally — **with ZERO `@a2a` dependency**.
  *
  * x402-over-A2A carries PipRail's existing `PaymentRequired`/`PaymentPayload`/
  * `SettlementResponse` envelopes inside A2A `Task`/`Message` `metadata`, keyed off five
