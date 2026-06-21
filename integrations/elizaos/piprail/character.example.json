@@ -1,0 +1,14 @@
+{
+  "name": "PayBot",
+  "plugins": ["elizaos-plugin-piprail"],
+  "settings": {
+    "PIPRAIL_CHAIN": "base",
+    "PIPRAIL_MAX_AMOUNT": "0.10",
+    "PIPRAIL_MAX_TOTAL": "5.00",
+    "secrets": {
+      "PIPRAIL_PRIVATE_KEY": "0x-your-funded-wallet-key"
+    }
+  },
+  "bio": ["An agent that can pay x402 APIs on its own, within a strict spend cap."],
+  "messageExamples": []
+}
