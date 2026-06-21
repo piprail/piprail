@@ -3,17 +3,23 @@
 A runnable test harness that exercises the **whole SDK** as a real consumer would
 — the **accept side** (`requirePayment` / `createPaymentGate`), the **pay side**
 (`PipRailClient` *and* the multi-chain `MultiChainPayer`), the **agent toolkit**
-(`paymentTools` — all 7 tools), and the **entire public API surface** — against
+(`paymentTools` — all 8 tools), and the **entire public API surface** — against
 real local HTTP merchants, fake heterogeneous drivers, and a **real on-chain
 round-trip** (a local Anvil fork of Base, fake money). It complements the SDK's
 in-tree unit suite by proving the **published artifact** (currently `@piprail/sdk`
-≥ 1.24.0) behaves end to end, and it doubles as living documentation.
+≥ 2.13.1) behaves end to end, and it doubles as living documentation.
 **284 checks, all green.**
 
 ```bash
 # Tests the installed @piprail/sdk (bump it in package.json to test a new release):
 cd examples/basics/sdk-sandbox && npm install
 node run-all.mjs        # or: npm test
+
+# Real-money LIVE smoke suites (manual; read keys from ../../../../.secrets, skip cleanly if absent):
+node suites/live-piprail-rails.mjs   # PipRail's OWN buyer pays piprail.com/x402/demo on EVERY rail
+node suites/live-endpoint.mjs        # the same endpoint via the @x402 reference client
+# Live suites share public RPCs — if run-all's live checks (07/14) ever go red, it's RPC
+# rate-limiting, not the SDK; pass a dedicated endpoint: BASE_RPC=https://… node run-all.mjs
 ```
 
 ```text
@@ -24,7 +30,7 @@ node run-all.mjs        # or: npm test
 ▸ 05 · LIVE round-trip on a Base fork — accept ↔ pay, USDC + native
 ▸ 06 · discovery — emit (OpenAPI/.well-known/DNS) + discoverySigner
 ▸ 09 · multi-chain — MultiChainPayer / planAcross / fetchAcross (one wallet per chain)
-▸ 10 · agent toolkit — all 7 tools on PipRailClient AND MultiChainPayer
+▸ 10 · agent toolkit — all 8 tools on PipRailClient AND MultiChainPayer
 ▸ 11 · API-surface sweep — every export reachable + every chain-free helper invoked
 ── summary ──
 ALL 284 CHECKS PASSED
@@ -91,8 +97,8 @@ cleanly** — never a failure.
   chain's blocker**, throws `PaymentDeclinedError` before any send, merges/dedupes
   `discover`, propagates `schemes` (gasless `exact` opt-in) to every chain, and
   enforces its constructor guards — plus the `planAcross`/`fetchAcross` primitives.
-- **agent toolkit (10):** every one of the **7 tools** (`discover`/`quote`/`plan`/
-  `pay`/`register`/`budget`/`guide`) invoked and shape-checked on **both** a
+- **agent toolkit (10):** every one of the **8 tools** (`discover`/`quote`/`plan`/
+  `pay`/`register`/`budget`/`guide`/`verify_receipt`) invoked and shape-checked on **both** a
   single-chain `PipRailClient` and a `MultiChainPayer` (proving `PayingClient`
   parity), including the structured-decline path (never a thrown crash).
 - **API-surface sweep (11):** asserts **every** promised value-export is defined (a
@@ -114,7 +120,7 @@ examples/sdk-sandbox/
 │   ├── 05-live-roundtrip.mjs # real on-chain accept↔pay (USDC + native) on a Base fork
 │   ├── 06-discovery.mjs      # emit (OpenAPI/.well-known/DNS) + discoverySigner
 │   ├── 09-multichain.mjs     # MultiChainPayer / planAcross / fetchAcross (fake heterogeneous drivers)
-│   ├── 10-agent-toolkit.mjs  # all 7 paymentTools on PipRailClient AND MultiChainPayer
+│   ├── 10-agent-toolkit.mjs  # all 8 paymentTools on PipRailClient AND MultiChainPayer
 │   └── 11-api-surface.mjs    # every export reachable + every chain-free helper invoked
 │   # (07-exact-rail / 08-x402-interop run individually — they need Foundry anvil / @x402)
 └── lib/

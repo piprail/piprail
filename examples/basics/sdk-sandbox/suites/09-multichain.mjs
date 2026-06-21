@@ -190,7 +190,7 @@ export async function run() {
       check('fromWallets({}) throws (needs ≥1 wallet)', (() => { try { MultiChainPayer.fromWallets({ wallets: {} }); return false } catch { return true } })())
       stub402([accept(BASE, 'ETH')], paid200)
       const tools = paymentTools(payer(['base', 'solana']))
-      check('paymentTools wraps a MultiChainPayer → 7 tools', tools.length === 7, `${tools.length} tools`)
+      check('paymentTools wraps a MultiChainPayer → 8 tools', tools.length === 8, `${tools.length} tools`)
     }
     note('all multi-chain variations exercised against fake heterogeneous drivers')
   } finally {

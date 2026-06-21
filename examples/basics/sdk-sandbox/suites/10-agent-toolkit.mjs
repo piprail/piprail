@@ -1,4 +1,4 @@
-// Suite 10 — the agent toolkit (paymentTools). Invokes ALL 7 tools and asserts
+// Suite 10 — the agent toolkit (paymentTools). Invokes ALL 8 tools and asserts
 // each returns the right structured shape (never throws) — on BOTH a single-chain
 // PipRailClient AND a MultiChainPayer, proving they wrap the same PayingClient
 // interface byte-identically. Fake EVM driver + stubbed 402 → deterministic.
@@ -17,6 +17,7 @@ const URL = 'https://api.example.com/r'
 const EXPECTED_TOOLS = [
   'piprail_discover', 'piprail_quote_payment', 'piprail_plan_payment',
   'piprail_pay_request', 'piprail_register', 'piprail_budget', 'piprail_guide',
+  'piprail_verify_receipt',
 ]
 
 function mkNet(over = {}) {
@@ -63,7 +64,7 @@ async function exerciseTools(label, client) {
   group(`10 agent toolkit · ${label}`)
   stubIndexes(client)
   const tools = byName(paymentTools(client))
-  check('exposes exactly the 7 tools', EXPECTED_TOOLS.every((n) => tools[n]) && Object.keys(tools).length === 7, Object.keys(tools).join(', '))
+  check('exposes exactly the 8 tools', EXPECTED_TOOLS.every((n) => tools[n]) && Object.keys(tools).length === 8, Object.keys(tools).join(', '))
   check('every tool has a name + description + object input schema', EXPECTED_TOOLS.every((n) => tools[n].description && tools[n].parameters?.type === 'object'))
 
   const guide = await tools.piprail_guide.invoke({})
@@ -88,6 +89,10 @@ async function exerciseTools(label, client) {
   const pay = await tools.piprail_pay_request.invoke({ url: URL })
   check('piprail_pay_request → { status, ok, body, receipt } on success', pay && pay.status === 200 && pay.ok === true)
 
+  // The 8th tool — verify_receipt is read-only + graceful: malformed input → { ok:false }, never a throw.
+  const vr = await tools.piprail_verify_receipt.invoke({ receipt: { bogus: true } })
+  check('piprail_verify_receipt → graceful { ok:false } on a malformed receipt (never throws)', vr && vr.ok === false, JSON.stringify(vr).slice(0, 60))
+
   // Decline path: cap below price → structured refusal, never a throw.
   const declined = paymentTools(stubIndexes(new PipRailClient({ chain: 'base', wallet: { key: '0x' + '1'.repeat(64) }, policy: { maxAmount: '0.0001', tokens: ['ETH'] } })))
   stub402(paid200)
@@ -102,7 +107,7 @@ export async function run() {
     await exerciseTools('PipRailClient (single chain)', new PipRailClient({ chain: 'base', wallet: { key: '0x' + '1'.repeat(64) } }))
     net = mkNet()
     await exerciseTools('MultiChainPayer (one wallet per chain)', MultiChainPayer.fromWallets({ wallets: { base: { key: '0x' + '1'.repeat(64) } } }))
-    note('all 7 tools exercised identically on PipRailClient AND MultiChainPayer')
+    note('all 8 tools exercised identically on PipRailClient AND MultiChainPayer')
   } finally {
     globalThis.fetch = realFetch
     net = mkNet()
