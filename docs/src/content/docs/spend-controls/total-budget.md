@@ -54,7 +54,7 @@ The built-in labels cover every stablecoin PipRail ships:
 
 | Denomination | Tokens |
 |---|---|
-| `USD` | USDC · USDT · USD1 · FDUSD · RLUSD |
+| `USD` | USDC · USDT · USD1 · FDUSD · U · RLUSD |
 | `EUR` | EURC |
 
 Extend or override them with `denomFor` (your assertion of equivalence — by symbol or asset id):

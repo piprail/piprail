@@ -100,7 +100,7 @@ interface SpendAssetTotal {
 ### `spent().byDenom` — the grand-total tally
 
 When tokens share a [denomination](/spend-controls/total-budget/), `byDenom` rolls them into one
-unit-of-account line — USDC + USDT + FDUSD all land in `USD`. It's the **sum the
+unit-of-account line — USDC + USDT + FDUSD + U all land in `USD`. It's the **sum the
 [`maxTotalPerDenom`](/spend-controls/total-budget/) cap is checked against**, not a priced figure:
 each token is counted 1:1 as the unit you labelled it. Native coins and unrecognised tokens have no
 denomination, so they're never in a row here.

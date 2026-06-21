@@ -96,7 +96,19 @@ export interface X402ExactAcceptEntry {
      *  authorizing exactly one NEP-141 `ft_transfer` to `payTo` (per `scheme_exact_near.md`); a
      *  facilitator-selected relayer (`feePayer` below) prepays gas + the 1 yoctoNEAR and submits, so
      *  the buyer holds zero NEAR. PipRail self-settles ALL. */
-    assetTransferMethod: 'eip3009' | 'permit2' | 'svm' | 'algorand' | 'aptos' | 'near'
+    assetTransferMethod:
+      | 'eip3009'
+      | 'permit2'
+      /** A FOREIGN-dialect alias for `'permit2'` — Binance's x402 ("b402") facilitator labels its
+       *  EVM-Permit2 exact rail `'permit2-exact'` (the coinbase/x402 spec uses bare `'permit2'`).
+       *  PipRail EMITS only `'permit2'`; it TOLERATES `'permit2-exact'` inbound so the buyer pays a
+       *  Binance-issued 402 (the buyer treats the two as one rail). NB: settlement still requires the
+       *  rail to bind PipRail's canonical x402ExactPermit2Proxy — see the buyer in drivers/evm. */
+      | 'permit2-exact'
+      | 'svm'
+      | 'algorand'
+      | 'aptos'
+      | 'near'
     /** EIP-712 domain name of the token. OPTIONAL per the exact-EVM scheme (only
      *  `assetTransferMethod` is required) — a foreign rail may omit it. NEVER assumed
      *  from the symbol (USDC's on-chain name() is "USD Coin", not "USDC"); a PipRail gate

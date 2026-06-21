@@ -4,6 +4,25 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.12.0] — 2026-06-21 — BNB: the `U` (United Stables) token + Binance `permit2-exact` interop
+
+BNB Chain max-out — full token parity with Binance's own x402 set, plus tolerance for Binance's
+Permit2 dialect. Additive; no default changes, every other chain/rail byte-identical to 2.11.0.
+
+- **feat(bnb): add `U` (United Stables) as a built-in BNB token.** `0xcE24439F2D9C6a2289F741120FE202248B666666`
+  (18dp) — the **first-listed token in Binance's own x402 set** (U/USD1/USDT/USDC) and the BNB Agent
+  Survival Pack settlement unit. Native **EIP-3009** (domain name `"United Stables"`, version `"1"`
+  derived from `DOMAIN_SEPARATOR`, no `version()`), so it routes onto the existing gasless
+  `transferWithAuthorization` rail with **no new protocol code** — like FDUSD/USD1. On-chain-verified,
+  and **live-proven on BNB mainnet**: a keyless facilitator (Pieverse) sponsored the gas — buyer AND
+  merchant paid **zero BNB** (settle tx `0x2b3b8c51ae81df441551301c44a64652c84c796af3b9d03ec58ea38f1cb013d5`).
+  Dexter + Pieverse both accept `U`; self-settle gasless also works. Grouped as `USD` for budget policy.
+- **feat(x402): the buyer tolerates the `permit2-exact` `assetTransferMethod` label.** Binance's x402
+  facilitator ("b402") labels its EVM-Permit2 exact rail `permit2-exact` (the coinbase/x402 spec uses
+  bare `permit2`). PipRail still **emits** `permit2`; the buyer now treats `permit2-exact` as the same
+  Permit2 rail, so it can pay a Binance-issued 402. The gate/seller side already discriminates on
+  payload shape, so it was unaffected. Additive — no existing `permit2`/`eip3009` rail changes.
+
 ## [2.11.0] — 2026-06-21 — A2A interop hardening: spec-correct merchant status + verified x402-V2 conformance
 
 A2A transport correctness, after a **live cross-check against Google's official `x402` / `x402_a2a`
@@ -1610,6 +1629,10 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[2.12.0]: https://www.npmjs.com/package/@piprail/sdk
+[2.11.0]: https://www.npmjs.com/package/@piprail/sdk
+[2.10.0]: https://www.npmjs.com/package/@piprail/sdk
+[2.9.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.8.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.7.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.6.0]: https://www.npmjs.com/package/@piprail/sdk

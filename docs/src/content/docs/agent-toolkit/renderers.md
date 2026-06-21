@@ -138,7 +138,7 @@ appends ` — grand total: <totalFormatted> <denom> total`. With no denominated 
 is empty and the line ends after the per-asset breakdown, exactly as before.
 
 The denomination grouping is driven by the policy's built-in units — `USDC`, `USDT`, `USD1`,
-`FDUSD`, `RLUSD` fold into `USD`, `EURC` into `EUR` — extensible per client via
+`FDUSD`, `RLUSD`, `U` fold into `USD`, `EURC` into `EUR` — extensible per client via
 [`denomFor`](/spend-controls/total-budget/). When several clients share a ledger
 (`MultiChainPayer.fromWallets` or a shared `spendStore`), the grand total spans every chain. It
 is the read-side mirror of the

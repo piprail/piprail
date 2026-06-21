@@ -67,7 +67,7 @@ for (const [name, preset] of Object.entries(CHAINS)) {
   console.log(name, preset.chain.id, Object.keys(preset.tokens))
 }
 // → base 8453 [ 'USDC', 'EURC' ]
-// → bnb 56 [ 'USDC', 'USDT', 'FDUSD', 'USD1' ]
+// → bnb 56 [ 'USDC', 'USDT', 'FDUSD', 'USD1', 'U' ]
 // → … one line per built-in chain
 ```
 
@@ -102,7 +102,7 @@ shipping. The current registry:
 | `'arbitrum'` | Arbitrum | USDC, USDT |
 | `'optimism'` | Optimism | USDC, USDT |
 | `'polygon'` | Polygon | USDC, USDT |
-| `'bnb'` | BNB Chain | USDC, USDT, FDUSD, USD1 |
+| `'bnb'` | BNB Chain | USDC, USDT, FDUSD, USD1, U |
 | `'avalanche'` | Avalanche | USDC, USDT, EURC |
 | `'mantle'` | Mantle | USDC, USDT |
 | `'sonic'` | Sonic | USDC, USDT |
@@ -123,10 +123,12 @@ USDC/USDT, the EURC EIP-712 caveat, and BNB's 18-decimal peg tokens, see
 [Chains & tokens](/concepts/chains-and-tokens/).
 
 :::note
-On **BNB Chain**, all four built-in stablecoins are **18 decimals**, not 6 (the preset has it
+On **BNB Chain**, all five built-in stablecoins are **18 decimals**, not 6 (the preset has it
 right — name `token: 'USDC'` and don't hardcode 6). They split by provenance: **USDC/USDT are
-Binance-Peg** (not EIP-3009 → the `exact` rail uses **Permit2**), while **FDUSD and USD1 are
-EIP-3009** (→ the gasless `transferWithAuthorization` path, **no Permit2 approve**). The SDK
+Binance-Peg** (not EIP-3009 → the `exact` rail uses **Permit2**), while **FDUSD, USD1 and U
+(United Stables)** are **EIP-3009** (→ the gasless `transferWithAuthorization` path, **no Permit2
+approve**, and settleable by a keyless facilitator). `U` is the first-listed token in Binance's own
+x402 set (U/USD1/USDT/USDC) — live-proven on BNB mainnet (Pieverse sponsored the gas). The SDK
 auto-selects per token — see [Gasless payments](/making-payments/gasless-payments/).
 :::
 

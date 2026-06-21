@@ -139,9 +139,9 @@ address for a known chain. `ChainName` is the union of built-in preset keys (`'b
 | …`).
 
 :::tip
-On **BNB Chain**, all four built-in stablecoins are **18 decimals**, not 6 (the preset carries the
+On **BNB Chain**, all five built-in stablecoins are **18 decimals**, not 6 (the preset carries the
 correct decimals, so naming `token: 'USDC'` is always right — don't hardcode 6). Provenance differs:
-**USDC/USDT are Binance-Peg** (not EIP-3009 → the `exact` rail uses Permit2), while **FDUSD and USD1
+**USDC/USDT are Binance-Peg** (not EIP-3009 → the `exact` rail uses Permit2), while **FDUSD, USD1, and U
 are EIP-3009** (→ the gasless `transferWithAuthorization` path, no Permit2 approve). The SDK
 auto-selects per token; see [Gasless payments](/making-payments/gasless-payments/).
 :::
