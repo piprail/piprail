@@ -2,10 +2,12 @@
    PipRail docs — the documentation skin of the PipRail brand.
 
    Recognizably PipRail (near-black canvas, the one emerald accent = "paid",
-   Space Grotesk display + Inter body + JetBrains Mono code, crafted card
-   surfaces), but deliberately its own room: calmer than piprail.com — a single
-   static emerald aura instead of the marketing site's drifting orbs, tighter
-   reading rhythm, and a quiet hairline grid that says "reference manual."
+   Space Grotesk display + Inter body + JetBrains Mono code), but its own room:
+   a calm, SOLID reference manual. The aesthetic is flat and deliberate —
+   structure comes from crisp hairlines and solid panel fills, NOT from glow.
+   No drifting auras, no emerald halos, no floating drop-shadows. A surface is a
+   solid fill with a 1px border; depth, where it exists at all, is a single tight
+   neutral hairline-shadow, never a colored bloom.
 
    Starlight derives its whole UI from the CSS variables below, so most of the
    theming is just naming the right colors; the rest is targeted polish.
@@ -27,7 +29,7 @@
   --sl-color-gray-4: oklch(0.48 0.01 260);
   --sl-color-gray-5: oklch(0.3 0.008 260); /* hairlines */
   --sl-color-gray-6: oklch(0.205 0.006 260); /* panels, code, sidebar */
-  --sl-color-gray-7: oklch(0.18 0.006 260);
+  --sl-color-gray-7: oklch(0.17 0.006 260);
   --sl-color-black: oklch(0.145 0.005 260); /* page background — the brand near-black */
 
   /* Brand fonts — three faces, each with a job (matches piprail.com). */
@@ -37,17 +39,21 @@
   --sl-nav-height: 4rem;
 
   /* A more generous reading column (Starlight ships 45rem) so the content FILLS
-     the space on wide screens instead of stranding a narrow strip — matching the
-     denser docs feel of references like docs.openclaw.ai. */
+     the space on wide screens instead of stranding a narrow strip. */
   --sl-content-width: 54rem;
 
-  /* Tunable brand surfaces shared with Expressive Code (set in astro.config). */
-  --piprail-code-bg: oklch(0.165 0.006 260);
-  --piprail-code-chrome: oklch(0.19 0.006 260);
-  --piprail-card-grad-top: oklch(1 0 0 / 0.05);
-  --piprail-card-grad-bot: oklch(1 0 0 / 0.015);
-  --piprail-card-border: oklch(1 0 0 / 0.1);
-  --piprail-edge-light: oklch(1 0 0 / 0.06);
+  /* ── Solid brand surfaces — the whole flat system in one place ──
+     Every framed thing (card, code window, table, pagination, search) is one of
+     these solid fills + the standard hairline border. No gradients, no glow. */
+  --pr-surface: oklch(0.185 0.006 260); /* default panel fill (cards, search, pagination) */
+  --pr-surface-hover: oklch(0.215 0.006 260); /* its hover/active fill */
+  --pr-code-bg: oklch(0.165 0.006 260); /* code window body — a touch below the page */
+  --pr-code-chrome: oklch(0.205 0.006 260); /* code window header / tab bar */
+  --pr-border: oklch(1 0 0 / 0.09); /* the one hairline border, everywhere */
+  --pr-border-strong: oklch(1 0 0 / 0.15); /* emphasized edge (hover, dividers) */
+  --pr-border-accent: oklch(0.78 0.17 162 / 0.5); /* emerald edge on interactive hover */
+  /* One tight, neutral hairline-shadow — the only depth the docs use. Never colored. */
+  --pr-lift: 0 1px 2px oklch(0 0 0 / 0.25);
 }
 
 /* ---- Light theme — crisp white, deeper emerald for contrast ---- */
@@ -66,12 +72,14 @@
   --sl-color-gray-7: oklch(0.97 0.004 260);
   --sl-color-black: oklch(1 0 0); /* page background — clean white */
 
-  --piprail-code-bg: oklch(0.98 0.003 260);
-  --piprail-code-chrome: oklch(0.95 0.004 260);
-  --piprail-card-grad-top: oklch(0.55 0.02 260 / 0.05);
-  --piprail-card-grad-bot: oklch(0.55 0.02 260 / 0.015);
-  --piprail-card-border: oklch(0.4 0.02 260 / 0.14);
-  --piprail-edge-light: oklch(1 0 0 / 0.7);
+  --pr-surface: oklch(0.99 0.002 260);
+  --pr-surface-hover: oklch(0.965 0.003 260);
+  --pr-code-bg: oklch(0.975 0.003 260);
+  --pr-code-chrome: oklch(0.95 0.004 260);
+  --pr-border: oklch(0.2 0.02 260 / 0.12);
+  --pr-border-strong: oklch(0.2 0.02 260 / 0.2);
+  --pr-border-accent: oklch(0.55 0.16 162 / 0.55);
+  --pr-lift: 0 1px 2px oklch(0 0 0 / 0.06);
 }
 
 /* Subtle OpenType polish (same feature set as the site). */
@@ -103,81 +111,69 @@ html.pr-js:not(.pr-ready) *::after {
   color: oklch(0.145 0.005 260);
 }
 
-/* ============================================================================
-   Brand ambience — one calm emerald aura behind the top of the page.
-   This is the docs' tell vs. the marketing site: a single static wash (no
-   drifting orbs), so it feels premium but stays out of the reader's way.
-   ============================================================================ */
-:root[data-theme='dark'] body::before {
-  content: '';
-  position: fixed;
-  inset: 0 0 auto 0;
-  height: 480px;
-  z-index: -1; /* behind everything — never steals the header's stacking or clicks */
-  pointer-events: none;
-  background:
-    radial-gradient(80% 100% at 18% -10%, oklch(0.78 0.17 162 / 0.1), transparent 60%),
-    radial-gradient(70% 100% at 88% -20%, oklch(0.7 0.16 250 / 0.06), transparent 60%);
-}
-/* The page background must be transparent so the fixed aura (z-index:-1) shows
-   through; the canvas color lives on :root instead. The header keeps Starlight's
-   own sticky positioning + z-index — we never touch it. */
+/* The canvas is a flat, solid near-black. No fixed aura layer — the page reads
+   as one calm surface, with panels stepping forward via fill + hairline only. */
 :root[data-theme='dark'] {
   background: var(--sl-color-black);
 }
-:root[data-theme='dark'] body {
-  background: transparent;
-}
 
 /* ============================================================================
-   Header — a quiet, frosted bar that floats over the aura.
+   Header — a quiet, frosted bar. Solid-feeling, sits flush on a single hairline;
+   no shadow, no glow.
    ============================================================================ */
 header.header {
-  background: color-mix(in oklch, var(--sl-color-black) 78%, transparent);
-  -webkit-backdrop-filter: blur(12px) saturate(1.4);
-  backdrop-filter: blur(12px) saturate(1.4);
-  border-bottom: 1px solid var(--sl-color-hairline, var(--sl-color-gray-5));
+  background: color-mix(in oklch, var(--sl-color-black) 82%, transparent);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--pr-border);
 }
 
-/* Logo — the self-contained badge (chip + P + emerald rail) reads on light AND
-   dark. A hairline ring keeps it crisp against the near-black header. */
+/* Logo — the transparent mark sits directly on the header, no box. The art is
+   theme-adaptive (white-P on dark, black-P on light; emerald rail in both), so
+   it always reads with no chip needed. Starlight swaps the variant per theme. */
 .site-title img {
   height: 1.7rem;
   width: auto;
-  border-radius: 0.4rem;
-  box-shadow: 0 0 0 1px color-mix(in oklch, var(--sl-color-gray-4) 45%, transparent);
 }
 .site-title {
   font-family: var(--piprail-font-display);
   font-weight: 600;
   letter-spacing: -0.01em;
   font-size: 1.15rem;
+  /* Match the mark + headings: white on dark, black on light (not the accent). */
+  color: var(--sl-color-white);
 }
 
-/* Search box — brand surface, emerald focus ring. */
+/* Search box — solid brand surface, emerald focus edge (no glow). */
 site-search button[data-open-modal] {
   border-radius: 0.6rem;
-  border-color: var(--sl-color-hairline, var(--sl-color-gray-5));
-  background: var(--piprail-card-grad-bot);
+  border-color: var(--pr-border);
+  background: var(--pr-surface);
 }
 site-search button[data-open-modal]:hover {
-  border-color: color-mix(in oklch, var(--sl-color-accent) 50%, transparent);
+  border-color: var(--pr-border-accent);
+  background: var(--pr-surface-hover);
 }
 
 /* ============================================================================
-   Sidebar — the left nav. Group labels get the display face; the active page
-   becomes an emerald pill with a left accent bar.
+   Sidebar — the left nav. Group labels get the display face; the active page is
+   a solid emerald wash with a flat emerald left bar (no glow).
    ============================================================================ */
 .sidebar-content {
   padding-top: 0.5rem;
 }
-.sidebar-content summary .group-label .large,
-.sidebar-content > ul > li > details > summary .group-label,
-nav.sidebar .top-level > li > details > summary span,
-nav.sidebar h2 {
+/* Group labels — the section headers. Uppercase, tracked, muted: a modern
+   API-reference section rail that cleanly separates each group from its links.
+   The IA is one level deep, so every group label gets this treatment. */
+nav.sidebar .group-label .large {
   font-family: var(--piprail-font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--sl-color-gray-3);
 }
-/* Sidebar links — calm by default, emerald wash + left bar when current. */
+/* Sidebar links — calm by default, solid emerald wash + left bar when current. */
 nav.sidebar a {
   border-radius: 0.5rem;
   transition:
@@ -191,19 +187,18 @@ nav.sidebar a[aria-current='page'],
 nav.sidebar a[aria-current='page']:hover {
   position: relative;
   color: var(--sl-color-white);
-  background: color-mix(in oklch, var(--sl-color-accent) 12%, transparent);
+  background: color-mix(in oklch, var(--sl-color-accent) 13%, transparent);
   font-weight: 600;
 }
 nav.sidebar a[aria-current='page']::before {
   content: '';
   position: absolute;
   left: -0.55rem;
-  top: 0.35rem;
-  bottom: 0.35rem;
+  top: 0.3rem;
+  bottom: 0.3rem;
   width: 2.5px;
   border-radius: 999px;
   background: var(--sl-color-accent);
-  box-shadow: 0 0 10px -1px color-mix(in oklch, var(--sl-color-accent) 70%, transparent);
 }
 
 /* ============================================================================
@@ -226,8 +221,7 @@ nav.sidebar a[aria-current='page']::before {
   font-feature-settings: normal;
   letter-spacing: -0.02em;
 }
-/* Content headings — Inter, tight and confident. Inter's own stylistic sets
-   (set on <html>) are intended here, so they're left in place. */
+/* Content headings — Inter, tight and confident. */
 .sl-markdown-content :is(h1, h2, h3, h4),
 .content-panel h1 {
   letter-spacing: -0.018em;
@@ -243,7 +237,7 @@ nav.sidebar a[aria-current='page']::before {
   font-weight: 600;
   margin-top: 2.9rem;
   padding-bottom: 0.4rem;
-  border-bottom: 1px solid var(--sl-color-hairline, var(--sl-color-gray-5));
+  border-bottom: 1px solid var(--pr-border);
 }
 .sl-markdown-content h3 {
   font-size: 1.2rem;
@@ -252,8 +246,7 @@ nav.sidebar a[aria-current='page']::before {
 }
 
 /* Anchored-heading link — an emerald glyph that sits a comfortable gap after the
-   heading (it used to jam right against the text), fading in on hover/focus so the
-   headings stay clean until you reach for the link. */
+   heading, fading in on hover/focus so the headings stay clean until reached for. */
 .sl-markdown-content .sl-anchor-link {
   color: var(--sl-color-accent);
   margin-inline-start: 0.45em;
@@ -283,14 +276,16 @@ nav.sidebar a[aria-current='page']::before {
   text-decoration-color: var(--sl-color-accent);
 }
 
-/* Inline code — a quiet emerald-tinted chip, not a loud highlight. A long token
+/* Inline code — a quiet, SOLID neutral chip with a hairline border. Calm by
+   default (the emerald is spent on links and syntax, not on every token), so a
+   paragraph full of identifiers reads clean instead of speckled. A long token
    (an address, a long type) wraps instead of overflowing the column on a phone. */
 .sl-markdown-content :not(pre) > code {
   font-size: 0.85em;
   padding: 0.15em 0.4em;
   border-radius: 0.4rem;
-  border: 1px solid color-mix(in oklch, var(--sl-color-accent) 18%, transparent);
-  background: color-mix(in oklch, var(--sl-color-accent) 7%, var(--sl-color-gray-6));
+  border: 1px solid var(--pr-border);
+  background: var(--pr-surface);
   color: var(--sl-color-white);
   overflow-wrap: break-word;
 }
@@ -310,7 +305,7 @@ nav.sidebar a[aria-current='page']::before {
 
 /* Code in a heading is the heading (function names like `quote()`), not a chip —
    strip the inline-code box so it reads as a mono heading in the heading's own
-   color, instead of an emerald capsule floating mid-title. */
+   color, instead of a capsule floating mid-title. */
 .sl-markdown-content :is(h1, h2, h3, h4, h5, h6) code {
   background: transparent;
   border-color: transparent;
@@ -320,10 +315,7 @@ nav.sidebar a[aria-current='page']::before {
 }
 
 /* ============================================================================
-   Lists — a comfortable rhythm with the brand's quiet emerald markers. Starlight
-   ships plain discs; these give an unordered list an emerald dot and an ordered
-   list a mono emerald numeral, with a little air between items so a dense list
-   scans cleanly instead of reading as one grey block.
+   Lists — a comfortable rhythm with the brand's quiet emerald markers.
    ============================================================================ */
 .sl-markdown-content :is(ul, ol) {
   padding-inline-start: 1.4rem;
@@ -339,7 +331,6 @@ nav.sidebar a[aria-current='page']::before {
   font-weight: 600;
   font-size: 0.92em;
 }
-/* A nested list gets a touch of room from its parent item. */
 .sl-markdown-content li > :is(ul, ol) {
   margin-top: 0.45rem;
 }
@@ -358,63 +349,53 @@ nav.sidebar a[aria-current='page']::before {
   translate: 0 0.08em;
 }
 
-/* Horizontal rule — a soft hairline that fades at both ends, not a hard line. */
+/* Horizontal rule — a clean, solid hairline. */
 .sl-markdown-content hr {
   border: 0;
   height: 1px;
   margin-block: 2.75rem;
-  background: linear-gradient(90deg, transparent, var(--sl-color-gray-5), transparent);
+  background: var(--pr-border);
 }
 
 /* ============================================================================
-   Code blocks (Expressive Code) — crafted card surface + soft lift, so a
-   PipRail code window looks deliberate. We theme via EC's own CSS variables
-   (the `--ec-*` set) rather than astro.config, which keeps the built CSS hash
-   stable and preserves syntax highlighting. The brand bg is the near-black
-   canvas (not EC's default gray), the rail is emerald, the font is JetBrains
-   Mono. The depth (border + lift) is added on top.
+   Code blocks (Expressive Code) — a solid, flat code window. Distinct panel
+   fill (a touch below the page), a header/tab bar a step lighter, one crisp
+   hairline border, and a single tight neutral lift so it reads as a deliberate
+   surface — never a glowing card. We theme via EC's own `--ec-*` variables, which
+   keeps the built CSS hash stable and preserves syntax highlighting.
    ============================================================================ */
 .expressive-code {
   --ec-brdRad: 0.7rem;
-  --ec-brdCol: var(--sl-color-hairline, var(--sl-color-gray-5));
-  --ec-codeBg: var(--piprail-code-bg);
+  --ec-brdCol: var(--pr-border);
+  --ec-codeBg: var(--pr-code-bg);
   --ec-codeFontFml: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Menlo', monospace;
   --ec-codeFontSize: 0.86rem;
   --ec-codeLineHt: 1.7;
   /* Editor (tabbed) frames. */
-  --ec-frm-edBg: var(--piprail-code-bg);
-  --ec-frm-edTabBarBg: var(--piprail-code-chrome);
-  --ec-frm-edTabBarBrdBtmCol: var(--sl-color-hairline, var(--sl-color-gray-5));
-  --ec-frm-edActTabBg: var(--piprail-code-bg);
+  --ec-frm-edBg: var(--pr-code-bg);
+  --ec-frm-edTabBarBg: var(--pr-code-chrome);
+  --ec-frm-edTabBarBrdBtmCol: var(--pr-border);
+  --ec-frm-edActTabBg: var(--pr-code-bg);
   --ec-frm-edActTabIndBtmCol: var(--sl-color-accent);
   --ec-frm-edActTabIndTopCol: transparent;
   /* Terminal frames. */
-  --ec-frm-trmBg: var(--piprail-code-bg);
-  --ec-frm-trmTtbBg: var(--piprail-code-chrome);
-  --ec-frm-trmTtbBrdBtmCol: var(--sl-color-hairline, var(--sl-color-gray-5));
+  --ec-frm-trmBg: var(--pr-code-bg);
+  --ec-frm-trmTtbBg: var(--pr-code-chrome);
+  --ec-frm-trmTtbBrdBtmCol: var(--pr-border);
   --ec-frm-frameBoxShdCssVal: none;
 }
-/* The crafted surface: hairline border + soft brand lift around the frame. */
+/* The surface: solid fill via EC vars + one crisp hairline + a tight neutral lift. */
 .sl-markdown-content .expressive-code .frame {
   border-radius: 0.7rem;
-  border: 1px solid var(--sl-color-hairline, var(--sl-color-gray-5));
-  box-shadow:
-    inset 0 1px 0 var(--piprail-edge-light),
-    0 1px 2px oklch(0 0 0 / 0.25),
-    0 18px 40px -24px oklch(0 0 0 / 0.6);
+  border: 1px solid var(--pr-border);
+  box-shadow: var(--pr-lift);
 }
-:root[data-theme='light'] .sl-markdown-content .expressive-code .frame {
-  box-shadow:
-    0 1px 2px oklch(0 0 0 / 0.06),
-    0 12px 30px -22px oklch(0 0 0 / 0.25);
-}
-/* The copy button picks up the accent on hover. */
+/* The copy button picks up the accent edge on hover (no glow). */
 .sl-markdown-content .expressive-code .copy button:hover {
-  border-color: color-mix(in oklch, var(--sl-color-accent) 55%, transparent);
+  border-color: var(--pr-border-accent);
 }
 
-/* Quiet, thin scrollbars on code blocks. Firefox uses the standard
-   scrollbar-* properties; WebKit/Blink use the ::-webkit-scrollbar rules. */
+/* Quiet, thin scrollbars on code blocks. */
 :root[data-theme='dark'] .sl-markdown-content pre {
   scrollbar-width: thin;
   scrollbar-color: oklch(1 0 0 / 0.12) transparent;
@@ -446,25 +427,23 @@ nav.sidebar a[aria-current='page']::before {
 }
 
 /* ============================================================================
-   Tables — a crafted reference surface: rounded card frame, an uppercase
-   tracked header rail, hairline row dividers, quiet zebra + hover.
+   Tables — a solid, flat reference surface: rounded frame on one hairline, a
+   tinted uppercase header rail, hairline row dividers, quiet zebra + hover. No
+   lift, no glow — the border does the work.
 
-   The squash, solved properly. A table column that held a TYPE SIGNATURE
+   The squash, solved properly. A column holding a TYPE SIGNATURE
    (`Record<string, WalletInput>`, `(quote) => boolean | Promise<boolean>`) used
    to collapse into vertical character-soup. Two rules fix it for good:
 
    • Cell text wraps with `overflow-wrap: break-word` (NOT `anywhere`). `anywhere`
      lets a column's min-content shrink to a single glyph, so auto-layout crushed
      the type column to a sliver and chopped identifiers mid-word. `break-word`
-     keeps each token whole — a type signature breaks only at its spaces/commas
-     (two tidy lines), and an identifier never splits while it fits its column.
+     keeps each token whole — a type signature breaks only at its spaces/commas.
    • A code-only cell (an id, a type, a default) gets a real width floor (14ch),
      so the type column is never starved by a greedy prose column beside it.
 
-   The table stays its own horizontal scroll container (`display:block` +
-   `overflow-x:auto`), so a genuinely wide table scrolls cleanly instead of
-   bleeding under the "On this page" panel — but with tokens kept whole, almost
-   nothing needs to.
+   The table stays its own horizontal scroll container, so a genuinely wide table
+   scrolls cleanly instead of bleeding under the "On this page" panel.
    ============================================================================ */
 .sl-markdown-content table {
   display: block;
@@ -474,27 +453,16 @@ nav.sidebar a[aria-current='page']::before {
   overscroll-behavior-x: contain;
   border-collapse: separate;
   border-spacing: 0;
-  border: 1px solid var(--sl-color-hairline, var(--sl-color-gray-5));
+  border: 1px solid var(--pr-border);
   /* 0.7rem matches the code-block frame + cards exactly, so every framed surface
      in the docs shares one corner radius. */
   border-radius: 0.7rem;
   font-size: 0.92rem;
-  /* The brand card lift, value-for-value identical to `.card`, so a table reads
-     as the same deliberate surface as a card or a code window. */
-  box-shadow:
-    inset 0 1px 0 var(--piprail-edge-light),
-    0 1px 2px oklch(0 0 0 / 0.2),
-    0 16px 36px -24px oklch(0 0 0 / 0.5);
+  box-shadow: var(--pr-lift);
   /* Firefox thin scrollbar (WebKit uses ::-webkit-scrollbar below). */
   scrollbar-width: thin;
   scrollbar-color: oklch(1 0 0 / 0.12) transparent;
 }
-:root[data-theme='light'] .sl-markdown-content table {
-  box-shadow:
-    0 1px 2px oklch(0 0 0 / 0.06),
-    0 12px 30px -22px oklch(0 0 0 / 0.25);
-}
-/* Thin, quiet scrollbar to match the code blocks. */
 .sl-markdown-content table::-webkit-scrollbar {
   height: 6px;
 }
@@ -513,8 +481,8 @@ nav.sidebar a[aria-current='page']::before {
   text-align: start;
   white-space: nowrap;
   color: var(--sl-color-gray-2);
-  background: color-mix(in oklch, var(--sl-color-accent) 7%, var(--sl-color-gray-6));
-  border-bottom: 1px solid var(--sl-color-hairline, var(--sl-color-gray-5));
+  background: var(--pr-code-chrome);
+  border-bottom: 1px solid var(--pr-border);
 }
 .sl-markdown-content :is(th, td) {
   padding: 0.72rem 1rem;
@@ -526,14 +494,12 @@ nav.sidebar a[aria-current='page']::before {
   min-width: 8ch; /* prose columns can still narrow; nothing crushes to a sliver */
 }
 /* A cell that is purely a code chip (an id, a type signature, a default value)
-   earns a comfortable width floor — this is what keeps the TYPE column from being
-   starved by the prose column next to it. */
+   earns a comfortable width floor — keeps the TYPE column from being starved. */
 .sl-markdown-content :is(td, th):has(> code:only-child) {
   min-width: 14ch;
 }
-/* Inline code in a cell breaks only at token boundaries (the table's defence
-   against character-soup), and wears a quiet, borderless chip so a column of
-   types/ids reads as one calm block instead of a wall of emerald boxes. */
+/* Inline code in a cell breaks only at token boundaries, and wears a quiet,
+   borderless chip so a column of types/ids reads as one calm block. */
 .sl-markdown-content :is(th, td) code {
   white-space: normal;
   overflow-wrap: break-word;
@@ -543,22 +509,18 @@ nav.sidebar a[aria-current='page']::before {
   color: var(--sl-color-gray-1);
 }
 /* The first column is the row's key (a field, function, env var, token symbol):
-   keep it whole on one line and let it carry a faint emerald tint so the eye
-   lands on it first. */
+   keep it whole on one line and let it carry a faint emerald tint. */
 .sl-markdown-content :is(th, td):first-child code {
   white-space: nowrap;
   overflow-wrap: normal;
   background: color-mix(in oklch, var(--sl-color-accent) 9%, var(--sl-color-gray-6));
   color: var(--sl-color-white);
 }
-/* The first column is the row's anchor — a key, a name, or (in a transposed
-   comparison) the row label. Give it a gentle lift so the eye reads down it
-   like a spine, without shouting over a two-column content table. */
 .sl-markdown-content tbody td:first-child {
   color: var(--sl-color-white);
   font-weight: 500;
 }
-/* A secondary line inside a cell (e.g. an env-var alias under its name): muted + smaller. */
+/* A secondary line inside a cell (e.g. an env-var alias under its name). */
 .sl-markdown-content :is(td, th) small {
   display: inline-block;
   margin-top: 0.2rem;
@@ -574,15 +536,14 @@ nav.sidebar a[aria-current='page']::before {
   background: color-mix(in oklch, var(--sl-color-gray-1) 2.5%, transparent);
 }
 .sl-markdown-content tbody tr:not(:last-child) td {
-  border-bottom: 1px solid color-mix(in oklch, var(--sl-color-hairline, var(--sl-color-gray-5)) 55%, transparent);
+  border-bottom: 1px solid color-mix(in oklch, var(--pr-border) 70%, transparent);
 }
 .sl-markdown-content tbody tr:hover td {
   background: color-mix(in oklch, var(--sl-color-accent) 5%, transparent);
 }
 /* On a phone, a multi-column table is genuinely narrow. Let the nowrap header and
-   the nowrap first-column key wrap (token-safe) so the table needs far less
-   horizontal scroll — it still scrolls inside its own frame if it must, but most
-   tables now fit the viewport. Above this width the tidy single-line look returns. */
+   first-column key wrap (token-safe) so the table needs far less horizontal
+   scroll — it still scrolls inside its own frame if it must. */
 @media (max-width: 30rem) {
   .sl-markdown-content th {
     white-space: normal;
@@ -597,31 +558,24 @@ nav.sidebar a[aria-current='page']::before {
 }
 
 /* ============================================================================
-   Cards / link-cards — the brand "card" surface (gradient + edge-light +
-   ambient lift) with an emerald hover. These echo the site's cards exactly.
+   Cards / link-cards — the brand "card" is now a SOLID panel: a flat fill, one
+   hairline border, a tight neutral lift. Hover lifts the border to emerald and
+   warms the fill a step — no halo, no float, no transform. Solid, deliberate.
    ============================================================================ */
 .card,
 .sl-link-card {
   border-radius: 0.7rem;
-  border: 1px solid var(--piprail-card-border);
-  background-image: linear-gradient(180deg, var(--piprail-card-grad-top), var(--piprail-card-grad-bot));
-  box-shadow:
-    inset 0 1px 0 var(--piprail-edge-light),
-    0 1px 2px oklch(0 0 0 / 0.2),
-    0 16px 36px -24px oklch(0 0 0 / 0.5);
+  border: 1px solid var(--pr-border);
+  background: var(--pr-surface);
+  box-shadow: var(--pr-lift);
   transition:
     border-color 0.15s ease,
-    box-shadow 0.18s ease,
-    transform 0.18s ease;
+    background-color 0.15s ease;
 }
 .card:hover,
 .sl-link-card:hover {
-  border-color: color-mix(in oklch, var(--sl-color-accent) 55%, transparent);
-  box-shadow:
-    inset 0 1px 0 var(--piprail-edge-light),
-    0 1px 2px oklch(0 0 0 / 0.2),
-    0 18px 44px -22px oklch(0.78 0.17 162 / 0.35);
-  transform: translateY(-2px);
+  border-color: var(--pr-border-accent);
+  background: var(--pr-surface-hover);
 }
 .card .icon {
   color: var(--sl-color-accent);
@@ -635,7 +589,6 @@ nav.sidebar a[aria-current='page']::before {
 .sl-link-card .title {
   color: var(--sl-color-white);
 }
-/* The card-grid arrow follows the accent. */
 .sl-link-card:hover .icon {
   color: var(--sl-color-accent);
 }
@@ -659,24 +612,20 @@ starlight-toc a[aria-current='true'] {
 }
 
 /* ============================================================================
-   Pagination (prev / next) at the bottom of each page — brand card surface.
+   Pagination (prev / next) — solid panel, emerald edge on hover.
    ============================================================================ */
 .pagination-links a {
   border-radius: 0.7rem;
-  border-color: var(--piprail-card-border);
-  background-image: linear-gradient(180deg, var(--piprail-card-grad-top), var(--piprail-card-grad-bot));
-  box-shadow:
-    inset 0 1px 0 var(--piprail-edge-light),
-    0 1px 2px oklch(0 0 0 / 0.2);
+  border-color: var(--pr-border);
+  background: var(--pr-surface);
+  box-shadow: var(--pr-lift);
   transition:
     border-color 0.15s ease,
-    box-shadow 0.18s ease;
+    background-color 0.15s ease;
 }
 .pagination-links a:hover {
-  border-color: color-mix(in oklch, var(--sl-color-accent) 55%, transparent);
-  box-shadow:
-    inset 0 1px 0 var(--piprail-edge-light),
-    0 14px 36px -22px oklch(0.78 0.17 162 / 0.35);
+  border-color: var(--pr-border-accent);
+  background: var(--pr-surface-hover);
 }
 .pagination-links a .link-title {
   color: var(--sl-color-white);
@@ -692,8 +641,9 @@ starlight-toc a[aria-current='true'] {
 }
 
 /* ============================================================================
-   Splash home page — big, confident, spacious hero with a calm emerald glow
-   (the docs' quieter cousin of the marketing-site hero).
+   Splash home page — big, confident, spacious hero. Solid and flat: the badge
+   and the primary CTA are emerald, but NO glow halo behind either. Presence
+   comes from size, color, and a clean fill.
    ============================================================================ */
 .hero {
   padding-block: clamp(3.5rem, 7vw, 6.5rem) clamp(3rem, 6vw, 5rem);
@@ -713,16 +663,21 @@ starlight-toc a[aria-current='true'] {
   align-items: center;
   gap: 0.3em;
 }
-/* The PipRail badge, inline immediately before the "PipRail" title — same line,
-   scales with the heading. Self-contained black-bg logo, so it reads on any theme. */
+/* The PipRail mark, inline before the "PipRail" title — same line, scales with
+   the heading. Transparent + theme-adaptive (white-P on dark, black-P on light),
+   no box, no glow — it sits directly on the page like the wordmark beside it. */
 .hero h1::before {
   content: '';
   flex: none;
-  width: 0.92em;
-  height: 0.92em;
-  background: url('/logo.png') center / contain no-repeat;
-  border-radius: 0.2em;
-  box-shadow: 0 0 40px -4px oklch(0.78 0.17 162 / 0.5);
+  width: 1em;
+  height: 1em;
+  background-image: url('/logo-dark.png');
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+:root[data-theme='light'] .hero h1::before {
+  background-image: url('/logo-light.png');
 }
 .hero .tagline {
   font-size: clamp(1.1rem, 1rem + 0.7vw, 1.4rem);
@@ -735,23 +690,112 @@ starlight-toc a[aria-current='true'] {
   margin-top: clamp(0.5rem, 2vw, 1.25rem);
   gap: 0.85rem 1rem;
 }
-/* Primary CTA — emerald fill with the brand's soft halo. */
+/* Primary CTA — solid emerald fill, no halo. Hover brightens the fill a touch. */
 .hero .actions a.button[data-variant='primary'] {
   font-family: var(--piprail-font-display);
   font-weight: 600;
   border-radius: 0.6rem;
-  box-shadow: 0 10px 34px -12px oklch(0.78 0.17 162 / 0.55);
-  transition: box-shadow 0.18s ease;
-}
-.hero .actions a.button[data-variant='primary']:hover {
-  box-shadow: 0 12px 40px -10px oklch(0.78 0.17 162 / 0.72);
+  transition: background-color 0.15s ease;
 }
 .hero .actions a.button[data-variant='minimal'] {
   border-radius: 0.6rem;
-  border-color: var(--piprail-card-border);
+  border-color: var(--pr-border);
 }
 .hero .actions a.button[data-variant='minimal']:hover {
-  border-color: color-mix(in oklch, var(--sl-color-accent) 55%, transparent);
+  border-color: var(--pr-border-accent);
+}
+
+/* ── The hero visual — a real code window in the right column ──
+   Starlight's splash hero is a `7fr 4fr` grid; with no image the right column
+   sits empty (the "stranded left half"). We fill it with a code window that
+   showcases the one-liner, and rebalance the columns so copy + code share the
+   width evenly. The window is pinned DARK in both themes (a dark code panel on a
+   light page is a deliberate, premium look) and reuses the brand syntax colors. */
+.hero-code {
+  width: 100%;
+  border-radius: 0.8rem;
+  border: 1px solid oklch(1 0 0 / 0.1);
+  background: oklch(0.165 0.006 260);
+  box-shadow:
+    0 1px 2px oklch(0 0 0 / 0.3),
+    0 20px 50px -30px oklch(0 0 0 / 0.7);
+  overflow: hidden;
+  font-family: var(--sl-font-mono);
+  font-size: clamp(0.74rem, 0.66rem + 0.4vw, 0.84rem);
+  color: oklch(0.92 0.005 260);
+  text-align: start;
+}
+.hero-code__bar {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.62rem 0.9rem;
+  background: oklch(0.205 0.006 260);
+  border-bottom: 1px solid oklch(1 0 0 / 0.08);
+}
+.hero-code__bar i {
+  width: 0.62rem;
+  height: 0.62rem;
+  border-radius: 999px;
+  background: oklch(1 0 0 / 0.16);
+}
+.hero-code__bar span {
+  margin-inline-start: 0.45rem;
+  font-size: 0.78rem;
+  color: oklch(0.62 0.01 260);
+}
+.hero-code__body {
+  padding: 1.05rem 1.15rem;
+  line-height: 1.85;
+  overflow-x: auto;
+}
+.hero-code .row {
+  white-space: nowrap;
+}
+.hero-code .spacer {
+  line-height: 0.7;
+}
+.hero-code .i1 {
+  padding-inline-start: 1.6em;
+}
+.hero-code .i2 {
+  padding-inline-start: 3.2em;
+}
+/* Brand syntax tokens (match piprail.com): kw muted · fn blue · str emerald ·
+   chain amber · comment grey-italic. The accent string is the one bit of emerald. */
+.hero-code .k {
+  color: oklch(0.66 0.05 290);
+}
+.hero-code .f {
+  color: oklch(0.8 0.11 235);
+}
+.hero-code .s {
+  color: oklch(0.84 0.13 162);
+}
+.hero-code .ch {
+  color: oklch(0.85 0.14 85);
+}
+.hero-code .m {
+  color: oklch(0.55 0.01 260);
+  font-style: italic;
+}
+
+/* The hero visual follows the copy at ALL widths — so on mobile the brand mark +
+   tagline + CTAs come first and the code window sits below (Starlight only sets
+   this order at desktop) — and it always fills its column edge to edge. */
+.hero > .hero-html {
+  order: 2;
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
+}
+
+/* Rebalance the two columns at desktop. */
+@media (min-width: 50rem) {
+  .hero {
+    grid-template-columns: 1.02fr 0.98fr;
+    gap: clamp(2rem, 4vw, 3.5rem);
+  }
 }
 
 /* The first content section shouldn't butt up against the hero. */
@@ -764,26 +808,65 @@ starlight-toc a[aria-current='true'] {
 }
 
 /* ============================================================================
-   Ultra-wide / zoomed-out screens — cap + center the whole app (the docs.openclaw.ai
-   "doc-shell" model: it caps at ~1780px and centers). BELOW the cap the layout fills
-   the viewport normally (wide content, sidebar pinned, as on any laptop/desktop); only
-   PAST the cap do equal gutters appear so a 4K / heavily-zoomed-out screen shows a tidy
+   Vercel-grade polish — the details that read as "crisp": branded focus rings,
+   refined thin scrollbars everywhere, and a discoverable copy button on code.
+   ============================================================================ */
+
+/* Refined, thin scrollbars across the whole app (page, sidebar, TOC) — quiet by
+   default, a touch brighter on hover. Code/tables keep their own thinner bars. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklch, var(--sl-color-gray-1) 16%, transparent) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in oklch, var(--sl-color-gray-1) 16%, transparent);
+  border-radius: 999px;
+  border: 2.5px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklch, var(--sl-color-gray-1) 30%, transparent);
+  background-clip: padding-box;
+}
+
+/* One crisp, branded focus ring for every interactive element — keyboard users
+   get a clear emerald outline; mouse users never see it (`:focus-visible`). */
+:where(a, button, summary, input, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--sl-color-accent);
+  outline-offset: 2px;
+}
+
+/* Code blocks: the copy button stays gently visible (so it's discoverable, like
+   a real API reference) and goes fully solid on hover/focus. */
+.sl-markdown-content .expressive-code .copy {
+  opacity: 0.5;
+  transition: opacity 0.18s ease;
+}
+.sl-markdown-content .expressive-code figure:hover .copy,
+.sl-markdown-content .expressive-code .copy:focus-within {
+  opacity: 1;
+}
+
+/* ============================================================================
+   Ultra-wide / zoomed-out screens — cap + center the whole app at ~1780px and
+   center it. BELOW the cap the layout fills the viewport normally; only PAST the
+   cap do equal gutters appear so a 4K / heavily-zoomed-out screen shows a tidy
    centered block — never a narrow strip marooned in empty space.
    ============================================================================ */
 @media (min-width: 111rem) {
-  /* 111rem ≈ 1776px (matches OpenClaw's 1780). */
   :root {
     --pr-gutter: calc((100vw - 111rem) / 2);
   }
-  /* Header bar stays full-width; its content tracks the gutters to line up with the body. */
   header.header {
     padding-inline: calc(1rem + var(--pr-gutter));
   }
-  /* Pull the fixed left rail in to the centered block's left edge. */
   .sidebar-pane {
     inset-inline-start: var(--pr-gutter);
   }
-  /* Clear the moved rail + reserve the right gutter so content + TOC center in the cap. */
   .main-frame {
     padding-inline-start: calc(var(--sl-content-inline-start) + var(--pr-gutter));
     padding-inline-end: var(--pr-gutter);

@@ -3,7 +3,23 @@ title: PipRail
 description: The universal payment rail for AI agents. Let any API, dataset, model, or agent charge for itself — and any agent pay for itself — across every major chain, in a couple of lines. No backend, no fee, settled straight to your wallet.
 template: splash
 hero:
-  tagline: The universal payment rail for the agent economy. Any API, dataset, model, or agent can charge for itself — and any agent can pay for itself — across every major chain, in a couple of lines. No backend. No fee. Settled straight to your wallet.
+  tagline: The universal payment rail for the agent economy. Any API, model, or agent can charge for itself — and any agent can pay for itself — across every major chain, in a couple of lines. No backend, no fee, settled straight to your wallet.
+  image:
+    html: |
+      <div class="hero-code" role="img" aria-label="Gate a route with requirePayment from @piprail/sdk">
+      <div class="hero-code__bar"><i></i><i></i><i></i><span>server.ts</span></div>
+      <div class="hero-code__body">
+      <div class="row"><span class="k">import</span> { requirePayment } <span class="k">from</span> <span class="s">'@piprail/sdk'</span></div>
+      <div class="row spacer">&nbsp;</div>
+      <div class="row"><span class="m">// 0.10 USDC on Base, paid to your wallet</span></div>
+      <div class="row">app.<span class="f">get</span>(<span class="s">'/report'</span>,</div>
+      <div class="row i1"><span class="f">requirePayment</span>({ chain: <span class="ch">'base'</span>,</div>
+      <div class="row i2">token: <span class="s">'USDC'</span>, amount: <span class="s">'0.10'</span>, payTo }),</div>
+      <div class="row">)</div>
+      <div class="row spacer">&nbsp;</div>
+      <div class="row"><span class="m">// first call → 402, pays on-chain, retries → 200</span></div>
+      </div>
+      </div>
   actions:
     - text: Get started
       link: /getting-started/introduction/
