@@ -52,6 +52,11 @@ Goose runs `@piprail/mcp` as a stdio **extension** — add it under `extensions:
 `args: [-y, @piprail/mcp]`, `type: stdio`, and the `PIPRAIL_*` env (or use `goose configure` →
 Add Extension → Command-line). Every other MCP client works the same way via `npx -y @piprail/mcp`.
 
+**Agent frameworks** wire the server in code rather than a config file. [Mastra](/integrations/mastra/)
+spawns it through its `MCPClient` (`servers: { piprail: { command: 'npx', args: ['-y', '@piprail/mcp'] } }`);
+[elizaOS](/integrations/elizaos/) and [n8n](/integrations/n8n/) ship native packages that wrap the SDK
+directly. See [Integrations](/integrations/) for the per-framework guides.
+
 ## Claude Desktop
 
 Open Settings → Developer → Edit Config, or edit the file directly. Claude Desktop does **not**

@@ -60,13 +60,20 @@ export const paymentAgent = new Agent({
   id: 'payment-agent',
   name: 'PipRail Payment Agent',
   instructions: 'You can pay x402 URLs for the user, within a hard spend policy. Quote and plan before you pay.',
-  model: openai('gpt-4o'),
-  tools: await piprailMcp.listTools(), // all 8 piprail_* tools, registered at agent level
+  model: openai('gpt-5'), // any Vercel AI SDK provider, or Mastra's 'openai/…' model router
+  tools: await piprailMcp.listTools(), // all 8 PipRail tools, registered at agent level
 })
 ```
 
 For per-request (dynamic) tools instead of agent-level, pass `await piprailMcp.listToolsets()` to
 `agent.generate(prompt, { toolsets })`.
+
+:::note[Tool names are namespaced]
+Mastra prefixes every MCP tool with its server key, so PipRail's `piprail_*` tools surface to the agent
+as **`piprail_piprail_*`** (server key + tool name) — standard Mastra behavior. The agent reads exact
+names from its tool schema, so it's invisible in practice; just don't hard-code the un-prefixed names in
+your own prompts.
+:::
 
 **Read-only first run:** omit `PIPRAIL_PRIVATE_KEY` and PipRail boots key-less — discover / quote / plan /
 budget / guide all work; only `piprail_pay_request` needs the wallet.
@@ -79,7 +86,7 @@ budget / guide all work; only `piprail_pay_request` needs the wallet.
 | `PIPRAIL_CHAIN` | — | `base` | Chain to pay on (any EVM, or `solana`/`ton`/`tron`/`near`/`sui`/`aptos`/`algorand`/`stellar`/`xrpl`). |
 | `PIPRAIL_CHAINS` | — | — | **Multi-chain** — comma-separated; each takes its own `PIPRAIL_<CHAIN>_KEY`. Pays whichever chain a 402 asks for. |
 | `PIPRAIL_MAX_AMOUNT` | — | `0.10` | Max per payment, in the token's units (≈ $ for USDC/USDT). |
-| `PIPRAIL_MAX_TOTAL` | — | `10.00` | Lifetime budget per token. |
+| `PIPRAIL_MAX_TOTAL` | — | `10.00` | Lifetime budget per token (server default; this example sets `5.00`). |
 | `PIPRAIL_TOKENS` | — | chain stables | Allowed tokens, comma-separated. |
 | `PIPRAIL_SCHEMES` | — | `onchain-proof` | Add `exact` to also pay standard x402 servers. |
 | `PIPRAIL_RPC_URL` | — | chain default | Custom RPC (recommended in production). |
@@ -94,6 +101,7 @@ the caps conservative, fund the wallet with only what the agent may spend, and t
 `piprail_discover` · `piprail_quote_payment` · `piprail_plan_payment` · **`piprail_pay_request`** ·
 `piprail_register` · `piprail_budget` · `piprail_guide` · `piprail_verify_receipt`. Only
 `piprail_pay_request` moves money; the rest are read-only. Full reference: [MCP tools](/mcp/tools/).
+(As noted above, Mastra surfaces these prefixed with the server key — e.g. `piprail_piprail_pay_request`.)
 
 ## Verify
 

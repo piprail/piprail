@@ -105,12 +105,17 @@ try {
       })
       try {
         const tools = await client.listTools()
-        const keys = Object.keys(tools)
-        const present = EXPECTED.filter((name) => keys.some((k) => k.includes(name)))
-        if (present.length === EXPECTED.length) pass(`MCPClient.listTools() surfaces all 8 PipRail tools to a Mastra agent (${keys.length} keys)`)
-        else fail(`MCPClient.listTools() missing ${EXPECTED.filter((n) => !present.includes(n)).join(', ')} — got keys: ${keys.join(', ')}`)
-        if (keys.every((k) => typeof tools[k]?.execute === 'function')) pass('every surfaced tool is callable (has execute) — wires straight into new Agent({ tools })')
-        else fail('a surfaced tool is missing execute()')
+        const keys = Object.keys(tools).sort()
+        // Mastra namespaces MCP tools by the server key: `<serverKey>_<toolName>`. The server key
+        // here is `piprail` and the underlying tools are already `piprail_*`, so the agent sees
+        // `piprail_piprail_*`. Assert the EXACT namespaced names — no loose substring matching.
+        const SERVER_KEY = 'piprail'
+        const NAMESPACED = EXPECTED.map((n) => `${SERVER_KEY}_${n}`).sort()
+        const missing = NAMESPACED.filter((n) => !keys.includes(n))
+        if (missing.length === 0) pass(`MCPClient.listTools() surfaces all 8 tools, namespaced as ${SERVER_KEY}_* → ${keys.join(', ')}`)
+        else fail(`MCPClient.listTools() missing ${missing.join(', ')} — got keys: ${keys.join(', ')}`)
+        if (keys.length === NAMESPACED.length && keys.every((k) => typeof tools[k]?.execute === 'function')) pass('every surfaced tool is callable (has execute) — wires straight into new Agent({ tools })')
+        else fail('a surfaced tool is missing execute() or the count is off')
       } finally { await client.disconnect().catch(() => {}) }
     }
   } else {
