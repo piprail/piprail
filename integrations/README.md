@@ -13,6 +13,7 @@ Each framework gets its own folder under `integrations/<framework>/`, with PipRa
 | **Hermes** 🛤️ | [`hermes/piprail/`](./hermes/piprail) | A [Hermes](https://github.com/NousResearch/hermes-agent) MCP catalog entry (`manifest.yaml`) + Skills Hub skill — add one `mcp_servers` block to `~/.hermes/config.yaml` and the agent gets the 8 PipRail tools, budget-bound. | ✅ built + tested |
 | _Vercel AI SDK · Mastra_ | _`vercel/piprail/` (soon)_ | `paymentTools()` as Vercel AI SDK / Mastra tools. | planned |
 | **elizaOS** 🤖 | [`elizaos/piprail/`](./elizaos/piprail) | A **native** elizaOS plugin (`@piprail/elizaos-plugin`) that wraps `paymentTools()` as 6 budget-bound agent actions (pay / quote / plan / discover / budget / guide). | ✅ built + live-tested |
+| **n8n** ⚙️ | [`n8n/piprail/`](./n8n/piprail) | A **native** n8n community node (`@piprail/n8n-nodes-piprail`) — pay / plan / quote / estimate an x402 URL from any workflow, `usableAsTool` so AI Agent nodes can call it. EVM (v1), zero runtime deps. Install via Community Nodes. | ✅ built + e2e-tested |
 
 > **Any MCP client can use PipRail today** without a dedicated integration — point it at
 > `npx -y @piprail/mcp`. See [docs.piprail.com/mcp/client-setup](https://docs.piprail.com/mcp/client-setup/).
