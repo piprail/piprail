@@ -4,10 +4,15 @@ import Navigation from '../../components/Navigation.astro'
 import Footer from '../../components/Footer.astro'
 import Breadcrumbs from '../../components/Breadcrumbs.astro'
 import { getPost, relatedPosts, formatDate } from '../../data/posts'
+import { Code } from 'astro:components'
 import {
   ArrowLeft, Clock, CalendarDays, Plus, ShieldCheck, Layers,
   Building2, Wallet, Share2, Github, Package,
 } from 'lucide-astro'
+
+// Build-time syntax highlighting (Shiki). vitesse-dark: near-black bg that blends
+// with the brand, green-leaning keywords that harmonize with the emerald accent.
+const CODE_THEME = 'vitesse-dark'
 
 const post = getPost('backendless-x402')!
 const site = Astro.site?.href.replace(/\/$/, '') ?? 'https://piprail.com'
@@ -216,7 +221,7 @@ const faqLd = {
 
         <p>Reaching 29 chains without the core turning into a tangle takes discipline, and the discipline has a name: the <strong>PaymentDriver</strong> abstraction. The protocol layer — the payment gate, the client, the wire envelopes — depends only on that one contract. It imports no chain libraries at all: no viem, no <span class="font-mono text-[0.9em] text-neutral-200">@solana/web3.js</span>, nothing chain-specific. Each chain family is a self-contained driver behind the contract, and the families mirror each other file-for-file.</p>
 
-        <pre class="code"><code set:html={codeMirror}></code></pre>
+        <div class="cb"><Code code={codeMirror} lang="text" theme={CODE_THEME} /></div>
 
         <p>Adding a chain family means implementing the same five files and registering the driver — the core never moves. It also means the non-EVM drivers are optional peers that load only when you name one of their chains, so a pure-EVM install carries none of their weight. Breadth on the outside, a small unchanging contract on the inside.</p>
 
@@ -224,7 +229,7 @@ const faqLd = {
 
         <p>Out of the box, the used-proof set lives in memory, which is exactly right for a single instance. Run several, and you want them to share one view of which proofs have been spent — so the store is pluggable. Hand the gate an <span class="font-mono text-[0.9em] text-neutral-200">isUsed</span> and a <span class="font-mono text-[0.9em] text-neutral-200">markUsed</span> backed by Redis or a database, and every instance reads from the same set. The protocol logic does not change; only where “seen” is recorded does.</p>
 
-        <pre class="code"><code set:html={codeReplay}></code></pre>
+        <div class="cb"><Code code={codeReplay} lang="ts" theme={CODE_THEME} /></div>
 
         <h2>Why this is the whole product</h2>
 
@@ -380,20 +385,23 @@ const faqLd = {
   .article-prose strong { color: #fff; font-weight: 600; }
   .article-prose em { color: oklch(0.92 0.01 260); font-style: italic; }
 
-  pre.code {
-    margin: 0 0 1.5rem;
-    padding: 1.05rem 1.2rem;
+  /* Highlighted code blocks (Shiki <Code/>). The wrapper owns the margin + the
+     rounded, bordered panel; the vitesse-dark theme supplies the bg + token colors. */
+  .cb { margin: 0 0 1.5rem; }
+  .cb :global(.astro-code) {
     border-radius: 0.9rem;
-    border: 1px solid oklch(1 0 0 / 0.1);
-    background: oklch(0.21 0.012 260 / 0.55);
+    border: 1px solid oklch(1 0 0 / 0.08);
+    padding: 1.15rem 1.3rem;
     overflow-x: auto;
     font-family: var(--font-mono);
     font-size: 0.82rem;
     line-height: 1.75;
-    color: oklch(0.87 0.03 162);
-    white-space: pre;
+    tab-size: 2;
+    box-shadow: 0 1px 0 oklch(1 0 0 / 0.04) inset, 0 16px 34px -20px rgba(0, 0, 0, 0.85);
   }
-  @media (min-width: 640px) { pre.code { font-size: 0.9rem; } }
+  @media (min-width: 640px) {
+    .cb :global(.astro-code) { font-size: 0.9rem; padding: 1.3rem 1.5rem; }
+  }
 
   .article-fig { margin-block: 2.5rem; }
   .fig-eyebrow {

@@ -4,10 +4,15 @@ import Navigation from '../../components/Navigation.astro'
 import Footer from '../../components/Footer.astro'
 import Breadcrumbs from '../../components/Breadcrumbs.astro'
 import { getPost, relatedPosts, formatDate } from '../../data/posts'
+import { Code } from 'astro:components'
 import {
   ArrowLeft, Clock, CalendarDays, Plus, Globe, Coins, Layers,
   Share2, Github, Package,
 } from 'lucide-astro'
+
+// Build-time syntax highlighting (Shiki). vitesse-dark: near-black bg that blends
+// with the brand, green-leaning keywords that harmonize with the emerald accent.
+const CODE_THEME = 'vitesse-dark'
 
 const post = getPost('x402-chains')!
 const site = Astro.site?.href.replace(/\/$/, '') ?? 'https://piprail.com'
@@ -76,7 +81,7 @@ new PipRailClient({ chain: 'base', wallet: { key } })
 new PipRailClient({ chain: 'solana', wallet: { key } })
 
 // Any other EVM chain works too — pass a viem Chain or a plain { id, rpcUrl }:
-new PipRailClient({ chain: { id: 100, rpcUrl: 'https://...' }, wallet: { key } })`
+new PipRailClient({ chain: { id: 100, rpcUrl: '…' }, wallet: { key } })`
 
 const faqs = [
   {
@@ -195,7 +200,7 @@ const faqLd = {
 
         <p>That is the whole idea behind one parameter. The <span class="font-mono text-[0.9em] text-neutral-200">chain:</span> value you pass selects the network, its sensible RPC default, the native coin, and the right stablecoin addresses — all at once. Going from Base to Solana, or from Polygon to the XRP Ledger, is a one-word change in your code and nothing else.</p>
 
-        <pre class="code"><code set:html={codePreset}></code></pre>
+        <div class="cb"><Code code={codePreset} lang="ts" theme={CODE_THEME} /></div>
 
         <h2>The 20 EVM mainnets</h2>
 
@@ -426,21 +431,23 @@ const faqLd = {
   .article-prose strong { color: #fff; font-weight: 600; }
   .article-prose em { color: oklch(0.92 0.01 260); font-style: italic; }
 
-  /* Code block — plain, accurate, scrollable on small screens. */
-  pre.code {
-    margin: 0 0 1.5rem;
-    padding: 1.05rem 1.2rem;
+  /* Highlighted code blocks (Shiki <Code/>). The wrapper owns the margin + the
+     rounded, bordered panel; the vitesse-dark theme supplies the bg + token colors. */
+  .cb { margin: 0 0 1.5rem; }
+  .cb :global(.astro-code) {
     border-radius: 0.9rem;
-    border: 1px solid oklch(1 0 0 / 0.1);
-    background: oklch(0.21 0.012 260 / 0.55);
+    border: 1px solid oklch(1 0 0 / 0.08);
+    padding: 1.15rem 1.3rem;
     overflow-x: auto;
     font-family: var(--font-mono);
     font-size: 0.82rem;
     line-height: 1.75;
-    color: oklch(0.87 0.03 162);
-    white-space: pre;
+    tab-size: 2;
+    box-shadow: 0 1px 0 oklch(1 0 0 / 0.04) inset, 0 16px 34px -20px rgba(0, 0, 0, 0.85);
   }
-  @media (min-width: 640px) { pre.code { font-size: 0.9rem; } }
+  @media (min-width: 640px) {
+    .cb :global(.astro-code) { font-size: 0.9rem; padding: 1.3rem 1.5rem; }
+  }
 
   .article-fig { margin-block: 2.5rem; }
   .fig-eyebrow {
