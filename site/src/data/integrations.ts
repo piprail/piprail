@@ -44,6 +44,15 @@ export const liveIntegrations: Integration[] = [
     cmd: 'npm i @piprail/elizaos-plugin',
     href: 'https://docs.piprail.com/integrations/elizaos/',
   },
+  {
+    name: 'n8n',
+    logo: '/integrations/n8n.webp',
+    tag: 'Community node',
+    blurb:
+      'Pay x402 URLs from any n8n workflow. Install one community node and a PipRail node appears with four operations — pay, plan, quote, estimate cost — callable by n8n AI Agent nodes and capped by a spend policy. EVM chains, no facilitator, no fee.',
+    cmd: '@piprail/n8n-nodes-piprail',
+    href: 'https://docs.piprail.com/integrations/n8n/',
+  },
 ]
 
 /** On the roadmap — rendered as compact chips on both pages. */

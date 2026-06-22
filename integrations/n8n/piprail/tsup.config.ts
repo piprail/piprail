@@ -36,6 +36,8 @@ export default defineConfig({
   external: ['n8n-workflow', ...SDK_OPTIONAL_PEERS],
   // Force the SDK + its one required peer (viem) INTO the bundle → zero runtime dependencies.
   noExternal: ['@piprail/sdk', 'viem'],
-  // n8n resolves `file:piprail.svg` relative to the compiled node — copy the icons next to it.
-  onSuccess: 'cp nodes/Piprail/piprail.svg nodes/Piprail/piprail.dark.svg dist/nodes/Piprail/',
+  // n8n resolves `file:piprail.svg` relative to each compiled class — copy the icons next to
+  // BOTH the node and the credential.
+  onSuccess:
+    'cp nodes/Piprail/piprail.svg nodes/Piprail/piprail.dark.svg dist/nodes/Piprail/ && cp nodes/Piprail/piprail.svg nodes/Piprail/piprail.dark.svg dist/credentials/',
 })
