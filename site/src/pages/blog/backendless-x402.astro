@@ -1,0 +1,427 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import Navigation from '../../components/Navigation.astro'
+import Footer from '../../components/Footer.astro'
+import Breadcrumbs from '../../components/Breadcrumbs.astro'
+import { getPost, relatedPosts, formatDate } from '../../data/posts'
+import {
+  ArrowLeft, Clock, CalendarDays, Plus, ShieldCheck, Layers,
+  Building2, Wallet, Share2, Github, Package,
+} from 'lucide-astro'
+
+const post = getPost('backendless-x402')!
+const site = Astro.site?.href.replace(/\/$/, '') ?? 'https://piprail.com'
+const canonical = `${site}/blog/${post.slug}/`
+const ogImageAbs = `${site}${post.ogImage}`
+const more = relatedPosts(post.slug, 2)
+
+const pageTitle = post.seoTitle ?? `${post.title} — PipRail`
+
+const articleLd = {
+  '@context': 'https://schema.org',
+  '@type': 'BlogPosting',
+  '@id': `${canonical}#article`,
+  headline: post.title,
+  description: post.description,
+  image: ogImageAbs,
+  datePublished: post.published,
+  dateModified: post.updated ?? post.published,
+  author: {
+    '@type': 'Person',
+    name: post.author.name,
+    jobTitle: 'Cofounder',
+    url: post.author.url,
+    worksFor: { '@id': 'https://piprail.com/#organization' },
+  },
+  publisher: { '@id': 'https://piprail.com/#organization' },
+  mainEntityOfPage: { '@type': 'WebPage', '@id': canonical },
+  isPartOf: { '@id': 'https://piprail.com/#website' },
+  articleSection: post.category,
+  keywords: post.tags.join(', '),
+  inLanguage: 'en',
+  wordCount: 1700,
+  url: canonical,
+}
+
+const takeaways = [
+  'A facilitator is a custodian, a toll booth, and a single point of failure rolled into one. PipRail removes it — the merchant verifies the payment <em>itself</em>.',
+  'The x402 v2 spec blesses merchant-local verification (§7), so a backendless rail is <strong>spec-supported, not a workaround.</strong>',
+  'Verification re-derives every checked field from the trusted payment requirement, never from the client’s echo — a forged proof has nothing to forge against.',
+]
+
+const codeMirror = `drivers/
+  evm/       chains · wallet · pay · verify · index
+  solana/    chains · wallet · pay · verify · index
+  near/      chains · wallet · pay · verify · index
+  stellar/   chains · wallet · pay · verify · index
+  xrpl/      chains · wallet · pay · verify · index
+  ...        (one self-contained folder per chain family)`
+
+const codeReplay = `requirePayment({
+  chain: 'base', token: 'USDC', amount: '0.01', payTo,
+  // Default replay protection is in-memory. Make it durable across instances:
+  isUsed:  (ref) => redis.sIsMember('piprail:proofs', ref),
+  markUsed: (ref) => redis.sAdd('piprail:proofs', ref),
+})`
+
+const faqs = [
+  {
+    q: 'What is a facilitator in x402, and why would you avoid one?',
+    a: 'A facilitator is a third-party service that sits between the buyer and the seller: it settles the payment, often takes custody of the funds in transit, and usually charges a cut. It also becomes a single point of failure and a party both sides must trust. PipRail avoids it because none of that work actually requires a middleman — the buyer can broadcast their own transfer and the seller can verify it directly. Removing the facilitator removes the custody, the fee, and the dependency in one move.',
+  },
+  {
+    q: 'How does PipRail verify a payment without a backend or database?',
+    a: 'Verification is local. The seller reads the transaction straight from their own RPC node — viem for EVM chains, the native client for each non-EVM family — and checks it against the exact payment requirement they issued. Replay protection is an in-memory set of already-seen proofs plus a recency window. There is no server to run, no database to provision, and no external service in the path; everything the gate needs, it computes itself.',
+  },
+  {
+    q: 'Can a payment proof be replayed or forged?',
+    a: 'No. Every proof is single-use: the gate records each settled proof and rejects a second presentation, within a recency window that bounds how long a proof is even considered. And it cannot be forged against, because verify() re-derives every field it checks — amount, asset, recipient, network — from the trusted payment requirement it issued, never from the client-supplied echo. A forged or altered proof has nothing legitimate to point at.',
+  },
+  {
+    q: 'What happens if I run multiple server instances?',
+    a: 'The in-memory used-proof set is per-process, which is fine for a single instance. For a multi-instance deployment, the replay store is pluggable: pass isUsed and markUsed callbacks backed by Redis, a database, or any shared store, and all instances share one view of which proofs have been spent. The protocol logic does not change — only where the “seen” set lives.',
+  },
+  {
+    q: 'Is backendless verification actually allowed by the x402 spec?',
+    a: 'Yes. The x402 v2 specification (§7) explicitly says resource servers may host the verification endpoints themselves rather than delegating to a facilitator. So PipRail’s backendless shape is a first-class, spec-supported configuration — not a clever workaround or a deviation from the standard.',
+  },
+  {
+    q: 'How does the driver architecture keep the protocol layer chain-agnostic?',
+    a: 'The protocol layer — the payment gate, the client, the wire envelopes — depends only on a PaymentDriver contract, with zero imports of viem, @solana/web3.js, or any chain library. Each chain family is a self-contained driver that implements that contract, and the families mirror each other file-for-file: chains, wallet, pay, verify, index. Adding a new family means implementing the same contract and registering it — the core never changes, and a pure-EVM install never downloads the non-EVM drivers.',
+  },
+]
+
+const faqLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  '@id': `${canonical}#faq`,
+  mainEntity: faqs.map((f) => ({
+    '@type': 'Question',
+    name: f.q,
+    acceptedAnswer: { '@type': 'Answer', text: f.a },
+  })),
+}
+---
+
+<Layout
+  title={pageTitle}
+  description={post.description}
+  ogImage={post.ogImage}
+  ogType="article"
+  article={{
+    publishedTime: post.published,
+    modifiedTime: post.updated ?? post.published,
+    author: post.author.name,
+    section: post.category,
+    tags: post.tags,
+  }}
+>
+  <Fragment slot="head">
+    <link rel="author" href={post.author.url} />
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(articleLd)} />
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(faqLd)} />
+  </Fragment>
+
+  <Navigation />
+
+  <main class="mx-auto max-w-3xl px-4 sm:px-6">
+    <div class="pt-6"><Breadcrumbs items={[{ name: 'Blog', href: '/blog' }, { name: post.title }]} /></div>
+
+    <article class="fade-up">
+      <header class="pt-10 sm:pt-14">
+        <div class="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-accent">
+          PipRail · {post.category}
+        </div>
+        <h1 class="mt-5 text-pretty text-[2.1rem] font-bold leading-[1.12] tracking-tight text-white sm:text-5xl">
+          {post.title}
+        </h1>
+        <p class="mt-5 text-lg leading-relaxed text-neutral-400 sm:text-xl">
+          Most x402 implementations put a service in the middle of every payment. PipRail does not —
+          and the reason it can get away with that is a single design decision:
+          <em class="not-italic text-neutral-200">the merchant verifies the payment itself.</em>
+          Here is the architecture that makes backendless possible.
+        </p>
+
+        <div class="mt-8 flex flex-wrap items-center gap-x-4 gap-y-3 border-y border-white/10 py-4">
+          <div class="flex items-center gap-3">
+            <span
+              class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-accent/30 bg-accent/10 font-display text-sm font-semibold text-accent"
+              aria-hidden="true"
+            >TR</span>
+            <div class="leading-tight">
+              <div class="text-sm font-semibold text-neutral-100">{post.author.name}</div>
+              <div class="text-xs text-neutral-400">{post.author.role}</div>
+            </div>
+          </div>
+          <div class="ml-auto flex items-center gap-x-4 gap-y-1 text-xs text-neutral-400">
+            <span class="inline-flex items-center gap-1.5">
+              <CalendarDays size={13} aria-hidden="true" />
+              <time datetime={post.published}>{formatDate(post.published)}</time>
+            </span>
+            <span class="inline-flex items-center gap-1.5">
+              <Clock size={13} aria-hidden="true" /> {post.readingTime} min read
+            </span>
+          </div>
+        </div>
+      </header>
+
+      <aside class="card mt-10 rounded-2xl p-6 sm:p-7" aria-label="Summary">
+        <h2 class="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">The short version</h2>
+        <ul class="mt-4 space-y-3">
+          {takeaways.map((t) => (
+            <li class="flex gap-3 text-[15px] leading-relaxed text-neutral-300">
+              <ShieldCheck size={17} class="mt-0.5 shrink-0 text-accent" aria-hidden="true" />
+              <span set:html={t} />
+            </li>
+          ))}
+        </ul>
+      </aside>
+
+      <div class="article-prose mt-10">
+        <p>When people picture an x402 payment, they usually picture three parties: a buyer, a seller, and a <strong>facilitator</strong> in between that settles the transaction. The facilitator is convenient — it abstracts the chain away — but look closely at what it actually is. It holds the funds in transit, which makes it a custodian. It usually takes a cut, which makes it a toll booth. And every payment depends on it being up and honest, which makes it a single point of failure. Three liabilities, bundled into one box that both sides have to trust.</p>
+
+        <p>PipRail’s central claim is that the box is unnecessary. None of the work a facilitator does actually requires a middleman to do it. The buyer can broadcast their own transfer. The seller can read that transfer and check it. Remove the box, and the custody, the fee, and the dependency all leave with it.</p>
+
+        <!-- Figure 1 — with a facilitator vs. without -->
+        <figure class="article-fig">
+          <div class="card rounded-2xl p-6 sm:p-8">
+            <div class="fig-eyebrow">Two shapes for one payment</div>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div class="rounded-xl border border-white/12 bg-white/4 p-5">
+                <div class="flex items-center gap-2 text-neutral-300"><Building2 size={17} aria-hidden="true" /><span class="font-display text-base font-semibold text-white">With a facilitator</span></div>
+                <div class="mt-2.5 text-sm leading-relaxed text-neutral-400">Buyer → <span class="text-neutral-200">facilitator (custody + fee)</span> → seller. A third party settles, holds the funds in transit, and can fail or charge.</div>
+              </div>
+              <div class="rounded-xl border border-accent/30 bg-accent/8 p-5">
+                <div class="flex items-center gap-2 text-accent"><Wallet size={17} aria-hidden="true" /><span class="font-display text-base font-semibold text-white">Backendless</span></div>
+                <div class="mt-2.5 text-sm leading-relaxed text-neutral-300">Buyer → seller, directly. The seller verifies the transfer against its own RPC. Nobody holds the funds; nothing sits in the middle.</div>
+              </div>
+            </div>
+          </div>
+          <figcaption class="fig-cap">Same protocol, same 402 handshake. The difference is whether anything stands between the two wallets.</figcaption>
+        </figure>
+
+        <h2>Verification is local</h2>
+
+        <p>Here is the part that surprises people: removing the facilitator does not weaken verification, because verification never needed a third party in the first place. A blockchain is already a shared, public source of truth. When a buyer pays, the seller reads the transaction directly from its own node — viem for EVM chains, the native client for each non-EVM family — and confirms it matches the exact payment it asked for. There is no server to run and no database to provision; the gate computes everything it needs from the chain and from the challenge it issued.</p>
+
+        <p>This is not PipRail bending the rules. The x402 v2 specification, in §7, explicitly says resource servers <em>may host the verification endpoints themselves</em> rather than handing them to a facilitator. The backendless shape is a configuration the standard anticipates and blesses. We just took it as the default instead of the exception.</p>
+
+        <h2>The trick that makes proofs unforgeable</h2>
+
+        <p>A payment proof has to be cryptographically bound to the specific challenge it answers, or it could be replayed or forged. PipRail binds proofs two ways depending on the chain: for some families the challenge nonce rides in a memo or note and verification matches it on the merchant’s own account; for others the proof is the transaction hash itself, verified by reading the transaction plus a recency window and a single-use proof set.</p>
+
+        <p>But the load-bearing detail is smaller and easier to miss. <strong>Verification always re-derives every field it checks — amount, asset, recipient, network — from the trusted payment requirement the gate issued, never from the client-supplied reference.</strong> A malicious client can echo back anything it likes; it does not matter, because <span class="font-mono text-[0.9em] text-neutral-200">verify()</span> never reads its own truth from the echo. A forged or altered proof has nothing legitimate to point at, and replayed proofs are caught by the single-use set. The honesty of the check does not depend on the honesty of the payer.</p>
+
+        <h2>One contract, ten families, mirrored</h2>
+
+        <p>Reaching 29 chains without the core turning into a tangle takes discipline, and the discipline has a name: the <strong>PaymentDriver</strong> abstraction. The protocol layer — the payment gate, the client, the wire envelopes — depends only on that one contract. It imports no chain libraries at all: no viem, no <span class="font-mono text-[0.9em] text-neutral-200">@solana/web3.js</span>, nothing chain-specific. Each chain family is a self-contained driver behind the contract, and the families mirror each other file-for-file.</p>
+
+        <pre class="code"><code set:html={codeMirror}></code></pre>
+
+        <p>Adding a chain family means implementing the same five files and registering the driver — the core never moves. It also means the non-EVM drivers are optional peers that load only when you name one of their chains, so a pure-EVM install carries none of their weight. Breadth on the outside, a small unchanging contract on the inside.</p>
+
+        <h2>Replay protection you can make durable</h2>
+
+        <p>Out of the box, the used-proof set lives in memory, which is exactly right for a single instance. Run several, and you want them to share one view of which proofs have been spent — so the store is pluggable. Hand the gate an <span class="font-mono text-[0.9em] text-neutral-200">isUsed</span> and a <span class="font-mono text-[0.9em] text-neutral-200">markUsed</span> backed by Redis or a database, and every instance reads from the same set. The protocol logic does not change; only where “seen” is recorded does.</p>
+
+        <pre class="code"><code set:html={codeReplay}></code></pre>
+
+        <h2>Why this is the whole product</h2>
+
+        <p>It is tempting to add a backend. A backend is where dashboards live, where analytics accrue, where a fee can be inserted. But the moment a payment routes through your server, you are a custodian and a point of failure, and the thing you built stops being a tool the developer owns and starts being a platform they depend on. PipRail’s architecture is a standing refusal to cross that line. No backend, no database, no account, no fee — not because we couldn’t build them, but because the absence is the point. The rail should be something you own, not a platform you join. Verifying your own payments, against your own node, with nobody in the middle, is what owning it looks like.</p>
+      </div>
+
+      <div class="mt-12 flex flex-wrap items-center gap-3 border-t border-white/10 pt-6">
+        <span class="mr-1 inline-flex items-center gap-1.5 text-xs text-neutral-500"><Share2 size={13} aria-hidden="true" /> Share</span>
+        <a
+          href={`https://x.com/intent/tweet?text=${encodeURIComponent(post.title + ' — by ' + post.author.name)}&url=${encodeURIComponent(canonical)}&via=piprailhq`}
+          class="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-neutral-300 transition hover:border-white/20 hover:text-white"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path></svg>
+          Post on X
+        </a>
+        <button
+          type="button"
+          data-copy-link
+          data-url={canonical}
+          class="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-neutral-300 transition hover:border-white/20 hover:text-white"
+        >
+          <span data-copy-label aria-live="polite">Copy link</span>
+        </button>
+      </div>
+    </article>
+
+    <section class="mt-12 rounded-2xl border border-white/10 bg-white/2.5 p-6 sm:p-7">
+      <div class="flex items-start gap-4">
+        <span
+          class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-accent/30 bg-accent/10 font-display text-base font-semibold text-accent"
+          aria-hidden="true"
+        >TR</span>
+        <div>
+          <div class="text-sm font-semibold text-neutral-100">{post.author.name}</div>
+          <div class="text-xs text-neutral-500">{post.author.role}</div>
+          <p class="mt-2.5 text-sm leading-relaxed text-neutral-400">
+            Cofounder of PipRail — the open, no-fee x402 rail for AI agents, across 29 chains.
+            Writing about the architecture of self-custody payments, and why the rail should have no middle.
+          </p>
+          <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+            <a href="/" class="text-accent transition hover:brightness-110">piprail.com</a>
+            <a href="https://github.com/piprail" class="text-accent transition hover:brightness-110">github.com/piprail</a>
+            <a href="https://x.com/piprailhq" class="text-accent transition hover:brightness-110">@piprailhq</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="mt-14" aria-labelledby="faq-heading">
+      <h2 id="faq-heading" class="text-2xl font-semibold tracking-tight sm:text-3xl">Frequently asked</h2>
+      <div class="mt-6 divide-y divide-white/10 border-y border-white/10">
+        {faqs.map((f) => (
+          <details class="group">
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-4 py-4 text-[15px] font-medium text-neutral-100 transition hover:text-white">
+              <span>{f.q}</span>
+              <Plus size={17} class="shrink-0 text-neutral-500 transition group-open:rotate-45" aria-hidden="true" />
+            </summary>
+            <p class="pb-5 text-[15px] leading-relaxed text-neutral-400">{f.a}</p>
+          </details>
+        ))}
+      </div>
+    </section>
+
+    <section class="mt-14 overflow-hidden rounded-2xl border border-accent/20 bg-accent/6 p-7 text-center sm:p-10">
+      <h2 class="text-2xl font-semibold tracking-tight text-white sm:text-3xl">No middle. No fee. Yours.</h2>
+      <p class="mx-auto mt-3 max-w-xl text-neutral-300">
+        PipRail is the open, self-custody x402 rail — verify your own payments, against your own node, with nobody
+        in between.
+      </p>
+      <div class="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        <a
+          href="https://www.npmjs.com/package/@piprail/sdk"
+          class="cta-glow inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto"
+        >
+          <Package size={16} aria-hidden="true" /> Get the SDK
+        </a>
+        <a
+          href="https://docs.piprail.com/"
+          class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/12 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto"
+        >
+          <Layers size={16} aria-hidden="true" /> Read the docs
+        </a>
+        <a
+          href="https://github.com/piprail/piprail"
+          class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/12 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto"
+        >
+          <Github size={16} aria-hidden="true" /> Star on GitHub
+        </a>
+      </div>
+    </section>
+
+    <section class="mt-14 mb-8">
+      {more.length > 0 ? (
+        <>
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-neutral-500">More writing</h2>
+          <div class="mt-4 grid gap-4 sm:grid-cols-2">
+            {more.map((p) => (
+              <a
+                href={`/blog/${p.slug}`}
+                class="group rounded-2xl border border-white/10 bg-white/2.5 p-5 transition hover:border-accent/30 hover:bg-white/5"
+              >
+                <div class="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">{p.category}</div>
+                <div class="mt-2 font-display text-lg font-semibold leading-snug text-neutral-100 group-hover:text-white">{p.title}</div>
+                <p class="mt-1.5 text-sm leading-relaxed text-neutral-400">{p.excerpt}</p>
+              </a>
+            ))}
+          </div>
+        </>
+      ) : (
+        <a href="/blog" class="inline-flex items-center gap-2 text-sm font-medium text-accent transition hover:brightness-110">
+          <ArrowLeft size={15} aria-hidden="true" /> All writing
+        </a>
+      )}
+    </section>
+  </main>
+
+  <Footer />
+</Layout>
+
+<style>
+  .article-prose p {
+    margin-block: 0 1.5rem;
+    color: oklch(0.86 0.008 260);
+    font-size: 1.0625rem;
+    line-height: 1.85;
+    text-wrap: pretty;
+  }
+  @media (min-width: 640px) {
+    .article-prose p { font-size: 1.1875rem; line-height: 1.85; }
+  }
+  .article-prose h2 {
+    margin-top: 2.75rem;
+    margin-bottom: 1.25rem;
+    font-family: var(--font-display, inherit);
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+    color: #fff;
+    text-wrap: balance;
+  }
+  @media (min-width: 640px) {
+    .article-prose h2 { font-size: 1.9rem; }
+  }
+  .article-prose a {
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-decoration-color: oklch(0.78 0.17 162 / 0.35);
+    text-underline-offset: 3px;
+    transition: text-decoration-color 0.15s ease;
+  }
+  .article-prose a:hover { text-decoration-color: oklch(0.78 0.17 162 / 0.9); }
+  .article-prose strong { color: #fff; font-weight: 600; }
+  .article-prose em { color: oklch(0.92 0.01 260); font-style: italic; }
+
+  pre.code {
+    margin: 0 0 1.5rem;
+    padding: 1.05rem 1.2rem;
+    border-radius: 0.9rem;
+    border: 1px solid oklch(1 0 0 / 0.1);
+    background: oklch(0.21 0.012 260 / 0.55);
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    line-height: 1.75;
+    color: oklch(0.87 0.03 162);
+    white-space: pre;
+  }
+  @media (min-width: 640px) { pre.code { font-size: 0.9rem; } }
+
+  .article-fig { margin-block: 2.5rem; }
+  .fig-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+    margin-bottom: 1.25rem;
+  }
+  .fig-cap {
+    margin-top: 1rem;
+    font-size: 0.875rem;
+    font-style: italic;
+    color: oklch(0.62 0.01 260);
+  }
+</style>
+
+<script is:inline>
+  for (const btn of document.querySelectorAll('[data-copy-link]')) {
+    btn.addEventListener('click', async () => {
+      const label = btn.querySelector('[data-copy-label]')
+      try {
+        await navigator.clipboard.writeText(btn.dataset.url)
+        const prev = label.textContent
+        label.textContent = 'Copied!'
+        setTimeout(() => { label.textContent = prev }, 1600)
+      } catch {}
+    })
+  }
+</script>

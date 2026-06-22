@@ -55,6 +55,82 @@ export const authors = {
 // The published feed. Newest entries go first in the file; `postsByDate` sorts by date.
 export const posts: Post[] = [
   {
+    slug: 'give-your-agent-a-wallet',
+    title: 'Give Your AI Agent a Wallet It Can’t Overspend',
+    seoTitle:
+      'Add x402 payments to an AI agent — the PipRail SDK, MCP server, and spend policy',
+    description:
+      'Hand an AI agent a budget-bound wallet that pays x402 URLs by itself — capped per call and for life. The SDK, the MCP server, and the spend policy, in a few lines.',
+    excerpt:
+      'An agent can read any API until one asks for money. PipRail hands it a wallet with a hard spend cap it can’t cross — pay an x402 URL, or charge for your own, in a few lines of TypeScript.',
+    author: authors.john,
+    published: '2026-06-22',
+    readingTime: 8,
+    category: 'Guide',
+    tags: [
+      'x402',
+      'AI agents',
+      'agent payments',
+      'MCP',
+      'spend policy',
+      'elizaOS',
+      'TypeScript SDK',
+      'self-custody',
+      'crypto payments',
+    ],
+    ogImage: '/blog/give-your-agent-a-wallet.png',
+  },
+  {
+    slug: 'x402-chains',
+    title: 'Every Chain PipRail Supports for x402 Payments',
+    seoTitle:
+      'x402 supported chains: every network PipRail pays on — 29 chains, one parameter',
+    description:
+      'One chain: parameter, 29 chains — every major EVM network plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger, and the tokens on each.',
+    excerpt:
+      'Name a chain, get paid. PipRail covers 29 chains across ten families from a single parameter — here’s every network it supports, the tokens on each, and how it pays without an allowlist.',
+    author: authors.john,
+    published: '2026-06-22',
+    readingTime: 7,
+    category: 'Guide',
+    tags: [
+      'x402',
+      'multi-chain',
+      'USDC',
+      'stablecoins',
+      'Solana',
+      'EVM',
+      'agent payments',
+      'crypto payments',
+      'self-custody',
+    ],
+    ogImage: '/blog/x402-chains.png',
+  },
+  {
+    slug: 'backendless-x402',
+    title: 'No Facilitator, No Custody, No Fee: How Backendless x402 Works',
+    seoTitle: 'Backendless x402: merchant-local verification, no facilitator, no fee',
+    description:
+      'Most x402 setups route through a facilitator that takes custody and a cut. PipRail verifies payments locally against your own RPC — no backend, no middleman. Here’s how.',
+    excerpt:
+      'Most x402 implementations put a facilitator in the middle — a custodian, a toll booth, a single point of failure. PipRail removes it: the merchant verifies the payment itself, locally. Here’s the architecture that makes backendless possible.',
+    author: authors.tim,
+    published: '2026-06-22',
+    readingTime: 8,
+    category: 'Architecture',
+    tags: [
+      'x402',
+      'self-custody',
+      'agent payments',
+      'decentralization',
+      'open-source',
+      'payment verification',
+      'AI agents',
+      'crypto payments',
+    ],
+    ogImage: '/blog/backendless-x402.png',
+  },
+  {
     slug: 'the-agent-economy-needs-an-open-rail',
     title: 'The Agent Economy Needs an Open Rail',
     seoTitle: 'The Agent Economy Needs an Open Rail — why agent payments must be open',
