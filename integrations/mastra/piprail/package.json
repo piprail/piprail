@@ -1,0 +1,38 @@
+{
+  "name": "piprail-mastra-example",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Give a Mastra agent a budget-bound x402 payment wallet via @piprail/mcp — the first x402 integration for Mastra.",
+  "license": "MIT",
+  "author": {
+    "name": "PipRail",
+    "url": "https://piprail.com"
+  },
+  "homepage": "https://piprail.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/piprail/piprail.git",
+    "directory": "integrations/mastra/piprail"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "dev": "mastra dev",
+    "build": "mastra build",
+    "typecheck": "tsc --noEmit",
+    "verify": "node verify.mjs"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "latest",
+    "@mastra/core": "latest",
+    "@mastra/mcp": "latest",
+    "mastra": "latest",
+    "zod": "^4"
+  },
+  "devDependencies": {
+    "@types/node": "^24",
+    "typescript": "^5.9"
+  }
+}

@@ -53,7 +53,16 @@ export const liveIntegrations: Integration[] = [
     cmd: '@piprail/n8n-nodes-piprail',
     href: 'https://docs.piprail.com/integrations/n8n/',
   },
+  {
+    name: 'Mastra',
+    logo: '/integrations/mastra.webp',
+    tag: 'MCP server',
+    blurb:
+      "The first x402 payment integration for Mastra. Wire @piprail/mcp in through Mastra's MCPClient and an agent gets all eight PipRail tools — pay, plan, quote, discover, budget and more — capped by a spend policy. Every chain, no facilitator, no fee.",
+    cmd: 'npx -y @piprail/mcp',
+    href: 'https://docs.piprail.com/integrations/mastra/',
+  },
 ]
 
 /** On the roadmap — rendered as compact chips on both pages. */
-export const comingSoon: string[] = ['Vercel AI SDK', 'Mastra']
+export const comingSoon: string[] = ['Vercel AI SDK', 'CrewAI']

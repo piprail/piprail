@@ -18,5 +18,6 @@ These pages cover **first-party integrations** that drop PipRail into the framew
 | [Hermes](/integrations/hermes/) | A Hermes MCP catalog entry (and Skills Hub skill) — add one `mcp_servers` block and the agent gets the full set of PipRail tools, budget-bound. |
 | [elizaOS](/integrations/elizaos/) | A **native** elizaOS plugin (`@piprail/elizaos-plugin`) that wraps [`@piprail/sdk`](/agent-toolkit/payment-tools/)'s `paymentTools` as six budget-bound agent actions (pay / quote / plan / discover / budget / guide) — add `piprailPlugin` to your character; no MCP server needed. |
 | [n8n](/integrations/n8n/) | A **native** n8n community node (`@piprail/n8n-nodes-piprail`) — pay / plan / quote / estimate an x402 URL from any workflow, callable by n8n AI Agent nodes and budget-bound. Install via Settings → Community Nodes. |
+| [Mastra](/integrations/mastra/) | The **first x402 integration for Mastra** — wire [`@piprail/mcp`](/mcp/overview/) in via Mastra's `MCPClient` and an agent gets the full set of PipRail tools, budget-bound. `viem` never enters Mastra's tree. |
 
 More framework integrations are on the way. Any MCP client can use PipRail today via the [MCP server](/mcp/overview/) — see [Client setup](/mcp/client-setup/).
