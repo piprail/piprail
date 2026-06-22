@@ -5,9 +5,13 @@ import { MCPClient } from '@mastra/mcp'
  * [`@piprail/mcp`](https://www.npmjs.com/package/@piprail/mcp), run via `npx -y @piprail/mcp`.
  *
  * Because it runs as a separate stdio process, neither `@piprail/sdk` nor its `viem` peer ever
- * enter Mastra's dependency tree. The agent gets all 8 PipRail tools (`piprail_*`), capped by a
- * spend policy it cannot exceed — funds settle straight to the provider's wallet, verified locally
- * against your own RPC. No facilitator, no fee, self-custodial.
+ * enter Mastra's dependency tree. The agent gets all 8 PipRail tools, capped by a spend policy it
+ * cannot exceed — funds settle straight to the provider's wallet, verified locally against your own
+ * RPC. No facilitator, no fee, self-custodial.
+ *
+ * Mastra namespaces MCP tools by the server key below, so the underlying `piprail_*` tools surface
+ * to the agent as `piprail_piprail_*` (server key + tool name) — that's standard Mastra behavior,
+ * and the agent reads exact names from its tool schema, so it just works.
  *
  * Read-only by default: omit `PIPRAIL_PRIVATE_KEY` and discover/quote/plan/budget/guide still work;
  * only paying needs a (funded) wallet key. Never commit the key — it's not an API key.
