@@ -7,7 +7,8 @@ layers** — run the automated one always; do the manual one once per framework 
 |---|---|---|---|
 | **OpenClaw** | [`openclaw/piprail/verify.mjs`](./openclaw/piprail/verify.mjs) | [§ Manual OpenClaw run](#manual-openclaw-run) | ✅ passing |
 | **Hermes** | [`hermes/piprail/verify.mjs`](./hermes/piprail/verify.mjs) | [§ Manual Hermes run](#manual-hermes-run) | ✅ passing |
-| _Vercel AI SDK · Mastra · ElizaOS_ | _add `verify.mjs` per folder_ | _per framework_ | planned |
+| **Mastra** | [`mastra/piprail/verify.mjs`](./mastra/piprail/verify.mjs) | [§ Manual Mastra run](#manual-mastra-run) | ✅ passing |
+| _Vercel AI SDK_ | _add `verify.mjs` per folder_ | _per framework_ | planned |
 
 > **Pattern (so this scales):** every integration keeps its own `verify.mjs` next to its code. Adding a
 > framework = add `integrations/<framework>/piprail/verify.mjs` + a row above. Tests live with what they test.
@@ -120,6 +121,37 @@ wiring, the budget. The other half is Layer 2.
 - [ ] `node verify.mjs --live` passes (protocol + live quote + budget refusal).
 - [ ] Hermes lists the 7 `mcp_piprail_*` tools after adding the `mcp_servers` entry + `/reload-mcp`.
 - [ ] The agent quotes, plans, and **pays the live demo** end-to-end (real tx on Base).
+- [ ] A below-price cap makes the agent refuse — no funds move.
+
+<a id="manual-mastra-run"></a>
+### Manual Mastra run
+
+Mastra consumes PipRail through its first-class `MCPClient` (same MCP server, same 8 tools). The
+runnable example *is* the test app — [`mastra/piprail/`](./mastra/piprail) is a complete Mastra project.
+
+1. **Install + configure.** `cd integrations/mastra/piprail && npm install`, then `cp .env.example .env`
+   and add a funded `PIPRAIL_PRIVATE_KEY` (tiny USDC + gas on Base) and an `OPENAI_API_KEY`.
+2. **Prove the wiring without the LLM** (no key needed for this part):
+
+   ```bash
+   node verify.mjs --live --mastra   # real @mastra/mcp MCPClient.listTools() + live quote + cap refusal
+   ```
+
+   This asserts `MCPClient.listTools()` surfaces all 8 `piprail_*` tools (each callable, ready for
+   `new Agent({ tools })`), quotes the live demo (0.01 USDC on Base), and refuses a below-price cap.
+3. **Drive the agent** — `npm run dev` opens the Mastra playground; chat with the **PipRail Payment Agent**:
+   - *"What's the price of `https://piprail.com/x402/demo`?"* → `piprail_quote_payment` → **0.01 USDC on Base**.
+   - *"Can I afford it?"* → `piprail_plan_payment` reports payable + remaining budget.
+   - *"Pay for it and show me the result."* → `piprail_pay_request` settles on-chain, returns the 200 body
+     + receipt (tx hash). Verify on [basescan.org](https://basescan.org).
+4. **Prove the cap in-app** — set `PIPRAIL_MAX_TOTAL` below the demo price, restart `npm run dev`, and ask
+   it to pay: it refuses, no funds move. (Layer 1 already proves this automatically.)
+
+### Sign-off checklist
+
+- [ ] `node verify.mjs --live --mastra` passes (MCPClient surfaces 8 tools + live quote + budget refusal).
+- [ ] `npm run typecheck` is clean against the installed `@mastra/core` / `@mastra/mcp`.
+- [ ] The agent quotes, plans, and **pays the live demo** end-to-end in the playground (real tx on Base).
 - [ ] A below-price cap makes the agent refuse — no funds move.
 
 ---
