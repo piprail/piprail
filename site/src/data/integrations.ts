@@ -35,7 +35,16 @@ export const liveIntegrations: Integration[] = [
     cmd: 'hermes mcp add piprail --command npx --args -y @piprail/mcp',
     href: 'https://docs.piprail.com/integrations/hermes/',
   },
+  {
+    name: 'elizaOS',
+    logo: '/integrations/elizaos.webp',
+    tag: 'Native plugin',
+    blurb:
+      'Hand an elizaOS agent a budget-bound wallet across every major chain. Add one plugin and it gets six native payment actions — pay, quote, plan, discover, budget, guide — no facilitator, no fee, capped by a spend policy.',
+    cmd: 'npm i @piprail/elizaos-plugin',
+    href: 'https://docs.piprail.com/integrations/elizaos/',
+  },
 ]
 
 /** On the roadmap — rendered as compact chips on both pages. */
-export const comingSoon: string[] = ['Vercel AI SDK', 'Mastra', 'ElizaOS']
+export const comingSoon: string[] = ['Vercel AI SDK', 'Mastra']
