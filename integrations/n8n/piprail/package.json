@@ -1,8 +1,12 @@
 {
   "name": "@piprail/n8n-nodes-piprail",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "n8n community node — pay an x402 (HTTP 402) URL from a workflow. Self-custody, EVM chains, no facilitator, no fee.",
   "license": "MIT",
+  "author": {
+    "name": "PipRail",
+    "url": "https://piprail.com"
+  },
   "keywords": [
     "n8n-community-node-package",
     "n8n",
@@ -23,14 +27,19 @@
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit",
-    "smoke": "node smoke.mjs"
+    "smoke": "node smoke.mjs",
+    "lint": "n8n-node lint"
   },
   "n8n": {
     "n8nNodesApiVersion": 1,
     "credentials": ["dist/credentials/PiprailApi.credentials.js"],
     "nodes": ["dist/nodes/Piprail/Piprail.node.js"]
   },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  },
   "devDependencies": {
+    "@n8n/node-cli": "^0.35.1",
     "@piprail/sdk": "^2.13.1",
     "viem": "^2.21.0",
     "n8n-workflow": "*",

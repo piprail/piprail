@@ -3,6 +3,7 @@ import type { ICredentialType, INodeProperties } from 'n8n-workflow'
 export class PiprailApi implements ICredentialType {
   name = 'piprailApi'
   displayName = 'PipRail API'
+  icon = { light: 'file:piprail.svg', dark: 'file:piprail.dark.svg' } as const
   documentationUrl = 'https://docs.piprail.com'
   properties: INodeProperties[] = [
     {
@@ -13,7 +14,7 @@ export class PiprailApi implements ICredentialType {
       default: '',
       required: true,
       description:
-        'Hex private key (0x…) of the wallet payments are sent from. Held as an encrypted n8n credential — never read from the environment or the filesystem.',
+        'Hex private key (0x...) of the wallet payments are sent from. Held as an encrypted n8n credential - never read from the environment or the filesystem.',
     },
     {
       displayName: 'Chain',
@@ -21,7 +22,7 @@ export class PiprailApi implements ICredentialType {
       type: 'string',
       default: 'base',
       description:
-        'EVM chain to pay on — e.g. base, ethereum, arbitrum, optimism, polygon, bnb, avalanche. (v1 is EVM-only.)',
+        'EVM chain to pay on - e.g. base, ethereum, arbitrum, optimism, polygon, bnb, avalanche. (v1 is EVM-only.)',
     },
     {
       displayName: 'RPC URL',

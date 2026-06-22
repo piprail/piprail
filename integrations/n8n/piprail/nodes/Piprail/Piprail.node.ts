@@ -6,7 +6,7 @@ import type {
   INodeTypeDescription,
 } from 'n8n-workflow'
 import { NodeConnectionTypes, NodeOperationError } from 'n8n-workflow'
-import { PipRailClient } from '@piprail/sdk'
+import { PipRailClient, SpendLedger } from '@piprail/sdk'
 import type { ChainSelector } from '@piprail/sdk'
 
 export class Piprail implements INodeType {
@@ -18,7 +18,7 @@ export class Piprail implements INodeType {
     version: 1,
     subtitle: '={{ $parameter["operation"] }}',
     description:
-      'Pay an x402 (HTTP 402) URL from a workflow — self-custody, EVM chains, no facilitator, no fee',
+      'Pay an x402 (HTTP 402) URL from a workflow - self-custody, EVM chains, no facilitator, no fee',
     defaults: { name: 'PipRail' },
     inputs: [NodeConnectionTypes.Main],
     outputs: [NodeConnectionTypes.Main],
@@ -32,6 +32,12 @@ export class Piprail implements INodeType {
         type: 'options',
         noDataExpression: true,
         options: [
+          {
+            name: 'Estimate Cost',
+            value: 'estimateCost',
+            action: 'Estimate the cost of a 402 URL',
+            description: 'Read-only: price plus a gas estimate in the native coin (never pays)',
+          },
           {
             name: 'Pay URL',
             value: 'pay',
@@ -50,12 +56,6 @@ export class Piprail implements INodeType {
             value: 'quote',
             action: 'Quote a 402 URL',
             description: 'Read-only: the price of a gated URL (never pays)',
-          },
-          {
-            name: 'Estimate Cost',
-            value: 'estimateCost',
-            action: 'Estimate the cost of a 402 URL',
-            description: 'Read-only: price plus a gas estimate in the chain’s native coin (never pays)',
           },
         ],
         default: 'pay',
@@ -105,6 +105,15 @@ export class Piprail implements INodeType {
     const creds = await this.getCredentials('piprailApi')
     const out: INodeExecutionData[] = []
 
+    // Credential values are execution-scoped (not per item). Trim so a pasted key / RPC with a
+    // stray space or newline doesn't throw. One ledger is SHARED across the whole loop so the
+    // maxTotal / count caps ACCUMULATE for the execution - a fresh ledger per item would reset
+    // the cap each iteration (N items => up to N x maxTotal, silently breaking the guarantee).
+    const key = (creds.privateKey as string).trim()
+    const chain = (((creds.chain as string) || 'base').trim()) as ChainSelector
+    const rpcUrl = ((creds.rpcUrl as string) || '').trim()
+    const ledger = new SpendLedger()
+
     for (let i = 0; i < items.length; i++) {
       const operation = this.getNodeParameter('operation', i) as string
       const url = this.getNodeParameter('url', i) as string
@@ -117,13 +126,26 @@ export class Piprail implements INodeType {
         if (caps.maxAmount) policy.maxAmount = caps.maxAmount
         if (caps.maxTotal) policy.maxTotal = caps.maxTotal
 
-        // Wallet comes only from the n8n credential — never from the environment or filesystem.
+        // Capture the actual settle from the event stream so `paid` is truthful even when the gate
+        // emits NO verifiable-receipt extension (the default) - lastReceipt() is null in that case,
+        // so relying on it alone would misreport a successful payment as not-paid.
+        let didSettle = false
+        let settledTx: string | null = null
+
+        // Wallet comes only from the n8n credential - never from the environment or filesystem.
         const client = new PipRailClient({
-          chain: (((creds.chain as string) || 'base').trim()) as ChainSelector,
-          wallet: { key: creds.privateKey as string },
-          ...(creds.rpcUrl ? { rpcUrl: (creds.rpcUrl as string).trim() } : {}),
+          chain,
+          wallet: { key },
+          ...(rpcUrl ? { rpcUrl } : {}),
           ...(Object.keys(policy).length ? { policy } : {}),
+          ledger, // shared -> maxTotal accumulates across every item in this execution
           schemes: ['onchain-proof', 'exact'],
+          onEvent: (e) => {
+            if (e.kind === 'payment-settled') {
+              didSettle = true
+              settledTx = e.settle?.transaction ?? e.receipt?.transaction ?? settledTx
+            }
+          },
         })
 
         // The SDK's read-only methods return null for a non-gated URL and never throw.
@@ -136,7 +158,6 @@ export class Piprail implements INodeType {
           json = ((await client.estimateCost(url)) ?? { gated: false }) as unknown as IDataObject
         } else {
           const res = await client.fetch(url)
-          const receipt = client.lastReceipt()
           const body = await res.text()
           let parsed: unknown
           try {
@@ -144,10 +165,15 @@ export class Piprail implements INodeType {
           } catch {
             parsed = body
           }
+          // `paid` comes from the settle event (fires on a real payment regardless of whether the
+          // gate emits a receipt); `receipt` is the verifiable receipt only when the gate opted in.
+          const verifiable = client.lastReceipt()
           json = {
             status: res.status,
-            paid: receipt != null,
-            receipt: receipt ? (receipt as unknown as IDataObject) : null,
+            ok: res.ok,
+            paid: didSettle,
+            transaction: settledTx,
+            receipt: verifiable ? (verifiable as unknown as IDataObject) : null,
             body: parsed as IDataObject,
           }
         }
