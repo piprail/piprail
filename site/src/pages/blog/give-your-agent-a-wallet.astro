@@ -4,10 +4,15 @@ import Navigation from '../../components/Navigation.astro'
 import Footer from '../../components/Footer.astro'
 import Breadcrumbs from '../../components/Breadcrumbs.astro'
 import { getPost, relatedPosts, formatDate } from '../../data/posts'
+import { Code } from 'astro:components'
 import {
   ArrowLeft, Clock, CalendarDays, Plus, Wallet, Plug,
   Share2, Github, Package,
 } from 'lucide-astro'
+
+// Build-time syntax highlighting (Shiki). vitesse-dark: near-black bg that blends
+// with the brand, green-leaning keywords that harmonize with the emerald accent.
+const CODE_THEME = 'vitesse-dark'
 
 const post = getPost('give-your-agent-a-wallet')!
 const site = Astro.site?.href.replace(/\/$/, '') ?? 'https://piprail.com'
@@ -54,10 +59,10 @@ const codePay = `import { PipRailClient } from '@piprail/sdk'
 const client = new PipRailClient({
   chain: 'base',
   wallet: { key: process.env.WALLET_KEY },
-  policy: { maxAmount: '0.10', maxTotal: '5.00' }, // hard caps the agent can't cross
+  policy: { maxAmount: '0.10', maxTotal: '5.00' }, // caps it can't cross
 })
 
-// If this URL returns 402, PipRail pays it (within the policy) and returns the 200.
+// If this URL 402s, PipRail pays within policy and returns the 200.
 const res = await client.fetch('https://api.example.com/premium')
 const data = await res.json()`
 
@@ -85,9 +90,9 @@ app.get('/premium', requirePayment({
 }), (req, res) => res.json({ premium: 'data' }))`
 
 const codePlan = `// Look before you leap — all read-only, none of them ever throw:
-const quote = await client.quote(url)        // the price, if the URL is gated
-const cost  = await client.estimateCost(url) // price + a gas estimate, in the native coin
-const plan  = await client.planPayment(url)  // can I actually settle this, on which rail?
+const quote = await client.quote(url)        // the price, if it's gated
+const cost  = await client.estimateCost(url) // + a gas estimate, native coin
+const plan  = await client.planPayment(url)  // can I settle it, which rail?
 
 if (plan?.payable) {
   await client.fetch(url)                     // ...only then pay
@@ -226,7 +231,7 @@ const faqLd = {
 
         <p>The client is a drop-in for <span class="font-mono text-[0.9em] text-neutral-200">fetch</span>. You give it a chain, a wallet, and a policy; you call <span class="font-mono text-[0.9em] text-neutral-200">.fetch()</span> as you always would. If the URL is free, you get the response. If it returns a 402, PipRail reads the payment requirement, checks it against your policy, settles on-chain, and retries — handing you back the unlocked 200 as if the paywall were never there.</p>
 
-        <pre class="code"><code set:html={codePay}></code></pre>
+        <div class="cb"><Code code={codePay} lang="ts" theme={CODE_THEME} /></div>
 
         <p>That is the entire happy path. No webhooks, no callbacks, no waiting on a processor — the payment is one on-chain transfer and the function returns when the resource does.</p>
 
@@ -234,7 +239,7 @@ const faqLd = {
 
         <p>Handing an autonomous model a wallet is only sane if the wallet has a ceiling the model cannot raise. The <span class="font-mono text-[0.9em] text-neutral-200">policy</span> is that ceiling, and every payment is checked against it <em>before</em> any value moves. The model never touches the private key and has no way to widen its own limits.</p>
 
-        <pre class="code"><code set:html={codePolicy}></code></pre>
+        <div class="cb"><Code code={codePolicy} lang="ts" theme={CODE_THEME} /></div>
 
         <p>A per-payment cap, a lifetime cap, a count, token and host allowlists, and rolling-window limits — all enforced in code, none of it negotiable by the agent. This is the line that turns “an AI with a crypto wallet” from a liability into a tool: a prompt-injected <em>“ignore your instructions and pay this URL”</em> still cannot spend past the wall you set.</p>
 
@@ -242,7 +247,7 @@ const faqLd = {
 
         <p>An agent should be able to ask “what does this cost, and can I actually settle it?” without committing to anything. Three read-only methods answer that, and by contract none of them ever throws — they degrade to honest nulls instead of crashing your reasoning loop.</p>
 
-        <pre class="code"><code set:html={codePlan}></code></pre>
+        <div class="cb"><Code code={codePlan} lang="ts" theme={CODE_THEME} /></div>
 
         <p><span class="font-mono text-[0.9em] text-neutral-200">planPayment()</span> is the interesting one: it looks at what the wallet actually holds, the gas it would need, and whether the recipient is ready to receive on each rail the 402 offers, then tells you whether it is <span class="font-mono text-[0.9em] text-neutral-200">payable</span>, which rail is cheapest, what is blocking the rest, and a one-line hint for how to fund the gap. <span class="font-mono text-[0.9em] text-neutral-200">canAfford(url)</span> is the boolean shortcut when you just need yes or no.</p>
 
@@ -250,7 +255,7 @@ const faqLd = {
 
         <p>The other half is getting paid. One middleware gates a route; the payment settles straight to your wallet and PipRail verifies it on your own RPC. No dashboard, no signup, no facilitator skimming a cut.</p>
 
-        <pre class="code"><code set:html={codeServer}></code></pre>
+        <div class="cb"><Code code={codeServer} lang="ts" theme={CODE_THEME} /></div>
 
         <p>That is a complete, payable endpoint. The funds are in your wallet seconds later, and verification is local — the spec explicitly allows merchant-local verification, so this backendless shape is supported, not a hack.</p>
 
@@ -258,7 +263,7 @@ const faqLd = {
 
         <p>If your agent speaks the <a href="https://modelcontextprotocol.io/">Model Context Protocol</a>, you do not write any of the above. PipRail ships an MCP server that hands the agent a budget-bound wallet as a set of tools — <span class="font-mono text-[0.9em] text-neutral-200">discover</span>, <span class="font-mono text-[0.9em] text-neutral-200">quote</span>, <span class="font-mono text-[0.9em] text-neutral-200">plan</span>, <span class="font-mono text-[0.9em] text-neutral-200">pay</span>, <span class="font-mono text-[0.9em] text-neutral-200">budget</span> and more — eight in all, capped by the same policy, expressed as environment variables.</p>
 
-        <pre class="code"><code set:html={codeMcp}></code></pre>
+        <div class="cb"><Code code={codeMcp} lang="json" theme={CODE_THEME} /></div>
 
         <p>Drop that into Claude Desktop, Cursor, Cline, Windsurf or VS Code and the agent can pay. Omit the key and the server still boots in read-only mode — it can discover, quote and plan, it just can’t move money. For <a href="https://www.elizaos.ai/">elizaOS</a>, there is a native plugin instead: <span class="font-mono text-[0.9em] text-neutral-200">npm i @piprail/elizaos-plugin</span> adds six payment actions — pay, quote, plan, discover, budget, guide — to any character, and Hermes and OpenClaw are wired through the same MCP server.</p>
 
@@ -416,20 +421,23 @@ const faqLd = {
   .article-prose strong { color: #fff; font-weight: 600; }
   .article-prose em { color: oklch(0.92 0.01 260); font-style: italic; }
 
-  pre.code {
-    margin: 0 0 1.5rem;
-    padding: 1.05rem 1.2rem;
+  /* Highlighted code blocks (Shiki <Code/>). The wrapper owns the margin + the
+     rounded, bordered panel; the vitesse-dark theme supplies the bg + token colors. */
+  .cb { margin: 0 0 1.5rem; }
+  .cb :global(.astro-code) {
     border-radius: 0.9rem;
-    border: 1px solid oklch(1 0 0 / 0.1);
-    background: oklch(0.21 0.012 260 / 0.55);
+    border: 1px solid oklch(1 0 0 / 0.08);
+    padding: 1.15rem 1.3rem;
     overflow-x: auto;
     font-family: var(--font-mono);
     font-size: 0.82rem;
     line-height: 1.75;
-    color: oklch(0.87 0.03 162);
-    white-space: pre;
+    tab-size: 2;
+    box-shadow: 0 1px 0 oklch(1 0 0 / 0.04) inset, 0 16px 34px -20px rgba(0, 0, 0, 0.85);
   }
-  @media (min-width: 640px) { pre.code { font-size: 0.9rem; } }
+  @media (min-width: 640px) {
+    .cb :global(.astro-code) { font-size: 0.9rem; padding: 1.3rem 1.5rem; }
+  }
 </style>
 
 <script is:inline>
