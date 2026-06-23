@@ -409,3 +409,35 @@ export type {
   A2ATaskState,
   A2ATaskStore,
 } from './transports/a2a-types.js'
+
+// ── x402-over-MCP transport ─────────────────────────────────────────────────
+// The third official x402 transport: x402 carried over MCP TOOL CALLS (a 402 as an `isError`
+// tool result, the payment under `_meta["x402/payment"]`, the settlement under
+// `_meta["x402/payment-response"]`). A thin re-keying of the gate's `verifyObject` onto the MCP
+// message shape — zero driver/scheme/chain changes; every family rides MCP for free. The seller
+// (`createMcpPaymentTool`) + the pure codec + the buyer READ/FRAME helpers ship; a fully-automatic
+// `McpPayer` (driving the client pay path) is a fast-follow, as A2A shipped seller-first.
+export {
+  createMcpPaymentTool,
+  toMcpPaymentRequired,
+  toMcpPaymentResponse,
+  fromMcpPayment,
+  fromMcpPaymentRequired,
+  fromMcpPaymentResponse,
+  isMcpPaymentRequired,
+  buildMcpPaymentMeta,
+} from './transports/mcp.js'
+export {
+  MCP_PAYMENT_META_KEY,
+  MCP_PAYMENT_RESPONSE_META_KEY,
+} from './transports/mcp-types.js'
+export type {
+  McpPaymentTool,
+  McpPaymentToolOptions,
+} from './transports/mcp.js'
+export type {
+  McpContentBlock,
+  McpToolCallParams,
+  McpToolResult,
+  McpPaymentMeta,
+} from './transports/mcp-types.js'
