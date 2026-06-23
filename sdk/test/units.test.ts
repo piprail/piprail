@@ -59,17 +59,23 @@ describe('scientific notation — XRPL rippled serializes IOU balances as e/E (m
     expect(floorUnits('1.23e11', 6)).toBe(123_000_000_000_000_000n) // 123000000000 × 10^6
     expect(floorUnits('1e3', 6)).toBe(1_000_000_000n) // 1000 × 10^6
   })
-  it('parseUnits accepts e-notation too (exact, still rejects > decimals)', () => {
-    expect(parseUnits('1.23e11', 6)).toBe(123_000_000_000_000_000n)
-    expect(parseUnits('5e-7', 18)).toBe(500_000_000_000n) // 0.0000005 × 10^18
-    expect(() => parseUnits('2.569903e-12', 6)).toThrow(/decimal places/) // 18 frac digits > 6 → exact-throw
+  it('parseUnits REJECTS e-notation (a MERCHANT amount like "1e3" must NOT be read as 1000 tokens — F-B1)', () => {
+    // floorUnits expands e-notation (it reads hostile RPC dust); parseUnits is the MERCHANT-amount
+    // path and must reject scientific notation as a plain-decimal violation — the silent-1000×-charge footgun.
+    expect(() => parseUnits('1e3', 6)).toThrow(/scientific notation/)
+    expect(() => parseUnits('1.23e11', 6)).toThrow(/scientific notation/)
+    expect(() => parseUnits('5e-7', 18)).toThrow(/scientific notation/)
+    expect(() => parseUnits('1e2000', 6)).toThrow(/scientific notation/) // no expansion → no DoS, just a clean reject
   })
-  it('a negative-mantissa e-notation (issuer liability) is still rejected — the safe "unavailable" read', () => {
+  it('parseUnits rejects a non-STRING amount with a clear typed error (not "value.split is not a function" — F-C2a)', () => {
+    // @ts-expect-error — deliberately passing a number to assert the runtime guard
+    expect(() => parseUnits(0.05, 6)).toThrow(/amount must be a decimal STRING/)
+  })
+  it('a negative-mantissa e-notation (issuer liability) is still rejected by floorUnits — the safe "unavailable" read', () => {
     expect(() => floorUnits('-8000000000000000e-27', 6)).toThrow(/decimal amount/)
   })
-  it('DoS guard: an absurd exponent throws (no multi-GB string), like the decimals cap', () => {
+  it('DoS guard: floorUnits throws on an absurd exponent (no multi-GB string); parseUnits never expands it', () => {
     expect(() => floorUnits('9e999999999', 6)).toThrow(/exponent out of range/)
-    expect(() => parseUnits('1e2000', 6)).toThrow(/exponent out of range/)
   })
 })
 

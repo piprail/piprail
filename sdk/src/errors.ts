@@ -235,6 +235,16 @@ export class InvalidEnvelopeError extends PipRailError {
 }
 
 /**
+ * A merchant-supplied gate config value is invalid — a non-decimal / scientific-notation /
+ * non-string `amount` (e.g. `'1e3'`, which must NOT be silently read as 1000 tokens), a missing
+ * `payTo`, or a malformed discovery input. A typed boundary error (ERRORS.md §5) so a merchant
+ * gets a clear, catchable failure instead of a raw `viem`/`TypeError`.
+ */
+export class InvalidConfigError extends PipRailError {
+  readonly code = 'INVALID_CONFIG'
+}
+
+/**
  * The envelope didn't include any accepts[] entry compatible with the
  * client's chain id (or all entries used unsupported schemes).
  */

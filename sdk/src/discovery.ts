@@ -21,6 +21,7 @@
  * indexes should additionally offer a standard `exact` USDC rail on Base/Solana.
  */
 import type { Caip2, AssetId, AddressId } from './x402.js'
+import { InvalidConfigError } from './errors.js'
 
 /**
  * The static (nonce-free) shape of one payment option — the discoverable part of
@@ -334,9 +335,21 @@ export function buildWellKnownX402(input: ManifestInput): WellKnownX402 {
 export function buildWellKnownX402Manifest(
   input: ManifestInput & { lastUpdated?: number }
 ): WellKnownX402Manifest {
+  // Typed boundary (ERRORS.md §5): a missing / non-array `resources` is a config error, not a raw
+  // `Cannot read properties of … (reading 'map')`. And a caller-supplied non-finite `lastUpdated`
+  // (NaN/Infinity) must NOT pass through to serialize as JSON `null` — fall back to now.
+  if (!Array.isArray(input?.resources)) {
+    throw new InvalidConfigError(
+      'buildWellKnownX402Manifest: `resources` must be an array of ResourceDescription.'
+    )
+  }
+  const lastUpdated =
+    typeof input.lastUpdated === 'number' && Number.isFinite(input.lastUpdated)
+      ? input.lastUpdated
+      : Math.floor(Date.now() / 1000)
   return {
     x402Version: 2,
-    lastUpdated: input.lastUpdated ?? Math.floor(Date.now() / 1000),
+    lastUpdated,
     items: input.resources.map((r) => ({
       resource: {
         url: r.url,

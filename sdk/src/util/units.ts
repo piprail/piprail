@@ -2,6 +2,7 @@
  * Chain-agnostic amount math. Keeps the protocol layer free of any
  * chain SDK (viem / web3.js) for a pure string→bigint conversion.
  */
+import { InvalidConfigError } from '../errors.js'
 
 /**
  * Sane upper bound on a token's decimals. The deepest real token is NEAR's yoctoNEAR
@@ -70,9 +71,18 @@ function expandScientific(value: string): string {
  */
 export function parseUnits(value: string, decimals: number): bigint {
   assertValidDecimals(decimals, 'parseUnits')
-  value = expandScientific(value)
+  if (typeof value !== 'string') {
+    throw new InvalidConfigError(
+      `parseUnits: amount must be a decimal STRING, got ${typeof value}. Pass '0.05', not 0.05.`
+    )
+  }
+  // Amounts are NOT scientific-notation-expanded (unlike floorUnits, which reads e-notation RPC
+  // dust): a merchant amount like '1e3' must be REJECTED, never silently read as 1000 tokens.
   if (!/^\d+(\.\d+)?$/.test(value)) {
-    throw new Error(`parseUnits: "${value}" is not a non-negative decimal amount.`)
+    throw new InvalidConfigError(
+      `parseUnits: "${value}" is not a plain non-negative decimal amount ` +
+        `(scientific notation like '1e3' is rejected — write the number out, e.g. '1000').`
+    )
   }
   const [whole, frac = ''] = value.split('.')
   if (frac.length > decimals) {

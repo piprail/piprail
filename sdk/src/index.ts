@@ -182,6 +182,7 @@ export {
   MaxRetriesExceededError,
   PaymentDeclinedError,
   InvalidEnvelopeError,
+  InvalidConfigError,
   NoCompatibleAcceptError,
   UnsupportedSchemeError,
   NonReplayableBodyError,
