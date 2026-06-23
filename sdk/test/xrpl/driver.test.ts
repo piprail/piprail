@@ -174,4 +174,18 @@ describe('xrplDriver.balanceOf — a funded IOU trustline reads correctly (floor
       globalThis.fetch = realFetch
     }
   })
+
+  it('BREAK-IT: a rippled SCIENTIFIC-NOTATION dust balance reads as 0n, NOT a false null (floorUnits used to throw on e-notation)', async () => {
+    const net = xrplDriver.resolve({ chain: 'xrpl', rpcUrl: 'http://mock-rpc' })!
+    const wallet = net.bindWallet({ wallet: Wallet.generate() })
+    const realFetch = globalThis.fetch
+    globalThis.fetch = linesFetch('2.569903e-12') // a real rippled dust serialization (e-notation)
+    try {
+      const bal = await net.balanceOf(wallet, `${USDC_HEX}:${USDC_ISSUER}`)
+      expect(bal.token).toBe(0n) // a real number (floored), not null
+      expect(bal.native).toBe(20_000_000n)
+    } finally {
+      globalThis.fetch = realFetch
+    }
+  })
 })

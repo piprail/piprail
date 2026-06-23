@@ -265,7 +265,11 @@ function makeXrplNetwork(preset: XrplPreset, rpcUrl: string): ResolvedNetwork {
         // IOU amounts use the driver's 6-dp scaling convention (USDC/RLUSD are 6dp). Use floorUnits
         // (truncate), NOT parseUnits — an XRPL issued-currency balance carries up to 15 significant
         // digits, and parseUnits THROWS on >6dp, which made a REAL funded trustline read as null.
-        // floorUnits matches verify.ts (delivered_amount) so balanceOf and verify agree.
+        // floorUnits also accepts the scientific-notation rippled emits for very small/large IOU
+        // balances (e.g. '5e-7'), so a positive funded line never reads as a false null; it matches
+        // verify.ts (delivered_amount) so balanceOf and verify agree. (A negative issuer-liability
+        // balance still throws → null below, the safe "unavailable" read — PipRail never queries an
+        // issuer's own account in any payment flow.)
         token = line ? floorUnits(line.balance, XRP_DECIMALS) : 0n
       } catch (e) {
         token = isXrplActNotFound(e) ? 0n : null

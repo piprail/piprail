@@ -30,14 +30,47 @@ function assertValidDecimals(decimals: number, fn: string): void {
 }
 
 /**
+ * Expand a non-negative number in scientific notation to a plain decimal string, losslessly (string
+ * math, never `Number()`). A non-matching input is returned unchanged. Some chains' RPCs serialize
+ * amounts in e-notation — notably the XRP Ledger, whose `account_lines` / `delivered_amount` balance
+ * strings "can include scientific notation, such as 1.23e11 … both e and E may be used" — so the
+ * conversions below must accept it instead of throwing (which read as a false `null`/not-found).
+ *   '5e-7'         → '0.0000005'
+ *   '1.23e11'      → '123000000000'
+ *   '2.569903e-12' → '0.000000000002569903'
+ * The exponent is bounded (DoS guard, like {@link MAX_DECIMALS}): a hostile '9e999999999' must not
+ * build a multi-GB string. ±1000 is generous headroom over the XRPL IOU range (~1e-96…1e80). A
+ * negative mantissa (e.g. an issuer's outstanding-liability `-…e-27`) does NOT match and is left
+ * for the caller's regex to reject — the safe direction for a balance read (→ unavailable).
+ */
+function expandScientific(value: string): string {
+  const m = /^(\d+)(?:\.(\d+))?[eE]([+-]?\d+)$/.exec(value)
+  if (!m) return value
+  // Destructure (exempt from noUncheckedIndexedAccess) — `whole` and `expStr` are guaranteed by the
+  // match, `frac` is optional.
+  const [, whole = '', frac = '', expStr = '0'] = m
+  const exp = Number(expStr)
+  if (!Number.isFinite(exp) || Math.abs(exp) > 1000) {
+    throw new Error(`expandScientific: exponent out of range in "${value}".`)
+  }
+  const digits = whole + frac
+  const pointPos = whole.length + exp // index in `digits` where the decimal point lands
+  if (pointPos <= 0) return `0.${'0'.repeat(-pointPos)}${digits}`
+  if (pointPos >= digits.length) return digits + '0'.repeat(pointPos - digits.length)
+  return `${digits.slice(0, pointPos)}.${digits.slice(pointPos)}`
+}
+
+/**
  * Parse a decimal amount string into base units.
  *   parseUnits('0.05', 6)  → 50000n
  *   parseUnits('1', 18)    → 1000000000000000000n
  *
- * Throws on a malformed amount or more fractional digits than `decimals`.
+ * Accepts scientific notation (e.g. '1.23e11'); throws on a malformed amount or more fractional
+ * digits than `decimals`.
  */
 export function parseUnits(value: string, decimals: number): bigint {
   assertValidDecimals(decimals, 'parseUnits')
+  value = expandScientific(value)
   if (!/^\d+(\.\d+)?$/.test(value)) {
     throw new Error(`parseUnits: "${value}" is not a non-negative decimal amount.`)
   }
@@ -60,6 +93,7 @@ export function parseUnits(value: string, decimals: number): bigint {
  */
 export function floorUnits(value: string, decimals: number): bigint {
   assertValidDecimals(decimals, 'floorUnits')
+  value = expandScientific(value)
   if (!/^\d+(\.\d+)?$/.test(value)) {
     throw new Error(`floorUnits: "${value}" is not a non-negative decimal amount.`)
   }
