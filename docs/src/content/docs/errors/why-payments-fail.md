@@ -162,7 +162,7 @@ These are configuration, not funds:
 | `MISSING_DRIVER` | `MissingDriverError` | A non-EVM family's optional peer deps aren't installed; the message names the exact `npm install`. |
 | `UNSUPPORTED_NETWORK` | `UnsupportedNetworkError` | No driver recognised the `chain` value. |
 | `INVALID_ENVELOPE` | `InvalidEnvelopeError` | A `402` carried no parseable x402 challenge. |
-| `INVALID_CONFIG` | `InvalidConfigError` | A **merchant** gate / manifest was misconfigured — an invalid `amount` (must be a plain-decimal string; scientific notation is rejected), a missing `payTo`, or a non-array `resources` in `buildWellKnownX402Manifest`. |
+| `INVALID_CONFIG` | `InvalidConfigError` | A **merchant** gate / manifest was misconfigured — an invalid `amount` (must be a plain-decimal string; scientific notation is rejected), an invalid `token` (a primitive, not a symbol/`{address}`/`{mint}`), a missing `payTo`, a null/garbage `accept[]` element, or invalid `resources` (non-array, or a null/url-less element) in the discovery builders. |
 
 `MISSING_DRIVER` (deps not installed) and `UNSUPPORTED_NETWORK` (chain not supported) are a deliberate
 split — don't conflate them. See [Chains and tokens](/concepts/chains-and-tokens/) and

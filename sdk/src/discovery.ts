@@ -274,6 +274,7 @@ function pathOf(url: string): string {
  * network, no chain library, fully deterministic.
  */
 export function buildOpenApi(input: ManifestInput): OpenApiDocument {
+  assertResourceList(input?.resources, 'buildOpenApi')
   const paths: OpenApiDocument['paths'] = {}
   for (const r of input.resources) {
     const path = pathOf(r.url)
@@ -314,6 +315,7 @@ export function buildOpenApi(input: ManifestInput): OpenApiDocument {
  * `/openapi.json` is the primary doc; this is a compatibility breadcrumb.
  */
 export function buildWellKnownX402(input: ManifestInput): WellKnownX402 {
+  assertResourceList(input?.resources, 'buildWellKnownX402')
   return {
     version: 1,
     resources: input.resources.map((r) => r.url),
@@ -332,17 +334,34 @@ export function buildWellKnownX402(input: ManifestInput): WellKnownX402 {
  * (Unix seconds); pass it explicitly for a deterministic file. PURE — no network, no chain
  * library, fully deterministic given its args. The merchant hosts the result; PipRail serves nothing.
  */
+/**
+ * Typed boundary (ERRORS.md §5): `resources` must be an array whose every element is a
+ * ResourceDescription with a string `url` — so a non-array (raw "reading 'map'"), a null/garbage
+ * ELEMENT (raw "reading 'url'"), or a shapeless `{}`/`42` (a silently-malformed manifest) all
+ * surface as one typed `InvalidConfigError` instead. Shared by every discovery-doc builder.
+ */
+function assertResourceList(
+  resources: unknown,
+  fn: string
+): asserts resources is ResourceDescription[] {
+  if (!Array.isArray(resources)) {
+    throw new InvalidConfigError(`${fn}: \`resources\` must be an array of ResourceDescription.`)
+  }
+  resources.forEach((r, i) => {
+    if (r === null || typeof r !== 'object' || typeof (r as { url?: unknown }).url !== 'string') {
+      throw new InvalidConfigError(
+        `${fn}: resources[${i}] must be a ResourceDescription with a string \`url\`.`
+      )
+    }
+  })
+}
+
 export function buildWellKnownX402Manifest(
   input: ManifestInput & { lastUpdated?: number }
 ): WellKnownX402Manifest {
-  // Typed boundary (ERRORS.md §5): a missing / non-array `resources` is a config error, not a raw
-  // `Cannot read properties of … (reading 'map')`. And a caller-supplied non-finite `lastUpdated`
-  // (NaN/Infinity) must NOT pass through to serialize as JSON `null` — fall back to now.
-  if (!Array.isArray(input?.resources)) {
-    throw new InvalidConfigError(
-      'buildWellKnownX402Manifest: `resources` must be an array of ResourceDescription.'
-    )
-  }
+  // A caller-supplied non-finite `lastUpdated` (NaN/Infinity) must NOT pass through to serialize as
+  // JSON `null` — fall back to now.
+  assertResourceList(input?.resources, 'buildWellKnownX402Manifest')
   const lastUpdated =
     typeof input.lastUpdated === 'number' && Number.isFinite(input.lastUpdated)
       ? input.lastUpdated

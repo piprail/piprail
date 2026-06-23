@@ -104,22 +104,25 @@ export function formatSpendReport(summary: SpendSummary): string {
  * (shouldn't happen for a valid v2 challenge) degrades to a generic pointer.
  */
 export function describeChallenge(challenge: X402Challenge): string {
-  // Never throws: a nullish / shapeless `accepts` (a foreign or empty challenge) degrades to the
-  // generic pointer, exactly as a genuinely-empty `accepts:[]` does — the documented contract.
-  const accepts = Array.isArray(challenge?.accepts) ? challenge.accepts : []
-  const first = accepts[0]
-  if (!first) {
-    return `${BRAND.name} x402 payment endpoint. Pay with @piprail/sdk (${BRAND.sdkInstall}). Docs: ${BRAND.home}.`
+  const generic = `${BRAND.name} x402 payment endpoint. Pay with @piprail/sdk (${BRAND.sdkInstall}). Docs: ${BRAND.home}.`
+  // Never throws: a nullish / shapeless `accepts` (a foreign or empty challenge), a null first rail,
+  // or a hostile getter/Proxy all degrade to the generic pointer — the documented contract.
+  try {
+    const accepts = Array.isArray(challenge?.accepts) ? challenge.accepts : []
+    const first = accepts[0]
+    if (!first) return generic
+    // Guard `extra` — describeChallenge is exported and may be handed a foreign challenge
+    // whose accepts lack PipRail's extra shape; fall back to base-unit amount + raw asset.
+    const extra: { amountFormatted?: string; symbol?: string } = first.extra ?? {}
+    const amount = extra.amountFormatted ?? first.amount
+    const token = extra.symbol ?? first.asset
+    const hasExact = accepts.some((a) => a?.scheme === 'exact')
+    const standard = hasExact ? '; or any standard x402 client (an exact rail is offered)' : ''
+    return (
+      `${BRAND.name} x402 payment endpoint — pay ${amount} ${token} on ${first.network} to ${first.payTo}. ` +
+      `Programmatic: ${BRAND.sdkInstall} then client.fetch(url)${standard}. Docs: ${BRAND.home}.`
+    )
+  } catch {
+    return generic
   }
-  // Guard `extra` — describeChallenge is exported and may be handed a foreign challenge
-  // whose accepts lack PipRail's extra shape; fall back to base-unit amount + raw asset.
-  const extra: { amountFormatted?: string; symbol?: string } = first.extra ?? {}
-  const amount = extra.amountFormatted ?? first.amount
-  const token = extra.symbol ?? first.asset
-  const hasExact = accepts.some((a) => a.scheme === 'exact')
-  const standard = hasExact ? '; or any standard x402 client (an exact rail is offered)' : ''
-  return (
-    `${BRAND.name} x402 payment endpoint — pay ${amount} ${token} on ${first.network} to ${first.payTo}. ` +
-    `Programmatic: ${BRAND.sdkInstall} then client.fetch(url)${standard}. Docs: ${BRAND.home}.`
-  )
 }

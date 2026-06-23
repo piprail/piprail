@@ -63,7 +63,7 @@ Every class below is exported from the package root and is caught by
 | `WrongChainError` | `WRONG_CHAIN` | The chain doesn't match — the 402 challenge demands a network the client isn't on, or a bring-your-own `walletClient` is on a different chain than configured. |
 | `WrongFamilyError` | `WRONG_FAMILY` | The wallet, `payTo`, or token was given in another family's shape (e.g. an `0x…` address on Solana). |
 | `UnknownTokenError` | `UNKNOWN_TOKEN` | A built-in token symbol the chosen chain doesn't ship (e.g. `token: 'DOGE'`). |
-| `InvalidConfigError` | `INVALID_CONFIG` | Invalid merchant gate / manifest config caught at the boundary — an invalid `amount` (non-string, or a non-decimal string such as scientific notation), a missing `payTo`, or a non-array `resources` in `buildWellKnownX402Manifest`. |
+| `InvalidConfigError` | `INVALID_CONFIG` | Invalid merchant gate / manifest config caught at the boundary — an invalid `amount` (non-string, or a non-decimal string such as scientific notation), an invalid `token` (a primitive, not a symbol/`{address}`/`{mint}`), a missing `payTo`, a null/garbage `accept[]` element, or invalid `resources` (non-array, or a null/url-less element) in the discovery builders. |
 | `MissingDriverError` | `MISSING_DRIVER` | A family's optional peer deps aren't installed — message names the exact `npm install`. |
 | `UnsupportedNetworkError` | `UNSUPPORTED_NETWORK` | No registered driver recognised the given `chain` value. |
 | `PaymentTimeoutError` | `PAYMENT_TIMEOUT` | Broadcast confirmed, but the **server** didn't return 200 in time — carries `.ref`. |

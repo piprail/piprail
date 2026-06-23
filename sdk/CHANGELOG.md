@@ -4,6 +4,32 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.14.2] — 2026-06-24 — deeper element-level hardening (the 2.14.1 break-it pass, round two)
+
+A follow-up patch to 2.14.1. A second adversarial smash pass found that 2.14.1 guarded the
+**containers** but not their **elements** — a null/garbage array element or a primitive could still
+slip past. This closes that class completely. All additive; no default or settled-payment change.
+
+### Fixed
+
+- **`classifyChallenge` / `describeChallenge` are now total** — a `null`/`undefined`/garbage **element
+  inside `accepts[]`** (e.g. `{accepts:[null]}`), or a hostile throwing getter/Proxy, degrades to a
+  verdict / generic pointer instead of a `TypeError`. A mixed `[null, validRail]` now correctly
+  classifies the valid rail. (deep F-A1/F-A2)
+- **The discovery builders validate each resource ELEMENT.** `buildWellKnownX402Manifest` /
+  `buildWellKnownX402` / `buildOpenApi` now throw a typed `InvalidConfigError` on a null / primitive /
+  url-less resource, instead of a raw `TypeError` (`[null]`) or a **silently-malformed** manifest
+  (`[42]` / `[{}]`). (deep F-C1)
+- **A primitive `token` is a typed error.** `token: 42 | null | true` now throws `InvalidConfigError`
+  instead of a raw `Cannot use 'in' operator …` `TypeError` (guarded once in `rejectForeignToken`, so
+  every chain family benefits). (deep F-C2)
+- **The `accept[]` path is fully typed.** A null/garbage `accept` element, a non-array `accept`, and
+  the "provide either { chain, token, amount } …" misconfig now all throw `InvalidConfigError` (was a
+  raw `TypeError` / a bare `Error`). (deep F-C2)
+
+Tests: `sdk/test/breakit-2141.test.ts` extended (19 cases) — element-level, Proxy/getter, primitive
+token, and `accept[]` shapes. Full gate green (1580 tests).
+
 ## [2.14.1] — 2026-06-24 — robustness & typed-error polish from a live-artifact break-it pass
 
 A small, fully-additive patch. After 2.14.0 shipped, the published npm artifact was put through an
