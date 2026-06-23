@@ -282,6 +282,28 @@ describe('SVM exact — adversarial (every field bound to the trusted accept)', 
     if (!res.ok) expect(res.detail).toMatch(/cap|drain|exceeds/i)
   })
 
+  it('BREAK-IT: the DEPRECATED RequestUnits (disc 0) additional_fee drain → signature_invalid (allowlist rejects any non-2/3 ComputeBudget ix)', async () => {
+    // RequestUnits.additional_fee is a flat lamport priority fee (up to ~4.29 SOL) the fee payer
+    // pays — uncapped by the unit-limit/price caps and invisible to isolation + simulation. The
+    // canonical buyer never emits it, so the guard rejects every ComputeBudget discriminator ≠ 2/3.
+    const accept = makeAccept()
+    const mint = new PublicKey(accept.asset)
+    const payTo = new PublicKey(accept.payTo)
+    const fp = new PublicKey(accept.extra.feePayer!)
+    const source = getAssociatedTokenAddressSync(mint, buyer.publicKey, true)
+    const dest = getAssociatedTokenAddressSync(mint, payTo, true)
+    const ixs = [
+      ComputeBudgetProgram.requestUnits({ units: 200_000, additionalFee: 4_000_000_000 }), // ~4 SOL drain
+      createTransferCheckedInstruction(source, mint, dest, buyer.publicKey, BigInt(accept.amount), accept.extra.decimals!, [], TOKEN_PROGRAM_ID),
+    ]
+    const msg = new TransactionMessage({ payerKey: fp, recentBlockhash: BLOCKHASH, instructions: ixs }).compileToV0Message()
+    const tx = new VersionedTransaction(msg)
+    tx.sign([buyer])
+    const res = await verifyAndSettleExactSolana({ connection: sellerConn(), feePayerKeypair: feePayer, payload: { transaction: toB64(tx) }, accept })
+    expect(res).toMatchObject({ ok: false, error: 'signature_invalid' })
+    if (!res.ok) expect(res.detail).toMatch(/discriminator|drain|allowed/i)
+  })
+
   it('an empty buyer signature slot → signature_invalid', async () => {
     const tx = compileBuyer(makeAccept()) // never signed
     const res = await verifyAndSettleExactSolana({ connection: sellerConn(), feePayerKeypair: feePayer, payload: { transaction: toB64(tx) }, accept: makeAccept() })

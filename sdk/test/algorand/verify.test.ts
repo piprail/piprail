@@ -80,6 +80,16 @@ describe('verifyAlgorand — USDC (note-bound, Template A)', () => {
     expect(res).toMatchObject({ ok: false, error: 'payment_expired' })
   })
 
+  it('BREAK-IT: a MISSING or NaN roundTime fails CLOSED (payment_expired), never accepts an unbounded-age proof', async () => {
+    // roundTime is optional in the indexer model; a degraded RPC can omit it. The old gated check
+    // skipped recency entirely when absent (and let NaN slip), so an aged-out proof could re-verify
+    // once the bounded used-set evicted its nonce. Now it fails closed like Solana/NEAR/Stellar/Sui.
+    for (const roundTime of [undefined, NaN, Infinity] as unknown as number[]) {
+      const res = await verifyAlgorand({ reader: reader([axfer({ roundTime })]), accept: usdcAccept() })
+      expect(res).toMatchObject({ ok: false, error: 'payment_expired' })
+    }
+  })
+
   it('reports tx_not_found (transient) when the indexer read fails', async () => {
     const res = await verifyAlgorand({ reader: failing, accept: usdcAccept() })
     expect(res).toMatchObject({ ok: false, error: 'tx_not_found' })

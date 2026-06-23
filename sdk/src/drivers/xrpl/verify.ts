@@ -99,14 +99,20 @@ export async function verifyXrpl(params: VerifyXrplParams): Promise<VerifyResult
     }
   }
 
-  if (typeof tx.date === 'number') {
-    const ageSeconds = Math.floor(Date.now() / 1000) - (tx.date + RIPPLE_EPOCH_OFFSET)
-    if (ageSeconds > accept.maxTimeoutSeconds) {
-      return {
-        ok: false,
-        error: 'payment_expired',
-        detail: `Payment is ${ageSeconds}s old; max allowed is ${accept.maxTimeoutSeconds}s.`,
-      }
+  // Recency fails CLOSED, like Stellar/Solana/Sui/NEAR. A missing/non-finite ledger date means we
+  // can't BOUND the age — reject, never accept an unbounded-age proof. (The old `typeof === 'number'`
+  // guard SKIPPED the whole check when the account_tx entry carried no numeric `date`, so once the
+  // bounded used-proof set evicts a redeemed nonce past the window, an aged-out proof could re-verify
+  // — a replay. A fail-open recency window is never correct.)
+  if (typeof tx.date !== 'number') {
+    return { ok: false, error: 'payment_expired', detail: `Cannot determine the age of ${tx.hash} (no ledger date) — fail closed.` }
+  }
+  const ageSeconds = Math.floor(Date.now() / 1000) - (tx.date + RIPPLE_EPOCH_OFFSET)
+  if (!Number.isFinite(ageSeconds) || ageSeconds > accept.maxTimeoutSeconds) {
+    return {
+      ok: false,
+      error: 'payment_expired',
+      detail: `Payment is ${ageSeconds}s old; max allowed is ${accept.maxTimeoutSeconds}s.`,
     }
   }
 
