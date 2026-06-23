@@ -175,6 +175,8 @@ export interface McpPaymentTool {
    * Process one inbound tool call → the next tool result:
    *   - no `_meta` payment        → `isError` + a PaymentRequired challenge
    *   - payment, verified+settled → the `fulfill` output + `_meta` payment-response
+   *   - settled but `fulfill` threw → STILL a `_meta` payment-response (success) + an error note in
+   *                                   content — never a re-challenge (the proof already settled; B7)
    *   - payment, rejected/malformed → `isError` + a FRESH re-challenge PaymentRequired (retry)
    *   - settle threw (relayer)     → `isError` + "settlement failed" (onchain-proof fallback noted)
    */
@@ -224,8 +226,22 @@ export function createMcpPaymentTool(options: McpPaymentToolOptions): McpPayment
       throw err
     }
     if (result.kind === 'paid') {
-      const content = await options.fulfill({ receipt: result.receipt, params })
-      return toMcpPaymentResponse(content, result.receipt)
+      // B7 (at-most-once): by the time `verifyObject` returns 'paid', the gate has ALREADY committed
+      // the proof to the replay set (and, on `exact`, the funds have moved). `fulfill` is the
+      // merchant's OWN work and can legitimately throw (disk full, downstream 500). If it does, we
+      // must STILL return a settled response carrying the success `_meta` — NEVER re-challenge or let
+      // the throw escape, either of which would mislead the buyer into re-paying a proof that already
+      // settled (a buyer fund-loss footgun). Mirrors the A2A handler's identical guard.
+      try {
+        const content = await options.fulfill({ receipt: result.receipt, params })
+        return toMcpPaymentResponse(content, result.receipt)
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : String(err)
+        return toMcpPaymentResponse(
+          [{ type: 'text', text: `Payment settled (tx ${result.receipt.transaction}), but serving the result failed: ${detail}` }],
+          result.receipt
+        )
+      }
     }
     // 'challenge' (no/malformed payload) OR 'invalid' (rejected) → an isError PaymentRequired the
     // buyer retries (byte-identical shape to the first challenge — exactly as HTTP/A2A re-challenge).

@@ -206,6 +206,30 @@ describe('MCP seller — BREAK IT (adversarial)', () => {
     expect(r.isError).toBe(true)
     expect(r.content[0]!.text).toMatch(/settlement failed/i)
   })
+
+  it('B7: fulfill THROWS *after* a successful settle → STILL a settled _meta response (never a re-challenge), and the proof stays burned (no re-pay)', async () => {
+    const tool = createMcpPaymentTool({ gate: baseGate(), fulfill: async () => { throw new Error('disk full') } })
+    const challenge = fromMcpPaymentRequired(await call(tool))!
+    const meta = proofMeta(challenge, '0xb7proof')
+    const r = await call(tool, meta)
+    // (1) the throw did NOT escape handleToolCall, and the buyer is told the payment SETTLED
+    //     (success _meta present) — NOT re-challenged into paying again:
+    expect(r.isError).toBeFalsy()
+    expect(fromMcpPaymentResponse(r)).toMatchObject({ success: true, transaction: '0xb7proof' })
+    expect(r.content[0]!.text).toMatch(/settled/i) // an error note rides along, but the settle stands
+    // (2) the proof is consumed — replaying the SAME proof is rejected, so a buyer never re-pays an
+    //     already-settled proof on a fulfill hiccup:
+    expect((await call(tool, meta)).isError).toBe(true)
+  })
+
+  it('§S9: a NON-Error fulfill throw after settle still completes (String(err), never crashes)', async () => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error
+    const tool = createMcpPaymentTool({ gate: baseGate(), fulfill: async () => { throw 'plain-string-failure' } })
+    const challenge = fromMcpPaymentRequired(await call(tool))!
+    const r = await call(tool, proofMeta(challenge, '0xs9proof'))
+    expect(r.isError).toBeFalsy()
+    expect(fromMcpPaymentResponse(r)!.success).toBe(true)
+  })
 })
 
 describe('MCP wire conformance (the silent-interop guards)', () => {
