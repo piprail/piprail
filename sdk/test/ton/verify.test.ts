@@ -47,6 +47,8 @@ function jettonTx(opts: {
   success?: boolean
   bounced?: boolean
   now?: number
+  computeSkipped?: boolean
+  actionFailed?: boolean
 }): Transaction {
   return {
     lt: 100n,
@@ -59,7 +61,14 @@ function jettonTx(opts: {
     description: {
       type: 'generic',
       aborted: opts.aborted ?? false,
-      computePhase: { type: 'vm', success: opts.success ?? true, exitCode: 0 },
+      // A jetton credit MUST run the wallet's compute. An undeployed jetton wallet (the merchant
+      // never received this jetton) has no code → its receiving tx's compute phase is 'skipped'
+      // (cskip_no_state) and credits NOTHING — model that to prove a forged internal_transfer body
+      // to such a wallet is rejected.
+      computePhase: opts.computeSkipped
+        ? { type: 'skipped', reason: 'noState' }
+        : { type: 'vm', success: opts.success ?? true, exitCode: 0 },
+      ...(opts.actionFailed !== undefined ? { actionPhase: { success: !opts.actionFailed } } : {}),
     },
   } as unknown as Transaction
 }
@@ -121,6 +130,19 @@ describe('verifyTon — jetton (USD₮)', () => {
 
   it('rejects an aborted (failed) transaction', async () => {
     const res = await verifyTon({ client: client(jettonTx({ amount: 50000n, note: 'nonce-1', aborted: true })), watch: WATCH, accept: jettonAccept('50000') })
+    expect(res).toMatchObject({ ok: false, error: 'tx_reverted' })
+  })
+
+  it('BREAK-IT: a FORGED internal_transfer to an UNDEPLOYED jetton wallet (compute SKIPPED, no code ran, zero credited) → tx_reverted, not ok', async () => {
+    // The attacker controls the body: a huge claimed amount + our nonce, sent non-bounceable to the
+    // merchant's not-yet-deployed jetton wallet. aborted=false + compute 'skipped' credits NOTHING,
+    // yet the forged body claims 50000. Requiring a successful vm compute rejects it.
+    const res = await verifyTon({ client: client(jettonTx({ amount: 50000n, note: 'nonce-1', computeSkipped: true })), watch: WATCH, accept: jettonAccept('50000') })
+    expect(res).toMatchObject({ ok: false, error: 'tx_reverted' })
+  })
+
+  it('BREAK-IT: compute succeeded but the ACTION phase FAILED (tokens never moved) → tx_reverted', async () => {
+    const res = await verifyTon({ client: client(jettonTx({ amount: 50000n, note: 'nonce-1', actionFailed: true })), watch: WATCH, accept: jettonAccept('50000') })
     expect(res).toMatchObject({ ok: false, error: 'tx_reverted' })
   })
 

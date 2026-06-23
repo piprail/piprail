@@ -145,12 +145,27 @@ export function extractIncoming(tx: Transaction, kind: 'native' | 'jetton'): Inc
   }
 }
 
-/** A transaction is good only if its compute phase ran and it wasn't aborted. */
+/**
+ * A transaction is good only if it actually RAN its compute phase successfully. Used for the
+ * JETTON path only (the native carve-out at the call site bypasses this — native value is credited
+ * by message delivery, so a not-yet-deployed payTo legitimately has a skipped compute).
+ *
+ * A jetton credit lands on the merchant's jetton-wallet contract, which MUST execute the
+ * `internal_transfer` to credit the balance — so we require a successful `vm` compute phase.
+ * Crucially we reject a `skipped` (e.g. `cskip_no_state`) compute: an attacker can send a
+ * non-bounceable message carrying a FORGED `internal_transfer` body (claiming a huge amount) to the
+ * merchant's UNDEPLOYED jetton wallet — it lands `aborted=false` with a skipped compute and credits
+ * NOTHING, yet the forged body would otherwise read as a credit. Requiring `vm` + `success` rejects
+ * it. A legitimate first-ever jetton credit arrives with `state_init`, deploys the wallet, and runs
+ * a successful `vm` phase, so this never rejects a real payment. We also reject an explicit
+ * action-phase failure (compute-ok-but-action-failed never moved the tokens).
+ */
 export function txSucceeded(tx: Transaction): boolean {
   const d = tx.description
   if (d.type !== 'generic') return false
   if (d.aborted) return false
-  if (d.computePhase.type === 'vm' && !d.computePhase.success) return false
+  if (d.computePhase.type !== 'vm' || !d.computePhase.success) return false
+  if (d.actionPhase && d.actionPhase.success === false) return false
   return true
 }
 
