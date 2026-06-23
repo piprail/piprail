@@ -127,6 +127,44 @@ const wellKnown = buildWellKnownX402({
 // → WellKnownX402: { version: 1, resources: ['https://api.example.com/report'] }
 ```
 
+## `buildWellKnownX402Manifest` — the forward-compatible manifest
+
+`buildWellKnownX402Manifest(input)` returns a `WellKnownX402Manifest` — the **richer, V2-shaped**
+`.well-known/x402.json` an index reads to enumerate your resources *and* their rails in one fetch,
+without crawling each 402. Where `buildWellKnownX402` is a flat URL list (the legacy breadcrumb),
+this emits a self-describing item per resource — the chosen `accepts[]`, the call method, and the
+output hint — so a crawler never has to hit the endpoint to learn what it costs.
+
+```ts
+import { buildWellKnownX402Manifest } from '@piprail/sdk'
+
+const manifest = buildWellKnownX402Manifest({
+  origin: 'https://api.example.com',
+  resources: [await gate.describe('https://api.example.com/report')],
+  // lastUpdated: 1735000000, // optional — Unix seconds; defaults to now
+})
+// → WellKnownX402Manifest:
+//   {
+//     x402Version: 2,
+//     lastUpdated: 1735000000,
+//     items: [{
+//       resource: { url: 'https://api.example.com/report', description?, mimeType? },
+//       type: 'http',
+//       accepts: [ …the gate's resolved rails, nonce-free… ],
+//       input: { method: 'GET' },
+//       output?: { mimeType }
+//     }]
+//   }
+```
+
+Serve it at `https://<origin>/.well-known/x402.json`. It takes the same
+[`ManifestInput`](#manifestinput--the-shared-input) as the others, plus an optional `lastUpdated`
+(Unix seconds; defaults to the build time). The shape is **forward-compatible**: `WellKnownX402Item`
+carries optional fields some indexes use (`serviceName`, `tags`, `requires`, `output.example`) that
+the builder leaves unset today — a reader that wants them finds them absent, never malformed. PipRail
+emits `type: 'http'` for HTTP resources; the legacy `buildWellKnownX402` is unchanged, so serve both
+if you want to satisfy old and new crawlers at once.
+
 ## `buildX402DnsTxt` — the DNS pointer
 
 `buildX402DnsTxt(input)` returns an `X402DnsRecord` — the experimental `_x402` TXT record that
