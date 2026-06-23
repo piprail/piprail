@@ -122,6 +122,22 @@ describe('verifyTron — TRC-20 (digest-bound)', () => {
     const res = await verifyTron({ ...base, reader: failingReader, accept: usdtAccept('50000') })
     expect(res).toMatchObject({ ok: false, error: 'tx_not_found' })
   })
+
+  it('BREAK-IT: reads the ref VERBATIM (no tron: strip) — a `tron:`-prefixed ref does NOT resolve to the bare tx', async () => {
+    // The double-redeem root cause: stripping a `tron:` prefix inside verify made `txHash:"X"` and
+    // `txHash:"tron:X"` claim two distinct replay keys yet verify the SAME on-chain tx. With the
+    // strip removed, verify reads the ref as-is — so a `tron:`-prefixed ref is a DIFFERENT (unknown)
+    // txid that the reader can't resolve, never a second redemption of the bare tx.
+    const info1 = info({ logs: [transferLog({ amount: 50000n })] })
+    const txidSensitive: TronReader = {
+      getTransactionInfo: async (txid: string) => (txid === 'txid-1' ? info1 : null),
+      getTransaction: async () => null,
+    }
+    const bare = await verifyTron({ ...base, txid: 'txid-1', reader: txidSensitive, accept: usdtAccept('50000') })
+    expect(bare.ok).toBe(true) // the real bare txid resolves + verifies
+    const prefixed = await verifyTron({ ...base, txid: 'tron:txid-1', reader: txidSensitive, accept: usdtAccept('50000') })
+    expect(prefixed).toMatchObject({ ok: false, error: 'tx_not_found' }) // NOT a second redeem
+  })
 })
 
 // ── native TRX (digest-bound): value/recipient from the tx's TransferContract ──

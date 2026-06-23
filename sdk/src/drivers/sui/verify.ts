@@ -85,7 +85,13 @@ export async function verifySui(params: VerifySuiParams): Promise<VerifyResult> 
   }
 
   // Sum positive balance changes of the required coin type credited to payTo;
-  // capture the spender (a negative change) as the payer.
+  // capture the spender (a negative change) as the payer. Recipient is compared in CANONICAL
+  // Sui form on BOTH sides: the RPC returns `bc.owner` lowercase/zero-padded, but the merchant's
+  // `accept.payTo` can be mixed/upper-case (copied from an explorer) — and the funds still arrive
+  // (the payer's tx serializes to canonical bytes). Without normalizing, a mixed-case payTo would
+  // be paid on-chain yet verify forever as transfer_not_found (mirrors EVM's getAddress() on both
+  // sides).
+  const want = normalizeSuiAddress(accept.payTo)
   let paid = 0n
   let payer = ''
   for (const bc of tx.balanceChanges) {
@@ -96,8 +102,8 @@ export async function verifySui(params: VerifySuiParams): Promise<VerifyResult> 
     } catch {
       continue
     }
-    if (bc.owner === accept.payTo && v > 0n) paid += v
-    else if (v < 0n && !payer) payer = bc.owner
+    if (bc.owner && normalizeSuiAddress(bc.owner) === want && v > 0n) paid += v
+    else if (v < 0n && !payer) payer = bc.owner ? normalizeSuiAddress(bc.owner) : bc.owner
   }
 
   if (paid < required) {
@@ -131,4 +137,19 @@ function txNotFound(digest: string): VerifyResult {
     error: 'tx_not_found',
     detail: `Sui tx ${digest} not found or not yet propagated — retry.`,
   }
+}
+
+/**
+ * Canonical Sui address form: `0x` + 64 lowercase hex chars (zero-padded) — the same shape the
+ * RPC emits for `balanceChanges[].owner`. A merchant's `payTo` may be mixed/upper-case or short;
+ * this folds both sides to one form so the recipient match is case- and padding-insensitive (the
+ * equivalent of viem's `getAddress` on EVM). A non-hex string is returned lowercased, never a
+ * throw — `verify()` must not throw. (Kept local + pure so this module stays unit-testable without
+ * the `@mysten/sui` runtime; matches `normalizeSuiAddress` from `@mysten/sui/utils`.)
+ */
+function normalizeSuiAddress(value: string): string {
+  const lower = value.toLowerCase()
+  const hex = lower.replace(/^0x/, '')
+  if (hex.length === 0 || hex.length > 64 || !/^[0-9a-f]+$/.test(hex)) return lower
+  return `0x${hex.padStart(64, '0')}`
 }

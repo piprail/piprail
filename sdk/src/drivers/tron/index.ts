@@ -170,7 +170,7 @@ function makeTronNetwork(preset: TronPreset, rpcUrl: string): ResolvedNetwork {
     async confirm(ref) {
       // Tron finality = solidification (~19 blocks). Poll the solidity node until
       // the confirmed info appears, then surface the block it landed in.
-      const txid = stripTronPrefix(ref)
+      const txid = ref
       for (let i = 0; i < 30; i += 1) {
         try {
           const info = await reader.getTransactionInfo(txid)
@@ -273,7 +273,11 @@ function makeTronNetwork(preset: TronPreset, rpcUrl: string): ResolvedNetwork {
     },
 
     async verify(ref, accept) {
-      const txid = stripTronPrefix(ref)
+      // Use the ref VERBATIM as the txid — never strip/normalize it here. The gate reserves the
+      // replay-claim key from this exact ref (server.ts claimTx), so if verify() read a different
+      // (e.g. prefix-stripped) identity, `txHash:"X"` and `txHash:"tron:X"` would claim two keys
+      // yet verify the SAME on-chain tx → a double-redeem. send()/pay.ts always emits a bare txid.
+      const txid = ref
       // Native TRX: the value/recipient live in the tx's TransferContract (no event
       // log), addressed in 0x41-prefixed hex — re-derived from the trusted accept.
       if (accept.asset === 'native') {
@@ -299,7 +303,3 @@ function makeTronNetwork(preset: TronPreset, rpcUrl: string): ResolvedNetwork {
   }
 }
 
-/** Accept either a raw txid or a `tron:<txid>` locator (we emit the raw txid). */
-function stripTronPrefix(ref: string): string {
-  return ref.startsWith('tron:') ? ref.slice(5) : ref
-}
