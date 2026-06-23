@@ -94,3 +94,60 @@ describe('InvalidConfigError — typed, stable code', () => {
     expect(e.code).toBe('INVALID_CONFIG')
   })
 })
+
+// ─────────────────── 2.14.2 — DEEPER element-level hardening (found by the smash pass) ───────────────────
+// 2.14.1 guarded the CONTAINERS; these guard the CONTENTS: a null/garbage ELEMENT, a primitive
+// token, a hostile getter/Proxy. All confirmed bare against 2.14.1 before the fix.
+
+describe('F-A1 (deep) — classifyChallenge survives null/garbage ELEMENTS + hostile getters', () => {
+  const throwingProxy = new Proxy({}, { get() { throw new Error('boom') } })
+  it('a null/undefined element inside accepts[] does not throw', () => {
+    for (const bad of [{ accepts: [null] }, { accepts: [undefined] }, { accepts: [0] }, { accepts: ['x'] }]) {
+      expect(() => classifyChallenge(bad as unknown as X402Challenge, opts)).not.toThrow()
+    }
+  })
+  it('a mixed [null, validRail] classifies the VALID rail, not a crash', () => {
+    const ch = { accepts: [null, { scheme: 'onchain-proof', network: 'eip155:8453' }] } as unknown as X402Challenge
+    expect(classifyChallenge(ch, opts).verdict).toBe('PAYABLE_RAIL')
+  })
+  it('a throwing Proxy as challenge OR opts degrades to NO_RAIL, never throws', () => {
+    expect(() => classifyChallenge(throwingProxy as unknown as X402Challenge, opts)).not.toThrow()
+    expect(() => classifyChallenge({ accepts: [] } as unknown as X402Challenge, throwingProxy as never)).not.toThrow()
+    expect(() => classifyChallenge({ get accepts() { throw new Error('x') } } as unknown as X402Challenge, opts)).not.toThrow()
+  })
+})
+
+describe('F-A2 (deep) — describeChallenge survives a throwing getter/Proxy', () => {
+  it('a throwing Proxy / accepts-getter degrades to the generic pointer', () => {
+    const throwingProxy = new Proxy({}, { get() { throw new Error('boom') } })
+    for (const bad of [throwingProxy, { get accepts() { throw new Error('x') } }, { accepts: [null] }]) {
+      let s = ''
+      expect(() => { s = describeChallenge(bad as unknown as X402Challenge) }).not.toThrow()
+      expect(s).toMatch(/x402 payment endpoint/)
+    }
+  })
+})
+
+describe('F-C1 (deep) — manifest builders validate each resource ELEMENT', () => {
+  it('a null/primitive/shapeless element → InvalidConfigError (never raw TypeError, never silent malformed)', () => {
+    for (const resources of [[null], [undefined], [42], [{}], [{ accepts: [] }] /* no url */]) {
+      expect(() => buildWellKnownX402Manifest({ origin: 'https://x.com', resources: resources as never }))
+        .toThrow(InvalidConfigError)
+    }
+  })
+})
+
+describe('F-C2 (deep) — a primitive token / null accept element is a typed InvalidConfigError', () => {
+  it('a primitive token (number/null/boolean) → InvalidConfigError, not "Cannot use \'in\' operator"', async () => {
+    for (const token of [42, null, true]) {
+      const gate = createPaymentGate({ chain: 'base', token: token as never, amount: '0.01', payTo: PAY_TO })
+      await expect(gate.challenge('http://127.0.0.1:1/r')).rejects.toBeInstanceOf(InvalidConfigError)
+    }
+  })
+  it('a null accept element / non-array accept → InvalidConfigError (not a raw TypeError / bare Error)', async () => {
+    for (const accept of [[null], [undefined], {}, 42]) {
+      const gate = createPaymentGate({ accept: accept as never })
+      await expect(gate.challenge('http://127.0.0.1:1/r')).rejects.toBeInstanceOf(InvalidConfigError)
+    }
+  })
+})

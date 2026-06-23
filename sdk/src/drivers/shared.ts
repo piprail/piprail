@@ -4,7 +4,7 @@
  * is auto-covered the moment it's added to the maps below. Chain-agnostic:
  * imports only `errors.js` + types, so it stays free of any chain SDK.
  */
-import { WrongFamilyError } from '../errors.js'
+import { WrongFamilyError, InvalidConfigError } from '../errors.js'
 import type { ChainFamily } from './types.js'
 
 /** Human label per family, for error messages. */
@@ -56,6 +56,14 @@ export function rejectForeignToken(
   network: string
 ): void {
   const own = FAMILY_TOKEN[family]
+  // Guard a PRIMITIVE token (number/boolean/null) before the `key in token` checks below — `'mint'
+  // in 42` throws a raw "Cannot use 'in' operator" TypeError. A bad token is a typed config error.
+  if (typeof token !== 'object' || token === null) {
+    throw new InvalidConfigError(
+      `token must be the string 'native', a built-in symbol, or an object ` +
+        `(${own.shape} — pass ${own.hint}); got ${token === null ? 'null' : typeof token}.`
+    )
+  }
   for (const fam of Object.keys(FAMILY_TOKEN) as ChainFamily[]) {
     if (fam === family) continue
     // A discriminant this family ALSO uses (EVM ↔ Tron both use `address`) isn't

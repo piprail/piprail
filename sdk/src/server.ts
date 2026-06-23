@@ -543,19 +543,28 @@ interface ResolvedSpec {
  * one-element list. Throws a clear error if neither form is fully specified.
  */
 function normaliseAccepts(options: RequirePaymentOptions): AcceptOption[] {
-  if (options.accept && options.accept.length > 0) {
+  if (Array.isArray(options.accept) && options.accept.length > 0) {
     if (options.chain !== undefined || options.token !== undefined || options.amount !== undefined) {
-      throw new Error(
+      throw new InvalidConfigError(
         'requirePayment: pass EITHER `accept: [...]` (multi-chain) OR ' +
           '`chain`/`token`/`amount` (single) — not both.'
       )
     }
+    // Validate each element here (typed), so a null/garbage rail surfaces as InvalidConfigError at
+    // config time, not a raw "Cannot read properties of null (reading 'chain')" deeper in resolution.
+    options.accept.forEach((a, i) => {
+      if (a === null || typeof a !== 'object') {
+        throw new InvalidConfigError(
+          `requirePayment: accept[${i}] must be { chain, token, amount }, got ${a === null ? 'null' : typeof a}.`
+        )
+      }
+    })
     return options.accept
   }
   if (options.chain !== undefined && options.token !== undefined && options.amount !== undefined) {
     return [{ chain: options.chain, token: options.token, amount: options.amount }]
   }
-  throw new Error(
+  throw new InvalidConfigError(
     'requirePayment: provide either { chain, token, amount } or a non-empty ' +
       '`accept: [{ chain, token, amount }, …]`.'
   )

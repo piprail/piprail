@@ -39,24 +39,38 @@ export function classifyChallenge(
   challenge: X402Challenge,
   opts: { network: Caip2; schemes: readonly PaymentScheme[] }
 ): ChallengeTriage {
-  // Never throws (the documented contract): a nullish / shapeless challenge or opts must degrade
-  // to a verdict, not a TypeError — this is reachable wherever a FOREIGN 402's shape isn't guaranteed.
-  const accepts = Array.isArray(challenge?.accepts) ? challenge.accepts : []
-  const network = opts?.network
-  const schemes = opts?.schemes ?? []
-  const offeredSchemes = [...new Set(accepts.map((a) => a.scheme))] as PaymentScheme[]
-  const offeredNetworks = [...new Set(accepts.map((a) => a.network))]
-  const onClientChain = accepts.some((a) => a.network === network)
-  const payableScheme = accepts.some(
-    (a) => a.network === network && schemes.includes(a.scheme)
-  )
-  const verdict: ChallengeVerdict =
-    accepts.length === 0
-      ? 'NO_RAIL'
-      : payableScheme
-        ? 'PAYABLE_RAIL'
-        : onClientChain
-          ? 'UNPAYABLE_SCHEME'
-          : 'WRONG_CHAIN'
-  return { onClientChain, payableScheme, offeredSchemes, offeredNetworks, verdict }
+  // Never throws (the documented contract): a nullish / shapeless challenge or opts — INCLUDING a
+  // null/undefined ELEMENT inside accepts[] or a hostile getter/Proxy — must degrade to a verdict,
+  // not a TypeError. Reachable wherever a FOREIGN 402's shape isn't guaranteed. Each rail is read
+  // null-safe (`a?.scheme`), and the whole body is wrapped so any throwing accessor falls back.
+  try {
+    const accepts = Array.isArray(challenge?.accepts) ? challenge.accepts : []
+    const network = opts?.network
+    const schemes = opts?.schemes ?? []
+    const offeredSchemes = [
+      ...new Set(accepts.map((a) => a?.scheme).filter((s): s is PaymentScheme => s != null)),
+    ]
+    const offeredNetworks = [...new Set(accepts.map((a) => a?.network).filter((n) => n != null))]
+    const onClientChain = accepts.some((a) => a?.network === network)
+    const payableScheme = accepts.some(
+      (a) => a?.network === network && schemes.includes(a?.scheme)
+    )
+    const verdict: ChallengeVerdict =
+      accepts.length === 0
+        ? 'NO_RAIL'
+        : payableScheme
+          ? 'PAYABLE_RAIL'
+          : onClientChain
+            ? 'UNPAYABLE_SCHEME'
+            : 'WRONG_CHAIN'
+    return { onClientChain, payableScheme, offeredSchemes, offeredNetworks, verdict }
+  } catch {
+    return {
+      onClientChain: false,
+      payableScheme: false,
+      offeredSchemes: [],
+      offeredNetworks: [],
+      verdict: 'NO_RAIL',
+    }
+  }
 }
