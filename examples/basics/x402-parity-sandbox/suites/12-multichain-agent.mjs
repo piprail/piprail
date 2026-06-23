@@ -325,6 +325,31 @@ group('offline — classifyChallenge / describeChallenge NEVER throw on a nullis
   check((await threw(() => classifyChallenge({ accepts: [] }, undefined))) === 'ok', 'classifyChallenge(challenge, undefined opts) does not throw')
 }
 
+// 2.14.2 — deeper: a null/garbage ELEMENT or a hostile getter/Proxy must ALSO degrade (not just a nullish top-level).
+group('offline — classify/describe are TOTAL: null array elements + throwing getters/Proxies (2.14.2)')
+{
+  const opts = { network: 'eip155:8453', schemes: ['exact'] }
+  // NB: label by a STATIC name — never JSON.stringify / introspect a hostile input (a throwing
+  // Proxy's get-trap would fire in the label code, outside the threw() wrapper).
+  const cases = [
+    ['{accepts:[null]}', { accepts: [null] }],
+    ['{accepts:[undefined]}', { accepts: [undefined] }],
+    ['{accepts:[0]}', { accepts: [0] }],
+    ['{accepts:["x"]}', { accepts: ['x'] }],
+    ['a throwing Proxy', new Proxy({}, { get() { throw new Error('boom') } })],
+    ['a throwing accepts-getter', { get accepts() { throw new Error('x') } }],
+  ]
+  for (const [lbl, bad] of cases) {
+    check((await threw(() => classifyChallenge(bad, opts))) === 'ok', `classifyChallenge(${lbl}) does not throw`)
+    check((await threw(() => describeChallenge(bad))) === 'ok', `describeChallenge(${lbl}) does not throw`)
+  }
+  // the headline: a mixed [null, validRail] classifies the VALID rail, not a crash.
+  const mixed = classifyChallenge({ accepts: [null, { scheme: 'exact', network: 'eip155:8453' }] }, opts)
+  check(mixed.verdict === 'PAYABLE_RAIL', 'classifyChallenge([null, validRail]) → PAYABLE_RAIL (the valid rail wins, no crash)')
+  // a throwing-opts Proxy degrades too.
+  check((await threw(() => classifyChallenge({ accepts: [] }, new Proxy({}, { get() { throw new Error('boom') } })))) === 'ok', 'classifyChallenge(challenge, throwing-Proxy opts) does not throw')
+}
+
 // ───────────────────────── LIVE (Base mainnet, READ-ONLY — money-free RPC read) ─────────────────────────
 if (!(w && process.env.PIPRAIL_LIVE === '1')) {
   skip('no .secrets wallet + PIPRAIL_LIVE=1 → skipping the live (read-only) planAcross against a real RPC')

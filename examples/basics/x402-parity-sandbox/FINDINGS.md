@@ -26,6 +26,16 @@ pin `^2.14.1` and assert the **fixed** contract; re-verified 15/15 green offline
 | **F-A3** | ⓘ by-design — `estimateCost` deliberately throws `NoCompatibleAcceptError` on a foreign-only 402; docs clarified |
 | **F-D1** | ⓘ by-design — TON native gas symbol is `GRAM` (post-2026-06-15 governance rebrand) |
 
+**Round two (2.14.2):** a second adversarial smash of the 2.14.1 fixes found they guarded the
+**containers** but not their **elements** — all fixed in **2.14.2** (live on npm):
+
+| deeper hole | status in 2.14.2 |
+|----|------------------|
+| `classifyChallenge`/`describeChallenge` on a **null element** in `accepts[]` or a throwing getter/Proxy | ✅ total — degrades to a verdict/pointer; `[null, validRail]` classifies the valid rail (suite 12) |
+| discovery builders on a null/primitive/url-less **resource element** | ✅ typed `InvalidConfigError` — never a raw TypeError or a silently-malformed manifest (suite 08) |
+| a **primitive `token`** (42/null/true) | ✅ `InvalidConfigError` — guarded once in `rejectForeignToken` (suite 11) |
+| a null **`accept[]` element** / non-array `accept` / the misconfig throw | ✅ all `InvalidConfigError` now (suite 11) |
+
 *Original 2.14.0 catalog preserved below for the record.*
 
 ---

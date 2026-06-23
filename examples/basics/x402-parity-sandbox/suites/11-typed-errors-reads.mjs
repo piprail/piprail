@@ -39,6 +39,7 @@ import {
   PaymentTimeoutError,
   SettlementError,
   NonReplayableBodyError,
+  InvalidConfigError,
   toInsufficientFundsError,
 } from '@piprail/sdk'
 import { check, banner, group, note, skip, done } from '../lib/report.mjs'
@@ -276,6 +277,29 @@ group('safe-integer: a challenge amount whose base units exceed 2^53 is preserve
   const gate2 = createPaymentGate({ chain: 'base', token: 'USDC', amount: '9007199254.740993', payTo: MERCHANT, rpcUrl: DEAD_RPC })
   const c2 = await gate2.challenge('http://127.0.0.1:1/r')
   check(c2.challenge.accepts[0]?.amount === '9007199254740993', 'a value straddling 2^53 is also preserved exactly')
+}
+
+// 2.14.2 — invalid gate config is a TYPED InvalidConfigError, even for primitives / null elements
+// (was a raw "Cannot use 'in' operator" / "reading 'chain'" TypeError or a bare Error pre-2.14.2).
+group('offline — invalid config → typed InvalidConfigError (primitive token, null accept element, bad amount/manifest)')
+{
+  const EVM = '0x28Dc25bf88BF06fc0a3Af1747D1aA4a21f313ed0'
+  const cfgErr = async (opts) => {
+    try { await createPaymentGate(opts).challenge('http://127.0.0.1:1/r'); return 'NO-THROW' }
+    catch (e) { return e instanceof InvalidConfigError && e.code === 'INVALID_CONFIG' ? 'OK' : `${e?.constructor?.name}(${e?.code})` }
+  }
+  check(await cfgErr({ chain: 'base', token: 42, amount: '0.01', payTo: EVM }) === 'OK', 'token:42 (primitive) → InvalidConfigError, not a raw "Cannot use \'in\' operator" TypeError')
+  check(await cfgErr({ chain: 'base', token: null, amount: '0.01', payTo: EVM }) === 'OK', 'token:null → InvalidConfigError')
+  check(await cfgErr({ chain: 'base', token: 'USDC', amount: '1e3', payTo: EVM }) === 'OK', "amount:'1e3' (sci-notation) → InvalidConfigError")
+  check(await cfgErr({ chain: 'base', token: 'USDC', amount: 0.05, payTo: EVM }) === 'OK', 'amount:0.05 (number) → InvalidConfigError, not "value.split is not a function"')
+  check(await cfgErr({ chain: 'base', token: 'USDC', amount: '0.05' }) === 'OK', 'missing payTo → InvalidConfigError')
+  check(await cfgErr({ accept: [null] }) === 'OK', 'accept:[null] (null element) → InvalidConfigError, not a raw "reading \'chain\'" TypeError')
+  check(await cfgErr({ accept: {} }) === 'OK', 'accept:{} (non-array) → InvalidConfigError, not a bare Error')
+  check(await cfgErr({ accept: 42 }) === 'OK', 'accept:42 → InvalidConfigError')
+  // PipRailError is the common base — a caller can catch the whole family in one clause.
+  let base = false
+  try { await createPaymentGate({ chain: 'base', token: 42, amount: '0.01', payTo: EVM }).challenge('http://127.0.0.1:1/r') } catch (e) { base = e instanceof PipRailError }
+  check(base, 'InvalidConfigError is a PipRailError (one catch clause covers every typed config error)')
 }
 
 done(w ? '11 typed errors + never-throw reads' : '11 typed errors + never-throw reads (offline)')

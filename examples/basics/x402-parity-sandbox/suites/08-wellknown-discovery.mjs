@@ -123,6 +123,14 @@ group('manifest — hostile input: a plain throw is OK, but NEVER a NaN lastUpda
   const nanOut = buildWellKnownX402Manifest({ origin: 'https://x.com', resources: [], lastUpdated: Number.NaN })
   check(nanOut?.x402Version === 2 && Number.isFinite(nanOut?.lastUpdated), 'manifest(lastUpdated:NaN) → a FINITE lastUpdated (coerced to now), never NaN')
   check(JSON.parse(JSON.stringify(nanOut)).lastUpdated !== null, 'the serialized manifest never carries lastUpdated:null')
+
+  // 2.14.2 — deeper (F-C1): a null/primitive/url-less ELEMENT is a typed InvalidConfigError too —
+  // not a raw "reading 'url'" TypeError ([null]) and NOT a silently-malformed manifest ([42]/[{}]).
+  for (const bad of [[null], [undefined], [42], [{}], [{ accepts: [] }]]) {
+    let code = '', threw = false
+    try { buildWellKnownX402Manifest({ origin: 'https://x.com', resources: bad }) } catch (e) { threw = true; code = e?.code }
+    check(threw && code === 'INVALID_CONFIG', `manifest(resources:[${typeof bad[0]}]) → typed InvalidConfigError (never silent-malformed)`)
+  }
 }
 
 // ───────────────────────── buildWellKnownX402 (v1 mirror) ─────────────────────────
