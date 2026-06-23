@@ -60,10 +60,12 @@ so a malicious or buggy server can't drain the wallet.
 ## Look before you pay — the read-only trio
 
 These move no funds — they're how an agent decides. `planPayment` and `estimateCost` never throw
-for a read problem (a flaky RPC surfaces as a warning, not a false "broke"); `quote` raises
-`InvalidEnvelopeError` if the challenge itself is unparseable, and `NoCompatibleAcceptError` /
-`UnsupportedSchemeError` when the 402 offers no rail this client can pay on its chain. Each returns
-`null` when the URL isn't payment-gated (no 402), so null-guard the result:
+for a *read* problem (a flaky RPC surfaces as a warning, not a false "broke"); `quote` raises
+`InvalidEnvelopeError` if the challenge itself is unparseable. When the 402 is well-formed but
+offers no rail this client can pay on its chain + enabled schemes, both `quote` *and*
+`estimateCost` raise `NoCompatibleAcceptError` / `UnsupportedSchemeError` — a routing fact, not a
+read failure. Each returns `null` when the URL isn't payment-gated (no 402), so null-guard the
+result:
 
 ```ts
 const url = 'https://api.example.com/report'

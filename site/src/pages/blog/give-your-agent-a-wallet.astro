@@ -127,7 +127,7 @@ const faqs = [
   },
   {
     q: 'How does the agent know whether it can afford a URL before paying?',
-    a: 'Three read-only methods that never throw: quote(url) returns the price, estimateCost(url) adds a gas estimate in the chain’s native coin, and planPayment(url) checks the agent’s actual balances and recipient-readiness across every rail the 402 offers, returning whether it is payable, the cheapest rail, any blockers, and a one-line funding hint. canAfford(url) is the boolean shortcut.',
+    a: 'Three read-only methods that move no funds and never raise for a flaky RPC (it degrades to a heuristic, not a false “broke”): quote(url) returns the price, estimateCost(url) adds a gas estimate in the chain’s native coin, and planPayment(url) checks the agent’s actual balances and recipient-readiness across every rail the 402 offers, returning whether it is payable, the cheapest rail, any blockers, and a one-line funding hint. canAfford(url) is the boolean shortcut. They return null when the URL isn’t gated; quote/estimateCost throw a typed NoCompatibleAcceptError when the 402 offers no rail this agent can pay — a routing fact, not a read failure.',
   },
   {
     q: 'Which agent frameworks and clients are supported?',

@@ -106,26 +106,40 @@ price, `estimateCost()` adds the gas, and [`planPayment()`](/making-payments/pla
 your balances against both and tells you whether the whole thing is settleable. If you want the
 verdict — not just the numbers — reach for `planPayment()`.
 
-## Never throws — returns `null` when there's nothing to cost
+## Returns `null` when there's nothing to cost — and what it *does* throw
 
-Like every read-only method, `estimateCost` is safe to call speculatively. A transient RPC issue
-falls back to a `'heuristic'` constant rather than raising, so a flaky endpoint degrades the
-estimate's sharpness instead of crashing your agent.
+`estimateCost` is safe to call speculatively. A transient RPC issue falls back to a `'heuristic'`
+constant rather than raising, so a flaky endpoint degrades the estimate's sharpness instead of
+crashing your agent.
 
-Unlike [`quote()`](/making-payments/quote/) (which **throws** an `InvalidEnvelopeError` on a
-malformed 402), `estimateCost` is a pure read that **never throws on a bad envelope** — it returns
-**`null`** instead. A non-402 response, an unparseable PAYMENT-REQUIRED body, or a parseable-but-
-malformed rail (bad amount/asset/decimals) all yield `null`, so a caller just checks for it. (A
-genuine "this client can't pay this scheme" signal — `UnsupportedSchemeError` / `NoCompatibleAcceptError`
-— still surfaces, since that's a routing fact, not a cost-read failure.)
+It returns **`null`** in exactly two cases: a **non-402** response (the URL isn't payment-gated),
+or a **malformed / unparseable** 402 envelope (an unparseable PAYMENT-REQUIRED body, or a
+parseable-but-malformed rail with a bad amount/asset/decimals). So unlike
+[`quote()`](/making-payments/quote/) — which **throws** an `InvalidEnvelopeError` on a malformed
+402 — `estimateCost` degrades a bad envelope to `null`, and a caller just checks for it.
+
+It is **not** unconditionally throw-free, though. When the 402 is well-formed but offers **no rail
+this client can pay** on its chain + enabled schemes, `estimateCost` **throws
+[`NoCompatibleAcceptError`](/errors/error-hierarchy/)** (or `UnsupportedSchemeError`) — a deliberate
+"this 402 isn't for you" signal, since that's a routing fact, not a cost-read failure. Guard it the
+way you would any payment call:
 
 ```ts
-const result = await client.estimateCost('https://api.example.com/report')
-if (result) {
-  // a bad RPC yields cost.basis: 'heuristic', not an exception
-  console.log(result.cost.feeFormatted, result.cost.feeSymbol)
-} else {
-  // null = non-402, or a malformed/un-costable 402 envelope — nothing to estimate
-  console.warn('No cost to estimate (not gated, or a malformed 402).')
+import { NoCompatibleAcceptError } from '@piprail/sdk'
+
+try {
+  const result = await client.estimateCost('https://api.example.com/report')
+  if (result) {
+    // a bad RPC yields cost.basis: 'heuristic', not an exception
+    console.log(result.cost.feeFormatted, result.cost.feeSymbol)
+  } else {
+    // null = non-402, or a malformed/un-costable 402 envelope — nothing to estimate
+    console.warn('No cost to estimate (not gated, or a malformed 402).')
+  }
+} catch (err) {
+  if (err instanceof NoCompatibleAcceptError) {
+    // the 402 is well-formed but offers no rail this client can pay — "not for you"
+    console.warn('This 402 offers nothing this client can pay:', err.message)
+  } else throw err
 }
 ```

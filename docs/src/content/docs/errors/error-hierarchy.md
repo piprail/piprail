@@ -1,6 +1,6 @@
 ---
 title: PipRailError hierarchy
-description: Every error the SDK throws — the abstract PipRailError base, its seventeen typed subclasses, each stable .code, and what to do about it.
+description: Every error the SDK throws — the abstract PipRailError base, its eighteen typed subclasses, each stable .code, and what to do about it.
 sidebar:
   order: 2
 ---
@@ -33,7 +33,7 @@ try {
 }
 ```
 
-The base [`PipRailError`](/errors/error-model/) **and every one of the seventeen concrete
+The base [`PipRailError`](/errors/error-model/) **and every one of the eighteen concrete
 subclasses below is a named export** from `@piprail/sdk`, so you can either branch on
 `err.code` after a broad `instanceof PipRailError` catch, or `import` the specific class and
 narrow on it directly (`err instanceof PaymentDeclinedError`).
@@ -51,7 +51,7 @@ abstract class PipRailError extends Error {
 }
 ```
 
-## The seventeen subclasses
+## The eighteen subclasses
 
 Every class below is exported from the package root and is caught by
 `err instanceof PipRailError`. The `.code` is the stable string to branch on.
@@ -63,6 +63,7 @@ Every class below is exported from the package root and is caught by
 | `WrongChainError` | `WRONG_CHAIN` | The chain doesn't match — the 402 challenge demands a network the client isn't on, or a bring-your-own `walletClient` is on a different chain than configured. |
 | `WrongFamilyError` | `WRONG_FAMILY` | The wallet, `payTo`, or token was given in another family's shape (e.g. an `0x…` address on Solana). |
 | `UnknownTokenError` | `UNKNOWN_TOKEN` | A built-in token symbol the chosen chain doesn't ship (e.g. `token: 'DOGE'`). |
+| `InvalidConfigError` | `INVALID_CONFIG` | Invalid merchant gate / manifest config caught at the boundary — an invalid `amount` (non-string, or a non-decimal string such as scientific notation), a missing `payTo`, or a non-array `resources` in `buildWellKnownX402Manifest`. |
 | `MissingDriverError` | `MISSING_DRIVER` | A family's optional peer deps aren't installed — message names the exact `npm install`. |
 | `UnsupportedNetworkError` | `UNSUPPORTED_NETWORK` | No registered driver recognised the given `chain` value. |
 | `PaymentTimeoutError` | `PAYMENT_TIMEOUT` | Broadcast confirmed, but the **server** didn't return 200 in time — carries `.ref`. |

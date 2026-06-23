@@ -39,12 +39,16 @@ export function classifyChallenge(
   challenge: X402Challenge,
   opts: { network: Caip2; schemes: readonly PaymentScheme[] }
 ): ChallengeTriage {
-  const accepts = challenge.accepts ?? []
+  // Never throws (the documented contract): a nullish / shapeless challenge or opts must degrade
+  // to a verdict, not a TypeError — this is reachable wherever a FOREIGN 402's shape isn't guaranteed.
+  const accepts = Array.isArray(challenge?.accepts) ? challenge.accepts : []
+  const network = opts?.network
+  const schemes = opts?.schemes ?? []
   const offeredSchemes = [...new Set(accepts.map((a) => a.scheme))] as PaymentScheme[]
   const offeredNetworks = [...new Set(accepts.map((a) => a.network))]
-  const onClientChain = accepts.some((a) => a.network === opts.network)
+  const onClientChain = accepts.some((a) => a.network === network)
   const payableScheme = accepts.some(
-    (a) => a.network === opts.network && opts.schemes.includes(a.scheme)
+    (a) => a.network === network && schemes.includes(a.scheme)
   )
   const verdict: ChallengeVerdict =
     accepts.length === 0
