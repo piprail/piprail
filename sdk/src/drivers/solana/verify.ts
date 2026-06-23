@@ -48,17 +48,19 @@ export async function verifySolana(
     }
   }
 
-  // Replay window: reject ancient payments to the same address. A missing
-  // blockTime means we can't bound the age — fail closed rather than open.
-  if (typeof tx.blockTime !== 'number') {
+  // Replay window: reject ancient payments to the same address. A missing/non-finite blockTime
+  // means we can't bound the age — fail closed rather than open. Number.isFinite (not
+  // `typeof === 'number'`) also rejects NaN/Infinity, which would make ageSeconds NaN and slip past
+  // the `> max` check (NaN comparisons are false) → fail open.
+  if (!Number.isFinite(tx.blockTime)) {
     return {
       ok: false,
       error: 'payment_expired',
-      detail: `Cannot determine the age of ${signature} (no blockTime).`,
+      detail: `Cannot determine the age of ${signature} (no/invalid blockTime).`,
     }
   }
-  const ageSeconds = Math.floor(Date.now() / 1000) - tx.blockTime
-  if (ageSeconds > accept.maxTimeoutSeconds) {
+  const ageSeconds = Math.floor(Date.now() / 1000) - (tx.blockTime as number)
+  if (!Number.isFinite(ageSeconds) || ageSeconds > accept.maxTimeoutSeconds) {
     return {
       ok: false,
       error: 'payment_expired',

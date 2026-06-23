@@ -99,11 +99,13 @@ export async function verifyNear(params: VerifyNearParams): Promise<VerifyResult
   // (a memo can't bind a bare Transfer); the gate's single-use set covers reuse. We fail
   // CLOSED if the block time is unavailable rather than accept an un-bounded-age payment.
   if (accept.asset === 'native') {
-    if (typeof tx.timestampMs !== 'number') {
-      return { ok: false, error: 'payment_expired', detail: `Cannot bound the age of native NEAR tx ${hash} (no block time) — failing closed.` }
+    // Number.isFinite (not `typeof === 'number'`): NaN/Infinity are typeof 'number' and would make
+    // ageSeconds NaN, which slips past the `> max` check → fail open. Reject them — fail CLOSED.
+    if (!Number.isFinite(tx.timestampMs)) {
+      return { ok: false, error: 'payment_expired', detail: `Cannot bound the age of native NEAR tx ${hash} (no/invalid block time) — failing closed.` }
     }
-    const ageSeconds = Math.floor(Date.now() / 1000) - Math.floor(tx.timestampMs / 1000)
-    if (ageSeconds > accept.maxTimeoutSeconds) {
+    const ageSeconds = Math.floor(Date.now() / 1000) - Math.floor((tx.timestampMs as number) / 1000)
+    if (!Number.isFinite(ageSeconds) || ageSeconds > accept.maxTimeoutSeconds) {
       return { ok: false, error: 'payment_expired', detail: `Payment is ${ageSeconds}s old; max allowed is ${accept.maxTimeoutSeconds}s.` }
     }
     if (tx.receiverId !== accept.payTo) {

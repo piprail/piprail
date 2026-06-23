@@ -70,6 +70,16 @@ describe('verifySui — USDC (digest-bound)', () => {
     expect(res).toMatchObject({ ok: false, error: 'payment_expired' })
   })
 
+  it('BREAK-IT: a NaN/Infinity timestampMs (malformed RPC) fails CLOSED — NaN/Infinity are typeof number and would slip the > check', async () => {
+    // The Sui RPC returns timestampMs as a string the adapter Number()s; a non-numeric/oversized
+    // value yields NaN/Infinity (both typeof 'number'), which a bare typeof guard would let through.
+    for (const ts of [NaN, Infinity, -Infinity, Number('not-a-number'), Number('1e500')]) {
+      const v = { status: 'success', timestampMs: ts, balanceChanges: [recv(USDC, '50000')] } as unknown as SuiTxView
+      const res = await verifySui({ reader: reader(v), digest: 'D1', accept: usdcAccept('50000') })
+      expect(res).toMatchObject({ ok: false, error: 'payment_expired' })
+    }
+  })
+
   it('reports tx_not_found when the tx is unknown', async () => {
     const res = await verifySui({ reader: reader(null), digest: 'D1', accept: usdcAccept('50000') })
     expect(res).toMatchObject({ ok: false, error: 'tx_not_found' })

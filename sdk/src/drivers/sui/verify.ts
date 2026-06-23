@@ -68,11 +68,15 @@ export async function verifySui(params: VerifySuiParams): Promise<VerifyResult> 
   // Recency (replay window). A missing/unreadable timestamp means we can't BOUND the age — fail
   // CLOSED (reject), never open, exactly like the Solana/NEAR drivers. confirm() awaits finalization
   // before verify, so a legit tx always carries a checkpoint timestamp by this point.
-  if (typeof tx.timestampMs !== 'number') {
-    return { ok: false, error: 'payment_expired', detail: `Cannot determine the age of ${digest} (no timestampMs) — fail closed.` }
+  // Number.isFinite (not `typeof === 'number'`): NaN/Infinity are typeof 'number' and would make
+  // ageSeconds NaN, which slips past the `> max` check (NaN comparisons are false) → fail OPEN. The
+  // Sui JSON-RPC returns timestampMs as a string the adapter Number()s, so a malformed RPC value
+  // could yield NaN/Infinity — reject it here, fail CLOSED.
+  if (!Number.isFinite(tx.timestampMs)) {
+    return { ok: false, error: 'payment_expired', detail: `Cannot determine the age of ${digest} (no/invalid timestampMs) — fail closed.` }
   }
-  const ageSeconds = Math.floor(Date.now() / 1000) - Math.floor(tx.timestampMs / 1000)
-  if (ageSeconds > accept.maxTimeoutSeconds) {
+  const ageSeconds = Math.floor(Date.now() / 1000) - Math.floor((tx.timestampMs as number) / 1000)
+  if (!Number.isFinite(ageSeconds) || ageSeconds > accept.maxTimeoutSeconds) {
     return {
       ok: false,
       error: 'payment_expired',
