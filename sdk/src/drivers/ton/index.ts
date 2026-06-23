@@ -169,7 +169,9 @@ function makeTonNetwork(preset: TonPreset, rpcUrl: string): ResolvedNetwork {
           continue // transient RPC hiccup (e.g. rate limit) — keep waiting
         }
         for (const tx of txs) {
-          const inc = extractIncoming(tx)
+          // confirm() is the payer's own liveness poll, NOT the security gate (verifyTon is) — so
+          // detect a credit of EITHER kind carrying the nonce; verify enforces the asset-bound check.
+          const inc = extractIncoming(tx, 'jetton') ?? extractIncoming(tx, 'native')
           if (inc && inc.comment === nonce) return { height: tx.lt.toString() }
         }
       }

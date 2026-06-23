@@ -120,6 +120,12 @@ describe('verifyStellar — USDC (memo-bound)', () => {
     expect(res).toMatchObject({ ok: false, error: 'payment_expired' })
   })
 
+  it('BREAK-IT: an unparseable created_at fails CLOSED (payment_expired), never open (NaN age)', async () => {
+    const r = reader([txRec({ nonce: 'nonce-1', created_at: 'not-a-date' })], { 'tx-our': [usdcPay({ amount: '0.0500000' })] })
+    const res = await verifyStellar({ reader: r, accept: usdcAccept('500000', 'nonce-1') })
+    expect(res).toMatchObject({ ok: false, error: 'payment_expired' })
+  })
+
   it('rejects a tx that carries our nonce but pays the wrong asset', async () => {
     const r = reader([txRec({ nonce: 'nonce-1' })], { 'tx-our': [usdcPay({ amount: '0.0500000', code: 'EURC' })] })
     const res = await verifyStellar({ reader: r, accept: usdcAccept('500000', 'nonce-1') })

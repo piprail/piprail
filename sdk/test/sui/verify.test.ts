@@ -64,6 +64,12 @@ describe('verifySui — USDC (digest-bound)', () => {
     expect(res).toMatchObject({ ok: false, error: 'payment_expired' })
   })
 
+  it('BREAK-IT: a tx with NO timestampMs fails CLOSED (payment_expired), never open (unbounded age)', async () => {
+    const v = { status: 'success', timestampMs: undefined, balanceChanges: [recv(USDC, '50000')] } as unknown as SuiTxView
+    const res = await verifySui({ reader: reader(v), digest: 'D1', accept: usdcAccept('50000') })
+    expect(res).toMatchObject({ ok: false, error: 'payment_expired' })
+  })
+
   it('reports tx_not_found when the tx is unknown', async () => {
     const res = await verifySui({ reader: reader(null), digest: 'D1', accept: usdcAccept('50000') })
     expect(res).toMatchObject({ ok: false, error: 'tx_not_found' })

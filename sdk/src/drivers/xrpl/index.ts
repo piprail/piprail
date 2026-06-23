@@ -34,7 +34,7 @@ import {
 } from '../../errors.js'
 import { rejectForeignToken } from '../shared.js'
 import { nativeCost } from '../../util/cost.js'
-import { parseUnits } from '../../util/units.js'
+import { floorUnits } from '../../util/units.js'
 import { delay } from '../../util/async.js'
 import type {
   PaymentDriver,
@@ -262,8 +262,11 @@ function makeXrplNetwork(preset: XrplPreset, rpcUrl: string): ResolvedNetwork {
         const line = r.lines.find(
           (l) => l.currency.toUpperCase() === (currencyHex ?? '').toUpperCase() && l.account === issuer
         )
-        // IOU amounts use the driver's 6-dp scaling convention (USDC/RLUSD are 6dp).
-        token = line ? parseUnits(line.balance, XRP_DECIMALS) : 0n
+        // IOU amounts use the driver's 6-dp scaling convention (USDC/RLUSD are 6dp). Use floorUnits
+        // (truncate), NOT parseUnits — an XRPL issued-currency balance carries up to 15 significant
+        // digits, and parseUnits THROWS on >6dp, which made a REAL funded trustline read as null.
+        // floorUnits matches verify.ts (delivered_amount) so balanceOf and verify agree.
+        token = line ? floorUnits(line.balance, XRP_DECIMALS) : 0n
       } catch (e) {
         token = isXrplActNotFound(e) ? 0n : null
       }

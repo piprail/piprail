@@ -137,3 +137,41 @@ describe('xrplDriver.resolve — only claims the "xrpl" selector', () => {
     expect(xrplDriver.resolve({ chain: 'xrpl' })).not.toBeNull()
   })
 })
+
+describe('xrplDriver.balanceOf — a funded IOU trustline reads correctly (floored, never null)', () => {
+  const linesFetch = (balance: string) =>
+    (async (_url: RequestInfo | URL, init?: RequestInit) => {
+      const method = JSON.parse(init!.body as string).method
+      const result =
+        method === 'account_info'
+          ? { status: 'success', account_data: { Balance: '20000000' } }
+          : { status: 'success', lines: [{ currency: USDC_HEX, account: USDC_ISSUER, balance }] }
+      return { ok: true, json: async () => ({ result }) } as Response
+    }) as typeof globalThis.fetch
+
+  it('reads a >6dp IOU balance via floorUnits — BREAK-IT: parseUnits used to THROW → funded line read as null', async () => {
+    const net = xrplDriver.resolve({ chain: 'xrpl', rpcUrl: 'http://mock-rpc' })!
+    const wallet = net.bindWallet({ wallet: Wallet.generate() })
+    const realFetch = globalThis.fetch
+    globalThis.fetch = linesFetch('12.3456789') // 7 dp — parseUnits(…,6) throws on this
+    try {
+      const bal = await net.balanceOf(wallet, `${USDC_HEX}:${USDC_ISSUER}`)
+      expect(bal.token).toBe(12_345_678n) // floorUnits('12.3456789', 6) — NOT null
+      expect(bal.native).toBe(20_000_000n)
+    } finally {
+      globalThis.fetch = realFetch
+    }
+  })
+
+  it('a sub-1e-6 dust IOU balance floors to 0n (consistent with verify), never null', async () => {
+    const net = xrplDriver.resolve({ chain: 'xrpl', rpcUrl: 'http://mock-rpc' })!
+    const wallet = net.bindWallet({ wallet: Wallet.generate() })
+    const realFetch = globalThis.fetch
+    globalThis.fetch = linesFetch('0.0000005')
+    try {
+      expect((await net.balanceOf(wallet, `${USDC_HEX}:${USDC_ISSUER}`)).token).toBe(0n)
+    } finally {
+      globalThis.fetch = realFetch
+    }
+  })
+})

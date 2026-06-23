@@ -188,6 +188,17 @@ describe('verifyTronNative — native TRX (digest-bound, reads the TransferContr
     expect(res).toMatchObject({ ok: false, error: 'tx_reverted' })
   })
 
+  it('BREAK-IT: a native tx whose info.receipt.result is non-SUCCESS → tx_reverted (fail closed, like TRC-20)', async () => {
+    const res = await verifyTronNative({ ...nbase, reader: nativeReader(info({ result: 'OUT_OF_ENERGY' }), rawTx({})), accept: nativeAccept() })
+    expect(res).toMatchObject({ ok: false, error: 'tx_reverted' })
+  })
+
+  it('BREAK-IT: a native tx with NO blockTimeStamp fails CLOSED (payment_expired), never open', async () => {
+    const i = { ...info({}), blockTimeStamp: undefined } as unknown as TronTxInfo
+    const res = await verifyTronNative({ ...nbase, reader: nativeReader(i, rawTx({})), accept: nativeAccept() })
+    expect(res).toMatchObject({ ok: false, error: 'payment_expired' })
+  })
+
   it('reports tx_not_found when not yet solidified (finality gate)', async () => {
     const res = await verifyTronNative({ ...nbase, reader: nativeReader(null, rawTx({})), accept: nativeAccept() })
     expect(res).toMatchObject({ ok: false, error: 'tx_not_found' })

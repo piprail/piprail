@@ -65,14 +65,18 @@ export async function verifySui(params: VerifySuiParams): Promise<VerifyResult> 
     return { ok: false, error: 'tx_reverted', detail: `Sui tx ${digest} did not succeed (status=${tx.status}).` }
   }
 
-  if (typeof tx.timestampMs === 'number') {
-    const ageSeconds = Math.floor(Date.now() / 1000) - Math.floor(tx.timestampMs / 1000)
-    if (ageSeconds > accept.maxTimeoutSeconds) {
-      return {
-        ok: false,
-        error: 'payment_expired',
-        detail: `Payment is ${ageSeconds}s old; max allowed is ${accept.maxTimeoutSeconds}s.`,
-      }
+  // Recency (replay window). A missing/unreadable timestamp means we can't BOUND the age — fail
+  // CLOSED (reject), never open, exactly like the Solana/NEAR drivers. confirm() awaits finalization
+  // before verify, so a legit tx always carries a checkpoint timestamp by this point.
+  if (typeof tx.timestampMs !== 'number') {
+    return { ok: false, error: 'payment_expired', detail: `Cannot determine the age of ${digest} (no timestampMs) — fail closed.` }
+  }
+  const ageSeconds = Math.floor(Date.now() / 1000) - Math.floor(tx.timestampMs / 1000)
+  if (ageSeconds > accept.maxTimeoutSeconds) {
+    return {
+      ok: false,
+      error: 'payment_expired',
+      detail: `Payment is ${ageSeconds}s old; max allowed is ${accept.maxTimeoutSeconds}s.`,
     }
   }
 

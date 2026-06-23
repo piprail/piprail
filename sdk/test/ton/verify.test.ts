@@ -181,3 +181,40 @@ describe('verifyTon — native TON', () => {
     if (res.ok) expect(res.receipt.payer).toBe(PAYER.toString())
   })
 })
+
+describe('verifyTon — BREAK IT: cross-asset confusion is rejected (asset-bound)', () => {
+  // The confirmed exploit (INVERSE): a dust native message carrying a FORGED internal_transfer body
+  // that *claims* a huge jetton amount must NOT satisfy a NATIVE accept. jettonTx moves only
+  // value.coins=12345n on-chain but its body claims `amount` — a native accept must read the REAL
+  // value (12345n), never the body's claim. Before the fix this returned ok:true on a 1-nanoton-ish
+  // transfer "paying" 1000 GRAM.
+  it('a jetton-shaped body (claiming a huge amount) does NOT satisfy a native accept', async () => {
+    const res = await verifyTon({
+      client: client(jettonTx({ amount: 1_000_000_000_000n, note: 'nonce-1' })),
+      watch: WATCH,
+      accept: nativeAccept('1000000000000'),
+    })
+    expect(res).toMatchObject({ ok: false, error: 'transfer_not_found' })
+  })
+
+  // FORWARD (hardening): a native/comment message must NOT satisfy a JETTON accept — even if its
+  // recipient wallet didn't throw on the unknown op (a custom-jetton latent risk). It's filtered
+  // before the success bar, so it can never be honored as a jetton credit.
+  it('a native/comment message does NOT satisfy a jetton accept', async () => {
+    const res = await verifyTon({
+      client: client(nativeTx({ coins: 100_000_000n, note: 'nonce-1' })),
+      watch: WATCH,
+      accept: jettonAccept('50000'),
+    })
+    expect(res).toMatchObject({ ok: false, error: 'transfer_not_found' })
+  })
+
+  // The trusted accept governs which kind is honored — a legit jetton credit still settles a jetton
+  // accept, and a legit native transfer still settles a native accept (the happy paths are unchanged).
+  it('the legit same-kind paths still settle (jetton→jetton, native→native)', async () => {
+    const j = await verifyTon({ client: client(jettonTx({ amount: 50000n, note: 'nonce-1' })), watch: WATCH, accept: jettonAccept('50000') })
+    expect(j.ok).toBe(true)
+    const n = await verifyTon({ client: client(nativeTx({ coins: 100000000n, note: 'nonce-1' })), watch: WATCH, accept: nativeAccept('100000000') })
+    expect(n.ok).toBe(true)
+  })
+})

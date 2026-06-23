@@ -92,13 +92,18 @@ export async function verifyStellar(params: VerifyStellarParams): Promise<Verify
     }
   }
 
+  // Recency (replay window). An unparseable `created_at` → NaN age → we can't BOUND the age, so fail
+  // CLOSED (reject), never open (matching Solana/Sui/NEAR). `created_at` comes from the merchant's
+  // own Horizon RPC, so this is defense-in-depth, but a fail-open window is never correct.
   const ageSeconds =
     Math.floor(Date.now() / 1000) - Math.floor(Date.parse(tx.created_at) / 1000)
-  if (Number.isFinite(ageSeconds) && ageSeconds > accept.maxTimeoutSeconds) {
+  if (!Number.isFinite(ageSeconds) || ageSeconds > accept.maxTimeoutSeconds) {
     return {
       ok: false,
       error: 'payment_expired',
-      detail: `Payment is ${ageSeconds}s old; max allowed is ${accept.maxTimeoutSeconds}s.`,
+      detail: Number.isFinite(ageSeconds)
+        ? `Payment is ${ageSeconds}s old; max allowed is ${accept.maxTimeoutSeconds}s.`
+        : `Cannot determine the age of ${tx.hash} (unparseable created_at "${tx.created_at}") — fail closed.`,
     }
   }
 

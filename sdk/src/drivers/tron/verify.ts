@@ -96,11 +96,13 @@ export async function verifyTron(params: VerifyTronParams): Promise<VerifyResult
 
   // Replay window: reject ancient payments. blockTimeStamp is in milliseconds.
   const ageSeconds = Math.floor(Date.now() / 1000) - Math.floor(info.blockTimeStamp / 1000)
-  if (Number.isFinite(ageSeconds) && ageSeconds > accept.maxTimeoutSeconds) {
+  if (!Number.isFinite(ageSeconds) || ageSeconds > accept.maxTimeoutSeconds) {
     return {
       ok: false,
       error: 'payment_expired',
-      detail: `Payment is ${ageSeconds}s old; max allowed is ${accept.maxTimeoutSeconds}s.`,
+      detail: Number.isFinite(ageSeconds)
+        ? `Payment is ${ageSeconds}s old; max allowed is ${accept.maxTimeoutSeconds}s.`
+        : `Cannot determine the age of ${txid} (no blockTimeStamp) — fail closed.`,
     }
   }
 
@@ -158,13 +160,22 @@ export async function verifyTronNative(params: VerifyTronNativeParams): Promise<
   }
   if (!info || !info.id) return txNotFound(txid)
 
+  // Native TransferContract info usually carries no receipt.result, so use a TRUTHY gate: reject
+  // only an explicitly non-SUCCESS result (fail closed on a populated failure), never a legit native
+  // tx whose result is absent. (The TRC-20 path above uses the stricter "must be SUCCESS" form.)
+  if (info.receipt?.result && info.receipt.result !== 'SUCCESS') {
+    return { ok: false, error: 'tx_reverted', detail: `Tron tx ${txid} did not succeed (receipt.result=${info.receipt.result}).` }
+  }
+
   // Replay window (blockTimeStamp is ms).
   const ageSeconds = Math.floor(Date.now() / 1000) - Math.floor(info.blockTimeStamp / 1000)
-  if (Number.isFinite(ageSeconds) && ageSeconds > accept.maxTimeoutSeconds) {
+  if (!Number.isFinite(ageSeconds) || ageSeconds > accept.maxTimeoutSeconds) {
     return {
       ok: false,
       error: 'payment_expired',
-      detail: `Payment is ${ageSeconds}s old; max allowed is ${accept.maxTimeoutSeconds}s.`,
+      detail: Number.isFinite(ageSeconds)
+        ? `Payment is ${ageSeconds}s old; max allowed is ${accept.maxTimeoutSeconds}s.`
+        : `Cannot determine the age of ${txid} (no blockTimeStamp) — fail closed.`,
     }
   }
 
