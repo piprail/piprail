@@ -8,8 +8,10 @@ import { xrplDriver } from '../src/drivers/xrpl/index.js'
 import { tronDriver } from '../src/drivers/tron/index.js'
 import { suiDriver } from '../src/drivers/sui/index.js'
 import { nearDriver } from '../src/drivers/near/index.js'
+import { aptosDriver } from '../src/drivers/aptos/index.js'
+import { algorandDriver } from '../src/drivers/algorand/index.js'
 import type { ResolveOptions } from '../src/drivers/types.js'
-import type { X402AcceptEntry } from '../src/x402.js'
+import type { X402AcceptEntry, X402AnyAccept } from '../src/x402.js'
 
 // A dead RPC so the RPC-reading drivers (EVM gas price, XRPL fee) deterministically
 // fall back to their heuristic — no network, no flakiness.
@@ -25,6 +27,32 @@ function accept(network: string, asset: string): X402AcceptEntry {
     maxTimeoutSeconds: 600,
     extra: { nonce: 'n', decimals: 6, minConfirmations: 1, amountFormatted: '0.05' },
   }
+}
+
+/** A standard `exact` accept (the buyer-gasless rail). `method` selects the EVM transfer method. */
+function exactAccept(network: string, asset: string, method = 'eip3009'): X402AnyAccept {
+  return {
+    scheme: 'exact',
+    network: network as `${string}:${string}`,
+    amount: '50000',
+    asset,
+    payTo: 'recipient',
+    maxTimeoutSeconds: 600,
+    extra: { assetTransferMethod: method, decimals: 6, name: 'USD Coin', version: '2', amountFormatted: '0.05', symbol: 'USDC' },
+  } as unknown as X402AnyAccept
+}
+
+/** A standard `upto` (metered) accept — also buyer-gasless (Permit2-upto). */
+function uptoAccept(network: string, asset: string): X402AnyAccept {
+  return {
+    scheme: 'upto',
+    network: network as `${string}:${string}`,
+    amount: '500000',
+    asset,
+    payTo: 'recipient',
+    maxTimeoutSeconds: 600,
+    extra: { assetTransferMethod: 'permit2-upto', facilitatorAddress: '0x2222222222222222222222222222222222222222', decimals: 6, amountFormatted: '0.5', symbol: 'USDC' },
+  } as unknown as X402AnyAccept
 }
 
 describe('nativeCost — the shared cost builder', () => {
@@ -126,4 +154,49 @@ describe('estimateCost — agent-safe invariant: never throws, always a valid sh
       expect(['estimated', 'heuristic']).toContain(c.basis)
     })
   }
+})
+
+describe('estimateCost — exact + upto rails are buyer-gasless across families (multi-chain)', () => {
+  const USDC_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'
+
+  it('EVM exact (eip3009) → fee 0, basis estimated, ETH', async () => {
+    const net = evmDriver.resolve({ chain: 'base', rpcUrl: DEAD })!
+    expect(await net.estimateCost(exactAccept('eip155:8453', USDC_BASE, 'eip3009'))).toMatchObject({ feeSymbol: 'ETH', feeDecimals: 18, fee: '0', basis: 'estimated' })
+  })
+  it('EVM exact (permit2) → fee 0 with the one-time-approval caveat in detail', async () => {
+    const net = evmDriver.resolve({ chain: 'bnb', rpcUrl: DEAD })!
+    const c = await net.estimateCost(exactAccept('eip155:56', '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d', 'permit2'))
+    expect(c.fee).toBe('0')
+    expect(c.basis).toBe('estimated')
+    expect(c.detail).toMatch(/Permit2 approval/)
+  })
+  it('EVM upto (metered) → fee 0, basis estimated — BREAK-IT: pre-fix this returned the 5-gwei gas heuristic', async () => {
+    const net = evmDriver.resolve({ chain: 'base', rpcUrl: DEAD })!
+    const c = await net.estimateCost(uptoAccept('eip155:8453', USDC_BASE))
+    expect(c.fee).toBe('0')
+    expect(c.basis).toBe('estimated')
+  })
+  it('EVM onchain-proof control → a real (non-zero) heuristic fee', async () => {
+    const net = evmDriver.resolve({ chain: 'base', rpcUrl: DEAD })!
+    expect(BigInt((await net.estimateCost(accept('eip155:8453', USDC_BASE))).fee) > 0n).toBe(true)
+  })
+
+  // Aptos + Algorand — the two exact families that previously had ZERO estimateCost coverage.
+  it('Aptos exact → fee 0 / estimated; onchain-proof → 100000 / heuristic, APT 8dp', async () => {
+    const net = aptosDriver.resolve({ chain: 'aptos' })!
+    expect(await net.estimateCost(exactAccept('aptos:mainnet', '0x1::aptos_coin::AptosCoin'))).toMatchObject({ feeSymbol: 'APT', feeDecimals: 8, fee: '0', basis: 'estimated' })
+    expect(await net.estimateCost(accept('aptos:mainnet', 'native'))).toMatchObject({ feeSymbol: 'APT', fee: '100000', basis: 'heuristic' })
+  })
+  it('Algorand exact → fee 0 / estimated; onchain-proof → 1000 / heuristic, ALGO 6dp', async () => {
+    const net = algorandDriver.resolve({ chain: 'algorand' })!
+    expect(await net.estimateCost(exactAccept('algorand:mainnet', '31566704'))).toMatchObject({ feeSymbol: 'ALGO', feeDecimals: 6, fee: '0', basis: 'estimated' })
+    expect(await net.estimateCost(accept('algorand:mainnet', 'native'))).toMatchObject({ feeSymbol: 'ALGO', fee: '1000', basis: 'heuristic' })
+  })
+
+  // GUARD: a family with NO exact rail must keep pricing an exact-scheme accept as buyer-paid
+  // (non-zero) — a fee-0 exact branch on a chain that can't settle exact would be a bug.
+  it('a no-exact family (Tron) prices an exact-scheme accept as buyer-paid (non-zero), not gasless', async () => {
+    const c = await tronDriver.resolve({ chain: 'tron' })!.estimateCost(exactAccept('tron:mainnet', 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t'))
+    expect(BigInt(c.fee) > 0n).toBe(true)
+  })
 })

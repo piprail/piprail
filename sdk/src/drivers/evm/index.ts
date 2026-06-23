@@ -186,12 +186,15 @@ function makeEvmNetwork(resolved: ResolvedChain): ResolvedNetwork {
 
     async estimateCost(accept) {
       const { decimals, symbol } = resolved.chain.nativeCurrency
-      // Standard `exact` rail: the buyer SIGNS an EIP-3009 authorization and the
-      // server / merchant-chosen facilitator broadcasts it — so the BUYER spends ~0
-      // gas. Report a gasless estimate so the planner never blocks it on native funds.
-      if (accept.scheme === 'exact') {
+      // Standard `exact` rail — AND the metered `upto` rail — are buyer-gasless: the buyer only
+      // SIGNS an authorization (EIP-3009 or Permit2) and the server / merchant-chosen facilitator
+      // broadcasts it, so the BUYER spends ~0 gas. Report a gasless estimate so the planner never
+      // blocks/over-charges native funds. The client already treats BOTH schemes as gasless
+      // (`isExact = scheme==='exact' || scheme==='upto'`, client.ts analyzeRail) — this keeps the
+      // surfaced cost consistent with that (mirrors the same fix made for NEAR's exact rail).
+      if (accept.scheme === 'exact' || accept.scheme === 'upto') {
         const m = accept.extra.assetTransferMethod
-        const permit2 = m === 'permit2' || m === 'permit2-exact'
+        const permit2 = m === 'permit2' || m === 'permit2-exact' || m === 'permit2-upto'
         return nativeCost({
           symbol,
           decimals,
