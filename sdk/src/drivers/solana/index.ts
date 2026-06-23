@@ -10,6 +10,7 @@ import {
   getAccount,
   getAssociatedTokenAddressSync,
   TOKEN_2022_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
   TokenAccountNotFoundError,
 } from '@solana/spl-token'
 import { SOLANA_MAINNET, SOL_DECIMALS, type SolanaPreset } from './chains.js'
@@ -192,8 +193,15 @@ function makeSolanaNetwork(preset: SolanaPreset, rpcUrl: string): ResolvedNetwor
       if (asset === 'native') return { token: native, native }
       let token: bigint | null
       try {
-        const ata = getAssociatedTokenAddressSync(new PublicKey(asset), owner)
-        token = (await getAccount(connection, ata, 'confirmed')).amount
+        // Detect the mint's token program (classic vs Token-2022) before deriving the ATA — a
+        // Token-2022 mint has a different ATA, so assuming the classic program returns a FALSE 0
+        // for a funded Token-2022 holder. Mirrors resolveExactRail's detection. An RPC failure on
+        // the mint read falls into the catch → null (unknown), never a confident 0.
+        const mint = new PublicKey(asset)
+        const info = await connection.getAccountInfo(mint)
+        const programId = info?.owner.equals(TOKEN_2022_PROGRAM_ID) ? TOKEN_2022_PROGRAM_ID : TOKEN_PROGRAM_ID
+        const ata = getAssociatedTokenAddressSync(mint, owner, false, programId)
+        token = (await getAccount(connection, ata, 'confirmed', programId)).amount
       } catch (e) {
         // No token account yet = a genuine 0; any other read failure = unknown.
         token = e instanceof TokenAccountNotFoundError ? 0n : null

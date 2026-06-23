@@ -70,7 +70,9 @@ export async function verifyXrpl(params: VerifyXrplParams): Promise<VerifyResult
 
   let txs: XrplTxRecord[]
   try {
-    txs = await reader.transactionsForAccount(accept.payTo, 50)
+    // 200: keep the recency window's worth of receipts on one page so a busy merchant can't push the
+    // target payment off the page (a false transfer_not_found). Pair with a tight maxTimeoutSeconds.
+    txs = await reader.transactionsForAccount(accept.payTo, 200)
   } catch {
     return rpcFailed(nonce)
   }

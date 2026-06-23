@@ -72,6 +72,19 @@ const failingReader: StellarReader = {
   paymentsForTransaction: async () => [],
 }
 
+describe('verifyStellar — G6: scans a full page so a busy merchant can\'t overflow the recency window', () => {
+  it('requests 200 txs (the provider max), not 50', async () => {
+    let askedLimit = -1
+    const capturing: StellarReader = {
+      transactionsForAccount: async (_acct, limit) => { askedLimit = limit; return [txRec({ nonce: 'nonce-1' })] },
+      paymentsForTransaction: async () => [usdcPay({ amount: '0.0500000' })],
+    }
+    const res = await verifyStellar({ reader: capturing, accept: usdcAccept('500000', 'nonce-1') })
+    expect(res.ok).toBe(true)
+    expect(askedLimit).toBe(200)
+  })
+})
+
 describe('verifyStellar — USDC (memo-bound)', () => {
   it('accepts a payment of the required amount whose tx memo == sha256(nonce)', async () => {
     const r = reader([txRec({ nonce: 'nonce-1' })], { 'tx-our': [usdcPay({ amount: '0.0500000' })] })

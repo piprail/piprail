@@ -73,7 +73,10 @@ export async function verifyStellar(params: VerifyStellarParams): Promise<Verify
 
   let txs: StellarTxRecord[]
   try {
-    txs = await reader.transactionsForAccount(accept.payTo, 50)
+    // 200 = the provider's max single page. A busy merchant could push the target payment off a
+    // smaller page within the recency window, causing a false transfer_not_found; 200 + a tight
+    // maxTimeoutSeconds keeps the window's worth of receipts on one page for any realistic load.
+    txs = await reader.transactionsForAccount(accept.payTo, 200)
   } catch {
     return rpcFailed(nonce)
   }
