@@ -97,6 +97,22 @@ describe('replay protection — built-in store', () => {
     expect(await pay(g, TX('a'))).toMatchObject({ kind: 'invalid', error: 'tx_already_used' }) // replay blocked
   })
 
+  it('1b. SECURITY: a MEMO-BOUND family (verify ignores the ref, returns a FIXED on-chain hash) is deduped on the VERIFIED hash — varying txHash under one nonce can NOT re-redeem', async () => {
+    // Memo-bound drivers (XRPL/Stellar/TON/Algorand) + native NEAR locate the tx by payTo+memo and
+    // ignore the client ref, returning the REAL on-chain hash. Pre-fix the gate keyed the replay set
+    // on the client-echoed txHash, so a client could vary it and re-redeem the SAME payment. Now the
+    // gate claims on receipt.transaction. Simulate it: verify returns a fixed hash regardless of ref.
+    const ONLEDGER = 'REAL_ONLEDGER_HASH'
+    verifyImpl = async (_ref, accept) => ({
+      ok: true,
+      receipt: { scheme: 'onchain-proof', success: true, network: accept.network, transaction: ONLEDGER, asset: accept.asset, amount: accept.amount, payer: 'GPAYER', payTo: accept.payTo, verifiedAt: 'now' },
+    })
+    const g = gate()
+    expect((await pay(g, TX('aa'))).kind).toBe('paid') // first redemption of the real payment
+    // a SECOND presentation with a DIFFERENT client txHash but the same on-ledger payment:
+    expect(await pay(g, TX('bb'))).toMatchObject({ kind: 'invalid', error: 'tx_already_used' })
+  })
+
   it('2. is BOUNDED — evicts an entry once it ages past the replay window', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(1_000_000)

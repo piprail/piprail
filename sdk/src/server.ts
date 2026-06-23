@@ -1416,7 +1416,24 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
       await settleTx(ref, false)
       return rejection(result.error, result.detail)
     }
-    await settleTx(ref, true)
+    // SECURITY (at-most-once): bind the replay set to the hash verify ACTUALLY validated
+    // (result.receipt.transaction), NOT the client-echoed sig.payload.txHash. Memo-bound families
+    // (XRPL/Stellar/TON/Algorand) locate the tx by payTo + nonce-in-memo and IGNORE the ref, and
+    // native NEAR decodes the hash out of a `<sender>:<hash>` ref — so a client could vary
+    // sig.payload.txHash under one reused (on-chain, public) nonce and re-redeem the SAME payment N
+    // times within the recency window. The verified hash is the real, un-forgeable single-use key.
+    // For digest-bound EVM/Solana `receipt.transaction === ref`, so this is a no-op there.
+    const verified = result.receipt.transaction
+    if (verified && verified !== ref) {
+      if (await claimTx(verified)) {
+        await settleTx(ref, false) // release the throwaway client-echo claim
+        return rejection('tx_already_used', `Payment ${verified} was already redeemed.`)
+      }
+      await settleTx(ref, false) // the verified hash is the real key — drop the client-echo one
+      await settleTx(verified, true)
+    } else {
+      await settleTx(ref, true)
+    }
     await deliverOnPaid(spec, result.receipt)
     // onchain-proof is memo/digest-bound by the CHALLENGE nonce the buyer echoed — stamp it
     // so Template-A families re-verify off-chain (the trusted value, never a client-forgeable field).
