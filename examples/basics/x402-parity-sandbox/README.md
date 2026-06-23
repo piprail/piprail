@@ -1,14 +1,19 @@
 # x402-parity sandbox — live proof the **published** SDK + MCP work
 
-A self-contained harness that exercises the four **x402-parity** features of PipRail against the
-**real npm packages** — not the workspace build. It installs `@piprail/sdk` and `@piprail/mcp`
-from the registry, so a green run is a guarantee about *what `npm i @piprail/sdk` actually ships*.
+A self-contained harness that exercises PipRail's x402-parity + 2.14.0 features **and adversarially
+tries to break them**, against the **real npm packages** — not the workspace build. It installs
+`@piprail/sdk@2.14.0` + `@piprail/mcp@0.9.0` from the registry (a guard in `lib/env.mjs` throws if
+the SDK ever resolves to the workspace), so a green run is a guarantee about *what `npm i
+@piprail/sdk` actually ships*. **15 suites, ~1,000+ assertions** — see [`FINDINGS.md`](./FINDINGS.md)
+for what the break-it pass turned up and [`HARNESS.md`](./HARNESS.md) for how to add a suite.
 
 > The companion [`../sdk-sandbox`](../sdk-sandbox) and [`../mcp-sandbox`](../mcp-sandbox) cover the
-> broad surface; **this** sandbox is laser-focused on the newest capabilities and runs them live on
-> Base mainnet.
+> broad surface; **this** sandbox is laser-focused on the newest capabilities + a hostile-input
+> battery, and runs the happy paths live on Base mainnet.
 
 ## What it proves
+
+**x402-parity features (01–05):**
 
 | Suite | Feature | Why it matters |
 |---|---|---|
@@ -18,19 +23,33 @@ from the registry, so a green run is a guarantee about *what `npm i @piprail/sdk
 | `04-a2a-google` | The **A2A (Google Agent2Agent) transport** | x402's third official transport. The same envelopes ride Google A2A `Task`/`Message` metadata instead of HTTP headers — every chain for free. A real Base payment settles *through* the A2A seller adapter. |
 | `05-mcp-verify-receipt` | The MCP's **8th tool, `piprail_verify_receipt`** | Any MCP client (Claude Desktop, Cursor, …) can re-verify a receipt on-chain — read-only, wallet-free. A real receipt verifies; a forged payer is caught. |
 
+**2.14.0 features + adversarial break-it battery (06–15):**
+
+| Suite | Area | What it hammers |
+|---|---|---|
+| `06-mcp-transport` | **x402-over-MCP seller transport** (`createMcpPaymentTool`) — the 3rd transport | byte-equal challenge view; 34-input never-throw reader sweep; **forged/downgraded `accepted` + attacker `payTo` never settles or leaks**; live settle + replay on Base. |
+| `07-payment-identifier` | **`payment-identifier` idempotency** (new) | full id-validation matrix (length/charset/type/proto-pollution); gate advertises iff opt-in; **live: a fresh tx reusing a seen id is rejected by the pid dedupe** (distinct from tx-replay). |
+| `08-wellknown-discovery` | `.well-known/x402.json` manifest + discovery docs | manifest shape + determinism + forward-compat; bazaar/OpenApi/DNS; hostile origins/resources. |
+| `09-api-surface` | published-artifact surface + package hygiene | all 146 exports import (ESM + CJS + `/node`); error-class `.code`s; the `./package.json` export gap. |
+| `10-wire-codec-fuzz` | every `parse*`/`decode*` codec | empty/huge/non-JSON/scientific-notation/**prototype-pollution** inputs → never throw, never pollute. |
+| `11-typed-errors-reads` | typed errors + never-throw reads | right typed error per bad input; `estimateCost`/`planPayment`/`canAfford` graceful on a dead RPC. |
+| `12-multichain-agent` | multi-chain planning + agent toolkit | `planAcross`/`pickAccept`/`normalizeNetwork`; **characterizes the F-A1/F-A2 never-throw bugs**. |
+| `13-policy-ledger-spend` | spend policy + ledger (POL-1) | cap matrix incl. zero/negative/`MAX_SAFE_INTEGER`; `fileSpendStore` round-trip; corrupt-store safety. |
+| `14-gate-challenge-families` | gate challenges across all 12 families | v2-conformant envelopes + exact BigInt base-unit math; adversarial amounts (incl. the `1e3` footgun). |
+| `15-estimate-cost-gas` | gas estimates across chains | native-coin-distinct-from-token; finite/safe; gasless → fee 0; foreign-only divergence (F-A3). |
+
 ## Run it
 
 ```bash
-npm install         # pulls the PUBLISHED @piprail/sdk + @piprail/mcp
-npm test            # all five suites
+npm install         # pulls the PUBLISHED @piprail/sdk@2.14.0 + @piprail/mcp@0.9.0
+npm test            # all 15 suites (offline); live legs need the wallet + PIPRAIL_LIVE=1
 
-# or one at a time
-npm run receipts
-npm run upto
-npm run policy
-npm run a2a
-npm run mcp
+PIPRAIL_LIVE=1 node suites/07-payment-identifier.mjs   # one suite, live on Base mainnet
 ```
+
+Live (on-chain) legs in the **new** suites (06–15) are gated behind **both** the `.secrets` wallet
+**and** `PIPRAIL_LIVE=1`, so a default run is money-free and free of EOA-nonce races. See
+[`HARNESS.md`](./HARNESS.md).
 
 ## Static vs live
 
