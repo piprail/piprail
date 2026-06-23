@@ -89,6 +89,14 @@ interface PayOption {
 | `OUTSIDE_POLICY` | The payment breaches your [spend policy](/spend-controls/payment-policy/). |
 | `OUTSIDE_WINDOW` | The rolling time window or session deadline has passed. |
 
+:::note[Solana `exact` to a brand-new recipient]
+On the opt-in Solana `exact` rail, `planPayment` can't detect a recipient whose **associated token
+account** doesn't exist yet (the buyer can't create it on that rail). Such a payment may read
+`payable`, then `autoRoute` refuses it **pre-broadcast** (recoverable, no funds move). The default
+`onchain-proof` rail is unaffected — the payer's tx creates the recipient ATA — so it's always a
+safe fallback.
+:::
+
 ## Warnings — soft flags
 
 `SYMBOL_MISMATCH`, `BALANCE_UNREADABLE`, `RECIPIENT_READINESS_UNKNOWN`, `GAS_HEURISTIC`,

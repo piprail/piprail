@@ -140,8 +140,8 @@ thing:
 
 | Template | Chains | What to confirm |
 | --- | --- | --- |
-| **B — digest-bound** | EVM, Solana, Tron, Sui, Aptos | The proof is the tx hash; verify reads the confirmed transfer + recency window + single-use set. |
-| **A — memo/nonce-bound** | Stellar, XRPL, TON, NEAR, Algorand | The challenge nonce rides in the memo/note/comment, matched on the merchant's own account. |
+| **B — digest-bound** | EVM, Solana, Tron, Sui, Aptos, **native NEAR** | The proof is the tx hash; verify reads the confirmed transfer + recency window + single-use set. |
+| **A — memo/nonce-bound** | Stellar, XRPL, TON, **NEAR tokens** (NEP-141), Algorand | The challenge nonce rides in the memo/note/comment, matched on the merchant's own account. |
 
 A few rails settle slowly or read on a confirmed node — give `maxTimeoutSeconds` headroom and
 expect a wait on TON (asynchronous settlement) and Tron (verified on the solidity node).

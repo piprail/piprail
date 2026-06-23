@@ -75,8 +75,9 @@ names from its tool schema, so it's invisible in practice; just don't hard-code 
 your own prompts.
 :::
 
-**Read-only first run:** omit `PIPRAIL_PRIVATE_KEY` and PipRail boots key-less — discover / quote / plan /
-budget / guide all work; only `piprail_pay_request` needs the wallet.
+**Read-only first run:** omit `PIPRAIL_PRIVATE_KEY` and PipRail boots key-less — discover / quote /
+register / budget / guide all work; only `piprail_pay_request` and `piprail_plan_payment` need the
+wallet (planning checks *your* balance, gas, and recipient-readiness, so it needs a key too).
 
 ## Configure
 
