@@ -221,6 +221,13 @@ export interface X402PaymentSignature {
    * TON locator, or a Stellar tx hash).
    */
   payload: { nonce: string; txHash: string }
+  /**
+   * Optional v2 extensions the client attaches to its payload — e.g. the
+   * `payment-identifier` idempotency id at `extensions['payment-identifier'].info.id`
+   * (read by the gate via {@link readPaymentIdentifier}). A standard reader ignores it,
+   * and omitting it keeps the payload byte-identical.
+   */
+  extensions?: Record<string, unknown>
 }
 
 /**
@@ -710,6 +717,60 @@ export function buildReceiptExtension(bundle: {
   // The SPEC slot: the official SignedReceipt at info.receipt (Tier-2 only). Stock readers read it here.
   if (bundle.attestation) info.receipt = bundle.attestation
   return { [EXT_OFFER_RECEIPT]: { info } }
+}
+
+/** The x402 extension key for the optional idempotency identifier (the official
+ *  `payment-identifier` extension). A client MAY attach a stable `id` so the server dedupes
+ *  retries and rejects a reused id bound to a DIFFERENT payment. */
+export const EXT_PAYMENT_IDENTIFIER = 'payment-identifier'
+
+/** id length bounds (spec: 16–128) + the recommended charset. */
+const PAYMENT_ID_MIN = 16
+const PAYMENT_ID_MAX = 128
+const PAYMENT_ID_RE = /^[A-Za-z0-9_-]+$/
+
+/**
+ * Advertise the `payment-identifier` extension on a 402 challenge — PURE JSON, viem-free. The
+ * v2 `{ info, schema }` shape: `info.required:false` (PipRail never MANDATES an id) plus a
+ * JSON-Schema bound of {@link PAYMENT_ID_MIN}–{@link PAYMENT_ID_MAX} chars. A client reads this
+ * from the challenge and MAY echo an `id` back on its payload; the gate dedupes it on its
+ * existing used-proof set. The gate merges this into the challenge `extensions` (a sibling key,
+ * never inside `extensions.piprail`).
+ */
+export function buildPaymentIdentifierAdvertisement(): Record<string, unknown> {
+  return {
+    [EXT_PAYMENT_IDENTIFIER]: {
+      info: { required: false },
+      schema: { properties: { id: { type: 'string', minLength: PAYMENT_ID_MIN, maxLength: PAYMENT_ID_MAX } } },
+    },
+  }
+}
+
+/**
+ * Read + validate an inbound `payment-identifier` id from a decoded payment-payload object
+ * (`payload.extensions['payment-identifier'].info.id`). PURE, NEVER throws. Returns:
+ *  - the `id` string when present + valid (16–128 chars, `[A-Za-z0-9_-]`),
+ *  - `null` when ABSENT (the id is OPTIONAL — the gate proceeds exactly as without the feature),
+ *  - `{ invalid }` when PRESENT but malformed (the gate re-challenges so the buyer can fix it).
+ */
+export function readPaymentIdentifier(payload: unknown): string | null | { invalid: string } {
+  if (typeof payload !== 'object' || payload === null) return null
+  const ext = (payload as { extensions?: unknown }).extensions
+  if (typeof ext !== 'object' || ext === null) return null
+  const block = (ext as Record<string, unknown>)[EXT_PAYMENT_IDENTIFIER]
+  if (typeof block !== 'object' || block === null) return null
+  const info = (block as { info?: unknown }).info
+  if (typeof info !== 'object' || info === null) return null
+  const id = (info as { id?: unknown }).id
+  if (id === undefined) return null
+  if (typeof id !== 'string') return { invalid: 'payment-identifier id must be a string' }
+  if (id.length < PAYMENT_ID_MIN || id.length > PAYMENT_ID_MAX) {
+    return { invalid: `payment-identifier id must be ${PAYMENT_ID_MIN}–${PAYMENT_ID_MAX} chars (got ${id.length})` }
+  }
+  if (!PAYMENT_ID_RE.test(id)) {
+    return { invalid: 'payment-identifier id must match [A-Za-z0-9_-]' }
+  }
+  return id
 }
 
 /* ----------------------------- build (client) ----------------------------- */
