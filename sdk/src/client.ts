@@ -60,8 +60,8 @@ import {
 } from './errors.js'
 
 /** The payment schemes a client can settle: PipRail's native `onchain-proof` (the
- *  default), the standard x402 `exact` rail (EVM EIP-3009/Permit2 + Solana SVM + Algorand,
- *  opt-in), and the standard x402 `upto` (metered) rail (EVM-Permit2, opt-in). */
+ *  default), the standard x402 `exact` rail (EVM EIP-3009/Permit2 + Solana SVM + Algorand
+ *  + Aptos + NEAR, opt-in), and the standard x402 `upto` (metered) rail (EVM-Permit2, opt-in). */
 export type PaymentScheme = 'onchain-proof' | 'exact' | 'upto'
 
 /** The scheme set when none is configured — `onchain-proof` only, so the zero-config
@@ -1318,7 +1318,8 @@ export class PipRailClient {
    *   before publishing, so retry with a brief backoff if a fresh listing is missing.
    * - Results are cross-scheme (mostly the mainstream `exact` scheme); `fetch()` pays
    *   `onchain-proof` rails by default, and standard `exact` rails too once you opt in
-   *   with `schemes: ['onchain-proof', 'exact']` (EVM EIP-3009/Permit2 + Solana SVM + Algorand).
+   *   with `schemes: ['onchain-proof', 'exact']` (EVM EIP-3009/Permit2 + Solana SVM + Algorand
+   *   + Aptos + NEAR).
    */
   async discover(opts: DiscoverOptions = {}): Promise<DiscoveredResource[]> {
     // searchOpenIndexes does the fan-out, server-side + client-side filters, and ranking;
@@ -1592,7 +1593,7 @@ export class PipRailClient {
       if (schemes.includes('exact') && exactOnNet && typeof net.payExact !== 'function') {
         throw new UnsupportedSchemeError(
           `This 402 offers a standard 'exact' rail on ${net.network}, but the ${net.family} ` +
-            `family can't pay 'exact' (supported on EVM, Solana, Algorand + NEAR today), and no 'onchain-proof' rail was offered.`
+            `family can't pay 'exact' (supported on EVM, Solana, Algorand, Aptos + NEAR today), and no 'onchain-proof' rail was offered.`
         )
       }
       // The dominant agent journey: a default (onchain-proof-only) client hits an exact-only
