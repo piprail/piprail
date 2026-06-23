@@ -1670,6 +1670,12 @@ export class PipRailClient {
             a.scheme === 'exact' &&
             this.supportsNetwork(net, a.network) &&
             typeof net.payExact === 'function' &&
+            // `native` is never `exact`-payable on ANY family (exact = an EIP-3009/Permit2-style
+            // signed-authorization scheme a native coin can't support; every driver's payExact
+            // throws/returns-null for it). describeAsset('native') IS non-null (onchain-proof needs
+            // it), so without this guard a malformed 402 advertising a native `exact` rail would be
+            // gathered, planned `payable`, even chosen by autoRoute — then throw at pay time.
+            a.asset !== 'native' &&
             net.describeAsset(a.asset) != null &&
             // a foreign rail's maxTimeoutSeconds must be a usable positive integer, or
             // signing it would build a NaN/garbage validBefore — drop it silently
@@ -1690,6 +1696,7 @@ export class PipRailClient {
             a.scheme === 'upto' &&
             this.supportsNetwork(net, a.network) &&
             typeof net.payUpto === 'function' &&
+            a.asset !== 'native' && // native is not upto-payable either (same reason as exact)
             net.describeAsset(a.asset) != null &&
             typeof a.extra?.facilitatorAddress === 'string' &&
             a.extra.facilitatorAddress.length > 0 &&

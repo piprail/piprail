@@ -844,7 +844,13 @@ export function parseReceipt(response: Response): X402Receipt | null {
     response.headers.get(HEADER_RESPONSE) ?? response.headers.get(HEADER_RESPONSE_V1)
   if (!headerValue) return null
   const parsed = fromBase64Json<unknown>(headerValue)
-  return isValidReceipt(parsed) ? parsed : null
+  if (!isValidReceipt(parsed)) return null
+  // `isValidReceipt` tolerates a legacy v1 receipt carrying only `txHash` (no `transaction`).
+  // Normalize that alias to `transaction` so the non-optional `X402Receipt.transaction: string`
+  // return type stays honest — otherwise a downstream reader of `.transaction` sees `undefined`.
+  const r = parsed as unknown as Record<string, unknown>
+  if (typeof r.transaction !== 'string' && typeof r.txHash === 'string') r.transaction = r.txHash
+  return r as unknown as X402Receipt
 }
 
 /**
@@ -928,7 +934,12 @@ export function parseSettleResponse(response: Response): SettleOutcome | null {
   if (!parsed || typeof parsed !== 'object' || typeof parsed.success !== 'boolean') return null
   return {
     success: parsed.success,
-    ...(typeof parsed.transaction === 'string' ? { transaction: parsed.transaction } : {}),
+    // Tolerate the legacy v1 `txHash` alias for `transaction` (mirrors isValidReceipt/parseReceipt).
+    ...(typeof parsed.transaction === 'string'
+      ? { transaction: parsed.transaction }
+      : typeof parsed.txHash === 'string'
+        ? { transaction: parsed.txHash }
+        : {}),
     ...(typeof parsed.network === 'string' ? { network: parsed.network } : {}),
     ...(typeof parsed.payer === 'string' ? { payer: parsed.payer } : {}),
     ...(typeof parsed.errorReason === 'string' ? { errorReason: parsed.errorReason } : {}),
@@ -957,6 +968,19 @@ export function parseSignatureObject(parsed: unknown): X402PaymentSignature | nu
   const payload = v.payload as Record<string, unknown> | undefined
   if (!payload || typeof payload.txHash !== 'string' || typeof payload.nonce !== 'string') {
     return null
+  }
+  // Type-honesty: the return type declares `accepted` REQUIRED, but the legacy flat shape (top-level
+  // `scheme`, no `accepted` object) would otherwise return `accepted: undefined` under the cast. When
+  // it's absent, synthesize a minimal `accepted` from the flat fields so a public-API caller can
+  // safely read `.accepted.network`/`.asset` without crashing. (The gate re-derives every trusted
+  // field from its OWN config regardless, so this is purely about an honest, dereferenceable type.)
+  if (!accepted) {
+    const synthesized = {
+      scheme: 'onchain-proof',
+      ...(typeof v.network === 'string' ? { network: v.network } : {}),
+      ...(typeof v.asset === 'string' ? { asset: v.asset } : {}),
+    }
+    return { ...v, accepted: synthesized, payload } as unknown as X402PaymentSignature
   }
   return parsed as X402PaymentSignature
 }
