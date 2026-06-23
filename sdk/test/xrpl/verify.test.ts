@@ -102,6 +102,16 @@ describe('verifyXrpl — USDC (memo-bound, partial-payment safe)', () => {
     expect(res).toMatchObject({ ok: false, error: 'payment_expired' })
   })
 
+  it('BREAK-IT: a MISSING ledger date fails CLOSED (payment_expired) — recency window must never be skipped', async () => {
+    // When an account_tx entry carries no numeric `date`, the old `typeof === number` guard skipped
+    // recency entirely → an aged-out, validated, nonce-bound proof could re-verify after the bounded
+    // used-set evicted its nonce (a replay). Now it fails closed like Stellar/Solana/Sui.
+    const rec = txRec({ nonce: 'nonce-1', delivered: usdcDelivered('0.05') })
+    delete (rec as { date?: number }).date // genuinely ABSENT (the helper defaults it to a recent date)
+    const res = await verifyXrpl({ reader: reader([rec]), accept: usdcAccept('50000', 'nonce-1') })
+    expect(res).toMatchObject({ ok: false, error: 'payment_expired' })
+  })
+
   it('rejects a tx that carries our nonce but delivered the wrong asset', async () => {
     const wrong: XrplDeliveredAmount = { currency: '524C555344000000000000000000000000000000', issuer: 'rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De', value: '0.05' }
     const res = await verifyXrpl({ reader: reader([txRec({ nonce: 'nonce-1', delivered: wrong })]), accept: usdcAccept('50000', 'nonce-1') })

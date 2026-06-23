@@ -8,6 +8,7 @@ import { describe, it, expect, afterEach } from 'vitest'
 import {
   buildOpenApi,
   buildWellKnownX402,
+  buildWellKnownX402Manifest,
   buildX402DnsTxt,
   buildBazaarExtension,
   createPaymentGate,
@@ -321,5 +322,52 @@ describe('gate.describe() — feeds the emitters from the gate config', () => {
     const rail = (await gate.describe()).accepts[0]!
     expect('symbol' in rail).toBe(false)
     expect(rail.decimals).toBe(6)
+  })
+})
+
+describe('buildWellKnownX402Manifest — the official .well-known/x402.json (#2646), forward-compatible', () => {
+  // The set of item keys the #2646 proposal defines — we must never emit one outside it.
+  const ALLOWED_ITEM_KEYS = new Set(['resource', 'type', 'accepts', 'input', 'output', 'requires'])
+
+  it('emits { x402Version:2, lastUpdated, items[] } with a per-item resource + accepts + input', () => {
+    const m = buildWellKnownX402Manifest({
+      origin: 'https://api.example.com',
+      resources: [RESOURCE, { url: 'https://api.example.com/feed', method: 'post', mimeType: 'application/json', accepts: RESOURCE.accepts }],
+      lastUpdated: 123,
+    })
+    expect(m.x402Version).toBe(2)
+    expect(m.lastUpdated).toBe(123)
+    expect(m.items).toHaveLength(2)
+    expect(m.items[0]!.resource).toEqual({ url: 'https://api.example.com/report', description: 'Premium market data' })
+    expect(m.items[0]!.type).toBe('http')
+    expect(m.items[0]!.accepts).toBe(RESOURCE.accepts)
+    expect(m.items[0]!.input).toEqual({ method: 'GET' }) // default method, upper-cased
+    expect(m.items[1]!.input).toEqual({ method: 'POST' })
+    expect(m.items[1]!.resource.mimeType).toBe('application/json')
+    expect(m.items[1]!.output).toEqual({ mimeType: 'application/json' })
+  })
+
+  it('defaults lastUpdated to a numeric Unix timestamp when omitted', () => {
+    const m = buildWellKnownX402Manifest({ origin: 'https://o', resources: [RESOURCE] })
+    expect(typeof m.lastUpdated).toBe('number')
+    expect(Number.isInteger(m.lastUpdated)).toBe(true)
+  })
+
+  it('FORWARD-COMPAT: every item key is within the #2646 field set (never emit an undefined field)', () => {
+    const m = buildWellKnownX402Manifest({ origin: 'https://o', resources: [RESOURCE], lastUpdated: 1 })
+    for (const item of m.items) {
+      for (const k of Object.keys(item)) expect(ALLOWED_ITEM_KEYS.has(k), `unexpected manifest item key "${k}"`).toBe(true)
+    }
+  })
+
+  it('is valid JSON and carries NO single-use nonce (discovery metadata is long-lived)', () => {
+    const m = buildWellKnownX402Manifest({ origin: 'https://o', resources: [RESOURCE], lastUpdated: 1 })
+    expect(JSON.parse(JSON.stringify(m))).toEqual(m)
+    expect(JSON.stringify(m)).not.toContain('nonce')
+  })
+
+  it('leaves the legacy buildWellKnownX402 file untouched (a SECOND emitter, not a replacement)', () => {
+    const legacy = buildWellKnownX402({ origin: 'https://api.example.com', resources: [RESOURCE] })
+    expect(legacy).toEqual({ version: 1, resources: ['https://api.example.com/report'] })
   })
 })

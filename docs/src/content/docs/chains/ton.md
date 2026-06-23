@@ -184,6 +184,15 @@ a tx hash. `verify()` re-derives every checked field from the trusted `accept`, 
 client-supplied ref.
 :::
 
+:::note[Jetton credits require a successful VM compute]
+A **jetton** credit only counts if the merchant's jetton wallet actually *executed* the transfer:
+`verify()` requires a successful `vm` compute phase. This rejects a forged `internal_transfer` body
+sent to a **not-yet-deployed** merchant jetton wallet — it lands `aborted=false` with a *skipped*
+compute (no code ran) and credits nothing, so the forged amount can't satisfy the gate. A **native
+GRAM** transfer is exempt: value moves on message delivery regardless of the recipient's compute
+phase (so a brand-new payTo can still receive native).
+:::
+
 ## Server-side only
 
 TON's libraries don't ship a clean browser ESM build yet, so run the TON path **server-side** —

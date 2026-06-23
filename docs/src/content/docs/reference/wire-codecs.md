@@ -177,7 +177,7 @@ The codecs are typed by a small set of interfaces, all exported as `type`s:
 | --- | --- |
 | `X402Challenge` | the 402 body: `resource` + `accepts[]` |
 | `X402AcceptEntry` | one `onchain-proof` rail in `accepts[]` |
-| `X402AnyAccept` | `X402AcceptEntry \| X402ExactAcceptEntry` (a challenge entry, either rail) |
+| `X402AnyAccept` | `X402AcceptEntry \| X402ExactAcceptEntry \| X402UptoAcceptEntry` (a challenge entry of any rail — onchain-proof, exact, or upto) |
 | `X402PaymentSignature` | the client's proof: `accepted` + `{ nonce, txHash }` |
 | `X402Receipt` | the settled receipt on a 200 (the wire shape) |
 | `X402ResourceObject` | the gated resource: `url`, optional `description` / `mimeType` |
@@ -214,6 +214,21 @@ import { HEADER_SIGNATURE_V1, HEADER_RESPONSE_V1 } from '@piprail/sdk'
 
 `parseReceipt` reads `payment-response`, falling back to the v1 `x-payment-response` a foreign
 server may set.
+
+## The `payment-identifier` extension (opt-in idempotency)
+
+A gate built with `paymentIdentifier: true` advertises the x402 `payment-identifier` extension, and a
+buyer can supply a stable idempotency `id` it can safely retry under. Two wire-level codecs back it
+(both pure, both exported):
+
+| Function / const | Role |
+| --- | --- |
+| `buildPaymentIdentifierAdvertisement()` | emit the advertisement block — `{ info: { required: false }, schema: { properties: { id: { type: 'string', minLength: 16, maxLength: 128 } } } }` under the `payment-identifier` extension key (a sibling of `extensions.piprail`) |
+| `readPaymentIdentifier(payload)` | read the buyer's id off `payload.extensions["payment-identifier"].info.id` — returns the validated `string`, `null` (absent), or `{ invalid }` (present-but-malformed: non-string, not 16–128 chars, or outside `[A-Za-z0-9_-]`). Never throws. |
+| `EXT_PAYMENT_IDENTIFIER` | the extension key string (`'payment-identifier'`) |
+
+The gate dedupes the id on its existing used-proof set (keyed `pid:<id>`, case-sensitive). Full
+behavior: [Replay protection → opt-in caller idempotency](/accepting-payments/replay-protection/).
 
 ## The standard `exact` rail (interop)
 

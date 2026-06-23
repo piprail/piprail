@@ -62,6 +62,12 @@ function makeTonNetwork(preset: TonPreset, rpcUrl: string): ResolvedNetwork {
       p = client
         .open(JettonMaster.create(Address.parse(master)))
         .getWalletAddress(Address.parse(owner))
+      // NEVER cache a REJECTED promise — a transient RPC blip would otherwise poison the cache
+      // permanently and break verify/send/balanceOf for this (master, owner) forever. Self-evict
+      // on failure so the next call retries (the resolved value is stable + safe to keep).
+      p.catch(() => {
+        if (jwCache.get(key) === p) jwCache.delete(key)
+      })
       jwCache.set(key, p)
     }
     return p
@@ -169,7 +175,9 @@ function makeTonNetwork(preset: TonPreset, rpcUrl: string): ResolvedNetwork {
           continue // transient RPC hiccup (e.g. rate limit) — keep waiting
         }
         for (const tx of txs) {
-          const inc = extractIncoming(tx)
+          // confirm() is the payer's own liveness poll, NOT the security gate (verifyTon is) — so
+          // detect a credit of EITHER kind carrying the nonce; verify enforces the asset-bound check.
+          const inc = extractIncoming(tx, 'jetton') ?? extractIncoming(tx, 'native')
           if (inc && inc.comment === nonce) return { height: tx.lt.toString() }
         }
       }
@@ -220,8 +228,15 @@ function makeTonNetwork(preset: TonPreset, rpcUrl: string): ResolvedNetwork {
     async verify(_ref, accept) {
       // Re-derive the watched account from the TRUSTED accept (not the ref), so
       // a forged ref can't redirect verification — provenance comes from the
-      // official jetton master.
-      const watch = await watchAccountFor(accept)
+      // official jetton master. Deriving a jetton wallet is a get-method RPC call, so guard it:
+      // a transient failure must surface as a never-throw `tx_not_found` (retryable), per ERRORS.md
+      // §5 — verify() must not throw on an RPC blip.
+      let watch: Address
+      try {
+        watch = await watchAccountFor(accept)
+      } catch {
+        return { ok: false, error: 'tx_not_found', detail: `Could not derive/read the TON jetton wallet (transient RPC failure) — retry.` }
+      }
       return verifyTon({ client, watch, accept })
     },
   }

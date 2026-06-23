@@ -71,14 +71,18 @@ export async function verifyAptos(params: VerifyAptosParams): Promise<VerifyResu
     return { ok: false, error: 'tx_reverted', detail: `Aptos tx ${hash} did not succeed.` }
   }
 
-  if (typeof tx.timestampSeconds === 'number') {
-    const ageSeconds = Math.floor(Date.now() / 1000) - tx.timestampSeconds
-    if (ageSeconds > accept.maxTimeoutSeconds) {
-      return {
-        ok: false,
-        error: 'payment_expired',
-        detail: `Payment is ${ageSeconds}s old; max allowed is ${accept.maxTimeoutSeconds}s.`,
-      }
+  // Aptos is digest-bound (Template B): recency is load-bearing, so it fails CLOSED on a
+  // missing/non-finite timestamp — matching Solana/Sui/NEAR. Number.isFinite (not typeof) also
+  // rejects NaN/Infinity, which would make ageSeconds NaN and slip past the `> max` check.
+  if (!Number.isFinite(tx.timestampSeconds)) {
+    return { ok: false, error: 'payment_expired', detail: `Cannot bound the age of Aptos tx ${hash} (no/invalid timestamp) — failing closed.` }
+  }
+  const ageSeconds = Math.floor(Date.now() / 1000) - (tx.timestampSeconds as number)
+  if (!Number.isFinite(ageSeconds) || ageSeconds > accept.maxTimeoutSeconds) {
+    return {
+      ok: false,
+      error: 'payment_expired',
+      detail: `Payment is ${ageSeconds}s old; max allowed is ${accept.maxTimeoutSeconds}s.`,
     }
   }
 

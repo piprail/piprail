@@ -130,4 +130,10 @@ describe('verifySolana — guards', () => {
     const res = await verifySolana({ connection: conn(splTx({ amount: '50000', blockTime: stale })), signature: SIG, accept: splAccept('50000') })
     expect(res).toMatchObject({ ok: false, error: 'payment_expired' })
   })
+  it('BREAK-IT: a NaN/Infinity blockTime fails CLOSED (NaN is typeof number and would slip the > check)', async () => {
+    for (const bt of [NaN, Infinity, -Infinity]) {
+      const res = await verifySolana({ connection: conn(splTx({ amount: '50000', blockTime: bt })), signature: SIG, accept: splAccept('50000') })
+      expect(res).toMatchObject({ ok: false, error: 'payment_expired' })
+    }
+  })
 })

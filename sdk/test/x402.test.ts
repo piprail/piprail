@@ -153,4 +153,24 @@ describe('receipt round-trip', () => {
     })
     expect(parseReceipt(res)).toEqual(receipt)
   })
+
+  it('parseReceipt maps a legacy v1 `txHash`-only receipt onto `transaction` (honest non-optional type)', () => {
+    // isValidReceipt tolerates a v1 server's `txHash` alias; parseReceipt must surface it as
+    // `transaction` so a reader of the non-optional `X402Receipt.transaction` never sees undefined.
+    const legacy = { scheme: 'onchain-proof', success: true, network: 'eip155:8453', txHash: '0xabc123', payer: '0x2'.padEnd(42, '2'), payTo: '0x1'.padEnd(42, '1'), asset: 'native', amount: '1000', verifiedAt: '2026-06-01T00:00:00.000Z' }
+    const header = Buffer.from(JSON.stringify(legacy)).toString('base64')
+    const res = new Response(null, { status: 200, headers: { [HEADER_RESPONSE]: header } })
+    const parsed = parseReceipt(res)
+    expect(parsed?.transaction).toBe('0xabc123')
+  })
+})
+
+describe('parseSignatureHeader — legacy flat shape returns a defined, dereferenceable `accepted`', () => {
+  it('synthesizes `accepted` from the flat fields so `.accepted.network` never throws (type-honest)', () => {
+    const legacy = { x402Version: 2, scheme: 'onchain-proof', network: 'eip155:56', asset: '0xToken', payload: { nonce: 'n', txHash: `0x${'a'.repeat(64)}` } }
+    const parsed = parseSignatureHeader(buildSignatureHeader(legacy as unknown as Parameters<typeof buildSignatureHeader>[0]))
+    expect(parsed?.accepted).toBeDefined()
+    expect(parsed?.accepted.network).toBe('eip155:56')
+    expect(parsed?.accepted.scheme).toBe('onchain-proof')
+  })
 })

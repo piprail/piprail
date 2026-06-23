@@ -155,7 +155,7 @@ total and the payment counts span **every funded chain** — `USD:20.00` means $
 `(chain, token)`.)
 :::
 
-The `piprail_budget` tool and the `piprail://budget` resource report the grand total (`byDenom`), the
+The `piprail_budget` tool and the `piprail://budget` resource report the grand total (`grandTotal`), the
 payment counts, and the active policy alongside the per-asset rows.
 
 ## The time envelope

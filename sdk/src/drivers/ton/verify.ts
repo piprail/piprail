@@ -52,7 +52,10 @@ export async function verifyTon(params: VerifyTonParams): Promise<VerifyResult> 
   }
 
   for (const tx of txs) {
-    const incoming = extractIncoming(tx)
+    // ASSET-BOUND: a native accept is satisfied ONLY by a real native value transfer, and a jetton
+    // accept ONLY by a real internal_transfer credit — so a dust native message carrying a FORGED
+    // internal_transfer body (claiming a huge amount) can't satisfy a native accept, and vice-versa.
+    const incoming = extractIncoming(tx, accept.asset === 'native' ? 'native' : 'jetton')
     if (!incoming || incoming.comment !== nonce) continue
 
     // Found the payment bound to this challenge. Hold it to the same bar as the
@@ -110,23 +113,31 @@ export interface Incoming {
 }
 
 /**
- * Read the incoming value + comment from a transaction, handling both a jetton
- * credit (`internal_transfer`) and a native TON transfer. Tries the jetton
- * shape first; anything else is treated as a native value transfer. Returns
- * null if the in-message isn't a usable incoming internal message.
+ * Read the incoming value + comment from a transaction, **bound to the expected asset kind**.
+ * The `kind` MUST come from `accept.asset` — this is the security boundary that stops a
+ * cross-asset confusion:
+ *   - `'jetton'`: honor ONLY a real `internal_transfer` credit (the merchant's jetton wallet);
+ *     a native/comment message returns `null` (it can't satisfy a jetton accept).
+ *   - `'native'`: honor ONLY the message's REAL on-chain value (`inMsg.info.value.coins`); a
+ *     jetton-SHAPED body returns `null` — so a dust transfer carrying a forged `internal_transfer`
+ *     body that *claims* a huge amount can never satisfy a native accept.
+ * Returns `null` if the in-message isn't a usable incoming internal message of the expected kind.
  */
-export function extractIncoming(tx: Transaction): Incoming | null {
+export function extractIncoming(tx: Transaction, kind: 'native' | 'jetton'): Incoming | null {
   const inMsg = tx.inMessage
   if (!inMsg || inMsg.info.type !== 'internal' || inMsg.info.bounced) return null
 
   const jetton = parseInternalTransfer(inMsg.body)
-  if (jetton) {
+  if (kind === 'jetton') {
+    if (!jetton) return null
     return {
       amount: jetton.amount,
       payer: (jetton.from ?? inMsg.info.src).toString(),
       comment: jetton.comment,
     }
   }
+  // kind === 'native': never trust a jetton-shaped body's claimed amount — read the REAL value moved.
+  if (jetton) return null
   return {
     amount: inMsg.info.value.coins,
     payer: inMsg.info.src.toString(),
@@ -134,12 +145,27 @@ export function extractIncoming(tx: Transaction): Incoming | null {
   }
 }
 
-/** A transaction is good only if its compute phase ran and it wasn't aborted. */
+/**
+ * A transaction is good only if it actually RAN its compute phase successfully. Used for the
+ * JETTON path only (the native carve-out at the call site bypasses this — native value is credited
+ * by message delivery, so a not-yet-deployed payTo legitimately has a skipped compute).
+ *
+ * A jetton credit lands on the merchant's jetton-wallet contract, which MUST execute the
+ * `internal_transfer` to credit the balance — so we require a successful `vm` compute phase.
+ * Crucially we reject a `skipped` (e.g. `cskip_no_state`) compute: an attacker can send a
+ * non-bounceable message carrying a FORGED `internal_transfer` body (claiming a huge amount) to the
+ * merchant's UNDEPLOYED jetton wallet — it lands `aborted=false` with a skipped compute and credits
+ * NOTHING, yet the forged body would otherwise read as a credit. Requiring `vm` + `success` rejects
+ * it. A legitimate first-ever jetton credit arrives with `state_init`, deploys the wallet, and runs
+ * a successful `vm` phase, so this never rejects a real payment. We also reject an explicit
+ * action-phase failure (compute-ok-but-action-failed never moved the tokens).
+ */
 export function txSucceeded(tx: Transaction): boolean {
   const d = tx.description
   if (d.type !== 'generic') return false
   if (d.aborted) return false
-  if (d.computePhase.type === 'vm' && !d.computePhase.success) return false
+  if (d.computePhase.type !== 'vm' || !d.computePhase.success) return false
+  if (d.actionPhase && d.actionPhase.success === false) return false
   return true
 }
 

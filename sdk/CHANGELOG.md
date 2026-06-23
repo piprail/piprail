@@ -4,6 +4,74 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.14.0] — 2026-06-23 — x402-over-MCP transport, payment-identifier idempotency, the `.well-known/x402.json` manifest — and a deep three-pass security hardening of every chain
+
+A feature **and** hardening release. It adds the third official x402 transport, an opt-in
+idempotency extension, and a forward-compatible discovery manifest — then puts the whole SDK through
+**three independent adversarial audit passes** (90+ agents) plus **live mainnet settlements of every
+transaction type across 10+ chains**, fixing ~28 issues the audits surfaced. Every default is
+unchanged; everything new is additive/opt-in. Proven on real mainnet payments on Base, BNB, Solana,
+Sui, Aptos, Algorand, Stellar, TON, Tron, and the XRP Ledger (onchain-proof, EIP-3009 + Permit2
+`exact`, non-EVM self-settle/facilitator `exact`, `upto`, A2A **and** MCP transports, verifiable
+receipts, discovery/registration).
+
+### Added
+
+- **x402-over-MCP transport (the third official transport).** `createMcpPaymentTool` wraps a
+  `PaymentGate` as a paid **MCP tool** — the MCP analogue of `requirePayment` / `createA2APaymentHandler`.
+  A 402 is an `isError` tool result (the `PaymentRequired` in `structuredContent` + a byte-equal
+  `content[0].text`); the payment rides under `params._meta["x402/payment"]`, the settlement under
+  `_meta["x402/payment-response"]`. All verify/settle/replay runs through the gate's `verifyObject`
+  (zero new crypto, zero driver changes) so every family rides MCP for free. Ships the full pure codec
+  + buyer read/frame helpers (`toMcpPaymentRequired`/`toMcpPaymentResponse`/`fromMcpPayment*`/
+  `isMcpPaymentRequired`/`buildMcpPaymentMeta`); a fully-automatic `McpPayer` is a documented fast-follow.
+- **Opt-in `payment-identifier` idempotency extension.** `paymentIdentifier: true` advertises the
+  extension; a buyer supplies a stable `id` (16–128 chars, `[A-Za-z0-9_-]`) it can retry under,
+  deduped on the gate's existing used-proof set (`pid:<id>`, case-sensitive). Default OFF; the three
+  verify branches are untouched. Codecs `buildPaymentIdentifierAdvertisement` / `readPaymentIdentifier`.
+- **Forward-compatible `.well-known/x402.json` manifest.** `buildWellKnownX402Manifest` emits the
+  richer, V2-shaped manifest (`{ x402Version: 2, lastUpdated, items[] }`) beside the legacy flat
+  `buildWellKnownX402` breadcrumb — a self-describing item per resource (its rails + call method), so a
+  crawler enumerates an origin without hitting each 402.
+- `estimateCost` now reports the buyer-gasless `exact`/`upto` rails as fee `0` across every family
+  (NEAR included), and ships a multi-chain cost matrix in the tests.
+
+### Fixed & hardened (three adversarial audit passes + live mainnet)
+
+- **SECURITY — memo-bound double-redeem (server).** The gate keyed its replay set on the
+  client-controlled `txHash`; memo-bound families (XRPL/Stellar/TON/Algorand) + native NEAR locate the
+  tx by memo/decoded-hash and ignore the ref, so one real payment could be re-redeemed N times within
+  the recency window. The gate now binds the replay key to the **verified** `receipt.transaction`
+  (a no-op for digest-bound EVM/Solana).
+- **SECURITY — TON jetton forgery.** `verify()` now requires a successful `vm` compute for a jetton
+  credit, rejecting a forged `internal_transfer` to an undeployed merchant jetton wallet (native exempt).
+- **Recency fails CLOSED uniformly.** Every digest/memo driver (EVM/Solana/Sui/NEAR/Stellar/Algorand/
+  XRPL/Tron/**Aptos**) now returns `payment_expired` on a missing/non-finite on-chain timestamp instead
+  of skipping the age check — closing a fail-open replay-backstop bypass.
+- **MCP transport B7 (at-most-once).** A `fulfill()` throw *after* settlement still returns a success
+  `_meta` payment-response (never a re-challenge), so a serve-time hiccup never re-charges the buyer.
+- **Sponsor fee-drain guard hardened.** The Solana `exact` ComputeBudget guard is now an allowlist
+  (rejects any discriminator ≠ set-unit-limit/price), closing the deprecated `RequestUnits`
+  `additional_fee` drain.
+- **Tron `tron:`-prefix double-redeem** closed (verify reads the ref verbatim). **Sui** recipient match
+  is case/padding-insensitive (a mixed-case `payTo` is no longer paid-but-unverifiable).
+- **Never-throw reads honored.** TON `verify()` maps a transient jetton-wallet RPC failure to a
+  retryable `tx_not_found` (and no longer poison-caches the rejected promise); EVM `estimateCost`
+  optional-chains a missing `extra`; the client drops a native or `extra`-less rail from the
+  exact/upto gather so plan/autoRoute/pay stay consistent.
+- **Typed errors at the boundary.** An unknown chain name → `UnsupportedNetworkError`; an invalid EVM
+  custom-token address → `WrongFamilyError` (at config time, not a raw viem throw later).
+- `floorUnits`/`parseUnits` accept scientific notation (XRPL funded-trustline false-`null` fix);
+  Solana `balanceOf` detects the Token-2022 program (no false 0); the memo-bound verifiers scan a full
+  200-tx page; the `payment-identifier` id stays case-sensitive in the default store; legacy v1
+  `txHash`-only receipts map onto `transaction`.
+
+### Docs
+
+- New **MCP transport (seller)** page; documented the manifest, the payment-identifier extension, the
+  uniform recency fail-closed, the sponsor-drain guard, the TON jetton compute-success rule, and the
+  5-family `exact` surface — a 17-fix single-source-of-truth pass over the docs.
+
 ## [2.13.1] — 2026-06-21 — Family-correct `exact`-rail recovery hints (no EVM-only assumptions on non-EVM rails)
 
 A correctness pass on the family-agnostic `exact` buyer path: its failure/timeout messages and one
@@ -1695,6 +1763,8 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[2.14.0]: https://www.npmjs.com/package/@piprail/sdk
+[2.13.1]: https://www.npmjs.com/package/@piprail/sdk
 [2.12.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.11.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.10.0]: https://www.npmjs.com/package/@piprail/sdk

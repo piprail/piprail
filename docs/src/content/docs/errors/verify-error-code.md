@@ -33,7 +33,7 @@ family uses the same code for the same condition. An agent branches on `error`; 
 | `wrong_recipient` | Paid, but not to `payTo`. | definitive |
 | `amount_too_low` | Paid to `payTo`, but less than required. | definitive |
 | `transfer_not_found` | No matching transfer (asset / amount / nonce) to `payTo`. | definitive |
-| `payment_expired` | Older than `maxTimeoutSeconds` (the replay window). | definitive |
+| `payment_expired` | Older than `maxTimeoutSeconds` (the replay window) — OR the proof's on-chain timestamp is missing/non-finite, so its age can't be bounded (recency fails **closed**, never open). | definitive |
 | `tx_already_used` | This proof was already redeemed — a replay. | definitive |
 | `signature_invalid` | The `exact`-rail authorization is invalid — the signed payload didn't validate against the trusted rail. On EVM the EIP-712 signature didn't recover to the payer; on Solana, Algorand, Aptos, and NEAR the signed transaction / atomic group / delegate-action is unparseable, the signer or structure is wrong, or it trips a fee-payer/relayer drain guard. | definitive |
 | `upto_settle_exceeds_max` | The [`upto` (metered) rail](/accepting-payments/upto-rail-seller/): the merchant's metered settle amount exceeds the maximum the buyer signed (`permitted.amount`). Gate/driver-enforced before any broadcast — nothing settles. | definitive |
@@ -80,7 +80,10 @@ read the transfer, check it was unused.
 - **`transfer_not_found`** — no transfer matching the asset, amount, and nonce was found on
   `payTo`. On account-watch chains this also absorbs "wrong recipient" (see below).
 - **`payment_expired`** — the proof is older than the rail's `maxTimeoutSeconds` recency window. On
-  the `exact` rail, this is also an expired or not-yet-valid EIP-3009 authorization.
+  the `exact` rail, this is also an expired or not-yet-valid EIP-3009 authorization. It **also** fires
+  when the proof's on-chain timestamp is missing or non-finite (a degraded RPC): the age can't be
+  bounded, so the recency check fails **closed** (`"Cannot bound the age … — failing closed."`) rather
+  than letting an unbounded-age proof through.
 - **`tx_already_used`** — the verify-style code the gate emits for the onchain-proof replay set — and
   that the EVM `exact` / Permit2 driver also returns via the token's on-chain `authorizationState` /
   Permit2 nonce check.

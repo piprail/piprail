@@ -54,6 +54,12 @@ what the SDK actually pays and verifies against. When you pass a custom chain, t
 recognises a built-in token address if its chain id matches a preset — so symbol resolution keeps
 working even off the named path.
 
+An **invalid token** is rejected up front, at config time, with a typed
+[`WrongFamilyError`](/errors/error-hierarchy/) — never a raw viem error later on the verify path:
+a non-`0x` token `address` (e.g. a Tron `T…` string), or another family's token shape (a Solana
+`{ mint }`, a Stellar `{ issuer, code }`) on an EVM chain. A valid address is checksum-normalized
+for you. This mirrors how a non-`0x` `payTo` is rejected at config time.
+
 ## The built-in EVM registry — `CHAINS`
 
 `CHAINS` is the registry itself: an object keyed by chain name, each value a `ChainPreset`. It's
@@ -196,9 +202,11 @@ requirePayment({
 ```
 
 :::caution
-An unknown chain name throws — `resolveChain` lists the built-in names and tells you to pass a
-viem `Chain` or `{ id, rpcUrl }` instead. A `{ id, rpcUrl }` with no `rpcUrl`, or a chain whose
-viem default has no usable RPC, also throws: an EVM chain has no implicit RPC.
+An unknown chain name throws. Via a gate or client (the normal path) it surfaces as a typed
+[`UnsupportedNetworkError`](/errors/error-hierarchy/) (`.code === 'UNSUPPORTED_NETWORK'`,
+`instanceof PipRailError`) — `resolveChain`'s helpful message (the built-in names + "pass a viem
+`Chain` or `{ id, rpcUrl }`") is preserved verbatim inside it. A `{ id, rpcUrl }` with no `rpcUrl`,
+or a chain whose viem default has no usable RPC, also throws: an EVM chain has no implicit RPC.
 :::
 
 ## Types

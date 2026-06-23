@@ -51,6 +51,28 @@ describe('floorUnits — tolerant cap parsing for spend policy', () => {
   })
 })
 
+describe('scientific notation — XRPL rippled serializes IOU balances as e/E (must not throw → false null)', () => {
+  it('floorUnits expands e-notation losslessly, then truncates to the token scale', () => {
+    expect(floorUnits('5e-7', 6)).toBe(0n) // 0.0000005 < 1e-6 → 0 base units (same as the plain form)
+    expect(floorUnits('1E-7', 6)).toBe(0n)
+    expect(floorUnits('2.569903e-12', 6)).toBe(0n) // realistic rippled dust string
+    expect(floorUnits('1.23e11', 6)).toBe(123_000_000_000_000_000n) // 123000000000 × 10^6
+    expect(floorUnits('1e3', 6)).toBe(1_000_000_000n) // 1000 × 10^6
+  })
+  it('parseUnits accepts e-notation too (exact, still rejects > decimals)', () => {
+    expect(parseUnits('1.23e11', 6)).toBe(123_000_000_000_000_000n)
+    expect(parseUnits('5e-7', 18)).toBe(500_000_000_000n) // 0.0000005 × 10^18
+    expect(() => parseUnits('2.569903e-12', 6)).toThrow(/decimal places/) // 18 frac digits > 6 → exact-throw
+  })
+  it('a negative-mantissa e-notation (issuer liability) is still rejected — the safe "unavailable" read', () => {
+    expect(() => floorUnits('-8000000000000000e-27', 6)).toThrow(/decimal amount/)
+  })
+  it('DoS guard: an absurd exponent throws (no multi-GB string), like the decimals cap', () => {
+    expect(() => floorUnits('9e999999999', 6)).toThrow(/exponent out of range/)
+    expect(() => parseUnits('1e2000', 6)).toThrow(/exponent out of range/)
+  })
+})
+
 describe('decimals upper bound — OOM/DoS guard (2.9.0)', () => {
   it('accepts decimals up to MAX_DECIMALS (covers every real token)', () => {
     expect(MAX_DECIMALS).toBeGreaterThanOrEqual(24) // NEAR yoctoNEAR is the deepest real token

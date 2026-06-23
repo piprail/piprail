@@ -58,7 +58,9 @@ export async function verifyAlgorand(params: VerifyAlgorandParams): Promise<Veri
 
   let txs: AlgorandTxRecord[]
   try {
-    txs = await reader.transactionsForAccount(accept.payTo, 50)
+    // 200: keep the recency window's worth of receipts on one page so a busy merchant can't push the
+    // target payment off the page (a false transfer_not_found). Pair with a tight maxTimeoutSeconds.
+    txs = await reader.transactionsForAccount(accept.payTo, 200)
   } catch {
     return rpcFailed(nonce)
   }
@@ -67,14 +69,21 @@ export async function verifyAlgorand(params: VerifyAlgorandParams): Promise<Veri
   const tx = txs.find((t) => typeof t.note === 'string' && t.note === nonce)
   if (!tx) return notFound(nonce)
 
-  if (typeof tx.roundTime === 'number') {
-    const ageSeconds = Math.floor(Date.now() / 1000) - tx.roundTime
-    if (Number.isFinite(ageSeconds) && ageSeconds > accept.maxTimeoutSeconds) {
-      return {
-        ok: false,
-        error: 'payment_expired',
-        detail: `Payment is ${ageSeconds}s old; max allowed is ${accept.maxTimeoutSeconds}s.`,
-      }
+  // Recency fails CLOSED, like Solana/NEAR/Stellar/Sui. A missing/non-finite roundTime means we
+  // can't BOUND the age — reject, never accept an unbounded-age proof. (roundTime is optional in
+  // the indexer model, so an edge-state/degraded RPC can omit it; once the bounded used-proof set
+  // evicts a redeemed nonce past the window, this recency check is the only remaining replay guard
+  // — it must not fail open. The old `typeof === 'number'` + `&& Number.isFinite` form skipped the
+  // whole check when roundTime was absent, and let a NaN slip through.)
+  if (!Number.isFinite(tx.roundTime)) {
+    return { ok: false, error: 'payment_expired', detail: `Cannot bound the age of Algorand tx ${tx.id} (no/invalid round-time) — failing closed.` }
+  }
+  const ageSeconds = Math.floor(Date.now() / 1000) - (tx.roundTime as number)
+  if (!Number.isFinite(ageSeconds) || ageSeconds > accept.maxTimeoutSeconds) {
+    return {
+      ok: false,
+      error: 'payment_expired',
+      detail: `Payment is ${ageSeconds}s old; max allowed is ${accept.maxTimeoutSeconds}s.`,
     }
   }
 

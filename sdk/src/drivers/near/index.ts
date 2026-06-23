@@ -213,9 +213,23 @@ function makeNearNetwork(preset: NearPreset, rpcUrl: string): ResolvedNetwork {
       throw new ConfirmationTimeoutError(`NEAR tx ${hash} not confirmed in time.`)
     },
 
-    async estimateCost() {
-      // An ft_transfer burns ~14 TGas; in NEAR (24dp) that's ≈0.0015 NEAR, plus the
-      // mandatory 1 yoctoNEAR deposit (negligible). Tiny + roughly fixed.
+    async estimateCost(accept) {
+      // Standard `exact` rail: the buyer only SIGNS a NEP-366 SignedDelegateAction (deposit = 1
+      // yocto) and the relayer (the merchant's own in self-settle, or a facilitator's) prepays the
+      // gas + the 1 yocto and submits — so the BUYER spends 0 NEAR (mirrors EVM/Solana/Algorand/
+      // Aptos). Report it gasless so the planner shows the rail as buyer-gasless and `autoRoute`
+      // prefers it over the gas-paying onchain-proof rail.
+      if (accept.scheme === 'exact') {
+        return nativeCost({
+          symbol: 'NEAR',
+          decimals: NEAR_DECIMALS,
+          fee: 0n,
+          basis: 'estimated',
+          detail: 'gasless — the relayer prepays gas + the 1 yocto; the buyer pays 0 NEAR',
+        })
+      }
+      // onchain-proof: the buyer broadcasts its own ft_transfer (~14 TGas ≈ 0.0015 NEAR, 24dp) +
+      // the mandatory 1 yoctoNEAR deposit (negligible). Tiny + roughly fixed.
       return nativeCost({
         symbol: 'NEAR',
         decimals: NEAR_DECIMALS,

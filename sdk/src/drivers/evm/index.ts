@@ -23,6 +23,7 @@ import {
   ConfirmationTimeoutError,
   InsufficientFundsError,
   UnknownTokenError,
+  UnsupportedNetworkError,
   WrongFamilyError,
   toInsufficientFundsError,
 } from '../../errors.js'
@@ -44,10 +45,16 @@ export const evmDriver: PaymentDriver = {
   resolve(opts: ResolveOptions): ResolvedNetwork | null {
     // Defer obvious non-EVM inputs so the registry can try another driver.
     if (typeof opts.chain === 'string' && /^(solana|ton|stellar)/.test(opts.chain)) return null
-    // A string the registry routed here IS meant to be EVM — let resolveChain's
-    // helpful "unknown chain … built-in names" error surface, don't swallow it.
+    // A string the registry routed here IS meant to be EVM — surface resolveChain's helpful
+    // "unknown chain … built-in names" guidance, but as the TYPED UnsupportedNetworkError (stable
+    // `.code === 'UNSUPPORTED_NETWORK'`, `instanceof PipRailError`) the two-channel contract
+    // mandates — never a raw chain Error (ERRORS.md §5). The message is preserved verbatim.
     if (typeof opts.chain === 'string') {
-      return makeEvmNetwork(resolveChain(opts.chain as ChainInput, opts.rpcUrl))
+      try {
+        return makeEvmNetwork(resolveChain(opts.chain as ChainInput, opts.rpcUrl))
+      } catch (err) {
+        throw new UnsupportedNetworkError(err instanceof Error ? err.message : String(err), { cause: err })
+      }
     }
     let resolved: ResolvedChain
     try {
@@ -96,8 +103,17 @@ function makeEvmNetwork(resolved: ResolvedChain): ResolvedNetwork {
           `chain ${network} is EVM; a custom token must be { address, decimals }.`
         )
       }
+      // Validate the address HERE (like assertValidPayTo / the Tron driver), so a non-0x asset (e.g.
+      // a Tron `T…` string — which rejectForeignToken can't catch, since EVM+Tron share the
+      // `address` key) surfaces as a typed WrongFamilyError at config time, not as a raw viem
+      // InvalidAddressError later on the never-throw verify() path. Checksum-normalize at the boundary.
+      if (!isAddress(token.address)) {
+        throw new WrongFamilyError(
+          `chain ${network} is EVM, but token address "${token.address}" is not a valid 0x address.`
+        )
+      }
       return {
-        asset: token.address,
+        asset: getAddress(token.address),
         decimals: token.decimals,
         ...(token.symbol ? { symbol: token.symbol } : {}),
       }
@@ -186,12 +202,19 @@ function makeEvmNetwork(resolved: ResolvedChain): ResolvedNetwork {
 
     async estimateCost(accept) {
       const { decimals, symbol } = resolved.chain.nativeCurrency
-      // Standard `exact` rail: the buyer SIGNS an EIP-3009 authorization and the
-      // server / merchant-chosen facilitator broadcasts it — so the BUYER spends ~0
-      // gas. Report a gasless estimate so the planner never blocks it on native funds.
-      if (accept.scheme === 'exact') {
-        const m = accept.extra.assetTransferMethod
-        const permit2 = m === 'permit2' || m === 'permit2-exact'
+      // Standard `exact` rail — AND the metered `upto` rail — are buyer-gasless: the buyer only
+      // SIGNS an authorization (EIP-3009 or Permit2) and the server / merchant-chosen facilitator
+      // broadcasts it, so the BUYER spends ~0 gas. Report a gasless estimate so the planner never
+      // blocks/over-charges native funds. The client already treats BOTH schemes as gasless
+      // (`isExact = scheme==='exact' || scheme==='upto'`, client.ts analyzeRail) — this keeps the
+      // surfaced cost consistent with that (mirrors the same fix made for NEAR's exact rail).
+      if (accept.scheme === 'exact' || accept.scheme === 'upto') {
+        // Optional-chain `extra`: a hostile/malformed 402 may offer an exact rail for a
+        // RECOGNISED token (so it survives the gather) yet omit the `extra` block entirely.
+        // estimateCost is a never-throw read (ERRORS.md) — a missing method just means we
+        // can't name the permit2 caveat, still gasless (fee 0). Never a raw TypeError.
+        const m = accept.extra?.assetTransferMethod
+        const permit2 = m === 'permit2' || m === 'permit2-exact' || m === 'permit2-upto'
         return nativeCost({
           symbol,
           decimals,

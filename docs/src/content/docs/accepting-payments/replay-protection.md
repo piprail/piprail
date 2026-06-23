@@ -238,3 +238,40 @@ transaction hash (`payload.txHash`). For the standard [`exact` rail](/accepting-
 it's the EIP-3009 authorization `nonce` — claimed the same way, with the on-chain
 `authorizationState` as a second canonical guard. Either way, a redeemed ref can't be redeemed
 twice.
+
+## Opt-in caller idempotency — the `payment-identifier` extension
+
+The proof-based dedupe above stops the **same proof** redeeming twice. A different concern is a buyer
+that wants its *own* idempotency key — a stable id it can retry under so a flaky network never charges
+it twice, even across two distinct proofs. That's the x402 **`payment-identifier`** extension, off by
+default and enabled with one flag:
+
+```ts
+const gate = createPaymentGate({
+  chain: 'base', token: 'USDC', amount: '0.05', payTo: '0xYourWallet',
+  paymentIdentifier: true, // advertise the extension; default OFF (opt-in — defaults never change)
+})
+```
+
+With it on, the gate **advertises** the extension in every challenge (a `payment-identifier` block
+under the challenge `extensions`, `info.required: false` plus a JSON-Schema bound of **16–128 chars**).
+A buyer that wants idempotency supplies a stable id on its payload, under
+`extensions["payment-identifier"].info.id`. The gate then:
+
+- **Dedupes on the id** in the *same* replay set, keyed `pid:<id>` — reserved before verify, released
+  if the proof is rejected or settlement throws (so a failed attempt never burns the id), claimed on
+  success. A second call carrying an already-redeemed id is rejected as `tx_already_used`, even if its
+  proof differs.
+- **Validates the id strictly.** It must be 16–128 chars matching `[A-Za-z0-9_-]`. A present-but-malformed
+  id is **rejected** (`signature_invalid`), never silently ignored — a buyer that asked for idempotency
+  and typo'd the key gets told, rather than being charged un-deduped.
+- **Echoes the id back** in the success receipt's `extensions["payment-identifier"]`, so the buyer can
+  correlate the receipt to the request it retried.
+
+When the flag is **off** (the default), the extension is neither advertised nor read, and an id on the
+payload is ignored — the proof-based dedupe is the only guard. The three on-chain verify branches are
+untouched either way; this is a thin pre-check layered in front of them, sharing the one replay set.
+
+`readPaymentIdentifier(payload)` and `buildPaymentIdentifierAdvertisement()` are exported for hand-built
+adapters: the reader returns the validated `string`, `null` (absent), or `{ invalid: reason }`
+(present-but-malformed) so a custom seam distinguishes "no id" from "bad id" exactly as the gate does.

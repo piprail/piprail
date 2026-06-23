@@ -161,7 +161,7 @@ free public directories.
 
 | Export | Kind |
 | --- | --- |
-| `buildOpenApi`, `buildWellKnownX402`, `buildX402DnsTxt`, `buildBazaarExtension`, `GENERATOR` | fn / const |
+| `buildOpenApi`, `buildWellKnownX402`, `buildWellKnownX402Manifest`, `buildX402DnsTxt`, `buildBazaarExtension`, `GENERATOR` | fn / const | `buildWellKnownX402Manifest` emits the forward-compatible `/.well-known/x402.json` (a richer second artifact beside the legacy flat `buildWellKnownX402`); takes `ManifestInput & { lastUpdated?: number }` |
 | `discoveryHeaders`, `POWERED_BY`, `renderLandingPage` | fn / const | self-describing HTTP surfaces — the Link/`x-powered-by` header bag + the human HTML landing page |
 | `searchOpenIndexes`, `register402Index`, `registerX402Scan` | fn |
 | `claim402IndexDomain`, `verify402IndexDomain` | fn |
@@ -170,7 +170,7 @@ free public directories.
 | `appendKeywords` | fn | fold `tags` into a description as a searchable `· Keywords: …` tail (402 Index search is literal) |
 | `appendAttribution`, `REGISTER_ATTRIBUTION` | fn / const | the opt-in `· Built with @piprail/sdk` listing marker |
 | `PaymentRail`, `ResourceDescription`, `ManifestInput` | type | `ResourceDescription` carries an optional `mimeType` (v2 ResourceInfo) |
-| `OpenApiDocument`, `OpenApiOperation`, `WellKnownX402`, `X402DnsRecord` | type |
+| `OpenApiDocument`, `OpenApiOperation`, `WellKnownX402`, `WellKnownX402Manifest`, `WellKnownX402Item`, `X402DnsRecord` | type |
 | `DiscoveryDescriptor`, `BazaarExtension` | type | `DiscoveryDescriptor` gained `summary` — feeds both `extensions.bazaar` and `extensions.piprail.endpoint` |
 | `DiscoverySource`, `DiscoverySort`, `DiscoveredRail`, `DiscoveredResource` | type | `DiscoveredResource` gained `tags` / `reliabilityScore` / `health` / `verified` / `score` |
 | `RegisterOutcome`, `RegisterInput`, `SearchOpenIndexesOptions` | type | `RegisterInput` + `SearchOpenIndexesOptions` gained the category / tags / asset / reliability / sort fields |
@@ -215,6 +215,7 @@ format (server: `buildChallengeHeader` → verify → `buildReceiptHeader`; clie
 | `parseSignatureObject`, `parseExactObject`, `parseUptoObject`, `decodeBase64Json` | fn — the object-accepting parser **cores** the base64 header parsers wrap, for a transport that carries the SAME payload as raw JSON (A2A), fed via `gate.verifyObject` |
 | `buildChallengeHeader`, `buildSignatureHeader`, `buildExactSignatureHeader`, `buildUptoSignatureHeader`, `buildReceiptHeader` | fn |
 | `buildReceiptExtension`, `EXT_OFFER_RECEIPT` | fn / const | build the `extensions.piprail.receipt` block (the anyone-verifiable [verifiable receipt](/accepting-payments/verifiable-receipts/)) + the offer-receipt extension key |
+| `buildPaymentIdentifierAdvertisement`, `readPaymentIdentifier`, `EXT_PAYMENT_IDENTIFIER` | fn / const | the opt-in [`payment-identifier`](/accepting-payments/replay-protection/) idempotency extension — advertise it on a challenge (default OFF, `info.required:false`) and validate/dedupe an echoed `id` (16–128 chars, `[A-Za-z0-9_-]`) on the gate's used-proof set; `readPaymentIdentifier` returns the id \| `null` (absent) \| `{ invalid }` (malformed), never throws |
 | `HEADER_REQUIRED`, `HEADER_SIGNATURE`, `HEADER_RESPONSE`, `HEADER_SIGNATURE_V1`, `HEADER_RESPONSE_V1` | const |
 | `Caip2`, `AssetId`, `AddressId` | type |
 | `VerifyResult`, `VerifyErrorCode` | type |
@@ -288,6 +289,25 @@ method on the already-exported `PaymentGate`.
 | `A2AArtifact`, `A2AExtensionDeclaration`, `A2AMessage`, `A2AMetadata`, `A2APart`, `A2APaymentStatus`, `A2ATask`, `A2ATaskRecord`, `A2ATaskState`, `A2ATaskStore` | type | the A2A wire types |
 
 See [A2A transport](/accepting-payments/a2a-transport/).
+
+## Advanced: x402-over-MCP transport (the third official transport)
+
+The seller-side MCP adapter — the MCP analogue of `requirePayment` / `createA2APaymentHandler`. Carry
+x402's existing envelopes over MCP **tool calls** instead of HTTP headers, backendless: verify/settle/
+replay all run through the gate's `verifyObject` (zero new crypto, zero driver/scheme/chain changes),
+so every family rides MCP for free.
+
+| Export | Kind | Note |
+| --- | --- | --- |
+| `createMcpPaymentTool` | fn | **Headline (MCP)** — wrap a `PaymentGate` as a paid MCP tool. A `fulfill()` throw *after* settle still returns a success `_meta` payment-response, never a re-challenge (B7 at-most-once). |
+| `toMcpPaymentRequired`, `toMcpPaymentResponse` | fn | Build the 402-challenge (`isError` + `structuredContent` + a byte-equal `content[0].text`) and the settled tool result. |
+| `fromMcpPayment`, `fromMcpPaymentRequired`, `fromMcpPaymentResponse`, `isMcpPaymentRequired` | fn | Buyer/seller read helpers — pull the payment / challenge / settlement out of an MCP message. |
+| `buildMcpPaymentMeta` | fn | Frame an already-produced `{ accepted, payload }` into the retry call's `params._meta["x402/payment"]`. |
+| `MCP_PAYMENT_META_KEY`, `MCP_PAYMENT_RESPONSE_META_KEY` | const | The spec `_meta` keys (`x402/payment` / `x402/payment-response` — a slash, not A2A's dot). |
+| `McpPaymentTool`, `McpPaymentToolOptions`, `McpContentBlock`, `McpToolCallParams`, `McpToolResult`, `McpPaymentMeta` | type | the MCP wire types (duck-typed; zero `@modelcontextprotocol/sdk` dependency) |
+
+A fully-automatic `McpPayer` (the buyer side) is a documented fast-follow, exactly as A2A shipped
+seller-first. See [MCP transport (seller)](/accepting-payments/mcp-transport/).
 
 ## Advanced: exact facilitator (Mode B) — `facilitator.js`
 

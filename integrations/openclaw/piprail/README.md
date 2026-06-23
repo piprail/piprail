@@ -3,7 +3,7 @@
 **Give an [OpenClaw](https://github.com/openclaw) agent a budget-bound payment wallet across every
 major chain.** PipRail plugs into OpenClaw as a **standard MCP server** — the published
 **[`@piprail/mcp`](https://www.npmjs.com/package/@piprail/mcp)** (`npx -y @piprail/mcp`) — so the agent
-gets all **7 PipRail tools**, capped by a spend policy it cannot exceed. This folder is also a
+gets all **8 PipRail tools**, capped by a spend policy it cannot exceed. This folder is also a
 publishable **[ClawHub](https://github.com/openclaw/clawhub) skill** ([`SKILL.md`](./SKILL.md)) — the
 discoverable listing for it.
 

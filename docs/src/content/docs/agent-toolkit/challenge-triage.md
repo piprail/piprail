@@ -86,12 +86,14 @@ classifyChallenge(challenge, { network, schemes })
 | Option | Type | Purpose |
 | --- | --- | --- |
 | `network` | `Caip2` | The chain your client is bound to, e.g. `'eip155:8453'` or `'solana:…'`. |
-| `schemes` | `readonly PaymentScheme[]` | The schemes you've enabled — `'onchain-proof'` and/or `'exact'`. |
+| `schemes` | `readonly PaymentScheme[]` | The schemes you've enabled — `'onchain-proof'`, `'exact'`, and/or `'upto'`. |
 
 The `schemes` you pass should match the schemes your
 [`PipRailClient`](/making-payments/piprail-client/) is configured with. The default is
 `['onchain-proof']`; pass `['onchain-proof', 'exact']` if your client also enables the standard
-[`exact`](/making-payments/exact-buyer/) rail.
+[`exact`](/making-payments/exact-buyer/) rail, or add `'upto'` for the metered/variable
+[`upto`](/making-payments/upto-buyer/) rail — otherwise a challenge that only offers one of those on
+your chain classifies as `UNPAYABLE_SCHEME` until you enable it.
 
 :::note
 `classifyChallenge` only inspects scheme and network — it does **not** check balance, gas, or

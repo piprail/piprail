@@ -38,6 +38,18 @@ describe('verifySui — USDC (digest-bound)', () => {
     }
   })
 
+  it('BREAK-IT: a MIXED/UPPER-case payTo still verifies — funds arrive at the canonical address, so verify must normalize both sides', async () => {
+    // The chain returns bc.owner in canonical lowercase; a merchant may configure payTo in mixed/upper
+    // case (copied from an explorer). Pre-fix, raw === made the gate 402 forever despite being paid.
+    const mixed = '0x' + PAY_TO.slice(2).toUpperCase() // same address, upper-case hex
+    const res = await verifySui({
+      reader: reader(view({ changes: [spend(USDC, '-50000'), recv(USDC, '50000')] })), // owner = lowercase PAY_TO
+      digest: 'D1',
+      accept: { ...usdcAccept('50000'), payTo: mixed },
+    })
+    expect(res.ok).toBe(true)
+  })
+
   it('rejects when the delivered amount is too low (digest path → transfer_not_found)', async () => {
     const res = await verifySui({ reader: reader(view({ changes: [recv(USDC, '40000')] })), digest: 'D1', accept: usdcAccept('50000') })
     expect(res).toMatchObject({ ok: false, error: 'transfer_not_found' })
@@ -62,6 +74,22 @@ describe('verifySui — USDC (digest-bound)', () => {
   it('rejects a payment older than maxTimeoutSeconds', async () => {
     const res = await verifySui({ reader: reader(view({ changes: [recv(USDC, '50000')], ts: Date.now() - 5000 * 1000 })), digest: 'D1', accept: usdcAccept('50000') })
     expect(res).toMatchObject({ ok: false, error: 'payment_expired' })
+  })
+
+  it('BREAK-IT: a tx with NO timestampMs fails CLOSED (payment_expired), never open (unbounded age)', async () => {
+    const v = { status: 'success', timestampMs: undefined, balanceChanges: [recv(USDC, '50000')] } as unknown as SuiTxView
+    const res = await verifySui({ reader: reader(v), digest: 'D1', accept: usdcAccept('50000') })
+    expect(res).toMatchObject({ ok: false, error: 'payment_expired' })
+  })
+
+  it('BREAK-IT: a NaN/Infinity timestampMs (malformed RPC) fails CLOSED — NaN/Infinity are typeof number and would slip the > check', async () => {
+    // The Sui RPC returns timestampMs as a string the adapter Number()s; a non-numeric/oversized
+    // value yields NaN/Infinity (both typeof 'number'), which a bare typeof guard would let through.
+    for (const ts of [NaN, Infinity, -Infinity, Number('not-a-number'), Number('1e500')]) {
+      const v = { status: 'success', timestampMs: ts, balanceChanges: [recv(USDC, '50000')] } as unknown as SuiTxView
+      const res = await verifySui({ reader: reader(v), digest: 'D1', accept: usdcAccept('50000') })
+      expect(res).toMatchObject({ ok: false, error: 'payment_expired' })
+    }
   })
 
   it('reports tx_not_found when the tx is unknown', async () => {

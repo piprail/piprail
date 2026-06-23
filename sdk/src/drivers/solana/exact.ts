@@ -375,6 +375,13 @@ export async function verifyAndSettleExactSolana(input: {
   //     BUDGET. The fee payer pays base + compute_unit_limit × compute_unit_price; the canonical
   //     buyer sets a tiny fixed budget, but a malicious one could set a huge limit/price and drain
   //     the sponsor — no instruction names the fee payer, so B4 misses it. Cap both. ---
+  //     ALLOWLIST, not a match-some: reject EVERY ComputeBudget discriminator other than
+  //     set-unit-limit (2) / set-unit-price (3). The canonical buyer emits only those two, but the
+  //     program also decodes the DEPRECATED `RequestUnits` (disc 0), whose `additional_fee` is a
+  //     flat lamport prioritization fee up to u32 (~4.29 SOL) the fee payer pays — uncapped by the
+  //     limit/price caps and invisible to B4 (ComputeBudget ix name no accounts) and to the
+  //     simulation (a big fee is "valid"). An if/else-if that only matched 2/3 would wave disc 0
+  //     straight through. So: cap 2/3, and reject anything else.
   for (const ix of message.compiledInstructions) {
     const ixProgram = keys.get(ix.programIdIndex)
     if (!ixProgram || !ixProgram.equals(ComputeBudgetProgram.programId)) continue
@@ -389,6 +396,8 @@ export async function verifyAndSettleExactSolana(input: {
       if (price > MAX_COMPUTE_UNIT_PRICE_MICROLAMPORTS) {
         return fail('signature_invalid', `Compute-unit price ${price} µlamports exceeds the ${MAX_COMPUTE_UNIT_PRICE_MICROLAMPORTS} cap (fee-payer drain guard).`)
       }
+    } else {
+      return fail('signature_invalid', `Unexpected ComputeBudget instruction (discriminator ${data[0]}) — only set-unit-limit/price are allowed (fee-payer drain guard).`)
     }
   }
 

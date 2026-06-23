@@ -3,7 +3,7 @@
 **Give a [Hermes](https://github.com/NousResearch/hermes-agent) agent a budget-bound payment wallet
 across every major chain.** PipRail plugs into Hermes as a **standard MCP server** — the published
 **[`@piprail/mcp`](https://www.npmjs.com/package/@piprail/mcp)** (`npx -y @piprail/mcp`) — so the agent
-gets all **7 PipRail tools**, capped by a spend policy it cannot exceed. This folder also carries the
+gets all **8 PipRail tools**, capped by a spend policy it cannot exceed. This folder also carries the
 **Hermes MCP catalog manifest** ([`manifest.yaml`](./manifest.yaml)) and a **Skills Hub skill**
 ([`SKILL.md`](./SKILL.md)) — the two ways Hermes users discover it.
 

@@ -76,6 +76,11 @@ if (ageSeconds > accept.maxTimeoutSeconds) {
 }
 ```
 
+Recency **fails closed**: if the on-chain timestamp is missing or non-finite (`NaN`/`Infinity`, e.g.
+a degraded RPC), `verify()` can't *bound* the age, so it returns `payment_expired` rather than
+skipping the check. This holds uniformly across every digest- and memo-bound driver — a window that
+fails *open* would let an aged-out proof replay once the used-proof set evicts its entry.
+
 Re-using the *same* tx hash twice is caught one level up by the payment gate's used-proof set —
 see [Replay protection](/accepting-payments/replay-protection/).
 
@@ -123,8 +128,11 @@ A few families need a twist on the template. These are load-bearing details, not
 "is" the payment. The proof ref is a self-contained locator (`ton:<jetton-wallet>|<nonce>`); the
 verifier reads the merchant's **jetton wallet** (derived from the official jetton master, so a
 look-alike jetton can't match) for the incoming `internal_transfer` carrying the nonce in its
-forward comment. Native TON is read from the incoming message's value + text comment to `payTo`
-— same memo binding, no jetton wallet.
+forward comment. A jetton credit also only counts if that wallet **actually executed the transfer**:
+`verify()` requires a successful `vm` compute phase, which rejects a forged `internal_transfer` body
+sent to a *not-yet-deployed* jetton wallet (it lands without running and credits nothing). Native
+TON is read from the incoming message's value + text comment to `payTo` — same memo binding, no
+jetton wallet, and exempt from the compute-success check (value moves on delivery).
 
 **XRPL compares `delivered_amount`, not `Amount`.** A successful Payment using `tfPartialPayment`
 can advertise a large `Amount` but actually deliver almost nothing — a known theft vector. The

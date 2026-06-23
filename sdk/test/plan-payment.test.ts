@@ -277,3 +277,32 @@ describe('read methods NEVER throw on a parseable-but-malformed accept (ERRORS.m
     expect(plan!.options[0]!.accept.asset).toBe('native')
   })
 })
+
+describe('F9 — native is never gathered as an exact/upto rail (plan-vs-pay consistency)', () => {
+  it('a native `exact` accept is excluded from the plan even when the driver can payExact + holds the coin', async () => {
+    // describeAsset('native') is non-null (onchain-proof needs it), so without the guard a native
+    // `exact` rail would be gathered, planned payable, and chosen by autoRoute — then throw at pay
+    // time (native is not an EIP-3009/Permit2 exact asset on any family). A co-offered USDC exact
+    // rail IS gathered, proving it's the `native` asset (not the scheme) that's excluded.
+    net = { ...baseNet(), payExact: (async () => 'ref') } as unknown as ResolvedNetwork
+    const nativeExact = { ...nativeAccept(), scheme: 'exact', extra: { decimals: 7, symbol: 'XLM', amountFormatted: '0.05' } } as unknown as X402AcceptEntry
+    const usdcExact = { ...usdcAccept(), scheme: 'exact', extra: { decimals: 7, symbol: 'USDC', amountFormatted: '0.05', name: 'USD Coin', version: '2', assetTransferMethod: 'eip3009' } } as unknown as X402AcceptEntry
+    stub402([nativeExact, usdcExact])
+    const plan = (await client({ schemes: ['exact'] }).planPayment(URL))!
+    // no gathered option is a native-exact rail…
+    expect(plan.options.some((o) => o.accept.asset === 'native' && o.accept.scheme === 'exact')).toBe(false)
+    // …and the chosen rail is the USDC exact one, not native
+    expect(plan.best?.accept.asset).toBe(USDC)
+  })
+
+  it('G4: an exact rail for a RECOGNISED token but with NO `extra.assetTransferMethod` is NOT planned payable (would throw a raw TypeError mid-pay)', async () => {
+    net = { ...baseNet(), payExact: (async () => 'ref') } as unknown as ResolvedNetwork
+    // recognised token (USDC), valid timeout, but `extra` omits assetTransferMethod → the pay path
+    // would deref it and throw. It must be dropped at gather time.
+    const noMethod = { ...usdcAccept(), scheme: 'exact', extra: { decimals: 7, symbol: 'USDC', amountFormatted: '0.05' } } as unknown as X402AcceptEntry
+    stub402([noMethod])
+    const plan = (await client({ schemes: ['exact'] }).planPayment(URL))!
+    expect(plan.best ?? null).toBeNull() // nothing gathered → no payable rail
+    expect(plan.options.some((o) => o.accept.scheme === 'exact')).toBe(false)
+  })
+})

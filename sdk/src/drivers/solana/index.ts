@@ -10,6 +10,7 @@ import {
   getAccount,
   getAssociatedTokenAddressSync,
   TOKEN_2022_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
   TokenAccountNotFoundError,
 } from '@solana/spl-token'
 import { SOLANA_MAINNET, SOL_DECIMALS, type SolanaPreset } from './chains.js'
@@ -192,8 +193,15 @@ function makeSolanaNetwork(preset: SolanaPreset, rpcUrl: string): ResolvedNetwor
       if (asset === 'native') return { token: native, native }
       let token: bigint | null
       try {
-        const ata = getAssociatedTokenAddressSync(new PublicKey(asset), owner)
-        token = (await getAccount(connection, ata, 'confirmed')).amount
+        // Detect the mint's token program (classic vs Token-2022) before deriving the ATA — a
+        // Token-2022 mint has a different ATA, so assuming the classic program returns a FALSE 0
+        // for a funded Token-2022 holder. Mirrors resolveExactRail's detection. An RPC failure on
+        // the mint read falls into the catch → null (unknown), never a confident 0.
+        const mint = new PublicKey(asset)
+        const info = await connection.getAccountInfo(mint)
+        const programId = info?.owner.equals(TOKEN_2022_PROGRAM_ID) ? TOKEN_2022_PROGRAM_ID : TOKEN_PROGRAM_ID
+        const ata = getAssociatedTokenAddressSync(mint, owner, false, programId)
+        token = (await getAccount(connection, ata, 'confirmed', programId)).amount
       } catch (e) {
         // No token account yet = a genuine 0; any other read failure = unknown.
         token = e instanceof TokenAccountNotFoundError ? 0n : null
@@ -201,7 +209,16 @@ function makeSolanaNetwork(preset: SolanaPreset, rpcUrl: string): ResolvedNetwor
       return { token, native }
     },
 
-    // No receive prerequisite — the payer's tx idempotently creates the recipient's ATA (pay.ts).
+    // No receive prerequisite for the DEFAULT onchain-proof rail — the payer's tx idempotently
+    // creates the recipient's ATA (pay.ts). KNOWN LIMITATION (documented, not a bug): on the opt-in
+    // `exact` rail the buyer cannot create the ATA (payExactSolana throws if payTo's token account
+    // is missing), so `planPayment`/`canAfford` can be OPTIMISTIC for an exact payment to a
+    // brand-new recipient whose ATA doesn't yet exist — marked payable, and `autoRoute` would pick
+    // it then refuse (pre-broadcast, recoverable) at pay time. Mitigations in practice: onchain-proof
+    // is always co-offered (and DOES create the ATA), `exact` + `autoRoute` are both off by default,
+    // and most merchant receive accounts already exist. 'n/a' is correct for onchain-proof; an
+    // exact-aware probe needs the token-program-correct ATA derivation (an extra mint-owner read)
+    // and is deferred as disproportionate to this opt-in edge.
     async recipientReady() {
       return { ready: 'n/a' as const }
     },

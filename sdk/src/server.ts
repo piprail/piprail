@@ -32,6 +32,9 @@ import {
   buildChallengeHeader,
   buildReceiptHeader,
   buildReceiptExtension,
+  buildPaymentIdentifierAdvertisement,
+  readPaymentIdentifier,
+  EXT_PAYMENT_IDENTIFIER,
   parseSignatureObject,
   parseExactObject,
   parseUptoObject,
@@ -334,6 +337,19 @@ export interface RequirePaymentOptions {
    * byte-identical default of before this feature). See {@link buildSelfDescription}.
    */
   selfDescribe?: boolean
+  /**
+   * Advertise + honor the standard x402 **`payment-identifier`** extension — an OPTIONAL
+   * idempotency `id` (16–128 chars `[A-Za-z0-9_-]`) the client attaches to its payload at
+   * `extensions['payment-identifier'].info.id`. When on, the gate advertises the extension on
+   * every 402 and, on submission, **dedupes the id on its existing used-proof set** (namespaced
+   * `pid:<id>`): a reused id bound to a different/already-settled payment is rejected
+   * (`tx_already_used`), a malformed id is re-challenged (`signature_invalid`), and the id is
+   * echoed back on the settled `PAYMENT-RESPONSE`. The id is ADDITIVE to — never a replacement
+   * for — the proof-set replay protection (a payment with no id is protected exactly as today).
+   * **Default off** (the challenge + verdict are byte-identical). Backendless: the dedupe rides
+   * the same in-memory / pluggable `isUsed`/`markUsed` store as a tx ref — no new state.
+   */
+  paymentIdentifier?: boolean
   /**
    * Emit a **verifiable receipt** on every settled payment — a self-contained
    * {@link PipRailReceipt} that the buyer keeps and **anyone** re-verifies against the
@@ -923,9 +939,13 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
       return options.isUsed ? Boolean(await options.isUsed(ref)) : false
     }
     // EVM tx hashes are case-insensitive hex → normalize for the default store
-    // (custom isUsed/markUsed above receive the RAW ref). The reserve below is
-    // synchronous (prune + has + set, no await), closing the concurrent double-redeem race.
-    const key = ref.toLowerCase()
+    // (custom isUsed/markUsed above receive the RAW ref). The `pid:` namespace is the
+    // deliberately case-SENSITIVE payment-identifier key (its ids match /[A-Za-z0-9_-]/ with no
+    // `i` flag), so it's exempt from lowercasing — else two distinct case-only-differing ids would
+    // collide and wrongly reject a legitimate second payment. Real proof refs never start `pid:`.
+    // The reserve below is synchronous (prune + has + set, no await), closing the concurrent
+    // double-redeem race.
+    const key = ref.startsWith('pid:') ? ref : ref.toLowerCase()
     const now = Date.now()
     pruneUsed(now)
     if (localUsed.has(key)) return true
@@ -939,7 +959,7 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
       if (ok && options.markUsed) await options.markUsed(ref)
       return
     }
-    if (!ok) localUsed.delete(ref.toLowerCase())
+    if (!ok) localUsed.delete(ref.startsWith('pid:') ? ref : ref.toLowerCase())
   }
 
   function buildAccept(s: ResolvedSpec, nonce: string): X402AcceptEntry {
@@ -1037,6 +1057,10 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     const bazaar = options.discovery
       ? { bazaar: buildBazaarExtension(options.discovery === true ? {} : options.discovery) }
       : undefined
+    // Opt-in `payment-identifier` advertisement (a SIBLING extension key — never inside `piprail`).
+    // Present in BOTH the body and the slim header so a client reads "I MAY send an idempotency id"
+    // before it pays. Absent (undefined → spreads to nothing) when the option is off → byte-identical.
+    const paymentIdAd = options.paymentIdentifier ? buildPaymentIdentifierAdvertisement() : undefined
     const accepts = buildAccepts(specs, nonce)
     // Self-describe block (default-ON; opt out with `selfDescribe: false`). It rides in the
     // response BODY only — additive metadata in the spec-opaque `extensions` bag a standard
@@ -1069,6 +1093,7 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     const bodyPiprail: Record<string, unknown> = { ...(selfDescribe ?? {}), ...rejectionPiprail }
     const bodyExtensions = {
       ...bazaar,
+      ...paymentIdAd,
       ...rejectionExt,
       ...(Object.keys(bodyPiprail).length > 0 ? { piprail: bodyPiprail } : {}),
     }
@@ -1079,6 +1104,7 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     // (a client reads the reason) — so the zero-config-path header stays byte-identical.
     const headerExtensions = {
       ...bazaar,
+      ...paymentIdAd,
       ...(Object.keys(rejectionPiprail).length > 0 ? { piprail: rejectionPiprail } : {}),
     }
     const challenge: X402Challenge = {
@@ -1390,7 +1416,24 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
       await settleTx(ref, false)
       return rejection(result.error, result.detail)
     }
-    await settleTx(ref, true)
+    // SECURITY (at-most-once): bind the replay set to the hash verify ACTUALLY validated
+    // (result.receipt.transaction), NOT the client-echoed sig.payload.txHash. Memo-bound families
+    // (XRPL/Stellar/TON/Algorand) locate the tx by payTo + nonce-in-memo and IGNORE the ref, and
+    // native NEAR decodes the hash out of a `<sender>:<hash>` ref — so a client could vary
+    // sig.payload.txHash under one reused (on-chain, public) nonce and re-redeem the SAME payment N
+    // times within the recency window. The verified hash is the real, un-forgeable single-use key.
+    // For digest-bound EVM/Solana `receipt.transaction === ref`, so this is a no-op there.
+    const verified = result.receipt.transaction
+    if (verified && verified !== ref) {
+      if (await claimTx(verified)) {
+        await settleTx(ref, false) // release the throwaway client-echo claim
+        return rejection('tx_already_used', `Payment ${verified} was already redeemed.`)
+      }
+      await settleTx(ref, false) // the verified hash is the real key — drop the client-echo one
+      await settleTx(verified, true)
+    } else {
+      await settleTx(ref, true)
+    }
     await deliverOnPaid(spec, result.receipt)
     // onchain-proof is memo/digest-bound by the CHALLENGE nonce the buyer echoed — stamp it
     // so Template-A families re-verify off-chain (the trusted value, never a client-forgeable field).
@@ -1740,10 +1783,10 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
    * Route an already-decoded PaymentPayload OBJECT to the right verifier (or a fresh
    * challenge). The pure dispatch over the object-accepting parser cores — shared by the
    * base64 `verify()` path (which decodes first) and the raw-JSON `verifyObject()` path.
-   * `verify()`/`verifyObject()` wrap it to fire the failure hook so EVERY rejection path
-   * is covered by one seam. `undefined`/`null` (no payload) → a fresh 402.
+   * `undefined`/`null` (no payload) → a fresh 402. UNCHANGED by the payment-identifier
+   * feature, which wraps this in {@link resolveVerdictObject}.
    */
-  async function resolveVerdictObject(obj: unknown): Promise<VerifyPaymentResult> {
+  async function routeVerdictObject(obj: unknown): Promise<VerifyPaymentResult> {
     if (obj === undefined || obj === null) return asChallenge()
 
     // 1) onchain-proof? A usable proof carries a v2 `accepted` with the network + asset
@@ -1771,6 +1814,72 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
 
     // Unparseable / legacy-with-no-`accepted` → a fresh 402, never a 500.
     return asChallenge()
+  }
+
+  /**
+   * Echo the accepted `payment-identifier` id back on a SETTLED verdict — decode the receipt
+   * header, merge the id into its `extensions` (preserving any `offer-receipt` block), re-encode.
+   * ISOLATED: a malformed/odd header falls back to the original verdict, never failing the 200.
+   */
+  function echoPaymentIdentifier(
+    result: Extract<VerifyPaymentResult, { kind: 'paid' }>,
+    id: string
+  ): VerifyPaymentResult {
+    try {
+      const decoded = decodeBase64Json(result.receiptHeader) as Record<string, unknown> | null
+      if (!decoded) return result
+      const { extensions: existing, ...receiptOnly } = decoded
+      const merged = {
+        ...((existing as Record<string, unknown>) ?? {}),
+        [EXT_PAYMENT_IDENTIFIER]: { info: { required: false, id } },
+      }
+      return { ...result, receiptHeader: buildReceiptHeader(receiptOnly as unknown as X402Receipt, merged) }
+    } catch {
+      return result
+    }
+  }
+
+  /**
+   * Resolve a verdict for a decoded payload OBJECT. The pure dispatch ({@link routeVerdictObject})
+   * shared by the base64 `verify()` path and the raw-JSON `verifyObject()` path — wrapped, when
+   * `paymentIdentifier` is on, with the OPTIONAL idempotency-id flow:
+   *   read + validate the id → claim `pid:<id>` on the SAME used-proof set as a tx ref → route →
+   *   keep the id claimed ONLY on a settled `paid` (else release it so the buyer can retry the
+   *   same id) → echo the id back on success.
+   * The id is ADDITIVE to the proof-set replay protection, never a replacement — with the option
+   * off (or no id present) this is exactly `routeVerdictObject`, byte-identical.
+   */
+  async function resolveVerdictObject(obj: unknown): Promise<VerifyPaymentResult> {
+    if (!options.paymentIdentifier) return routeVerdictObject(obj)
+    const id = readPaymentIdentifier(obj)
+    if (id !== null && typeof id === 'object') {
+      // Present but malformed → a conformant, client-fixable re-challenge. Reuse the existing
+      // `signature_invalid` code (a malformed submission) per ERRORS.md's closed code set.
+      return rejection('signature_invalid', `payment-identifier: ${id.invalid}.`)
+    }
+    if (id === null) return routeVerdictObject(obj) // no id → exactly as today
+    const idKey = 'pid:' + id
+    // Claim the id like a proof ref. A second use of the same id (the same proof re-presented OR a
+    // different payment) finds it already claimed → reject. The branch's own proof-set claim still
+    // runs and remains the sole replay authority for the PROOF itself.
+    if (await claimTx(idKey)) {
+      return rejection(
+        'tx_already_used',
+        `Idempotency id "${id}" is already bound to a settled payment; use a fresh id for a new payment.`
+      )
+    }
+    let result: VerifyPaymentResult
+    try {
+      result = await routeVerdictObject(obj)
+    } catch (err) {
+      // A thrown verify (transient RPC / settlement failure) RELEASES the id so the still-valid
+      // payment can be retried with the SAME id — mirroring how the branches release their nonce.
+      await settleTx(idKey, false)
+      throw err
+    }
+    // Keep the id claimed ONLY when the payment settled; a rejected proof releases it (retry-safe).
+    await settleTx(idKey, result.kind === 'paid')
+    return result.kind === 'paid' ? echoPaymentIdentifier(result, id) : result
   }
 
   return { challenge, verify, verifyObject, describe, landingPage }

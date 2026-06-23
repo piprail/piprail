@@ -60,8 +60,8 @@ import {
 } from './errors.js'
 
 /** The payment schemes a client can settle: PipRail's native `onchain-proof` (the
- *  default), the standard x402 `exact` rail (EVM EIP-3009/Permit2 + Solana SVM + Algorand,
- *  opt-in), and the standard x402 `upto` (metered) rail (EVM-Permit2, opt-in). */
+ *  default), the standard x402 `exact` rail (EVM EIP-3009/Permit2 + Solana SVM + Algorand
+ *  + Aptos + NEAR, opt-in), and the standard x402 `upto` (metered) rail (EVM-Permit2, opt-in). */
 export type PaymentScheme = 'onchain-proof' | 'exact' | 'upto'
 
 /** The scheme set when none is configured — `onchain-proof` only, so the zero-config
@@ -1318,7 +1318,8 @@ export class PipRailClient {
    *   before publishing, so retry with a brief backoff if a fresh listing is missing.
    * - Results are cross-scheme (mostly the mainstream `exact` scheme); `fetch()` pays
    *   `onchain-proof` rails by default, and standard `exact` rails too once you opt in
-   *   with `schemes: ['onchain-proof', 'exact']` (EVM EIP-3009/Permit2 + Solana SVM + Algorand).
+   *   with `schemes: ['onchain-proof', 'exact']` (EVM EIP-3009/Permit2 + Solana SVM + Algorand
+   *   + Aptos + NEAR).
    */
   async discover(opts: DiscoverOptions = {}): Promise<DiscoveredResource[]> {
     // searchOpenIndexes does the fan-out, server-side + client-side filters, and ranking;
@@ -1592,7 +1593,7 @@ export class PipRailClient {
       if (schemes.includes('exact') && exactOnNet && typeof net.payExact !== 'function') {
         throw new UnsupportedSchemeError(
           `This 402 offers a standard 'exact' rail on ${net.network}, but the ${net.family} ` +
-            `family can't pay 'exact' (supported on EVM, Solana, Algorand + NEAR today), and no 'onchain-proof' rail was offered.`
+            `family can't pay 'exact' (supported on EVM, Solana, Algorand, Aptos + NEAR today), and no 'onchain-proof' rail was offered.`
         )
       }
       // The dominant agent journey: a default (onchain-proof-only) client hits an exact-only
@@ -1669,6 +1670,16 @@ export class PipRailClient {
             a.scheme === 'exact' &&
             this.supportsNetwork(net, a.network) &&
             typeof net.payExact === 'function' &&
+            // `native` is never `exact`-payable on ANY family (exact = an EIP-3009/Permit2-style
+            // signed-authorization scheme a native coin can't support; every driver's payExact
+            // throws/returns-null for it). describeAsset('native') IS non-null (onchain-proof needs
+            // it), so without this guard a malformed 402 advertising a native `exact` rail would be
+            // gathered, planned `payable`, even chosen by autoRoute — then throw at pay time.
+            a.asset !== 'native' &&
+            // the exact pay path (payExact → driver) reads `extra.assetTransferMethod`; a malformed
+            // 402 offering an exact rail for a RECOGNISED token but omitting `extra` would otherwise
+            // be planned payable then throw a raw TypeError mid-pay. Require it at gather time.
+            typeof a.extra?.assetTransferMethod === 'string' &&
             net.describeAsset(a.asset) != null &&
             // a foreign rail's maxTimeoutSeconds must be a usable positive integer, or
             // signing it would build a NaN/garbage validBefore — drop it silently
@@ -1689,6 +1700,7 @@ export class PipRailClient {
             a.scheme === 'upto' &&
             this.supportsNetwork(net, a.network) &&
             typeof net.payUpto === 'function' &&
+            a.asset !== 'native' && // native is not upto-payable either (same reason as exact)
             net.describeAsset(a.asset) != null &&
             typeof a.extra?.facilitatorAddress === 'string' &&
             a.extra.facilitatorAddress.length > 0 &&

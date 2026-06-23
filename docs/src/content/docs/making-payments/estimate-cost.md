@@ -106,29 +106,26 @@ price, `estimateCost()` adds the gas, and [`planPayment()`](/making-payments/pla
 your balances against both and tells you whether the whole thing is settleable. If you want the
 verdict — not just the numbers — reach for `planPayment()`.
 
-## Never throws (for a transient RPC issue)
+## Never throws — returns `null` when there's nothing to cost
 
 Like every read-only method, `estimateCost` is safe to call speculatively. A transient RPC issue
 falls back to a `'heuristic'` constant rather than raising, so a flaky endpoint degrades the
 estimate's sharpness instead of crashing your agent.
 
-The one exception is a **malformed 402 envelope**: if the server returns 402 but its
-PAYMENT-REQUIRED body can't be parsed, `estimateCost` throws an
-[`InvalidEnvelopeError`](/errors/error-model/) — the same as [`quote()`](/making-payments/quote/).
-That's a broken endpoint, not a transient blip, so it surfaces rather than degrading silently.
+Unlike [`quote()`](/making-payments/quote/) (which **throws** an `InvalidEnvelopeError` on a
+malformed 402), `estimateCost` is a pure read that **never throws on a bad envelope** — it returns
+**`null`** instead. A non-402 response, an unparseable PAYMENT-REQUIRED body, or a parseable-but-
+malformed rail (bad amount/asset/decimals) all yield `null`, so a caller just checks for it. (A
+genuine "this client can't pay this scheme" signal — `UnsupportedSchemeError` / `NoCompatibleAcceptError`
+— still surfaces, since that's a routing fact, not a cost-read failure.)
 
 ```ts
-import { InvalidEnvelopeError } from '@piprail/sdk'
-
-try {
-  const result = await client.estimateCost('https://api.example.com/report')
+const result = await client.estimateCost('https://api.example.com/report')
+if (result) {
   // a bad RPC yields cost.basis: 'heuristic', not an exception
-  if (result) console.log(result.cost.feeFormatted, result.cost.feeSymbol)
-} catch (err) {
-  if (err instanceof InvalidEnvelopeError) {
-    console.warn('The 402 response was malformed — treat this endpoint as broken.')
-  } else {
-    throw err
-  }
+  console.log(result.cost.feeFormatted, result.cost.feeSymbol)
+} else {
+  // null = non-402, or a malformed/un-costable 402 envelope — nothing to estimate
+  console.warn('No cost to estimate (not gated, or a malformed 402).')
 }
 ```

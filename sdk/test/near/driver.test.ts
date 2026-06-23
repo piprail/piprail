@@ -111,3 +111,31 @@ describe('nearDriver.resolve — only claims the "near" selector', () => {
     expect(nearDriver.resolve({ chain: 'near' })).not.toBeNull()
   })
 })
+
+describe('nearDriver.estimateCost — the exact rail is buyer-gasless (so autoRoute prefers it)', () => {
+  const net = nearDriver.resolve({ chain: 'near' })!
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const accept = (scheme: 'onchain-proof' | 'exact'): any => ({
+    scheme,
+    network: net.network,
+    asset: USDC,
+    amount: '1000000',
+    payTo: PAY_TO,
+    maxTimeoutSeconds: 600,
+    extra: { decimals: 6 },
+  })
+
+  it('reports 0 buyer gas for an `exact` rail (the relayer prepays), basis estimated', async () => {
+    // BREAK-IT: against the pre-fix no-arg impl this returned 1_500_000_000_000_000_000_000 / 'heuristic'.
+    const cost = await net.estimateCost(accept('exact'))
+    expect(cost.fee).toBe('0')
+    expect(cost.feeSymbol).toBe('NEAR')
+    expect(cost.basis).toBe('estimated')
+  })
+
+  it('an `onchain-proof` rail keeps the real (non-zero) NEAR heuristic — the buyer broadcasts', async () => {
+    const cost = await net.estimateCost(accept('onchain-proof'))
+    expect(BigInt(cost.fee) > 0n).toBe(true)
+    expect(cost.basis).toBe('heuristic')
+  })
+})

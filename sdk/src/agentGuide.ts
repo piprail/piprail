@@ -39,8 +39,8 @@ A 402 may offer up to three rails; you don't choose per payment — the client d
   (the native coin — ETH/SOL/…). Works on every chain.
 - exact (the ratified x402 rail, opt-in): you only SIGN; the server — or a facilitator it chose
   (e.g. PayAI) — broadcasts it, so you pay ZERO gas (you need only the token, no native coin). It
-  works on EVM, Solana + Algorand, and the on-chain method (EIP-3009 / Permit2 / SVM / Algorand
-  fee-pooled group) is picked automatically.
+  works on EVM, Solana, Algorand, Aptos + NEAR, and the on-chain method (EIP-3009 / Permit2 / SVM /
+  Algorand fee-pooled group / Aptos fee-payer / NEAR SignedDelegateAction) is picked automatically.
 - upto (the metered/variable x402 rail, opt-in, EVM): the amount you see is a MAXIMUM — you sign
   a ceiling, the server meters real usage and settles the ACTUAL (<= the max). BUDGET AGAINST THE MAX:
   the plan/policy treat the ceiling as the spend (a server may charge up to it), so a payable plan

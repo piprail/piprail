@@ -152,6 +152,13 @@ describe('verifyNear — native NEAR (digest-bound)', () => {
     expect(res).toMatchObject({ ok: false, error: 'payment_expired' })
   })
 
+  it('BREAK-IT: a NaN/Infinity block time fails CLOSED (typeof number but unbounded age)', async () => {
+    for (const ts of [NaN, Infinity, -Infinity]) {
+      const res = await verifyNear({ ...ARGS, reader: reader(nativeTxView({ deposit: AMT, ts })), accept: nativeAccept(AMT) })
+      expect(res).toMatchObject({ ok: false, error: 'payment_expired' })
+    }
+  })
+
   it('rejects a native payment older than maxTimeoutSeconds', async () => {
     const res = await verifyNear({ ...ARGS, reader: reader(nativeTxView({ deposit: AMT, ts: Date.now() - 5000 * 1000 })), accept: nativeAccept(AMT) })
     expect(res).toMatchObject({ ok: false, error: 'payment_expired' })
