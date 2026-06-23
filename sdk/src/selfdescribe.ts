@@ -147,6 +147,17 @@ function railOf(a: X402AnyAccept): SelfDescribeRail {
  * `accepts[]`. PURE — every rail is derived from data the gate already has (no new
  * data, no I/O). `instruction` is the optional one-line human summary the gate computes
  * via `describeChallenge` (in `render.ts`) and passes in.
+ *
+ * INVARIANT — this block emits NO per-response DYNAMIC field (no nonce, timestamp, or
+ * other per-call value). It is long-lived, static metadata: brand-string constants plus
+ * values derived from the (static) resolved `accepts[]`. This matters for the x402
+ * `dynamicInfoFields` mechanism (x402-foundation #2655): an official client that
+ * echo-validates `extensions` does a SUBSET check — an UNDECLARED field that changes per
+ * response would trip `extension_echo_mismatch` and false-reject the buyer. If you EVER
+ * add a per-call value to this block, you MUST either (1) keep it out, or (2) declare it
+ * in a `dynamicInfoFields` list the echo check honours. See
+ * `.claude/plans/x402-maxout/05-additive-conformance.md` §4.3 — and the regression guard
+ * in `test/selfdescribe.test.ts` that fails the day a dynamic field appears here.
  */
 export function buildSelfDescription(input: {
   accepts: X402AnyAccept[]

@@ -316,7 +316,7 @@ export {
 //   REGISTER client.register(url) → 402 Index (no auth) [+ x402scan SIWX].
 //   DISCOVER client.discover({ query }) → read CDP Bazaar + 402 Index (free).
 // The piprail_discover / piprail_register agent tools expose this to an LLM/MCP.
-export { buildOpenApi, buildWellKnownX402, buildX402DnsTxt, buildBazaarExtension, GENERATOR } from './discovery.js'
+export { buildOpenApi, buildWellKnownX402, buildWellKnownX402Manifest, buildX402DnsTxt, buildBazaarExtension, GENERATOR } from './discovery.js'
 // Self-describing HTTP surfaces (discoverability plan Phase 2): the Link/x-powered-by header
 // bag + the human HTML landing page. Pure — the merchant serves them; the SDK serves nothing.
 export { discoveryHeaders, POWERED_BY } from './discovery.js'
@@ -328,6 +328,8 @@ export type {
   OpenApiDocument,
   OpenApiOperation,
   WellKnownX402,
+  WellKnownX402Manifest,
+  WellKnownX402Item,
   X402DnsRecord,
   DiscoveryDescriptor,
   BazaarExtension,

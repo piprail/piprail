@@ -151,6 +151,38 @@ export interface WellKnownX402 {
 }
 
 /**
+ * The official `/.well-known/x402.json` discovery manifest (x402-foundation PR #2646,
+ * "Well known x402 discovery" — **DO NOT MERGE YET / for discussion**). A RICHER origin
+ * file than the legacy {@link WellKnownX402}: per-item resource metadata + the resolved
+ * `accepts` + a lifted input/output contract. PipRail emits this as a SECOND,
+ * forward-compatible artifact — {@link buildWellKnownX402} (the x402scan legacy file) is
+ * left untouched, so nothing is pinned to an unstable spec. The merchant hosts the result
+ * at `<origin>/.well-known/x402.json`.
+ */
+export interface WellKnownX402Manifest {
+  x402Version: 2
+  /** Unix timestamp (seconds) the manifest was generated. */
+  lastUpdated: number
+  items: WellKnownX402Item[]
+}
+
+/** One resource in a {@link WellKnownX402Manifest}. The live 402 stays authoritative —
+ *  `accepts` here is advisory, nonce-free discovery metadata. */
+export interface WellKnownX402Item {
+  resource: { url: string; description?: string; mimeType?: string; serviceName?: string; tags?: string[] }
+  /** The transport the resource is paid over. PipRail emits `'http'` today. */
+  type: 'http' | 'mcp'
+  /** The payment options the gate offers (its resolved rails, nonce-free). */
+  accepts: PaymentRail[]
+  /** How to call the resource (lifted from the route config). */
+  input?: { method: string; routeTemplate?: string; pathParams?: Record<string, unknown>; queryParams?: Record<string, unknown> }
+  /** Output hint for a richer listing. */
+  output?: { mimeType?: string; example?: unknown }
+  /** Capability hints (extension keys) the resource requires, when any. */
+  requires?: string[]
+}
+
+/**
  * Describes a resource's INPUT for discovery. The open indexes that REQUIRE an
  * input schema (x402scan rejects a listing without one) read this from a
  * `extensions.bazaar` block. Pass it to a gate's `discovery` option (emits the
@@ -287,6 +319,35 @@ export function buildWellKnownX402(input: ManifestInput): WellKnownX402 {
     ...(input.ownershipProofs && input.ownershipProofs.length > 0
       ? { ownershipProofs: input.ownershipProofs }
       : {}),
+  }
+}
+
+/**
+ * Build the official `/.well-known/x402.json` manifest (x402-foundation PR #2646 shape) — a
+ * SECOND, richer discovery file beside the legacy {@link buildWellKnownX402}. Forward-compatible
+ * by design: it emits only the fields the proposal defines, tolerates the spec adding more, and
+ * pins nothing (the PR is explicitly pre-merge), so when #2646 stabilises only this one emitter
+ * (and the docs recommendation) move — no default ever changed. `lastUpdated` defaults to now
+ * (Unix seconds); pass it explicitly for a deterministic file. PURE — no network, no chain
+ * library, fully deterministic given its args. The merchant hosts the result; PipRail serves nothing.
+ */
+export function buildWellKnownX402Manifest(
+  input: ManifestInput & { lastUpdated?: number }
+): WellKnownX402Manifest {
+  return {
+    x402Version: 2,
+    lastUpdated: input.lastUpdated ?? Math.floor(Date.now() / 1000),
+    items: input.resources.map((r) => ({
+      resource: {
+        url: r.url,
+        ...(r.description ? { description: r.description } : {}),
+        ...(r.mimeType ? { mimeType: r.mimeType } : {}),
+      },
+      type: 'http' as const,
+      accepts: r.accepts,
+      input: { method: (r.method ?? 'GET').toUpperCase() },
+      ...(r.mimeType ? { output: { mimeType: r.mimeType } } : {}),
+    })),
   }
 }
 

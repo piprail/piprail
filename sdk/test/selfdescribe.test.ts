@@ -221,3 +221,41 @@ describe('buildEndpointInfo — assemble what-the-endpoint-does', () => {
     expect(ep && 'input' in ep).toBe(false)
   })
 })
+
+describe('dynamicInfoFields safety (#2655) — the self-describe block emits NO per-response dynamic field', () => {
+  it('two builds with identical input are DEEP-EQUAL (no nonce/timestamp/per-call value)', () => {
+    const a = buildSelfDescription({ accepts: [exactRail, onchainProof], instruction: 'pay 0.01 USDC on Base' })
+    const b = buildSelfDescription({ accepts: [exactRail, onchainProof], instruction: 'pay 0.01 USDC on Base' })
+    expect(a).toEqual(b)
+    // identical input → byte-identical serialization. The day someone adds a per-call value
+    // (a nonce/timestamp) here, THIS fails — forcing the dynamicInfoFields decision.
+    expect(JSON.stringify(a)).toBe(JSON.stringify(b))
+  })
+
+  it('does NOT leak the accept-level nonce into the block (railOf strips it)', () => {
+    // onchainProof carries extra.nonce 'n1' — a per-challenge value that must NOT land in
+    // long-lived self-describe metadata, or an official echo-validator would false-reject it.
+    const sd = buildSelfDescription({ accepts: [onchainProof] })
+    // The dynamic VALUE must not leak. (The static `how` instruction legitimately contains the
+    // WORD "nonce" — "...carrying the proof ref + nonce" — which is fine; it's not a per-call value.)
+    expect(JSON.stringify(sd)).not.toContain('"n1"')
+    expect(JSON.stringify(sd)).not.toContain('n1')
+  })
+
+  it('a verbatim echo is a subset of itself; DELETING an advertised key breaks the subset (extension_echo_mismatch)', () => {
+    // Mirror the official `objectContainsSubset` rule: the client echo must CONTAIN every
+    // advertised field (append OK, delete/change NOT). A static block echoed verbatim passes.
+    const sd = buildSelfDescription({ accepts: [exactRail] }) as unknown as Record<string, unknown>
+    const subset = (exp: unknown, act: unknown): boolean => {
+      if (exp === null || typeof exp !== 'object') return exp === act
+      if (act === null || typeof act !== 'object') return false
+      return Object.entries(exp as Record<string, unknown>).every(([k, v]) =>
+        k in (act as Record<string, unknown>) ? subset(v, (act as Record<string, unknown>)[k]) : v === undefined,
+      )
+    }
+    expect(subset(sd, { ...sd })).toBe(true) // verbatim echo passes
+    const deleted = { ...sd }
+    delete deleted.what // a client dropping an advertised field
+    expect(subset(sd, deleted)).toBe(false) // → would be extension_echo_mismatch
+  })
+})
