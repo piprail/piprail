@@ -49,6 +49,21 @@ describe('TON tokens — USDT yes, USDC no, custom jetton by master', () => {
   })
 })
 
+describe('TON verify() — never throws (ERRORS.md §5)', () => {
+  it('G3: a transient RPC failure deriving the jetton wallet → tx_not_found, never a throw', async () => {
+    // A dead RPC makes the get_wallet_address call reject; verify() must map it to a retryable
+    // tx_not_found, not let the throw escape. (Native accepts need no RPC to derive the watch.)
+    const net = tonDriver.resolve({ chain: 'ton', rpcUrl: 'http://127.0.0.1:1' })!
+    const accept = {
+      scheme: 'onchain-proof' as const, network: 'tvm:-239' as const, amount: '50000', asset: USDT_MASTER,
+      payTo: PAY_TO, maxTimeoutSeconds: 600,
+      extra: { nonce: 'n', decimals: 6, minConfirmations: 1, amountFormatted: '0.05', symbol: 'USDT' },
+    }
+    const res = await net.verify('ton:locator|n', accept)
+    expect(res).toMatchObject({ ok: false, error: 'tx_not_found' })
+  })
+})
+
 describe('cross-family guards (loud, on first use)', () => {
   it('rejects an EVM 0x payTo on a TON chain', async () => {
     const gate = createPaymentGate({

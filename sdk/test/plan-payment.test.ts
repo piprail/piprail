@@ -294,4 +294,15 @@ describe('F9 — native is never gathered as an exact/upto rail (plan-vs-pay con
     // …and the chosen rail is the USDC exact one, not native
     expect(plan.best?.accept.asset).toBe(USDC)
   })
+
+  it('G4: an exact rail for a RECOGNISED token but with NO `extra.assetTransferMethod` is NOT planned payable (would throw a raw TypeError mid-pay)', async () => {
+    net = { ...baseNet(), payExact: (async () => 'ref') } as unknown as ResolvedNetwork
+    // recognised token (USDC), valid timeout, but `extra` omits assetTransferMethod → the pay path
+    // would deref it and throw. It must be dropped at gather time.
+    const noMethod = { ...usdcAccept(), scheme: 'exact', extra: { decimals: 7, symbol: 'USDC', amountFormatted: '0.05' } } as unknown as X402AcceptEntry
+    stub402([noMethod])
+    const plan = (await client({ schemes: ['exact'] }).planPayment(URL))!
+    expect(plan.best ?? null).toBeNull() // nothing gathered → no payable rail
+    expect(plan.options.some((o) => o.accept.scheme === 'exact')).toBe(false)
+  })
 })

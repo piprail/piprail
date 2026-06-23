@@ -1676,6 +1676,10 @@ export class PipRailClient {
             // it), so without this guard a malformed 402 advertising a native `exact` rail would be
             // gathered, planned `payable`, even chosen by autoRoute — then throw at pay time.
             a.asset !== 'native' &&
+            // the exact pay path (payExact → driver) reads `extra.assetTransferMethod`; a malformed
+            // 402 offering an exact rail for a RECOGNISED token but omitting `extra` would otherwise
+            // be planned payable then throw a raw TypeError mid-pay. Require it at gather time.
+            typeof a.extra?.assetTransferMethod === 'string' &&
             net.describeAsset(a.asset) != null &&
             // a foreign rail's maxTimeoutSeconds must be a usable positive integer, or
             // signing it would build a NaN/garbage validBefore — drop it silently

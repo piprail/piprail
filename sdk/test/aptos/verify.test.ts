@@ -93,6 +93,14 @@ describe('verifyAptos — USDC (digest-bound)', () => {
     expect(res).toMatchObject({ ok: false, error: 'payment_expired' })
   })
 
+  it('BREAK-IT: a MISSING or NaN timestamp fails CLOSED (payment_expired) — Aptos is digest-bound, recency is load-bearing', async () => {
+    for (const ts of [undefined, NaN, Infinity] as unknown as number[]) {
+      const v = { ...view({ deposits: [{ store: STORE, amount: '50000' }] }), timestampSeconds: ts } as unknown as AptosTxView
+      const res = await verifyAptos({ reader: reader(v), hash: 'H1', accept: usdcAccept('50000') })
+      expect(res).toMatchObject({ ok: false, error: 'payment_expired' })
+    }
+  })
+
   it('reports tx_not_found when the tx is unknown/pending', async () => {
     const res = await verifyAptos({ reader: reader(null), hash: 'H1', accept: usdcAccept('50000') })
     expect(res).toMatchObject({ ok: false, error: 'tx_not_found' })
