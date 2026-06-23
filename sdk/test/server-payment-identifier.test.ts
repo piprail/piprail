@@ -127,6 +127,14 @@ describe('payment-identifier — BREAK IT: dedupe (rides the proof set, never we
     expect(((await pay(g, TX('1'), ID)) as { kind: string }).kind).toBe('paid')
     expect(await pay(g, TX('2'), ID)).toMatchObject({ kind: 'invalid', error: 'tx_already_used' })
   })
+  it('BREAK-IT: two case-only-differing ids are DISTINCT on the DEFAULT in-memory store (the pid: key must NOT be EVM-lowercased)', async () => {
+    // The id charset is case-SENSITIVE (/[A-Za-z0-9_-]/, no `i`), so these are two different ids.
+    // Before the fix the default store lowercased the `pid:` key (an EVM-tx-hash canonicalization),
+    // collapsing them → the second legitimate sale was wrongly rejected tx_already_used.
+    const g = gate()
+    expect(((await pay(g, TX('h'), 'PAY_IDENT_ABCDEF12')) as { kind: string }).kind).toBe('paid')
+    expect(((await pay(g, TX('i'), 'pay_ident_abcdef12')) as { kind: string }).kind).toBe('paid')
+  })
   it('same id + same proof re-presented → tx_already_used (proof replay still caught)', async () => {
     const g = gate()
     expect(((await pay(g, TX('3'), ID)) as { kind: string }).kind).toBe('paid')

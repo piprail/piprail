@@ -939,9 +939,13 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
       return options.isUsed ? Boolean(await options.isUsed(ref)) : false
     }
     // EVM tx hashes are case-insensitive hex → normalize for the default store
-    // (custom isUsed/markUsed above receive the RAW ref). The reserve below is
-    // synchronous (prune + has + set, no await), closing the concurrent double-redeem race.
-    const key = ref.toLowerCase()
+    // (custom isUsed/markUsed above receive the RAW ref). The `pid:` namespace is the
+    // deliberately case-SENSITIVE payment-identifier key (its ids match /[A-Za-z0-9_-]/ with no
+    // `i` flag), so it's exempt from lowercasing — else two distinct case-only-differing ids would
+    // collide and wrongly reject a legitimate second payment. Real proof refs never start `pid:`.
+    // The reserve below is synchronous (prune + has + set, no await), closing the concurrent
+    // double-redeem race.
+    const key = ref.startsWith('pid:') ? ref : ref.toLowerCase()
     const now = Date.now()
     pruneUsed(now)
     if (localUsed.has(key)) return true
@@ -955,7 +959,7 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
       if (ok && options.markUsed) await options.markUsed(ref)
       return
     }
-    if (!ok) localUsed.delete(ref.toLowerCase())
+    if (!ok) localUsed.delete(ref.startsWith('pid:') ? ref : ref.toLowerCase())
   }
 
   function buildAccept(s: ResolvedSpec, nonce: string): X402AcceptEntry {
