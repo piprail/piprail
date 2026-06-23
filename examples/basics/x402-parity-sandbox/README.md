@@ -1,8 +1,8 @@
 # x402-parity sandbox — live proof the **published** SDK + MCP work
 
-A self-contained harness that exercises PipRail's x402-parity + 2.14.0 features **and adversarially
+A self-contained harness that exercises PipRail's x402-parity + 2.14.x features **and adversarially
 tries to break them**, against the **real npm packages** — not the workspace build. It installs
-`@piprail/sdk@2.14.0` + `@piprail/mcp@0.9.0` from the registry (a guard in `lib/env.mjs` throws if
+`@piprail/sdk@2.14.1` + `@piprail/mcp@0.9.0` from the registry (a guard in `lib/env.mjs` throws if
 the SDK ever resolves to the workspace), so a green run is a guarantee about *what `npm i
 @piprail/sdk` actually ships*. **15 suites, ~1,000+ assertions** — see [`FINDINGS.md`](./FINDINGS.md)
 for what the break-it pass turned up and [`HARNESS.md`](./HARNESS.md) for how to add a suite.
@@ -41,7 +41,7 @@ for what the break-it pass turned up and [`HARNESS.md`](./HARNESS.md) for how to
 ## Run it
 
 ```bash
-npm install         # pulls the PUBLISHED @piprail/sdk@2.14.0 + @piprail/mcp@0.9.0
+npm install         # pulls the PUBLISHED @piprail/sdk@2.14.1 + @piprail/mcp@0.9.0
 npm test            # all 15 suites (offline); live legs need the wallet + PIPRAIL_LIVE=1
 
 PIPRAIL_LIVE=1 node suites/07-payment-identifier.mjs   # one suite, live on Base mainnet

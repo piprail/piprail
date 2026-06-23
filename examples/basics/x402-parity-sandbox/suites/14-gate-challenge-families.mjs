@@ -162,6 +162,12 @@ group('(3) adversarial amounts — each throws OR yields a clean base-unit integ
     { amt: 'NaN', mustThrow: true },                      // the literal NaN — reject
     { amt: 'Infinity', mustThrow: true },                 // the literal Infinity — reject
     { amt: '0x10', mustThrow: true },                     // hex — reject
+    // 2.14.1 (F-B1): scientific notation is REJECTED for a merchant amount — '1e3' must NOT be
+    // silently read as 1000 tokens (parseUnits no longer expands sci-notation; floorUnits still does).
+    { amt: '1e3', mustThrow: true },
+    { amt: '1E3', mustThrow: true },
+    { amt: '1.2e3', mustThrow: true },
+    { amt: '5e-7', mustThrow: true },
   ]
   for (const { amt, mustThrow } of cases) {
     let threw = false, emitted = null, errName = ''

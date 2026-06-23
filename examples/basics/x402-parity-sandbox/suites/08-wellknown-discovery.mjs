@@ -112,22 +112,17 @@ group('manifest — hostile input: a plain throw is OK, but NEVER a NaN lastUpda
     ['number input', 42],
   ]
   for (const [label, inp] of hostile) {
-    let threw = false, out
-    try { out = buildWellKnownX402Manifest(inp) } catch { threw = true }
-    if (threw) {
-      check(true, `manifest(${label}) → threw a plain Error (acceptable for a pure builder; no corrupt object)`)
-    } else {
-      // If it DID return something, it must be a well-formed manifest with a real integer lastUpdated.
-      const ok = out?.x402Version === 2 && Array.isArray(out?.items) && Number.isSafeInteger(out?.lastUpdated)
-      check(ok, `manifest(${label}) → returned a well-formed manifest (x402Version:2, items[], int lastUpdated)`)
-    }
+    let threw = false, code = '', out
+    try { out = buildWellKnownX402Manifest(inp) } catch (e) { threw = true; code = e?.code }
+    // 2.14.1 (F-C1): a missing/non-array `resources` is now a TYPED InvalidConfigError, not a raw
+    // "Cannot read properties of … (reading 'map')" TypeError.
+    check(threw && code === 'INVALID_CONFIG', `manifest(${label}) → typed InvalidConfigError (code INVALID_CONFIG), not a raw TypeError`)
   }
-  // Adversarial lastUpdated: a caller passing NaN must not produce a NaN that poisons the doc silently.
-  // (We assert the OBSERVED behavior is deterministic, not a crash mid-build.)
-  let nanOut, nanThrew = false
-  try { nanOut = buildWellKnownX402Manifest({ origin: 'https://x.com', resources: [], lastUpdated: Number.NaN }) } catch { nanThrew = true }
-  check(nanThrew || nanOut?.x402Version === 2, 'manifest(lastUpdated:NaN) does not crash mid-build — returns a manifest or throws cleanly')
-  if (nanOut) note(`lastUpdated:NaN passed through as ${nanOut.lastUpdated} (caller-supplied; not the builder's default path)`)
+  // 2.14.1 (F-D4): a caller passing a non-finite lastUpdated no longer passes through to serialize as
+  // JSON null — it falls back to a real now() integer.
+  const nanOut = buildWellKnownX402Manifest({ origin: 'https://x.com', resources: [], lastUpdated: Number.NaN })
+  check(nanOut?.x402Version === 2 && Number.isFinite(nanOut?.lastUpdated), 'manifest(lastUpdated:NaN) → a FINITE lastUpdated (coerced to now), never NaN')
+  check(JSON.parse(JSON.stringify(nanOut)).lastUpdated !== null, 'the serialized manifest never carries lastUpdated:null')
 }
 
 // ───────────────────────── buildWellKnownX402 (v1 mirror) ─────────────────────────
@@ -224,6 +219,9 @@ group('buildX402DnsTxt — _x402.<host> TXT record')
 group('DIRECTORY_INFO / getDirectoryInfo — the honest per-source facts')
 {
   check(typeof DIRECTORY_INFO === 'object' && DIRECTORY_INFO !== null, 'DIRECTORY_INFO is an object')
+  // 2.14.1 (F-D2): DIRECTORY_INFO is Object.freeze'd at runtime, matching its Readonly<> type —
+  // a consumer can't mutate the shared const.
+  check(Object.isFrozen(DIRECTORY_INFO), 'DIRECTORY_INFO is Object.frozen (a consumer cannot mutate the shared table)')
   for (const src of ['402index', 'x402scan', 'bazaar']) {
     const info = getDirectoryInfo(src)
     check(info?.source === src, `getDirectoryInfo('${src}').source === '${src}'`)

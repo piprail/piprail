@@ -299,25 +299,30 @@ group('offline — agentGuide() / PIPRAIL_AGENT_GUIDE')
   }
 }
 
-// ───────────────────────── OFFLINE — CHARACTERIZATION: never-throw contract violations (KNOWN BUG 2.14.0) ───
-// classifyChallenge's doc-comment says "Bucket challenge.accepts[] … Never throws"; describeChallenge's
-// says an empty `accepts` "degrades to a generic pointer" and the renderer is reachable from
-// renderLandingPage / the self-describe block (where a FOREIGN 402's shape isn't guaranteed). Both throw a
-// raw TypeError on a nullish / shapeless challenge — they read `.accepts` (classify) and `accepts[0]`
-// (describe) with NO guard. This is a GENUINE never-throw violation in the published 2.14.0 artifact
-// (see FINDINGS.md → F-A1/F-A2). We CHARACTERIZE the current (buggy) behaviour so the harness is green
-// against live 2.14.0 AND records the bug loudly; when the 2.14.1 guard lands, flip these to expect 'ok'.
-const isTypeError = (s) => s.startsWith('THREW:TypeError')
-group('offline — CHARACTERIZE the KNOWN 2.14.0 never-throw bug (flip to "ok" once 2.14.1 guards land)')
+// ───────────────────────── OFFLINE — the never-throw contract HOLDS (F-A1/F-A2, fixed in 2.14.1) ─────────────
+// classifyChallenge's doc-comment says "Never throws"; describeChallenge's says an empty `accepts`
+// "degrades to a generic pointer". Both are reachable from renderLandingPage / the self-describe block
+// where a FOREIGN 402's shape isn't guaranteed. 2.14.1 guards `accepts` so a nullish / shapeless
+// challenge degrades to a verdict / pointer instead of throwing a raw TypeError.
+group('offline — classifyChallenge / describeChallenge NEVER throw on a nullish/shapeless challenge (F-A1/F-A2)')
 {
   const opts = { network: 'eip155:8453', schemes: ['onchain-proof'] }
-  check(isTypeError(await threw(() => classifyChallenge(null, opts))), 'KNOWN BUG 2.14.0: classifyChallenge(null) throws a TypeError despite its "Never throws" doc — characterized; fix in 2.14.1')
-  check(isTypeError(await threw(() => classifyChallenge(undefined, opts))), 'KNOWN BUG 2.14.0: classifyChallenge(undefined) throws a TypeError (same root: unguarded .accepts read)')
-  check(isTypeError(await threw(() => describeChallenge({}))), 'KNOWN BUG 2.14.0: describeChallenge({}) throws reading accepts[0] — doc promises "degrades to a generic pointer"')
-  check(isTypeError(await threw(() => describeChallenge({ accepts: null }))), 'KNOWN BUG 2.14.0: describeChallenge({accepts:null}) throws (effectively-empty accepts not tolerated)')
-  check(isTypeError(await threw(() => describeChallenge({ accepts: undefined }))), 'KNOWN BUG 2.14.0: describeChallenge({accepts:undefined}) throws')
-  // The one shape that DOES degrade gracefully today — the contract's happy path — still works:
-  check((await threw(() => describeChallenge({ accepts: [] }))) === 'ok', 'describeChallenge({accepts:[]}) (an EMPTY array) DOES degrade to a generic pointer (the documented path that works)')
+  for (const bad of [null, undefined, {}, { accepts: null }, { accepts: undefined }, 'nope', 42]) {
+    const lbl = JSON.stringify(bad) ?? String(bad)
+    const r = await threw(() => classifyChallenge(bad, opts))
+    check(r === 'ok', `classifyChallenge(${lbl}) does not throw → degrades to a verdict`)
+    // and the verdict is the sane NO_RAIL bucket, not garbage
+    let v; try { v = classifyChallenge(bad, opts) } catch { v = null }
+    check(v?.verdict === 'NO_RAIL' && v.onClientChain === false, `classifyChallenge(${lbl}) → verdict NO_RAIL`)
+  }
+  for (const bad of [null, undefined, {}, { accepts: null }, { accepts: undefined }, { accepts: [] }]) {
+    const lbl = JSON.stringify(bad) ?? String(bad)
+    check((await threw(() => describeChallenge(bad))) === 'ok', `describeChallenge(${lbl}) does not throw → generic pointer`)
+    let s = ''; try { s = describeChallenge(bad) } catch { s = '' }
+    check(typeof s === 'string' && /x402 payment endpoint/.test(s), `describeChallenge(${lbl}) → a usable pointer string`)
+  }
+  // a nullish opts also degrades (the second arg is no longer assumed present)
+  check((await threw(() => classifyChallenge({ accepts: [] }, undefined))) === 'ok', 'classifyChallenge(challenge, undefined opts) does not throw')
 }
 
 // ───────────────────────── LIVE (Base mainnet, READ-ONLY — money-free RPC read) ─────────────────────────

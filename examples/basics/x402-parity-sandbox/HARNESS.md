@@ -1,6 +1,6 @@
 # Break-it harness primer (x402-parity-sandbox)
 
-This sandbox tests the **PUBLISHED** `@piprail/sdk@2.14.0` + `@piprail/mcp@0.9.0` npm artifacts —
+This sandbox tests the **PUBLISHED** `@piprail/sdk@2.14.1` + `@piprail/mcp@0.9.0` npm artifacts —
 NOT the workspace build. `lib/env.mjs` throws if `@piprail/sdk` resolves outside this folder, so
 every suite imports the bare specifier `@piprail/sdk` and gets the real published package.
 

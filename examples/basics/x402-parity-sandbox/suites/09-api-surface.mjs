@@ -168,12 +168,14 @@ group('the CommonJS entry resolves and exposes the SAME export-name set as ESM')
 }
 
 // ───────────────────────── (5) PACKAGE.JSON SUBPATH WART ─────────────────────────
-group('package hygiene: the exports map omits ./package.json (a known wart)')
+group('package hygiene: the exports map exposes ./package.json (F-D3, fixed in 2.14.1)')
 {
-  let threw = false, code = null
-  try { require('@piprail/sdk/package.json') } catch (e) { threw = true; code = e?.code }
-  check(threw && code === 'ERR_PACKAGE_PATH_NOT_EXPORTED',
-    'WART: require("@piprail/sdk/package.json") throws ERR_PACKAGE_PATH_NOT_EXPORTED (exports map omits ./package.json)')
+  // 2.14.1 (F-D3): the exports map now includes "./package.json": "./package.json", so
+  // version-introspection tooling can read it instead of hitting ERR_PACKAGE_PATH_NOT_EXPORTED.
+  let pkg = null, threw = false
+  try { pkg = require('@piprail/sdk/package.json') } catch { threw = true }
+  check(!threw, 'require("@piprail/sdk/package.json") resolves (no ERR_PACKAGE_PATH_NOT_EXPORTED)')
+  check(pkg?.name === '@piprail/sdk' && typeof pkg?.version === 'string', 'it returns the real package.json (name + version readable)')
 }
 
 // ───────────────────────── (6) SHIPPED TYPES ─────────────────────────
