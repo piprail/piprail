@@ -199,4 +199,23 @@ describe('estimateCost — exact + upto rails are buyer-gasless across families 
     const c = await tronDriver.resolve({ chain: 'tron' })!.estimateCost(exactAccept('tron:mainnet', 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t'))
     expect(BigInt(c.fee) > 0n).toBe(true)
   })
+
+  // BREAK-IT: a hostile/malformed 402 may offer an EVM exact rail for a RECOGNISED token (so it
+  // survives the gather) yet OMIT the `extra` block entirely. estimateCost is a never-throw read
+  // (ERRORS.md) — pre-fix `accept.extra.assetTransferMethod` threw a raw TypeError out of the
+  // public client.estimateCost(url). It must still return a well-formed gasless estimate.
+  it('EVM exact accept with NO `extra` block → gasless estimate, never a raw TypeError', async () => {
+    const net = evmDriver.resolve({ chain: 'base', rpcUrl: DEAD })!
+    const noExtra = {
+      scheme: 'exact',
+      network: 'eip155:8453',
+      amount: '50000',
+      asset: USDC_BASE,
+      payTo: 'recipient',
+      maxTimeoutSeconds: 600,
+      // NO `extra` key
+    } as unknown as X402AnyAccept
+    const c = await net.estimateCost(noExtra)
+    expect(c).toMatchObject({ feeSymbol: 'ETH', feeDecimals: 18, fee: '0', basis: 'estimated' })
+  })
 })

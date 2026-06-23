@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { Keypair } from '@solana/web3.js'
-import { createPaymentGate, WrongFamilyError } from '../src/index.js'
+import { createPaymentGate, WrongFamilyError, UnsupportedNetworkError } from '../src/index.js'
 import { familyForChain } from '../src/drivers/registry.js'
 import { solanaDriver } from '../src/drivers/solana/index.js'
+import { evmDriver } from '../src/drivers/evm/index.js'
 
 describe('familyForChain — one parameter picks the family', () => {
   it('routes EVM names + custom configs to evm', () => {
@@ -88,5 +89,38 @@ describe('Solana wallet binding (driver bindWallet → toKeypair)', () => {
     expect(() => net.bindWallet({ key: kp.secretKey })).not.toThrow()
     // a pre-v2 field name → WrongFamilyError (message mentions Solana + the { key } fix)
     expect(() => net.bindWallet({ privateKey: `0x${'1'.repeat(64)}` })).toThrow(/Solana/)
+  })
+})
+
+describe('EVM driver — typed errors at the boundary (validate-early + two-channel contract)', () => {
+  it('F10: a custom token with a non-0x (Tron-style) address → typed WrongFamilyError, never a raw viem throw later', () => {
+    const net = evmDriver.resolve({ chain: 'base' })!
+    let err: unknown
+    try {
+      net.resolveToken({ address: 'TJY3rE5KZUgN2wQ4yU2YVbcwjJ5e8r3wWz' as `0x${string}`, decimals: 6 })
+    } catch (e) {
+      err = e
+    }
+    expect(err).toBeInstanceOf(WrongFamilyError)
+    expect((err as WrongFamilyError).code).toBe('WRONG_FAMILY')
+  })
+
+  it('F10: a valid custom token address is checksum-normalized', () => {
+    const net = evmDriver.resolve({ chain: 'base' })!
+    const r = net.resolveToken({ address: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913' as `0x${string}`, decimals: 6 })
+    expect(r.asset).toBe('0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913') // EIP-55 checksum
+  })
+
+  it('F12: an unknown EVM chain NAME surfaces as a typed UnsupportedNetworkError (stable .code), not a raw Error', () => {
+    let err: unknown
+    try {
+      evmDriver.resolve({ chain: 'dogechain' })
+    } catch (e) {
+      err = e
+    }
+    expect(err).toBeInstanceOf(UnsupportedNetworkError)
+    expect((err as UnsupportedNetworkError).code).toBe('UNSUPPORTED_NETWORK')
+    // the helpful "built-in names" guidance is preserved inside the typed error
+    expect((err as Error).message).toMatch(/unknown chain|built-in|dogechain/i)
   })
 })
