@@ -104,7 +104,10 @@ export function formatSpendReport(summary: SpendSummary): string {
  * (shouldn't happen for a valid v2 challenge) degrades to a generic pointer.
  */
 export function describeChallenge(challenge: X402Challenge): string {
-  const first = challenge.accepts[0]
+  // Never throws: a nullish / shapeless `accepts` (a foreign or empty challenge) degrades to the
+  // generic pointer, exactly as a genuinely-empty `accepts:[]` does — the documented contract.
+  const accepts = Array.isArray(challenge?.accepts) ? challenge.accepts : []
+  const first = accepts[0]
   if (!first) {
     return `${BRAND.name} x402 payment endpoint. Pay with @piprail/sdk (${BRAND.sdkInstall}). Docs: ${BRAND.home}.`
   }
@@ -113,7 +116,7 @@ export function describeChallenge(challenge: X402Challenge): string {
   const extra: { amountFormatted?: string; symbol?: string } = first.extra ?? {}
   const amount = extra.amountFormatted ?? first.amount
   const token = extra.symbol ?? first.asset
-  const hasExact = challenge.accepts.some((a) => a.scheme === 'exact')
+  const hasExact = accepts.some((a) => a.scheme === 'exact')
   const standard = hasExact ? '; or any standard x402 client (an exact rail is offered)' : ''
   return (
     `${BRAND.name} x402 payment endpoint — pay ${amount} ${token} on ${first.network} to ${first.payTo}. ` +

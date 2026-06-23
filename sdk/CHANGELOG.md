@@ -4,6 +4,45 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.14.1] — 2026-06-24 — robustness & typed-error polish from a live-artifact break-it pass
+
+A small, fully-additive patch. After 2.14.0 shipped, the published npm artifact was put through an
+adversarial **break-it** pass from the examples (10 new suites, ~1,000+ assertions, run against the
+real `npm i @piprail/sdk` — not the workspace build; see
+`examples/basics/x402-parity-sandbox/FINDINGS.md`). Every security-critical and happy-path property
+held; this release tightens the robustness/contract edges it surfaced. **No default changes, no
+settled-payment outcome changes** — safe to bump.
+
+### Fixed
+
+- **`classifyChallenge` / `describeChallenge` now honour their documented "never throws" contract.**
+  A nullish or shapeless challenge (a *foreign* 402 reaching the self-describe / landing-page path)
+  previously threw a raw `TypeError` instead of degrading to a verdict / generic pointer. Both now
+  guard `accepts` and degrade gracefully. (F-A1/F-A2)
+- **A scientific-notation `amount` is rejected, not silently 1000×'d.** `createPaymentGate({ amount:
+  '1e3' })` used to be read as **1000 tokens**; `parseUnits` no longer expands scientific notation
+  for merchant amounts (`floorUnits` still does, for RPC dust reads) and throws on it. (F-B1)
+- **Typed config errors (ERRORS.md §5).** A new **`InvalidConfigError`** (`code: 'INVALID_CONFIG'`)
+  replaces the raw `viem`/`TypeError`s thrown for an invalid `amount` (non-string or non-decimal), a
+  missing `payTo`, or a non-array `resources` in `buildWellKnownX402Manifest`. (F-C1/F-C2)
+- **`buildWellKnownX402Manifest` no longer passes a non-finite `lastUpdated` through** to serialize
+  as JSON `null` — a `NaN`/`Infinity` falls back to now. (F-D4)
+- **`DIRECTORY_INFO` is now `Object.freeze`'d** at runtime, matching its `Readonly<>` type. (F-D2)
+- **The `exports` map now exposes `./package.json`**, so `require('@piprail/sdk/package.json')` (used
+  by version-introspection tooling) no longer throws `ERR_PACKAGE_PATH_NOT_EXPORTED`. (F-D3)
+
+### Added
+
+- **`InvalidConfigError`** — exported typed error for invalid merchant gate/manifest config.
+
+### Notes (verified by-design, not changed)
+
+- `client.estimateCost(url)` still **throws `NoCompatibleAcceptError`** when the client can't pay any
+  offered rail — a deliberate "this 402 isn't for you" signal (it returns `null` only for a non-402
+  or a malformed envelope). Docs clarified. (F-A3)
+- TON's native gas symbol is **`GRAM`** (the ticker after TON's 2026-06-15 governance rebrand), not a
+  bug. (F-D1)
+
 ## [2.14.0] — 2026-06-23 — x402-over-MCP transport, payment-identifier idempotency, the `.well-known/x402.json` manifest — and a deep three-pass security hardening of every chain
 
 A feature **and** hardening release. It adds the third official x402 transport, an opt-in

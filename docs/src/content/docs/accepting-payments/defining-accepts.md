@@ -35,10 +35,12 @@ requirePayment({ chain: 'base',   token: 'native', amount: '0.001', payTo: '0xYo
 requirePayment({ chain: 'solana', token: 'USDC',   amount: '0.10',  payTo: 'YourSolanaAddr' })
 ```
 
-`amount` is **human units**, given as a string — `'0.10'` is ten cents of a 6-decimal USDC, not
-ten base units. The SDK scales it to base units against the token's decimals, so you never write
-`100000`. See [Chains and tokens](/concepts/chains-and-tokens/) for the full token grammar and
-custom-token descriptors per family.
+`amount` is **human units**, given as a **plain-decimal string** — `'0.10'` is ten cents of a
+6-decimal USDC, not ten base units. The SDK scales it to base units against the token's decimals,
+so you never write `100000`. It must be a literal decimal: **scientific notation (`'1e3'`) is
+rejected** with an [`InvalidConfigError`](/errors/error-hierarchy/), never silently read as `1000`.
+See [Chains and tokens](/concepts/chains-and-tokens/) for the full token grammar and custom-token
+descriptors per family.
 
 ## Multi-rail — `accept[]`
 

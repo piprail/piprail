@@ -227,7 +227,7 @@ export interface DirectoryInfo {
  * `.chains`, `.onSuccess`, etc. {@link PipRailClient.register} projects the relevant
  * entry onto every {@link RegisterOutcome} (`visibility` + `note`).
  */
-export const DIRECTORY_INFO: Readonly<Record<DiscoverySource, DirectoryInfo>> = {
+export const DIRECTORY_INFO: Readonly<Record<DiscoverySource, DirectoryInfo>> = Object.freeze({
   '402index': {
     source: '402index',
     review: 'probe-sync',
@@ -267,7 +267,7 @@ export const DIRECTORY_INFO: Readonly<Record<DiscoverySource, DirectoryInfo>> = 
       'settles a payment. PipRail verifies locally with no facilitator, so a PipRail resource cannot be ' +
       'listed here (you can still READ Bazaar to find others). List on 402 Index or x402scan instead.',
   },
-}
+})
 
 /** Lifecycle facts for one open index (auth, chains, how soon a listing is
  *  findable, whether `discover()` reads it). See {@link DIRECTORY_INFO}. The param

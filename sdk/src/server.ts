@@ -25,7 +25,7 @@ import type { ResourceDescription, PaymentRail, DiscoveryDescriptor } from './di
 import { describeChallenge } from './render.js'
 import { buildSelfDescription, buildEndpointInfo } from './selfdescribe.js'
 import { renderLandingPage } from './landing.js'
-import { SettlementError, PipRailError } from './errors.js'
+import { SettlementError, PipRailError, InvalidConfigError } from './errors.js'
 import { settleViaFacilitator, fetchFacilitatorFeePayer } from './facilitator.js'
 import { firstKeylessFacilitator } from './facilitators.js'
 import {
@@ -652,7 +652,7 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
           const net = await resolveNetwork({ chain: a.chain, rpcUrl: a.rpcUrl ?? options.rpcUrl })
           const payTo = a.payTo ?? options.payTo
           if (!payTo) {
-            throw new Error(
+            throw new InvalidConfigError(
               `requirePayment: no payTo for chain ${net.network}. Set it on the ` +
                 `accept entry or pass a top-level payTo.`
             )

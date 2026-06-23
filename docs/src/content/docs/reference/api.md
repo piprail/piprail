@@ -190,6 +190,7 @@ Every thrown error is a typed `PipRailError` subclass with a stable `.code`.
 | `PipRailError` | class (base) |
 | `InsufficientFundsError`, `RecipientNotReadyError` | class |
 | `WrongChainError`, `WrongFamilyError`, `UnknownTokenError` | class |
+| `InvalidConfigError` | class |
 | `MissingDriverError`, `UnsupportedNetworkError`, `UnsupportedSchemeError` | class |
 | `PaymentTimeoutError`, `ConfirmationTimeoutError`, `MaxRetriesExceededError` | class |
 | `PaymentDeclinedError`, `InvalidEnvelopeError`, `NoCompatibleAcceptError` | class |
