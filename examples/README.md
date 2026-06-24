@@ -11,7 +11,7 @@ PipRail has **two sides**, a **zero-code** path for AI clients, and **discovery*
 
 No backend, no database, no fee. Verification is local, against your own RPC.
 
-> **Fastest start — scaffold a whole merchant:** `npm create piprail` generates a complete, deployable app (node / Cloudflare / Vercel) with your wallet baked in — see [`create-piprail`](../create-piprail). The folders below are the hand-wired building blocks it assembles.
+> **Fastest start — scaffold a whole merchant:** `npm create @piprail` generates a complete, deployable app (node / Cloudflare / Vercel) with your wallet baked in — see [`@piprail/create`](../create-piprail). The folders below are the hand-wired building blocks it assembles.
 
 ## 🔬 Why 402, not a raw transfer? (with vs without)
 

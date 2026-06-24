@@ -11,8 +11,8 @@ This walks the whole loop: stand up a paid endpoint, then pay it from an agent. 
 mainnet USDC on Base, but the only thing that changes for another chain is the `chain` value.
 
 :::tip[Fastest start — no code]
-Skip the manual wiring: [`create-piprail`](/getting-started/scaffolder/) scaffolds a complete,
-mainnet-ready merchant in one command — `npm create piprail@latest`. This page wires the **same
+Skip the manual wiring: [`@piprail/create`](/getting-started/scaffolder/) scaffolds a complete,
+mainnet-ready merchant in one command — `npm create @piprail`. This page wires the **same
 thing by hand** so you understand each piece.
 :::
 
