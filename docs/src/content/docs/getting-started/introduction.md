@@ -24,6 +24,12 @@ locally against your own RPC.
 There is no backend, no database, no auth, no dashboard, and **no fee**. It's a tool you `npm
 install`, not a platform you sign up for.
 
+:::tip[Just want to get paid?]
+The fastest path is [`create-piprail`](/getting-started/scaffolder/) — `npm create piprail@latest`
+scaffolds a complete, deployable merchant (no code, no key, no account). Or follow the
+[Quickstart](/getting-started/quickstart/) to wire it yourself.
+:::
+
 ## The one idea
 
 Most payment SDKs ship an **allowlist** — a fixed set of chains they bless, and a facilitator
