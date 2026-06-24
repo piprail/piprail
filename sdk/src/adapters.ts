@@ -44,6 +44,36 @@ function jsonResponse(body: unknown, status: number, headers?: Record<string, st
 }
 
 /**
+ * Re-wrap a served `Response` with the `payment-response` settlement headers added — a `Response`'s
+ * own headers are immutable, so the only way to add a header is to reconstruct. The subtlety is
+ * **`Set-Cookie`**: iterating a `Headers` object COMBINES same-name headers into one `", "`-joined
+ * value, which corrupts multiple cookies (and a single cookie can legitimately contain a comma — an
+ * `Expires` date). So copy every OTHER header normally, then re-append each cookie INDIVIDUALLY from
+ * `getSetCookie()`. That preserves N cookies on every runtime that exposes it (Node 18.14+,
+ * Cloudflare Workers, Deno, Bun); on an older runtime it falls back to the single combined value
+ * (best effort — at least one cookie survives, never a crash). The body, status, and statusText pass
+ * through untouched.
+ */
+function withSettlementHeaders(res: Response, receiptHeader: string): Response {
+  const headers = new Headers()
+  res.headers.forEach((value, key) => {
+    if (key.toLowerCase() !== 'set-cookie') headers.append(key, value) // set-cookie handled below
+  })
+  const src = res.headers as Headers & { getSetCookie?: () => string[] }
+  const cookies =
+    typeof src.getSetCookie === 'function'
+      ? src.getSetCookie()
+      : (() => {
+          const combined = res.headers.get('set-cookie')
+          return combined ? [combined] : []
+        })()
+  for (const cookie of cookies) headers.append('set-cookie', cookie)
+  headers.set(HEADER_RESPONSE, receiptHeader)
+  headers.set(HEADER_RESPONSE_V1, receiptHeader)
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers })
+}
+
+/**
  * The universal adapter: wrap a gate as a `fetch` handler `(request, ...rest) => Response`. Drop the
  * result into **any** runtime that hands a handler a `Request` and wants a `Response` back — Next.js
  * route handlers (`export const GET = …`), Netlify Functions, `Bun.serve({ fetch })`,
@@ -83,15 +113,11 @@ export function toFetchHandler(
     }
 
     if (result.kind === 'paid') {
+      // `gate.verify` read only the proof HEADER, never the body, so `serve` can still read a POST
+      // body. `withSettlementHeaders` adds the receipt headers while preserving the served body,
+      // status, and ALL headers (including multiple Set-Cookie — see its doc).
       const res = await serve(request, ...rest)
-      // Copy the served response and ADD the settlement headers. A `Response`'s own headers are
-      // immutable, so re-wrap (the canonical "add a header to a Response" idiom) — the body stream,
-      // status, statusText, and the merchant's own headers all pass through untouched. `gate.verify`
-      // read only the proof HEADER, never the body, so `serve` can still read a POST body.
-      const headers = new Headers(res.headers)
-      headers.set(HEADER_RESPONSE, result.receiptHeader)
-      headers.set(HEADER_RESPONSE_V1, result.receiptHeader)
-      return new Response(res.body, { status: res.status, statusText: res.statusText, headers })
+      return withSettlementHeaders(res, result.receiptHeader)
     }
     // 'challenge' | 'invalid' → a conformant 402 (full PaymentRequired so a standard client retries).
     return jsonResponse(result.challenge, 402, { [HEADER_REQUIRED]: result.requiredHeader })

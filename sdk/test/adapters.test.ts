@@ -82,6 +82,32 @@ describe('toFetchHandler — adversarial / edge cases', () => {
     expect(await res.text()).toBe('hi')
   })
 
+  it('preserves MULTIPLE Set-Cookie headers (not comma-combined) alongside the settlement header', async () => {
+    const handler = toFetchHandler(fakeGate(async () => paid()), () => {
+      const h = new Headers()
+      h.append('set-cookie', 'a=1; Path=/; HttpOnly')
+      // A cookie whose Expires value contains a COMMA — the exact case naive ", " splitting breaks.
+      h.append('set-cookie', 'b=2; Path=/; Expires=Wed, 09 Jun 2027 10:18:14 GMT')
+      return new Response('ok', { headers: h })
+    })
+    const res = await handler(new Request('https://x'))
+    expect(res.headers.getSetCookie()).toEqual([
+      'a=1; Path=/; HttpOnly',
+      'b=2; Path=/; Expires=Wed, 09 Jun 2027 10:18:14 GMT',
+    ])
+    expect(res.headers.get(HEADER_RESPONSE)).toBe('RCPT')
+  })
+
+  it('preserves a single Set-Cookie next to other headers', async () => {
+    const handler = toFetchHandler(fakeGate(async () => paid()), () =>
+      new Response('ok', { headers: { 'set-cookie': 'session=abc; Path=/', 'x-custom': 'y' } })
+    )
+    const res = await handler(new Request('https://x'))
+    expect(res.headers.getSetCookie()).toEqual(['session=abc; Path=/'])
+    expect(res.headers.get('x-custom')).toBe('y')
+    expect(res.headers.get(HEADER_RESPONSE)).toBe('RCPT')
+  })
+
   it('handles a null-body (204) served response without crashing', async () => {
     const handler = toFetchHandler(fakeGate(async () => paid()), () => new Response(null, { status: 204 }))
     const res = await handler(new Request('https://x'))
