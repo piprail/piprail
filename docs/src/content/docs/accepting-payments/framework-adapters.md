@@ -64,6 +64,10 @@ export default toWorker(gate, (request, env, ctx) => {
 })
 ```
 
+**Gate an existing backend** with [`proxyTo(origin)`](/accepting-payments/proxy/) as the `serve` — it
+forwards a paid request to your API in any language, untouched:
+`toWorker(gate, proxyTo('https://my-api.com'))`. The origin never sees an unpaid request.
+
 Express keeps its dedicated [`requirePayment`](/accepting-payments/require-payment-and-gate/)
 middleware. Prefer to wire it by hand — or on a non-`fetch` framework like Fastify? The exact
 three-step contract every adapter implements is below.

@@ -4,17 +4,19 @@
  * The CLI ({@link run}) collects the config, calls this, and writes the map to disk.
  *
  * The emitted app depends ONLY on `@piprail/sdk` (+ `express` for the node host). The merchant's
- * config — chain, token, amount, and the PUBLIC `payTo` address — is baked into `src/gate.mjs` as
- * literals (no env, no key), so it works at module scope on every runtime, including Workers.
+ * config — chain, token, amount, the PUBLIC `payTo` address, and (for a proxy) the origin URL — is
+ * baked into `src/gate.mjs` / the entry as literals (no env, no key), so it works at module scope on
+ * every runtime, including Workers. Every app self-describes (`/.well-known/x402` for agents) and
+ * shows a human a friendly landing page when opened in a browser.
  */
 
-export type Sell = 'api' | 'tip'
+export type Sell = 'api' | 'tip' | 'proxy'
 export type Host = 'node' | 'cloudflare' | 'vercel'
 
 export interface ScaffoldConfig {
   /** The generated package name. */
   name: string
-  /** What you're selling — a paywalled API endpoint, or an open tip jar. */
+  /** What you're selling — a paywalled endpoint, an open tip jar, or a gate in front of an existing API. */
   sell: Sell
   /** Mainnet chain to be paid on, e.g. `'base'`. NEVER a testnet (the scaffolder refuses testnets). */
   chain: string
@@ -22,20 +24,37 @@ export interface ScaffoldConfig {
   token: string
   /** Your receiving PUBLIC wallet address — no private key. */
   payTo: string
-  /** The fixed price (api) or the minimum (tip), human-readable, e.g. `'0.05'`. */
+  /** The fixed price (api/proxy) or the minimum (tip), human-readable, e.g. `'0.05'`. */
   amount: string
-  /** Where it will run. */
+  /** Where it will run. (`proxy` is edge-only: cloudflare or vercel.) */
   host: Host
+  /** REQUIRED for `sell: 'proxy'` — the existing backend the proxy gates (e.g. `https://api.me.com`). */
+  origin?: string
 }
 
 const SDK = '@piprail/sdk'
 
-/** The gated resource path + the unlocked JSON payload, per sell type. */
-function resourceOf(sell: Sell): { path: string; serve: string } {
-  return sell === 'tip'
-    ? { path: '/tip', serve: "{ thanks: true, message: 'Thank you for the tip!' }" }
-    : { path: '/report', serve: "{ unlocked: true, report: 'your premium content here' }" }
+/** The gated resource path + the unlocked JSON payload, per sell type. (Proxy gates every path.) */
+function resourceOf(sell: Sell): { path: string; payload: string } {
+  if (sell === 'tip') return { path: '/tip', payload: "{ thanks: true, message: 'Thank you for the tip!' }" }
+  if (sell === 'proxy') return { path: '/', payload: '' } // proxy forwards to the origin; no canned payload
+  return { path: '/report', payload: "{ unlocked: true, report: 'your premium content here' }" }
 }
+
+/** The `serve` expression for the fetch hosts: forward to the origin (proxy) or return the canned payload. */
+function serveExpr(cfg: ScaffoldConfig): string {
+  if (cfg.sell === 'proxy') return 'proxyTo(ORIGIN)'
+  return `() => Response.json(${resourceOf(cfg.sell).payload})`
+}
+
+/** The browser-detector both fetch templates use to show a human a landing page (vs JSON for agents). */
+const IS_BROWSER_GET = [
+  `function isBrowserGet(request) {`,
+  `  return request.method === 'GET' &&`,
+  `    !request.headers.get('payment-signature') && !request.headers.get('x-payment') &&`,
+  `    (request.headers.get('accept') || '').includes('text/html')`,
+  `}`,
+].join('\n')
 
 /** Render the whole project as (relative path → file content). */
 export function render(cfg: ScaffoldConfig): Map<string, string> {
@@ -98,7 +117,7 @@ function verifyFile(): string {
 }
 
 function nodeServer(cfg: ScaffoldConfig): string {
-  const { path, serve } = resourceOf(cfg.sell)
+  const { path, payload } = resourceOf(cfg.sell)
   return [
     `import express from 'express'`,
     `import { gate } from './gate.mjs'`,
@@ -110,10 +129,17 @@ function nodeServer(cfg: ScaffoldConfig): string {
     `app.get('/.well-known/x402', async (_req, res) => res.json(await gate.describe(RESOURCE)))`,
     ``,
     `app.get(RESOURCE, async (req, res) => {`,
-    `  const result = await gate.verify(req.headers['payment-signature'] ?? req.headers['x-payment'])`,
+    `  const proof = req.headers['payment-signature'] ?? req.headers['x-payment']`,
+    `  // A human opening the link in a browser (no proof yet)? Show a friendly page, not raw JSON.`,
+    `  if (!proof && (req.headers['accept'] || '').includes('text/html')) {`,
+    `    const { challenge } = await gate.challenge(RESOURCE)`,
+    `    res.setHeader('content-type', 'text/html; charset=utf-8')`,
+    `    return res.status(402).send(gate.landingPage(challenge))`,
+    `  }`,
+    `  const result = await gate.verify(proof)`,
     `  if (result.kind === 'paid') {`,
     `    res.setHeader('payment-response', result.receiptHeader)`,
-    `    return res.json(${serve})`,
+    `    return res.json(${payload})`,
     `  }`,
     `  res.setHeader('payment-required', result.requiredHeader)`,
     `  res.status(402).json(result.challenge)`,
@@ -125,21 +151,45 @@ function nodeServer(cfg: ScaffoldConfig): string {
   ].join('\n')
 }
 
-function cloudflareWorker(cfg: ScaffoldConfig): string {
-  const { path, serve } = resourceOf(cfg.sell)
-  return [
-    `import { toFetchHandler } from '${SDK}'`,
-    `import { gate } from './gate.mjs'`,
+/** The shared entry body for the fetch hosts (worker + vercel): discovery route, human landing, paid handler. */
+function fetchEntry(cfg: ScaffoldConfig, importPath: string): { imports: string; body: string } {
+  const { path } = resourceOf(cfg.sell)
+  const named = cfg.sell === 'proxy' ? 'toFetchHandler, proxyTo' : 'toFetchHandler'
+  const imports = [
+    `import { ${named} } from '${SDK}'`,
+    `import { gate } from '${importPath}'`,
+  ].join('\n')
+  const originLine = cfg.sell === 'proxy' ? `\nconst ORIGIN = ${JSON.stringify(cfg.origin ?? '')}` : ''
+  const body = [
+    `const RESOURCE = ${JSON.stringify(path)}${originLine}`,
+    `const paid = toFetchHandler(gate, ${serveExpr(cfg)})`,
     ``,
-    `const RESOURCE = ${JSON.stringify(path)}`,
-    `// toFetchHandler runs the whole 402 contract; we route /.well-known/x402 for agent discovery.`,
-    `const paid = toFetchHandler(gate, () => Response.json(${serve}))`,
+    `async function route(request, ...rest) {`,
+    `  const url = new URL(request.url)`,
+    `  if (url.pathname === '/.well-known/x402') return Response.json(await gate.describe(RESOURCE))`,
+    `  // A human opening the link in a browser (no proof yet)? Show a friendly page, not raw JSON.`,
+    `  if (isBrowserGet(request)) {`,
+    `    const { challenge } = await gate.challenge(RESOURCE)`,
+    `    return new Response(gate.landingPage(challenge), { status: 402, headers: { 'content-type': 'text/html; charset=utf-8' } })`,
+    `  }`,
+    `  return paid(request, ...rest)`,
+    `}`,
+    ``,
+    IS_BROWSER_GET,
+  ].join('\n')
+  return { imports, body }
+}
+
+function cloudflareWorker(cfg: ScaffoldConfig): string {
+  const { imports, body } = fetchEntry(cfg, './gate.mjs')
+  return [
+    imports,
+    ``,
+    body,
     ``,
     `export default {`,
-    `  async fetch(request, env, ctx) {`,
-    `    const url = new URL(request.url)`,
-    `    if (url.pathname === '/.well-known/x402') return Response.json(await gate.describe(RESOURCE))`,
-    `    return paid(request, env, ctx)`,
+    `  fetch(request, env, ctx) {`,
+    `    return route(request, env, ctx)`,
     `  },`,
     `}`,
     ``,
@@ -147,21 +197,17 @@ function cloudflareWorker(cfg: ScaffoldConfig): string {
 }
 
 function vercelFunction(cfg: ScaffoldConfig): string {
-  const { path, serve } = resourceOf(cfg.sell)
+  const { imports, body } = fetchEntry(cfg, '../src/gate.mjs')
   return [
-    `import { toFetchHandler } from '${SDK}'`,
-    `import { gate } from '../src/gate.mjs'`,
+    imports,
     ``,
     `export const config = { runtime: 'edge' }`,
     ``,
-    `const RESOURCE = ${JSON.stringify(path)}`,
-    `const paid = toFetchHandler(gate, () => Response.json(${serve}))`,
+    body,
     ``,
     `// A single Edge Function gates everything; vercel.json rewrites all paths here.`,
-    `export default async function handler(request) {`,
-    `  const url = new URL(request.url)`,
-    `  if (url.pathname === '/.well-known/x402') return Response.json(await gate.describe(RESOURCE))`,
-    `  return paid(request)`,
+    `export default function handler(request) {`,
+    `  return route(request)`,
     `}`,
     ``,
   ].join('\n')
@@ -239,6 +285,33 @@ function deployButton(cfg: ScaffoldConfig): string {
   ].join('\n')
 }
 
+/** A copy-paste "Pay" button for a web page — the shareable embed (api/tip only; a proxy is an API). */
+function embedSnippet(cfg: ScaffoldConfig): string {
+  if (cfg.sell === 'proxy') return ''
+  const { path } = resourceOf(cfg.sell)
+  return [
+    ``,
+    `## Share it — a payable link + an embed`,
+    ``,
+    `Your deployed URL **is** the shareable link: anyone who hits \`${path}\` (a person *or* an AI agent)`,
+    `is asked to pay, and unlocks it on payment. Drop this button on any web page to let a visitor pay`,
+    `with their browser wallet (e.g. MetaMask) — pure client-side, no backend:`,
+    ``,
+    '```html',
+    `<button id="pay">Pay ${cfg.amount} ${cfg.token}</button>`,
+    `<script type="module">`,
+    `  import { PipRailClient } from 'https://esm.sh/@piprail/sdk'`,
+    `  document.getElementById('pay').onclick = async () => {`,
+    `    // Sign with the visitor's injected wallet — never a raw key in a web page.`,
+    `    const client = new PipRailClient({ chain: ${JSON.stringify(cfg.chain)}, wallet: { walletClient } })`,
+    `    const res = await client.fetch('https://YOUR-DEPLOYED-URL${path}')`,
+    `    alert(JSON.stringify(await res.json()))`,
+    `  }`,
+    `</script>`,
+    '```',
+  ].join('\n')
+}
+
 function readme(cfg: ScaffoldConfig): string {
   const { path } = resourceOf(cfg.sell)
   let run: string
@@ -252,7 +325,16 @@ function readme(cfg: ScaffoldConfig): string {
     run =
       '```sh\nnpm install\nnpm run verify   # checks your config\nnpm run dev      # npx vercel dev (local)\nnpm run deploy   # npx vercel deploy (your Vercel account)\n```'
   }
-  const what = cfg.sell === 'tip' ? 'an open tip jar' : 'a paywalled endpoint'
+  const what =
+    cfg.sell === 'tip'
+      ? 'an open tip jar'
+      : cfg.sell === 'proxy'
+        ? `a payment gate in front of your existing API (\`${cfg.origin ?? ''}\`)`
+        : 'a paywalled endpoint'
+  const endpointLine =
+    cfg.sell === 'proxy'
+      ? `- **Gates:** every path → forwards **paid** requests to \`${cfg.origin ?? ''}\` (the origin never sees an unpaid one)`
+      : `- **Endpoint:** \`${path}\` (plus \`/.well-known/x402\` for agent discovery)`
   return [
     `# ${cfg.name}`,
     ``,
@@ -262,12 +344,13 @@ function readme(cfg: ScaffoldConfig): string {
     ``,
     `- **Chain / token:** ${cfg.chain} · ${cfg.token}`,
     `- **Pays to:** \`${cfg.payTo}\``,
-    `- **Endpoint:** \`${path}\` (plus \`/.well-known/x402\` for agent discovery)`,
+    endpointLine,
     ``,
     `## Run it`,
     ``,
     run,
     deployButton(cfg),
+    embedSnippet(cfg),
     ``,
     `## The whole integration`,
     ``,
@@ -277,8 +360,9 @@ function readme(cfg: ScaffoldConfig): string {
     gateFile(cfg).trim(),
     '```',
     ``,
-    `Change the price or wallet there and re-run \`npm run verify\`. Full docs:`,
-    `[docs.piprail.com](https://docs.piprail.com).`,
+    `Open the URL in a browser and you'll see a friendly **landing page**; an AI agent or \`curl\` gets`,
+    `the machine-readable \`402\`. Change the price or wallet in the gate and re-run \`npm run verify\`.`,
+    `Full docs: [docs.piprail.com](https://docs.piprail.com).`,
     ``,
   ].join('\n')
 }

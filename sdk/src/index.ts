@@ -113,7 +113,7 @@ export type { PaywallOptions, TipJarOptions } from './merchant.js'
 // response-out handler), `toWorker` is the `{ fetch }` export object (Cloudflare / Service Workers).
 // Both read the proof header in and write the right 402/200 + headers out (502 on a SettlementError),
 // forwarding any extra runtime args (env/ctx/params) to your handler. Express keeps `requirePayment`.
-export { toFetchHandler, toWorker } from './adapters.js'
+export { toFetchHandler, toWorker, proxyTo } from './adapters.js'
 export type { Serve } from './adapters.js'
 
 /* --------------- standard `exact` rail: Mode-B facilitator (server side) --------------- */

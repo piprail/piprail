@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   toFetchHandler,
   toWorker,
+  proxyTo,
   SettlementError,
   HEADER_SIGNATURE,
   HEADER_SIGNATURE_V1,
@@ -257,5 +258,58 @@ describe('toWorker — the { fetch } export object', () => {
     )
     const res = await worker.fetch(new Request('https://x'))
     expect(res.status).toBe(502)
+  })
+})
+
+describe('proxyTo — gate any existing backend', () => {
+  it('forwards method, path, query, and app headers to the origin; strips the proof headers', async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = []
+    const realFetch = globalThis.fetch
+    globalThis.fetch = (async (url: string, init: RequestInit) => {
+      calls.push({ url: String(url), init })
+      return new Response('origin-body', { status: 200, headers: { 'x-origin': '1' } })
+    }) as unknown as typeof fetch
+    try {
+      const serve = proxyTo('https://origin.example.com/') // trailing slash trimmed
+      const req = new Request('https://proxy.example.com/v1/data?q=7', {
+        method: 'POST',
+        body: 'payload',
+        headers: { [HEADER_SIGNATURE]: 'PROOF', 'content-type': 'text/plain', 'x-app': 'a' },
+      })
+      const res = await serve(req)
+      expect(calls).toHaveLength(1)
+      expect(calls[0]!.url).toBe('https://origin.example.com/v1/data?q=7')
+      expect(calls[0]!.init.method).toBe('POST')
+      const fwd = calls[0]!.init.headers as Headers
+      expect(fwd.get(HEADER_SIGNATURE)).toBeNull() // proof stripped, not leaked upstream
+      expect(fwd.get('x-app')).toBe('a') // app header forwarded faithfully
+      expect(await res.text()).toBe('origin-body')
+    } finally {
+      globalThis.fetch = realFetch
+    }
+  })
+
+  it('end-to-end via toFetchHandler: unpaid → 402 and the origin is NEVER called; paid → forwarded + receipt header', async () => {
+    let originCalls = 0
+    const realFetch = globalThis.fetch
+    globalThis.fetch = (async () => {
+      originCalls++
+      return new Response('the secret', { status: 200 })
+    }) as unknown as typeof fetch
+    try {
+      const unpaid = toFetchHandler(fakeGate(async () => challenge()), proxyTo('https://origin'))
+      const r1 = await unpaid(new Request('https://x/data'))
+      expect(r1.status).toBe(402)
+      expect(originCalls).toBe(0) // the origin never sees an unpaid request
+
+      const paidH = toFetchHandler(fakeGate(async () => paid()), proxyTo('https://origin'))
+      const r2 = await paidH(new Request('https://x/data'))
+      expect(r2.status).toBe(200)
+      expect(await r2.text()).toBe('the secret')
+      expect(r2.headers.get(HEADER_RESPONSE)).toBe('RCPT')
+      expect(originCalls).toBe(1)
+    } finally {
+      globalThis.fetch = realFetch
+    }
   })
 })

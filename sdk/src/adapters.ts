@@ -14,7 +14,8 @@
  *
  * Pure + browser-safe — Web `Request`/`Response`/`Headers` only (no viem, no `node:`). Express keeps
  * its dedicated {@link requirePayment} middleware; a Node-native framework with its own `req`/`reply`
- * (Fastify, …) drives `gate.verify()` directly (see the framework-adapters docs).
+ * (Fastify, …) drives `gate.verify()` directly (see the framework-adapters docs). {@link proxyTo} is a
+ * ready-made `serve` that forwards paid requests to an existing backend — gate any API, any language.
  */
 import type { PaymentGate, VerifyPaymentResult } from './server.js'
 import { SettlementError } from './errors.js'
@@ -136,4 +137,32 @@ export function toWorker(
   serve: Serve
 ): { fetch: (request: Request, ...rest: unknown[]) => Promise<Response> } {
   return { fetch: toFetchHandler(gate, serve) }
+}
+
+/**
+ * A {@link Serve} that forwards the (already-paid) request to an upstream `origin`, untouched — so you
+ * can put a payment gate in FRONT of an existing API in any language, without changing it. Preserves
+ * the method, path, query, body, and headers; strips the x402 proof headers so they don't leak
+ * upstream. The origin NEVER sees an unpaid request — the gate rejects those before `serve` runs.
+ * Compose with the adapters: `toWorker(gate, proxyTo('https://my-api.example.com'))`.
+ */
+export function proxyTo(origin: string): Serve {
+  const base = origin.replace(/\/+$/, '')
+  return (request) => {
+    const inUrl = new URL(request.url)
+    const target = base + inUrl.pathname + inUrl.search
+    const headers = new Headers(request.headers)
+    headers.delete(HEADER_SIGNATURE) // don't forward the payment proof to the origin
+    headers.delete(HEADER_SIGNATURE_V1)
+    const init: RequestInit & { duplex?: 'half' } = {
+      method: request.method,
+      headers,
+      redirect: 'manual',
+    }
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+      init.body = request.body
+      init.duplex = 'half' // required to stream a request body through fetch
+    }
+    return fetch(target, init)
+  }
 }

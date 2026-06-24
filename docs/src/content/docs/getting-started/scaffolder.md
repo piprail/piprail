@@ -23,7 +23,7 @@ no backend, no fee.
 
 ```sh
 npm create piprail -- my-shop \
-  --sell api \           # api (a paywall) | tip (a tip jar)
+  --sell api \           # api (paywall) | tip (tip jar) | proxy (gate an existing API — add --origin)
   --chain base \         # any mainnet chain @piprail/sdk supports
   --token USDC \
   --pay-to 0xYourPublicAddress \
@@ -57,7 +57,10 @@ export const gate = createPaywall({
 })
 ```
 
-It also serves `/.well-known/x402` so AI agents can **discover and price** your endpoint.
+It also serves `/.well-known/x402` so AI agents can **discover and price** your endpoint. Open the URL
+in a browser and you get a **friendly landing page** (for humans), while an agent or `curl` gets the
+machine-readable `402` (for machines). To gate an API you **already have** (any language), use
+`--sell proxy --origin <url>` → [Gate an existing API](/accepting-payments/proxy/).
 
 ## Verify, then run
 

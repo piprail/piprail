@@ -28,7 +28,7 @@ the same logic, framework-free.
 | `requirePayment` | fn | **Headline** |
 | `createPaymentGate` | fn | **Headline** |
 | `createPaywall`, `createTipJar` | fn | Presets — named sugar over `createPaymentGate` (fixed-price paywall / pay-what-you-want tip jar). See [Presets & self-test](/accepting-payments/merchant-presets/) |
-| `toFetchHandler`, `toWorker` | fn | Two adapters cover every `fetch` runtime — `toFetchHandler` (the universal `(request, …) => Response`: Next.js, Netlify, Bun, Deno, Vercel, Hono, Lambda) + `toWorker` (the `{ fetch }` export: Cloudflare / Service Workers). See [Framework adapters](/accepting-payments/framework-adapters/) |
+| `toFetchHandler`, `toWorker`, `proxyTo` | fn | Adapters for every `fetch` runtime — `toFetchHandler` (universal `(request, …) => Response`) + `toWorker` (the `{ fetch }` export). `proxyTo(origin)` is a `serve` that forwards paid requests to an existing backend → [gate any API](/accepting-payments/proxy/). See [Framework adapters](/accepting-payments/framework-adapters/) |
 | `deliverReceipt` | fn | Reliable receipt webhook — signed + retried POST to **your** endpoint |
 | `toInvalidBody` | fn | Deprecated |
 | `RequirePaymentOptions`, `AcceptOption`, `ExactRailOption` | type | carries `onPaid` / `onPaidError` / `awaitOnPaid` **and their failure mirrors `onFailed` / `onFailedError` / `awaitOnFailed`**; `mimeType` (→ v2 `resource.mimeType` + the self-describe `endpoint`) |

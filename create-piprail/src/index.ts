@@ -16,7 +16,7 @@ type FlagValue = string | boolean
 type Flags = Record<string, FlagValue>
 
 const VERSION = '0.1.0'
-const SELLS: readonly Sell[] = ['api', 'tip']
+const SELLS: readonly Sell[] = ['api', 'tip', 'proxy']
 const HOSTS: readonly Host[] = ['node', 'cloudflare', 'vercel']
 
 const HELP = `create-piprail — scaffold a self-hosted x402 merchant (accept stablecoin payments).
@@ -26,8 +26,9 @@ Usage:
   npx create-piprail [name] [options]
 
 Options:
-  --sell <api|tip>                  what you're selling (default: api)
-  --host <node|cloudflare|vercel>   where it runs (default: node)
+  --sell <api|tip|proxy>            what you're selling (default: api)
+  --host <node|cloudflare|vercel>   where it runs (default: node; cloudflare for proxy)
+  --origin <url>                    the existing API to gate (required for --sell proxy)
   --chain <chain>                   mainnet chain, e.g. base (default: base)
   --token <symbol>                  token to charge in (default: USDC)
   --amount <n> | --min <n>          price (api) or minimum (tip)
@@ -112,14 +113,29 @@ export async function run(argv: string[]): Promise<void> {
   name = (name || 'my-piprail-merchant').trim()
 
   let sell = strFlag(flags, 'sell') as Sell | undefined
-  if (!sell && interactive) sell = (await ask('What are you selling? (api | tip)', 'api')) as Sell
+  if (!sell && interactive) sell = (await ask('What are you selling? (api | tip | proxy)', 'api')) as Sell
   sell = sell ?? 'api'
   if (!SELLS.includes(sell)) throw new Error(`--sell must be one of: ${SELLS.join(', ')}`)
 
+  const hostDefault: Host = sell === 'proxy' ? 'cloudflare' : 'node'
   let host = strFlag(flags, 'host') as Host | undefined
-  if (!host && interactive) host = (await ask('Where will it run? (node | cloudflare)', 'node')) as Host
-  host = host ?? 'node'
+  if (!host && interactive) host = (await ask('Where will it run? (node | cloudflare | vercel)', hostDefault)) as Host
+  host = host ?? hostDefault
   if (!HOSTS.includes(host)) throw new Error(`--host must be one of: ${HOSTS.join(', ')}`)
+
+  // Proxy: gate an existing API. Needs an origin URL + an edge host (node isn't supported).
+  let origin: string | undefined
+  if (sell === 'proxy') {
+    if (host === 'node') {
+      throw new Error('`--sell proxy` runs on the edge — use `--host cloudflare` or `--host vercel` (not node).')
+    }
+    origin = strFlag(flags, 'origin')
+    if (!origin && interactive) origin = await ask('The existing API URL to gate (e.g. https://api.example.com)?')
+    origin = (origin || '').trim()
+    if (!origin) {
+      throw new Error('`--sell proxy` needs `--origin <url>` — the existing backend to put the gate in front of.')
+    }
+  }
 
   let chain = strFlag(flags, 'chain')
   if (!chain && interactive) chain = await ask('Which mainnet chain?', 'base')
@@ -152,7 +168,7 @@ export async function run(argv: string[]): Promise<void> {
   }
   const pkgName = basename(dir).toLowerCase().replace(/[^a-z0-9._-]/g, '-') || 'piprail-merchant'
 
-  const cfg: ScaffoldConfig = { name: pkgName, sell, chain, token, payTo, amount, host }
+  const cfg: ScaffoldConfig = { name: pkgName, sell, chain, token, payTo, amount, host, ...(origin ? { origin } : {}) }
   const files = render(cfg)
   for (const [rel, content] of files) {
     const full = join(dir, rel)
@@ -162,7 +178,7 @@ export async function run(argv: string[]): Promise<void> {
 
   const rel = name
   console.log('')
-  console.log(`Created ${pkgName} (${sell} on ${chain} ${token} -> ${payTo})`)
+  console.log(`Created ${pkgName} (${sell}${origin ? ' → ' + origin : ''} on ${chain} ${token} -> ${payTo})`)
   console.log('')
   console.log('Next:')
   console.log(`  cd ${rel}`)
@@ -171,10 +187,12 @@ export async function run(argv: string[]): Promise<void> {
   if (host === 'node') {
     console.log('  npm start             # serves the paid endpoint')
   } else {
-    console.log('  npm run dev           # wrangler dev (local)')
-    console.log('  npm run deploy        # deploy to YOUR Cloudflare account')
+    const provider = host === 'vercel' ? 'Vercel' : 'Cloudflare'
+    console.log(`  npm run dev           # ${host === 'vercel' ? 'vercel' : 'wrangler'} dev (local)`)
+    console.log(`  npm run deploy        # deploy to YOUR ${provider} account`)
   }
   console.log('')
+  console.log('Once deployed, your URL is itself a payable link — share it; anyone (human or AI agent) who hits it pays you.')
   console.log('Receiving needs only your public address — no key, no account. Docs: https://docs.piprail.com')
   console.log('')
 }

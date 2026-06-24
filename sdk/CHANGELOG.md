@@ -19,10 +19,13 @@ Make the *accept* side as terse as the *pay* side. All additive — the zero-con
   `{ fetch }` export for Cloudflare / Service Workers). One call runs the whole read-header →
   switch-on-`kind` → write-headers contract (502 on a `SettlementError`, never 402) and forwards any
   extra runtime args (`env`/`ctx`/`params`) to your handler. Express keeps `requirePayment`.
+- **`proxyTo(origin)`** — a ready-made `serve` that forwards a PAID request to an existing backend (any
+  language), untouched, stripping the proof headers; the origin never sees an unpaid request.
+  `toWorker(gate, proxyTo('https://my-api.com'))` puts a paywall in front of a whole API.
 - **`gate.selfTest()`** — a read-only, never-throw config check that resolves the gate's rails and
   reports `{ ok, rails, warnings }` (or `{ ok:false, error }`) without signing or sending. Powers a
   merchant's `npm run verify` and a scaffolder's post-deploy smoke step.
-- New exports: `createPaywall`, `createTipJar`, `toFetchHandler`, `toWorker`; types
+- New exports: `createPaywall`, `createTipJar`, `toFetchHandler`, `toWorker`, `proxyTo`; types
   `PaywallOptions`, `TipJarOptions`, `Serve`, `GateSelfTest`.
 
 ## [2.14.2] — 2026-06-24 — deeper element-level hardening (the 2.14.1 break-it pass, round two)

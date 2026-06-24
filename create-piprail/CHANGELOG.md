@@ -13,8 +13,8 @@ One command scaffolds a self-hosted, mainnet-by-default, agent-discoverable x402
 
 - **`npm create piprail` / `npx create-piprail`** — scaffold a self-hosted x402 merchant in one
   command. Flag-driven **and** interactive (Node `readline`; zero runtime dependencies).
-- **What you sell:** `--sell api` (a paywalled endpoint) or `--sell tip` (an open "pay ≥ a minimum"
-  tip jar).
+- **What you sell:** `--sell api` (a paywalled endpoint), `--sell tip` (an open "pay ≥ a minimum" tip
+  jar), or `--sell proxy` (gate an EXISTING API in any language via an edge proxy — pass `--origin`).
 - **Where it runs:** `--host node` (Express), `--host cloudflare` (Worker), or `--host vercel` (Edge
   Function) — each a complete, runnable app whose only dependency is `@piprail/sdk` (+ `express` for
   node).
@@ -25,8 +25,11 @@ One command scaffolds a self-hosted, mainnet-by-default, agent-discoverable x402
 - Every generated app ships **`npm run verify`** — a read-only `gate.selfTest()` that confirms the
   config without signing or sending — and serves **`/.well-known/x402`** so AI agents can discover +
   price it.
-- Flags: `--chain`, `--token`, `--amount` / `--min`, `--pay-to`, `--name`, `--force`, `--yes`/`-y`,
-  `--help`/`-h`, `--version`/`-v`.
+- **Human landing page** — a browser GET gets a friendly HTML page; an agent or `curl` gets the
+  machine-readable `402` JSON, from the same endpoint.
+- **Shareable embed** — the api / tip README includes a copy-paste browser "Pay" button.
+- Flags: `--chain`, `--token`, `--amount` / `--min`, `--pay-to`, `--origin`, `--name`, `--force`,
+  `--yes`/`-y`, `--help`/`-h`, `--version`/`-v`.
 
 > **Note:** the generated app depends on `@piprail/sdk` at `latest`. The merchant presets
 > (`createPaywall` / `createTipJar`) + `gate.selfTest()` it uses ship in the SDK release that
