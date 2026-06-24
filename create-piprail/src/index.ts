@@ -15,8 +15,30 @@ import { render, type Host, type ScaffoldConfig, type Sell } from './render.js'
 type FlagValue = string | boolean
 type Flags = Record<string, FlagValue>
 
+const VERSION = '0.1.0'
 const SELLS: readonly Sell[] = ['api', 'tip']
-const HOSTS: readonly Host[] = ['node', 'cloudflare']
+const HOSTS: readonly Host[] = ['node', 'cloudflare', 'vercel']
+
+const HELP = `create-piprail — scaffold a self-hosted x402 merchant (accept stablecoin payments).
+
+Usage:
+  npm create piprail@latest [name] [options]
+  npx create-piprail [name] [options]
+
+Options:
+  --sell <api|tip>                  what you're selling (default: api)
+  --host <node|cloudflare|vercel>   where it runs (default: node)
+  --chain <chain>                   mainnet chain, e.g. base (default: base)
+  --token <symbol>                  token to charge in (default: USDC)
+  --amount <n> | --min <n>          price (api) or minimum (tip)
+  --pay-to <address>                your PUBLIC receiving wallet address (required)
+  --force                           write into an existing directory
+  --yes, -y                         accept defaults, no prompts (CI)
+  --help, -h                        show this help
+  --version, -v                     print the version
+
+Example:
+  npm create piprail -- my-shop --sell api --chain base --pay-to 0xYou --host cloudflare --yes`
 
 /** A tiny argv parser: `--key value`, `--key=value`, `--flag`, plus positionals. */
 function parseArgs(argv: string[]): { flags: Flags; positional: string[] } {
@@ -38,6 +60,9 @@ function parseArgs(argv: string[]): { flags: Flags; positional: string[] } {
           flags[a.slice(2)] = true
         }
       }
+    } else if (a.startsWith('-') && a.length > 1) {
+      // short boolean flags, e.g. -y -h -v (and bundled forms like -hy)
+      for (const ch of a.slice(1)) flags[ch] = true
     } else {
       positional.push(a)
     }
@@ -67,6 +92,14 @@ async function ask(question: string, def?: string): Promise<string> {
 
 export async function run(argv: string[]): Promise<void> {
   const { flags, positional } = parseArgs(argv)
+  if (flags.help || flags.h) {
+    console.log(HELP)
+    return
+  }
+  if (flags.version || flags.v) {
+    console.log(VERSION)
+    return
+  }
   const yes = Boolean(flags.yes || flags.y)
   const interactive = Boolean(process.stdin.isTTY) && !yes
 
@@ -106,6 +139,11 @@ export async function run(argv: string[]): Promise<void> {
   payTo = (payTo || '').trim()
   if (!payTo) {
     throw new Error('A receiving wallet address is required: pass `--pay-to 0xYourPublicAddress` (or run interactively).')
+  }
+  // Light sanity check — a 0x address must be 40 hex chars. Non-EVM address shapes vary, so this only
+  // WARNS (never blocks); the generated `npm run verify` (gate.selfTest) is the authoritative check.
+  if (payTo.startsWith('0x') && !/^0x[0-9a-fA-F]{40}$/.test(payTo)) {
+    console.warn(`warning: "${payTo}" doesn't look like a valid 0x address (expected 0x + 40 hex). Double-check it, then run \`npm run verify\`.`)
   }
 
   const dir = resolve(process.cwd(), name)

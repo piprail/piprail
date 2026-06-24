@@ -9,7 +9,7 @@
  */
 
 export type Sell = 'api' | 'tip'
-export type Host = 'node' | 'cloudflare'
+export type Host = 'node' | 'cloudflare' | 'vercel'
 
 export interface ScaffoldConfig {
   /** The generated package name. */
@@ -41,16 +41,19 @@ function resourceOf(sell: Sell): { path: string; serve: string } {
 export function render(cfg: ScaffoldConfig): Map<string, string> {
   const files = new Map<string, string>()
   files.set('package.json', packageJson(cfg))
-  files.set('.gitignore', 'node_modules\ndist\n.env\n.dev.vars\n')
+  files.set('.gitignore', 'node_modules\ndist\n.env\n.dev.vars\n.vercel\n')
   files.set('.env.example', envExample())
   files.set('README.md', readme(cfg))
   files.set('src/gate.mjs', gateFile(cfg))
   files.set('src/verify.mjs', verifyFile())
   if (cfg.host === 'node') {
     files.set('src/server.mjs', nodeServer(cfg))
-  } else {
+  } else if (cfg.host === 'cloudflare') {
     files.set('src/worker.mjs', cloudflareWorker(cfg))
     files.set('wrangler.toml', wranglerToml(cfg))
+  } else {
+    files.set('api/x402.js', vercelFunction(cfg))
+    files.set('vercel.json', vercelJson())
   }
   return files
 }
@@ -143,6 +146,27 @@ function cloudflareWorker(cfg: ScaffoldConfig): string {
   ].join('\n')
 }
 
+function vercelFunction(cfg: ScaffoldConfig): string {
+  const { path, serve } = resourceOf(cfg.sell)
+  return [
+    `import { toFetchHandler } from '${SDK}'`,
+    `import { gate } from '../src/gate.mjs'`,
+    ``,
+    `export const config = { runtime: 'edge' }`,
+    ``,
+    `const RESOURCE = ${JSON.stringify(path)}`,
+    `const paid = toFetchHandler(gate, () => Response.json(${serve}))`,
+    ``,
+    `// A single Edge Function gates everything; vercel.json rewrites all paths here.`,
+    `export default async function handler(request) {`,
+    `  const url = new URL(request.url)`,
+    `  if (url.pathname === '/.well-known/x402') return Response.json(await gate.describe(RESOURCE))`,
+    `  return paid(request)`,
+    `}`,
+    ``,
+  ].join('\n')
+}
+
 function wranglerToml(cfg: ScaffoldConfig): string {
   return [
     `name = ${JSON.stringify(cfg.name)}`,
@@ -152,6 +176,10 @@ function wranglerToml(cfg: ScaffoldConfig): string {
     `# Receiving needs only your PUBLIC address (baked into src/gate.mjs) — no secret here.`,
     ``,
   ].join('\n')
+}
+
+function vercelJson(): string {
+  return JSON.stringify({ rewrites: [{ source: '/(.*)', destination: '/api/x402' }] }, null, 2) + '\n'
 }
 
 function envExample(): string {
@@ -165,29 +193,65 @@ function envExample(): string {
 }
 
 function packageJson(cfg: ScaffoldConfig): string {
-  const scripts: Record<string, string> =
-    cfg.host === 'node'
-      ? { verify: 'node src/verify.mjs', start: 'node src/server.mjs' }
-      : { verify: 'node src/verify.mjs', dev: 'wrangler dev', deploy: 'wrangler deploy' }
+  let scripts: Record<string, string>
+  if (cfg.host === 'node') {
+    scripts = { verify: 'node src/verify.mjs', start: 'node src/server.mjs' }
+  } else if (cfg.host === 'cloudflare') {
+    scripts = { verify: 'node src/verify.mjs', dev: 'npx wrangler dev', deploy: 'npx wrangler deploy' }
+  } else {
+    scripts = { verify: 'node src/verify.mjs', dev: 'npx vercel dev', deploy: 'npx vercel deploy' }
+  }
   const dependencies: Record<string, string> = { [SDK]: 'latest' }
   if (cfg.host === 'node') dependencies['express'] = '^4.21.0'
-  const pkg: Record<string, unknown> = {
+  const pkg = {
     name: cfg.name,
     private: true,
     type: 'module',
     scripts,
     dependencies,
   }
-  if (cfg.host === 'cloudflare') pkg['devDependencies'] = { wrangler: '^3.78.0' }
   return JSON.stringify(pkg, null, 2) + '\n'
+}
+
+/** A one-click "Deploy" button + push-then-click steps, for the cloudflare / vercel hosts. */
+function deployButton(cfg: ScaffoldConfig): string {
+  if (cfg.host === 'node') return ''
+  const repo = 'https://github.com/YOUR_GITHUB_USERNAME/' + cfg.name
+  const [provider, badge, url] =
+    cfg.host === 'cloudflare'
+      ? [
+          'Cloudflare',
+          'https://deploy.workers.cloudflare.com/button',
+          `https://deploy.workers.cloudflare.com/?url=${repo}`,
+        ]
+      : ['Vercel', 'https://vercel.com/button', `https://vercel.com/new/clone?repository-url=${repo}`]
+  return [
+    ``,
+    `## Deploy in one click (your own ${provider} account)`,
+    ``,
+    `1. Push this folder to a **public** GitHub repo.`,
+    `2. Replace \`YOUR_GITHUB_USERNAME\` in the link below with yours, then click:`,
+    ``,
+    `[![Deploy to ${provider}](${badge})](${url})`,
+    ``,
+    `Your **public** wallet address is already baked into \`src/gate.mjs\` — there's nothing else to`,
+    `configure, and no secret to set. It deploys to **your** ${provider} account, not PipRail's.`,
+  ].join('\n')
 }
 
 function readme(cfg: ScaffoldConfig): string {
   const { path } = resourceOf(cfg.sell)
-  const run =
-    cfg.host === 'node'
-      ? '```sh\nnpm install\nnpm run verify   # checks your config (no signing, no sending)\nnpm start        # serves the paid endpoint on http://localhost:8080\n```'
-      : '```sh\nnpm install\nnpm run verify   # checks your config\nnpm run dev      # wrangler dev (local)\nnpm run deploy   # wrangler deploy (your Cloudflare account)\n```'
+  let run: string
+  if (cfg.host === 'node') {
+    run =
+      '```sh\nnpm install\nnpm run verify   # checks your config (no signing, no sending)\nnpm start        # serves the paid endpoint on http://localhost:8080\n```'
+  } else if (cfg.host === 'cloudflare') {
+    run =
+      '```sh\nnpm install\nnpm run verify   # checks your config\nnpm run dev      # npx wrangler dev (local)\nnpm run deploy   # npx wrangler deploy (your Cloudflare account)\n```'
+  } else {
+    run =
+      '```sh\nnpm install\nnpm run verify   # checks your config\nnpm run dev      # npx vercel dev (local)\nnpm run deploy   # npx vercel deploy (your Vercel account)\n```'
+  }
   const what = cfg.sell === 'tip' ? 'an open tip jar' : 'a paywalled endpoint'
   return [
     `# ${cfg.name}`,
@@ -203,6 +267,7 @@ function readme(cfg: ScaffoldConfig): string {
     `## Run it`,
     ``,
     run,
+    deployButton(cfg),
     ``,
     `## The whole integration`,
     ``,

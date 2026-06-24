@@ -28,7 +28,7 @@ npm create piprail -- my-shop \
   --token USDC \
   --pay-to 0xYourPublicAddress \
   --amount 0.05 \        # the price (api) — or --min for a tip jar
-  --host cloudflare \    # node | cloudflare
+  --host cloudflare \    # node | cloudflare | vercel
   --yes
 ```
 
@@ -39,7 +39,7 @@ my-shop/
 ├── package.json          # depends ONLY on @piprail/sdk (+ express for the node host)
 ├── src/gate.mjs          # the one bit of PipRail code — createPaywall / createTipJar, config baked in
 ├── src/verify.mjs        # `npm run verify` → gate.selfTest(), a no-sign config check
-├── src/server.mjs        # node/express  ·  OR  src/worker.mjs + wrangler.toml (Cloudflare)
+├── src/server.mjs        # node  ·  OR  src/worker.mjs + wrangler.toml (Cloudflare)  ·  OR  api/x402.js + vercel.json (Vercel)
 └── README.md
 ```
 
@@ -78,6 +78,13 @@ npm start          # node host  (or: npm run dev / npm run deploy on Cloudflare)
 Unlike the common x402 reference templates, `create-piprail` **never** emits a testnet config — the
 chain and your address are baked into `src/gate.mjs`, so your endpoint takes **real** payments on first
 deploy. (There's no testnet template; you paste a mainnet chain + address.)
+
+## Deploy in one click
+
+The **Cloudflare** and **Vercel** hosts include a **Deploy** button in the generated README. Push your
+app to a public GitHub repo, click the button, and it deploys to **your own** Cloudflare / Vercel
+account — your public address is already baked in, with nothing else to configure and no secret to
+set. (The node host runs anywhere with `npm start` — a VPS, PM2, a container.)
 
 ## Why it's safe to paste your address
 

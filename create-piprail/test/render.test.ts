@@ -12,61 +12,38 @@ const base: ScaffoldConfig = {
   host: 'node',
 }
 
-describe('render — the generated project', () => {
-  it('emits a runnable node project depending only on @piprail/sdk (+ express)', () => {
-    const f = render(base)
-    expect([...f.keys()]).toEqual(
-      expect.arrayContaining([
-        'package.json',
-        'src/gate.mjs',
-        'src/server.mjs',
-        'src/verify.mjs',
-        'README.md',
-        '.env.example',
-        '.gitignore',
-      ])
-    )
-    const pkg = JSON.parse(f.get('package.json')!)
-    expect(pkg.dependencies['@piprail/sdk']).toBeTruthy()
-    expect(pkg.dependencies.express).toBeTruthy()
-    expect(Object.keys(pkg.dependencies)).toHaveLength(2) // ONLY the SDK + express
-    expect(pkg.scripts.verify).toContain('verify.mjs')
-    expect(pkg.scripts.start).toContain('server.mjs')
-  })
-
-  it('bakes the chain + PUBLIC payTo into the gate (createPaywall) — and no private key', () => {
+describe('render — common to every host', () => {
+  it('bakes chain + PUBLIC payTo into the gate (createPaywall) — and no key material', () => {
     const gate = render(base).get('src/gate.mjs')!
     expect(gate).toContain('createPaywall')
     expect(gate).toContain('"base"')
     expect(gate).toContain(`"${PAY_TO}"`)
     expect(gate).toContain('amount: "0.05"')
-    // never any secret KEY material: the address is public (0x + 40 hex); a private key is 0x + 64 hex.
     expect(gate).not.toContain('key:')
-    expect(gate).not.toMatch(/0x[0-9a-fA-F]{64}/)
+    expect(gate).not.toMatch(/0x[0-9a-fA-F]{64}/) // a private key is 0x+64hex; the address is 0x+40hex
   })
 
   it('a tip jar uses createTipJar with min', () => {
-    const gate = render({ ...base, sell: 'tip', amount: '2.00' }).get('src/gate.mjs')!
-    expect(gate).toContain('createTipJar')
-    expect(gate).toContain('min: "2.00"')
-    expect(gate).not.toContain('createPaywall')
+    const g = render({ ...base, sell: 'tip', amount: '2.00' }).get('src/gate.mjs')!
+    expect(g).toContain('createTipJar')
+    expect(g).toContain('min: "2.00"')
+    expect(g).not.toContain('createPaywall')
   })
 
-  it('the cloudflare host emits a worker + wrangler.toml and uses toFetchHandler', () => {
-    const f = render({ ...base, host: 'cloudflare' })
-    expect(f.has('src/worker.mjs')).toBe(true)
-    expect(f.has('wrangler.toml')).toBe(true)
-    expect(f.has('src/server.mjs')).toBe(false)
-    expect(f.get('src/worker.mjs')!).toContain('toFetchHandler')
-    expect(f.get('wrangler.toml')!).toContain('main = "src/worker.mjs"')
-    const pkg = JSON.parse(f.get('package.json')!)
-    expect(pkg.devDependencies.wrangler).toBeTruthy()
-    expect(pkg.scripts.deploy).toContain('wrangler deploy')
-    expect(pkg.dependencies.express).toBeUndefined() // no express on the worker
+  it('verify.mjs runs gate.selfTest() and exits 1 on a bad config', () => {
+    const v = render(base).get('src/verify.mjs')!
+    expect(v).toContain('gate.selfTest()')
+    expect(v).toContain('process.exit(1)')
   })
 
-  it('MAINNET-DEFAULT GUARD — never emits a testnet network in any file', () => {
-    for (const host of ['node', 'cloudflare'] as const) {
+  it('serves /.well-known/x402 for agent discovery on every host', () => {
+    expect(render(base).get('src/server.mjs')!).toContain('/.well-known/x402')
+    expect(render({ ...base, host: 'cloudflare' }).get('src/worker.mjs')!).toContain('/.well-known/x402')
+    expect(render({ ...base, host: 'vercel' }).get('api/x402.js')!).toContain('/.well-known/x402')
+  })
+
+  it('MAINNET-DEFAULT GUARD — never emits a testnet network in any file, host, or sell', () => {
+    for (const host of ['node', 'cloudflare', 'vercel'] as const) {
       for (const sell of ['api', 'tip'] as const) {
         for (const [path, content] of render({ ...base, host, sell })) {
           expect(content.toLowerCase(), `${host}/${sell}:${path}`).not.toMatch(
@@ -76,19 +53,68 @@ describe('render — the generated project', () => {
       }
     }
   })
+})
 
-  it('serves /.well-known/x402 for agent discovery on both hosts', () => {
-    expect(render(base).get('src/server.mjs')!).toContain('/.well-known/x402')
-    expect(render({ ...base, host: 'cloudflare' }).get('src/worker.mjs')!).toContain('/.well-known/x402')
+describe('render — node host', () => {
+  it('emits an express server, deps {sdk, express}, scripts {verify, start}, and no deploy button', () => {
+    const f = render(base)
+    expect(f.has('src/server.mjs')).toBe(true)
+    const pkg = JSON.parse(f.get('package.json')!)
+    expect(Object.keys(pkg.dependencies).sort()).toEqual(['@piprail/sdk', 'express'])
+    expect(pkg.scripts.start).toContain('server.mjs')
+    expect(pkg.devDependencies).toBeUndefined()
+    expect(f.get('README.md')!).not.toContain('Deploy in one click')
+  })
+})
+
+describe('render — cloudflare host (Phase 3 deploy template)', () => {
+  const f = render({ ...base, host: 'cloudflare' })
+
+  it('emits a worker (toFetchHandler) + wrangler.toml; no express; npx deploy (no pinned CLI)', () => {
+    expect(f.get('src/worker.mjs')!).toContain('toFetchHandler')
+    expect(f.get('wrangler.toml')!).toContain('main = "src/worker.mjs"')
+    const pkg = JSON.parse(f.get('package.json')!)
+    expect(pkg.dependencies.express).toBeUndefined()
+    expect(pkg.scripts.deploy).toBe('npx wrangler deploy')
+    expect(pkg.devDependencies).toBeUndefined()
   })
 
-  it('verify.mjs runs gate.selfTest() and fails loudly on a bad config', () => {
-    const v = render(base).get('src/verify.mjs')!
-    expect(v).toContain('gate.selfTest()')
-    expect(v).toContain('process.exit(1)')
+  it('README carries the one-click "Deploy to Cloudflare" button + the correct URL', () => {
+    const readme = f.get('README.md')!
+    expect(readme).toContain('Deploy in one click')
+    expect(readme).toContain('https://deploy.workers.cloudflare.com/button')
+    expect(readme).toContain(
+      'https://deploy.workers.cloudflare.com/?url=https://github.com/YOUR_GITHUB_USERNAME/my-shop'
+    )
+  })
+})
+
+describe('render — vercel host (Phase 3 deploy template)', () => {
+  const f = render({ ...base, host: 'vercel' })
+
+  it('emits an Edge Function + vercel.json rewrite; no express; npx deploy', () => {
+    const fn = f.get('api/x402.js')!
+    expect(fn).toContain("runtime: 'edge'")
+    expect(fn).toContain('toFetchHandler')
+    expect(fn).toContain("from '../src/gate.mjs'")
+    const vj = JSON.parse(f.get('vercel.json')!)
+    expect(vj.rewrites[0].destination).toBe('/api/x402')
+    const pkg = JSON.parse(f.get('package.json')!)
+    expect(pkg.dependencies.express).toBeUndefined()
+    expect(pkg.scripts.deploy).toBe('npx vercel deploy')
   })
 
-  it('the package name is carried into package.json + wrangler', () => {
+  it('README carries the one-click "Deploy with Vercel" button + the correct URL', () => {
+    const readme = f.get('README.md')!
+    expect(readme).toContain('https://vercel.com/button')
+    expect(readme).toContain(
+      'https://vercel.com/new/clone?repository-url=https://github.com/YOUR_GITHUB_USERNAME/my-shop'
+    )
+  })
+})
+
+describe('render — the name flows into config files', () => {
+  it('package.json + wrangler.toml carry the package name', () => {
     const f = render({ ...base, name: 'acme-api', host: 'cloudflare' })
     expect(JSON.parse(f.get('package.json')!).name).toBe('acme-api')
     expect(f.get('wrangler.toml')!).toContain('name = "acme-api"')
