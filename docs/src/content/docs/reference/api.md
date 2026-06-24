@@ -27,6 +27,8 @@ the same logic, framework-free.
 | --- | --- | --- |
 | `requirePayment` | fn | **Headline** |
 | `createPaymentGate` | fn | **Headline** |
+| `createPaywall`, `createTipJar` | fn | Presets — named sugar over `createPaymentGate` (fixed-price paywall / pay-what-you-want tip jar). See [Presets & self-test](/accepting-payments/merchant-presets/) |
+| `toFetchHandler`, `toNextRoute`, `toWorker`, `toNetlifyHandler` | fn | One-line framework adapters for any `fetch` runtime (Workers, Next.js, Netlify, Bun, Deno, Hono). See [Framework adapters](/accepting-payments/framework-adapters/) |
 | `deliverReceipt` | fn | Reliable receipt webhook — signed + retried POST to **your** endpoint |
 | `toInvalidBody` | fn | Deprecated |
 | `RequirePaymentOptions`, `AcceptOption`, `ExactRailOption` | type | carries `onPaid` / `onPaidError` / `awaitOnPaid` **and their failure mirrors `onFailed` / `onFailedError` / `awaitOnFailed`**; `mimeType` (→ v2 `resource.mimeType` + the self-describe `endpoint`) |
@@ -34,6 +36,8 @@ the same logic, framework-free.
 | `ReceiptOption` | type | The `createPaymentGate({ receipt })` rail option — emit a signed, anyone-verifiable [verifiable receipt](/accepting-payments/verifiable-receipts/) alongside the response |
 | `ChainSelector`, `TokenInput` | type | — |
 | `PaymentGate`, `VerifyPaymentResult` | type | — |
+| `GateSelfTest` | type | The result of `gate.selfTest()` — `{ ok, rails, warnings, error? }` (read-only, never-throw config check) |
+| `PaywallOptions`, `TipJarOptions`, `Serve` | type | The preset + adapter option types |
 | `PaidReceipt` | type | The enriched receipt `onPaid` receives |
 | `FailedPayment` | type | The failure object `onFailed` receives — `{ code, detail, transient }` (the mirror of `PaidReceipt`) |
 | `DeliverReceiptOptions`, `DeliverAttempt`, `DeliverResult` | type | — |

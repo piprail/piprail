@@ -454,6 +454,35 @@ export function toInvalidBody(result: { error: string; detail: string }): X402In
   return { x402Version: 2, status: 'invalid', error: result.error, detail: result.detail }
 }
 
+/**
+ * The result of {@link PaymentGate.selfTest} — a read-only config check. NEVER throws, and never
+ * touches the network beyond the same lazy driver/token resolution the first `challenge()` does
+ * (no signing, no sending). `ok:true` with the resolved `rails` when the config is sound; `ok:false`
+ * with a human `error` when something's wrong (no payTo, a malformed address for the family, an
+ * unknown token, an unresolvable chain). Powers a scaffolder's "✅ your endpoint is configured"
+ * step and a merchant's `npm run verify`.
+ */
+export interface GateSelfTest {
+  ok: boolean
+  /** One entry per resolved payment option (empty when `ok:false`). */
+  rails: Array<{
+    /** CAIP-2 network, e.g. `eip155:8453`. */
+    network: string
+    asset: string
+    symbol?: string
+    decimals: number
+    /** Human amount the gate charges (for a tip jar, the minimum/floor). */
+    amount: string
+    payTo: AddressId
+    /** The schemes this rail offers, e.g. `['onchain-proof']` or `['exact', 'onchain-proof']`. */
+    schemes: string[]
+  }>
+  /** Non-fatal nudges (e.g. a custom token with no built-in symbol to double-check). */
+  warnings: string[]
+  /** Present only when `ok:false` — the human reason the config can't serve a payment. */
+  error?: string
+}
+
 export interface PaymentGate {
   /** Build a fresh 402 challenge (new nonce) for a resource URL. */
   challenge(resourceUrl?: string): Promise<{
@@ -490,6 +519,13 @@ export interface PaymentGate {
    * The SDK never serves it itself (headless by charter). Agents/crawlers keep the JSON 402.
    */
   landingPage(challenge: X402Challenge): string
+  /**
+   * Read-only config check — resolve the gate's rails WITHOUT signing or sending, and report what
+   * it would charge (or why it can't). Never throws; runs the same lazy resolution as the first
+   * `challenge()`. The merchant's "did I wire this right?" and a scaffolder's post-deploy smoke
+   * step. See {@link GateSelfTest}.
+   */
+  selfTest(): Promise<GateSelfTest>
 }
 
 /** The settle config for a resolved `exact` rail: self (own relayer) or a facilitator. */
@@ -1891,7 +1927,43 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     return result.kind === 'paid' ? echoPaymentIdentifier(result, id) : result
   }
 
-  return { challenge, verify, verifyObject, describe, landingPage }
+  /**
+   * Read-only config check (never throws). Resolves the gate's rails through the SAME `ready()`
+   * funnel as `challenge()` — so it surfaces a missing/malformed payTo, an unknown token, or an
+   * unresolvable chain — but signs nothing and sends nothing. Returns `{ ok, rails, warnings }`
+   * (or `{ ok:false, error }`). The scaffolder's post-deploy "✅ configured" step + `npm run verify`.
+   */
+  async function selfTest(): Promise<GateSelfTest> {
+    try {
+      const specs = await ready()
+      const warnings: string[] = []
+      const rails = specs.map((s) => {
+        if (!s.symbol) {
+          warnings.push(
+            `${s.asset} on ${s.net.network}: custom token (no built-in symbol) — double-check the address + decimals.`
+          )
+        }
+        return {
+          network: s.net.network,
+          asset: s.asset,
+          ...(s.symbol ? { symbol: s.symbol } : {}),
+          decimals: s.decimals,
+          amount: s.amountFormatted,
+          payTo: s.payTo,
+          schemes: [
+            ...(s.exact ? ['exact'] : []),
+            ...(s.upto ? ['upto'] : []),
+            'onchain-proof',
+          ],
+        }
+      })
+      return { ok: true, rails, warnings }
+    } catch (err) {
+      return { ok: false, rails: [], warnings: [], error: err instanceof Error ? err.message : String(err) }
+    }
+  }
+
+  return { challenge, verify, verifyObject, describe, landingPage, selfTest }
 }
 
 /* ----------------------------- Express middleware ----------------------------- */

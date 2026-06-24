@@ -17,7 +17,7 @@ of lines that read one header in and write three back out.
 import { createPaymentGate } from '@piprail/sdk'
 
 const gate = createPaymentGate({ chain: 'base', token: 'USDC', amount: '0.10', payTo: '0xYourWallet' })
-// → PaymentGate: { challenge(url?), verify(header), verifyObject(payload), describe(url?), landingPage(challenge) }
+// → PaymentGate: { challenge(url?), verify(header), verifyObject(payload), describe(url?), landingPage(challenge), selfTest() }
 ```
 
 `createPaymentGate` returns a [`PaymentGate`](/accepting-payments/require-payment-and-gate/) — the
@@ -25,6 +25,37 @@ same object `requirePayment` wraps. Reuse one gate per gated route. Its in-memor
 is what stops a proof being redeemed twice; rebuilding it per request would lose that guard. (For
 multi-instance deploys, share the set with `isUsed` / `markUsed` — see
 [Replay protection](/accepting-payments/replay-protection/).)
+
+## The one-liner — built-in adapters
+
+For any `fetch`-based runtime you don't have to write the switch at all — the SDK ships the adapters:
+
+```ts
+import { createPaywall, toWorker, toNextRoute, toFetchHandler, toNetlifyHandler } from '@piprail/sdk'
+
+const gate = createPaywall({ chain: 'base', amount: '0.05', payTo: '0xYourWallet' })
+
+// Cloudflare Workers — an ExportedHandler:
+export default toWorker(gate, () => Response.json({ report: 'unlocked' }))
+
+// Next.js App Router route handler:
+export const GET = toNextRoute(gate, () => Response.json({ report: 'unlocked' }))
+
+// Any Fetch handler (Bun, Deno, Hono, edge): (request) => Response
+const handler = toFetchHandler(gate, () => Response.json({ report: 'unlocked' }))
+
+// Netlify Functions: (request, context) => Response
+export default toNetlifyHandler(gate, () => Response.json({ report: 'unlocked' }))
+```
+
+Each takes the gate + a `serve` callback (what to return once payment is verified) and runs the
+whole contract for you: reads `payment-signature` (and the legacy `x-payment`), returns a conformant
+`402` on a missing/rejected proof, stamps the `payment-response` headers (v2 + v1) on success, and
+returns `502` on a server-side `SettlementError` (never a `402`). Express keeps its dedicated
+[`requirePayment`](/accepting-payments/require-payment-and-gate/) middleware.
+
+Prefer to wire it by hand — or are you on a framework with a non-`fetch` shape like Fastify? The
+exact three-step contract every adapter implements is below.
 
 ## The contract every adapter implements
 

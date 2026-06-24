@@ -4,6 +4,26 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added — merchant on-ramp, phase 1 (presets, adapters, self-test)
+
+Make the *accept* side as terse as the *pay* side. All additive — the zero-config
+`createPaymentGate` / `requirePayment` / `PipRailClient` paths stay byte-identical.
+
+- **Merchant presets** — `createPaywall` (a fixed price for a resource) and `createTipJar`
+  (pay-what-you-want ≥ a minimum): named sugar over `createPaymentGate` with `token` defaulting to
+  USDC. Each resolves to a standard gate, so its 402 is byte-identical to the hand-written equivalent.
+- **Framework adapters** — `toFetchHandler` / `toNextRoute` / `toWorker` / `toNetlifyHandler`: a
+  one-liner that turns a gate into a request handler for any `fetch` runtime (Cloudflare Workers,
+  Next.js, Netlify, Bun, Deno, Hono), running the read-header → switch-on-`kind` → write-headers
+  contract for you (502 on a `SettlementError`, never 402). Express keeps `requirePayment`.
+- **`gate.selfTest()`** — a read-only, never-throw config check that resolves the gate's rails and
+  reports `{ ok, rails, warnings }` (or `{ ok:false, error }`) without signing or sending. Powers a
+  merchant's `npm run verify` and a scaffolder's post-deploy smoke step.
+- New exports: `createPaywall`, `createTipJar`, `toFetchHandler`, `toNextRoute`, `toWorker`,
+  `toNetlifyHandler`; types `PaywallOptions`, `TipJarOptions`, `Serve`, `GateSelfTest`.
+
 ## [2.14.2] — 2026-06-24 — deeper element-level hardening (the 2.14.1 break-it pass, round two)
 
 A follow-up patch to 2.14.1. A second adversarial smash pass found that 2.14.1 guarded the
