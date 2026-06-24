@@ -10,9 +10,11 @@ How a maintainer ships a new version of **`@piprail/sdk`** or **`@piprail/mcp`**
 builds + publishes with the repo's `NPM_TOKEN`. The **site** is separate — it auto-deploys to Netlify
 on every push to `main` (no tag needed).
 
-> One package per tag. `sdk-v*` publishes `@piprail/sdk`; `mcp-v*` publishes `@piprail/mcp`. They are
-> independent — release only what changed. If you release **both**, release the **SDK first** (the MCP
-> depends on the SDK's published `dist`).
+> One package per tag. `sdk-v*` publishes `@piprail/sdk`; `mcp-v*` publishes `@piprail/mcp`;
+> `create-piprail-v*` publishes `create-piprail` (the merchant scaffolder). They are independent —
+> release only what changed. If you release **both** the SDK and MCP, release the **SDK first** (the MCP
+> depends on the SDK's published `dist`). The scaffolder generates apps that `npm install @piprail/sdk`
+> at `latest`, so a scaffolder release that needs new SDK exports should follow the **SDK** release.
 
 ---
 

@@ -28,7 +28,7 @@ zero-config path still read in one line? If a feature can't be opt-in, reconside
 ## 1. The layering (never violate)
 
 ```
-protocol layer   index · server · client · x402 · policy · ledger · agent · discovery · indexes · errors · util/*
+protocol layer   index · server · merchant · adapters · client · x402 · policy · ledger · agent · discovery · indexes · errors · util/*
    (chain-agnostic — ZERO viem / @solana / @ton / @stellar imports)
         │  depends only on …
         ▼
@@ -113,7 +113,7 @@ grep -E "from ?['\"]@(solana|ton|stellar)" dist/index.js   # → expect NO match
 # (includes the pure agent-ergonomics modules render/classify/agentGuide/selfdescribe;
 #  VALUE imports of chain-agnostic modules — errors.ts, render.ts's BRAND from
 #  selfdescribe.ts — are allowed; the grep targets viem):
-grep -lE "from ['\"]viem" src/client.ts src/payer.ts src/x402.ts src/policy.ts src/ledger.ts src/server.ts src/agent.ts src/render.ts src/classify.ts src/agentGuide.ts src/selfdescribe.ts src/facilitators.ts src/discovery.ts src/landing.ts src/transports/a2a.ts src/transports/a2a-types.ts src/transports/mcp.ts src/transports/mcp-types.ts  # → expect NO matches
+grep -lE "from ['\"]viem" src/client.ts src/payer.ts src/x402.ts src/policy.ts src/ledger.ts src/server.ts src/merchant.ts src/adapters.ts src/agent.ts src/render.ts src/classify.ts src/agentGuide.ts src/selfdescribe.ts src/facilitators.ts src/discovery.ts src/landing.ts src/transports/a2a.ts src/transports/a2a-types.ts src/transports/mcp.ts src/transports/mcp-types.ts  # → expect NO matches
 ```
 
 `prepublishOnly` runs build + test + both typechecks. Never ship with any of these red.

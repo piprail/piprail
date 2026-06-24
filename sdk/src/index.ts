@@ -92,6 +92,7 @@ export type {
   ChainSelector,
   TokenInput,
   PaymentGate,
+  GateSelfTest,
   VerifyPaymentResult,
   X402InvalidBody,
   ExpressLikeRequest,
@@ -99,6 +100,21 @@ export type {
   ExpressLikeNext,
   ExpressLikeMiddleware,
 } from './server.js'
+
+/* ------------------- merchant presets + framework adapters (server side) ------------------- */
+
+// Named, batteries-included sugar over `createPaymentGate` — say WHAT you're selling, not how to
+// wire a gate. Each resolves to a standard gate, so its 402 is byte-identical to the hand-written
+// equivalent. `token` defaults to USDC; every other gate option still works.
+export { createPaywall, createTipJar } from './merchant.js'
+export type { PaywallOptions, TipJarOptions } from './merchant.js'
+// Two framework adapters cover every `fetch`-based runtime: `toFetchHandler` is the universal
+// `(request, …) => Response` (Next.js, Netlify, Bun, Deno, Vercel, Hono, Lambda — any request-in/
+// response-out handler), `toWorker` is the `{ fetch }` export object (Cloudflare / Service Workers).
+// Both read the proof header in and write the right 402/200 + headers out (502 on a SettlementError),
+// forwarding any extra runtime args (env/ctx/params) to your handler. Express keeps `requirePayment`.
+export { toFetchHandler, toWorker, proxyTo } from './adapters.js'
+export type { Serve } from './adapters.js'
 
 /* --------------- standard `exact` rail: Mode-B facilitator (server side) --------------- */
 

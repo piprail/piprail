@@ -11,6 +11,8 @@ PipRail has **two sides**, a **zero-code** path for AI clients, and **discovery*
 
 No backend, no database, no fee. Verification is local, against your own RPC.
 
+> **Fastest start — scaffold a whole merchant:** `npm create piprail` generates a complete, deployable app (node / Cloudflare / Vercel) with your wallet baked in — see [`create-piprail`](../create-piprail). The folders below are the hand-wired building blocks it assembles.
+
 ## 🔬 Why 402, not a raw transfer? (with vs without)
 
 If a payer just sends a raw transfer to your wallet, you can't discover the price, can't tell **which request** it paid for, can't stop replays, and you have to run a **payments backend** (a chain listener + correlation + async notify) just to notice it. [`why-402/`](./basics/why-402) proves this with code you can run:

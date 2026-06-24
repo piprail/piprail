@@ -26,6 +26,8 @@ app.get('/report',
 
 That route now costs **0.05 USDC on Base**, paid straight to your wallet. One parameter picks the chain. Add `onPaid` / `onFailed` to be notified the moment a payment settles or is rejected — both carry the same reason, and the buyer's client is notified too. → [Accepting payments](https://docs.piprail.com/accepting-payments/require-payment-and-gate/)
 
+> **Don't want to wire it by hand?** `npm create piprail@latest` scaffolds a complete, mainnet-ready, deployable merchant (node / Cloudflare / Vercel) — paste a public address, no key, no account. → [Scaffold a merchant](https://docs.piprail.com/getting-started/scaffolder/)
+
 ## Let an agent pay for it
 
 ```ts
@@ -74,7 +76,7 @@ The same app can **take** payments and **make** them. → [Making payments](http
 | | |
 |---|---|
 | **[Getting started](https://docs.piprail.com/getting-started/introduction/)** | Install · quickstart · how it works |
-| **[Accepting payments](https://docs.piprail.com/accepting-payments/require-payment-and-gate/)** | `requirePayment` · `createPaymentGate` · the `exact` rail · the `upto` metered rail |
+| **[Accepting payments](https://docs.piprail.com/accepting-payments/require-payment-and-gate/)** | `requirePayment` · `createPaymentGate` · [presets](https://docs.piprail.com/accepting-payments/merchant-presets/) (`createPaywall` / `createTipJar`) · [framework adapters](https://docs.piprail.com/accepting-payments/framework-adapters/) · the `exact` rail · the `upto` metered rail |
 | **[Making payments](https://docs.piprail.com/making-payments/piprail-client/)** | `PipRailClient` · `quote` · `estimateCost` · `planPayment` · auto-route · `MultiChainPayer` |
 | **[Verifiable receipts](https://docs.piprail.com/accepting-payments/verifiable-receipts/)** | Chain-grounded, anyone-verifiable receipts (no key) · optional EIP-712 attestation |
 | **[Spend controls](https://docs.piprail.com/spend-controls/payment-policy/)** | Per-token + cross-token grand total · payment-count caps · time envelope · durable budget · the spend ledger |

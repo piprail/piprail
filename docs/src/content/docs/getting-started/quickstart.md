@@ -10,6 +10,12 @@ sidebar:
 This walks the whole loop: stand up a paid endpoint, then pay it from an agent. Both sides use
 mainnet USDC on Base, but the only thing that changes for another chain is the `chain` value.
 
+:::tip[Fastest start — no code]
+Skip the manual wiring: [`create-piprail`](/getting-started/scaffolder/) scaffolds a complete,
+mainnet-ready merchant in one command — `npm create piprail@latest`. This page wires the **same
+thing by hand** so you understand each piece.
+:::
+
 :::note
 Before you start, you need a funded wallet on the chain you pick (a little of the payment token
 plus a little native coin for gas) and an RPC endpoint. The built-in presets ship public RPC

@@ -1,0 +1,44 @@
+name: create-piprail-release
+
+# Publishes `create-piprail` (the merchant scaffolder) to npm when a tag matching
+# create-piprail-v* is pushed (e.g. `git tag create-piprail-v0.1.0 && git push origin create-piprail-v0.1.0`).
+# Triggered by tag only (paths filtering is unreliable on tag pushes); the package's own
+# prepublishOnly (build + typecheck + test) runs inside the workspace on publish.
+on:
+  push:
+    tags:
+      - 'create-piprail-v*'
+
+jobs:
+  publish:
+    name: publish create-piprail to npm
+    runs-on: ubuntu-latest
+    # `contents: write` so the same run can also cut the GitHub Release.
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          registry-url: 'https://registry.npmjs.org'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm run build -w create-piprail
+      - run: npm publish -w create-piprail --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # Auto-cut the GitHub Release for this tag. Not the project's `--latest` (that's the SDK).
+      # Idempotent: skips if a release for the tag already exists.
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#create-piprail-v}"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME already exists — skipping."
+          else
+            gh release create "$GITHUB_REF_NAME" --verify-tag --latest=false \
+              --title "create-piprail v$VERSION" --generate-notes
+          fi
