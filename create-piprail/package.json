@@ -1,0 +1,50 @@
+{
+  "name": "create-piprail",
+  "version": "0.1.0",
+  "description": "Scaffold a self-hosted x402 merchant in one command — accept stablecoin payments from humans AND AI agents, straight to your wallet. Paste a public address; no key, no account, no backend, no fee.",
+  "type": "module",
+  "bin": {
+    "create-piprail": "dist/bin.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "typecheck:test": "tsc -p tsconfig.test.json",
+    "prepublishOnly": "npm run build && npm run typecheck && npm test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "piprail",
+    "x402",
+    "create",
+    "scaffold",
+    "create-piprail",
+    "payments",
+    "stablecoin",
+    "usdc",
+    "merchant",
+    "crypto-payments",
+    "agent-payments"
+  ],
+  "author": "PipRail",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/piprail/piprail.git",
+    "directory": "create-piprail"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsup": "^8.3.5",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8"
+  }
+}

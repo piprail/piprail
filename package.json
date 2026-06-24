@@ -8,7 +8,8 @@
     "sdk",
     "site",
     "mcp",
-    "docs"
+    "docs",
+    "create-piprail"
   ],
   "scripts": {
     "dev": "npm run dev -w @piprail/site",
