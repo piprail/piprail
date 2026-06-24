@@ -1,11 +1,11 @@
-# create-piprail
+# @piprail/create
 
 **Scaffold a self-hosted x402 merchant in one command.** Accept stablecoin payments — from humans
 **and** AI agents — straight to your own wallet. Paste a **public address**; no private key, no
 account, no backend, no fee.
 
 ```sh
-npm create piprail@latest
+npm create @piprail
 ```
 
 It's the seller's mirror of the buyer's zero-code on-ramp (`npx -y @piprail/mcp`): one command and you
@@ -31,7 +31,7 @@ It also serves `/.well-known/x402` so AI agents can discover and price your endp
 ## Non-interactive (CI / scripts)
 
 ```sh
-npm create piprail -- my-shop \
+npm create @piprail -- my-shop \
   --sell api \           # api (paywall) | tip (tip jar)
   --chain base \         # any mainnet chain @piprail/sdk supports
   --token USDC \

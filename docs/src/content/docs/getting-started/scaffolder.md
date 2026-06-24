@@ -1,5 +1,5 @@
 ---
-title: Scaffold a merchant (create-piprail)
+title: Scaffold a merchant (@piprail/create)
 description: One command scaffolds a self-hosted x402 merchant — accept stablecoin payments from humans and AI agents, straight to your wallet. Paste a public address; no key, no account, no backend.
 sidebar:
   order: 2
@@ -7,12 +7,12 @@ sidebar:
 
 ## One command
 
-`create-piprail` is the **seller's** zero-code on-ramp — the mirror of the buyer's
+`@piprail/create` is the **seller's** zero-code on-ramp — the mirror of the buyer's
 [`npx -y @piprail/mcp`](/mcp/getting-started/). It scaffolds a complete, runnable, **mainnet-by-default**
 x402 merchant you host yourself:
 
 ```sh
-npm create piprail@latest
+npm create @piprail
 ```
 
 It asks **what you're selling**, **which chain + token**, and **your public wallet address**, then
@@ -22,7 +22,7 @@ no backend, no fee.
 ## Non-interactive (CI / scripts)
 
 ```sh
-npm create piprail -- my-shop \
+npm create @piprail -- my-shop \
   --sell api \           # api (paywall) | tip (tip jar) | proxy (gate an existing API — add --origin)
   --chain base \         # any mainnet chain @piprail/sdk supports
   --token USDC \
@@ -78,7 +78,7 @@ npm start          # node host  (or: npm run dev / npm run deploy on Cloudflare)
 
 ## Mainnet by default
 
-Unlike the common x402 reference templates, `create-piprail` **never** emits a testnet config — the
+Unlike the common x402 reference templates, `@piprail/create` **never** emits a testnet config — the
 chain and your address are baked into `src/gate.mjs`, so your endpoint takes **real** payments on first
 deploy. (There's no testnet template; you paste a mainnet chain + address.)
 

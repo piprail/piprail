@@ -11,7 +11,7 @@ One command scaffolds a self-hosted, mainnet-by-default, agent-discoverable x402
 
 ### Added
 
-- **`npm create piprail` / `npx create-piprail`** — scaffold a self-hosted x402 merchant in one
+- **`npm create @piprail` / `npx @piprail/create`** — scaffold a self-hosted x402 merchant in one
   command. Flag-driven **and** interactive (Node `readline`; zero runtime dependencies).
 - **What you sell:** `--sell api` (a paywalled endpoint), `--sell tip` (an open "pay ≥ a minimum" tip
   jar), or `--sell proxy` (gate an EXISTING API in any language via an edge proxy — pass `--origin`).

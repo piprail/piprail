@@ -26,7 +26,7 @@ app.get('/report',
 
 That route now costs **0.05 USDC on Base**, paid straight to your wallet. One parameter picks the chain. Add `onPaid` / `onFailed` to be notified the moment a payment settles or is rejected — both carry the same reason, and the buyer's client is notified too. → [Accepting payments](https://docs.piprail.com/accepting-payments/require-payment-and-gate/)
 
-> **Don't want to wire it by hand?** `npm create piprail@latest` scaffolds a complete, mainnet-ready, deployable merchant (node / Cloudflare / Vercel) — paste a public address, no key, no account. → [Scaffold a merchant](https://docs.piprail.com/getting-started/scaffolder/)
+> **Don't want to wire it by hand?** `npm create @piprail` scaffolds a complete, mainnet-ready, deployable merchant (node / Cloudflare / Vercel) — paste a public address, no key, no account. → [Scaffold a merchant](https://docs.piprail.com/getting-started/scaffolder/)
 
 ## Let an agent pay for it
 

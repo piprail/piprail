@@ -11,7 +11,8 @@ builds + publishes with the repo's `NPM_TOKEN`. The **site** is separate — it 
 on every push to `main` (no tag needed).
 
 > One package per tag. `sdk-v*` publishes `@piprail/sdk`; `mcp-v*` publishes `@piprail/mcp`;
-> `create-piprail-v*` publishes `create-piprail` (the merchant scaffolder). They are independent —
+> `create-piprail-v*` publishes `@piprail/create` (the merchant scaffolder, run via `npm create @piprail`).
+> They are independent —
 > release only what changed. If you release **both** the SDK and MCP, release the **SDK first** (the MCP
 > depends on the SDK's published `dist`). The scaffolder generates apps that `npm install @piprail/sdk`
 > at `latest`, so a scaffolder release that needs new SDK exports should follow the **SDK** release.

@@ -4,8 +4,8 @@
  * AI agents — straight to your wallet. Paste a PUBLIC address (no key, no account); the config is baked
  * into the generated `src/gate.mjs`, mainnet by default.
  *
- *   npm create piprail@latest            # interactive
- *   npm create piprail -- my-shop --sell api --chain base --pay-to 0xYou --host cloudflare --yes
+ *   npm create @piprail                  # interactive
+ *   npm create @piprail -- my-shop --sell api --chain base --pay-to 0xYou --host cloudflare --yes
  */
 import { mkdir, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
@@ -22,8 +22,8 @@ const HOSTS: readonly Host[] = ['node', 'cloudflare', 'vercel']
 const HELP = `create-piprail — scaffold a self-hosted x402 merchant (accept stablecoin payments).
 
 Usage:
-  npm create piprail@latest [name] [options]
-  npx create-piprail [name] [options]
+  npm create @piprail [name] [options]
+  npx @piprail/create [name] [options]
 
 Options:
   --sell <api|tip|proxy>            what you're selling (default: api)
@@ -39,7 +39,7 @@ Options:
   --version, -v                     print the version
 
 Example:
-  npm create piprail -- my-shop --sell api --chain base --pay-to 0xYou --host cloudflare --yes`
+  npm create @piprail -- my-shop --sell api --chain base --pay-to 0xYou --host cloudflare --yes`
 
 /** A tiny argv parser: `--key value`, `--key=value`, `--flag`, plus positionals. */
 function parseArgs(argv: string[]): { flags: Flags; positional: string[] } {

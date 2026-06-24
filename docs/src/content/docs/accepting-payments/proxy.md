@@ -30,7 +30,7 @@ request gets a `402` and **never reaches your backend**.
 The fastest way is the scaffolder's `proxy` mode — it generates a complete, mainnet-default edge proxy:
 
 ```sh
-npm create piprail -- my-gateway \
+npm create @piprail -- my-gateway \
   --sell proxy \
   --origin https://api.example.com \
   --host cloudflare \

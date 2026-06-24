@@ -25,7 +25,7 @@ There is no backend, no database, no auth, no dashboard, and **no fee**. It's a 
 install`, not a platform you sign up for.
 
 :::tip[Just want to get paid?]
-The fastest path is [`create-piprail`](/getting-started/scaffolder/) — `npm create piprail@latest`
+The fastest path is [`@piprail/create`](/getting-started/scaffolder/) — `npm create @piprail`
 scaffolds a complete, deployable merchant (no code, no key, no account). Or follow the
 [Quickstart](/getting-started/quickstart/) to wire it yourself.
 :::
