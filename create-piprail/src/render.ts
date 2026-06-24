@@ -80,7 +80,7 @@ export function render(cfg: ScaffoldConfig): Map<string, string> {
 function gateFile(cfg: ScaffoldConfig): string {
   const preset = cfg.sell === 'tip' ? 'createTipJar' : 'createPaywall'
   const amountKey = cfg.sell === 'tip' ? 'min' : 'amount'
-  return [
+  const lines = [
     `import { ${preset} } from '${SDK}'`,
     ``,
     `// Your x402 payment gate. Receiving needs only this PUBLIC wallet address — no private key, ever.`,
@@ -90,11 +90,20 @@ function gateFile(cfg: ScaffoldConfig): string {
     `  token: ${JSON.stringify(cfg.token)},`,
     `  ${amountKey}: ${JSON.stringify(cfg.amount)},`,
     `  payTo: ${JSON.stringify(cfg.payTo)},`,
+  ]
+  // Emit the x402 `bazaar` block in every 402 — the single highest-leverage discoverability artifact:
+  // it makes the endpoint INVOCABLE (not "skipped") on x402scan + the open indexes, so AI agents can
+  // find AND price it. Off for a proxy (it gates arbitrary upstream paths, not one described resource).
+  if (cfg.sell !== 'proxy') {
+    lines.push(`  discovery: true, // self-describe for the open x402 indexes — AI agents discover + invoke it`)
+  }
+  lines.push(
     `  onPaid: (receipt) =>`,
     `    console.log('💰 paid ' + receipt.amountFormatted + ' ' + (receipt.symbol || '') + ' — ' + receipt.idempotencyKey),`,
     `})`,
     ``,
-  ].join('\n')
+  )
+  return lines.join('\n')
 }
 
 function verifyFile(): string {

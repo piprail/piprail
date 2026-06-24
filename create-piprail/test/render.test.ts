@@ -48,6 +48,13 @@ describe('render — common to every host', () => {
     expect(g).not.toContain('createPaywall')
   })
 
+  it('api/tip gates emit discovery (the bazaar block agents read); a proxy does not', () => {
+    expect(render(base).get('src/gate.mjs')!).toContain('discovery: true')
+    expect(render({ ...base, sell: 'tip' }).get('src/gate.mjs')!).toContain('discovery: true')
+    const proxy = render({ ...base, sell: 'proxy', host: 'cloudflare', origin: 'https://api.example.com' })
+    expect(proxy.get('src/gate.mjs')!).not.toContain('discovery: true')
+  })
+
   it('verify.mjs runs gate.selfTest() and exits 1 on a bad config', () => {
     const v = render(base).get('src/verify.mjs')!
     expect(v).toContain('gate.selfTest()')

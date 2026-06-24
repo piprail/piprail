@@ -23,8 +23,9 @@ One command scaffolds a self-hosted, mainnet-by-default, agent-discoverable x402
 - **One-click Deploy buttons** in the Cloudflare / Vercel READMEs (deploy to *your own* account; the
   config is already baked in, no secret to set).
 - Every generated app ships **`npm run verify`** — a read-only `gate.selfTest()` that confirms the
-  config without signing or sending — and serves **`/.well-known/x402`** so AI agents can discover +
-  price it.
+  config without signing or sending — and self-describes for agents: it emits the x402 **`bazaar`**
+  block (`discovery: true` on the api/tip gate — the highest-leverage discoverability artifact, per the
+  Phase 6 census) **and** serves **`/.well-known/x402`**, so an AI agent can both find AND invoke it.
 - **Human landing page** — a browser GET gets a friendly HTML page; an agent or `curl` gets the
   machine-readable `402` JSON, from the same endpoint.
 - **Shareable embed** — the api / tip README includes a copy-paste browser "Pay" button.
