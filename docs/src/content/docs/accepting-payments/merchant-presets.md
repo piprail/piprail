@@ -72,5 +72,6 @@ an exception. A custom token with no built-in symbol is surfaced as a non-fatal 
 
 A preset returns the same [`PaymentGate`](/accepting-payments/require-payment-and-gate/#the-paymentgate-object)
 as `createPaymentGate`, so drive it with the built-in
-[framework adapters](/accepting-payments/framework-adapters/) (`toWorker`, `toNextRoute`,
-`toFetchHandler`, `toNetlifyHandler`) — or `requirePayment` for Express.
+[framework adapters](/accepting-payments/framework-adapters/) — `toFetchHandler` for any `fetch`
+runtime (Next.js, Netlify, Bun, Deno, Hono, Vercel, …) or `toWorker` for Cloudflare — or
+`requirePayment` for Express.

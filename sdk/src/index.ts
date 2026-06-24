@@ -108,10 +108,12 @@ export type {
 // equivalent. `token` defaults to USDC; every other gate option still works.
 export { createPaywall, createTipJar } from './merchant.js'
 export type { PaywallOptions, TipJarOptions } from './merchant.js'
-// One-line framework adapters for any `fetch`-based runtime (Cloudflare Workers, Next.js route
-// handlers, Netlify Functions, Bun, Deno, Hono): read the proof header in, write the right
-// 402/200 + headers out. Express keeps its dedicated `requirePayment` middleware.
-export { toFetchHandler, toNextRoute, toWorker, toNetlifyHandler } from './adapters.js'
+// Two framework adapters cover every `fetch`-based runtime: `toFetchHandler` is the universal
+// `(request, …) => Response` (Next.js, Netlify, Bun, Deno, Vercel, Hono, Lambda — any request-in/
+// response-out handler), `toWorker` is the `{ fetch }` export object (Cloudflare / Service Workers).
+// Both read the proof header in and write the right 402/200 + headers out (502 on a SettlementError),
+// forwarding any extra runtime args (env/ctx/params) to your handler. Express keeps `requirePayment`.
+export { toFetchHandler, toWorker } from './adapters.js'
 export type { Serve } from './adapters.js'
 
 /* --------------- standard `exact` rail: Mode-B facilitator (server side) --------------- */

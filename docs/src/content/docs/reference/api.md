@@ -28,7 +28,7 @@ the same logic, framework-free.
 | `requirePayment` | fn | **Headline** |
 | `createPaymentGate` | fn | **Headline** |
 | `createPaywall`, `createTipJar` | fn | Presets — named sugar over `createPaymentGate` (fixed-price paywall / pay-what-you-want tip jar). See [Presets & self-test](/accepting-payments/merchant-presets/) |
-| `toFetchHandler`, `toNextRoute`, `toWorker`, `toNetlifyHandler` | fn | One-line framework adapters for any `fetch` runtime (Workers, Next.js, Netlify, Bun, Deno, Hono). See [Framework adapters](/accepting-payments/framework-adapters/) |
+| `toFetchHandler`, `toWorker` | fn | Two adapters cover every `fetch` runtime — `toFetchHandler` (the universal `(request, …) => Response`: Next.js, Netlify, Bun, Deno, Vercel, Hono, Lambda) + `toWorker` (the `{ fetch }` export: Cloudflare / Service Workers). See [Framework adapters](/accepting-payments/framework-adapters/) |
 | `deliverReceipt` | fn | Reliable receipt webhook — signed + retried POST to **your** endpoint |
 | `toInvalidBody` | fn | Deprecated |
 | `RequirePaymentOptions`, `AcceptOption`, `ExactRailOption` | type | carries `onPaid` / `onPaidError` / `awaitOnPaid` **and their failure mirrors `onFailed` / `onFailedError` / `awaitOnFailed`**; `mimeType` (→ v2 `resource.mimeType` + the self-describe `endpoint`) |

@@ -28,34 +28,45 @@ multi-instance deploys, share the set with `isUsed` / `markUsed` — see
 
 ## The one-liner — built-in adapters
 
-For any `fetch`-based runtime you don't have to write the switch at all — the SDK ships the adapters:
+There are only **two shapes** among `fetch` runtimes, so there are two adapters — and between them
+they cover essentially everything request-in, response-out:
+
+| Your runtime | Adapter |
+| --- | --- |
+| Next.js route handlers · Netlify Functions · `Bun.serve` · `Deno.serve` · Vercel Edge · Hono (`c.req.raw`) · AWS Lambda (Web adapter) · Fastly Compute | **`toFetchHandler`** — a universal `(request, …) => Response` you place anywhere |
+| Cloudflare Workers · Service Workers · any `export default { fetch }` | **`toWorker`** — the `{ fetch }` export object |
+| Express · Connect · Polka | [`requirePayment`](/accepting-payments/require-payment-and-gate/) (middleware) |
+| Fastify & other Node-native `req`/`reply` frameworks | drive `gate.verify()` by hand (below) |
 
 ```ts
-import { createPaywall, toWorker, toNextRoute, toFetchHandler, toNetlifyHandler } from '@piprail/sdk'
+import { createPaywall, toFetchHandler, toWorker } from '@piprail/sdk'
 
 const gate = createPaywall({ chain: 'base', amount: '0.05', payTo: '0xYourWallet' })
 
-// Cloudflare Workers — an ExportedHandler:
+// Next.js / Netlify / Bun / Deno / Hono / Vercel / Lambda — anything request-in, response-out:
+export const GET = toFetchHandler(gate, () => Response.json({ report: 'unlocked' }))
+
+// Cloudflare Worker (the { fetch } export object):
 export default toWorker(gate, () => Response.json({ report: 'unlocked' }))
-
-// Next.js App Router route handler:
-export const GET = toNextRoute(gate, () => Response.json({ report: 'unlocked' }))
-
-// Any Fetch handler (Bun, Deno, Hono, edge): (request) => Response
-const handler = toFetchHandler(gate, () => Response.json({ report: 'unlocked' }))
-
-// Netlify Functions: (request, context) => Response
-export default toNetlifyHandler(gate, () => Response.json({ report: 'unlocked' }))
 ```
 
 Each takes the gate + a `serve` callback (what to return once payment is verified) and runs the
 whole contract for you: reads `payment-signature` (and the legacy `x-payment`), returns a conformant
 `402` on a missing/rejected proof, stamps the `payment-response` headers (v2 + v1) on success, and
-returns `502` on a server-side `SettlementError` (never a `402`). Express keeps its dedicated
-[`requirePayment`](/accepting-payments/require-payment-and-gate/) middleware.
+returns `502` on a server-side `SettlementError` (never a `402`). **Any extra arguments the runtime
+passes your handler — a Worker's `env`/`ctx`, a Next.js route `context` — are forwarded to `serve`**,
+so a protected handler can reach them after payment is verified:
 
-Prefer to wire it by hand — or are you on a framework with a non-`fetch` shape like Fastify? The
-exact three-step contract every adapter implements is below.
+```ts
+export default toWorker(gate, (request, env, ctx) => {
+  // env (KV / D1 / R2 bindings) + ctx (waitUntil) are available here.
+  return Response.json({ report: 'unlocked' })
+})
+```
+
+Express keeps its dedicated [`requirePayment`](/accepting-payments/require-payment-and-gate/)
+middleware. Prefer to wire it by hand — or on a non-`fetch` framework like Fastify? The exact
+three-step contract every adapter implements is below.
 
 ## The contract every adapter implements
 
