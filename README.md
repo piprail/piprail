@@ -34,6 +34,40 @@ PipRail implements the open [x402](https://x402.org) **"402 Payment Required"** 
 
 </div>
 
+## 📊 The pitch deck
+
+<div align="center">
+
+<a href="PipRail-deck.pdf"><img src=".claude/skills/branding/design/deck/preview/slide-01.png" alt="PipRail pitch deck — the universal payment rail for the agent economy. Click to open the full 16-slide PDF, rendered right here in your browser." width="840" /></a>
+
+### ▶︎ &nbsp;[**Open the full deck — PDF**](PipRail-deck.pdf) &nbsp;◀︎
+
+<sub>Opens **right here in your browser** — no download, GitHub renders it inline. 16 slides · every stat sourced in the speaker notes.</sub>
+
+</div>
+
+The whole thesis in one read: **why** agent payments are happening now, **why** chain & token fragmentation is the enemy, and **how** a single `chain:` parameter turns PipRail into the universal adapter. The payment path is **0% forever** — the moat *and* the distribution; value accrues to the layer around the free rail, never the rail itself.
+
+<details>
+<summary><b>What's inside — the 16-slide arc</b></summary>
+
+<br/>
+
+| # | Slide | # | Slide |
+|---|---|---|---|
+| 1 | **Hero** — the universal payment rail for the agent economy | 9 | **The MCP** — give your agent a budget-bound wallet |
+| 2 | **Why now** — money is moving on-chain | 10 | **Open · dual-rail · gasless** |
+| 3 | **The new buyer** — autonomous agents | 11 | **MPP vs PipRail** — count the middlemen |
+| 4 | **The standard** — x402, "402 Payment Required" | 12 | **Discovery + integrations** |
+| 5 | **The problem** — chain & token fragmentation | 13 | **Why PipRail wins** — the moat |
+| 6 | **The reveal** — the universal adapter | 14 | **Traction** |
+| 7 | **How it works** — 402 → pay → verify → 200 | 15 | **Business model** — open core, 0% rail |
+| 8 | **Two sides, one SDK** — accept *and* pay | 16 | **The ask** |
+
+<sub>Source `.pptx` (fully editable, brand fonts embedded) lives in [`.claude/skills/branding/design/deck/`](.claude/skills/branding/design/deck/). The root `PipRail-deck.pdf` is regenerated from it — don't hand-edit the PDF.</sub>
+
+</details>
+
 > ### 📖 Full documentation → **[docs.piprail.com](https://docs.piprail.com)**
 > The single, searchable **source of truth** — every function, option, chain, and example. This README is just the front door.
 
