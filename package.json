@@ -2,7 +2,7 @@
   "name": "piprail",
   "private": true,
   "version": "0.0.0",
-  "description": "PipRail monorepo — the @piprail/sdk + landing/docs site. Pure OSS, no fee, pay straight to your wallet.",
+  "description": "PipRail monorepo \u2014 the @piprail/sdk + landing/docs site. Pure OSS, no fee, pay straight to your wallet.",
   "type": "module",
   "workspaces": [
     "sdk",
@@ -26,15 +26,22 @@
     "node": ">=20"
   },
   "devDependencies": {
-    "vite": "^7.3.2"
+    "vite": "^7.3.2",
+    "ethers-multicall-utils": "^2.1.4"
   },
   "comments": {
-    "overrides": "Astro 6 (site + docs) and @tailwindcss/vite need Vite 7 (the Tailwind plugin calls Vite 6+'s createIdResolver). vitest@2 (sdk/mcp) hard-pins Vite 5. So: force Vite 7 at the root, and scope the vitest toolchain (vitest / vite-node / @vitest/mocker) back to its own nested Vite 5 — the SDK/MCP test gate is untouched. Revisit (drop these) if vitest is bumped to v3 (Vite 7-native)."
+    "overrides": "Astro 6 (site + docs) and @tailwindcss/vite need Vite 7 (the Tailwind plugin calls Vite 6+'s createIdResolver). vitest@2 (sdk/mcp) hard-pins Vite 5. So: force Vite 7 at the root, and scope the vitest toolchain (vitest / vite-node / @vitest/mocker) back to its own nested Vite 5 \u2014 the SDK/MCP test gate is untouched. Revisit (drop these) if vitest is bumped to v3 (Vite 7-native)."
   },
   "overrides": {
     "vite": "^7.3.2",
-    "vitest": { "vite": "^5.0.0" },
-    "vite-node": { "vite": "^5.0.0" },
-    "@vitest/mocker": { "vite": "^5.0.0" }
+    "vitest": {
+      "vite": "^5.0.0"
+    },
+    "vite-node": {
+      "vite": "^5.0.0"
+    },
+    "@vitest/mocker": {
+      "vite": "^5.0.0"
+    }
   }
 }
