@@ -1,6 +1,6 @@
 ---
 title: "The exact scheme low-level codec"
-description: The EVM, EIP-3009 building blocks behind the standard exact rail — parse requirements, read a token's true on-chain domain, and frame an X-PAYMENT header by hand.
+description: 'The EVM, EIP-3009 building blocks behind the standard exact rail — parse requirements, read a token''s true on-chain domain.'
 sidebar:
   order: 3
 ---

@@ -1,6 +1,6 @@
 ---
 title: elizaOS
-description: Give an elizaOS agent a budget-bound PipRail wallet — pay x402 APIs across every chain, no facilitator, no fee. A native elizaOS plugin wrapping @piprail/sdk's payment tools.
+description: 'Give an elizaOS agent a budget-bound PipRail wallet — pay x402 APIs across every chain, no facilitator, no fee.'
 sidebar:
   order: 3
 ---

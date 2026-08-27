@@ -1,6 +1,6 @@
 ---
 title: Internals & hardening
-description: The engineering record for the spend-controls layer — the data model, the exact-precision math, every guard and why it exists, the adversarial edge-case matrix, the memory characteristics, and where each invariant is proven.
+description: 'The engineering record for the spend-controls layer — the data model, the exact-precision math, every guard and why it exists.'
 sidebar:
   order: 7
 ---

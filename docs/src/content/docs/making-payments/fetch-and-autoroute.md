@@ -1,6 +1,6 @@
 ---
 title: "fetch, autoRoute & retries"
-description: The drop-in fetch that pays a 402 and retries with proof — plus opt-in balance-aware routing and the never-re-pay rule that keeps a flaky RPC from double-spending.
+description: 'The drop-in fetch that pays a 402 and retries with proof, plus opt-in balance-aware routing and the never-re-pay rule that prevents double-spending.'
 sidebar:
   order: 6
 ---

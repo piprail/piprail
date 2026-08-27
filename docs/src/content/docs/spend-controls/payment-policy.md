@@ -1,6 +1,6 @@
 ---
 title: Payment policy
-description: The budget guard that makes autonomous payment safe — per-payment and lifetime ceilings plus chain, token, and host allowlists, enforced by the SDK before any on-chain send.
+description: 'The budget guard that makes autonomous payment safe — per-payment and lifetime ceilings plus chain, token, and host allowlists.'
 sidebar:
   order: 1
 ---

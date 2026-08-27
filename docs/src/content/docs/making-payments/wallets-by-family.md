@@ -1,6 +1,6 @@
 ---
 title: Wallets — one field, every chain
-description: The wallet shape is always { key } — the chain's secret as a string. NEAR also needs accountId. What key holds per chain, the advanced bring-your-own object, and the WrongFamilyError when it's wrong.
+description: 'The wallet shape is always { key } — the chain''s secret as a string. NEAR also needs accountId. What key holds per chain.'
 sidebar:
   order: 3
 ---

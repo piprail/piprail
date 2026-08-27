@@ -1,6 +1,6 @@
 ---
 title: Why it's safe
-description: The spend policy is enforced by the SDK before any on-chain send, against the token's true decimals — no custody, no backend, the key stays local, and it's all MIT and auditable.
+description: 'The spend policy is enforced by the SDK before any on-chain send, against the token''s true decimals — no custody, no backend, the key stays local.'
 sidebar:
   order: 8
 ---

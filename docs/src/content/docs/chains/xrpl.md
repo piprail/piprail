@@ -1,6 +1,6 @@
 ---
 title: "XRP Ledger"
-description: Take and make payments on the XRP Ledger in USDC, Ripple's RLUSD, or native XRP — its memo-bound proof, the trustline/activation prerequisite, and the partial-payment guard.
+description: 'Take and make payments on the XRP Ledger in USDC, Ripple''s RLUSD, or native XRP — its memo-bound proof, the trustline/activation prerequisite.'
 sidebar:
   order: 10
 ---

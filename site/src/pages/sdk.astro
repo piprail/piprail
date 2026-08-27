@@ -15,7 +15,7 @@ const total = chains.length
 const familyCount = [...new Set(chains.map((c) => c.family))].length
 
 const title = 'x402 SDK — accept & make crypto payments in one line | PipRail'
-const description = `@piprail/sdk: gate any route to charge for itself (requirePayment / createPaymentGate) or point an agent at a paid URL and it pays itself (PipRailClient) — x402 payments across ${total} chains, no backend, no fee, verified on your own RPC. Spend budgets, gas estimates, and planPayment for agents.`
+const description = `@piprail/sdk — gate any route to charge for itself, or point an agent at a paid URL and it pays itself. x402 on ${total} chains, no backend, no fee.`
 
 const verifyKinds = [
   { kind: 'paid', resp: '200 + your data + the payment-response receipt header' },

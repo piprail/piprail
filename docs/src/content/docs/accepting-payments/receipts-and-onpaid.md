@@ -1,6 +1,6 @@
 ---
 title: "Receipts & onPaid"
-description: Record every settled payment — the onPaid callback (sync or async, fully isolated), the enriched PaidReceipt, awaitOnPaid, at-least-once delivery with deliverReceipt, and buildReceiptHeader for hand-rolled servers.
+description: 'Record every settled payment — the onPaid callback (sync or async, fully isolated), the enriched PaidReceipt, awaitOnPaid.'
 sidebar:
   order: 4
 ---

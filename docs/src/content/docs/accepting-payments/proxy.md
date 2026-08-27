@@ -1,6 +1,6 @@
 ---
 title: Gate an existing API (proxy)
-description: Put an x402 paywall in front of an API you already have — in any language — without touching it. A deployable edge proxy that forwards only paid requests to your origin.
+description: 'Put an x402 paywall in front of an API you already have, in any language, without touching it. A deployable edge proxy that forwards only paid requests.'
 sidebar:
   order: 7
 ---

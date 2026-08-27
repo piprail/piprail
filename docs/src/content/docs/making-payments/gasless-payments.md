@@ -1,6 +1,6 @@
 ---
 title: Gasless payments
-description: How gasless x402 payments work in PipRail — the two rails (onchain-proof vs the gasless exact rail), the exact rail's six auto-selected methods (EIP-3009, Permit2, SVM, Algorand, Aptos, NEAR), and a clear table of exactly which chains and tokens are gasless, both-sides-gasless via a keyless facilitator vs buyer-gasless via self-settle, and which aren't.
+description: 'How gasless x402 payments work in PipRail — the two rails (onchain-proof vs the gasless exact rail), the exact rail''s six auto-selected methods (EIP-3009.'
 sidebar:
   order: 9
 ---

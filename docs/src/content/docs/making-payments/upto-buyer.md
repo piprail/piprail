@@ -1,6 +1,6 @@
 ---
 title: Paying the upto (metered) rail
-description: Opt the client into the ratified x402 `upto` scheme so it can pay usage-billed servers — sign a Permit2 authorization for a MAX once (zero gas, broadcasts nothing), budget against that MAX, and let the merchant settle the actual it metered.
+description: 'Opt the client into the ratified x402 `upto` scheme so it can pay usage-billed servers — sign a Permit2 authorization for a MAX once (zero gas.'
 sidebar:
   order: 8.5
 ---

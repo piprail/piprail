@@ -1,6 +1,6 @@
 ---
 title: The error model
-description: Two channels and only two — a thrown typed PipRailError on the imperative path, a returned VerifyErrorCode on the verify path — so every failure reaches you typed, never as an opaque chain-library blob.
+description: 'Two channels and only two — a thrown typed PipRailError on the imperative path, a returned VerifyErrorCode on the verify path.'
 sidebar:
   order: 1
 ---

@@ -1,6 +1,6 @@
 ---
 title: Running in production
-description: The checklist for shipping PipRail beyond a single process — share the replay store across instances, understand what is process-scoped (and resets on restart), make receipts durable, bring your own RPC, advertise an exact rail for discovery, and keep keys safe.
+description: 'The checklist for shipping PipRail beyond a single process — share the replay store across instances.'
 sidebar:
   order: 5
 ---

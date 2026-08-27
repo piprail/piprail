@@ -1,6 +1,6 @@
 ---
 title: Self-describing endpoints
-description: Every PipRail 402 announces what it is and how to pay it — to humans, AI agents, and crawlers alike — so an endpoint is never invisible, even on the onchain-proof scheme a stock x402 client can't pay.
+description: 'Every PipRail 402 announces what it is and how to pay it — to humans, AI agents, and crawlers alike — so an endpoint is never invisible.'
 sidebar:
   order: 0
 ---

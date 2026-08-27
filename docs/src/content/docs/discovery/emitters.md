@@ -1,6 +1,6 @@
 ---
 title: Discovery emitters
-description: Pure functions that turn a gate's payment options into the static artifacts a crawler reads — an OpenAPI doc, a well-known file, a DNS line, and the bazaar block x402scan needs.
+description: 'Pure functions that turn a gate''s payment options into the static artifacts a crawler reads — an OpenAPI doc, a well-known file, a DNS line.'
 sidebar:
   order: 3
 ---

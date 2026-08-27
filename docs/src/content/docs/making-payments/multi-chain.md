@@ -1,6 +1,6 @@
 ---
 title: Multi-chain buying
-description: Pay a 402 on whichever chain it asks for — give a MultiChainPayer one wallet per chain and it auto-routes to the first funded chain that can settle, no manual routing, no backend, no oracle.
+description: 'Pay a 402 on whichever chain it asks for — give a MultiChainPayer one wallet per chain and it auto-routes to the first funded chain that can settle.'
 sidebar:
   order: 10
 ---

@@ -1,6 +1,6 @@
 ---
 title: Overview
-description: What @piprail/mcp is — a Model Context Protocol server that hands any AI agent a budget-bound wallet to pay x402 URLs autonomously, capped by a policy it cannot exceed.
+description: 'What @piprail/mcp is — a Model Context Protocol server that hands any AI agent a budget-bound wallet to pay x402 URLs autonomously.'
 sidebar:
   order: 1
 ---
