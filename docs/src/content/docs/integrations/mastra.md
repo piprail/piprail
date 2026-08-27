@@ -1,6 +1,6 @@
 ---
 title: Mastra
-description: Give a Mastra agent a budget-bound x402 payment wallet across every major chain, via the @piprail/mcp MCP server. The first x402 integration for Mastra — self-custody, no facilitator, no fee.
+description: 'Give a Mastra agent a budget-bound x402 payment wallet across every major chain, via the @piprail/mcp MCP server. The first x402 integration for Mastra.'
 sidebar:
   order: 5
 ---

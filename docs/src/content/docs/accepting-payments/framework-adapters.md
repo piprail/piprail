@@ -1,6 +1,6 @@
 ---
 title: Framework adapters
-description: Drive createPaymentGate by hand in Hono, Fastify, Cloudflare Workers, Next.js, Bun, or Deno — and the Express-like types that keep requirePayment dependency-free.
+description: 'Drive createPaymentGate by hand in Hono, Fastify, Cloudflare Workers, Next.js, Bun, or Deno.'
 sidebar:
   order: 6
 ---

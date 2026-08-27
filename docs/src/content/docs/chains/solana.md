@@ -1,6 +1,6 @@
 ---
 title: Solana
-description: Accept and pay x402 payments on Solana — SOL, USDC, and USDT — with one lazy peer dep, a Keypair wallet, digest-bound on-chain verification, and the gasless standard `exact` rail (the buyer pays zero SOL; any SPL token).
+description: 'Accept and pay x402 payments on Solana — SOL, USDC, and USDT — with one lazy peer dep, a Keypair wallet, digest-bound on-chain verification.'
 sidebar:
   order: 2
 ---

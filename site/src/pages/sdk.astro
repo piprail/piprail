@@ -15,7 +15,7 @@ const total = chains.length
 const familyCount = [...new Set(chains.map((c) => c.family))].length
 
 const title = 'x402 SDK — accept & make crypto payments in one line | PipRail'
-const description = `@piprail/sdk: gate any route to charge for itself (requirePayment / createPaymentGate) or point an agent at a paid URL and it pays itself (PipRailClient) — x402 payments across ${total} chains, no backend, no fee, verified on your own RPC. Spend budgets, gas estimates, and planPayment for agents.`
+const description = `@piprail/sdk — gate any route to charge for itself, or point an agent at a paid URL and it pays itself. x402 on ${total} chains, no backend, no fee.`
 
 const verifyKinds = [
   { kind: 'paid', resp: '200 + your data + the payment-response receipt header' },
@@ -192,7 +192,7 @@ const glossaryLd = {
           <code class="text-neutral-200">quote(url)</code> prices it without paying;
           <code class="text-neutral-200">estimateCost(url)</code> adds the native-coin gas; and an opt-in
           <code class="text-neutral-200">policy</code> refuses anything out of bounds before a token moves.
-          <a href="/mcp" class="text-accent underline-offset-4 hover:underline">Prefer no code? Use the MCP server →</a>
+          <a href="/mcp/" class="text-accent underline-offset-4 hover:underline">Prefer no code? Use the MCP server →</a>
         </p>
       </div>
     </section>
@@ -204,7 +204,7 @@ const glossaryLd = {
         Or offer several rails in one challenge (one nonce, no per-chain routes) and let the agent pay with whatever it holds.
       </SectionHeading>
       <div class="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
-        <a href="/chains" class="text-accent underline-offset-4 hover:underline">Every supported chain →</a>
+        <a href="/chains/" class="text-accent underline-offset-4 hover:underline">Every supported chain →</a>
         <a href="https://docs.piprail.com/chains/overview/" class="text-accent underline-offset-4 hover:underline">Read the docs →</a>
       </div>
     </section>
@@ -371,7 +371,7 @@ const glossaryLd = {
         <a href="https://www.npmjs.com/package/@piprail/sdk" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto">
           @piprail/sdk on npm <ArrowRight size={16} aria-hidden="true" />
         </a>
-        <a href="/chains" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto">
+        <a href="/chains/" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto">
           See every chain
         </a>
       </div>

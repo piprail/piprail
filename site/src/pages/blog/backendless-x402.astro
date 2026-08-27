@@ -130,7 +130,7 @@ const faqLd = {
   <Navigation />
 
   <main class="mx-auto max-w-3xl px-4 sm:px-6">
-    <div class="pt-6"><Breadcrumbs items={[{ name: 'Blog', href: '/blog' }, { name: post.title }]} /></div>
+    <div class="pt-6"><Breadcrumbs items={[{ name: 'Blog', href: '/blog/' }, { name: post.title }]} /></div>
 
     <article class="fade-up">
       <header class="pt-10 sm:pt-14">
@@ -328,7 +328,7 @@ const faqLd = {
           <div class="mt-4 grid gap-4 sm:grid-cols-2">
             {more.map((p) => (
               <a
-                href={`/blog/${p.slug}`}
+                href={`/blog/${p.slug}/`}
                 class="group rounded-2xl border border-white/10 bg-white/2.5 p-5 transition hover:border-accent/30 hover:bg-white/5"
               >
                 <div class="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">{p.category}</div>
@@ -339,7 +339,7 @@ const faqLd = {
           </div>
         </>
       ) : (
-        <a href="/blog" class="inline-flex items-center gap-2 text-sm font-medium text-accent transition hover:brightness-110">
+        <a href="/blog/" class="inline-flex items-center gap-2 text-sm font-medium text-accent transition hover:brightness-110">
           <ArrowLeft size={15} aria-hidden="true" /> All writing
         </a>
       )}

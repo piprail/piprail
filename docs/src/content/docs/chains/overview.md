@@ -1,6 +1,6 @@
 ---
 title: "EVM chains & any other chain"
-description: The built-in EVM preset registry, how resolveChain normalises a chain name, viem Chain, or bare { id, rpcUrl }, and how to pay on any EVM chain with no allowlist.
+description: 'The built-in EVM preset registry, how resolveChain normalises a chain name or bare { id, rpcUrl }, and how to pay on any EVM chain with no allowlist.'
 sidebar:
   order: 1
 ---

@@ -40,6 +40,11 @@ export default defineConfig({
 
   integrations: [
     starlight({
+      // Component overrides. `Head` appends JSON-LD to every docs page — Starlight ships
+      // none, which left all 91 pages with zero structured data. See src/components/Head.astro.
+      components: {
+        Head: './src/components/Head.astro',
+      },
       title: 'PipRail',
       description:
         'The complete documentation for @piprail/sdk and @piprail/mcp — x402 crypto payments for AI agents on any chain. No backend, no fee, settled straight to your wallet.',

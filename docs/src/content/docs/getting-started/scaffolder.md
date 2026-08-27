@@ -1,6 +1,6 @@
 ---
 title: Scaffold a merchant (@piprail/create)
-description: One command scaffolds a self-hosted x402 merchant — accept stablecoin payments from humans and AI agents, straight to your wallet. Paste a public address; no key, no account, no backend.
+description: 'One command scaffolds a self-hosted x402 merchant — accept stablecoin payments from humans and AI agents, straight to your wallet. Paste a public address.'
 sidebar:
   order: 2
 ---

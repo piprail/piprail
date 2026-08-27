@@ -1,6 +1,6 @@
 ---
 title: Replay protection & recovery
-description: How a gate stops a proof being redeemed twice (a bounded in-memory used-proof set + a recency window), what happens to a payment when a request doesn't finish, and how to share the store across instances.
+description: 'How a gate stops a proof being redeemed twice (a bounded in-memory used-proof set + a recency window).'
 sidebar:
   order: 5
   label: Replay protection

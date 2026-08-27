@@ -1,6 +1,6 @@
 ---
 title: planPayment()
-description: The read-only readiness check — for every rail a 402 offers, can this wallet actually settle it? Balance, gas, recipient readiness, and policy, with a funding hint.
+description: 'The read-only readiness check — for every rail a 402 offers, can this wallet actually settle it? Balance, gas, recipient readiness, and policy.'
 sidebar:
   order: 2
 ---

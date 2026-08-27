@@ -1,6 +1,6 @@
 ---
 title: MCP transport (seller)
-description: Accept x402 payments over the Model Context Protocol's tool calls, not just HTTP — wrap a PipRail gate as a paid MCP tool with one handler, sharing the same replay set as your HTTP and A2A gates. Backendless, additive, x402-V2-conformant.
+description: 'Accept x402 payments over the Model Context Protocol''s tool calls, not just HTTP — wrap a PipRail gate as a paid MCP tool with one handler.'
 sidebar:
   order: 10
 ---

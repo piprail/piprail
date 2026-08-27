@@ -1,6 +1,6 @@
 ---
 title: A2A transport (seller)
-description: Accept x402 payments over the Agent2Agent (A2A) protocol's JSON-RPC, not just HTTP — map a PipRail gate onto A2A Task/Message metadata with one handler, sharing the same replay set as your HTTP gate. Backendless, additive, x402-V2-conformant.
+description: 'Accept x402 payments over the Agent2Agent (A2A) protocol''s JSON-RPC, not just HTTP — map a PipRail gate onto A2A Task/Message metadata with one handler.'
 sidebar:
   order: 9
 ---

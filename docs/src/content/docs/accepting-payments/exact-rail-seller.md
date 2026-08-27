@@ -1,6 +1,6 @@
 ---
 title: The exact rail (seller)
-description: Opt into the ratified x402 `exact` scheme so any standard x402 client can pay your gate — self-settle with your own relayer, or delegate to a facilitator you choose.
+description: 'Opt into the ratified x402 `exact` scheme so any standard x402 client can pay your gate — self-settle with your own relayer.'
 sidebar:
   order: 7
 ---

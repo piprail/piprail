@@ -56,3 +56,41 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v5
+
+  # docs.piprail.com is 91 pages — 87% of PipRail's indexable surface — and until
+  # 2026-08-27 it was NEVER submitted to IndexNow (only the apex was, via indexnow.yml).
+  # IndexNow feeds Bing, and Bing's index is what backs ChatGPT search + Copilot, so this
+  # is the cheapest AI-visibility lever we have. Keys are per-host by key-file location:
+  # the same key is reused, served from docs/public/<key>.txt on this host.
+  #
+  # Deploy-correlated only, never on a schedule — re-submitting unchanged URLs is an
+  # IndexNow spam signal that can throttle the key.
+  indexnow:
+    name: ping IndexNow (docs)
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Submit the live docs sitemap URLs to IndexNow
+        run: |
+          set +e   # best-effort: a failed ping must never red the deploy. Neutralize the runner's -e.
+          HOST="docs.piprail.com"
+          KEY="1a7e59a4b79dd5cf3b5c74dd6d400c27"
+          SITEMAP="https://$HOST/sitemap-0.xml"
+
+          # GitHub Pages serves the new build shortly after deploy — poll the live sitemap
+          # (bounded) so we submit the freshly-deployed URL set, not a stale one.
+          urls=""
+          for i in 1 2 3 4 5 6; do
+            sleep 20
+            xml=$(curl -fsS "$SITEMAP" 2>/dev/null)
+            urls=$(printf '%s' "$xml" | grep -oE '<loc>[^<]+</loc>' | sed -E 's#</?loc>##g')
+            [ -n "$urls" ] && break
+          done
+          if [ -z "$urls" ]; then echo "No sitemap URLs reachable yet — skipping (next deploy covers it)."; exit 0; fi
+
+          count=$(printf '%s\n' "$urls" | grep -c .)
+          echo "Submitting $count docs URL(s) to IndexNow..."
+          body=$(printf '%s\n' "$urls" | HOST="$HOST" KEY="$KEY" python3 -c 'import os,sys,json; u=[l.strip() for l in sys.stdin if l.strip()]; print(json.dumps({"host":os.environ["HOST"],"key":os.environ["KEY"],"keyLocation":"https://%s/%s.txt"%(os.environ["HOST"],os.environ["KEY"]),"urlList":u}))')
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST 'https://api.indexnow.org/indexnow' -H 'Content-Type: application/json' -d "$body")
+          echo "IndexNow responded HTTP $code  (200 or 202 = accepted)."
+          exit 0

@@ -1,6 +1,6 @@
 ---
 title: Hermes
-description: Give a Hermes agent a budget-bound PipRail wallet — pay x402 APIs across every chain, no facilitator, no fee. Add @piprail/mcp under mcp_servers, or install the Hermes MCP catalog entry.
+description: 'Give a Hermes agent a budget-bound PipRail wallet — pay x402 APIs across every chain, no facilitator, no fee. Add @piprail/mcp under mcp_servers.'
 sidebar:
   order: 2
 ---

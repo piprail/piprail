@@ -1,6 +1,6 @@
 ---
 title: The upto rail — metered billing (seller)
-description: Charge a variable amount up to a signed maximum — the buyer authorizes a ceiling, you serve, meter the actual usage, and self-settle exactly what was used. EVM-Permit2, backendless, no fee.
+description: 'Charge a variable amount up to a signed maximum — the buyer authorizes a ceiling, you serve, meter the actual usage, and self-settle exactly what was used.'
 sidebar:
   order: 8
 ---

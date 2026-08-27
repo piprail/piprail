@@ -1,6 +1,6 @@
 ---
 title: Local verification
-description: How a payment is verified with no backend — on-chain against your own RPC, plus an in-memory used-proof set and recency window — and where the Vitest suite that pins it lives.
+description: 'How a payment is verified with no backend — on-chain against your own RPC, plus an in-memory used-proof set and recency window.'
 sidebar:
   order: 1
 ---

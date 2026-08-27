@@ -17,7 +17,7 @@ const evmCount = chains.filter((c) => c.family === 'EVM').length
 const withSetup = chains.filter((c) => c.setup)
 
 const title = `x402 on ${total} chains — accept USDC, USDT & native coins | PipRail`
-const description = `Every chain PipRail supports for x402 payments: ${evmCount} EVM mainnets plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger — ${total} chains across ${familyCount} families. USDC almost everywhere, USDT on most, native coin on every chain, any other token by address. One parameter picks everything.`
+const description = `Every chain PipRail supports for x402: ${total} chains across ${familyCount} families — EVM, Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, XRPL.`
 
 // ItemList — every supported chain as a structured, citable entity.
 const itemListLd = {
@@ -84,7 +84,7 @@ const faqLd = {
         Switch chains by changing a single string.
       </p>
       <div class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-        <a href="/sdk" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto">
+        <a href="/sdk/" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto">
           How to accept on any chain <ArrowRight size={16} aria-hidden="true" />
         </a>
         <a href="https://docs.piprail.com/chains/overview/" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto">
@@ -208,10 +208,10 @@ const faqLd = {
         The same integration pays and gets paid across all {total} — swap one word.
       </p>
       <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-        <a href="/sdk" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto">
+        <a href="/sdk/" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto">
           Read the SDK guide <ArrowRight size={16} aria-hidden="true" />
         </a>
-        <a href="/mcp" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto">
+        <a href="/mcp/" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto">
           Give an agent a wallet
         </a>
       </div>

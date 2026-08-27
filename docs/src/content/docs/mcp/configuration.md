@@ -1,6 +1,6 @@
 ---
 title: Configuration
-description: Every PIPRAIL_* environment variable the MCP server reads — the wallet, the budget, the schemes, and the time envelope — and the wallet key format for each chain.
+description: 'Every PIPRAIL_* environment variable the MCP server reads — the wallet, the budget, the schemes, and the time envelope.'
 sidebar:
   order: 4
 ---

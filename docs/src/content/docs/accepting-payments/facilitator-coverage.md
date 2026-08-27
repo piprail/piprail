@@ -1,6 +1,6 @@
 ---
 title: Facilitator coverage
-description: A shipped data map of which keyless x402 facilitators settle the exact scheme on which networks, plus a best-effort reader of a facilitator's live /supported — so you can pick a facilitator (or verify one) without a hosted registry.
+description: 'A shipped data map of which keyless x402 facilitators settle the exact scheme on which networks.'
 sidebar:
   order: 8
 ---

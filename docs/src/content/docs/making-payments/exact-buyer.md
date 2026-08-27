@@ -1,6 +1,6 @@
 ---
 title: Pay any x402 server (the exact rail)
-description: Opt the client into the standard x402 `exact` scheme so it can pay any x402 server, not just PipRail gates — EVM (EIP-3009 USDC/EURC or Permit2 for any ERC-20), Solana (any SPL token), Algorand (any ASA), Aptos (any Fungible Asset), and NEAR (NEP-141 via a NEP-366 meta-transaction), gas-free for the buyer.
+description: 'Opt the client into the standard x402 `exact` scheme so it can pay any x402 server, not just PipRail gates.'
 sidebar:
   order: 8
 ---

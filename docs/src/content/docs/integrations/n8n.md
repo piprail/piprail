@@ -1,6 +1,6 @@
 ---
 title: n8n
-description: Pay x402 URLs from any n8n workflow with a budget-bound PipRail wallet. A native n8n community node wrapping @piprail/sdk — self-custody, EVM chains, no facilitator, no fee.
+description: 'Pay x402 URLs from any n8n workflow with a budget-bound PipRail wallet. A native n8n community node wrapping @piprail/sdk — self-custody, EVM chains.'
 sidebar:
   order: 4
 ---

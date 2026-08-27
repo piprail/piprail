@@ -1,6 +1,6 @@
 ---
 title: Verifying receipts (anyone)
-description: Capture the receipt from a paid fetch (lastReceipt) and re-verify ANY PipRail receipt against the chain — static, wallet-free, never trusting the receipt's claims. Plus the optional EIP-712 attestation check, with a worked end-to-end and a forged-receipt example.
+description: 'Capture the receipt from a paid fetch (lastReceipt) and re-verify ANY PipRail receipt against the chain — static, wallet-free.'
 sidebar:
   order: 11
 ---

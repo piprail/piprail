@@ -1,6 +1,6 @@
 ---
 title: OpenClaw
-description: Give an OpenClaw agent a budget-bound PipRail wallet — pay x402 APIs across every chain, no facilitator, no fee. Install the ClawHub skill or add @piprail/mcp as a raw MCP server.
+description: 'Give an OpenClaw agent a budget-bound PipRail wallet — pay x402 APIs across every chain, no facilitator, no fee.'
 sidebar:
   order: 1
 ---

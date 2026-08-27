@@ -1,6 +1,6 @@
 ---
 title: Verifiable receipts (seller)
-description: Emit a self-contained, anyone-verifiable receipt on every settled payment — chain-grounded by default (no key), with an optional EIP-712 service-delivery attestation. Backendless, byte-compatible with the x402 offer-receipt extension.
+description: 'Emit a self-contained, anyone-verifiable receipt on every settled payment — chain-grounded by default (no key).'
 sidebar:
   order: 5
 ---

@@ -1,6 +1,6 @@
 ---
 title: "TON"
-description: Take and make payments on TON (the Telegram blockchain) in USD₮ or native Gram (formerly Toncoin) — the one chain that needs a free RPC API key, plus its memo-bound proof.
+description: 'Take and make payments on TON (the Telegram blockchain) in USD₮ or native Gram (formerly Toncoin) — the one chain that needs a free RPC API key.'
 sidebar:
   order: 3
 ---
