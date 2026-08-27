@@ -145,6 +145,14 @@ piprail/
   changes first. `examples/` has a live e2e against Anvil.
 - **No marketplace, activity profile, service registry, or fee contract.** Deliberately absent —
   they'd need a backend or compete on territory we don't own.
+- **🔗 Record every URL — `.claude/URLS.md` is the address book.** The moment we interact with
+  *any* URL, endpoint, dashboard, admin console, or API — ours or a third party's — **it gets a
+  row in [`.claude/URLS.md`](.claude/URLS.md) the same day**, with what it's for and when it was
+  last verified. Never leave a URL only in chat, a commit message, or memory: if you had to hunt
+  for it once, the next session will hunt for it again. This covers live endpoints, sitemaps,
+  npm/registry APIs, listing pages, submission forms, login-gated consoles (mark those **John-only**),
+  and any third-party URL an inbound issue points at. `DISTRIBUTION-LEDGER.md` holds the *narrative*
+  (what's pending and why); `URLS.md` holds the flat, clickable *addresses*.
 
 ---
 
@@ -185,9 +193,9 @@ The Hermes integration shipped (`integrations/hermes/piprail/`, live on piprail.
 Base mainnet). These **external submissions are open and out of our hands** — periodically check whether
 they merged/landed. *(Manual reminder; nothing is scheduled. Delete an entry once it lands.)*
 
-- **MCP catalog (primary)** → [NousResearch/hermes-agent#45962](https://github.com/NousResearch/hermes-agent/pull/45962) — when merged, **`hermes mcp install piprail`** works natively for every Hermes user. ⏳ open. **When it lands, swap the site install chips** (`hermes mcp add piprail --command npx --args -y @piprail/mcp`, in `site/src/pages/index.astro` + `mcp.astro`) to the cleaner `hermes mcp install piprail`, and tighten the docs Setup `hermes.md`.
+- **MCP catalog (primary)** → [NousResearch/hermes-agent#45962](https://github.com/NousResearch/hermes-agent/pull/45962) — when merged, **`hermes mcp install piprail`** works natively for every Hermes user. ⏳ **still open, STALE** — our 3 sweeper fixes landed 2026-07-14 (50 tests green); **zero maintainer response since**, re-verified 2026-08-27. **When it lands, swap the site install chips** (`hermes mcp add piprail --command npx --args -y @piprail/mcp`, in `site/src/pages/index.astro` + `mcp.astro`) to the cleaner `hermes mcp install piprail`, and tighten the docs Setup `hermes.md`.
 - **Awesome list** → [SamurAIGPT/awesome-hermes-agent#61](https://github.com/SamurAIGPT/awesome-hermes-agent/pull/61). ✅ merged 2026-06-14 (listed `[production]`; install via `npx -y @piprail/mcp` = always-latest, no version to sync)
-- **Hermes Atlas** (hermesatlas.com) → [ksimback/hermes-ecosystem#374](https://github.com/ksimback/hermes-ecosystem/issues/374). ⏳ open
+- **Hermes Atlas** (hermesatlas.com) → [ksimback/hermes-ecosystem#374](https://github.com/ksimback/hermes-ecosystem/issues/374). ✅ **LANDED 2026-07-16** — their validator passed it and auto-merged PR #551; issue closed as completed. Listed on the ecosystem map.
 - **Skills tap** → [github.com/piprail/skills](https://github.com/piprail/skills) — `hermes skills tap add piprail/skills`. ✅ live (ours)
 - **Follow-up (not done):** publish to skills.sh / officialskills.sh, then PR [VoltAgent/awesome-agent-skills](https://github.com/VoltAgent/awesome-agent-skills) (~25K★) for the bigger Skills-Hub reach.
 

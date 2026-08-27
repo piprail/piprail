@@ -14,7 +14,8 @@ const { path = '' } = Astro.props
 const onDemo = path === '/demo' || path === '/demo/'
 
 // Active-state helper for the secondary on-site links.
-const isActive = (p: string) => path === p || path === `${p}/`
+const norm = (p: string) => (p.endsWith('/') ? p.slice(0, -1) : p) || '/'
+const isActive = (p: string) => norm(path) === norm(p)
 const linkCls = (p: string) =>
   isActive(p)
     ? 'hidden items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-neutral-100 lg:inline-flex'
@@ -25,12 +26,12 @@ const linkCls = (p: string) =>
 // uncrowded (Partners lives in the overlay + footer, not the inline bar).
 const navLinks = [
   { href: 'https://docs.piprail.com', label: 'Docs', icon: BookText },
-  { href: '/sdk', label: 'SDK', icon: Package },
-  { href: '/mcp', label: 'MCP', icon: Plug },
-  { href: '/chains', label: 'Chains', icon: Link2 },
-  { href: '/blog', label: 'Blog', icon: Newspaper },
-  { href: '/discovery', label: 'Discovery', mobileOnly: true, icon: Compass },
-  { href: '/partners', label: 'Partners', mobileOnly: true, icon: Handshake },
+  { href: '/sdk/', label: 'SDK', icon: Package },
+  { href: '/mcp/', label: 'MCP', icon: Plug },
+  { href: '/chains/', label: 'Chains', icon: Link2 },
+  { href: '/blog/', label: 'Blog', icon: Newspaper },
+  { href: '/discovery/', label: 'Discovery', mobileOnly: true, icon: Compass },
+  { href: '/partners/', label: 'Partners', mobileOnly: true, icon: Handshake },
   { href: 'https://github.com/piprail/piprail', label: 'GitHub', icon: Github },
 ]
 const desktopLinks = navLinks.filter((l) => !l.mobileOnly)
@@ -51,7 +52,7 @@ const mobileLinkCls = (href: string) =>
     <nav class="flex items-center gap-1.5 sm:gap-2" aria-label="Primary">
       <!-- Desktop inline nav — md and up -->
       <a
-        href="/demo"
+        href="/demo/"
         aria-current={onDemo ? 'page' : undefined}
         class:list={[
           'hidden shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm font-medium transition lg:inline-flex',
@@ -119,7 +120,7 @@ const mobileLinkCls = (href: string) =>
 
     <nav class="flex flex-1 flex-col gap-1 overflow-y-auto p-4" aria-label="Mobile">
       <a
-        href="/demo"
+        href="/demo/"
         aria-current={onDemo ? 'page' : undefined}
         class:list={[
           'flex items-center gap-2 rounded-lg border px-3 py-2.5 text-[15px] font-medium transition',

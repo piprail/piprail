@@ -143,10 +143,10 @@ const howToLd = {
 
       <!-- dual CTA — route the two audiences -->
       <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-        <a href="/sdk" class="inline-flex w-full items-center justify-center gap-2 cta-glow rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto">
+        <a href="/sdk/" class="inline-flex w-full items-center justify-center gap-2 cta-glow rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto">
           <Code2 size={16} aria-hidden="true" /> Get paid — the SDK
         </a>
-        <a href="/mcp" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto">
+        <a href="/mcp/" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto">
           <Bot size={16} class="text-accent" aria-hidden="true" /> Give your agent a wallet
         </a>
       </div>
@@ -274,7 +274,7 @@ const howToLd = {
           </h3>
           <p class="mt-2 mb-4 text-sm leading-relaxed text-neutral-400">Gate any route so it charges for itself. Express, Next.js, or any edge runtime — no backend, no database.</p>
           <CodeWindow file="server.ts" code={acceptCode} class="min-w-0" />
-          <a href="/sdk" class="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-accent transition hover:gap-2.5">Build a paid API <ArrowRight size={15} aria-hidden="true" /></a>
+          <a href="/sdk/" class="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-accent transition hover:gap-2.5">Build a paid API <ArrowRight size={15} aria-hidden="true" /></a>
         </div>
         <div class="flex min-w-0 flex-col card rounded-2xl p-6 sm:p-7">
           <h3 class="flex items-center gap-2 text-sm font-medium uppercase tracking-wider text-muted">
@@ -282,7 +282,7 @@ const howToLd = {
           </h3>
           <p class="mt-2 mb-4 text-sm leading-relaxed text-neutral-400">Point an agent at a paid URL and it pays the 402 on its own — inside a budget it can’t exceed.</p>
           <CodeWindow file="agent.ts" code={payCode} class="min-w-0" />
-          <a href="/mcp" class="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-accent transition hover:gap-2.5">Give your agent a wallet <ArrowRight size={15} aria-hidden="true" /></a>
+          <a href="/mcp/" class="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-accent transition hover:gap-2.5">Give your agent a wallet <ArrowRight size={15} aria-hidden="true" /></a>
         </div>
       </div>
     </section>
@@ -308,7 +308,7 @@ const howToLd = {
             live, client-side, no install. The SDK loads from a CDN right on the page.
           </p>
           <div class="mt-8">
-            <a href="/demo" class="inline-flex items-center justify-center gap-2 cta-glow rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110">
+            <a href="/demo/" class="inline-flex items-center justify-center gap-2 cta-glow rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110">
               <Play size={15} fill="currentColor" aria-hidden="true" /> Try the live demo
             </a>
           </div>
@@ -363,7 +363,7 @@ const howToLd = {
                   {c.name}
                 </span>
               ))}
-              <a href="/chains" class="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-medium text-neutral-400 transition hover:border-accent/30 hover:text-accent">
+              <a href="/chains/" class="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-medium text-neutral-400 transition hover:border-accent/30 hover:text-accent">
                 +{evmMore} more <ArrowRight size={13} aria-hidden="true" />
               </a>
             </div>
@@ -388,7 +388,7 @@ const howToLd = {
 
           <p class="text-sm leading-snug text-neutral-500">
             Need a chain we don’t ship? Pass a <code class="rounded bg-white/5 px-1 text-neutral-300">{'{ id, rpcUrl }'}</code> —
-            any EVM chain works, no allowlist. <a href="/chains" class="text-accent transition hover:underline">Browse every chain →</a>
+            any EVM chain works, no allowlist. <a href="/chains/" class="text-accent transition hover:underline">Browse every chain →</a>
           </p>
         </div>
       </div>
@@ -398,7 +398,7 @@ const howToLd = {
     <section class="border-t border-white/10 py-20 sm:py-24">
       <SectionHeading title="How it works." class="mb-10 max-w-2xl">
         A four-step round trip over plain HTTP. No facilitator, no custody.
-        <a href="/sdk" class="text-accent underline-offset-4 hover:underline">See the full flow →</a>
+        <a href="/sdk/" class="text-accent underline-offset-4 hover:underline">See the full flow →</a>
       </SectionHeading>
       <ol class="lift grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 sm:grid-cols-2 lg:grid-cols-4">
         {steps.map((s) => {
@@ -460,7 +460,7 @@ const howToLd = {
                 <span class="text-neutral-200">cannot exceed</span>. No code, no backend, no custody.
               </p>
               <div class="mt-8 flex flex-col gap-3 sm:flex-row">
-                <a href="/mcp" class="inline-flex items-center justify-center gap-2 cta-glow rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110">
+                <a href="/mcp/" class="inline-flex items-center justify-center gap-2 cta-glow rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110">
                   <Bot size={16} aria-hidden="true" /> Set it up
                 </a>
                 <a href="https://www.npmjs.com/package/@piprail/mcp" class="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20">
@@ -546,7 +546,7 @@ const howToLd = {
         </div>
       </div>
       <div class="mt-8 text-center">
-        <a href="/discovery" class="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20">
+        <a href="/discovery/" class="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20">
           See exactly how discoverability works <ArrowRight size={16} aria-hidden="true" />
         </a>
       </div>
@@ -557,9 +557,9 @@ const howToLd = {
       <div class="grid gap-8 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:gap-16">
         <div class="lg:sticky lg:top-24 lg:self-start">
           <SectionHeading title="FAQ." class="max-w-sm">
-            The essentials. More on the <a href="/sdk" class="text-accent underline-offset-4 hover:underline">SDK</a>,
-            <a href="/mcp" class="text-accent underline-offset-4 hover:underline">MCP</a>, and
-            <a href="/chains" class="text-accent underline-offset-4 hover:underline">Chains</a> pages.
+            The essentials. More on the <a href="/sdk/" class="text-accent underline-offset-4 hover:underline">SDK</a>,
+            <a href="/mcp/" class="text-accent underline-offset-4 hover:underline">MCP</a>, and
+            <a href="/chains/" class="text-accent underline-offset-4 hover:underline">Chains</a> pages.
           </SectionHeading>
         </div>
         <div class="lift divide-y divide-white/10 overflow-hidden rounded-2xl border border-white/10 bg-neutral-950">
@@ -588,7 +588,7 @@ const howToLd = {
         One install. One line. Straight to your wallet, on every chain that matters.
       </p>
       <div class="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-        <a href="/sdk" class="inline-flex w-full items-center justify-center gap-2 cta-glow rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto">
+        <a href="/sdk/" class="inline-flex w-full items-center justify-center gap-2 cta-glow rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto">
           Read the SDK guide <ArrowRight size={16} aria-hidden="true" />
         </a>
         <a href="https://github.com/piprail/piprail" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto">
@@ -599,7 +599,7 @@ const howToLd = {
 
     <!-- 11 · Partners strip -->
     <section class="border-t border-white/10 py-10">
-      <a href="/partners" class="card flex flex-col items-start justify-between gap-3 rounded-2xl px-6 py-5 transition hover:border-accent/30 hover:bg-white/5 sm:flex-row sm:items-center">
+      <a href="/partners/" class="card flex flex-col items-start justify-between gap-3 rounded-2xl px-6 py-5 transition hover:border-accent/30 hover:bg-white/5 sm:flex-row sm:items-center">
         <span class="flex items-center gap-3 text-sm text-neutral-300">
           <Handshake size={18} class="shrink-0 text-accent" aria-hidden="true" />
           <span><span class="font-medium text-neutral-100">Building on the agent economy?</span> PipRail is open to grants, chain integrations, sponsorships &amp; strategic opportunities.</span>

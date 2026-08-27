@@ -118,7 +118,9 @@ const sourceLd = {
   license: 'https://opensource.org/licenses/MIT',
   author: { '@type': 'Person', name: 'John Weeks' },
   maintainer: { '@id': 'https://piprail.com/#organization' },
-  targetProduct: { '@id': 'https://piprail.com/#organization' },
+  // targetProduct expects a SoftwareApplication, NOT an Organization — pointing it at
+  // #organization is a schema.org type violation that validators flag on every page.
+  targetProduct: { '@id': 'https://piprail.com/#sdk' },
 }
 
 // @piprail/mcp — its own SoftwareApplication entity so search + AI answer engines
@@ -167,7 +169,7 @@ const bingVerification = import.meta.env.PUBLIC_BING_VERIFICATION
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
     <link rel="alternate" hreflang="en" href={canonical} />
-    <link rel="alternate" hreflang="x-default" href={site} />
+    <link rel="alternate" hreflang="x-default" href={canonical} />
     <meta name="theme-color" content="#0a0b0c" />
     <meta
       name="keywords"
