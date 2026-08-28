@@ -11,7 +11,7 @@ type: software
 authors:
   - given-names: John
     family-names: Weeks
-    email: john.weeks.dev@gmail.com
+    email: john@piprail.com
 repository-code: "https://github.com/piprail/piprail"
 url: "https://piprail.com"
 license: MIT
