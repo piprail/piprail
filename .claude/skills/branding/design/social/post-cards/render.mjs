@@ -8,14 +8,23 @@
 // bundle `../../video/assets.js`, so run `node ../../video/genassets.mjs` once first.
 import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
-import { existsSync } from 'node:fs'
+import { existsSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const HERE = import.meta.dirname
 const require = createRequire(process.env.HOME + '/.cache/piprail-video-tools/')
 const { chromium } = require('playwright-core')
-const BIN = process.env.HOME +
-  '/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing'
+// Auto-detect the installed Playwright Chromium build (don't hardcode a version —
+// it bumps on every `playwright install` and breaks this script).
+const PW = process.env.HOME + '/Library/Caches/ms-playwright'
+const build = existsSync(PW)
+  ? readdirSync(PW).filter((d) => /^chromium-\d+$/.test(d)).sort((a, b) => +a.slice(9) - +b.slice(9)).pop()
+  : null
+if (!build) {
+  console.error(`No Playwright Chromium under ${PW} — run \`npx playwright install chromium\`.`)
+  process.exit(1)
+}
+const BIN = `${PW}/${build}/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing`
 
 const name = process.argv[2]
 if (!name) {

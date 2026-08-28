@@ -40,6 +40,7 @@ const CHAINS = [
   { name: 'World Chain', slug: 'worldchain', tokens: ['usdc'], family: 'EVM' },
   { name: 'Sei', slug: 'sei', tokens: ['usdc'], family: 'EVM' },
   { name: 'Injective', slug: 'injective', tokens: ['usdc', 'usdt'], family: 'EVM' },
+  { name: 'Kaia', slug: 'kaia', tokens: ['usdt'], family: 'EVM' },
 ];
 
 const chains = {};
@@ -49,10 +50,11 @@ const tokens = {};
 for (const t of ['usdc', 'usdt', 'eurc', 'rlusd']) tokens[t] = svgURI(join(ROOT, 'tokens', t + '.svg'));
 
 const logo = pngURI(join(ROOT, 'logo.png'));
+const logoNoBg = pngURI(join(ROOT, 'logo-no-background.png')); // transparent mark — for the hero finale
 
 const out =
   'window.CHAINS = ' + JSON.stringify(CHAINS) + ';\n' +
-  'window.ASSETS = ' + JSON.stringify({ chains, tokens, logo }) + ';\n';
+  'window.ASSETS = ' + JSON.stringify({ chains, tokens, logo, logoNoBg }) + ';\n';
 
 writeFileSync('/Users/john/Sites/piprail/.claude/skills/branding/design/video/assets.js', out);
 const kb = (out.length / 1024).toFixed(0);

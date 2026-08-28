@@ -12,13 +12,14 @@ the brand fonts **embedded** so it looks identical on any machine that opens it.
 
 ## What it is
 
-15 slides, a hard-selling-but-true arc:
+16 slides, a hard-selling-but-true arc:
 
 1. Hero · 2. Why now (money on-chain) · 3. The new buyer (agents) · 4. The standard (x402) ·
 5. The problem (fragmentation) · 6. The reveal (universal adapter) · 7. How it works ·
 8. Two sides, one SDK · 9. The MCP (give your agent a wallet) · 10. Open / dual-rail / gasless ·
-11. Discovery + integrations · 12. Why PipRail wins (moat) · 13. Traction · 14. Business model
-(open core) · 15. The ask.
+11. MPP vs PipRail — count the middlemen (custodial Stripe+Tempo path vs wallet-to-wallet) ·
+12. Discovery + integrations · 13. Why PipRail wins (moat) · 14. Traction · 15. Business model
+(open core) · 16. The ask.
 
 Every stat is sourced in that slide's **speaker notes** (Bloomberg, Keyrock, Linux Foundation,
 Chainalysis, McKinsey, Visa/Stripe/Mastercard IR, etc.). Counts (29 chains / 10 families) match

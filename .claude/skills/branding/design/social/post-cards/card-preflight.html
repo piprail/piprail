@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="../../video/assets.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{--bg:#000;--fg:#fafafa;--muted:#878d93;--dim:#5c636a;--line:rgba(255,255,255,.08);--em:#2ee6a6;}
+  html,body{width:1080px;height:1080px;background:#000;}
+  #card{position:relative;width:1080px;height:1080px;background:var(--bg);overflow:hidden;
+    font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;color:var(--fg);padding:64px 64px 60px;
+    display:flex;flex-direction:column;}
+  .g{position:absolute;border-radius:50%;filter:blur(160px);z-index:0;}
+  .g1{width:1040px;height:640px;left:-220px;top:-320px;background:rgba(46,230,166,.15);}
+  .g2{width:720px;height:560px;right:-240px;bottom:-220px;background:rgba(46,230,166,.06);}
+  .mesh{position:absolute;inset:0;z-index:1;opacity:.5;
+    background-image:linear-gradient(rgba(255,255,255,.022) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(255,255,255,.022) 1px,transparent 1px);
+    background-size:60px 60px;mask-image:radial-gradient(120% 90% at 50% 15%,#000 35%,transparent 78%);}
+  #card>*{position:relative;z-index:2;}
+
+  .brand{display:flex;align-items:center;gap:16px;margin-bottom:24px;}
+  .brand img{width:54px;height:54px;border-radius:14px;}
+  .brand b{font-family:'Space Grotesk','Inter',system-ui,sans-serif;font-size:40px;font-weight:700;letter-spacing:-.02em;}
+  .brand .em{color:var(--em);}
+  .brand .tag{margin-left:auto;font:700 17px 'JetBrains Mono',monospace;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--em);border:1px solid rgba(46,230,166,.32);border-radius:999px;padding:9px 16px;background:rgba(46,230,166,.05);}
+
+  .eyebrow{font:700 18px 'JetBrains Mono',monospace;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;}
+  h1{font-family:'Space Grotesk','Inter',system-ui,sans-serif;font-weight:700;letter-spacing:-.035em;font-size:84px;line-height:0.95;margin-bottom:16px;}
+  h1 .em{color:var(--em);}
+  .sub{font-size:25px;color:#b9c0c6;font-weight:500;line-height:1.36;margin-bottom:26px;max-width:910px;}
+  .sub b{color:#fff;font-weight:600;}
+
+  /* the pre-flight verdict panel — the new visual language */
+  .panel{flex:none;position:relative;background:linear-gradient(180deg,#0c0f10,#090a0b);border:1px solid rgba(46,230,166,.18);
+    border-radius:22px;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.02) inset;}
+  .panel::before{content:"";position:absolute;inset:-1px;border-radius:22px;padding:1px;pointer-events:none;
+    background:linear-gradient(180deg,rgba(46,230,166,.32),rgba(46,230,166,0) 52%);
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;}
+  .phead{display:flex;align-items:center;justify-content:space-between;padding:20px 30px;border-bottom:1px solid rgba(255,255,255,.06);
+    font:500 21px 'JetBrains Mono',monospace;}
+  .phead .fn{color:#e9edf0;} .phead .fn b{color:var(--em);font-weight:500;}
+  .phead .ro{color:var(--dim);font-size:18px;}
+  .pbody{padding:26px 30px 28px;}
+  .verdict{display:flex;align-items:center;gap:16px;margin-bottom:22px;}
+  .verdict .x{width:34px;height:34px;border-radius:50%;border:2px solid var(--dim);color:var(--dim);
+    display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;flex:none;}
+  .verdict .t{font:700 34px 'Space Grotesk',sans-serif;letter-spacing:.02em;color:#eef1f4;}
+  .rows{display:flex;flex-direction:column;gap:2px;font-family:'JetBrains Mono',monospace;}
+  .row{display:flex;align-items:center;gap:18px;padding:13px 0;border-top:1px solid rgba(255,255,255,.05);}
+  .row .lab{width:150px;color:var(--muted);font-size:22px;flex:none;}
+  .row .val{flex:1;color:#dfe3e7;font-size:22px;}
+  .row .val .u{color:var(--dim);}
+  .row .mk{font-size:24px;font-weight:700;flex:none;}
+  .row .mk.ok{color:var(--em);} .row .mk.no{color:var(--dim);}
+  .row.blocked .val{color:#fff;}
+  .hint{display:flex;gap:14px;margin-top:22px;padding-top:22px;border-top:1px solid rgba(46,230,166,.16);}
+  .hint .ar{color:var(--em);font-size:26px;font-weight:900;line-height:1.25;flex:none;}
+  .hint .txt{font:500 23px 'Inter',sans-serif;line-height:1.4;color:var(--em);}
+  .hint .txt b{color:#8ff0cd;font-weight:600;}
+
+  .foot{display:flex;align-items:center;justify-content:space-between;margin-top:auto;padding-top:26px;
+    font:600 24px 'JetBrains Mono',monospace;color:var(--muted);}
+  .foot .em{color:var(--em);} .foot b{color:#fafafa;font-weight:700;}
+</style>
+</head>
+<body>
+<div id="card">
+  <div class="g g1"></div><div class="g g2"></div><div class="mesh"></div>
+
+  <div class="brand">
+    <img id="logo" alt=""><b>Pip<span class="em">Rail</span></b>
+    <span class="tag">read-only</span>
+  </div>
+
+  <div class="eyebrow">the pre-flight check</div>
+  <h1>Your agent never<br><span class="em">pays blind.</span></h1>
+  <div class="sub">It had the tokens. It had the gas. The payment would <b>still</b> have failed &mdash; because the recipient can&rsquo;t receive it yet. <b>planPayment()</b> caught it first.</div>
+
+  <div class="panel">
+    <div class="phead">
+      <span class="fn"><b>planPayment</b>(url)</span>
+      <span class="ro">read-only &middot; no funds move</span>
+    </div>
+    <div class="pbody">
+      <div class="verdict"><span class="x">&times;</span><span class="t">NOT PAYABLE</span></div>
+      <div class="rows">
+        <div class="row"><span class="lab">balance</span><span class="val">2.00 <span class="u">USDC held</span></span><span class="mk ok">&check;</span></div>
+        <div class="row"><span class="lab">gas</span><span class="val">~0.0001 <span class="u">XLM for the send</span></span><span class="mk ok">&check;</span></div>
+        <div class="row blocked"><span class="lab">recipient</span><span class="val">no trustline &mdash; can&rsquo;t receive</span><span class="mk no">&times;</span></div>
+      </div>
+      <div class="hint">
+        <span class="ar">&rarr;</span>
+        <span class="txt">Recipient <b>GDUK&hellip;7MNQ</b> can&rsquo;t receive on Stellar yet &mdash; the recipient needs a one-time trustline for this asset.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot"><span><b>npm i</b> @piprail/sdk</span><span><span class="em">never throws</span> &middot; <span class="em">piprail.com</span></span></div>
+</div>
+<script>
+  const A=window.ASSETS;
+  document.getElementById('logo').src=A.logo;
+  window.__ready=document.fonts.ready;
+</script>
+</body>
+</html>

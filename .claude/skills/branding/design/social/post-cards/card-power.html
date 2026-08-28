@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="../../video/assets.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{--bg:#000;--fg:#fafafa;--muted:#878d93;--line:rgba(255,255,255,.08);--em:#2ee6a6;}
+  html,body{width:1080px;height:1080px;background:#000;}
+  #card{position:relative;width:1080px;height:1080px;background:var(--bg);overflow:hidden;
+    font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;color:var(--fg);padding:58px 60px;
+    display:flex;flex-direction:column;}
+  .g{position:absolute;border-radius:50%;filter:blur(155px);z-index:0;}
+  .g1{width:1000px;height:600px;left:-200px;top:-260px;background:rgba(46,230,166,.14);}
+  .g2{width:760px;height:560px;right:-220px;bottom:-240px;background:rgba(46,230,166,.06);}
+  #card>*{position:relative;z-index:2;}
+  .brand{display:flex;align-items:center;gap:17px;margin-bottom:22px;}
+  .brand img{width:56px;height:56px;border-radius:14px;}
+  .brand b{font-family:'Space Grotesk','Inter',system-ui,sans-serif;font-size:42px;font-weight:700;letter-spacing:-.02em;}
+  .brand .em{color:var(--em);}
+  .eyebrow{font:700 21px 'JetBrains Mono',monospace;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin-bottom:13px;}
+  h1{font-family:'Space Grotesk','Inter',system-ui,sans-serif;font-weight:700;letter-spacing:-.03em;font-size:80px;line-height:0.97;margin-bottom:15px;}
+  h1 .em{color:var(--em);}
+  .sub{font-size:25px;color:var(--muted);font-weight:500;line-height:1.32;margin-bottom:24px;max-width:940px;}
+  .sub b{color:#dfe3e7;font-weight:600;}
+  /* hero stat band — the new focal element */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px;}
+  .stat{background:linear-gradient(180deg,#0d1411,#0a0b0c);border:1px solid rgba(46,230,166,.22);
+    border-radius:16px;padding:18px 10px 16px;text-align:center;}
+  .stat .n{font-family:'Space Grotesk','Inter',sans-serif;font-weight:700;font-size:50px;line-height:1;color:var(--em);letter-spacing:-.02em;}
+  .stat .l{font:600 17px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-top:9px;}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .feat{background:#0b0c0e;border:1px solid var(--line);border-radius:17px;padding:19px 22px;}
+  .feat .top{display:flex;align-items:center;gap:12px;margin-bottom:7px;}
+  .feat .ar{color:var(--em);font-weight:900;font-size:25px;flex:none;line-height:1;}
+  .feat .t{font-size:25px;font-weight:700;color:#f2f5f7;letter-spacing:-.01em;}
+  .feat .d{font-size:20px;color:var(--muted);font-weight:500;line-height:1.3;padding-left:25px;}
+  .feat .d b{color:var(--em);font-weight:600;}
+  .feat .d code{font-family:'JetBrains Mono',monospace;font-size:18px;color:#cfd4d9;}
+  .foot{display:flex;align-items:center;justify-content:space-between;margin-top:auto;padding-top:24px;
+    font:600 24px 'JetBrains Mono',monospace;color:var(--muted);}
+  .foot .em{color:var(--em);} .foot b{color:#fafafa;font-weight:700;}
+</style>
+</head>
+<body>
+<div id="card">
+  <div class="g g1"></div><div class="g g2"></div>
+  <div class="brand"><img id="logo" alt=""><b>Pip<span class="em">Rail</span></b></div>
+  <div class="eyebrow">the agent payment rail &middot; one import</div>
+  <h1>Everything your agent needs to <span class="em">pay.</span></h1>
+  <div class="sub">Gate a route so it charges for itself, or hand an agent a wallet that pays x402 URLs on its own &mdash; <b>autonomously, on any chain</b>.</div>
+  <div class="stats">
+    <div class="stat"><div class="n">29</div><div class="l">chains</div></div>
+    <div class="stat"><div class="n">10</div><div class="l">families</div></div>
+    <div class="stat"><div class="n">4</div><div class="l">pay rails</div></div>
+    <div class="stat"><div class="n">0%</div><div class="l">fee, ever</div></div>
+  </div>
+  <div class="grid">
+    <div class="feat">
+      <div class="top"><span class="ar">&rarr;</span><span class="t">Accept <b>and</b> pay</span></div>
+      <div class="d">both sides of a 402 &mdash; one SDK</div>
+    </div>
+    <div class="feat">
+      <div class="top"><span class="ar">&rarr;</span><span class="t">Any chain, one param</span></div>
+      <div class="d"><code>chain:&nbsp;'base'</code> &rarr; EVM&middot;Solana&middot;TON&middot;XRPL&hellip;</div>
+    </div>
+    <div class="feat">
+      <div class="top"><span class="ar">&rarr;</span><span class="t">Gasless rails</span></div>
+      <div class="d">the buyer pays <b>zero</b> native gas</div>
+    </div>
+    <div class="feat">
+      <div class="top"><span class="ar">&rarr;</span><span class="t">A wallet with a cap</span></div>
+      <div class="d">a budget the model <b>can&rsquo;t exceed</b></div>
+    </div>
+    <div class="feat">
+      <div class="top"><span class="ar">&rarr;</span><span class="t"><code>planPayment()</code></span></div>
+      <div class="d">checks balance + gas before it pays</div>
+    </div>
+    <div class="feat">
+      <div class="top"><span class="ar">&rarr;</span><span class="t">Verifiable receipts</span></div>
+      <div class="d">on-chain proof <b>anyone</b> can verify</div>
+    </div>
+  </div>
+  <div class="foot"><span><b>npm i</b> @piprail/sdk</span><span class="em">piprail.com</span></div>
+</div>
+<script>
+  const A=window.ASSETS;
+  document.getElementById('logo').src=A.logo;
+  window.__ready=document.fonts.ready;
+</script>
+</body>
+</html>

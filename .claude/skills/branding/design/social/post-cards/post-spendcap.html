@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800;900&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1350px; }
+  .frame {
+    position: relative; overflow: hidden;
+    width: 1080px; height: 1350px; background: #000;
+    font-family: 'Inter', sans-serif; color: #fafafa;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 34px; padding: 70px 64px;
+  }
+  /* emerald glow behind the code card */
+  .frame::before {
+    content: ''; position: absolute; left: 50%; top: 54%; transform: translate(-50%, -50%);
+    width: 940px; height: 720px; border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(46,230,166,0.16), rgba(46,230,166,0) 72%);
+    filter: blur(6px); pointer-events: none;
+  }
+  .frame > * { position: relative; z-index: 1; }
+
+  .row { display: flex; align-items: center; gap: 22px; }
+  .mark { width: 80px; height: 80px; border-radius: 20px; box-shadow: 0 0 0 1px rgba(255,255,255,0.07); }
+  .word {
+    font-family: 'Space Grotesk', 'Inter', system-ui, sans-serif; font-weight: 700; font-size: 70px; letter-spacing: -2.2px; line-height: 1;
+    background: linear-gradient(180deg, #ffffff 0%, #c9cdd1 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .tag {
+    font-weight: 700; font-size: 38px; color: #fafafa; letter-spacing: -0.8px; text-align: center; line-height: 1.18;
+  }
+  .tag b { color: #2ee6a6; }
+
+  .card {
+    width: 100%; background: #08090a; border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 22px; overflow: hidden; box-shadow: 0 30px 70px rgba(0,0,0,0.7);
+  }
+  .bar {
+    display: flex; align-items: center; gap: 14px;
+    padding: 18px 26px; border-bottom: 1px solid rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.015);
+  }
+  .lights { display: flex; gap: 9px; }
+  .lights i { width: 13px; height: 13px; border-radius: 50%; display: block; }
+  .lights .r { background: #ff5f57; } .lights .y { background: #febc2e; } .lights .g { background: #28c840; }
+  .file { font-family: 'JetBrains Mono', monospace; font-size: 20px; color: #7c848b; margin-left: 6px; }
+  .badge {
+    margin-left: auto; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 17px;
+    color: #2ee6a6; background: rgba(46,230,166,0.10); border: 1px solid rgba(46,230,166,0.28);
+    padding: 5px 12px; border-radius: 999px; letter-spacing: 0.5px;
+  }
+  pre {
+    font-family: 'JetBrains Mono', monospace; font-size: 22px; line-height: 1.52;
+    padding: 32px 40px 34px; color: #c9cdd1; white-space: pre; tab-size: 2;
+  }
+  .k { color: #6ea8fe; } .s { color: #2ee6a6; } .c { color: #5b6770; font-style: italic; }
+  .t { color: #e2b15a; } .p { color: #e6ebf0; } .f { color: #8ab4ff; } .m { color: #8b9298; }
+  .n { color: #d6a96a; }
+  /* highlighted line — the cross-chain grand-total cap */
+  .hl {
+    display: block; background: rgba(46,230,166,0.10);
+    box-shadow: inset 3px 0 0 #2ee6a6;
+    margin: 0 -40px; padding: 1px 37px;
+  }
+  .hl .c { color: #2ee6a6; font-style: normal; font-weight: 700; }
+
+  .chips {
+    display: flex; align-items: center; justify-content: center; gap: 18px; white-space: nowrap;
+    font-family: 'JetBrains Mono', monospace; font-weight: 500; font-size: 21px; color: #868d93;
+  }
+  .chips b { color: #2ee6a6; font-weight: 700; }
+  .dot { width: 5px; height: 5px; border-radius: 50%; background: #2ee6a6; opacity: 0.85; flex: none; }
+  .url { font-weight: 700; font-size: 24px; color: #fafafa; letter-spacing: -0.3px; }
+</style>
+</head>
+<body>
+  <div class="frame">
+    <div class="row">
+      <img class="mark" src="../../../../../../site/public/logo.png" alt="PipRail">
+      <div class="word">PipRail</div>
+    </div>
+    <div class="tag">Give your agent a wallet —<br><b>not a blank cheque.</b></div>
+
+    <div class="card">
+      <div class="bar">
+        <span class="lights"><i class="r"></i><i class="y"></i><i class="g"></i></span>
+        <span class="file">agent.ts</span>
+        <span class="badge">x402 · spend-capped</span>
+      </div>
+<pre><span class="k">import</span> { <span class="t">MultiChainPayer</span> } <span class="k">from</span> <span class="s">'@piprail/sdk'</span>
+
+<span class="k">const</span> payer = <span class="t">MultiChainPayer</span>.<span class="f">fromWallets</span>({
+  <span class="p">wallets</span>: {
+    <span class="p">base</span>:    { <span class="p">key</span>: process.env.EVM_KEY }<span class="m">,</span>   <span class="c">// 1 EVM key →</span>
+    <span class="p">polygon</span>: { <span class="p">key</span>: process.env.EVM_KEY }<span class="m">,</span>   <span class="c">//   every EVM chain</span>
+    <span class="p">solana</span>:  { <span class="p">key</span>: process.env.SOLANA_KEY }<span class="m">,</span>
+  },
+  <span class="p">policy</span>: {                          <span class="c">// the leash it can't slip</span>
+    <span class="p">maxAmount</span>:        <span class="s">'0.05'</span><span class="m">,</span>          <span class="c">// ≤ $0.05 / call</span>
+<span class="hl">    <span class="p">maxTotalPerDenom</span>: { <span class="p">USD</span>: <span class="s">'20.00'</span> }<span class="m">,</span>   <span class="c">// $20 TOTAL · all chains</span></span>
+    <span class="p">maxPayments</span>:      <span class="n">100</span><span class="m">,</span>             <span class="c">// 100 payments, ever</span>
+    <span class="p">tokens</span>:           [<span class="s">'USDC'</span><span class="m">,</span> <span class="s">'USDT'</span>]<span class="m">,</span>  <span class="c">// stablecoins only</span>
+    <span class="p">ttlSeconds</span>:       <span class="n">3600</span><span class="m">,</span>            <span class="c">// 1-hour session</span>
+    <span class="p">warnAtFraction</span>:   <span class="n">0.8</span><span class="m">,</span>             <span class="c">// warn at 80%</span>
+  },
+})
+
+<span class="c">// pays on its own — cheapest chain that can settle</span>
+<span class="k">await</span> payer.<span class="f">get</span>(<span class="s">'https://api.example.com/data'</span>)
+<span class="c">// over the cap? refused before it ever signs.</span></pre>
+    </div>
+
+    <div class="chips">
+      <span><b>autonomous</b> across every chain</span>
+      <span class="dot"></span>
+      <span><b>can't</b> overspend</span>
+      <span class="dot"></span>
+      <span class="url">piprail.com</span>
+    </div>
+  </div>
+</body>
+</html>
