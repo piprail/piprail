@@ -157,6 +157,15 @@ const gscVerification = import.meta.env.PUBLIC_GSC_VERIFICATION ?? 'LPx85yBDaIQP
 // ChatGPT search + Copilot run on the Bing index, so this is an AEO lever, not just SEO.
 const bingVerification =
   import.meta.env.PUBLIC_BING_VERIFICATION ?? '4C2A94BD8695D97BC9033E2A6E5002D5'
+
+// Cookieless web analytics — no consent banner needed, no cookies, no PII.
+// 🔴 `site/.env.example` has documented these two since launch as "both inert until set",
+// but NOTHING rendered them: setting the Netlify var did literally nothing, and the site
+// shipped with zero visitor analytics while appearing to be configured for it. Search
+// Console tells you what SEARCH did; neither tells you what visitors did once they arrived.
+// Both stay genuinely inert when unset, so this changes nothing until a token exists.
+const cfBeaconToken = import.meta.env.PUBLIC_CF_BEACON_TOKEN
+const goatcounterUrl = import.meta.env.PUBLIC_GOATCOUNTER_URL
 ---
 
 <!doctype html>
@@ -166,6 +175,16 @@ const bingVerification =
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="generator" content={Astro.generator} />
     {gscVerification && <meta name="google-site-verification" content={gscVerification} />}
+    {cfBeaconToken && (
+      <script
+        defer
+        src="https://static.cloudflareinsights.com/beacon.min.js"
+        data-cf-beacon={`{"token": "${cfBeaconToken}"}`}
+      />
+    )}
+    {goatcounterUrl && (
+      <script defer data-goatcounter={goatcounterUrl} src="//gc.zgo.at/count.js" />
+    )}
     {bingVerification && <meta name="msvalidate.01" content={bingVerification} />}
 
     <title>{title}</title>
