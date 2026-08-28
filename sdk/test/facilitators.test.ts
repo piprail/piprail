@@ -6,6 +6,49 @@ import {
   parseFacilitatorSupported,
 } from '../src/index.js'
 
+/*
+ * Regression guard for the 2026-08-28 removal.
+ *
+ * facilitator.corbits.dev (NXDOMAIN) and facilitator.bitcoinsapi.com (dead Azure container
+ * app) were both live-settled once and then went offline. corbits was FIRST in the Monad
+ * list, so firstKeylessFacilitator('eip155:143') handed callers a URL that no longer
+ * resolves and the exact rail failed for them.
+ *
+ * The map is seed data grown from real settlements, so entries only ever get added after a
+ * live settle — which means a dead one is invisible until someone probes it. This test
+ * makes re-adding either from an old note a build failure.
+ *
+ * Liveness itself is NOT asserted here: a network call in the unit suite would be flaky and
+ * would fail offline. Check liveness with the dedicated prober:
+ *   node .claude/skills/facilitator-probe/scripts/probe.mjs
+ */
+const KNOWN_DEAD = ['facilitator.corbits.dev', 'facilitator.bitcoinsapi.com']
+
+describe('KNOWN_FACILITATORS — dead hosts stay removed', () => {
+  it('never lists a facilitator known to be offline', () => {
+    const listed = Object.values(KNOWN_FACILITATORS).flat().map((f) => f.url)
+    for (const dead of KNOWN_DEAD) {
+      expect(listed.filter((u) => u.includes(dead))).toEqual([])
+    }
+  })
+
+  it('never RESOLVES a dead host as the first pick for any network', () => {
+    for (const network of Object.keys(KNOWN_FACILITATORS)) {
+      const first = firstKeylessFacilitator(network as never)
+      expect(first).toBeDefined()
+      for (const dead of KNOWN_DEAD) {
+        expect(first!.url).not.toContain(dead)
+      }
+    }
+  })
+
+  it('leaves every network with at least one facilitator after the removal', () => {
+    for (const [network, facs] of Object.entries(KNOWN_FACILITATORS)) {
+      expect(facs.length, `${network} has no facilitator left`).toBeGreaterThan(0)
+    }
+  })
+})
+
 describe('KNOWN_FACILITATORS (seed data)', () => {
   it('every entry is well-formed: CAIP-2 key, non-empty url, boolean keyless, non-empty schemes', () => {
     const entries = Object.entries(KNOWN_FACILITATORS)
@@ -77,9 +120,11 @@ describe('KNOWN_FACILITATORS (seed data)', () => {
     }
   })
 
-  it('Polygon carries all five live-settled keyless facilitators (the broadest after Base)', () => {
+  // Was five; corbits was removed 2026-08-28 when its DNS went NXDOMAIN. The remaining four
+  // are still the broadest coverage after Base.
+  it('Polygon carries the four surviving live-settled keyless facilitators (broadest after Base)', () => {
     const hosts = knownFacilitatorsFor('eip155:137').map((f) => f.url)
-    for (const h of ['payai', 'polygon.technology', 'corbits', 'ultravioletadao', 'dexter']) {
+    for (const h of ['payai', 'polygon.technology', 'ultravioletadao', 'dexter']) {
       expect(hosts.some((u) => u.includes(h)), `Polygon missing ${h}`).toBe(true)
     }
   })
