@@ -378,6 +378,16 @@ gh run list --limit 6   # sdk-release ✓ mcp-release ✓ site ✓ deploy-docs �
 
 ## Gotchas — the things that bite (all hard-won)
 
+- 🔴 **A multi-commit push can silently skip the Netlify deploy.** `netlify.toml`'s `ignore`
+  used `git diff HEAD^ HEAD`, which inspects only the **last** commit of a push. Land a site
+  change in commit 1 and anything else in commit 2, and Netlify sees no watched path in
+  `HEAD^..HEAD` and **skips the build** — CI is all green, the merge succeeded, and
+  piprail.com just quietly stays on the old version. Exactly what happened on PR #83.
+  Fixed to diff against **`$CACHED_COMMIT_REF`** (the last commit Netlify actually built),
+  which is correct across any number of commits, with an unset-guard that forces a build when
+  it cannot tell. **After any merge, verify the site actually changed** — don't assume:
+  `curl -s https://piprail.com/llms.txt | sed -n '3p'`.
+
 1. **npm only refreshes the README on publish.** A docs/README-only change is invisible on npm until you cut a patch release.
 2. **Build the SDK before the MCP** — the MCP imports the SDK's built `dist`. Push `sdk-v*`, let it land on npm, then `mcp-v*`.
 3. **The sync guard fails the build on `llms.txt` drift** (and on chain-count, package, MCP-tool, facilitator or pinned-version drift). Bump the `SDK-Version`/`MCP-Version` headers in the **same commit** as the package bump, or the Netlify/CI build (and the release) stops.
