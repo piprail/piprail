@@ -52,7 +52,7 @@ npm run verify-gate          # everything below, in the order that matters
 It runs, in dependency order: `build:sdk` (first — the MCP resolves the SDK's built `dist`) →
 `typecheck` (sdk + mcp) → `typecheck:test` for **both** workspaces (the root typecheck does *not*
 cover MCP tests) → `test:sdk` → `test:mcp` → `build:mcp` → the **lazy-chunk invariant** → the
-**ops-script parse** → the **env-loader tests** → **`npm run sync`** (47 rules) → `build` site →
+**ops-script parse** → the **env-loader tests** → **`npm run sync`** (48 rules) → `build` site →
 `build:docs`. `--quick` skips the two site/docs builds; **never use it for a release.**
 
 ### 2. Bump the version in **every** file (don't miss one)
@@ -270,7 +270,7 @@ SDK/MCP release workflows. It **fails the build** (exit 1) if:
 
 Run it anytime: **`npm run sync`** (or `node site/scripts/check-sync.mjs`, which delegates to it).
 
-As of 2026-08-28 this is no longer just a version check — it is **47 rules across 13 domains**
+As of 2026-08-28 this is no longer just a version check — it is **48 rules across 13 domains**
 (chains · packages · mcp · facilitators · discovery · site · docs · api · errors · ci · security ·
 seo · skills), each declaring the fact's owner and every file that mirrors it. Two modes worth
 knowing:

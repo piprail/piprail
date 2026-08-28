@@ -19,6 +19,8 @@
  * never silently pass. A guard that quietly does nothing is worse than no guard.
  */
 import { createRequire } from 'node:module'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import {
   REPO, read, exists, readJson, walk, sdk, sdkMissing, chainFacts, siteChains, siteTokens,
   packages, pkgVersion, mcpTools, mcpBannerTools, facilitatorHosts, KNOWN_DEAD_FACILITATORS,
@@ -1589,6 +1591,39 @@ export const RULES = [
       return problems.length
         ? bad(problems.join('; '))
         : ok(`${documented.size} credentials documented, no values committed`)
+    },
+  },
+  {
+    domain: 'site',
+    id: 'deck-published-matches-master',
+    what: 'The pitch deck served from piprail.com is byte-identical to the repo-root master',
+    source: { file: 'PipRail-deck.pdf', note: 'the master the branding skill builds and the README links' },
+    mirrors: [
+      { file: 'site/public/PipRail-deck.pdf', note: 'the copy piprail.com serves — linked by the grant-foundation outreach email' },
+    ],
+    check() {
+      const master = 'PipRail-deck.pdf'
+      const published = 'site/public/PipRail-deck.pdf'
+      if (!exists(master)) return skip('no deck at the repo root')
+      if (!exists(published)) {
+        return bad(
+          `${published} is missing, so https://piprail.com/PipRail-deck.pdf 404s. ` +
+            `The grant-foundation outreach template links that URL in an email that cannot be recalled.`
+        )
+      }
+      /*
+       * 🔴 BYTES, NOT MTIME OR SIZE.
+       *
+       * This is a published-artifact copy, which the repo's own rule says must be
+       * generated, derived or GUARDED. Nothing regenerates it: a rebuilt deck lands at
+       * the root and the site keeps serving the old one, silently, at a URL a grant
+       * reviewer was emailed. Size alone would not catch a re-render at the same length.
+       */
+      const a = readFileSync(join(REPO, master))
+      const b = readFileSync(join(REPO, published))
+      return a.equals(b)
+        ? ok(`published deck matches the master (${(a.length / 1024).toFixed(0)} KB)`)
+        : bad(`site/public/PipRail-deck.pdf differs from the root master — re-copy it: cp PipRail-deck.pdf site/public/`)
     },
   },
 ]
