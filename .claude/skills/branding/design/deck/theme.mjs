@@ -65,9 +65,9 @@ export function rule(slide, { x, y, w, color = C.line, h = 0 } = {}) {
 }
 
 // uppercase mono eyebrow, emerald
-export function eyebrow(slide, text, { x = MX, y = 0.6, color = C.accent, size = 11 } = {}) {
+export function eyebrow(slide, text, { x = MX, y = 0.6, w = CW, color = C.accent, size = 11, align = 'left' } = {}) {
   slide.addText(text.toUpperCase(), {
-    x, y, w: CW, h: 0.3, fontFace: F.monoM, fontSize: size, color, charSpacing: 2.4, bold: false, align: 'left', valign: 'middle',
+    x, y, w, h: 0.3, fontFace: F.monoM, fontSize: size, color, charSpacing: 2.4, bold: false, align, valign: 'middle',
   })
 }
 

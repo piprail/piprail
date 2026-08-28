@@ -22,6 +22,7 @@ node render.mjs plan        # uses post-plan.html
 | `post-policy.html` | **centered code card** | a second feature — the spend policy |
 | `post-explainer.html` | **402 → 200 flow** | the signature "what PipRail does" explainer |
 | `card-rwa.html` | **logo grid** | "live where the money flows" — a wall of chain logos |
+| `card-custody.html` | **benefit checklist + mission strip** | self-custody / "not your keys, not your crypto" — you own everything |
 
 > `card-*` templates embed logos from the shared bundle `../../video/assets.js` — run
 > `node ../../video/genassets.mjs` once first to (re)build it. `post-*` templates read `site/public/`
