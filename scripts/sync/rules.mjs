@@ -1491,6 +1491,33 @@ export const RULES = [
             refs++
             if (!exists(target)) flag(target, f)
           }
+
+          /*
+           * ── and repo paths ASSEMBLED SEGMENT BY SEGMENT WITH join() ──
+           *
+           * 🔴 THIS FORM SHIPPED A BROKEN PATH PAST BOTH SCANS ABOVE.
+           *
+           * `execFileSync('node', [join(ROOT, 'scripts', 'mail-check.mjs')])` names a
+           * sister project's file that does not exist here. It is not an import and it
+           * is not one string, so neither earlier scan could see it, and the rule
+           * reported "170 references, all resolve" while every send died on a raw
+           * MODULE_NOT_FOUND. A path split across arguments is still a path.
+           *
+           * `.claude` is allowed as a root here, unlike the scans above: a join() chain
+           * is unambiguously a filesystem path, so there is no prose to mistake it for.
+           */
+          const JOIN_ROOTS = new RegExp('^(?:' + ROOTS.slice(4, -1) + '|\\.claude)/')
+          for (const m of src.matchAll(/\bjoin\(([^)]*)\)/g)) {
+            const segs = [...m[1].matchAll(/['"]([^'"]+)['"]/g)].map((x) => x[1])
+            if (!segs.length) continue
+            if (segs.some((x) => x === '..' || x.includes('..'))) continue
+            const target = segs.join('/').replace(/\/+/g, '/')
+            if (!JOIN_ROOTS.test(target)) continue
+            if (!/\.[a-z]{2,5}$/.test(target)) continue
+            if (/^(sdk|mcp)\/dist\//.test(target)) continue
+            refs++
+            if (!exists(target)) flag(target, f)
+          }
         } else {
           // Markdown: only `backticked/paths/like-this.mjs` — an inline code span with a slash
           // and a file extension. Prose, bare words and URLs can't match, which keeps this
