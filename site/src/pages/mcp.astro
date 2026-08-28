@@ -10,9 +10,9 @@ import { mcpConfigCode } from '../data/snippets'
 import { liveIntegrations, comingSoon } from '../data/integrations'
 import { Wallet, ShieldCheck, Terminal, ArrowRight, ChevronDown, Code2, Sparkles, Plug } from 'lucide-astro'
 
-const title = '@piprail/mcp — budget-bound x402 payment wallet for AI agents (Claude, Cursor, Code)'
+const title = 'MCP server for Claude & Cursor that pays for APIs — budget-capped | PipRail'
 const description =
-  'Give any MCP client a local, budget-capped wallet so agents pay x402 URLs on their own — Claude Desktop, Cursor, Windsurf, Cline. No backend, no custody.'
+  'Give Claude, Cursor or any MCP client a budget-capped wallet so it can pay for APIs on its own. No backend, no custody, spend caps the model cannot exceed.'
 
 // The eight tools your agent gets — only piprail_pay_request moves money.
 const tools = [
@@ -54,7 +54,7 @@ const faqLd = {
         <Sparkles size={13} aria-hidden="true" /> MCP server · agent payments · 29 chains · local-only
       </p>
       <h1 class="mx-auto max-w-4xl text-[2.5rem] font-semibold leading-[1.05] tracking-tight sm:text-6xl">
-        x402 agents, <span class="text-accent">zero integration</span>.
+        An MCP server that lets Claude <span class="text-accent">pay for things</span>.
       </h1>
       <p class="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-neutral-400 sm:text-lg">
         Hand any MCP client a <span class="text-neutral-200">budget-bound payment wallet</span>. Claude Desktop,
