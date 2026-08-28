@@ -107,9 +107,22 @@ const softwareLd = {
 }
 
 const blocks = [articleLd, breadcrumbLd, websiteLd, organizationLd, softwareLd]
+
+// Search Console / Bing verification for the DOCS host.
+//
+// docs.piprail.com is a SEPARATE property from piprail.com: the apex is verified as a
+// URL-prefix property (`https://piprail.com/`), which does NOT cover a subdomain. Without
+// this tag the 91 docs pages — 87% of our indexable surface — have no Search Console
+// coverage at all: no index reporting, no sitemap submission, no URL inspection.
+// Google issues one verification token per account, so this is the same value the apex uses.
+const GSC_VERIFICATION =
+  import.meta.env.PUBLIC_GSC_VERIFICATION ?? 'LPx85yBDaIQPQ6DJWuub0OcnlZO8ra9nrQCxr5vzH-g'
+const BING_VERIFICATION = import.meta.env.PUBLIC_BING_VERIFICATION
 ---
 
 <Default><slot /></Default>
+<meta name="google-site-verification" content={GSC_VERIFICATION} />
+{BING_VERIFICATION && <meta name="msvalidate.01" content={BING_VERIFICATION} />}
 {
   blocks.map((b) => (
     <script type="application/ld+json" set:html={JSON.stringify(b)} />
