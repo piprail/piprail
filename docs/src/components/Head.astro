@@ -117,12 +117,56 @@ const blocks = [articleLd, breadcrumbLd, websiteLd, organizationLd, softwareLd]
 // Google issues one verification token per account, so this is the same value the apex uses.
 const GSC_VERIFICATION =
   import.meta.env.PUBLIC_GSC_VERIFICATION ?? 'LPx85yBDaIQPQ6DJWuub0OcnlZO8ra9nrQCxr5vzH-g'
-const BING_VERIFICATION = import.meta.env.PUBLIC_BING_VERIFICATION
+// Bing's verification code is account-wide (one code covers every site on the
+// Webmaster account), so this is the same value the sister sites use. Bing matters
+// more than its market share suggests: ChatGPT search and Copilot run on the Bing index.
+const BING_VERIFICATION =
+  import.meta.env.PUBLIC_BING_VERIFICATION ?? '4C2A94BD8695D97BC9033E2A6E5002D5'
+
+// GA4 — the docs stream of the SAME property as piprail.com (properties/551957171),
+// so apex and docs traffic unify in one report instead of two disconnected ones.
+// Deferred + bot-gated exactly like the apex; see site/src/components/Analytics.astro
+// for the full reasoning.
+const GA_ID = import.meta.env.PUBLIC_GA_MEASUREMENT_ID ?? 'G-VRMS0WPNC0'
 ---
 
 <Default><slot /></Default>
 <meta name="google-site-verification" content={GSC_VERIFICATION} />
 {BING_VERIFICATION && <meta name="msvalidate.01" content={BING_VERIFICATION} />}
+{GA_ID && (
+  <script is:inline define:vars={{ GA_ID }}>
+    {`(function () {
+  try {
+    var q = location.search;
+    if (q.indexOf('ga_optout=') !== -1) {
+      q.indexOf('ga_optout=1') !== -1
+        ? localStorage.setItem('pr_ga_optout', '1')
+        : localStorage.removeItem('pr_ga_optout');
+    }
+    if (localStorage.getItem('pr_ga_optout') === '1') return;
+  } catch (e) {}
+  if (navigator.webdriver) return;
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){ dataLayer.push(arguments); }
+  window.gtag = gtag;
+  gtag('js', new Date());
+  gtag('config', GA_ID, { transport_type: 'beacon' });
+  function load() {
+    if (window.__gaLoaded) return;
+    window.__gaLoaded = true;
+    var s = document.createElement('script');
+    s.async = true;
+    s.src = 'https://www.googletagmanager.com/gtag/js?id=' + GA_ID;
+    document.head.appendChild(s);
+  }
+  ['pointerdown','keydown','scroll','touchstart'].forEach(function (e) {
+    addEventListener(e, load, { once: true, passive: true });
+  });
+  if ('requestIdleCallback' in window) requestIdleCallback(load, { timeout: 3500 });
+  else setTimeout(load, 3500);
+})();`}
+  </script>
+)}
 {
   blocks.map((b) => (
     <script type="application/ld+json" set:html={JSON.stringify(b)} />

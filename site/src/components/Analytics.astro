@@ -1,30 +1,70 @@
 ---
-// Cookieless, privacy-first web analytics. BOTH beacons are INERT until their env var is set:
-// with nothing configured this renders zero markup and fires zero network requests, so it's safe
-// to ship now with no signup. Activate later by pasting a token into a Netlify env var — no code
-// change, no redeploy of source needed beyond Netlify's rebuild.
-//
-//   PUBLIC_CF_BEACON_TOKEN  — Cloudflare Web Analytics (recommended: free, unlimited, cookieless,
-//                             no DNS change). dash.cloudflare.com → Web Analytics → add piprail.com
-//                             → copy the token. https://developers.cloudflare.com/web-analytics/
-//   PUBLIC_GOATCOUNTER_URL  — GoatCounter alternative, e.g. https://piprail.goatcounter.com/count
-//                             (lighter, dev-loved; free for non-commercial). goatcounter.com
-//
-// Both are GDPR-friendly (no cookies, no localStorage, no consent banner) — the right fit for a
-// privacy-conscious dev audience. See .claude/research/seo-monitoring-setup.md.
-const cfBeaconToken = import.meta.env.PUBLIC_CF_BEACON_TOKEN
-const goatcounterUrl = import.meta.env.PUBLIC_GOATCOUNTER_URL
+/*
+ * GA4, deferred and gated. Ported from the Laser Oracle implementation 2026-08-28.
+ *
+ * WHY THIS EXISTS: piprail.com had NO analytics of any kind. Search Console shows
+ * search impressions but says nothing about what people do once they arrive — which
+ * install command they copy, whether they reach the docs, where they drop.
+ *
+ * WHY IT IS DEFERRED: gtag.js is ~470KB. It loads on first interaction or on idle
+ * (3.5s timeout), never during the initial paint, so it cannot compete with the LCP.
+ * Events queue into dataLayer immediately and flush when the script lands, so nothing
+ * is lost by waiting.
+ *
+ * 🔴 WHO IS DELIBERATELY NOT COUNTED
+ *
+ * `navigator.webdriver` is true in Playwright, Puppeteer and Selenium and false in a
+ * hand-driven browser. This repo points Playwright at production, and GA4's own bot
+ * filter never catches those — a real Chromium really is executing the tag. On a site
+ * with ~6 organic impressions a day, a handful of self-inflicted sessions would be a
+ * multiple of the real audience, and every content decision reads these numbers.
+ *
+ * The localStorage opt-out is the other half: visit /?ga_optout=1 once per browser to
+ * stop being counted, /?ga_optout=0 to undo. An IP filter cannot pin a dynamic IP;
+ * a flag survives IP changes and reboots.
+ *
+ * The gate runs BEFORE dataLayer is created, so an excluded browser never queues an
+ * event that a later page load could flush.
+ */
+const measurementId = import.meta.env.PUBLIC_GA_MEASUREMENT_ID ?? 'G-17GKJNMGDX'
 ---
 
-{cfBeaconToken && (
-  <script
-    is:inline
-    defer
-    src="https://static.cloudflareinsights.com/beacon.min.js"
-    data-cf-beacon={JSON.stringify({ token: cfBeaconToken })}
-  ></script>
-)}
+{
+  measurementId && (
+    <script is:inline define:vars={{ measurementId }}>
+      {`(function () {
+  var id = measurementId;
+  try {
+    var q = location.search;
+    if (q.indexOf('ga_optout=') !== -1) {
+      q.indexOf('ga_optout=1') !== -1
+        ? localStorage.setItem('pr_ga_optout', '1')
+        : localStorage.removeItem('pr_ga_optout');
+    }
+    if (localStorage.getItem('pr_ga_optout') === '1') return;
+  } catch (e) { /* private mode denies localStorage; count them */ }
+  if (navigator.webdriver) return;
 
-{goatcounterUrl && (
-  <script is:inline data-goatcounter={goatcounterUrl} async src="//gc.zgo.at/count.js"></script>
-)}
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){ dataLayer.push(arguments); }
+  window.gtag = gtag;
+  gtag('js', new Date());
+  gtag('config', id, { transport_type: 'beacon' });
+
+  function load() {
+    if (window.__gaLoaded) return;
+    window.__gaLoaded = true;
+    var s = document.createElement('script');
+    s.async = true;
+    s.src = 'https://www.googletagmanager.com/gtag/js?id=' + id;
+    document.head.appendChild(s);
+  }
+  ['pointerdown','keydown','scroll','touchstart'].forEach(function (e) {
+    addEventListener(e, load, { once: true, passive: true });
+  });
+  if ('requestIdleCallback' in window) requestIdleCallback(load, { timeout: 3500 });
+  else setTimeout(load, 3500);
+})();`}
+    </script>
+  )
+}

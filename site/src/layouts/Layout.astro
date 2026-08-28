@@ -153,7 +153,10 @@ const mcpLd = {
 // recommended GSC "Domain" property uses a DNS TXT record instead and needs neither.
 // See .claude/research/seo-monitoring-setup.md.
 const gscVerification = import.meta.env.PUBLIC_GSC_VERIFICATION ?? 'LPx85yBDaIQPQ6DJWuub0OcnlZO8ra9nrQCxr5vzH-g'
-const bingVerification = import.meta.env.PUBLIC_BING_VERIFICATION
+// Account-wide Bing Webmaster code (one code covers every site on the account).
+// ChatGPT search + Copilot run on the Bing index, so this is an AEO lever, not just SEO.
+const bingVerification =
+  import.meta.env.PUBLIC_BING_VERIFICATION ?? '4C2A94BD8695D97BC9033E2A6E5002D5'
 ---
 
 <!doctype html>
