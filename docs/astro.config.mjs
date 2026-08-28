@@ -45,7 +45,13 @@ export default defineConfig({
       components: {
         Head: './src/components/Head.astro',
       },
-      title: 'PipRail',
+      // 🔴 This one string generates the <title> of all 91 docs pages ("<page> | <title>").
+      // It was just 'PipRail', so 59 of them read like "Verifying payments | PipRail" —
+      // no topical signal at all. Nothing told Google, or a JS-less AI crawler, that these
+      // are x402 docs; the qualifying keyword was absent from 87% of our indexable surface.
+      // Modelled before changing: 91 pages affected, 0 exceed 60 chars (longest lands on
+      // exactly 60), median 36, and titles under 30 chars drop 59 → 18.
+      title: 'PipRail x402 Docs',
       description:
         'The complete documentation for @piprail/sdk and @piprail/mcp — x402 crypto payments for AI agents on any chain. No backend, no fee, settled straight to your wallet.',
       // Theme-adaptive, transparent mark: white-P on dark, black-P on light
