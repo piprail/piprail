@@ -71,6 +71,21 @@ export default defineConfig({
       // Default to dark — PipRail is a dark-first brand.
       // (Readers can still toggle to light; we theme both.)
       head: [
+        // GA4 — docs.piprail.com is its OWN data stream (G-VRMS0WPNC0) under the same
+        // "PipRail" property (551957171) as the apex. The property and both streams existed
+        // long before this tag did: neither was ever installed, so the docs host — 87% of our
+        // indexable surface — collected zero visitor data while Search Console made it look
+        // measured. Keep the two ids distinct or the hosts become indistinguishable in GA4.
+        {
+          tag: 'script',
+          attrs: { async: true, src: 'https://www.googletagmanager.com/gtag/js?id=G-VRMS0WPNC0' },
+        },
+        {
+          tag: 'script',
+          content:
+            'window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}' +
+            "gtag('js',new Date());gtag('config','G-VRMS0WPNC0');",
+        },
         // Smooth-load guard: suppress transitions/animations until the first paint has
         // settled (theme applied + web fonts swapped) so nothing animates/jolts "in" on
         // reload. Runs in <head> before <body> paints, so `pr-js` is set pre-paint;
