@@ -40,7 +40,7 @@ ONLY actions are a push and one or two tags — CI does the rest. **No human-gat
 
 | You do this | CI does this — automatically | Manual? |
 |---|---|---|
-| `git push origin main` | Deploy **piprail.com** (Netlify) + **docs.piprail.com** (GitHub Pages) + IndexNow ping + run CI checks | **None** |
+| merge a PR into `main` | Deploy **piprail.com** (Netlify) + **docs.piprail.com** (GitHub Pages) + IndexNow ping + run CI checks | **None** |
 | `git push origin sdk-vX.Y.Z` | `release.yml`: gate → **npm publish `@piprail/sdk`** → **cut the GitHub Release** (`--latest`) | **None** |
 | `git push origin mcp-vX.Y.Z` | `mcp-release.yml`: gate → **npm publish `@piprail/mcp`** → **cut the GitHub Release** → **publish the MCP registry via OIDC** (no secret) | **None** |
 | `clawhub skill publish …` | publish/refresh the **OpenClaw ClawHub skill** `piprail` (`clawhub install piprail`; it wraps `@piprail/mcp`) | **Manual** — re-publish when the skill or its MCP tool set changes (§8.5) |
@@ -91,6 +91,40 @@ Confirm what changed: `git log <last-tag>..HEAD -- sdk/` (or `-- mcp/`).
 
 - [ ] On `main`, working tree clean for unrelated changes (`git status`). `dist/` is gitignored — CI rebuilds it; never commit it.
 - [ ] Pick the new version per SemVer.
+- [ ] `gh secret list` shows **`NPM_TOKEN`** (the only secret a release needs — the MCP registry uses OIDC).
+- [ ] `npm view @piprail/sdk version` — confirm the version you are about to publish is **not already taken**. npm never lets you replace one.
+- [ ] Ask the map what your change drags along: **`npm run sync -- --touched <file>`**.
+
+### 🔴 If you changed anything the BUILD depends on — test a CLEAN CLONE
+
+Your working tree is not what CI and Netlify get. Anything **gitignored** is missing there, and the
+site's `prebuild` runs the sync guard, so a guard that reads a local-only file **fails the production
+build** while passing forever on your machine.
+
+That is not hypothetical. `surfaces-index` did
+`if (!exists('.claude/SURFACES.md')) return bad(…)` — and `.claude/` ships only an allowlist of six
+skills, so that file is absent from every clone. The first Netlify deploy after `scripts/` shipped
+would have failed. Caught only by this:
+
+```bash
+# build a tree from exactly what git would ship (HEAD + your staged changes)
+git add -A
+rm -rf /tmp/cc && mkdir -p /tmp/cc
+git archive --format=tar HEAD | tar -x -C /tmp/cc
+git diff --cached --name-only -z | while IFS= read -r -d '' f; do
+  git cat-file -e ":$f" 2>/dev/null && { mkdir -p "/tmp/cc/$(dirname "$f")"; git show ":$f" > "/tmp/cc/$f"; }
+done
+
+cd /tmp/cc
+ls .env .secrets 2>/dev/null && echo "🔴 SECRET LEAKED INTO THE COMMIT"   # must print nothing
+npm ci
+npm run build:sdk && npm run build          # ← the EXACT Netlify command
+npm run sync && npm run build -w @piprail/docs   # ← the docs lane
+npm test -w @piprail/sdk && npm test -w @piprail/mcp
+```
+
+All four lanes must pass **there**, not just locally. It doubles as the definitive check that no
+secret is in the commit.
 
 ## 2. Bump EVERY version file (miss one → the gate fails)
 
@@ -107,7 +141,7 @@ Confirm what changed: `git log <last-tag>..HEAD -- sdk/` (or `-- mcp/`).
 
 ## 3. Sweep EVERY doc surface (the part people forget — docs-sync territory)
 
-The **★ items are enforced** by `site/scripts/check-sync.mjs` (it's the site's `prebuild` AND runs in the
+The **★ items are enforced** by `npm run sync` (reached via `site/scripts/check-sync.mjs`, the site's `prebuild` AND run in the
 release CI — it **fails the build** on drift, so you literally can't ship them stale). The rest are judgement calls.
 
 - [ ] ★ **`site/public/llms.txt` + `llms-full.txt`** — bump the `SDK-Version` / `MCP-Version` header to match the packages, and the `Last-Updated` to today.
@@ -119,30 +153,64 @@ release CI — it **fails the build** on drift, so you literally can't ship them
 
 ## 4. The verification gate (must be GREEN — see [`verify-gate`](../verify-gate/SKILL.md))
 
-```bash
-npm run typecheck                                   # sdk + mcp (SRC only — does NOT include tests)
-npm run typecheck:test -w @piprail/sdk              # SDK src + tests together
-npm run typecheck:test -w @piprail/mcp              # MCP src + tests — the `mcp` CI runs THIS; root typecheck does NOT (a missed fixture field reddens CI)
-npm run test:sdk                                    # (and: npm run test:mcp  if releasing the MCP)
-npm run build:sdk                                   # (and: npm run build:mcp)
-grep -E "from ?['\"]@(solana|ton|stellar|aptos|mysten|near|tronweb|xrpl)" sdk/dist/index.js \
-  && echo "LEAK" || echo "OK: lazy-chunk invariant holds"   # → must be OK (no static non-EVM imports)
-npm pack --dry-run -w @piprail/sdk                  # confirm the tarball ships ONLY what files[] lists
-node site/scripts/check-sync.mjs                    # the ★ sync guard — versions + tool names
-npm run build -w site                               # full site build (runs check-sync as prebuild)
-```
-
-All green, or you don't ship. The release CI re-runs the gate (`prepublishOnly`) but **NOT** the lazy-chunk
-grep — that tripwire only runs here, so never skip it.
-
-## 5. Commit on `main` + push (this fires the site + docs deploys)
+**One command. Do not hand-run the pieces** — this used to be ten commands to paste, and the list
+drifted (it still claimed "20 rules, 7 domains" long after the map reached 47/13).
 
 ```bash
-git commit -am "release: @piprail/sdk vX.Y.Z (+ @piprail/mcp vX.Y.Z)"   # signed if a key is set
-git push origin main
+npm run verify-gate          # the whole gate, in dependency order
 ```
-Pushing `main` triggers **Netlify** (piprail.com) and **`deploy-docs.yml`** (docs.piprail.com). Stage only
-the deploy's files if unrelated work is in the tree (`git add <files>` instead of `-am`).
+
+What it runs, and why the order matters:
+
+| # | step | why here |
+|---|---|---|
+| 1 | `build:sdk` | **first** — the MCP resolves the SDK's built `dist` |
+| 2 | `typecheck` | sdk + mcp **src only** |
+| 3 | `typecheck:test -w @piprail/sdk` | src + tests together |
+| 4 | `typecheck:test -w @piprail/mcp` | the root typecheck does **not** cover MCP tests |
+| 5–6 | `test:sdk`, `test:mcp` | the canonical contract |
+| 7 | `build:mcp` | after the SDK exists |
+| 8 | **lazy-chunk invariant** | no static non-EVM import in the EVM bundle |
+| 9 | **ops scripts parse** | `.claude/` + `scripts/` are gitignored — nothing else compiles them |
+| 10 | **env-loader tests** | the credential parser's contract |
+| 11 | **`npm run sync`** | 47 rules, 13 domains |
+| 12–13 | `build` site, `build:docs` | the site build re-runs the sync guard as `prebuild` |
+
+`--quick` skips 12–13. **Never use it for a release.**
+
+```bash
+npm run sync -- --touched <file>    # "I changed this — what else must change?"
+npm pack --dry-run -w @piprail/sdk  # confirm the tarball ships ONLY what files[] lists
+```
+
+All green, or you don't ship. `prepublishOnly` re-runs build + test + typecheck at publish time,
+and since 2026-08-28 `sdk.yml` also runs the lazy-chunk invariant and the sync guard on every push
+and PR — but the **whole** set only runs together here.
+
+## 5. Land it on `main` — **via a PR** (this fires the site + docs deploys)
+
+`main` is protected (`protect-main`): **pull request required, signed commits required**, no
+force-push, no deletion. A repo admin *can* bypass and push straight to `main` — this step used to
+say exactly that — but bypassing skips the `pull_request` CI, which is the run you most want on a
+release commit.
+
+```bash
+git checkout -b release/sdk-vX.Y.Z
+git commit -am "release: @piprail/sdk vX.Y.Z (+ @piprail/mcp vX.Y.Z)"   # auto-signed
+git push -u origin release/sdk-vX.Y.Z
+gh pr create --fill
+gh pr checks --watch                    # let sdk/mcp/site CI go green FIRST
+gh pr merge --squash --admin            # solo is fine: 0 approvals required
+git checkout main && git pull
+```
+
+Merging to `main` triggers **Netlify** (piprail.com) and **`deploy-docs.yml`** (docs.piprail.com).
+Stage only the deploy's files if unrelated work is in the tree (`git add <files>` instead of `-am`).
+
+> **Signing is required, not optional.** `git config gpg.format ssh && git config user.signingkey
+> ~/.ssh/id_rsa.pub && git config commit.gpgsign true && git config tag.gpgsign true`. Locally
+> `git log --pretty='%G?'` may print `E` without an `allowed_signers` file — harmless; GitHub
+> verifies against the signing key on your account.
 
 ## 6. Tag + publish — SDK first, then MCP (the tag is what publishes)
 
@@ -312,7 +380,7 @@ gh run list --limit 6   # sdk-release ✓ mcp-release ✓ site ✓ deploy-docs �
 
 1. **npm only refreshes the README on publish.** A docs/README-only change is invisible on npm until you cut a patch release.
 2. **Build the SDK before the MCP** — the MCP imports the SDK's built `dist`. Push `sdk-v*`, let it land on npm, then `mcp-v*`.
-3. **`check-sync.mjs` fails the build on `llms.txt` drift.** Bump the `SDK-Version`/`MCP-Version` headers in the **same commit** as the package bump, or the Netlify/CI build (and the release) stops.
+3. **The sync guard fails the build on `llms.txt` drift** (and on chain-count, package, MCP-tool, facilitator or pinned-version drift). Bump the `SDK-Version`/`MCP-Version` headers in the **same commit** as the package bump, or the Netlify/CI build (and the release) stops.
 4. **MCP has 4 version files** (`package.json`, `src/version.ts`, `server.json` ×2, `CHANGELOG.md`) — `version.test.ts` fails the gate if they drift.
 5. **`server.json` `description` ≤ 100 chars** — the registry 422s a longer one.
 6. **GitHub Releases are auto now** — CI cuts them from the tag (§7). Only `gh release create` by hand if CI's step failed (then pass `GH_TOKEN=$(gh auth token)` explicitly — it can 401 otherwise).
@@ -327,11 +395,13 @@ gh run list --limit 6   # sdk-release ✓ mcp-release ✓ site ✓ deploy-docs �
 # 2. bump: sdk/package.json + sdk/CHANGELOG.md ; mcp/{package.json,src/version.ts,server.json,CHANGELOG.md}
 # 3. sweep: site/public/llms.txt + llms-full.txt headers (SDK-Version / MCP-Version / Last-Updated)
 # 4. gate:
-npm run typecheck && npm run typecheck:test -w @piprail/sdk && npm run typecheck:test -w @piprail/mcp \
-  && npm run test:sdk && npm run test:mcp \
-  && npm run build:sdk && npm run build:mcp && node site/scripts/check-sync.mjs && npm run build -w site
-# 5. ship:
-git commit -am "release: @piprail/sdk vX.Y.Z + @piprail/mcp vX.Y.Z" && git push origin main
+npm run verify-gate                                  # the WHOLE gate, one command
+# 5. ship — main is protected: PR required, commits must be signed
+git checkout -b release/sdk-vX.Y.Z
+git commit -am "release: @piprail/sdk vX.Y.Z + @piprail/mcp vX.Y.Z"
+git push -u origin release/sdk-vX.Y.Z
+gh pr create --fill && gh pr checks --watch && gh pr merge --squash --admin
+git checkout main && git pull
 git tag -s sdk-vX.Y.Z -m "@piprail/sdk vX.Y.Z" && git push origin sdk-vX.Y.Z   # → npm + GitHub Release (auto)
 git tag -s mcp-vX.Y.Z -m "@piprail/mcp vX.Y.Z" && git push origin mcp-vX.Y.Z   # → npm + Release + registry (auto)
 # CI now auto-cuts the GitHub Releases (§7) and refreshes the MCP registry (§8, if MCP_PUBLISHER_PAT set).

@@ -1,6 +1,6 @@
 # PipRail
 
-> Last-Updated: 2026-06-24 · SDK-Version: 2.15.0 · MCP-Version: 0.9.0 · Type: APIService · License: MIT · Repository: https://github.com/piprail/piprail
+> Last-Updated: 2026-08-28 · SDK-Version: 2.15.1 · MCP-Version: 0.9.0 · Type: APIService · License: MIT · Repository: https://github.com/piprail/piprail
 
 > Accept and make x402 "402 Payment Required" crypto payments from any HTTP request — across 29 chains in 10 families (every major EVM chain plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar & the XRP Ledger). No backend, no database, no account, no fee: payments settle straight to your wallet, verified locally against your own RPC. Built for AI agents. It also does x402 **discovery** — emit a machine-readable manifest, register your endpoint on the open indexes (402 Index, CDP Bazaar), and let agents find payable APIs to use — on every chain. And `@piprail/mcp` — an MCP (Model Context Protocol) server, listed in the official MCP registry (`io.github.piprail/mcp`), that lets any MCP client (Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, Cline) pay, discover, and register x402 URLs autonomously, capped by a local spend policy the model cannot exceed.
 
@@ -48,7 +48,11 @@ Full pitch + all code inline: [llms-full.txt](https://piprail.com/llms-full.txt)
 
 ## Integrations
 
-- PipRail drops into agent frameworks by wrapping the published @piprail/mcp server — no new code, just one config entry. Live: **OpenClaw** (a ClawHub skill — `clawhub install piprail`) and **Hermes** (NousResearch's agent runtime — add one `mcp_servers` block to `~/.hermes/config.yaml`). Each gives the agent the 8 piprail_* tools, budget-bound. Vercel AI SDK, Mastra, and ElizaOS are next. Any MCP client can use PipRail today. See https://docs.piprail.com/integrations/
+- PipRail drops into agent frameworks by wrapping the published @piprail/mcp server — no new code, just one config entry. Five are live and tested: **OpenClaw** (a ClawHub skill — `clawhub install piprail`), **Hermes** (NousResearch's agent runtime — one `mcp_servers` block in `~/.hermes/config.yaml`), **elizaOS** (a native plugin, `@piprail/elizaos-plugin`, wrapping `paymentTools()` as 6 budget-bound actions), **n8n** (a native community node, `@piprail/n8n-nodes-piprail`, `usableAsTool` so AI Agent nodes can call it), and **Mastra** (the first x402 integration for Mastra, wiring `@piprail/mcp` in via `MCPClient`). Each gives the agent the 8 piprail_* tools, budget-bound. Vercel AI SDK is planned. Any MCP client can use PipRail today without a dedicated integration. See https://docs.piprail.com/integrations/
+
+## Scaffolding — @piprail/create
+
+- `npm create @piprail` scaffolds a complete, runnable, **mainnet-by-default** x402 merchant in one command — the seller's mirror of the buyer's `npx -y @piprail/mcp`. An interactive wizard asks what you're selling, which chain + token, and your **public** wallet address (no private key, no account, no backend, no fee), then generates the app: a `createPaywall`/`createTipJar` gate, a `npm run verify` config self-test, and either a node/express server or a Cloudflare Worker. Published as [@piprail/create](https://www.npmjs.com/package/@piprail/create).
 
 ## Chains
 

@@ -4,6 +4,78 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+## [2.15.1] — 2026-08-28 — a dead Sui RPC, an RPC failure blamed on the token, and fuzz hardening
+
+### Fixed — Sui's shipped default RPC was dead (whole-chain outage)
+
+- **`chain: 'sui'` with no `rpcUrl` was 100% non-functional.** The preset shipped
+  `https://fullnode.mainnet.sui.io:443`, and Mysten has since **turned JSON-RPC off** on the
+  official public fullnodes — *every* method now answers `-32601 Method not found. JSON-RPC on
+  public fullnodes has been deprecated`, pointing at gRPC/GraphQL. Since `pay`, `verify`,
+  `balanceOf` and `recipientReady` all read through `SuiJsonRpcClient`, nothing on Sui worked
+  unless the caller passed their own endpoint. The default is now
+  `https://sui-rpc.publicnode.com`, verified for `suix_getBalance`, `suix_getCoinMetadata`,
+  `suix_getOwnedObjects` and `sui_getTransactionBlock`.
+  No unit test could catch this — they all mock the reader. Caught by the live wallet sweep,
+  which reads each driver's `defaultRpc` and does a real balance read; that sweep is now a
+  stage of the SDK audit so a dead default surfaces immediately.
+
+### Fixed — the gate blamed the token when the RPC was at fault
+
+- **A transient RPC failure was reported as "this token isn't EIP-3009".** `readExactDomain`
+  fails closed to `null` on two very different causes — the token genuinely isn't EIP-3009, or
+  the on-chain read failed (unreachable, rate-limited, or an HTML error page from a proxy) —
+  and the gate asserted the first. On Base USDC, which *is* EIP-3009, an unreachable RPC
+  produced `this token isn't EIP-3009 (auto-selected Permit2)`: the merchant's gasless rail
+  silently downgraded to `onchain-proof` (buyers start paying gas) and they were told to change
+  the one thing that was correct. The buyer side already retried once and named both causes;
+  the gate now does the same — a single 300 ms retry on the domain read, and a skip reason that
+  states both possibilities and how to tell them apart. Behaviour on a healthy RPC is unchanged.
+
+
+### Fixed — hardening found by a new adversarial fuzz sweep
+
+`test/fuzz-payment-paths.test.ts` generates thousands of hostile inputs per run against the
+paths that decide "was I actually paid?", seeded so a failure reproduces exactly
+(`FUZZ_SEED=<n>`). It found three things, all fixed here. No API changed; every existing
+call keeps its behaviour.
+
+- **A spent proof could be re-redeemed by padding its reference with whitespace.** The
+  gate's single-use key was case-folded (EVM hashes are case-insensitive hex) but not
+  trimmed, so ` 0xabc…`, `0xabc… ` and `\t0xabc…\n` each hashed to a *different* key than
+  `0xabc…` and unlocked the resource a second time for one payment. The ref is now
+  canonicalised at the boundary, before the claim and before the driver sees it, so the
+  built-in store **and** a caller's custom `isUsed`/`markUsed` both receive one identical
+  value. Reaching this on a live EVM gate needed an RPC that accepts a padded hash — a real
+  one rejects it — so this was defence-in-depth rather than a known live exploit; the point
+  is that at-most-once no longer depends on how strict somebody else's RPC happens to be.
+  Six regression cases in `test/server-replay.test.ts`.
+- **`parseUnits` threw a bare `Error`** on the single most likely amount mistake there is —
+  pricing at more decimal places than the token has — while its two other rejection branches
+  threw `InvalidConfigError`. A caller branching on `err instanceof PipRailError`
+  (ERRORS.md §1) missed exactly that case. Now typed, as is the malformed-amount branch of
+  `floorUnits`.
+- **The header builders threw a raw `TypeError`** when handed a value `JSON.stringify`
+  cannot serialise — a `BigInt` most obviously, and amounts are `bigint` everywhere *inside*
+  the SDK, so passing one out is a natural slip. `buildSignatureHeader`,
+  `buildExactSignatureHeader` and their siblings now throw `InvalidConfigError` with a
+  message that names the fix.
+
+### Changed — facilitator registry hygiene
+
+- **Two dead facilitators removed** (see 2.14.2): the docs, the website data and a live
+  example probe were still advertising them after the registry was corrected. A new
+  cross-surface guard (`test/facilitators-surface.test.ts`) now holds all of them to
+  `KNOWN_FACILITATORS` — a dead host may appear only inside an explanation of its removal,
+  the docs' copy-paste URL list is set-compared against the registry, and the website's
+  generated data must match the registry's networks **and URL order** (that order is what
+  `firstKeylessFacilitator` returns).
+- All **25** settlement hashes recorded in the registry's notes were re-verified on-chain on
+  2026-08-28 — 25/25 present and successful, 0 refuted — by
+  `.claude/skills/facilitator-probe/scripts/verify-tx.mjs`.
+
 ## [2.15.0] — 2026-06-24 — merchant on-ramp: presets, adapters, `gate.selfTest()`
 
 ### Added — merchant on-ramp (presets, adapters, self-test)
@@ -1852,6 +1924,7 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[2.15.1]: https://www.npmjs.com/package/@piprail/sdk
 [2.15.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.14.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.13.1]: https://www.npmjs.com/package/@piprail/sdk

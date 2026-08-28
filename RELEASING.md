@@ -23,9 +23,13 @@ on every push to `main` (no tag needed).
 
 1. **Never `npm publish` by hand.** Only a pushed `sdk-v*` / `mcp-v*` tag publishes (workflows
    `.github/workflows/release.yml` / `mcp-release.yml`). Hand-publishing bypasses the gate.
-2. **The gate must be green first.** `prepublishOnly` re-runs build + test + typecheck in CI, so a red
-   gate *fails the release*. It does **not** re-run the lazy-chunk grep — that runs only in your local
-   gate, so never skip `npm run verify-gate` (see `.claude/skills/verify-gate`).
+2. **The gate must be green first.** `prepublishOnly` re-runs build + test + typecheck at publish
+   time, so a red gate *fails the release*. It does **not** run the lazy-chunk grep, the surface-map
+   sync guard, the ops-script parse or the env-loader tests — so never skip
+   **`npm run verify-gate`**, which is all of it in one command (see `.claude/skills/verify-gate`).
+   Since 2026-08-28 `sdk.yml` also runs the lazy-chunk invariant and `npm run sync` on every push
+   and PR, so drift is caught on `main` rather than at the tag — but the local gate is still the
+   only place the *whole* set runs together.
 3. **SemVer + [Keep a Changelog](https://keepachangelog.com/).** Patch = fixes, minor = additive/opt-in
    (defaults never change), major = a breaking change. Every release gets a dated `CHANGELOG.md` entry,
    newest first.
@@ -41,14 +45,15 @@ Confirm what changed since the last tag: `git log <last-tag>..HEAD -- sdk/` (or 
 SemVer bump.
 
 ### 1. Run the verification gate (must be green)
-From the repo root:
+From the repo root — **one command, the whole gate**:
 ```bash
-npm run typecheck                                  # sdk + mcp
-npm run typecheck:test -w @piprail/sdk             # src + tests together
-npm run test:sdk                                   # (and test:mcp if releasing the MCP)
-npm run build:sdk                                  # (and build:mcp)
-grep -E "from ?['\"]@(solana|ton|stellar)" sdk/dist/index.js   # → expect NO matches (lazy-chunk invariant)
+npm run verify-gate          # everything below, in the order that matters
 ```
+It runs, in dependency order: `build:sdk` (first — the MCP resolves the SDK's built `dist`) →
+`typecheck` (sdk + mcp) → `typecheck:test` for **both** workspaces (the root typecheck does *not*
+cover MCP tests) → `test:sdk` → `test:mcp` → `build:mcp` → the **lazy-chunk invariant** → the
+**ops-script parse** → the **env-loader tests** → **`npm run sync`** (47 rules) → `build` site →
+`build:docs`. `--quick` skips the two site/docs builds; **never use it for a release.**
 
 ### 2. Bump the version in **every** file (don't miss one)
 
@@ -71,11 +76,22 @@ grep -E "from ?['\"]@(solana|ton|stellar)" sdk/dist/index.js   # → expect NO m
 > `site/src/layouts/Layout.astro`. The **org profile is a separate repo** (`piprail/.github` →
 > `profile/README.md`) — nothing here updates it.
 
-### 3. Commit on `main`
+### 3. Land the release commit on `main` — **via a PR**
+`main` is protected by the `protect-main` ruleset: pull request required, signed commits required,
+no force-push, no deletion. A repo **admin can bypass** and push straight to `main`, and this step
+used to say `git push origin main` — but bypassing skips the `pull_request` CI, which is exactly
+the run you want on a release commit. Use the PR:
 ```bash
-git commit -am "release: @piprail/sdk vX.Y.Z"   # or @piprail/mcp vX.Y.Z
-git push origin main
+git checkout -b release/sdk-vX.Y.Z
+git commit -am "release: @piprail/sdk vX.Y.Z"   # signed automatically (tag.gpgsign/commit.gpgsign)
+git push -u origin release/sdk-vX.Y.Z
+gh pr create --fill && gh pr merge --squash --admin   # solo is fine: 0 approvals required
+git checkout main && git pull
 ```
+> Commits **must be signed** (`required_signatures`). Configure once:
+> `git config gpg.format ssh && git config user.signingkey ~/.ssh/id_rsa.pub && git config commit.gpgsign true`.
+> Locally `git log --pretty='%G?'` may print `E` ("cannot check") without an `allowed_signers`
+> file — that is fine; GitHub verifies against the signing key registered on your account.
 
 ### 4. Tag + push (this is what publishes)
 ```bash
@@ -131,6 +147,61 @@ make your org membership public (<https://github.com/orgs/piprail/people>) and r
 
 ---
 
+## When a release goes wrong — rollback
+
+**There was no rollback procedure here until 2026-08-28.** The single most important fact:
+
+> 🔴 **A published npm version can never be replaced.** `npm publish` on an existing version is a
+> hard error, and `npm unpublish` is only permitted within **72 hours** — and even then it *breaks*
+> every lockfile that already pinned it. **Rolling forward is almost always right.**
+
+### The fast mitigation (seconds) — move `latest` back
+Consumers install `latest`. Repointing it stops the bleeding without touching what is published:
+```bash
+npm dist-tag add @piprail/sdk@<LAST_GOOD> latest     # e.g. 2.15.0
+npm view @piprail/sdk dist-tags                       # confirm
+```
+New installs immediately get the good version again. The bad version stays on the registry (people
+who pinned it keep working) but nobody new receives it.
+
+### Then mark it, so nobody installs it deliberately
+```bash
+npm deprecate @piprail/sdk@<BAD> "Broken <what>; use <LAST_GOOD> or later. See CHANGELOG."
+```
+`npm install` prints this warning. It is reversible: `npm deprecate <pkg>@<ver> ""`.
+
+### Then roll forward
+Fix, bump a **patch**, and release normally (steps 1-6). Re-point `latest` if you moved it:
+```bash
+npm dist-tag add @piprail/sdk@<NEW_PATCH> latest
+```
+
+### Rolling back the sites (independent of npm — no tag involved)
+- **piprail.com (Netlify):** the previous deploy is one click — Netlify → Deploys → the last good
+  one → **Publish deploy**. Instant, no rebuild. Then fix forward in git; the next merge to `main`
+  supersedes it.
+- **docs.piprail.com (GitHub Pages):** no instant rollback. Revert the commit via a PR
+  (`git revert <sha>`) and let `deploy-docs.yml` rebuild.
+
+### What a deleted tag does and does not do
+Deleting `sdk-vX.Y.Z` (`git push --delete origin sdk-vX.Y.Z`) **does not unpublish anything** — the
+npm version and the GitHub Release both survive. Delete a tag only to correct one pushed by mistake
+*before* its workflow published, which is a narrow window. Never re-use a tag name.
+
+### MCP registry
+The registry mirrors whatever `mcp/server.json` last published. After a rollback release, re-run
+the publish (step 7) so the listed version matches npm again.
+
+### Rollback checklist
+- [ ] `latest` points at a known-good version (`npm view <pkg> dist-tags`)
+- [ ] bad version deprecated with a message naming the fix
+- [ ] site rolled back (Netlify) and/or docs reverted, if they were affected
+- [ ] patch released and `latest` re-pointed at it
+- [ ] MCP registry re-published if the MCP was involved
+- [ ] `CHANGELOG.md` records what broke and what fixed it — never silently
+
+---
+
 ## Keeping the site in sync — the deploy guard
 
 The site states the same facts as the packages (versions, the MCP tool set), and those can drift.
@@ -142,9 +213,22 @@ SDK/MCP release workflows. It **fails the build** (exit 1) if:
 
 - the `SDK-Version` / `MCP-Version` headers in `site/public/llms.txt` or `llms-full.txt` don't match
   `sdk/package.json` / `mcp/package.json`, or
-- any of the five MCP tool names is missing from `llms.txt`, `llms-full.txt`, `mcp/README.md`, or `sdk/README.md`.
+- any MCP tool name (there are **8**) is missing from `llms.txt`, `llms-full.txt`, `mcp/README.md`,
+  or `sdk/README.md` — the list is derived from the SDK's own `paymentTools()`, never hard-coded.
 
-Run it anytime: `npm run check:sync -w @piprail/site` (or `node site/scripts/check-sync.mjs`).
+Run it anytime: **`npm run sync`** (or `node site/scripts/check-sync.mjs`, which delegates to it).
+
+As of 2026-08-28 this is no longer just a version check — it is **47 rules across 13 domains**
+(chains · packages · mcp · facilitators · discovery · site · docs · api · errors · ci · security ·
+seo · skills), each declaring the fact's owner and every file that mirrors it. Two modes worth
+knowing:
+
+```bash
+npm run sync -- --touched mcp/package.json   # "I bumped this — what else must change?"
+npm run sync -- --graph                      # the whole source → mirror map
+```
+
+Human map: `.claude/SURFACES.md`. Rules: `scripts/sync/rules.mjs`.
 
 So the enforcement chain is: a release bumps the package **and** the `llms.txt` headers in the same
 commit → the release workflow's guard passes → Netlify rebuilds the site → its `prebuild` guard passes
@@ -152,7 +236,7 @@ commit → the release workflow's guard passes → Netlify rebuilds the site →
 
 ### Every-deploy checklist (the guard enforces the ★ items; the rest are judgement calls)
 - [ ] ★ `llms.txt` + `llms-full.txt` `SDK-Version` / `MCP-Version` headers match the packages
-- [ ] ★ all five MCP tool names present across the AEO files + READMEs
+- [ ] ★ every MCP tool name (8) present across the AEO files + READMEs
 - [ ] `Last-Updated` header in `llms.txt` / `llms-full.txt` bumped to today
 - [ ] new user-facing feature? added to `llms-full.txt`, the relevant site page, and the
       `Layout.astro` JSON-LD `featureList` (what answer engines extract)
@@ -160,4 +244,6 @@ commit → the release workflow's guard passes → Netlify rebuilds the site →
 - [ ] org profile (`piprail/.github`) still accurate (separate repo)
 
 > Want to widen the guard (e.g. assert the chain count, or block a stale `Last-Updated`)? Add a check
-> to `site/scripts/check-sync.mjs` — it's plain Node, no deps, and already wired into every build.
+> to `scripts/sync/rules.mjs` — plain Node, no deps, and already wired into every build via
+> `site/scripts/check-sync.mjs`. Derive the expected value in `scripts/sync/sources.mjs`; never
+> hard-code it in the rule, or the guard becomes one more copy that can rot.

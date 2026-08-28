@@ -97,6 +97,8 @@ live legs when no funded test wallet is present.)
 | The **SDK**, both ends — `requirePayment`/`createPaymentGate` (merchant) **and** `PipRailClient` (payer) | [`sdk-sandbox/`](./basics/sdk-sandbox) | the gate, the client, the spend policy, the wire codecs, the typed errors, a real on-chain round-trip (USDC + native), **and live discovery** (emit + register + discover vs. the real indexes) — **284 checks** |
 | The **MCP server** — spawned over real stdio, attacked as a greedy AI + a lying merchant | [`mcp-sandbox/`](./basics/mcp-sandbox) | an AI **cannot break the spend policy**: caps can't be tricked or drained, proven on a real on-chain settlement; plus the discovery tools over MCP — **169 checks** |
 | The **x402-parity** features against the **published** `@piprail/sdk` + `@piprail/mcp` | [`x402-parity-sandbox/`](./basics/x402-parity-sandbox) | verifiable receipts (R1+R2), the `upto` metered rail, the merchant-proof spend leash, the **A2A (Google Agent2Agent)** transport, and the MCP's 8th tool `piprail_verify_receipt` — each proven **live on Base mainnet** on what `npm i` actually ships |
+| The **A2A seller transport** mounted in the official runtime | [`a2a-server/`](./a2a-server) | PipRail's documented A2A integration **actually runs** against `@a2a-js/sdk` (the a2aproject / Linux Foundation A2A runtime) — not just against our own reading of the spec |
+| The **A2A envelopes** cross-checked against Google's own x402 libraries | [`a2a-interop/`](./a2a-interop) | our A2A envelopes are x402-v2-**conformant** as the reference implementation parses them, not merely as the spec text reads |
 
 > **The headline both prove:** the spend policy is the boundary, and it holds.
 > A merchant that lies about decimals / display amount / symbol can't push a

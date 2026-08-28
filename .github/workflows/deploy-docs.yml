@@ -9,6 +9,7 @@ on:
   push:
     branches: [main]
     paths:
+      - 'scripts/**'
       - 'docs/**'
       - 'package.json'
       - 'package-lock.json'
@@ -40,6 +41,13 @@ jobs:
       # Install at the workspace root (the lockfile + workspaces live here), then
       # build only the docs workspace. Astro writes static output to docs/dist.
       - run: npm ci
+      # The sync guard needs the SDK's built dist to read the chain set, the facilitator
+      # registry and the MCP tool list; without it those rules SKIP and the guard is weaker.
+      - run: npm run build -w @piprail/sdk
+      # Docs mirror the SDK. A docs edit that contradicts the code (a family page, an error
+      # code, a scheme) previously published straight to docs.piprail.com unchecked.
+      - name: surface-map sync guard
+        run: npm run sync
       - run: npm run build -w @piprail/docs
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5

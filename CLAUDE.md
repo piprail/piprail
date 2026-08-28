@@ -5,6 +5,34 @@ For the agent-facing command/rule summary, see also [`AGENTS.md`](AGENTS.md).
 
 ---
 
+## 🗺️ START HERE ON EVERY REQUEST — check the map before you touch anything
+
+**Before beginning ANY task — a feature, a fix, a docs edit, a version bump, a new chain —
+open the surface map first.** PipRail states the same fact in many places, and the whole point
+of the map is that you find out *up front* what a change will drag along with it, not after.
+
+```bash
+npm run sync -- --touched <the file you are about to change>   # ⬅️ DO THIS FIRST
+npm run sync -- --graph                                        # the whole source → mirror map
+npm run sync                                                   # is anything out of sync right now?
+```
+
+`--touched` prints the exact mirrors your change now owes — read from the same rule definitions
+that run the check, so it can never rot the way a written checklist does. **The human map is
+[`.claude/SURFACES.md`](.claude/SURFACES.md).**
+
+**Then finish with `npm run verify-gate`** (typecheck + tests + builds + the lazy-chunk invariant
++ the sync guard, in one command; `--quick` skips the site/docs builds). **`npm run sync` alone** It is the site's `prebuild`
+and runs in the release CI, so drift fails the build — better to find it now.
+
+Why this is non-negotiable: the SDK, the docs site, the marketing site, the examples and the
+five integrations all restate each other. Change the SDK and the docs, the site, the examples
+**and** the integrations may all need to follow. We have already shipped the failure this
+prevents — the facilitator registry was corrected in the SDK while the docs, the website data
+and a live mainnet example probe kept advertising two dead hosts.
+
+---
+
 ## What this is
 
 PipRail is **three things, no server:**
@@ -145,6 +173,24 @@ piprail/
   changes first. `examples/` has a live e2e against Anvil.
 - **No marketplace, activity profile, service registry, or fee contract.** Deliberately absent —
   they'd need a backend or compete on territory we don't own.
+- **🔄 Never let a fact drift — see [🗺️ START HERE](#-start-here-on-every-request--check-the-map-before-you-touch-anything) at the top.**
+  `npm run sync` is both the map and the guard: **47 rules across 13 domains** (chains · packages ·
+  mcp · facilitators · discovery · site · docs · api · errors · ci · security · seo · skills). Rules live in
+  `scripts/sync/rules.mjs`, each declaring the fact's OWNER and every file that mirrors it.
+  **One owner per fact** — if you are hand-maintaining a second copy, that is the bug: make it
+  generated, derived, or guarded, then add a rule so the next one is caught. Playbook: the
+  **`docs-sync`** skill.
+
+- **🔑 Every credential lives in `.env` — `.env.example` is the map.** One file, one parser
+  (`scripts/load-env.mjs`), one place to look. Import `loadEnv()` / `requireEnv('NAME')` rather
+  than reading `.env` by hand — five hand-rolled parsers used to disagree about quoting, which
+  is how `RPC_TON='https://…'` reached the SDK quotes-and-all and threw `TypeError: Invalid URL`.
+  **Adding a credential? Add it to `.env.example` too** (name, purpose, where to get it) — the
+  `env-example-documents-secrets` rule fails the build otherwise, and a real value committed
+  there fails it as well. Two stores stay outside `.env` **by design** and are named in the
+  example: `.secrets/wallets/<family>-wallet.json` (structured per-chain test wallets) and
+  `~/.config/gcp/*-oauth.json` (Google OAuth for GSC/GA4).
+
 - **🔗 Record every URL — `.claude/URLS.md` is the address book.** The moment we interact with
   *any* URL, endpoint, dashboard, admin console, or API — ours or a third party's — **it gets a
   row in [`.claude/URLS.md`](.claude/URLS.md) the same day**, with what it's for and when it was

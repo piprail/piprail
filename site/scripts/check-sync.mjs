@@ -1,74 +1,41 @@
 #!/usr/bin/env node
 /**
- * Deploy sync guard — fails the build if the site's AEO files (llms.txt, llms-full.txt)
- * have drifted from the published package versions, or if the MCP tool set is stale.
+ * Deploy sync guard — now a thin delegator to the repo-wide checker.
  *
- * Wired as `prebuild` in site/package.json, so it runs on EVERY `npm run build` — locally,
- * in CI (site.yml), and on the Netlify deploy. Also run in the SDK/MCP release workflows so a
- * release that forgets to bump the llms.txt headers fails before publish.
+ * ── WHY THIS FILE STILL EXISTS ──────────────────────────────────────────────────────
+ * It is wired into four places that should not have to change: the site's `prebuild`
+ * hook (so it runs on every local, CI and Netlify build), `release.yml`,
+ * `mcp-release.yml`, and the `deploy` skill's checklist. Keeping the path stable means
+ * all of that keeps working while the checks behind it got much broader.
  *
- * Why it exists: the llms.txt header (`SDK-Version` / `MCP-Version`) is a hard fact that AI
- * crawlers read, and it silently fell behind a release once. This makes that impossible to ship.
- * See RELEASING.md (the deploy checklist) and the docs-sync skill for the human-facing surfaces map.
+ * ── WHAT CHANGED (2026-08-28) ───────────────────────────────────────────────────────
+ * This used to hold its own copies of the facts it was guarding — most notably a
+ * hard-coded array of the eight MCP tool names, which made it a THIRD copy of a list
+ * that already existed in the SDK and in `mcp/src/banner.ts`. A guard that can itself
+ * drift is not a guard.
+ *
+ * Everything now lives in `scripts/sync/`, where each fact is DERIVED from the code that
+ * owns it, and each rule declares its source and its mirrors — so the same definitions
+ * that run the check also print the map:
+ *
+ *   npm run sync                                       # everything
+ *   npm run sync -- --graph                            # what is linked to what
+ *   npm run sync -- --touched sdk/src/facilitators.ts  # "I changed this — what else?"
+ *
+ * Coverage went from 2 facts (versions, tool names) to 20 rules across 7 domains:
+ * chains · packages · mcp · facilitators · discovery · site · docs. Human map:
+ * `.claude/SURFACES.md`.
+ *
+ * Note: the `site` rules inspect `site/dist`, which does not exist at prebuild time, so
+ * they SKIP here with a reason and run properly in a post-build `npm run sync`.
  */
-import { readFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
-const repo = join(dirname(fileURLToPath(import.meta.url)), '..', '..') // site/scripts → site → repo root
-const read = (p) => readFileSync(join(repo, p), 'utf8')
-const pkgVersion = (p) => JSON.parse(read(p)).version
-
-const sdkV = pkgVersion('sdk/package.json')
-const mcpV = pkgVersion('mcp/package.json')
-
-const TOOLS = ['piprail_discover', 'piprail_quote_payment', 'piprail_plan_payment', 'piprail_pay_request', 'piprail_register', 'piprail_budget', 'piprail_guide', 'piprail_verify_receipt']
-const AEO_FILES = ['site/public/llms.txt', 'site/public/llms-full.txt']
-
-const checks = []
-const check = (label, ok, detail = '') => checks.push({ label, ok, detail })
-
-// 1. The llms.txt / llms-full.txt version headers must match the packages.
-const headerVersion = (txt, label) => txt.match(new RegExp(`${label}:\\s*([0-9]+\\.[0-9]+\\.[0-9]+)`))?.[1]
-for (const file of AEO_FILES) {
-  const txt = read(file)
-  const sdk = headerVersion(txt, 'SDK-Version')
-  const mcp = headerVersion(txt, 'MCP-Version')
-  check(`${file} · SDK-Version matches sdk/package.json`, sdk === sdkV, `header=${sdk ?? '(missing)'} pkg=${sdkV}`)
-  check(`${file} · MCP-Version matches mcp/package.json`, mcp === mcpV, `header=${mcp ?? '(missing)'} pkg=${mcpV}`)
-}
-
-// 2. Every MCP tool name must be present wherever the tool set is enumerated in prose
-//    (guards against a silent revert to the old three-tool wording). Note: sdk/README.md AND the
-//    root README.md are intentionally excluded — both are now brief signposts to docs.piprail.com
-//    (the source of truth), so they link onward rather than enumerating the tool names. The names
-//    stay guarded in mcp/README.md + llms.txt + llms-full.txt.
-for (const file of [...AEO_FILES, 'mcp/README.md']) {
-  const txt = read(file)
-  const missing = TOOLS.filter((t) => !txt.includes(t))
-  check(`${file} · lists all ${TOOLS.length} MCP tools`, missing.length === 0, `missing: ${missing.join(', ')}`)
-}
-
-// 3. Structural: the repo's own docs must document BOTH published packages. The root
-//    README silently omitted the MCP once — this makes that impossible to ship.
-const rootReadme = read('README.md')
-check('README.md documents the mcp/ workspace', /\bmcp\//.test(rootReadme), 'the "What\'s in here" tree must list mcp/')
-check('README.md mentions the published @piprail/mcp', rootReadme.includes('@piprail/mcp'), 'name the published MCP package')
-check('README.md mentions discovery', /discovery|DISCOVERY/.test(rootReadme), 'document the discovery feature')
-const examplesReadme = read('examples/README.md')
-check('examples/README.md links the discovery example', examplesReadme.includes('discovery/'), 'reference examples/discovery')
-
-// Report.
-let failed = 0
-for (const c of checks) {
-  console.log(`  ${c.ok ? '✓' : '✗'} ${c.label}${c.ok ? '' : `  — ${c.detail}`}`)
-  if (!c.ok) failed++
-}
-console.log('')
-if (failed) {
-  console.error(`✗ docs-sync guard FAILED (${failed}). The site is out of sync with the packages.`)
-  console.error('  Fix: update the SDK-Version / MCP-Version headers in site/public/llms.txt + llms-full.txt')
-  console.error(`       to SDK ${sdkV} / MCP ${mcpV}, and keep all ${TOOLS.length} tool names. See RELEASING.md → "Deploy checklist".`)
-  process.exit(1)
-}
-console.log(`✓ docs in sync — llms.txt + llms-full.txt match SDK ${sdkV} / MCP ${mcpV}; all ${TOOLS.length} MCP tools present.`)
+const repo = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
+const result = spawnSync(process.execPath, [join(repo, 'scripts', 'sync', 'check.mjs')], {
+  stdio: 'inherit',
+  cwd: repo,
+})
+process.exit(result.status ?? 1)

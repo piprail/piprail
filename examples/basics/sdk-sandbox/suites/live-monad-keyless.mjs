@@ -1,8 +1,13 @@
-// LIVE mainnet smoke — EVM `exact` keyless on MONAD via Corbits (a NEW gasless chain probe).
+// LIVE mainnet smoke — EVM `exact` keyless on MONAD via Ultravioleta DAO.
 // Same proven flow as live-exact-keyless (Base/PayAI), pointed at Monad (eip155:143, native
-// Circle USDC) + the keyless Corbits facilitator. Buyer signs an EIP-3009 authorization (ZERO
-// gas); Corbits broadcasts + sponsors. If this settles, Monad is seedable (THE RULE: a real
-// keyless settle, not just a /supported read).
+// Circle USDC) + a keyless facilitator. Buyer signs an EIP-3009 authorization (ZERO gas); the
+// facilitator broadcasts + sponsors. THE RULE: a chain is seedable on a real keyless settle,
+// never on a /supported read.
+//
+// ⚰️ Originally written against Corbits (facilitator.corbits.dev), which was first in the Monad
+// list. Its DNS went NXDOMAIN and it was removed from KNOWN_FACILITATORS on 2026-08-28, so this
+// probe now points at Ultravioleta DAO — the current head of the Monad list, live-settled
+// 2026-06-17 (tx 0xb107576e…, re-verified on-chain 2026-08-28).
 //
 // LOCAL ONLY. Reads keys from ../../../../.secrets — never prints them. Skips cleanly if underfunded
 // or the facilitator can't sponsor Monad. This is a PROBE — a clean failure just means "don't seed".
@@ -21,7 +26,7 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const RPC = process.env.MONAD_RPC ?? 'https://rpc.monad.xyz'
 const USDC = getAddress('0x754704Bc059F8C67012fEd69BC8A327a5aafb603')
 const CHAIN_ID = 143
-const FACILITATOR = 'https://facilitator.corbits.dev'
+const FACILITATOR = 'https://facilitator.ultravioletadao.xyz'
 const AMOUNT = '0.001'
 const AMOUNT_BASE = 1000n
 const b64 = (o) => Buffer.from(JSON.stringify(o), 'utf8').toString('base64')
@@ -37,7 +42,7 @@ async function buildPayHeader(url, payerAccount) {
 }
 
 export async function run() {
-  group('LIVE · Monad exact keyless via Corbits — mainnet USDC (NEW-chain probe)')
+  group('LIVE · Monad exact keyless via Ultravioleta DAO — mainnet USDC')
 
   let w
   try {
@@ -81,17 +86,17 @@ export async function run() {
     const header = await buildPayHeader(url, payer)
     const r = await fetch(url, { headers: { 'payment-signature': header } })
     const body = await r.json().catch(() => ({}))
-    check('HTTP 200 — Monad resource unlocked by a GASLESS keyless payment (Corbits sponsored)', r.status === 200 && body.unlocked === true, `status=${r.status} ${JSON.stringify(body).slice(0, 240)}`)
+    check('HTTP 200 — Monad resource unlocked by a GASLESS keyless payment (the facilitator sponsored)', r.status === 200 && body.unlocked === true, `status=${r.status} ${JSON.stringify(body).slice(0, 240)}`)
     if (r.status === 200) {
       const resp = r.headers.get('payment-response') || r.headers.get('x-payment-response')
       const receipt = resp ? JSON.parse(Buffer.from(resp, 'base64').toString('utf8')) : {}
-      note(`settled tx (Corbits-broadcast): ${receipt.transaction}`)
+      note(`settled tx (facilitator-broadcast): ${receipt.transaction}`)
       await sleep(5000)
       check(`merchant received ${AMOUNT} USDC on Monad mainnet`, (await usdc(merchant)) - m0 === AMOUNT_BASE, `delta=${(await usdc(merchant)) - m0}`)
       check('payer USDC dropped by exactly the amount', p0 - (await usdc(payer.address)) === AMOUNT_BASE)
-      note('✅ SEEDABLE: Corbits keyless-settled Monad (eip155:143). Add it to KNOWN_FACILITATORS with this tx.')
+      note('✅ SEEDABLE: the facilitator keyless-settled Monad (eip155:143). Add it to KNOWN_FACILITATORS with this tx.')
     } else {
-      note(`Corbits did not settle Monad (status ${r.status}: ${body.detail ?? body.error ?? ''}). NOT seedable — leave Monad unseeded.`)
+      note(`the facilitator did not settle Monad (status ${r.status}: ${body.detail ?? body.error ?? ''}). NOT seedable — leave Monad unseeded.`)
     }
   } finally {
     await new Promise((r) => srv.close(r))

@@ -29,15 +29,17 @@ const AMOUNT = '0.001'
 // tiny USDC (~$0.05, NO native — the facilitator covers gas) on a chain below, then re-run — a clean
 // settle prints "✅ SEEDABLE" with the tx to add to KNOWN_FACILITATORS.
 //
-// ✅ ALREADY SEEDED (live-settled 2026-06-17): Base (PayAI·xpay·UVD·Dexter·Corbits·GoPlausible),
-//    BNB (Dexter·Pieverse / FDUSD), Monad (Corbits·UVD·Pieverse), HyperEVM (UVD),
-//    Solana (PayAI·OpenFacilitator·Corbits — separate SVM harness),
+// ✅ ALREADY SEEDED (live-settled 2026-06-17): Base (PayAI·xpay·UVD·Dexter·GoPlausible),
+//    BNB (Dexter·Pieverse / FDUSD), Monad (UVD·Pieverse), HyperEVM (UVD),
+//    Solana (PayAI·OpenFacilitator — separate SVM harness),
+// ⚰️ REMOVED 2026-08-28: Corbits (facilitator.corbits.dev, NXDOMAIN) and Satoshi/bitcoinsapi
+//    (deleted Azure container app). Both settled real payments in June and then went offline.
+//    Do not re-add either without a fresh live settlement — see .claude/skills/facilitator-probe/.
 //    Algorand (GoPlausible — separate harness: live-algorand-goplausible.mjs). = 6 keyless chains.
 // ⏳ FUNDING WORKLIST below — each is covered by a validated keyless facilitator; just needs USDC.
 const TARGETS = [
   // ── EXTRA facilitators on ALREADY-KEYLESS funded chains (more facilitators per chain = automatic
   //    failover). These add redundancy, not new chains; each still needs a live keyless settle to seed. ──
-  { name: 'Base / Corbits',       chain: 'base',     token: 'USDC',  addr: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', chainId: 8453,  decimals: 6,  rpc: 'https://base-rpc.publicnode.com',         facilitator: 'https://facilitator.corbits.dev' },
   { name: 'Base / GoPlausible',   chain: 'base',     token: 'USDC',  addr: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', chainId: 8453,  decimals: 6,  rpc: 'https://base-rpc.publicnode.com',         facilitator: 'https://facilitator.goplausible.xyz' },
   { name: 'Monad / Pieverse',     chain: 'monad',    token: 'USDC',  addr: '0x754704Bc059F8C67012fEd69BC8A327a5aafb603', chainId: 143,   decimals: 6,  rpc: 'https://rpc.monad.xyz',                   facilitator: 'https://facilitator.pieverse.io' },
   { name: 'BNB / Pieverse',       chain: 'bnb',      token: 'FDUSD', addr: '0xc5f0f7b66764F6ec8C8Dff7BA683102295E16409', chainId: 56,    decimals: 18, rpc: 'https://bsc-dataseed.binance.org',        facilitator: 'https://facilitator.pieverse.io', amount: '0.005' },

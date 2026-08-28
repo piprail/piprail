@@ -4,29 +4,107 @@ import Navigation from '../components/Navigation.astro'
 import Footer from '../components/Footer.astro'
 import Breadcrumbs from '../components/Breadcrumbs.astro'
 import SectionHeading from '../components/SectionHeading.astro'
+import CodeWindow from '../components/CodeWindow.astro'
+import { highlight } from '../lib/highlight'
 import { facilitatorCoverage } from '../data/facilitators'
-import { ArrowRight, CheckCircle2, ShieldOff } from 'lucide-astro'
+import {
+  ArrowRight, ArrowUpRight, ShieldOff, Fuel, KeyRound, Receipt, ExternalLink,
+  CircleDollarSign, Layers, ChevronDown, Coins, ShieldCheck, Route,
+} from 'lucide-astro'
 
-// Counts DERIVED from the generated data — never hardcoded, so they cannot drift.
+/*
+ * /facilitators — the answer to "which x402 facilitator settles on my chain?", and the
+ * honest answer to the question behind it ("do I need one at all?" — no).
+ *
+ * Everything rendered here is DERIVED from src/data/facilitators.ts, which is generated from
+ * the SDK's own KNOWN_FACILITATORS by site/scripts/gen-facilitators.mjs. No count, no chain
+ * and no facilitator is typed by hand, so the page cannot drift from the code that ships.
+ * The transaction hashes are re-checked on-chain by
+ * `.claude/skills/facilitator-probe/scripts/verify-tx.mjs` (25/25 confirmed 2026-08-28).
+ */
+
+// ── Counts, all derived ──────────────────────────────────────────────────────────────
 const chainCount = facilitatorCoverage.length
-const distinct = [...new Set(facilitatorCoverage.flatMap((c) => c.facilitators.map((f) => f.url)))]
-const facilitatorCount = distinct.length
-const withTx = facilitatorCoverage.flatMap((c) => c.facilitators).filter((f) => /tx |tx:/i.test(f.note)).length
+const allEntries = facilitatorCoverage.flatMap((c) => c.facilitators)
+const distinctUrls = [...new Set(allEntries.map((f) => f.url))]
+const facilitatorCount = distinctUrls.length
+const receiptCount = allEntries.flatMap((f) => f.txs).filter((t) => t.full).length
+// Every chain-and-facilitator pairing. NOT the same as `facilitatorCount` (a vendor appears
+// on several chains) and not the same as the count of live-settled ones — one entry rests on
+// a lighter check, and the directory renders all of them, so the heading must count all of them.
+const pairingCount = allEntries.length
+
+// The inverse index: one row per facilitator, with every chain it settles on. Same data,
+// the other way round — a reader arrives either knowing their chain or knowing a vendor.
+const byFacilitator = distinctUrls
+  .map((url) => {
+    const rows = facilitatorCoverage
+      .map((c) => ({ chain: c, entry: c.facilitators.find((f) => f.url === url)! }))
+      .filter((r) => r.entry)
+    const first = rows[0].entry
+    return {
+      url,
+      name: first.name,
+      nameNote: first.nameNote,
+      host: first.host,
+      chains: rows.map((r) => r.chain),
+      settles: [...new Set(rows.flatMap((r) => r.entry.settles))],
+      schemes: [...new Set(rows.flatMap((r) => r.entry.schemes))],
+      receipts: rows.flatMap((r) => r.entry.txs).filter((t) => t.full).length,
+    }
+  })
+  .sort((a, b) => b.chains.length - a.chains.length || a.name.localeCompare(b.name))
+
+/*
+ * A monogram tile per facilitator. These vendors have no logo we are licensed to ship, and a
+ * hotlinked favicon would be a third-party request on every page load — so the initials get a
+ * deterministic hue instead. Same name, same colour, on every render and every device.
+ */
+const hueFor = (s: string) => {
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360
+  return h
+}
+const initials = (s: string) => {
+  const words = s.replace(/[^A-Za-z0-9 ]/g, '').split(/\s+/).filter(Boolean)
+  // Two words → two initials ("Ultravioleta DAO" → UD). One word → its first two letters,
+  // because a lone "P" for PayAI next to a lone "P" for Pieverse tells the eye nothing.
+  if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase()
+  return (words[0] ?? s).slice(0, 2).replace(/^./, (c) => c.toUpperCase())
+}
+
+// Human label for the settlement method a facilitator speaks on a chain.
+const SETTLES_LABEL: Record<string, string> = {
+  eip3009: 'EIP-3009',
+  svm: 'Solana SVM',
+  algorand: 'Algorand ASA',
+}
+const shortHash = (h: string) => (h.length > 20 ? `${h.slice(0, 10)}…${h.slice(-8)}` : h)
 
 const title = `x402 facilitators — which ones settle on which chain | PipRail`
-const description = `${facilitatorCount} keyless x402 facilitators across ${chainCount} chains, each verified by a real settled payment. Which one settles EIP-3009 on your chain — and why you may need none.`
+const description = `${facilitatorCount} keyless x402 facilitators across ${chainCount} chains, every one verified by a real settled payment. Which settles EIP-3009 on your chain — and why you may need none.`
 
+// ── Structured data ──────────────────────────────────────────────────────────────────
 // Dataset — this page IS a dataset, and saying so is what makes it quotable.
 const datasetLd = {
   '@context': 'https://schema.org',
   '@type': 'Dataset',
   '@id': 'https://piprail.com/facilitators#dataset',
   name: 'Keyless x402 facilitator coverage by chain',
-  description: `Which keyless x402 facilitators settle the exact scheme on which networks — ${facilitatorCount} facilitators across ${chainCount} chains. Every entry verified by settling a real on-chain payment, most with the transaction hash recorded.`,
+  description: `Which keyless x402 facilitators settle the exact scheme on which networks — ${facilitatorCount} facilitators across ${chainCount} chains. Every entry verified by settling a real on-chain payment; ${receiptCount} carry a linked transaction hash.`,
+  url: 'https://piprail.com/facilitators/',
   license: 'https://opensource.org/licenses/MIT',
   isAccessibleForFree: true,
   creator: { '@id': 'https://piprail.com/#organization' },
-  variableMeasured: ['facilitator URL', 'chain (CAIP-2)', 'scheme', 'settlement method', 'keyless', 'verification date'],
+  temporalCoverage: '2026-06-14/..',
+  keywords: ['x402', 'facilitator', 'EIP-3009', 'stablecoin payments', 'agent payments', 'gasless'],
+  variableMeasured: ['facilitator URL', 'chain (CAIP-2)', 'scheme', 'settlement method', 'keyless', 'gas sponsorship', 'settlement floor', 'verification date', 'transaction hash'],
+  distribution: {
+    '@type': 'DataDownload',
+    encodingFormat: 'application/javascript',
+    contentUrl: 'https://www.npmjs.com/package/@piprail/sdk',
+    description: 'The same data ships in @piprail/sdk as KNOWN_FACILITATORS.',
+  },
 }
 
 const itemListLd = {
@@ -36,7 +114,9 @@ const itemListLd = {
   name: 'Chains with a known keyless x402 facilitator',
   numberOfItems: chainCount,
   itemListElement: facilitatorCoverage.map((c, i) => ({
-    '@type': 'ListItem', position: i + 1, name: c.chain,
+    '@type': 'ListItem',
+    position: i + 1,
+    name: c.chain,
     item: `https://piprail.com/facilitators#${c.slug}`,
   })),
 }
@@ -56,7 +136,7 @@ const faqs = [
     a: 'Keyless means the facilitator requires no API key, no account and no registration — you point at the URL and it settles. Every facilitator listed here is keyless. A facilitator that demands an API key couples your payment rail to a vendor relationship, which is the thing x402 exists to avoid.',
   },
   {
-    q: `Which chains have a keyless x402 facilitator?`,
+    q: 'Which chains have a keyless x402 facilitator?',
     a: `${chainCount} chains have at least one known keyless facilitator: ${facilitatorCoverage.map((c) => c.chain).join(', ')}. Base has the most options with ${facilitatorCoverage[0].facilitators.length}.`,
   },
   {
@@ -69,18 +149,62 @@ const faqs = [
   },
   {
     q: 'How was this list verified?',
-    a: `Every entry was verified by settling a real payment through the facilitator on the date recorded in its note — not by reading its /supported endpoint and assuming. ${withTx} entries carry the on-chain transaction hash. Entries are only added after a live settlement succeeds.`,
+    a: `Every entry was verified by settling a real payment through the facilitator on the date recorded against it — not by reading its /supported endpoint and assuming. ${receiptCount} settlements carry a transaction hash you can open on a block explorer, and all ${receiptCount} were re-confirmed on-chain on 2026-08-28. Entries are only added after a live settlement succeeds.`,
+  },
+  {
+    q: 'What happens when a facilitator goes offline?',
+    a: 'It gets removed. A registry that only ever grows is how a dead endpoint survives in it: on 2026-08-28 a liveness sweep found two seeded facilitators had died — one had gone NXDOMAIN, the other pointed at a deleted container — and one of them was first in the Monad list, so the SDK was handing callers a dead URL. Both were removed in @piprail/sdk, regression tests now assert they can never come back, and the sweep is re-run before releases that touch facilitator routing.',
   },
 ]
 const faqLd = {
   '@context': 'https://schema.org',
   '@type': 'FAQPage',
   '@id': 'https://piprail.com/facilitators#faq',
-  mainEntity: faqs.map((f) => ({
-    '@type': 'Question', name: f.q,
-    acceptedAnswer: { '@type': 'Answer', text: f.a },
-  })),
+  mainEntity: faqs.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
 }
+
+const stats = [
+  { label: 'Keyless facilitators', value: facilitatorCount, icon: KeyRound },
+  { label: 'Chains covered', value: chainCount, icon: Layers },
+  { label: 'On-chain receipts', value: receiptCount, icon: Receipt },
+  { label: 'API keys needed', value: 0, icon: ShieldOff },
+]
+
+const codeUse = highlight(`import { knownFacilitatorsFor, firstKeylessFacilitator } from '@piprail/sdk'
+
+// Every keyless facilitator we have live-settled through, on one chain.
+knownFacilitatorsFor('eip155:8453')
+// → [{ url: 'https://facilitator.payai.network', keyless: true,
+//      schemes: ['exact'], settles: ['eip3009'], note: '…' }, …]
+
+// Or just the first one that speaks a given settlement method.
+firstKeylessFacilitator('solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', 'svm')?.url
+// → 'https://facilitator.payai.network'
+
+firstKeylessFacilitator('eip155:999999')   // unknown network
+// → undefined`)
+
+const codeNone = highlight(`import express from 'express'
+import { requirePayment } from '@piprail/sdk'
+
+const app = express()
+
+// The DEFAULT rail. No facilitator, no backend, no third party:
+// the buyer broadcasts, and you verify against your OWN RPC.
+app.get('/report',
+  requirePayment({ chain: 'base', token: 'USDC', amount: '0.05', payTo }),
+  (req, res) => res.json({ unlocked: true }),
+)
+
+// Want the gasless rail too? Offer both and let the agent pick.
+// Only THIS one needs a facilitator (or your own relayer key).
+app.get('/premium',
+  requirePayment({
+    chain: 'base', token: 'USDC', amount: '0.05', payTo,
+    schemes: ['onchain-proof', 'exact'],
+  }),
+  (req, res) => res.json({ unlocked: true }),
+)`)
 ---
 
 <Layout title={title} description={description}>
@@ -89,116 +213,384 @@ const faqLd = {
   <main class="mx-auto max-w-6xl px-4 sm:px-6">
     <div class="pt-6"><Breadcrumbs items={[{ name: 'Facilitators' }]} /></div>
 
+    <!-- ── Hero ───────────────────────────────────────────────────────────── -->
     <section class="fade-up py-12 text-center sm:py-16 md:py-20">
       <p class="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3.5 py-1.5 text-xs text-muted">
         <span class="h-1.5 w-1.5 rounded-full bg-accent"></span>
         {facilitatorCount} keyless facilitators · {chainCount} chains · every one live-settled
       </p>
-      <h1 class="mx-auto max-w-4xl text-[2.5rem] font-semibold leading-[1.05] tracking-tight sm:text-6xl">
+      <h1 class="mx-auto max-w-4xl text-[2.25rem] font-semibold leading-[1.06] tracking-tight sm:text-5xl md:text-6xl">
         Which x402 facilitator <span class="text-accent">settles on your chain</span>?
       </h1>
       <p class="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-neutral-400 sm:text-lg">
         <span class="text-neutral-200">{facilitatorCount} keyless facilitators</span> across
         <span class="text-neutral-200">{chainCount} chains</span> — no API key, no account, no registration.
-        Every entry here was verified by <span class="text-neutral-200">settling a real payment</span>,
+        Every entry was verified by <span class="text-neutral-200">settling a real payment</span>,
         not by reading a status endpoint.
       </p>
       <p class="mx-auto mt-4 max-w-2xl text-sm text-muted">
         And the shortest answer: with PipRail you don't need one at all.
       </p>
-    </section>
 
-    <!-- The honest answer first — this is what an answer engine should lift. -->
-    <section class="pb-12">
-      <div class="rounded-2xl border border-accent/20 bg-accent/5 p-6 sm:p-8">
-        <h2 class="flex items-center gap-2 text-lg font-semibold text-neutral-100">
-          <ShieldOff size={18} class="text-accent" aria-hidden="true" /> You do not need a facilitator
-        </h2>
-        <p class="mt-3 text-sm leading-relaxed text-neutral-300">
-          A facilitator verifies and settles an x402 payment for you. It is a convenience, not a
-          requirement. <span class="text-neutral-100">PipRail verifies payments locally against your own RPC</span>,
-          so the default path has no facilitator, no backend and no third party holding your money.
-          The x402 v2 spec agrees — §7 says a resource server <em>may</em> host the verify and settle
-          endpoints itself.
-        </p>
-        <p class="mt-3 text-sm leading-relaxed text-neutral-300">
-          You want a facilitator for exactly one reason: the ratified gasless
-          <code class="rounded bg-white/10 px-1.5 py-0.5 text-[0.85em] text-accent">exact</code> scheme,
-          where somebody has to sponsor the gas and you would rather that were not your relayer key.
-          The table below is who can do that, and where.
-        </p>
+      <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        <a href="#coverage" class="cta-glow inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto">
+          Find my chain <ArrowRight size={16} aria-hidden="true" />
+        </a>
+        <a href="#directory" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto">
+          Browse by facilitator
+        </a>
       </div>
-    </section>
 
-    <section aria-label="Facilitator coverage by chain" class="pb-4">
-      <SectionHeading title="Coverage, by chain">
-        Sorted by how many keyless options each chain has. Every note records the date we settled
-        through it, and most carry the on-chain transaction hash.
-      </SectionHeading>
-
-      <div class="overflow-x-auto rounded-2xl border border-white/10">
-        <table class="w-full min-w-[46rem] border-collapse text-left text-sm">
-          <thead>
-            <tr class="bg-white/5 text-xs uppercase tracking-wide text-muted">
-              <th scope="col" class="px-4 py-3 font-medium">Chain</th>
-              <th scope="col" class="px-4 py-3 font-medium">Keyless facilitators</th>
-              <th scope="col" class="px-4 py-3 font-medium">Settles</th>
-            </tr>
-          </thead>
-          <tbody>
-            {facilitatorCoverage.map((c) => (
-              <tr id={c.slug} class="scroll-mt-24 border-t border-white/10 align-top">
-                <th scope="row" class="whitespace-nowrap px-4 py-4 font-medium text-neutral-100">
-                  {c.chain}
-                  <span class="mt-1 block font-mono text-[0.7rem] font-normal text-muted">{c.caip2}</span>
-                </th>
-                <td class="px-4 py-4">
-                  <ul class="space-y-2">
-                    {c.facilitators.map((f) => (
-                      <li>
-                        <a href={f.url} rel="nofollow noopener" target="_blank"
-                           class="font-medium text-neutral-200 underline decoration-white/20 underline-offset-4 transition hover:text-accent">
-                          {f.name}
-                        </a>
-                        <p class="mt-0.5 text-xs leading-relaxed text-muted">{f.note}</p>
-                      </li>
-                    ))}
-                  </ul>
-                </td>
-                <td class="whitespace-nowrap px-4 py-4 text-xs text-muted">
-                  {[...new Set(c.facilitators.flatMap((f) => f.settles))].join(', ')}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <p class="mt-4 text-xs text-muted">
-        Generated from the SDK's own registry, so it cannot drift from what the code does.
-        A chain missing here has no <em>known keyless</em> facilitator — it does not mean x402
-        will not work there. PipRail's default local verification works on every chain it supports.
-      </p>
-    </section>
-
-    <section class="py-14 sm:py-20">
-      <SectionHeading title="Common questions">
-        The things people actually ask before choosing one.
-      </SectionHeading>
-      <dl class="divide-y divide-white/10 overflow-hidden rounded-2xl border border-white/10">
-        {faqs.map((f) => (
-          <div class="bg-neutral-950 px-5 py-5">
-            <dt class="flex items-start gap-2 font-medium text-neutral-100">
-              <CheckCircle2 size={16} class="mt-1 shrink-0 text-accent" aria-hidden="true" />
-              {f.q}
-            </dt>
-            <dd class="mt-2 pl-6 text-sm leading-relaxed text-neutral-400">{f.a}</dd>
-          </div>
-        ))}
+      <!-- Stat strip — 2-up on phones, 4-up from sm. -->
+      <dl class="mx-auto mt-12 grid max-w-3xl grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+        {stats.map((s) => {
+          const Icon = s.icon
+          return (
+            <div class="card rounded-2xl px-3 py-4 text-center sm:px-4 sm:py-5">
+              <Icon size={17} class="mx-auto mb-2 text-accent" aria-hidden="true" />
+              <dd class="text-2xl font-semibold tracking-tight text-neutral-100 sm:text-3xl">{s.value}</dd>
+              <dt class="mt-1 text-[11px] leading-tight text-muted sm:text-xs">{s.label}</dt>
+            </div>
+          )
+        })}
       </dl>
     </section>
 
+    <!-- ── The honest answer, first. This is the block an answer engine should lift. ── -->
+    <section class="pb-14">
+      <div class="rounded-2xl border border-accent/20 bg-accent/5 p-6 sm:p-8">
+        <h2 class="flex items-center gap-2.5 text-lg font-semibold text-neutral-100 sm:text-xl">
+          <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent/15">
+            <ShieldOff size={18} class="text-accent" aria-hidden="true" />
+          </span>
+          You do not need a facilitator
+        </h2>
+        <div class="mt-4 grid gap-4 sm:grid-cols-2 sm:gap-6">
+          <p class="text-sm leading-relaxed text-neutral-300">
+            A facilitator verifies and settles an x402 payment for you. It is a convenience, not a
+            requirement. <span class="text-neutral-100">PipRail verifies payments locally against your own RPC</span>,
+            so the default path has no facilitator, no backend and no third party holding your money.
+            The x402 v2 spec agrees — §7 says a resource server <em>may</em> host the verify and settle
+            endpoints itself.
+          </p>
+          <p class="text-sm leading-relaxed text-neutral-300">
+            You want a facilitator for exactly one reason: the ratified gasless
+            <code class="rounded bg-white/10 px-1.5 py-0.5 text-[0.85em] text-accent">exact</code> scheme,
+            where somebody has to sponsor the gas and you would rather that were not your relayer key.
+            The <a href="#coverage" class="text-accent underline decoration-accent/30 underline-offset-4 hover:decoration-accent">coverage table below</a>
+            is who can do that, and where.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Jump rail: every covered chain, one tap away. Doubles as internal linking. ── -->
+    <nav aria-label="Jump to a chain" class="pb-12">
+      <p class="mb-3 text-xs font-medium uppercase tracking-wider text-muted">Jump to your chain</p>
+      <ul class="flex flex-wrap gap-2">
+        {facilitatorCoverage.map((c) => (
+          <li>
+            <a
+              href={`#${c.slug}`}
+              class="group inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 py-1.5 pl-1.5 pr-3 text-sm text-neutral-300 transition hover:border-accent/40 hover:bg-accent/10 hover:text-neutral-100"
+            >
+              <img
+                src={`/chains/${c.slug}.svg`}
+                alt=""
+                width="22"
+                height="22"
+                loading="lazy"
+                class="h-5.5 w-5.5 rounded-full ring-1 ring-white/10 transition group-hover:scale-110"
+              />
+              {c.chain}
+              <span class="rounded-full bg-white/8 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-muted">{c.facilitators.length}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+
+    <!-- ── Coverage, by chain ─────────────────────────────────────────────── -->
+    <section id="coverage" aria-labelledby="coverage-h" class="scroll-mt-24 pb-4">
+      <SectionHeading title="Coverage, by chain">
+        Sorted by how many keyless options each chain has. Every entry records the day we settled
+        through it, and <span class="text-neutral-200">{receiptCount} carry a transaction you can open on a block explorer</span>.
+      </SectionHeading>
+      <span id="coverage-h" class="sr-only">Coverage by chain</span>
+
+      <!-- Multi-column rather than a grid: chain cards differ wildly in height (Base has six
+           facilitators, Sei has one) and a grid row is as tall as its tallest cell, which left
+           a column of dead space beside Base. Columns pack them tight. `break-inside-avoid`
+           keeps a card whole, and the anchors still resolve because each card is one element. -->
+      <div class="gap-4 lg:columns-2">
+        {facilitatorCoverage.map((c) => (
+          <article id={c.slug} class="card mb-4 break-inside-avoid scroll-mt-24 overflow-hidden rounded-2xl">
+            <!-- Chain header -->
+            <header class="flex items-center gap-3 border-b border-white/10 bg-white/[0.03] px-4 py-3.5 sm:px-5">
+              <img
+                src={`/chains/${c.slug}.svg`}
+                alt={`${c.chain} logo`}
+                width="34"
+                height="34"
+                loading="lazy"
+                class="h-8.5 w-8.5 shrink-0 rounded-full ring-1 ring-white/10"
+              />
+              <div class="min-w-0 flex-1">
+                <h3 class="text-[15px] font-semibold text-neutral-100">{c.chain}</h3>
+                <p class="truncate font-mono text-[11px] text-neutral-600">{c.caip2}</p>
+              </div>
+              <span class="shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-medium text-neutral-300">
+                {c.facilitators.length} {c.facilitators.length === 1 ? 'option' : 'options'}
+              </span>
+            </header>
+
+            <!-- Facilitators on this chain -->
+            <ul class="divide-y divide-white/8">
+              {c.facilitators.map((f) => (
+                <li class="px-4 py-4 transition hover:bg-white/[0.02] sm:px-5">
+                  <div class="flex items-start gap-3">
+                    <span
+                      aria-hidden="true"
+                      class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[11px] font-bold tracking-tight ring-1 ring-inset ring-white/10"
+                      style={`background: oklch(0.32 0.07 ${hueFor(f.name)}); color: oklch(0.93 0.09 ${hueFor(f.name)});`}
+                    >{initials(f.name)}</span>
+
+                    <div class="min-w-0 flex-1">
+                      <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                        <a
+                          href={f.url}
+                          rel="nofollow noopener"
+                          target="_blank"
+                          class="inline-flex items-center gap-1 py-0.5 text-[15px] font-medium text-neutral-100 transition hover:text-accent"
+                        >
+                          {f.name}
+                          <ArrowUpRight size={13} class="opacity-50" aria-hidden="true" />
+                        </a>
+                        {f.nameNote && (
+                          <span class="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">official</span>
+                        )}
+                      </div>
+                      <p class="mt-0.5 truncate font-mono text-[11px] text-neutral-600">{f.host}</p>
+
+                      <!-- Capability badges -->
+                      <ul class="mt-2.5 flex flex-wrap gap-1.5">
+                        {f.keyless && (
+                          <li class="inline-flex items-center gap-1 rounded-md bg-emerald-400/10 px-2 py-1 text-[11px] font-medium text-emerald-300 ring-1 ring-inset ring-emerald-400/20">
+                            <KeyRound size={11} aria-hidden="true" /> keyless
+                          </li>
+                        )}
+                        {f.gasSponsored && (
+                          <li class="inline-flex items-center gap-1 rounded-md bg-sky-400/10 px-2 py-1 text-[11px] font-medium text-sky-300 ring-1 ring-inset ring-sky-400/20">
+                            <Fuel size={11} aria-hidden="true" /> gas sponsored
+                          </li>
+                        )}
+                        {f.settles.map((s) => (
+                          <li class="inline-flex items-center gap-1 rounded-md bg-white/5 px-2 py-1 text-[11px] font-medium text-neutral-300 ring-1 ring-inset ring-white/10">
+                            <Coins size={11} aria-hidden="true" /> {SETTLES_LABEL[s] ?? s}
+                          </li>
+                        ))}
+                        {f.floor && (
+                          <li
+                            title={f.floorNote ? `Below the floor: ${f.floorNote}` : undefined}
+                            class="inline-flex items-center gap-1 rounded-md bg-amber-400/10 px-2 py-1 text-[11px] font-medium text-amber-300 ring-1 ring-inset ring-amber-400/20"
+                          >
+                            <CircleDollarSign size={11} aria-hidden="true" /> {f.floor}
+                          </li>
+                        )}
+                      </ul>
+
+                      <!-- Provenance: what we settled, when, and the receipt. -->
+                      <p class="mt-2.5 text-xs leading-relaxed text-neutral-500">
+                        {f.settled ? 'Live-settled' : 'Verified'}
+                        {f.date && <> <time datetime={f.date} class="text-neutral-400">{f.date}</time></>}
+                        {f.asset && <> · <span class="text-neutral-400">{f.asset}</span></>}
+                      </p>
+
+                      {f.txs.length > 0 && (
+                        <ul class="mt-2 flex flex-wrap gap-1.5">
+                          {f.txs.map((t) => (
+                            t.url ? (
+                              <li>
+                                <a
+                                  href={t.url}
+                                  rel="nofollow noopener"
+                                  target="_blank"
+                                  title={t.hash}
+                                  class="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-2 py-1 font-mono text-[11px] text-neutral-400 transition hover:border-accent/40 hover:text-accent"
+                                >
+                                  <Receipt size={11} aria-hidden="true" />
+                                  {shortHash(t.hash)}
+                                  <ExternalLink size={10} class="opacity-60" aria-hidden="true" />
+                                </a>
+                              </li>
+                            ) : (
+                              <li
+                                title="Only a hash prefix was recorded, so there is nothing to link to."
+                                class="inline-flex items-center gap-1.5 rounded-md border border-dashed border-white/10 px-2 py-1 font-mono text-[11px] text-neutral-600"
+                              >
+                                <Receipt size={11} aria-hidden="true" /> {t.hash}
+                              </li>
+                            )
+                          ))}
+                        </ul>
+                      )}
+
+                      {f.caveat && (
+                        <p class="mt-2 text-xs leading-relaxed text-neutral-500">{f.caveat}</p>
+                      )}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </article>
+        ))}
+      </div>
+
+      <p class="mt-6 max-w-3xl text-xs leading-relaxed text-muted">
+        Generated from the SDK's own registry, so it cannot drift from what the code does.
+        A chain missing here has no <em>known keyless</em> facilitator — it does not mean x402 will
+        not work there. PipRail's default local verification works on
+        <a href="/chains/" class="underline underline-offset-2 transition hover:text-neutral-300">every chain it supports</a>.
+      </p>
+    </section>
+
+    <!-- ── The inverse index: by facilitator ──────────────────────────────── -->
+    <section id="directory" class="scroll-mt-24 border-t border-white/10 py-16 sm:py-20">
+      <SectionHeading title="The other way round: by facilitator">
+        The same {pairingCount} chain-and-facilitator pairings, indexed by vendor — because half the
+        time you already know the facilitator and want to know where it reaches.
+      </SectionHeading>
+
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {byFacilitator.map((f) => (
+          <article class="card flex flex-col rounded-2xl p-5">
+            <div class="flex items-start gap-3">
+              <span
+                aria-hidden="true"
+                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-bold tracking-tight ring-1 ring-inset ring-white/10"
+                style={`background: oklch(0.32 0.07 ${hueFor(f.name)}); color: oklch(0.93 0.09 ${hueFor(f.name)});`}
+              >{initials(f.name)}</span>
+              <div class="min-w-0 flex-1">
+                <h3 class="text-[15px] font-semibold leading-tight text-neutral-100">{f.name}</h3>
+                <a
+                  href={f.url}
+                  rel="nofollow noopener"
+                  target="_blank"
+                  class="mt-0.5 inline-flex max-w-full items-center gap-1 py-1 font-mono text-[11px] text-neutral-500 transition hover:text-accent"
+                >
+                  <span class="truncate">{f.host}</span>
+                  <ArrowUpRight size={11} class="shrink-0 opacity-60" aria-hidden="true" />
+                </a>
+              </div>
+            </div>
+
+            {f.nameNote && <p class="mt-3 text-xs italic text-neutral-500">{f.nameNote}</p>}
+
+            <p class="mt-4 text-xs font-medium uppercase tracking-wider text-muted">
+              Settles on {f.chains.length} {f.chains.length === 1 ? 'chain' : 'chains'}
+            </p>
+            <ul class="mt-2 flex flex-wrap gap-1.5">
+              {f.chains.map((c) => (
+                <li>
+                  <a
+                    href={`#${c.slug}`}
+                    class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 py-1 pl-1 pr-2.5 text-[11px] text-neutral-300 transition hover:border-accent/40 hover:text-neutral-100"
+                  >
+                    <img src={`/chains/${c.slug}.svg`} alt="" width="16" height="16" loading="lazy" class="h-4 w-4 rounded-full" />
+                    {c.chain}
+                  </a>
+                </li>
+              ))}
+            </ul>
+
+            <div class="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-4 text-[11px] text-neutral-500">
+              <span class="inline-flex items-center gap-1"><ShieldCheck size={12} class="text-accent/70" aria-hidden="true" /> keyless</span>
+              <span class="inline-flex items-center gap-1"><Route size={12} aria-hidden="true" /> {f.schemes.join(', ')}</span>
+              {f.receipts > 0 && (
+                <span class="inline-flex items-center gap-1"><Receipt size={12} aria-hidden="true" /> {f.receipts} {f.receipts === 1 ? 'receipt' : 'receipts'}</span>
+              )}
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+
+    <!-- ── Using them (or not) ────────────────────────────────────────────── -->
+    <section class="border-t border-white/10 py-16 sm:py-20">
+      <SectionHeading title="Reading this list from code">
+        The registry ships inside <code class="text-neutral-300">@piprail/sdk</code> — the page above is
+        generated from it, so what you read here is what your program gets.
+      </SectionHeading>
+      <div class="grid gap-6 lg:grid-cols-2">
+        <div class="min-w-0">
+          <p class="mb-3 text-xs font-medium uppercase tracking-wider text-muted">Look one up</p>
+          <CodeWindow code={codeUse} />
+        </div>
+        <div class="min-w-0">
+          <p class="mb-3 text-xs font-medium uppercase tracking-wider text-muted">Or skip facilitators entirely</p>
+          <CodeWindow code={codeNone} />
+        </div>
+      </div>
+      <p class="mt-5 max-w-3xl text-sm leading-relaxed text-neutral-400">
+        Full reference in the <a href="https://docs.piprail.com/accepting-payments/facilitator-coverage/" class="text-accent underline decoration-accent/30 underline-offset-4 hover:decoration-accent">facilitator coverage docs</a>,
+        and the gasless rail is explained end-to-end in <a href="https://docs.piprail.com/making-payments/gasless-payments/" class="text-accent underline decoration-accent/30 underline-offset-4 hover:decoration-accent">gasless payments</a>.
+      </p>
+    </section>
+
+    <!-- ── FAQ ────────────────────────────────────────────────────────────── -->
+    <section id="faq" class="scroll-mt-24 border-t border-white/10 py-16 sm:py-20">
+      <SectionHeading title="Common questions">
+        The things people actually ask before choosing one.
+      </SectionHeading>
+      <!-- <details> so an answer is one tap on a phone, and still in the DOM for a crawler. -->
+      <div class="divide-y divide-white/10 overflow-hidden rounded-2xl border border-white/10">
+        {faqs.map((f, i) => (
+          <details class="group bg-neutral-950/60" open={i === 0}>
+            <summary class="flex cursor-pointer list-none items-start gap-3 px-5 py-4 text-[15px] font-medium text-neutral-100 transition hover:bg-white/[0.03] [&::-webkit-details-marker]:hidden">
+              <ChevronDown size={16} class="mt-1 shrink-0 text-accent transition-transform duration-200 group-open:rotate-180" aria-hidden="true" />
+              <span>{f.q}</span>
+            </summary>
+            <p class="px-5 pb-5 pl-12 text-sm leading-relaxed text-neutral-400">{f.a}</p>
+          </details>
+        ))}
+      </div>
+    </section>
+
+    <!-- ── Keep exploring — real internal linking, not a breadcrumb afterthought. ── -->
+    <section class="border-t border-white/10 py-16 sm:py-20">
+      <SectionHeading title="Keep exploring">
+        Where this fits in the rest of PipRail.
+      </SectionHeading>
+      <ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {[
+          { href: '/chains/', title: 'Every supported chain', body: 'The full chain and token matrix — including the many chains that need no facilitator at all.' },
+          { href: '/sdk/', title: 'The SDK', body: 'Accept x402 in a few lines, verified against your own RPC. No backend, no fee.' },
+          { href: '/mcp/', title: 'The MCP server', body: 'Give an AI agent a budget-bound wallet that can pay x402 URLs on its own.' },
+          { href: '/discovery/', title: 'Discovery & the Bazaar', body: 'How a PipRail 402 describes itself so agents and indexes can find it.' },
+          { href: '/demo/', title: 'A live x402 endpoint', body: 'A real payable URL you can hit right now — dual-rail, on mainnet.' },
+          { href: 'https://docs.piprail.com/accepting-payments/facilitator-coverage/', title: 'Facilitator docs', body: 'Per-chain settlement methods, the self-settle alternative, and the API reference.' },
+        ].map((l) => (
+          <li>
+            <a href={l.href} class="card group flex h-full flex-col rounded-2xl p-5 transition hover:border-accent/30">
+              <h3 class="flex items-center gap-1.5 text-[15px] font-medium text-neutral-100 transition group-hover:text-accent">
+                {l.title}
+                <ArrowRight size={14} class="opacity-0 transition group-hover:translate-x-0.5 group-hover:opacity-70" aria-hidden="true" />
+              </h3>
+              <p class="mt-2 text-sm leading-relaxed text-neutral-400">{l.body}</p>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <!-- ── CTA ────────────────────────────────────────────────────────────── -->
     <section class="pb-20 text-center">
-      <a href="/sdk/" class="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110">
+      <h2 class="text-2xl font-semibold tracking-tight sm:text-3xl">Or accept payments with none of this.</h2>
+      <p class="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-neutral-400">
+        The default rail needs no facilitator, no backend, and no account — just your own RPC.
+      </p>
+      <a href="/sdk/" class="cta-glow mt-7 inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110">
         Accept x402 without a facilitator <ArrowRight size={16} aria-hidden="true" />
       </a>
     </section>

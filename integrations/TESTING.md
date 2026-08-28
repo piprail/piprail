@@ -23,9 +23,9 @@ it spawns the PipRail MCP server the way the framework's config spawns it (same 
 exposes works.**
 
 ```bash
-cd integrations/openclaw/piprail   # or: cd integrations/hermes/piprail — same harness, same 7 tools
+cd integrations/openclaw/piprail   # or: cd integrations/hermes/piprail — same harness, same 8 tools
 
-node verify.mjs                                    # offline: handshake + all 7 tools + read-only calls
+node verify.mjs                                    # offline: handshake + all 8 tools + read-only calls
 node verify.mjs --live                             # + quote the LIVE demo + prove the spend cap
 PIPRAIL_MCP_BIN=../../../mcp/dist/bin.js node verify.mjs --live   # test the local build instead of npm
 ```
@@ -77,7 +77,7 @@ wiring, the budget. The other half is Layer 2.
 ### Sign-off checklist
 
 - [ ] `node verify.mjs --live` passes (protocol + live quote + budget refusal).
-- [ ] OpenClaw lists the 7 tools after adding the `mcp.servers` entry.
+- [ ] OpenClaw lists the 8 tools after adding the `mcp.servers` entry.
 - [ ] The agent quotes, plans, and **pays the live demo** end-to-end (real tx on Base).
 - [ ] A below-price cap makes the agent refuse — no funds move.
 
@@ -104,7 +104,7 @@ wiring, the budget. The other half is Layer 2.
    Put the real key in `~/.hermes/.env` (chmod 600) as `PIPRAIL_PRIVATE_KEY=…` — Hermes expands
    `${VAR}` and does **not** inherit your shell env. Use a wallet with a **tiny** USDC + gas balance on
    Base. (Or `hermes mcp add piprail --command npx --args -y @piprail/mcp`.)
-3. **Load the tools** — run `/reload-mcp` (or start a new session). The seven tools appear namespaced as
+3. **Load the tools** — run `/reload-mcp` (or start a new session). The eight tools appear namespaced as
    `mcp_piprail_*`.
 4. **Drive the agent** (the real test):
    - *"What's the price of `https://piprail.com/x402/demo`?"* → it calls `piprail_quote_payment` and

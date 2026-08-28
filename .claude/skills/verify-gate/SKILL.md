@@ -10,27 +10,37 @@ description: >-
 
 # The verification gate
 
-Nothing is "done" until this is green. It's a superset of the gate `prepublishOnly` runs (plus the lazy-chunk grep below),
-and CI runs the same steps, so a red gate also fails CI and a release. Run it from the **repo root**:
+Nothing is "done" until this is green. It is a **superset** of what `prepublishOnly` runs, so a red
+gate also fails CI and a release. One command, from the **repo root**:
 
 ```bash
-npm run typecheck                       # SDK + MCP src type-check (tsc --noEmit)
-npm run typecheck:test -w @piprail/sdk  # src + TESTS type-check together
-npm run test:sdk                        # vitest run — the canonical contract
-npm run build:sdk                       # tsup build succeeds
-# Lazy-chunk invariant — the EVM bundle must pull in NO non-EVM chain lib:
-grep -E "from ?['\"]@(solana|ton|stellar)" sdk/dist/index.js   # → expect NO matches
+npm run verify-gate          # everything, in dependency order
+npm run verify-gate --quick  # skips the site + docs builds — NEVER for a release
 ```
 
-If you touched the **MCP**, also run its own type-check-with-tests, suite, and build —
-the root `typecheck` only covers MCP *src*, not its tests:
-```bash
-npm run typecheck:test -w @piprail/mcp   # MCP src + tests (CI runs this; root typecheck does NOT)
-npm run test:mcp
-npm run build:mcp
-```
-The MCP resolves `@piprail/sdk`'s built `dist`, so build (and even type-check) the SDK first:
-`build:sdk` before `build:mcp`.
+| # | step | what it protects |
+|---|---|---|
+| 1 | `build:sdk` | **first** — the MCP resolves the SDK's built `dist` |
+| 2 | `typecheck` | SDK + MCP **src** (`tsc --noEmit`) |
+| 3 | `typecheck:test -w @piprail/sdk` | src + tests together |
+| 4 | `typecheck:test -w @piprail/mcp` | the root typecheck does **not** cover MCP tests |
+| 5 | `test:sdk` | the canonical contract |
+| 6 | `test:mcp` | |
+| 7 | `build:mcp` | after the SDK exists |
+| 8 | **lazy-chunk invariant** | a pure-EVM install must never pull `@solana`/`@ton`/`@stellar` |
+| 9 | **viem-free protocol layer** | the chain-agnostic core imports no chain SDK — the module list is read **out of `sdk/STANDARDS.md` §6**, so it cannot become a second copy that rots |
+| 10 | **ops scripts parse** | `.claude/` + `scripts/` are gitignored; nothing else ever compiles them |
+| 11 | **env-loader tests** | the credential parser's contract (quote-stripping, `export `, `#`) |
+| 12 | **`npm run sync`** | 47 rules across 13 domains — every mirrored fact agrees |
+| 13–14 | `build` site, `build:docs` | the site build re-runs the sync guard as `prebuild` |
+
+Steps 8–11 exist **only here**: `prepublishOnly` does not run them, so skipping the gate skips them
+entirely. Since 2026-08-28 `sdk.yml` also runs 8 and 12 on every push and PR, so drift is caught on
+`main` rather than at the release tag.
+
+Running a piece by hand is fine while iterating (`npm run test:sdk`), but **the release gate is the
+one command** — the hand-run list used to drift out of date, which is how `RELEASING.md` came to
+describe a 20-rule guard that had grown to 47.
 
 ## Why each step
 - **`typecheck`** — the public API + internals type-check. The protocol layer must

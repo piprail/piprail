@@ -419,13 +419,12 @@ used-proof set plus Solana's own duplicate-signature rejection. Native **SOL** i
 
 ### Solana facilitators (who can sponsor the gas)
 
-These three are **keyless and live-proven with PipRail** — a real Solana payment settled with no API key,
+These two are **keyless and live-proven with PipRail** — a real Solana payment settled with no API key,
 buyer paid zero SOL (txs on the [coverage page](/accepting-payments/facilitator-coverage/#live-verified-facilitators)):
 
 | Facilitator | Keyless? | Notes |
 |---|---|---|
 | **[PayAI](https://facilitator.payai.network/)** | ✅ none | Solana-first + ~30 EVM rails; the gate auto-discovers its fee payer from `GET /supported`. The zero-config default. |
-| **[Corbits](https://corbits.dev/)** | ✅ none | Solana-first (42 rails, also Base · Polygon · Monad). |
 | **[OpenFacilitator](https://www.openfacilitator.io/)** | ✅ none *(no signup)* | Base · Solana · Stacks. |
 | **[Coinbase CDP](https://docs.cdp.coinbase.com/)** | 🔑 CDP auth | Fee-free settlement on Base + Solana; pass `authHeaders`. Also the path onto Coinbase's Bazaar. |
 | **[Kora](https://github.com/solana-foundation/kora)** | *self-host* | The Solana Foundation's relayer/paymaster — run your own node (you sponsor the gas). |
