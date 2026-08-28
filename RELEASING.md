@@ -147,6 +147,58 @@ make your org membership public (<https://github.com/orgs/piprail/people>) and r
 
 ---
 
+## The release failed at `npm publish` — read this first
+
+### `404 Not Found - PUT https://registry.npmjs.org/@piprail%2fsdk`
+
+**This is an AUTH failure, not a missing package.** npm answers a publish with an invalid or
+expired token as **404 rather than 401**, deliberately, so it never reveals whether a private
+package exists. The package obviously exists — you can `npm view` it. Do not go looking for a
+typo'd package name.
+
+**Cause, in order of likelihood:**
+1. **`NPM_TOKEN` has expired.** npm granular access tokens default to **30/60/90-day** expiry, so
+   a token that has published happily for months simply stops one day. `gh secret list` shows the
+   date it was *created*, which is the only age signal you get.
+2. The token was revoked, or lacks **write** on the `@piprail` scope.
+
+**Fix — there is a script for this.** Only a human can mint the token (it needs an npm browser
+login), so the script walks you through it and does the rest:
+```bash
+./scripts/rotate-npm-token.sh --check   # diagnose only: versions, secret age, the failed run id
+./scripts/rotate-npm-token.sh           # mint → paste (hidden) → gh secret set → re-run → verify
+```
+The token is read with `read -s`, so it is never echoed, never written to disk, and never appears
+in argv (no shell history, no `ps`, no log). It goes straight to `gh secret set`, which is
+write-only afterwards. The script never runs `npm publish` — publishing stays tag-driven CI.
+
+Doing it by hand is the same three steps:
+```bash
+# 1. npmjs.com → Access Tokens → Generate New Token → Granular
+#    • Packages and scopes: Read and write   • Scope: @piprail   • Expiry: set a reminder
+#    The 'johnweeks' account enforces 2FA on writes, so CI needs an Automation token
+#    (or a Granular one with "Bypass 2FA").
+# 2. store it (never paste a token into a file or a commit):
+gh secret set NPM_TOKEN            # paste at the prompt; it is write-only after this
+# 3. re-run the SAME failed run — the tag is already pushed, nothing needs re-tagging:
+gh run rerun <run-id> --failed
+npm view @piprail/sdk version      # confirm
+```
+
+> **Nothing is half-published.** npm rejected the whole request, so the registry is untouched and
+> the version number stays free. The tag stays valid and reusable — **do not** bump to a new
+> version to "get around it", and do not delete and re-push the tag.
+
+> ⚠️ **While it is broken, the site advertises the unpublished version.** `llms.txt` mirrors
+> `sdk/package.json`, not npm, so the sync guard is happy while the world disagrees. Rotate,
+> re-run, done — or, if the fix will be slow, revert the version bump.
+
+**It is not GitHub Actions minutes.** This repo is **public**, so Actions minutes are unlimited
+and free. A minutes problem looks like runs that never start; this one ran every step and failed
+only at the registry call.
+
+---
+
 ## When a release goes wrong — rollback
 
 **There was no rollback procedure here until 2026-08-28.** The single most important fact:

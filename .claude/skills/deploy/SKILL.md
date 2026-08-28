@@ -378,6 +378,14 @@ gh run list --limit 6   # sdk-release ✓ mcp-release ✓ site ✓ deploy-docs �
 
 ## Gotchas — the things that bite (all hard-won)
 
+- 🔴 **`npm publish` failing with `404 Not Found - PUT …` is an EXPIRED TOKEN, not a missing
+  package.** npm returns 404 instead of 401 so it never leaks package existence. npm granular
+  tokens expire on a **30/60/90-day** default, so a token that worked for months just stops.
+  Fix: **`./scripts/rotate-npm-token.sh`** (mints → hidden paste → `gh secret set` → re-runs
+  the failed run; `--check` diagnoses without changing anything). **Nothing is half-published** — the version stays free and the
+  tag stays valid; never bump the version or re-push the tag to work around it. Full procedure:
+  `RELEASING.md` → "The release failed at `npm publish`".
+
 - 🔴 **A multi-commit push can silently skip the Netlify deploy.** `netlify.toml`'s `ignore`
   used `git diff HEAD^ HEAD`, which inspects only the **last** commit of a push. Land a site
   change in commit 1 and anything else in commit 2, and Netlify sees no watched path in
