@@ -767,9 +767,15 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
       }
       return specs
     })()
-    // Don't cache a REJECTED resolution: a transient RPC failure (e.g. the exact-rail
-    // domain read) must not permanently brick the gate — the next call retries once the
-    // node recovers. The success case stays memoized.
+    // Don't cache a REJECTED resolution: a transient RPC failure must not permanently brick
+    // the gate — the next call retries once the node recovers. The success case stays memoized.
+    //
+    // ⚠️ This does NOT rescue the exact-rail domain read, and it used to be cited here as if it
+    // did. A failed `readExactDomain` does not REJECT — it returns null, the driver falls back
+    // to Permit2/onchain-proof, and the resolution SUCCEEDS with a degraded rail, which is then
+    // memoized for the gate's whole lifetime. A one-second blip at warm-up would cost a merchant
+    // their gasless rail until restart. That is why the retry lives in the EVM driver's
+    // `readDomain` (drivers/evm/index.ts) — at the read, where it can still change the outcome.
     p.catch(() => { if (resolved === p) resolved = undefined })
     resolved = p
     return p
@@ -883,11 +889,18 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
             '(your own relayer) to settle Permit2 yourself.'
         )
       }
+      // Two causes land here and they need DIFFERENT fixes, so name both rather than assert one:
+      // the token genuinely isn't EIP-3009, OR the on-chain domain read failed (unreachable /
+      // rate-limited RPC) and the driver auto-fell back to Permit2. Confidently blaming the token
+      // sends a merchant whose RPC merely blipped off to swap a token that was always correct —
+      // the buyer-side message (payExactEvm) already names both; match it.
       return {
         skipReason:
-          `${net.network}: this token isn't EIP-3009 (auto-selected Permit2), which a third-party ` +
-          `facilitator can't settle — it would serve onchain-proof only here. Use an EIP-3009 token ` +
-          `(USDC / EURC) with the facilitator, or \`settle: 'self'\` to settle Permit2 yourself.`,
+          `${net.network}: auto-selected Permit2, which a third-party facilitator can't settle — ` +
+          `it would serve onchain-proof only here. Either this token isn't EIP-3009 (use USDC / EURC ` +
+          `with the facilitator, or \`settle: 'self'\` to settle Permit2 yourself), OR the EIP-712 ` +
+          `domain read failed on your RPC (transient): if you expected a gasless rail here, pass a ` +
+          `reliable \`rpcUrl\` and retry.`,
       }
     }
 
@@ -1444,7 +1457,22 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
           `doesn't accept (offered: ${specs.map((s) => `${s.asset}@${s.net.network}`).join(', ')}).`
       )
     }
-    const ref = sig.payload.txHash
+    /*
+     * SECURITY (at-most-once): CANONICALISE the ref before it is used as anything.
+     *
+     * The replay key was already case-folded (EVM hashes are case-insensitive hex), but not
+     * trimmed — so ` 0xabc…`, `0xabc… ` and `\t0xabc…\n` each hashed to a DIFFERENT key than
+     * `0xabc…` and re-redeemed a payment that had already been spent. Found by the fuzz sweep
+     * in test/fuzz-payment-paths.test.ts, which re-presents one proof under randomised
+     * dressing; it is fixed here, at the boundary, rather than in the store, so the driver
+     * and BOTH stores (built-in and a caller's custom isUsed/markUsed) see one identical
+     * value. A custom store receiving the raw padded ref would otherwise inherit the hole.
+     *
+     * Surrounding whitespace is never meaningful in any family's proof ref — an EVM/Solana
+     * hash, a NEAR `<sender>:<hash>` locator, a TON self-contained locator — so trimming can
+     * only ever collapse spellings of the same proof, never merge two distinct ones.
+     */
+    const ref = typeof sig.payload.txHash === 'string' ? sig.payload.txHash.trim() : sig.payload.txHash
     if (await claimTx(ref)) return rejection('tx_already_used', `Proof ${ref} was already redeemed.`)
 
     let result: VerifyResult

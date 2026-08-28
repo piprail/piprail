@@ -24,6 +24,11 @@
  * built-in `exact` scheme (which is signature + facilitator-broadcast). Deliberate.
  */
 
+// The one import this module has. `errors.ts` imports nothing at all, so there is no cycle,
+// and a typed error is required by ERRORS.md section 1 for anything a caller can trigger —
+// which includes handing a BigInt to a header builder.
+import { InvalidConfigError } from './errors.js'
+
 /** A CAIP-2 network id, e.g. `eip155:8453` or `solana:5eykt4Us…`. */
 export type Caip2 = `${string}:${string}`
 /** An asset id — chain-specific: an EVM `0x…` address, a Solana base58 mint, a
@@ -647,7 +652,24 @@ export function decodeBase64Json(value: string): unknown {
 }
 
 function toBase64Json(value: object): string {
-  return encodeBase64(JSON.stringify(value))
+  /*
+   * JSON.stringify throws a raw TypeError on a BigInt or a circular reference, and both are
+   * easy for a caller to hand us — amounts are bigint everywhere INSIDE the SDK, so putting
+   * one in a payload is a natural slip rather than an exotic one. ERRORS.md section 1 says a
+   * caller-triggerable failure is a typed PipRailError; found by the fuzz sweep, which fed
+   * bigints into the header builders and got a bare TypeError back.
+   */
+  let json: string
+  try {
+    json = JSON.stringify(value)
+  } catch (cause) {
+    throw new InvalidConfigError(
+      `x402: this payload cannot be serialised to JSON (${(cause as Error).message}). ` +
+        `Amounts must be decimal STRINGS, not BigInt — pass '50000', not 50000n.`,
+      { cause },
+    )
+  }
+  return encodeBase64(json)
 }
 
 /* ----------------------------- network ids ----------------------------- */

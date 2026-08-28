@@ -8,12 +8,14 @@ on:
   push:
     branches: [main]
     paths:
+      - 'scripts/**'
       - 'site/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/site.yml'
   pull_request:
     paths:
+      - 'scripts/**'
       - 'site/**'
       - '.github/workflows/site.yml'
 

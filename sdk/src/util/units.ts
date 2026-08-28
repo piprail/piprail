@@ -86,7 +86,11 @@ export function parseUnits(value: string, decimals: number): bigint {
   }
   const [whole, frac = ''] = value.split('.')
   if (frac.length > decimals) {
-    throw new Error(
+    // Typed, like the two branches above it. This one threw a bare `Error` until a fuzz
+    // sweep caught the inconsistency — a caller branching on `err instanceof PipRailError`
+    // (ERRORS.md section 1) would have missed the single most likely amount mistake there
+    // is: pricing at more precision than the token has.
+    throw new InvalidConfigError(
       `parseUnits: "${value}" has more than ${decimals} decimal places.`
     )
   }
@@ -105,7 +109,7 @@ export function floorUnits(value: string, decimals: number): bigint {
   assertValidDecimals(decimals, 'floorUnits')
   value = expandScientific(value)
   if (!/^\d+(\.\d+)?$/.test(value)) {
-    throw new Error(`floorUnits: "${value}" is not a non-negative decimal amount.`)
+    throw new InvalidConfigError(`floorUnits: "${value}" is not a non-negative decimal amount.`)
   }
   const [whole, frac = ''] = value.split('.')
   const fracTrunc = frac.slice(0, decimals).padEnd(decimals, '0')

@@ -77,6 +77,7 @@ The whole thesis in one read: **why** agent payments are happening now, **why** 
 |---|---|
 | **[`@piprail/sdk`](https://www.npmjs.com/package/@piprail/sdk)** | The TypeScript SDK — accept & make x402 payments. The product. |
 | **[`@piprail/mcp`](https://www.npmjs.com/package/@piprail/mcp)** | An MCP server giving any AI agent a budget-bound wallet ([`io.github.piprail/mcp`](https://registry.modelcontextprotocol.io)). |
+| **[`@piprail/create`](https://www.npmjs.com/package/@piprail/create)** | `npm create @piprail` — scaffolds a runnable, mainnet-by-default x402 merchant in one command. Paste a public address; no key, no backend. |
 | **[`integrations/`](integrations)** | First-party agent-framework integrations — **OpenClaw**, **Hermes**, **elizaOS** (`@piprail/elizaos-plugin`), **n8n** (`@piprail/n8n-nodes-piprail`) & **Mastra**. Each wraps `@piprail/sdk` or `@piprail/mcp`; nothing new to build. |
 | **[`site/`](site)** · **[`docs/`](docs)** · **[`examples/`](examples)** | [piprail.com](https://piprail.com) · the [docs.piprail.com](https://docs.piprail.com) source · runnable demos. |
 

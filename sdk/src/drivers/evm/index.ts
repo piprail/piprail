@@ -347,7 +347,19 @@ function makeEvmNetwork(resolved: ResolvedChain): ResolvedNetwork {
       return resolveExactRailEvm({
         asset,
         method,
-        readDomain: (a) => readExactDomain(publicClient, a),
+        // `readExactDomain` fails CLOSED to null on two very different causes: the token really
+        // isn't EIP-3009, or the RPC read blipped (rate-limit, timeout, an HTML error page from a
+        // proxy). Treating a blip as "not EIP-3009" silently downgrades a perfectly good gasless
+        // rail to onchain-proof — the merchant's buyers start paying gas and the warning blames
+        // their TOKEN, which is the one thing that isn't wrong. The buyer side already retries
+        // once for exactly this reason (see payExactEvm); the gate side did not, so a rate-limited
+        // public RPC could turn real Base USDC into "this token isn't EIP-3009". Mirror it.
+        readDomain: async (a) => {
+          const first = await readExactDomain(publicClient, a)
+          if (first) return first
+          await new Promise((r) => setTimeout(r, 300))
+          return readExactDomain(publicClient, a)
+        },
         permit2Supported: () => isPermit2ProxyChain(resolved.chainId),
       })
     },

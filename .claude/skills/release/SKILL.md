@@ -69,10 +69,16 @@ grep -E "from ?['\"]@(solana|ton|stellar)" sdk/dist/index.js   # → expect NO m
   and in the startup banner). **All four must match** — the `version.test.ts` guard fails the
   gate if they drift (0.2.0 shipped a stale `VERSION` because this file was missed; don't repeat it).
 
-### 3. Commit on `main`
+### 3. Land the release commit on `main` — **via a PR**
+`main` is protected (`protect-main`): pull request required, **signed commits required**, no
+force-push. An admin can bypass, but that skips the `pull_request` CI — the run you most want on a
+release commit.
 ```bash
-git commit -am "release: @piprail/sdk vX.Y.Z"   # or @piprail/mcp
-git push origin main
+git checkout -b release/sdk-vX.Y.Z
+git commit -am "release: @piprail/sdk vX.Y.Z"   # or @piprail/mcp — auto-signed
+git push -u origin release/sdk-vX.Y.Z
+gh pr create --fill && gh pr checks --watch && gh pr merge --squash --admin
+git checkout main && git pull
 ```
 
 ### 4. Tag + push (this is what publishes)

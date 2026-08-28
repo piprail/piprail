@@ -20,7 +20,9 @@
     "build:docs": "npm run build -w @piprail/docs",
     "test:sdk": "npm test -w @piprail/sdk",
     "test:mcp": "npm test -w @piprail/mcp",
-    "typecheck": "npm run typecheck -w @piprail/sdk && npm run typecheck -w @piprail/mcp"
+    "typecheck": "npm run typecheck -w @piprail/sdk && npm run typecheck -w @piprail/mcp",
+    "sync": "node scripts/sync/check.mjs",
+    "verify-gate": "node scripts/verify-gate.mjs"
   },
   "engines": {
     "node": ">=20"
@@ -33,8 +35,14 @@
   },
   "overrides": {
     "vite": "^7.3.2",
-    "vitest": { "vite": "^5.0.0" },
-    "vite-node": { "vite": "^5.0.0" },
-    "@vitest/mocker": { "vite": "^5.0.0" }
+    "vitest": {
+      "vite": "^5.0.0"
+    },
+    "vite-node": {
+      "vite": "^5.0.0"
+    },
+    "@vitest/mocker": {
+      "vite": "^5.0.0"
+    }
   }
 }

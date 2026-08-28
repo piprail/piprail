@@ -155,3 +155,41 @@ describe('replay protection — built-in store', () => {
     expect((await pay(g, TX('d'))).kind).toBe('paid')
   })
 })
+
+/*
+ * The replay key must be CANONICAL, not merely lower-cased.
+ *
+ * Found by the fuzz sweep (test/fuzz-payment-paths.test.ts), which re-presents one already-
+ * redeemed proof under randomised dressing. Case folding was already in place — EVM hashes are
+ * case-insensitive hex — but a ref wrapped in whitespace produced a DIFFERENT key and redeemed
+ * the same payment a second time. Reaching it on a live EVM gate would need an RPC that accepts
+ * a padded hash, so this is defence-in-depth rather than a known live exploit; the point is that
+ * the single-use key stops depending on how strict somebody else's RPC happens to be.
+ *
+ * The ref is trimmed at the boundary in server.ts, so the driver and BOTH replay stores (the
+ * built-in one and a caller's custom isUsed/markUsed) see one identical value.
+ */
+describe('replay key — a proof is single-use under every spelling of its ref', () => {
+  const dress: [string, (t: string) => string][] = [
+    ['identical', (t) => t],
+    ['upper-cased hex', (t) => `0x${t.slice(2).toUpperCase()}`],
+    ['leading space', (t) => ` ${t}`],
+    ['trailing space', (t) => `${t} `],
+    ['tab + newline wrapped', (t) => `\t${t}\n`],
+    ['both ends padded', (t) => `  ${t}  `],
+  ]
+
+  it.each(dress)('a second redemption with a %s ref is rejected', async (_label, mutate) => {
+    const g = gate()
+    const tx = TX('e')
+    expect((await pay(g, tx)).kind, 'the first, honest payment must succeed').toBe('paid')
+    expect(await pay(g, mutate(tx))).toMatchObject({ kind: 'invalid', error: 'tx_already_used' })
+  })
+
+  it('trimming collapses spellings without merging two genuinely different proofs', async () => {
+    const g = gate()
+    expect((await pay(g, TX('a'))).kind).toBe('paid')
+    // A different hash is a different payment and must still go through.
+    expect((await pay(g, TX('b'))).kind).toBe('paid')
+  })
+})

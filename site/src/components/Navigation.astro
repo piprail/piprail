@@ -5,7 +5,7 @@
 // full-height slide-in overlay (backdrop + right panel). CSS does the slide
 // (keyed on data-open); a tiny progressive script toggles it + locks scroll +
 // closes on backdrop / link / Escape.
-import { ArrowRight, Play, Menu, X, BookText, Package, Plug, Link2, Compass, Handshake, Github, Newspaper } from 'lucide-astro'
+import { ArrowRight, Play, Menu, X, BookText, Package, Plug, Link2, Compass, Handshake, Github, Newspaper, Route } from 'lucide-astro'
 
 interface Props {
   path?: string
@@ -24,13 +24,23 @@ const linkCls = (p: string) =>
 // Every secondary link, in one list — rendered in the desktop bar and/or the
 // mobile overlay, so the two can never drift. `mobileOnly` keeps the desktop bar
 // uncrowded (Partners lives in the overlay + footer, not the inline bar).
+// Facilitators is a full desktop link, not `mobileOnly`: it is the page people arrive at from
+// search, and it must be reachable from the header wherever the header shows links at all.
+//
+// 🔴 IT CANNOT BE `mobileOnly` OR xl-ONLY. The hamburger is `lg:hidden`, so between 1024px and
+// 1279px there is no overlay AND no burger — an overlay-only link is simply unreachable from
+// the header in that whole range. Measured at 1024px: the bar with Facilitators is 877px
+// against a 916px budget, so it fits with room to spare; adding the burger back as an overflow
+// affordance does NOT fit (921px), which is why the link goes in the bar rather than the burger
+// staying on. (Discovery and Partners are still overlay-only and so share that 1024–1279 gap —
+// they remain reachable from the footer on every page.)
 const navLinks = [
   { href: 'https://docs.piprail.com', label: 'Docs', icon: BookText },
   { href: '/sdk/', label: 'SDK', icon: Package },
   { href: '/mcp/', label: 'MCP', icon: Plug },
   { href: '/chains/', label: 'Chains', icon: Link2 },
+  { href: '/facilitators/', label: 'Facilitators', icon: Route },
   { href: '/blog/', label: 'Blog', icon: Newspaper },
-  { href: '/facilitators/', label: 'Facilitators', mobileOnly: true, icon: Link2 },
   { href: '/discovery/', label: 'Discovery', mobileOnly: true, icon: Compass },
   { href: '/partners/', label: 'Partners', mobileOnly: true, icon: Handshake },
   { href: 'https://github.com/piprail/piprail', label: 'GitHub', icon: Github },

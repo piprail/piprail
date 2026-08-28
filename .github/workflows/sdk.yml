@@ -6,12 +6,14 @@ on:
   push:
     branches: [main]
     paths:
+      - 'scripts/**'
       - 'sdk/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/sdk.yml'
   pull_request:
     paths:
+      - 'scripts/**'
       - 'sdk/**'
       - 'package.json'
       - 'package-lock.json'
@@ -37,5 +39,24 @@ jobs:
       # rely on a fresh dist/.
       - run: npm run build -w @piprail/sdk
       - run: npm test -w @piprail/sdk
+      # THE LAZY-CHUNK INVARIANT — the SDK's flagship guarantee: a pure-EVM install must never
+      # download @solana / @ton / @stellar. It is listed in STANDARDS.md section 6 and the comment
+      # above has always claimed this job enforces it, but the step did not exist: the invariant
+      # could regress on main with CI fully green. Now it is real.
+      - name: lazy-chunk invariant (no non-EVM import in the EVM bundle)
+        run: |
+          if grep -qE "from ?['\"]@(solana|ton|stellar)" sdk/dist/index.js; then
+            echo "::error::a non-EVM library is statically imported by the EVM bundle"
+            grep -nE "from ?['\"]@(solana|ton|stellar)" sdk/dist/index.js
+            exit 1
+          fi
+          echo "clean — non-EVM families stay lazy"
+
+      # THE SURFACE MAP — 47 rules. It used to run only on a site build and at release-tag time,
+      # so an SDK change that broke a mirrored fact (a chain count, a facilitator, an error code)
+      # landed on main green and only failed later, at the tag. Drift is cheapest to fix here.
+      - name: surface-map sync guard
+        run: npm run sync
+
       - name: pack inspection
         run: npm pack --dry-run -w @piprail/sdk

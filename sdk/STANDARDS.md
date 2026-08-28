@@ -102,6 +102,14 @@ error for a condition the SDK recognises. Observability hooks (`onEvent`, `onPai
 
 ## 6. The verification gate (must be green before "done")
 
+**Run it as one command — `npm run verify-gate`** (`scripts/verify-gate.mjs`). It runs everything
+below in dependency order, plus three checks that exist nowhere else: the **ops-script parse**, the
+**env-loader tests**, and **`npm run sync`** (the 47-rule surface map). `prepublishOnly` runs only
+build + test + the two typechecks, so skipping the gate skips the rest.
+
+The list below stays here because it is the **specification** — the runner reads the viem-free
+module list straight out of this section, so this file remains the owner of that fact.
+
 ```bash
 npm run typecheck        # src type-checks
 npm run typecheck:test   # src + tests type-check together (tests are excluded from the build)
@@ -117,6 +125,26 @@ grep -lE "from ['\"]viem" src/client.ts src/payer.ts src/x402.ts src/policy.ts s
 ```
 
 `prepublishOnly` runs build + test + both typechecks. Never ship with any of these red.
+
+### Anything touching the money path also runs the fuzz sweep across seeds
+
+`test/fuzz-payment-paths.test.ts` runs in the normal suite on one fixed seed. When a change
+touches verification, the replay set, unit conversion or the wire envelopes, run it across
+several seeds — one seed proves very little:
+
+```bash
+for s in 1 42 1337 20260828 2654435769; do FUZZ_SEED=$s npm test -- fuzz; done
+```
+
+It asserts properties, not examples: the gate never throws an untyped error and never answers
+`paid` for garbage; a forged client echo never reaches the driver in place of the server's own
+accept; a redeemed proof stays redeemed under any dressing of the envelope; and unit
+conversion round-trips exactly at every precision. It has already found a whitespace-padding
+replay bypass and two ERRORS.md §1 violations — all three fixed in the Unreleased changelog.
+
+**A failing seed is a bug until proven otherwise.** Reproduce with `FUZZ_SEED=<n>`, shrink it
+to a named example test next to the contract it broke, then fix. Never "fix" it by narrowing
+the generator.
 
 ---
 

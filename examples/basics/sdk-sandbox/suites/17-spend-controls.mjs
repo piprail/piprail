@@ -60,7 +60,14 @@ const mkNet = (network) => ({
   recipientReady: async () => ({ ready: 'n/a' }),
   verify: async () => ({ ok: false, error: 'transfer_not_found', detail: 'x' }),
 })
-registerDriver({ family: 'evm', resolve: (opts) => mkNet(opts.chain === 'bnb' ? B : A) })
+// 🔴 DEFERRED ON PURPOSE — do NOT hoist this to module scope.
+// run-all.mjs imports every suite BEFORE running any of them, so a top-level registerDriver
+// swaps the real EVM driver for this fake in the whole process the moment this file is
+// IMPORTED — poisoning suites 01-06 and 14, which are meant to exercise the real driver.
+// That is exactly what happened: suite 14's Base `exact: true` rail silently vanished
+// (`exact,onchain-proof` → `onchain-proof`) and the suite crashed, while passing standalone.
+// Suites 09 and 10 already defer for this reason; this one didn't. Keep it in run().
+const registerFake = () => registerDriver({ family: 'evm', resolve: (opts) => mkNet(opts.chain === 'bnb' ? B : A) })
 
 const realFetch = globalThis.fetch
 // Stub a payable endpoint: 402 with the given accept, then 200 + receipt on the proof leg.
@@ -80,6 +87,7 @@ function settles({ network = A, asset = '0xusdc', symbol = 'USDC', amount = '500
 const mk = (over = {}) => new PipRailClient({ chain: 'base', wallet: KEY, ...over })
 
 export async function run() {
+  registerFake()
   const tmp = []
   const tmpFile = () => { const d = mkdtempSync(join(tmpdir(), 'piprail-17-')); tmp.push(d); return join(d, 'spend.jsonl') }
 
