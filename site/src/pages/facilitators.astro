@@ -1,0 +1,211 @@
+---
+import Layout from '../layouts/Layout.astro'
+import Navigation from '../components/Navigation.astro'
+import Footer from '../components/Footer.astro'
+import Breadcrumbs from '../components/Breadcrumbs.astro'
+import SectionHeading from '../components/SectionHeading.astro'
+import { facilitatorCoverage } from '../data/facilitators'
+import { ArrowRight, CheckCircle2, ShieldOff } from 'lucide-astro'
+
+// Counts DERIVED from the generated data — never hardcoded, so they cannot drift.
+const chainCount = facilitatorCoverage.length
+const distinct = [...new Set(facilitatorCoverage.flatMap((c) => c.facilitators.map((f) => f.url)))]
+const facilitatorCount = distinct.length
+const withTx = facilitatorCoverage.flatMap((c) => c.facilitators).filter((f) => /tx |tx:/i.test(f.note)).length
+
+const title = `x402 facilitators — which ones settle on which chain | PipRail`
+const description = `${facilitatorCount} keyless x402 facilitators across ${chainCount} chains, each verified by a real settled payment. Which one settles EIP-3009 on your chain — and why you may need none.`
+
+// Dataset — this page IS a dataset, and saying so is what makes it quotable.
+const datasetLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Dataset',
+  '@id': 'https://piprail.com/facilitators#dataset',
+  name: 'Keyless x402 facilitator coverage by chain',
+  description: `Which keyless x402 facilitators settle the exact scheme on which networks — ${facilitatorCount} facilitators across ${chainCount} chains. Every entry verified by settling a real on-chain payment, most with the transaction hash recorded.`,
+  license: 'https://opensource.org/licenses/MIT',
+  isAccessibleForFree: true,
+  creator: { '@id': 'https://piprail.com/#organization' },
+  variableMeasured: ['facilitator URL', 'chain (CAIP-2)', 'scheme', 'settlement method', 'keyless', 'verification date'],
+}
+
+const itemListLd = {
+  '@context': 'https://schema.org',
+  '@type': 'ItemList',
+  '@id': 'https://piprail.com/facilitators#list',
+  name: 'Chains with a known keyless x402 facilitator',
+  numberOfItems: chainCount,
+  itemListElement: facilitatorCoverage.map((c, i) => ({
+    '@type': 'ListItem', position: i + 1, name: c.chain,
+    item: `https://piprail.com/facilitators#${c.slug}`,
+  })),
+}
+
+// FAQ mirrors the visible Q&A below — markup must match what a reader can see.
+const faqs = [
+  {
+    q: 'What is an x402 facilitator?',
+    a: 'A facilitator is a third-party service that verifies and settles an x402 payment on your behalf. It exposes two endpoints — POST /verify and POST /settle — and, on a gasless "exact" rail, it also sponsors the gas so neither the buyer nor the seller pays it. It is a convenience, not a requirement: x402 v2 §7 explicitly allows a resource server to host those endpoints itself.',
+  },
+  {
+    q: 'Do I need a facilitator to accept x402 payments?',
+    a: 'No. PipRail verifies payments locally against your own RPC, so you can accept x402 with no facilitator, no backend and no third party in the path. A facilitator is only needed when you want the ratified gasless "exact" scheme and would rather not run a relayer key yourself.',
+  },
+  {
+    q: 'What does "keyless" mean for a facilitator?',
+    a: 'Keyless means the facilitator requires no API key, no account and no registration — you point at the URL and it settles. Every facilitator listed here is keyless. A facilitator that demands an API key couples your payment rail to a vendor relationship, which is the thing x402 exists to avoid.',
+  },
+  {
+    q: `Which chains have a keyless x402 facilitator?`,
+    a: `${chainCount} chains have at least one known keyless facilitator: ${facilitatorCoverage.map((c) => c.chain).join(', ')}. Base has the most options with ${facilitatorCoverage[0].facilitators.length}.`,
+  },
+  {
+    q: 'What is EIP-3009, and why does it matter here?',
+    a: 'EIP-3009 (transferWithAuthorization) lets a token holder sign a transfer off-chain and let somebody else submit it and pay the gas. It is what makes the x402 "exact" scheme gasless for the buyer: you sign, the facilitator submits. Native USDC implements it on most chains, which is why almost every facilitator below settles eip3009 rails. A chain whose USDC is a bridged wrapper usually cannot do this, which is why coverage is uneven.',
+  },
+  {
+    q: 'How does this relate to the x402 Bazaar?',
+    a: 'The Bazaar is a discovery index of payable x402 endpoints — it answers "what can I buy?". A facilitator answers "who will settle my payment?". They are different layers and you can use either, both, or neither. PipRail emits a bazaar-compatible extensions.bazaar block on every 402 it serves, so a PipRail endpoint is discoverable without any facilitator being involved.',
+  },
+  {
+    q: 'How was this list verified?',
+    a: `Every entry was verified by settling a real payment through the facilitator on the date recorded in its note — not by reading its /supported endpoint and assuming. ${withTx} entries carry the on-chain transaction hash. Entries are only added after a live settlement succeeds.`,
+  },
+]
+const faqLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  '@id': 'https://piprail.com/facilitators#faq',
+  mainEntity: faqs.map((f) => ({
+    '@type': 'Question', name: f.q,
+    acceptedAnswer: { '@type': 'Answer', text: f.a },
+  })),
+}
+---
+
+<Layout title={title} description={description}>
+  <Navigation path="/facilitators" />
+
+  <main class="mx-auto max-w-6xl px-4 sm:px-6">
+    <div class="pt-6"><Breadcrumbs items={[{ name: 'Facilitators' }]} /></div>
+
+    <section class="fade-up py-12 text-center sm:py-16 md:py-20">
+      <p class="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3.5 py-1.5 text-xs text-muted">
+        <span class="h-1.5 w-1.5 rounded-full bg-accent"></span>
+        {facilitatorCount} keyless facilitators · {chainCount} chains · every one live-settled
+      </p>
+      <h1 class="mx-auto max-w-4xl text-[2.5rem] font-semibold leading-[1.05] tracking-tight sm:text-6xl">
+        Which x402 facilitator <span class="text-accent">settles on your chain</span>?
+      </h1>
+      <p class="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-neutral-400 sm:text-lg">
+        <span class="text-neutral-200">{facilitatorCount} keyless facilitators</span> across
+        <span class="text-neutral-200">{chainCount} chains</span> — no API key, no account, no registration.
+        Every entry here was verified by <span class="text-neutral-200">settling a real payment</span>,
+        not by reading a status endpoint.
+      </p>
+      <p class="mx-auto mt-4 max-w-2xl text-sm text-muted">
+        And the shortest answer: with PipRail you don't need one at all.
+      </p>
+    </section>
+
+    <!-- The honest answer first — this is what an answer engine should lift. -->
+    <section class="pb-12">
+      <div class="rounded-2xl border border-accent/20 bg-accent/5 p-6 sm:p-8">
+        <h2 class="flex items-center gap-2 text-lg font-semibold text-neutral-100">
+          <ShieldOff size={18} class="text-accent" aria-hidden="true" /> You do not need a facilitator
+        </h2>
+        <p class="mt-3 text-sm leading-relaxed text-neutral-300">
+          A facilitator verifies and settles an x402 payment for you. It is a convenience, not a
+          requirement. <span class="text-neutral-100">PipRail verifies payments locally against your own RPC</span>,
+          so the default path has no facilitator, no backend and no third party holding your money.
+          The x402 v2 spec agrees — §7 says a resource server <em>may</em> host the verify and settle
+          endpoints itself.
+        </p>
+        <p class="mt-3 text-sm leading-relaxed text-neutral-300">
+          You want a facilitator for exactly one reason: the ratified gasless
+          <code class="rounded bg-white/10 px-1.5 py-0.5 text-[0.85em] text-accent">exact</code> scheme,
+          where somebody has to sponsor the gas and you would rather that were not your relayer key.
+          The table below is who can do that, and where.
+        </p>
+      </div>
+    </section>
+
+    <section aria-label="Facilitator coverage by chain" class="pb-4">
+      <SectionHeading title="Coverage, by chain">
+        Sorted by how many keyless options each chain has. Every note records the date we settled
+        through it, and most carry the on-chain transaction hash.
+      </SectionHeading>
+
+      <div class="overflow-x-auto rounded-2xl border border-white/10">
+        <table class="w-full min-w-[46rem] border-collapse text-left text-sm">
+          <thead>
+            <tr class="bg-white/5 text-xs uppercase tracking-wide text-muted">
+              <th scope="col" class="px-4 py-3 font-medium">Chain</th>
+              <th scope="col" class="px-4 py-3 font-medium">Keyless facilitators</th>
+              <th scope="col" class="px-4 py-3 font-medium">Settles</th>
+            </tr>
+          </thead>
+          <tbody>
+            {facilitatorCoverage.map((c) => (
+              <tr id={c.slug} class="scroll-mt-24 border-t border-white/10 align-top">
+                <th scope="row" class="whitespace-nowrap px-4 py-4 font-medium text-neutral-100">
+                  {c.chain}
+                  <span class="mt-1 block font-mono text-[0.7rem] font-normal text-muted">{c.caip2}</span>
+                </th>
+                <td class="px-4 py-4">
+                  <ul class="space-y-2">
+                    {c.facilitators.map((f) => (
+                      <li>
+                        <a href={f.url} rel="nofollow noopener" target="_blank"
+                           class="font-medium text-neutral-200 underline decoration-white/20 underline-offset-4 transition hover:text-accent">
+                          {f.name}
+                        </a>
+                        <p class="mt-0.5 text-xs leading-relaxed text-muted">{f.note}</p>
+                      </li>
+                    ))}
+                  </ul>
+                </td>
+                <td class="whitespace-nowrap px-4 py-4 text-xs text-muted">
+                  {[...new Set(c.facilitators.flatMap((f) => f.settles))].join(', ')}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p class="mt-4 text-xs text-muted">
+        Generated from the SDK's own registry, so it cannot drift from what the code does.
+        A chain missing here has no <em>known keyless</em> facilitator — it does not mean x402
+        will not work there. PipRail's default local verification works on every chain it supports.
+      </p>
+    </section>
+
+    <section class="py-14 sm:py-20">
+      <SectionHeading title="Common questions">
+        The things people actually ask before choosing one.
+      </SectionHeading>
+      <dl class="divide-y divide-white/10 overflow-hidden rounded-2xl border border-white/10">
+        {faqs.map((f) => (
+          <div class="bg-neutral-950 px-5 py-5">
+            <dt class="flex items-start gap-2 font-medium text-neutral-100">
+              <CheckCircle2 size={16} class="mt-1 shrink-0 text-accent" aria-hidden="true" />
+              {f.q}
+            </dt>
+            <dd class="mt-2 pl-6 text-sm leading-relaxed text-neutral-400">{f.a}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+
+    <section class="pb-20 text-center">
+      <a href="/sdk/" class="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110">
+        Accept x402 without a facilitator <ArrowRight size={16} aria-hidden="true" />
+      </a>
+    </section>
+  </main>
+
+  <Footer />
+  <script is:inline type="application/ld+json" set:html={JSON.stringify(datasetLd)} />
+  <script is:inline type="application/ld+json" set:html={JSON.stringify(itemListLd)} />
+  <script is:inline type="application/ld+json" set:html={JSON.stringify(faqLd)} />
+</Layout>

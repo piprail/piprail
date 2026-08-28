@@ -35,6 +35,20 @@ export interface KnownFacilitator {
  * NOTE: `x402.org/facilitator` is intentionally ABSENT — it is a Base **Sepolia** testnet
  * facilitator (verified), not a mainnet rail; seeding it would be a false coverage claim.
  */
+/*
+ * REMOVED 2026-08-28 — both were live-settled once and have since gone offline. Kept here
+ * as a record so nobody re-adds them from an old note:
+ *
+ *   facilitator.corbits.dev      (Corbits/Faremeter) — DNS is now NXDOMAIN. Was seeded on
+ *                                Base, Monad, Polygon and Solana; on Monad it was FIRST in
+ *                                the list, so `firstKeylessFacilitator('eip155:143')` handed
+ *                                callers a dead URL and the exact rail failed.
+ *   facilitator.bitcoinsapi.com  (Satoshi) — CNAME still points at an Azure Container App
+ *                                that no longer resolves.
+ *
+ * Found by .claude/skills/facilitator-probe. Run it before trusting this map:
+ *   node .claude/skills/facilitator-probe/scripts/probe.mjs
+ */
 export const KNOWN_FACILITATORS: Readonly<Record<Caip2, ReadonlyArray<KnownFacilitator>>> = {
   // Base (eip155:8453). Every entry is keyless and LIVE-settled by us (a real EIP-3009
   // exact payment, buyer paid zero ETH) — not just a /supported read — on the dated day.
@@ -68,13 +82,6 @@ export const KNOWN_FACILITATORS: Readonly<Record<Caip2, ReadonlyArray<KnownFacil
       note: 'Dexter — keyless, gas-sponsored (Base USDC EIP-3009). LIVE-settled on Base 2026-06-17 (tx 0xdf030e4d5bf41a88c5a3bfe73bb433dfbb90b058d3b8ded63b68e026eedb9de8). Note: ~$0.001 dynamic floor on Base.',
     },
     {
-      url: 'https://facilitator.corbits.dev',
-      keyless: true,
-      schemes: ['exact'],
-      settles: ['eip3009'],
-      note: 'Corbits (Faremeter) — keyless, sponsors gas (Base USDC EIP-3009). LIVE-settled on Base 2026-06-17 (tx 0x2e41c581af023100429ada81f1371bef82d41dd577ed438d72ddc18676d4213d). Also seeded on Monad + Solana.',
-    },
-    {
       url: 'https://facilitator.goplausible.xyz',
       keyless: true,
       schemes: ['exact'],
@@ -88,25 +95,11 @@ export const KNOWN_FACILITATORS: Readonly<Record<Caip2, ReadonlyArray<KnownFacil
       settles: ['eip3009'],
       note: 'Cascade — keyless, sponsors gas (Base USDC EIP-3009). LIVE-settled on Base 2026-06-18 (tx 0x2e784725f3c66e170720cc8df43a9248f02ad80914fcbe05dadbdbe411c3b52b).',
     },
-    {
-      url: 'https://facilitator.bitcoinsapi.com',
-      keyless: true,
-      schemes: ['exact'],
-      settles: ['eip3009'],
-      note: 'Satoshi (bitcoinsapi) — keyless, sponsors gas (Base USDC EIP-3009). LIVE-settled on Base 2026-06-18 (tx 0xbb2b6c354b12c6d07cce91e2b337e38327d4b0833bbd1dfbeda3ad495b67b819).',
-    },
   ],
   // Monad (eip155:143). Corbits + Ultravioleta DAO each keyless-settle the EVM EIP-3009 exact rail
   // (Monad's native Circle USDC), buyer paid zero gas — real LIVE settles, not just /supported reads.
   // Makes `exact: true` zero-config gasless on Monad.
   'eip155:143': [
-    {
-      url: 'https://facilitator.corbits.dev',
-      keyless: true,
-      schemes: ['exact'],
-      settles: ['eip3009'],
-      note: 'Corbits (Faremeter) — keyless, sponsors gas (Monad native USDC EIP-3009). LIVE-settled on Monad 2026-06-17 (tx 0x7797be27ce22c17f7433a0389bd22d46e338899b1faac505fffd068174428ae6).',
-    },
     {
       url: 'https://facilitator.ultravioletadao.xyz',
       keyless: true,
@@ -188,13 +181,6 @@ export const KNOWN_FACILITATORS: Readonly<Record<Caip2, ReadonlyArray<KnownFacil
       schemes: ['exact'],
       settles: ['eip3009'],
       note: 'Polygon Labs (the official Polygon facilitator) — keyless, sponsors gas. LIVE-settled on Polygon 2026-06-18 (tx 0x6a8ca60ea111959a61a85ad6c4f2ed99e192052ec7b9ffb59baa33691a86f419).',
-    },
-    {
-      url: 'https://facilitator.corbits.dev',
-      keyless: true,
-      schemes: ['exact'],
-      settles: ['eip3009'],
-      note: 'Corbits (Faremeter) — keyless, sponsors gas. LIVE-settled on Polygon 2026-06-18 (tx 0x2fadca2ee3cd7fcff32d015e8b06109de6b747d7cd0f80dcd8fb022b2d58d008).',
     },
     {
       url: 'https://facilitator.ultravioletadao.xyz',
@@ -323,13 +309,6 @@ export const KNOWN_FACILITATORS: Readonly<Record<Caip2, ReadonlyArray<KnownFacil
       schemes: ['exact'],
       settles: ['svm'],
       note: 'OpenFacilitator — keyless (no signup), fee-payer sponsor. LIVE-settled on Solana 2026-06-15 (tx 5BabDtX…).',
-    },
-    {
-      url: 'https://facilitator.corbits.dev',
-      keyless: true,
-      schemes: ['exact'],
-      settles: ['svm'],
-      note: 'Corbits — keyless, Solana-first fee-payer sponsor. LIVE-settled on Solana 2026-06-15 (tx BCreYer…).',
     },
   ],
   // NEAR (near:mainnet) — DELIBERATELY UNSEEDED: no x402 facilitator settles NEAR yet.
