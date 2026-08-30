@@ -74,6 +74,10 @@ mcp/*.local.mjs
 # We ship ONLY an explicit allowlist of audited, contributor-facing material below.
 # To publish a NEW skill `foo`: add `!/.claude/skills/foo/`. See .claude/README.md.
 # (CLAUDE.md is committed as the public project guide; AGENTS.md is the agent-facing one.)
+#
+# Audited 2026-08-30. The bar for adding a line here is the checklist in .claude/README.md,
+# and the strongest signal that something BELONGS here is a tracked, public file that already
+# links to it — a dead link in the public repo is the bug this allowlist exists to prevent.
 /.claude/*
 !/.claude/commands/
 !/.claude/skills/
@@ -84,6 +88,31 @@ mcp/*.local.mjs
 !/.claude/skills/release/
 !/.claude/skills/verify-gate/
 !/.claude/skills/deploy/
+
+# --- Added 2026-08-30, each because tracked PUBLIC files already link to it ---
+# SURFACES.md: the human surface map. Referenced by CLAUDE.md, RELEASING.md AND printed as
+# tool output by scripts/sync/check.mjs + rules.mjs + site/scripts/check-sync.mjs (5 refs).
+!/.claude/SURFACES.md
+# docs-sync: the playbook behind `npm run sync`; referenced by RELEASING.md.
+!/.claude/skills/docs-sync/
+# facilitator-probe: provenance for the SHIPPED facilitator registry. Referenced from
+# sdk/src/facilitators.ts, sdk/test/facilitators.test.ts, sdk/CHANGELOG.md, the site data
+# generator + facilitators page, a docs page and an example (8 refs). Its scripts write only
+# to .claude/research/facilitators/, which stays ignored below.
+!/.claude/skills/facilitator-probe/
+
+# 🔴 SECRET BACKSTOP — applies INSIDE the allowlisted directories above, so a published
+# skill can never start carrying credentials. These lines come last on purpose: a later
+# pattern wins, so nothing above can re-include them. Belt and braces over the audit.
+.claude/**/*.env
+.claude/**/.env.*
+.claude/**/connection.env
+.claude/**/*wallet*.json
+.claude/**/*oauth*.json
+.claude/**/*credential*.json
+.claude/**/*secret*
+.claude/**/node_modules/
+.claude/**/.secrets/
 
 # Stray local screenshots
 screencapture-*.png

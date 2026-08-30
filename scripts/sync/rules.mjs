@@ -27,6 +27,8 @@ import {
   slugToCaip2, lsDirs, DRIVER_MIRROR_FILES, sdkExportSurface, sdkImportsInSamples, mcpEnvVars,
 } from './sources.mjs'
 
+import { BUSINESS_CONTACT, FRONT_FACING, personalAddressRe } from '../contacts.mjs'
+
 const require = createRequire(import.meta.url)
 
 /* Shared helpers for the artifact-inspecting rules. */
@@ -1023,6 +1025,41 @@ export const RULES = [
   },
 
   /* ══════════════════════════════ SECURITY ══════════════════════════════ */
+  {
+    domain: 'security',
+    id: 'contact-addresses-split',
+    what: 'Front-facing surfaces publish the business address, never the personal one',
+    source: { file: 'scripts/contacts.mjs', note: '⭐ BUSINESS_CONTACT + the personal-webmail matcher — the only place the split is defined' },
+    mirrors: FRONT_FACING.map((f) => ({ file: f.file, note: f.note })),
+    check() {
+      /*
+       * Two addresses, on purpose. The personal one OWNS the accounts (GitHub, Netlify,
+       * npm, Google OAuth, git authorship) and must never be published; the piprail.com
+       * one is the invitation to make contact and must be the only address a stranger
+       * sees. This rule guards ONE direction — a leak of ANY free-webmail address onto
+       * a published surface — because that is the direction that is always a mistake.
+       * It matches the CLASS, not a literal, so it also catches a different personal
+       * address added later, and so this tracked file never republishes the real one.
+       * The reverse (an account moved onto the newer mailbox) is a human decision that
+       * a grep cannot safely judge, so it is documented in contacts.mjs and not gated.
+       */
+      const leaked = []
+      const missing = []
+      for (const f of FRONT_FACING) {
+        if (!exists(f.file)) continue
+        const body = read(f.file)
+        const hit = body.match(personalAddressRe())
+        if (hit) leaked.push(`${f.file} (${hit[0]})`)
+        else if (f.requires && !body.includes(BUSINESS_CONTACT)) missing.push(f.file)
+      }
+      if (leaked.length)
+        return bad(`personal webmail published on: ${leaked.join(', ')} — use ${BUSINESS_CONTACT}`)
+      if (missing.length)
+        return bad(`no contact address on: ${missing.join(' ')} — expected ${BUSINESS_CONTACT}`)
+      const n = FRONT_FACING.filter((f) => exists(f.file)).length
+      return ok(`${n} front-facing surfaces carry ${BUSINESS_CONTACT} only`)
+    },
+  },
   {
     domain: 'security',
     id: 'secrets-untracked',
