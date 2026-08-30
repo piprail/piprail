@@ -1,7 +1,8 @@
 ---
-title: "Aptos"
+title: "Accept USDC payments on Aptos"
 description: Accept and pay USDC, USD₮, or native APT on Aptos — the only Move L1 with both Circle-native USDC and Tether-native USD₮, with no receiver setup.
 sidebar:
+  label: Aptos
   order: 7
 ---
 

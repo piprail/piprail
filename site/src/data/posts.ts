@@ -158,10 +158,13 @@ export const posts: Post[] = [
   {
     slug: 'mpp-vs-x402',
     title: 'MPP vs. x402: Two Ways to Pay an Agent',
-    seoTitle:
-      "MPP vs. x402: Stripe's Machine Payments Protocol vs. the open agent-payment rail",
+    // SERP title is the BUYER's question, not our framing. Measured 2026-08-30: for the
+    // query "x402 vs MPP" this page ranked ~75 while Alchemy, WorkOS, Crossmint, Openfort
+    // and Zinc took the answer — every one of them titled as a choose-between decision.
+    // The old title named the two protocols and asked nothing.
+    seoTitle: 'x402 vs MPP: Which Agent Payment Protocol Should You Use?',
     description:
-      "Stripe's Machine Payments Protocol and x402 both revive HTTP 402 to let agents pay per call. They split on one thing: who holds the money. An honest comparison.",
+      "Stripe's MPP or the open x402 rail? Both revive HTTP 402 so agents pay per call, and they split on one thing: who holds the money. Fees, custody, chains, and when to pick each.",
     excerpt:
       'Stripe’s MPP and the open x402 rail both answer “Payment Required” for AI agents. They agree on the mechanism and disagree on everything that follows from custody. A fair, side-by-side look.',
     author: authors.john,

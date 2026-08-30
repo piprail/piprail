@@ -1,7 +1,8 @@
 ---
-title: "XRP Ledger"
+title: "Accept USDC payments on XRP Ledger"
 description: 'Take and make payments on the XRP Ledger in USDC, Ripple''s RLUSD, or native XRP — its memo-bound proof, the trustline/activation prerequisite.'
 sidebar:
+  label: XRP Ledger
   order: 10
 ---
 

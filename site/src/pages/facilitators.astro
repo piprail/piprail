@@ -132,6 +132,14 @@ const faqs = [
     a: 'No. PipRail verifies payments locally against your own RPC, so you can accept x402 with no facilitator, no backend and no third party in the path. A facilitator is only needed when you want the ratified gasless "exact" scheme and would rather not run a relayer key yourself.',
   },
   {
+    q: 'How do I accept x402 payments without a facilitator?',
+    a: 'Call requirePayment() with your chain, token, amount and your own wallet address, and point the SDK at your own RPC URL. The 402 challenge, the proof check and the replay guard all run inside your process: PipRail reads the transaction from the RPC you chose, re-derives every field from the challenge it issued, and checks a single-use proof set. No third party verifies, settles, or sees the payment, and the money moves from the payer\'s wallet to yours in one on-chain transfer. x402 v2 §7 permits this explicitly — "resource servers MAY host the endpoints themselves" — so a facilitator-free deployment is spec-conformant, not a workaround. The trade-off is that the buyer pays their own gas, because gas sponsorship is the one thing only a facilitator can do for you.',
+  },
+  {
+    q: 'Do I need a Coinbase CDP account to use x402?',
+    a: 'No. Coinbase runs the best-known x402 facilitator, which is why most guides assume it, but the protocol requires no account with anyone. PipRail ships no vendor coupling at all: there is no signup, no API key, no dashboard and no CDP dependency. You install an npm package, name a chain, and payments settle to a wallet whose keys you hold. If you do want a facilitator, PipRail routes to keyless ones that also need no account.',
+  },
+  {
     q: 'What does "keyless" mean for a facilitator?',
     a: 'Keyless means the facilitator requires no API key, no account and no registration — you point at the URL and it settles. Every facilitator listed here is keyless. A facilitator that demands an API key couples your payment rail to a vendor relationship, which is the thing x402 exists to avoid.',
   },
