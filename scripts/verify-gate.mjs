@@ -39,9 +39,11 @@ const steps = [
   ['build:mcp', 'npm', ['run', 'build:mcp'], ''],
   ['lazy-chunk invariant', null, null, 'the EVM bundle must pull in NO non-EVM chain lib'],
   ['viem-free protocol layer', null, null, 'the chain-agnostic core imports no chain SDK'],
+  ['custody invariant', null, null, 'nobody-holds-it: no keys, no secrets, no telemetry in the rail'],
   ['ops scripts parse', null, null, 'the gitignored .claude/ + scripts/ tooling still compiles'],
   ['env loader tests', 'node', ['--test', 'scripts/load-env.test.mjs'], 'the credential parser has a contract'],
   ['sync', 'npm', ['run', 'sync'], 'every mirrored fact agrees with its source'],
+  ['clean-clone sync', null, null, '🔴 the same rules against ONLY what git ships — this is what Netlify runs'],
   ...(quick ? [] : [
     ['build site', 'npm', ['run', 'build'], 'also re-runs the sync guard as prebuild'],
     ['build docs', 'npm', ['run', 'build:docs'], ''],
@@ -91,6 +93,148 @@ for (const [label, cmd, args, why] of steps) {
       failed++
     } else {
       console.log(green('✓') + dim(`  ${files.length} protocol modules, none import viem`))
+    }
+    continue
+  }
+
+  if (label === 'custody invariant') {
+    /*
+     * ── THE CUSTODY INVARIANT ──────────────────────────────────────────────────────
+     *
+     * PipRail's central promise is that NOBODY holds the money: the merchant receives with a
+     * public address, the payer signs with their own key, and the rail never touches either.
+     * That claim is the product, the positioning AND the legal position (FinCEN's four criteria
+     * turn on whether an intermediary has "total independent control"; CLARITY's non-controlling
+     * developer test asks the same thing). Every competitor CLAIMS non-custody. This makes ours
+     * falsifiable — and it means a hosted signer or a fee on the payment path turns the build red
+     * instead of quietly shipping.
+     *
+     * Like the viem guard, the module list is READ from STANDARDS.md so it can never rot into a
+     * stale second copy.
+     *
+     * Comments are stripped before matching: client.ts DOCUMENTS that a caller may pass a TON or
+     * Algorand mnemonic, which is the opposite of holding one. Matching raw text would fail on
+     * the very sentence that explains the design.
+     */
+    const stripComments = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+
+    let modules = []
+    try {
+      const std = readFileSync(join(REPO, 'sdk/STANDARDS.md'), 'utf8')
+      const line = std.split('\n').find((l) => l.includes('grep -lE') && l.includes('viem'))
+      modules = [...(line ?? '').matchAll(/src\/[A-Za-z0-9._/-]+\.ts/g)].map((m) => m[0])
+    } catch {
+      /* handled by the empty check below */
+    }
+    if (!modules.length) {
+      console.log(red('✗ FAIL') + dim('  could not read the module list from sdk/STANDARDS.md section 6'))
+      failed++
+      continue
+    }
+
+    const problems = []
+
+    // 1 · No key material in the protocol layer. Keys enter ONLY at a caller-supplied
+    //     drivers/<family>/wallet.ts — never in the modules that route and verify.
+    const KEY = /\b(privateKey|secretKey|mnemonic|seedPhrase|keystore)\b/
+    const holding = modules
+      .filter((f) => existsSync(join(REPO, 'sdk', f)))
+      .filter((f) => KEY.test(stripComments(readFileSync(join(REPO, 'sdk', f), 'utf8'))))
+    if (holding.length) problems.push(`key material in the protocol layer: ${holding.join(', ')}`)
+
+    // 2 · Receiving stays credential-free. The whole "nothing to sign up for" claim on
+    //     piprail.com is this line: a merchant gate takes an ADDRESS, never a secret.
+    //     Coinbase's equivalent requires a CDP API key; if we ever add one, that copy is a lie.
+    const server = stripComments(readFileSync(join(REPO, 'sdk/src/server.ts'), 'utf8'))
+    if (/^\s{2}(apiKey|secret|privateKey|credentials)\??:/m.test(server)) {
+      problems.push('the merchant gate now asks for a secret — the "no account, no API key" claim is broken')
+    }
+
+    // 3 · No phone-home. A rail that reports back is a rail with a customer relationship.
+    const TELEMETRY = /\b(sendBeacon|posthog|mixpanel|amplitude|datadogRum)\b|analytics\.(track|identify)/
+    const talkers = []
+    const stack = [join(REPO, 'sdk/src')]
+    while (stack.length) {
+      const dir = stack.pop()
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, e.name)
+        if (e.isDirectory()) stack.push(full)
+        else if (e.name.endsWith('.ts') && TELEMETRY.test(stripComments(readFileSync(full, 'utf8')))) {
+          talkers.push(full.replace(`${REPO}/sdk/`, ''))
+        }
+      }
+    }
+    if (talkers.length) problems.push(`telemetry in the SDK: ${talkers.join(', ')}`)
+
+    /*
+     * NOT asserted here, deliberately: "no code path can divert or skim a payment". There is no
+     * honest mechanical test for it — the destination is whatever the verified challenge's
+     * `payTo` says, which is a runtime fact. It is covered by the test suite instead
+     * (verify() re-derives every checked field from the trusted `accept`). A green tick we
+     * could not stand behind would be worse than no tick.
+     */
+    if (problems.length) {
+      console.log(red('✗ FAIL') + dim(`  ${problems.join(' · ')}`))
+      failed++
+    } else {
+      console.log(green('✓') + dim(`  ${modules.length} protocol modules hold no keys · gate needs no secret · no telemetry`))
+    }
+    continue
+  }
+
+  if (label === 'clean-clone sync') {
+    /*
+     * ── THE CLEAN-CLONE GUARD ──────────────────────────────────────────────────────
+     *
+     * Your working tree is NOT what Netlify builds. `.claude/` ships only an allowlist,
+     * so most of it is present here and absent there — and the site's `prebuild` runs the
+     * sync checker, which means a rule that reads a gitignored path passes forever locally
+     * and FAILS THE PRODUCTION BUILD.
+     *
+     * That has now happened twice:
+     *   · `surfaces-index` hard-failed on a missing `.claude/SURFACES.md`
+     *   · `custody-claim-mirrors` threw ENOENT on the gitignored BRAND.md, because
+     *     `read()` THROWS rather than returning falsy — so the obvious-looking
+     *     `const src = read(f); return src && …` is not the guard it appears to be.
+     *
+     * The deploy runbook has a manual clean-clone test that catches this, but it costs an
+     * `npm ci` plus a human remembering. This re-runs the SAME rules with the resolvers
+     * pretending untracked files don't exist (`git ls-files` is the authority), in about a
+     * second. Build outputs stay visible, because the real build makes them before sync runs.
+     *
+     * If this step fails but `sync` passed, the rule is reading something git does not ship:
+     * guard it with `exists()` first, or stop reading it.
+     */
+    const r = spawnSync('npm', ['run', '--silent', 'sync'], {
+      cwd: REPO,
+      encoding: 'utf8',
+      env: { ...process.env, PIPRAIL_SYNC_CLEAN_CLONE: '1', NO_COLOR: '1' },
+    })
+    const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
+    /*
+     * No git? Then we cannot know what "tracked" means, and every rule would report a
+     * false failure. That is not a code problem, so SKIP loudly rather than fail the gate
+     * — this happens in a tarball install or an unpacked archive (exactly what the manual
+     * clean-clone test creates, where the real `npm run sync` is the better check anyway).
+     */
+    if (out.includes('needs a git repo')) {
+      console.log(dim('— SKIP  not a git repo, so "what git ships" is unknowable here'))
+      continue
+    }
+    if (r.status === 0) {
+      const m = out.match(/(\d+) in sync(?: · (\d+) skipped)?/)
+      console.log(green('✓') + dim(`  ${m ? m[0] : 'clean'} against only what git ships`))
+    } else {
+      const offenders = out
+        .split('\n')
+        .filter((l) => l.includes('✗'))
+        .map((l) => l.trim().replace(/^✗\s*/, '').split(' — ')[0])
+      console.log(
+        red('✗ FAIL') +
+          dim(`  passes locally but NOT in a clean clone — a rule reads a gitignored path: ${offenders.join(', ') || 'see npm run sync'}`)
+      )
+      console.log(dim('           reproduce: PIPRAIL_SYNC_CLEAN_CLONE=1 npm run sync'))
+      failed++
     }
     continue
   }

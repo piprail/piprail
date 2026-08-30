@@ -95,6 +95,26 @@ Confirm what changed: `git log <last-tag>..HEAD -- sdk/` (or `-- mcp/`).
 - [ ] `npm view @piprail/sdk version` — confirm the version you are about to publish is **not already taken**. npm never lets you replace one.
 - [ ] Ask the map what your change drags along: **`npm run sync -- --touched <file>`**.
 
+### ✅ The clean-clone class of bug is now caught AUTOMATICALLY
+
+`npm run verify-gate` includes a **`clean-clone sync`** step: it re-runs all 50 sync rules with the
+resolvers pretending untracked files don't exist (`git ls-files` is the authority; build outputs stay
+visible, because the real build makes them before sync runs). It takes ~1s and needs no `npm ci`.
+
+**If `sync` passes but `clean-clone sync` fails, a rule is reading a path git does not ship.** Guard
+it with `exists()` first — ⚠️ **`read()` THROWS ENOENT; it does not return falsy**, so
+`const src = read(f); return src && …` looks defensive and isn't. That exact mistake shipped into
+`custody-claim-mirrors` on 2026-08-30 and would have failed the Netlify build.
+
+```bash
+PIPRAIL_SYNC_CLEAN_CLONE=1 npm run sync    # reproduce it directly
+```
+
+The **full** manual clean-clone test below is still the definitive check — it also proves `npm ci`
+resolves, all four build lanes pass, and **no secret is in the commit**. Run it for any release or
+any change to `scripts/`, the build, or a sync rule. The automatic step covers only the sync-rule
+half, which is the half that has actually broken twice.
+
 ### 🔴 If you changed anything the BUILD depends on — test a CLEAN CLONE
 
 Your working tree is not what CI and Netlify get. Anything **gitignored** is missing there, and the
@@ -171,12 +191,16 @@ What it runs, and why the order matters:
 | 5–6 | `test:sdk`, `test:mcp` | the canonical contract |
 | 7 | `build:mcp` | after the SDK exists |
 | 8 | **lazy-chunk invariant** | no static non-EVM import in the EVM bundle |
+| 8b | **custody invariant** | no keys in the protocol layer · the gate needs no secret · no telemetry |
 | 9 | **ops scripts parse** | `.claude/` + `scripts/` are gitignored — nothing else compiles them |
 | 10 | **env-loader tests** | the credential parser's contract |
-| 11 | **`npm run sync`** | 47 rules, 13 domains |
+| 11 | **`npm run sync`** | 50 rules, 13 domains |
+| 11b | **`clean-clone sync`** | 🔴 the same rules against ONLY what git ships — what Netlify actually builds |
 | 12–13 | `build` site, `build:docs` | the site build re-runs the sync guard as `prebuild` |
 
 `--quick` skips 12–13. **Never use it for a release.**
+
+> The gate is **16 steps** as of 2026-08-30 (added `custody invariant` + `clean-clone sync`).
 
 ```bash
 npm run sync -- --touched <file>    # "I changed this — what else must change?"

@@ -6,7 +6,7 @@ import CodeWindow from '../components/CodeWindow.astro'
 import SectionHeading from '../components/SectionHeading.astro'
 import IntegrationCard from '../components/IntegrationCard.astro'
 import { chains } from '../data/chains'
-import { acceptCode, payCode, mcpConfigCode } from '../data/snippets'
+import { acceptCode, payCode, mcpConfigCode, agentSafeCode, planCode } from '../data/snippets'
 import { liveIntegrations, comingSoon } from '../data/integrations'
 import {
   Zap, Coins, ShieldCheck, PackageCheck, Boxes, Code2,
@@ -31,7 +31,7 @@ const description = `Accept x402 crypto payments on ${total} chains, or give you
 
 // The neutrality pillar: open standard, nobody in the middle, both rails.
 const interop = [
-  { icon: ShieldCheck, t: 'Nobody in the middle', d: 'No facilitator, no relayer, no custody. The payer broadcasts their own transfer; you verify it against your own RPC. Funds land straight in your wallet — no one can take a cut, throttle you, or shut you off.' },
+  { icon: ShieldCheck, t: 'Nobody in the middle', d: 'No facilitator, no relayer, no custody by default. The payer broadcasts their own transfer; you verify it against your own RPC. Funds land straight in your wallet — no one can take a cut, throttle you, or shut you off. A facilitator stays an option you choose, never a dependency you inherit.' },
   { icon: Handshake, t: 'The open standard', d: 'x402 was donated to the Linux Foundation — the neutral rail the agent economy is converging on. PipRail’s envelope is v2-conformant, so any x402 client — Coinbase’s, the reference client, anyone’s — can pay your gate.' },
   { icon: Boxes, t: 'One gate, both rails', d: 'Advertise the backendless onchain-proof rail and the ratified exact (EIP-3009) rail at once — standard clients pick one, PipRail clients the other. Proven end-to-end against the official x402 reference client on Base mainnet.' },
 ]
@@ -138,7 +138,7 @@ const howToLd = {
       <p class="mx-auto mt-6 max-w-xl text-base leading-relaxed text-neutral-400 sm:text-lg md:text-xl">
         Any API <span class="text-neutral-200">charges for itself</span> — any AI agent
         <span class="text-neutral-200">pays on its own</span>. One line, every chain, straight to your wallet.
-        No backend, no fee.
+        <span class="text-neutral-200">No account, no API key</span>, no backend, no fee.
       </p>
 
       <!-- dual CTA — route the two audiences -->
@@ -154,6 +154,12 @@ const howToLd = {
         <span class="select-none text-neutral-600">$</span>
         <span class="truncate">npm install @piprail/sdk viem</span>
       </div>
+
+      <!-- the credential claim: the one thing a facilitator-based rail structurally cannot say -->
+      <p class="mx-auto mt-5 max-w-lg text-sm leading-relaxed text-neutral-500">
+        Nothing to sign up for. Paste a public wallet address and you’re accepting stablecoins —
+        <span class="text-neutral-400">no key to hand over, because there’s nothing to hand it to.</span>
+      </p>
 
       <!-- chain strip — two-lane animated marquee, edge-faded, BNB first -->
       <div class="mt-14 sm:mt-16">
@@ -423,7 +429,8 @@ const howToLd = {
         x402 is the open payment rail the agent economy is converging on — and PipRail speaks it
         <span class="text-neutral-200">without ever putting anyone in the middle</span>. Funds settle to your wallet,
         verified against your own RPC. Nobody to rate-limit you, take a cut, or shut you off — yet any x402 client in
-        the world can still pay you.
+        the world can still pay you. Want a facilitator anyway? Use one — you pick it, and you can drop it.
+        <a href="/facilitators/" class="text-accent underline-offset-4 hover:underline">Which settles on your chain →</a>
       </SectionHeading>
       <div class="lift grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 md:grid-cols-3">
         {interop.map((w) => {
@@ -438,6 +445,66 @@ const howToLd = {
             </div>
           )
         })}
+      </div>
+    </section>
+
+    <!--
+      6.7 · Agent safety — the spend leash + the pre-flight.
+      The two deepest things in the SDK (policy.ts, planPayment) had no surface here at all, while
+      the docs for both were already written. Snippets existed too and were never rendered.
+      Deliberately framed as AGENT SAFETY, not crypto: "how do I stop my agent draining a wallet"
+      is the question, and it reaches people who have never touched a chain.
+    -->
+    <section id="agent-safety" class="scroll-mt-24 border-t border-white/10 py-20 sm:py-24">
+      <SectionHeading title="Give an agent a wallet. Keep hold of the leash." class="mb-10 max-w-3xl">
+        An autonomous agent spending your money is only safe if it <span class="text-neutral-200">can't</span> overspend.
+        Every cap is enforced <span class="text-neutral-200">before</span> any on-chain send — and the budget lives on the
+        client, not in the prompt, so the model can't talk its way past it.
+      </SectionHeading>
+
+      <div class="grid gap-6 lg:grid-cols-2">
+        <div class="min-w-0">
+          <CodeWindow file="agent.ts" code={agentSafeCode} class="min-w-0" />
+          <p class="mt-4 text-sm leading-relaxed text-neutral-500">
+            Per-call and lifetime caps, rolling windows, session deadlines, chain/token/host allowlists — and a
+            cross-chain grand total.
+            <a href="https://docs.piprail.com/spend-controls/payment-policy/" class="text-accent transition hover:underline">Every control →</a>
+          </p>
+        </div>
+        <div class="min-w-0">
+          <CodeWindow file="plan.ts" code={planCode} class="min-w-0" />
+          <p class="mt-4 text-sm leading-relaxed text-neutral-500">
+            Most payments don't fail for want of USDC — they fail for want of <span class="text-neutral-400">gas</span>.
+            <code class="font-mono text-[0.9em] text-neutral-400">planPayment()</code> reads balances, gas and recipient
+            readiness first, and never pays.
+            <a href="https://docs.piprail.com/making-payments/plan-payment/" class="text-accent transition hover:underline">Plan a payment →</a>
+          </p>
+        </div>
+      </div>
+
+      <!-- the differentiator: the leash assumes the merchant is hostile -->
+      <div class="lift mt-6 grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 md:grid-cols-3">
+        <div class="bg-neutral-950 p-6 sm:p-7">
+          <p class="text-base font-medium text-neutral-100">A seller can't understate a price</p>
+          <p class="mt-2 text-sm leading-relaxed text-neutral-500">
+            Caps are compared using the token's <span class="text-neutral-400">true decimals</span>, read on-chain — not
+            the number the server claims.
+          </p>
+        </div>
+        <div class="bg-neutral-950 p-6 sm:p-7">
+          <p class="text-base font-medium text-neutral-100">A metered seller can't loosen it</p>
+          <p class="mt-2 text-sm leading-relaxed text-neutral-500">
+            Usage-based rails debit the <span class="text-neutral-400">authorised maximum</span>, never the merchant's
+            claimed actual. Under-reporting buys nothing.
+          </p>
+        </div>
+        <div class="bg-neutral-950 p-6 sm:p-7">
+          <p class="text-base font-medium text-neutral-100">The budget survives a restart</p>
+          <p class="mt-2 text-sm leading-relaxed text-neutral-500">
+            Persist the ledger and a crash-looping agent can't spend its allowance twice.
+            <a href="https://docs.piprail.com/spend-controls/persistence/" class="text-accent transition hover:underline">Durable budgets →</a>
+          </p>
+        </div>
       </div>
     </section>
 

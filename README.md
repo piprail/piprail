@@ -22,7 +22,7 @@
 
 ---
 
-PipRail implements the open [x402](https://x402.org) **"402 Payment Required"** standard with **no backend, no database, no account, and no fee**. Payments settle **straight into your wallet**, verified locally against your own RPC — across every major EVM chain plus **Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar & the XRP Ledger**. Self-custodial throughout.
+PipRail implements the open [x402](https://x402.org) **"402 Payment Required"** standard with **no backend, no database, no account, no API key, and no fee**. Payments settle **straight into your wallet**, verified locally against your own RPC — across every major EVM chain plus **Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar & the XRP Ledger**. Self-custodial throughout.
 
 ## How a payment moves
 

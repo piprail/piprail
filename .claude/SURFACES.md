@@ -237,6 +237,26 @@ fails only when that workflow next runs, which may be at release time.
 > would be a lie. It also excludes `scripts/sync/`, or it flags the example names in its own
 > comments.
 >
+- **`custody-claim-mirrors`** — ⭐ *"nobody holds it / no account, no API key"* is the **lead
+  marketing claim** (BRAND.md), and it is true only because `RequirePaymentOptions` asks for no
+  secret. That single fact is restated on the landing hero, in two READMEs and in the brand bible —
+  **five copies of one fact.**
+
+  Two silent failure modes, both guarded: (1) the **code** grows a credential, making every
+  marketing surface a lie; (2) the **guard itself** is deleted from `verify-gate.mjs`, after which
+  (1) happens unnoticed. So the rule asserts the `custody invariant` step still exists, that
+  `server.ts` declares no secret, and that all four marketing surfaces still make the claim.
+
+  **The deep code assertion lives in the GATE, not here** — it needs comment-stripping (`client.ts`
+  *documents* that a caller may pass a TON/Algorand mnemonic, which is the opposite of holding one).
+  Duplicating it in the checker would be the second copy this repo forbids. Proven to fail by
+  removing "no API key" from `README.md`.
+
+  **Why it matters beyond marketing:** the same no-control fact is what FinCEN's four criteria and
+  CLARITY §109's non-controlling-developer test turn on — see
+  `.claude/research/nobody-holds-it-positioning-push-2026-08-30.md`. A hosted signer, a managed MCP
+  or a fee on the payment path now turns the build red instead of shipping quietly.
+
 > The **product** templates (`mcp/`, `site/`, `integrations/*/`) are still NOT checked for
 > var coverage. That was tried and every hit was a false positive — `PIPRAIL_MCP_BIN` is an
 > optional developer override documented in its own file header, and the site's function vars
@@ -330,12 +350,165 @@ fails only when that workflow next runs, which may be at release time.
 
 Every top-level area of the repo is named by at least one rule:
 `sdk/` (20) · `site/` (24) · `docs/` (18) · `mcp/` (5) · `integrations/` (4) · `examples/` (3) ·
-`create-piprail/` · `scripts/` · `.github/workflows/`.
+`create-piprail/` · `scripts/` · `.github/workflows/` · the custody claim (`custody-claim-mirrors`).
 
 **Deliberately out of reach** — flagged rather than pretended: the **`piprail/.github`
 org-profile repo** (a different repo entirely), external directory listings, on-chain token
 confirmation (belongs to `add-chain-integration` at authoring time, not to a fast offline check),
 and whether any of the wording is actually good.
+
+## ⭐ Where the good stuff already is — map (added 2026-08-30)
+
+A deep dive this session found several things **already built and documented** that earlier
+planning assumed were missing. Recorded here so nobody re-derives or duplicates them.
+
+| If you're looking for… | It already lives at | Notes |
+|---|---|---|
+| **Agent spend controls / budgets** | `docs/src/content/docs/spend-controls/` — **7 pages, 1,394 lines** | payment-policy · time-envelope · total-budget · persistence · spend-ledger · evaluate-policy · internals. **Complete — link, don't author.** |
+| The policy field list (authoritative) | `sdk/src/policy.ts` → `PaymentPolicy` — **15 fields** | Includes `maxPayments`, `warnAtFraction`, `denomFor`, which prose lists keep dropping. Regenerate; never copy a table forward |
+| **`planPayment` / affordability** | `docs/src/content/docs/making-payments/plan-payment.md` (185 L) + `estimate-cost.md` | Correctly lists all 5 blocker codes |
+| Blocker codes (authoritative) | `sdk/src/client.ts:245` → `PayBlocker` — **5, not 4** | `INSUFFICIENT_TOKEN` · `INSUFFICIENT_GAS` · `RECIPIENT_NOT_READY` · `OUTSIDE_POLICY` · **`OUTSIDE_WINDOW`** ← the one prose keeps missing |
+| Policy deny codes | `sdk/src/policy.ts` → `PolicyDenyCode` — 11 | Distinct from `PayBlocker`; don't conflate |
+| Protocol-layer module list | `sdk/STANDARDS.md` §6 — **20 modules** | ⭐ read by BOTH the `viem-free` and `custody invariant` gate steps. Never hard-code it |
+| The custody guard | `scripts/verify-gate.mjs` → `custody invariant` step | No keys in protocol layer · gate needs no secret · no telemetry |
+| Optional facilitator delegation | `sdk/src/facilitator.ts` → `settleViaFacilitator` | We are *facilitator-optional*, not facilitator-hostile. Under-advertised |
+| Merchant scaffolder | `create-piprail/` (workspace) | Emits `/.well-known/x402`; mainnet-by-default |
+| Self-description on 402s | `sdk/src/selfdescribe.ts` | **Default-ON**; opt out with `selfDescribe: false` |
+
+### 🏗️ The build & deploy guard chain — what catches what
+
+`npm run verify-gate` is **16 steps**. The three that are PipRail-specific invariants (nothing else
+in the toolchain would catch them):
+
+| Step | Catches | Proven by |
+|---|---|---|
+| **lazy-chunk invariant** | a static non-EVM import leaking into the EVM bundle → pure-EVM installs download Solana/TON/Stellar | grep of `sdk/dist/index.js` |
+| **viem-free protocol layer** | a chain SDK imported by the chain-agnostic core | module list read from `sdk/STANDARDS.md` §6 (never hard-coded) |
+| **custody invariant** *(added 2026-08-30)* | key material in the protocol layer · the merchant gate growing a secret · telemetry | comment-stripped scan; **proven to fail** by injecting `apiKey?: string` |
+| **clean-clone sync** *(added 2026-08-30)* | 🔴 **a sync rule that reads a gitignored path** — passes locally forever, **fails the Netlify build** | re-runs all 50 rules with `PIPRAIL_SYNC_CLEAN_CLONE=1`; **proven to fail** by reverting the `exists()` guard |
+
+#### 🔴 The clean-clone trap — it has bitten twice
+
+The site's `prebuild` runs `npm run sync`, and **`.claude/` ships only an allowlist**, so most of it
+is on the maintainer's disk and absent from every clone.
+
+1. `surfaces-index` hard-failed on a missing `.claude/SURFACES.md` (caught pre-ship).
+2. `custody-claim-mirrors` threw ENOENT on the gitignored `content-studio/BRAND.md` (2026-08-30).
+
+⚠️ **The root cause both times: `read()` THROWS ENOENT — it does not return falsy.** So
+`const src = read(f); return src && …` *looks* defensive and is not. **Always `exists(f)` first.**
+
+```bash
+PIPRAIL_SYNC_CLEAN_CLONE=1 npm run sync   # reproduce a clean clone in ~1s, no npm ci
+```
+
+The simulation hides untracked files (`git ls-files` is the authority) but **keeps build outputs
+visible** (`sdk/dist`, `mcp/dist`, `site/dist`, `docs/dist`, `node_modules`) — the real build makes
+those before sync runs, and hiding them produced false failures on `sdk-imports-in-samples`.
+
+#### Which of our own files actually ship
+
+| Path | Ships? |
+|---|---|
+| `.claude/SURFACES.md`, `.claude/commands/**`, most `.claude/skills/**` | ✅ tracked (526 files) |
+| `.claude/plans/**`, `.claude/research/**` | ❌ **local only** — deliberately; they're working notes |
+| `.claude/skills/content-studio/**` (incl. `BRAND.md`) | ❌ **gitignored** — any rule touching it must `exists()`-guard |
+| `sdk/dist`, `mcp/dist`, `site/dist`, `docs/dist` | ❌ gitignored, ✅ built by CI |
+
+#### Deploy lanes — what a change actually triggers
+
+| Change | Lane | Tag needed? |
+|---|---|---|
+| `site/**` | Netlify → piprail.com, on merge to `main` | no |
+| `docs/**` | `deploy-docs.yml` → docs.piprail.com, on merge | no |
+| `scripts/**`, `.claude/**`, root docs | no deploy — but `scripts/sync` + `verify-gate` gate every later build | no |
+| `sdk/src/**` | npm, only on a signed `sdk-v*` tag | **yes** |
+| `sdk/README.md` alone | npm re-renders the README **only on publish** → needs a patch bump to appear | **yes, if it must show on npm** |
+| `mcp/**` | signed `mcp-v*` tag → npm + GitHub Release + MCP registry (OIDC) | **yes** |
+
+🔴 **A multi-commit push can silently skip the Netlify deploy** — `netlify.toml`'s `ignore` now diffs
+against `$CACHED_COMMIT_REF`, not `HEAD^`. **After any merge, verify the site actually changed**:
+`curl -s https://piprail.com/llms.txt | sed -n '3p'`.
+
+### 📋 The September push plan — status at a glance
+
+[`.claude/plans/push-2026-09/`](plans/push-2026-09/). Thesis: **the gap is marketing, not product.**
+
+| § | What | Status |
+|---|---|---|
+| 01 | Positioning + hero — "nothing to sign up for" | ✅ shipped 2026-08-30 |
+| 02 | Agent-safety landing section (spend controls) | ✅ shipped — landing §6.7 `#agent-safety` |
+| 03 | Surface `planPayment` / `estimateCost` | ✅ shipped inside §02's section |
+| 04 | Optional-facilitator framing | ✅ shipped — landing §6.5 + first `/facilitators/` link |
+| 05 | Custody invariant | ✅ `custody invariant` step in `verify-gate` + `custody-claim-mirrors` rule. Docs page + badge outstanding |
+| 06 | Hedera, the 30th chain | 🔴 **blocked on John** — fund the wallet (accounts are 404). Audit complete, rebase risk LOW |
+| 07 | Content + distribution | queued — cites 01–05, so it goes after them |
+| 08 | CLARITY §109 page + Treasury comment | ⏳ dated: **Sept 15** cloture · **Oct 19** comment deadline |
+
+**Errors the triple-checks caught** (all fixed — kept here as a warning about copying prose forward):
+`PayBlocker` is **5** codes not 4 · `PaymentPolicy` is **15** fields not 12 · the spend-controls and
+plan-payment **docs already existed** (the plan said to write them) · Hedera is **53 commits behind**,
+not "slightly stale" · `docs-sync` SKILL.md claimed **20 rules** when there were 50 · the
+"orphaned pages" alarm was a **grep-the-source artifact**.
+
+### 🪤 Verification traps — how to check these surfaces WITHOUT getting a false answer
+
+Every one of these produced a wrong answer during the 2026-08-30 audit before being caught.
+
+| Checking… | ❌ Wrong way | ✅ Right way | Why |
+|---|---|---|---|
+| **Is a page linked / orphaned?** | `grep 'href="/x/"' site/src/**` | `grep site/dist/**/*.html` | The footer builds links from a **JS array** (`{ href: '/sdk/' }`), so an attribute grep on source reports every page as orphaned. **It is not — the footer links all 8 pages + the blog on every page.** Always check built HTML |
+| **Sitemap URL count** | `grep -c '<url>'` | `grep -o '<loc>' \| wc -l` | The XML is emitted on **one line**; a line-count grep returns 1 |
+| **Test count** | `grep -c 'it(\|test('` | `npm run verify-gate` | Formatting variants undercount. Real: **1,636 SDK + 120 MCP** |
+| **Key material in a module** | plain `grep privateKey` | strip comments first | `client.ts` *documents* that a caller may pass a TON/Algorand mnemonic — the opposite of holding one |
+| **Is a chain's RPC/account live?** | call any endpoint | probe a **real balance/token**, and confirm the host with a known-good id first | A 404 can mean "wrong host", not "no account". See [[default-rpc-health]] |
+| **Rebase risk on a stale branch** | `git merge` / checkout | `git merge-tree --write-tree A B` | Object-DB only — safe with a dirty working tree |
+| **What a rule counts** | trust prose | `npm run sync` | `docs-sync` SKILL.md claimed "20 rules / 7 domains" for months; it was 50 / 13 |
+
+### 🔗 Landing page → where each section points
+
+`site/src/pages/index.astro`, in order. Numbered comments in the source are the anchor.
+
+| § | Section | Links out to |
+|---|---|---|
+| 1 | Hero | `/sdk/` · `/mcp/` — carries the **"No account, no API key"** claim (guarded by `custody-claim-mirrors`) |
+| 2 | The story | — |
+| 3 | The fork | `/sdk/` · `/mcp/` |
+| 4 | Live demo | `/demo/` |
+| 5 | Why PipRail | `/chains/` |
+| 6 | How it works | `/sdk/` |
+| 6.5 | Open standard, no middleman | — ⚠️ **does not link `/facilitators/`** (plan §04) |
+| **6.7** | **Agent safety** (added 2026-08-30) | docs `/spend-controls/payment-policy/` · `/spend-controls/persistence/` · `/making-payments/plan-payment/` — **the first landing links into either docs section** |
+| 7 | MCP teaser | `/mcp/` |
+| 7.4 | Integrations | docs `/integrations/*` |
+| 7.5 | Discoverability | `/discovery/` |
+| 9 | FAQ | — |
+| 10 | CTA | `/sdk/` · `/mcp/` |
+| 11 | Partners | `/partners/` |
+
+Site pages: `index · sdk · mcp · chains · demo · discovery · facilitators · partners` + `blog/` (5 posts).
+**All are footer-linked on every page** — nothing is orphaned.
+
+### ⛓️ Hedera — the 30th chain, parked on a branch
+
+Local-only branch **`hedera-chain-integration`** (tip `e9929f2`), **1 ahead / 53 behind `main`**,
+no PR. Full audit: [`plans/push-2026-09/06-chain-gap-hedera.md`](plans/push-2026-09/06-chain-gap-hedera.md).
+
+- **Complete**: driver (5-file onchain-proof shape, correctly mirroring stellar/sui/ton/tron/xrpl —
+  needs **no** `exact.ts`), 937 lines of tests, and every surface (site, docs, llms, counts).
+- **Rebase risk LOW**: `drivers/types.ts` · `registry.ts` · `index.ts` have a **zero diff** since the
+  branch — the contract has not moved. 29 files auto-merge, **7 conflict**, all mechanical
+  count/list files (`package-lock` · `sdk/package.json` · `cost.test.ts` · `posts.ts` ·
+  `chains/demo/mcp.astro`).
+- **Verified live 2026-08-30**: Mirror Node up; USDC **`0.0.456858` = symbol USDC, decimals 6** ✅
+- 🔴 **Sole blocker, human**: both wallet accounts are **404 / never created on mainnet**
+  (`accountId: null` in `.secrets/wallets/hedera-wallet.json`). Fund the ECDSA **EVM alias** to
+  auto-create, then associate USDC.
+- Shipping it moves **29 → 30 chains, 10 → 11 families** — a wide `sync` ripple.
+
+**🔴 The real gap this mapping exposed:** the **landing page** never links to any of it — its only
+`docs.piprail.com` link is `/integrations/`. The problem was never missing capability or missing
+docs; it was that piprail.com doesn't point at either. Plan: `.claude/plans/push-2026-09/`.
 
 ## Related
 
