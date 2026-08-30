@@ -19,11 +19,15 @@
  * never silently pass. A guard that quietly does nothing is worse than no guard.
  */
 import { createRequire } from 'node:module'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import {
   REPO, read, exists, readJson, walk, sdk, sdkMissing, chainFacts, siteChains, siteTokens,
   packages, pkgVersion, mcpTools, mcpBannerTools, facilitatorHosts, KNOWN_DEAD_FACILITATORS,
   slugToCaip2, lsDirs, DRIVER_MIRROR_FILES, sdkExportSurface, sdkImportsInSamples, mcpEnvVars,
 } from './sources.mjs'
+
+import { BUSINESS_CONTACT, FRONT_FACING, personalAddressRe } from '../contacts.mjs'
 
 const require = createRequire(import.meta.url)
 
@@ -1023,6 +1027,41 @@ export const RULES = [
   /* ══════════════════════════════ SECURITY ══════════════════════════════ */
   {
     domain: 'security',
+    id: 'contact-addresses-split',
+    what: 'Front-facing surfaces publish the business address, never the personal one',
+    source: { file: 'scripts/contacts.mjs', note: '⭐ BUSINESS_CONTACT + the personal-webmail matcher — the only place the split is defined' },
+    mirrors: FRONT_FACING.map((f) => ({ file: f.file, note: f.note })),
+    check() {
+      /*
+       * Two addresses, on purpose. The personal one OWNS the accounts (GitHub, Netlify,
+       * npm, Google OAuth, git authorship) and must never be published; the piprail.com
+       * one is the invitation to make contact and must be the only address a stranger
+       * sees. This rule guards ONE direction — a leak of ANY free-webmail address onto
+       * a published surface — because that is the direction that is always a mistake.
+       * It matches the CLASS, not a literal, so it also catches a different personal
+       * address added later, and so this tracked file never republishes the real one.
+       * The reverse (an account moved onto the newer mailbox) is a human decision that
+       * a grep cannot safely judge, so it is documented in contacts.mjs and not gated.
+       */
+      const leaked = []
+      const missing = []
+      for (const f of FRONT_FACING) {
+        if (!exists(f.file)) continue
+        const body = read(f.file)
+        const hit = body.match(personalAddressRe())
+        if (hit) leaked.push(`${f.file} (${hit[0]})`)
+        else if (f.requires && !body.includes(BUSINESS_CONTACT)) missing.push(f.file)
+      }
+      if (leaked.length)
+        return bad(`personal webmail published on: ${leaked.join(', ')} — use ${BUSINESS_CONTACT}`)
+      if (missing.length)
+        return bad(`no contact address on: ${missing.join(' ')} — expected ${BUSINESS_CONTACT}`)
+      const n = FRONT_FACING.filter((f) => exists(f.file)).length
+      return ok(`${n} front-facing surfaces carry ${BUSINESS_CONTACT} only`)
+    },
+  },
+  {
+    domain: 'security',
     id: 'secrets-untracked',
     what: 'No secret file is tracked by git, and the secret paths stay ignored',
     source: { file: '.gitignore', note: '⭐ .env and .secrets/ must be ignored' },
@@ -1489,6 +1528,33 @@ export const RULES = [
             refs++
             if (!exists(target)) flag(target, f)
           }
+
+          /*
+           * ── and repo paths ASSEMBLED SEGMENT BY SEGMENT WITH join() ──
+           *
+           * 🔴 THIS FORM SHIPPED A BROKEN PATH PAST BOTH SCANS ABOVE.
+           *
+           * `execFileSync('node', [join(ROOT, 'scripts', 'mail-check.mjs')])` names a
+           * sister project's file that does not exist here. It is not an import and it
+           * is not one string, so neither earlier scan could see it, and the rule
+           * reported "170 references, all resolve" while every send died on a raw
+           * MODULE_NOT_FOUND. A path split across arguments is still a path.
+           *
+           * `.claude` is allowed as a root here, unlike the scans above: a join() chain
+           * is unambiguously a filesystem path, so there is no prose to mistake it for.
+           */
+          const JOIN_ROOTS = new RegExp('^(?:' + ROOTS.slice(4, -1) + '|\\.claude)/')
+          for (const m of src.matchAll(/\bjoin\(([^)]*)\)/g)) {
+            const segs = [...m[1].matchAll(/['"]([^'"]+)['"]/g)].map((x) => x[1])
+            if (!segs.length) continue
+            if (segs.some((x) => x === '..' || x.includes('..'))) continue
+            const target = segs.join('/').replace(/\/+/g, '/')
+            if (!JOIN_ROOTS.test(target)) continue
+            if (!/\.[a-z]{2,5}$/.test(target)) continue
+            if (/^(sdk|mcp)\/dist\//.test(target)) continue
+            refs++
+            if (!exists(target)) flag(target, f)
+          }
         } else {
           // Markdown: only `backticked/paths/like-this.mjs` — an inline code span with a slash
           // and a file extension. Prose, bare words and URLs can't match, which keeps this
@@ -1589,6 +1655,39 @@ export const RULES = [
       return problems.length
         ? bad(problems.join('; '))
         : ok(`${documented.size} credentials documented, no values committed`)
+    },
+  },
+  {
+    domain: 'site',
+    id: 'deck-published-matches-master',
+    what: 'The pitch deck served from piprail.com is byte-identical to the repo-root master',
+    source: { file: 'PipRail-deck.pdf', note: 'the master the branding skill builds and the README links' },
+    mirrors: [
+      { file: 'site/public/PipRail-deck.pdf', note: 'the copy piprail.com serves — linked by the grant-foundation outreach email' },
+    ],
+    check() {
+      const master = 'PipRail-deck.pdf'
+      const published = 'site/public/PipRail-deck.pdf'
+      if (!exists(master)) return skip('no deck at the repo root')
+      if (!exists(published)) {
+        return bad(
+          `${published} is missing, so https://piprail.com/PipRail-deck.pdf 404s. ` +
+            `The grant-foundation outreach template links that URL in an email that cannot be recalled.`
+        )
+      }
+      /*
+       * 🔴 BYTES, NOT MTIME OR SIZE.
+       *
+       * This is a published-artifact copy, which the repo's own rule says must be
+       * generated, derived or GUARDED. Nothing regenerates it: a rebuilt deck lands at
+       * the root and the site keeps serving the old one, silently, at a URL a grant
+       * reviewer was emailed. Size alone would not catch a re-render at the same length.
+       */
+      const a = readFileSync(join(REPO, master))
+      const b = readFileSync(join(REPO, published))
+      return a.equals(b)
+        ? ok(`published deck matches the master (${(a.length / 1024).toFixed(0)} KB)`)
+        : bad(`site/public/PipRail-deck.pdf differs from the root master — re-copy it: cp PipRail-deck.pdf site/public/`)
     },
   },
 ]

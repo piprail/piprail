@@ -28,7 +28,7 @@ Use either private channel:
 
 1. **GitHub Private Vulnerability Reporting** — the **Security** tab → **Report a vulnerability**
    (preferred; keeps the report attached to the repo).
-2. **Email** — [john.weeks.dev@gmail.com](mailto:john.weeks.dev@gmail.com) with `SECURITY:` in the subject.
+2. **Email** — [john@piprail.com](mailto:john@piprail.com) with `SECURITY:` in the subject.
 
 Please include: affected package + version, the chain/family if relevant, a minimal
 reproduction, the impact you believe it has, and any suggested fix. **Never include a real

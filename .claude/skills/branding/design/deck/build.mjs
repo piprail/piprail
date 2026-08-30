@@ -742,7 +742,7 @@ function statRow(slide, y, pairs, { size = 15, align = 'center', x = MX, w = CW 
   ], { x: MX, y: 6.55, w: CW, h: 0.4, align: 'center', valign: 'middle', fontSize: 12.5 })
 
   footer(s, 16, TOTAL)
-  s.addNotes('The ask. PipRail is open, neutral, live across 29 chains — raising to become the default agent settlement layer. Three ways in: Invest (fund coverage, hardening, external audit), Sponsor a chain (native driver depth on your network), Integrate & partner (bring PipRail to your agents/docs/ecosystem). Contact: piprail.com · github.com/piprail · npmjs.com/package/@piprail/sdk · john.weeks.dev@gmail.com.')
+  s.addNotes('The ask. PipRail is open, neutral, live across 29 chains — raising to become the default agent settlement layer. Three ways in: Invest (fund coverage, hardening, external audit), Sponsor a chain (native driver depth on your network), Integrate & partner (bring PipRail to your agents/docs/ecosystem). Contact: piprail.com · github.com/piprail · npmjs.com/package/@piprail/sdk · john@piprail.com.')
 }
 
 await pptx.writeFile({ fileName: OUT })

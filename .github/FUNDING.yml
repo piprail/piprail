@@ -10,7 +10,14 @@
 # FUNDING.yml key, so its project URL rides under `custom`).
 custom: ['https://piprail.com', 'https://www.drips.network/app/projects/github/piprail/piprail']
 
-# --- Both SUBMITTED 2026-06-07, pending approval — uncomment each the moment it goes live ---
-# (a not-yet-approved handle breaks the Sponsor button, so they stay commented until approved)
-# github: [John-Weeks-Dev]     # GitHub Sponsors (personal acct) — Stripe + tax done, awaiting GitHub review
-# open_collective: piprailhq   # Open Collective (Open Source Collective host) — awaiting review
+# --- GitHub Sponsors: APPROVED + PUBLIC, verified 2026-08-30 ---
+# gh api graphql -> hasSponsorsListing: true, sponsorsListing.isPublic: true
+# It had been live and commented out here since ~June, so the Sponsor button never showed it.
+github: [John-Weeks-Dev]
+
+# --- Open Collective: NOT approved. Do NOT uncomment ---
+# Verified 2026-08-30 via api.opencollective.com: isApproved:false, isActive:false, host:null.
+# The 2026-06-07 submission was never accepted by a fiscal host — it is rejected, not queued.
+# Re-apply to Open Source Collective, and only uncomment once isApproved flips true
+# (a not-yet-approved handle breaks the whole Sponsor button).
+# open_collective: piprailhq
