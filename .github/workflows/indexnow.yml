@@ -1,11 +1,17 @@
 name: indexnow
 
-# Ping IndexNow when the site changes so Bing + Yandex re-crawl fast (this is what feeds
+# Ping IndexNow when either site changes so Bing + Yandex re-crawl fast (this is what feeds
 # ChatGPT search / Copilot, which use the Bing index — a free AEO win). Google ignores
 # IndexNow and discovers via sitemap.xml on its own schedule, so this complements GSC.
 #
-# Triggered by SITE content pushes only — NOT on a schedule. Re-submitting unchanged URLs
-# on a cron is an IndexNow spam signal (can throttle the key); deploy-correlated is fine.
+# 🔴 BOTH HOSTS. This job used to submit piprail.com only, and only fired on `site/**`
+# pushes — so docs.piprail.com, which is 91 of the 105 indexable URLs (87% of the surface),
+# was never pushed to IndexNow at all. A docs-only change (a retitle, a new page) reached
+# Bing whenever its crawler happened to return. Both hosts serve the SAME IndexNow key file,
+# so covering docs needed no new credential — just the missing half of the matrix.
+#
+# Triggered by content pushes only — NOT on a schedule. Re-submitting unchanged URLs on a
+# cron is an IndexNow spam signal (it can throttle the key); deploy-correlated is fine.
 on:
   push:
     branches: [main]
@@ -13,21 +19,29 @@ on:
       - 'site/src/**'
       - 'site/public/**'
       - 'site/astro.config.mjs'
+      - 'docs/src/**'
+      - 'docs/public/**'
+      - 'docs/astro.config.mjs'
   workflow_dispatch: {}
 
 jobs:
   indexnow:
     runs-on: ubuntu-latest
+    strategy:
+      # Independent hosts: one failing must not cancel the other's submission.
+      fail-fast: false
+      matrix:
+        host: [piprail.com, docs.piprail.com]
     steps:
-      - name: Submit the live sitemap URLs to IndexNow
+      - name: Submit ${{ matrix.host }} sitemap URLs to IndexNow
         run: |
           set +e   # best-effort: a failed ping must never show a red X. Neutralize the runner's injected -e.
-          HOST="piprail.com"
-          KEY="1a7e59a4b79dd5cf3b5c74dd6d400c27"
-          SITEMAP="https://$HOST/sitemap-0.xml"
+          HOST="${{ matrix.host }}"
+          KEY="1a7e59a4b79dd5cf3b5c74dd6d400c27"   # same key file is served by BOTH hosts
+          SITEMAP="https://$HOST/sitemap-0.xml"    # NOT sitemap-index.xml — that holds one <loc>, the child
 
-          # Netlify publishes the new build shortly after this push — poll the live sitemap
-          # (bounded) so we submit the freshly-deployed URL set, not a stale one.
+          # The new build publishes shortly after this push — poll the live sitemap (bounded)
+          # so we submit the freshly-deployed URL set, not a stale one.
           urls=""
           for i in 1 2 3 4 5 6; do
             sleep 20
@@ -35,11 +49,11 @@ jobs:
             urls=$(printf '%s' "$xml" | grep -oE '<loc>[^<]+</loc>' | sed -E 's#</?loc>##g')
             [ -n "$urls" ] && break
           done
-          if [ -z "$urls" ]; then echo "No sitemap URLs reachable yet — skipping (next deploy covers it)."; exit 0; fi
+          if [ -z "$urls" ]; then echo "No sitemap URLs reachable for $HOST yet — skipping (next deploy covers it)."; exit 0; fi
 
           count=$(printf '%s\n' "$urls" | grep -c .)
-          echo "Submitting $count URL(s) to IndexNow…"
+          echo "Submitting $count URL(s) from $HOST to IndexNow…"
           body=$(printf '%s\n' "$urls" | HOST="$HOST" KEY="$KEY" python3 -c 'import os,sys,json; u=[l.strip() for l in sys.stdin if l.strip()]; print(json.dumps({"host":os.environ["HOST"],"key":os.environ["KEY"],"keyLocation":"https://%s/%s.txt"%(os.environ["HOST"],os.environ["KEY"]),"urlList":u}))')
           code=$(curl -s -o /dev/null -w '%{http_code}' -X POST 'https://api.indexnow.org/indexnow' -H 'Content-Type: application/json' -d "$body")
-          echo "IndexNow responded HTTP $code  (200 or 202 = accepted)."
+          echo "IndexNow responded HTTP $code for $HOST  (200 or 202 = accepted)."
           exit 0
