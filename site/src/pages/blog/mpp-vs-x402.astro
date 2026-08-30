@@ -55,6 +55,12 @@ const takeaways = [
 // FAQ — extracted from the essay. Renders FAQPage JSON-LD for rich results + AEO.
 const faqs = [
   {
+    // The decision question, first — it is what a buyer actually types, and the existing
+    // "when should I use MPP instead" asks it from the other side only.
+    q: 'x402 vs MPP: which should I use?',
+    a: 'Pick x402 if the payer is software paying another piece of software: agent-to-API and agent-to-agent calls, where you want 0% protocol fee, self-custody, no account or KYC gate, many chains, and settlement in seconds. Pick MPP if a human and a regulated business are on the other end: you need cards as well as stablecoins, fiat settlement to a bank, and someone else carrying compliance, chargebacks and disputes — and roughly 1.5% on stablecoins or 2.9% + $0.30 on cards is worth that. The honest test is custody: if you are unwilling to hold keys, MPP is the right answer, and if you are unwilling to let a processor hold your money or gate your account, x402 is. They are not exclusive — both ride HTTP 402, so one agent can speak both.',
+  },
+  {
     q: 'What is the difference between MPP and x402?',
     a: 'Both are agent-payment protocols built on the HTTP 402 “Payment Required” response: a server asks for payment, the agent authorizes it, pays, and gets the resource plus a receipt. They diverge on custody. MPP — Stripe and Tempo’s Machine Payments Protocol — settles through Stripe and the permissioned Tempo blockchain: money passes through a custodian, can be paid out to a bank in fiat, carries a fee, and rides a chain whose policy registry can freeze or block addresses. x402 is a wallet-to-wallet on-chain transfer: the agent pays the merchant’s wallet directly, the merchant verifies it locally, no custodian holds the funds, the protocol fee is 0%, and it works across many chains — but the payer holds their own keys and settlement is final.',
   },

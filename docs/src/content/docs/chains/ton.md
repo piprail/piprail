@@ -1,7 +1,8 @@
 ---
-title: "TON"
+title: "Accept USDT payments on TON"
 description: 'Take and make payments on TON (the Telegram blockchain) in USD₮ or native Gram (formerly Toncoin) — the one chain that needs a free RPC API key.'
 sidebar:
+  label: TON
   order: 3
 ---
 
