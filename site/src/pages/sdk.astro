@@ -75,7 +75,7 @@ const faqs = [
     // Probed 2026-08-30: x402magic, l402-ts and Medium tutorials answer this. The existing
     // Next.js entry covers the same ground but never says "HTTP 402", which is what's typed.
     q: `How do I add HTTP 402 Payment Required to a Node.js or TypeScript API?`,
-    a: `Install @piprail/sdk and add one line: requirePayment({ chain: 'base', token: 'USDC', amount: '0.05', payTo }) as Express middleware, or createPaymentGate(...) for Hono, Fastify, Next.js Route Handlers, Workers, Bun and Deno. The route then answers unpaid requests with a real 402 and a machine-readable challenge, and serves normally once a valid proof arrives. Verification runs in your own process against your own RPC — there is no backend to deploy, no database, no account, and no fee. It is TypeScript-first with viem as the only peer dependency, and it runs headless or in the browser.`,
+    a: `Install @piprail/sdk and add one line: requirePayment({ chain: 'base', token: 'USDC', amount: '0.05', payTo }) as Express middleware, or createPaymentGate(...) for Hono, Fastify, Next.js Route Handlers, Workers, Bun and Deno. The route then answers unpaid requests with a real 402 and a machine-readable challenge, and serves normally once a valid proof arrives. Verification runs in your own process against your own RPC — there is no backend to deploy, no database, no account, and no fee. It is TypeScript-first, viem is the only required peer dependency (the non-EVM chain libraries are optional peers that load lazily), and it runs headless or in the browser.`,
   },
   {
     q: `How do AI agents pay for APIs with PipRail?`,
