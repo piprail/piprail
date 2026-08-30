@@ -3,7 +3,7 @@ name: docs-sync
 description: >-
   The surfaces map — every place a given fact lives in PipRail, so a change
   propagates EVERYWHERE and nothing rots. Front door for `npm run sync`, the
-  automated checker (20 rules over chains, packages, MCP, facilitators, discovery,
+  automated checker (50 rules over chains, packages, MCP, facilitators, discovery, security, seo, skills,
   site and docs). Use whenever you change the chain/token set, a version, a count,
   the MCP, a facilitator, or any user-facing feature, and whenever the task is
   "update the docs/READMEs", "did I update everything", "is anything out of sync",
@@ -123,7 +123,7 @@ The discovery feature (EMIT / REGISTER / DISCOVER, the `x-generator` attribution
 2. **`llms.txt` / `llms-full.txt` carry a `Last-Updated` + `SDK-Version` / `MCP-Version` header** — bump it on every ship.
 3. **The site JSON-LD in `Layout.astro`** (5 blocks incl. the MCP entity) repeats descriptions/counts — grep it.
 
-> **Automated backstop (widened 2026-08-28):** `npm run sync` — 20 rules across 7 domains — is the
+> **Automated backstop (widened 2026-08-28):** `npm run sync` — 50 rules across 13 domains — is the
 > site's `prebuild` and runs in the release CI, so drift **fails the build**. It now covers the chain
 > and family counts (every occurrence, including the URL-encoded README badge a plain grep misses),
 > every published package being documented, the MCP tool list, pinned integration versions,

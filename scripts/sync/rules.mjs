@@ -1690,6 +1690,74 @@ export const RULES = [
         : bad(`site/public/PipRail-deck.pdf differs from the root master — re-copy it: cp PipRail-deck.pdf site/public/`)
     },
   },
+  /* ══════════════════════════════ CUSTODY ══════════════════════════════ */
+  {
+    domain: 'security',
+    id: 'custody-claim-mirrors',
+    what: 'The "nobody holds it / no account, no API key" claim is machine-guarded and stated consistently everywhere',
+    source: {
+      file: 'sdk/src/server.ts',
+      note: '⭐ the gate takes an ADDRESS, never a secret — that fact is what every mirror below asserts',
+    },
+    mirrors: [
+      { file: 'scripts/verify-gate.mjs', note: 'the `custody invariant` step — the machine guard; deleting it silently unguards the claim' },
+      { file: 'site/src/pages/index.astro', note: 'hero subhead + the "nothing to sign up for" trust line' },
+      { file: 'README.md', note: 'the one-line pitch' },
+      { file: 'sdk/README.md', note: 'the one-line pitch' },
+      { file: '.claude/skills/content-studio/BRAND.md', note: '⚠️ GITIGNORED — the lead line every piece of content inherits, but absent from a clean clone, so checked ONLY when present' },
+    ],
+    check() {
+      /*
+       * WHY THIS RULE EXISTS.
+       *
+       * "No account, no API key" is now the lead marketing claim (BRAND.md), and it is only true
+       * because `RequirePaymentOptions` asks for no secret. That single fact is restated on the
+       * landing hero, in two READMEs and in the brand bible — five copies of one fact, which is
+       * exactly the shape this checker exists to guard.
+       *
+       * Two distinct failures are possible and both are silent:
+       *   1. The CODE grows a credential → every marketing surface becomes a lie.
+       *   2. The GUARD is deleted from verify-gate → (1) can then happen unnoticed.
+       * So this rule checks the guard still exists AND the claim is stated consistently. The
+       * deep code assertion itself lives in the gate (it needs comment-stripping); duplicating
+       * it here would be the second copy this repo forbids.
+       */
+      if (!exists('scripts/verify-gate.mjs')) return skip('scripts/verify-gate.mjs not present')
+      const gate = read('scripts/verify-gate.mjs')
+      if (!gate.includes("label === 'custody invariant'")) {
+        return bad('the `custody invariant` step is gone from verify-gate.mjs — the no-credential claim is now unguarded')
+      }
+
+      if (exists('sdk/src/server.ts') && /^\s{2}(apiKey|secret|privateKey|credentials)\??:/m.test(read('sdk/src/server.ts'))) {
+        return bad('sdk/src/server.ts now asks the merchant for a secret — every "no API key" claim below is false')
+      }
+
+      /*
+       * Each marketing surface must actually make the claim — a silent drop is how positioning rots.
+       *
+       * 🔴 `exists()` FIRST, ALWAYS. `read()` THROWS ENOENT; it does not return a falsy value, so
+       * `const src = read(f); return src && …` looks defensive and is not. That exact mistake made
+       * this rule fail in a clean clone (BRAND.md lives under the gitignored `.claude/*`, so it is
+       * absent from every clone) — which would have failed the Netlify build, since the site's
+       * `prebuild` runs this checker. Caught only by the deploy runbook's clean-clone test.
+       *
+       * BRAND.md is therefore checked when present (locally, where it is the real mirror) and
+       * skipped when not (CI/Netlify). The four shipped surfaces are always checked.
+       */
+      const claims = [
+        ['site/src/pages/index.astro', /no\s+API\s+key/i],
+        ['README.md', /no\s+API\s+key/i],
+        ['sdk/README.md', /no\s+API\s+key/i],
+        ['.claude/skills/content-studio/BRAND.md', /nothing to sign up for/i],
+      ]
+      const missing = claims.filter(([f, re]) => exists(f) && !re.test(read(f)))
+      if (missing.length) {
+        return bad(`the credential claim is missing from: ${missing.map(([f]) => f).join(', ')}`)
+      }
+
+      return ok('guard live in verify-gate · gate needs no secret · claim stated on 4 surfaces')
+    },
+  },
 ]
 
 export const DOMAINS = [...new Set(RULES.map((r) => r.domain))]

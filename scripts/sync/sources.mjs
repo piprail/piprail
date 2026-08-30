@@ -15,16 +15,87 @@ import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
+import { spawnSync } from 'node:child_process'
 
 export const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const require = createRequire(import.meta.url)
 
-export const read = (p) => readFileSync(join(REPO, p), 'utf8')
-export const exists = (p) => existsSync(join(REPO, p))
+/*
+ * ── CLEAN-CLONE SIMULATION ──────────────────────────────────────────────────────────
+ *
+ * `PIPRAIL_SYNC_CLEAN_CLONE=1` makes every resolver below pretend that untracked
+ * (gitignored) files DO NOT EXIST — the state of a fresh `git clone`, which is what
+ * Netlify and CI actually build.
+ *
+ * WHY THIS EXISTS. The site's `prebuild` runs this checker, so a rule that reads a
+ * gitignored path passes forever locally and FAILS THE PRODUCTION BUILD. It has now
+ * happened twice:
+ *   · `surfaces-index` hard-failed on a missing `.claude/SURFACES.md` (caught before ship)
+ *   · `custody-claim-mirrors` threw ENOENT on `.claude/skills/content-studio/BRAND.md`,
+ *     because `read()` THROWS on a missing file rather than returning falsy (2026-08-30)
+ *
+ * The deploy runbook documents a manual clean-clone test that catches this, but it costs
+ * an `npm ci` and a human remembering to run it. This makes it a ~1s check that
+ * `npm run verify-gate` runs every time — see the `clean-clone sync` step there.
+ *
+ * `.claude/` is the usual culprit: it ships only an allowlist, so most of it is absent
+ * from a clone while being right there on the maintainer's disk.
+ */
+const CLEAN_CLONE = process.env.PIPRAIL_SYNC_CLEAN_CLONE === '1'
+
+let _tracked = null
+/** Paths git would actually ship, as a Set of repo-relative strings. */
+const tracked = () => {
+  if (_tracked) return _tracked
+  const out = spawnSync('git', ['ls-files', '-z'], { cwd: REPO, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+  if (out.status !== 0) {
+    // No git (a tarball install)? Then we cannot simulate — fail loudly rather than
+    // silently pass a check whose whole value is that it is pessimistic.
+    throw new Error('PIPRAIL_SYNC_CLEAN_CLONE=1 needs a git repo (`git ls-files` failed)')
+  }
+  _tracked = new Set(out.stdout.split('\0').filter(Boolean))
+  return _tracked
+}
+
+/*
+ * Build OUTPUTS are gitignored but are NOT missing when this runs for real: the site's
+ * `prebuild` fires after `build:sdk`, and the release CI builds first too. Hiding them
+ * would model a state that never happens and produce false failures (it did: every
+ * `sdk-imports-in-samples` identifier "vanished" because `sdk/dist/index.d.ts` is
+ * gitignored). So the simulation models **a clean clone AFTER the build** — the strictest
+ * state that is also real.
+ */
+const BUILD_OUTPUTS = [/^sdk\/dist\//, /^mcp\/dist\//, /^site\/dist\//, /^docs\/dist\//, /(^|\/)node_modules\//]
+
+/** In clean-clone mode, is this repo-relative path something git ships (or the build makes)? */
+const shipped = (p) => {
+  if (!CLEAN_CLONE) return true
+  const norm = p.replace(/^\.\//, '').replace(/\/+$/, '')
+  if (BUILD_OUTPUTS.some((re) => re.test(norm))) return true
+  if (tracked().has(norm)) return true
+  // A directory counts as shipped when it contains at least one tracked file.
+  const prefix = `${norm}/`
+  for (const f of tracked()) if (f.startsWith(prefix)) return true
+  return false
+}
+
+export const read = (p) => {
+  if (!shipped(p)) {
+    // Mimic the real failure mode exactly, so a rule that forgot `exists()` blows up
+    // here the same way it would on Netlify — that is the entire point.
+    const err = new Error(`ENOENT: no such file or directory, open '${join(REPO, p)}' [clean-clone simulation]`)
+    err.code = 'ENOENT'
+    throw err
+  }
+  return readFileSync(join(REPO, p), 'utf8')
+}
+export const exists = (p) => shipped(p) && existsSync(join(REPO, p))
 export const readJson = (p) => JSON.parse(read(p))
 export const lsDirs = (p) =>
-  existsSync(join(REPO, p))
-    ? readdirSync(join(REPO, p)).filter((n) => statSync(join(REPO, p, n)).isDirectory())
+  exists(p)
+    ? readdirSync(join(REPO, p))
+        .filter((n) => statSync(join(REPO, p, n)).isDirectory())
+        .filter((n) => shipped(`${p}/${n}`))
     : []
 
 /**
@@ -228,6 +299,7 @@ export function walk(dir, exts, acc = []) {
   for (const name of readdirSync(full)) {
     if (['node_modules', 'dist', '.astro', '.git'].includes(name) || name.startsWith('.')) continue
     const rel = `${dir}/${name}`
+    if (!shipped(rel)) continue // clean-clone mode: git would not ship this
     if (statSync(join(REPO, rel)).isDirectory()) walk(rel, exts, acc)
     else if (exts.some((e) => name.endsWith(e))) acc.push(rel)
   }

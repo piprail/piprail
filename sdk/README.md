@@ -2,7 +2,7 @@
 
 **Accept and make [x402](https://x402.org) crypto payments — on any EVM chain plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar & the XRP Ledger — in a couple of lines.**
 
-No middleman, no database, no fee, no account. Payments settle **straight into your wallet**, verified locally against your own RPC. Gate a route to make it paid-only; point an agent at a paid URL and it pays itself.
+No middleman, no database, no fee, no account, no API key. Payments settle **straight into your wallet**, verified locally against your own RPC. Gate a route to make it paid-only; point an agent at a paid URL and it pays itself.
 
 ```bash
 npm install @piprail/sdk viem
