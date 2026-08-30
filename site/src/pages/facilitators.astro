@@ -334,7 +334,7 @@ app.get('/premium',
         {facilitatorCoverage.map((c) => (
           <article id={c.slug} class="card mb-4 break-inside-avoid scroll-mt-24 overflow-hidden rounded-2xl">
             <!-- Chain header -->
-            <header class="flex items-center gap-3 border-b border-white/10 bg-white/[0.03] px-4 py-3.5 sm:px-5">
+            <header class="flex items-center gap-3 border-b border-white/10 bg-white/3 px-4 py-3.5 sm:px-5">
               <img
                 src={`/chains/${c.slug}.svg`}
                 alt={`${c.chain} logo`}
@@ -355,7 +355,7 @@ app.get('/premium',
             <!-- Facilitators on this chain -->
             <ul class="divide-y divide-white/8">
               {c.facilitators.map((f) => (
-                <li class="px-4 py-4 transition hover:bg-white/[0.02] sm:px-5">
+                <li class="px-4 py-4 transition hover:bg-white/2 sm:px-5">
                   <div class="flex items-start gap-3">
                     <span
                       aria-hidden="true"
@@ -555,7 +555,7 @@ app.get('/premium',
       <div class="divide-y divide-white/10 overflow-hidden rounded-2xl border border-white/10">
         {faqs.map((f, i) => (
           <details class="group bg-neutral-950/60" open={i === 0}>
-            <summary class="flex cursor-pointer list-none items-start gap-3 px-5 py-4 text-[15px] font-medium text-neutral-100 transition hover:bg-white/[0.03] [&::-webkit-details-marker]:hidden">
+            <summary class="flex cursor-pointer list-none items-start gap-3 px-5 py-4 text-[15px] font-medium text-neutral-100 transition hover:bg-white/3 [&::-webkit-details-marker]:hidden">
               <ChevronDown size={16} class="mt-1 shrink-0 text-accent transition-transform duration-200 group-open:rotate-180" aria-hidden="true" />
               <span>{f.q}</span>
             </summary>
