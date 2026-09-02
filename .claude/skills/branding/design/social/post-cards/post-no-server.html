@@ -1,7 +1,13 @@
 <!doctype html><html><head><meta charset="utf-8">
 <meta name="render-size" content="1240x1754">
 <!--
-  post-no-server — A4 portrait sheet answering GoPlausible's eight suggestions.
+  post-no-server — A4 portrait sheet: what "no server" actually buys and costs.
+
+  ⚠️ FRAMED AS A STATEMENT ABOUT PIPRAIL, NOT AS A REPLY. It was first written
+  as "eight good suggestions, four need a server", which made the sheet legible
+  only next to the tweet that prompted it and dated it to that thread. As a
+  plain description of the architecture it works as a reply AND on its own, and
+  it stays true next time somebody asks the same question.
 
   🔴 EVERY ROW IS CHECKED AGAINST THE SDK'S ACTUAL EXPORT SURFACE
   (sdk/src/index.ts, @piprail/sdk 2.15.1, read 2026-09-02), not against what we
@@ -36,7 +42,7 @@ body { background:var(--bg); color:#fff; font-family:'Inter',sans-serif;
           mask-image:radial-gradient(ellipse at 50% 16%, #000 0%, transparent 72%); }
 .vig { position:absolute; inset:0; box-shadow:inset 0 0 280px 100px rgba(0,0,0,0.6); }
 
-header { position:relative; z-index:2; padding:70px 76px 0; }
+header { position:relative; z-index:2; padding:56px 76px 0; }
 .top { display:flex; align-items:center; justify-content:space-between; }
 .lock { display:flex; align-items:center; gap:15px; }
 .lock img { width:46px; height:46px; }
@@ -47,40 +53,40 @@ header { position:relative; z-index:2; padding:70px 76px 0; }
 .pill b { width:7px; height:7px; border-radius:50%; background:var(--accent);
           box-shadow:0 0 12px 2px rgba(46,230,166,0.6); }
 
-h1 { margin-top:34px; font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:56px;
+h1 { margin-top:24px; font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:51px;
      line-height:1.05; letter-spacing:-0.03em; }
 h1 em { font-style:normal; color:var(--accent); }
-.sub { margin-top:16px; color:var(--muted); font-size:21px; line-height:1.5; max-width:960px; }
+.sub { margin-top:18px; color:#a8b0b8; font-size:25px; line-height:1.5; max-width:1000px; }
 
 /* rows */
-.rows { position:relative; z-index:2; margin:40px 76px 0; display:flex; flex-direction:column; gap:11px; }
-.r { display:grid; grid-template-columns:52px 1fr 300px; align-items:center; gap:20px;
-     padding:17px 22px; border-radius:14px;
+.rows { position:relative; z-index:2; margin:26px 76px 0; display:flex; flex-direction:column; gap:9px; }
+.r { display:grid; grid-template-columns:58px 1fr 400px; align-items:center; gap:22px;
+     padding:19px 26px; border-radius:15px;
      background:rgba(255,255,255,0.028); border:1px solid rgba(255,255,255,0.075); }
-.r .s { font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:23px; text-align:center; }
-.r .t { font-size:22px; font-weight:500; color:#eef1f3; }
-.r .n { font-family:'JetBrains Mono',monospace; font-size:15.5px; color:var(--dim); text-align:right; line-height:1.4; }
+.r .s { font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:28px; text-align:center; }
+.r .t { font-size:28px; font-weight:500; color:#f2f5f7; letter-spacing:-0.01em; }
+.r .n { font-family:'JetBrains Mono',monospace; font-size:19px; color:#9aa2aa; text-align:right; line-height:1.45; }
 
 .r.yes { border-color:rgba(46,230,166,0.26); background:rgba(46,230,166,0.055); }
 .r.yes .s, .r.yes .n { color:var(--accent); }
 .r.part { border-color:rgba(227,178,92,0.24); background:rgba(227,178,92,0.045); }
 .r.part .s { color:var(--amber); }
-.r.part .n { color:#b99a63; }
-.r.no .s { color:#5c636b; }
+.r.part .n { color:#cbab72; }
+.r.no .s { color:#7b838b; }
 
-.sect { margin:26px 0 4px; font-family:'JetBrains Mono',monospace; font-size:14px;
-        letter-spacing:0.2em; color:#5f666e; }
+.sect { margin:20px 0 6px; font-family:'JetBrains Mono',monospace; font-size:17px;
+        letter-spacing:0.2em; color:#79818a; }
 
 /* the why */
-.why { position:relative; z-index:2; margin:34px 76px 0; padding:26px 30px; border-radius:16px;
+.why { position:relative; z-index:2; margin:26px 76px 0; padding:24px 32px; border-radius:16px;
        border:1px solid rgba(255,255,255,0.09); background:rgba(255,255,255,0.03); }
-.why h2 { font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:27px;
-          letter-spacing:-0.02em; margin-bottom:12px; }
-.why p { color:#b6bdc4; font-size:20px; line-height:1.6; }
+.why h2 { font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:30px;
+          letter-spacing:-0.02em; margin-bottom:10px; }
+.why p { color:#c2c9d0; font-size:24px; line-height:1.6; }
 .why p b { color:#fff; font-weight:500; }
 .why .k { font-family:'JetBrains Mono',monospace; color:var(--accent); }
 
-footer { position:relative; z-index:2; margin-top:auto; padding:30px 76px 62px;
+footer { position:relative; z-index:2; margin-top:auto; padding:26px 76px 52px;
          display:flex; align-items:center; justify-content:space-between; }
 .code { font-family:'JetBrains Mono',monospace; font-size:25px; color:#fff;
         border:1px solid rgba(255,255,255,0.14); border-radius:13px; padding:15px 24px;
@@ -95,15 +101,15 @@ footer { position:relative; z-index:2; margin-top:auto; padding:30px 76px 62px;
       <div class="lock"><img src="../../../../../../site/public/logo.png" alt=""><span class="wm">PipRail</span></div>
       <span class="pill"><b></b>no server, by design</span>
     </div>
-    <h1>Eight good suggestions.<br>Four of them need <em>a server</em>.</h1>
+    <h1>This is how PipRail works.<br>There is <em>no server</em>.</h1>
     <div class="sub">
-      Everything PipRail does runs in your process, against your own RPC. That rules some
-      things in and some things out, and it is worth being explicit about which.
+      The SDK runs inside your process, against your own RPC node. Nothing routes through
+      us, because there is no us to route through.
     </div>
   </header>
 
   <div class="rows">
-    <div class="sect">ALREADY SHIPS</div>
+    <div class="sect">WHAT THAT GIVES YOU</div>
 
     <div class="r yes">
       <span class="s">✓</span>
@@ -121,29 +127,29 @@ footer { position:relative; z-index:2; margin-top:auto; padding:30px 76px 62px;
       <span class="n">PipRailClient · 29 chains</span>
     </div>
 
-    <div class="sect">PARTLY</div>
+    <div class="sect">WHAT RUNS LOCALLY, AND WHAT WOULD NOT</div>
 
     <div class="r part">
       <span class="s">◐</span>
       <span class="t">x402 analytics and intelligence</span>
-      <span class="n">discover() reads open indexes<br>your own spend: SpendLedger<br>aggregate stats would need a server</span>
+      <span class="n">discover() reads the open indexes<br>aggregate stats would need a server</span>
     </div>
 
-    <div class="sect">NOT OURS TO BUILD</div>
+    <div class="sect">WHAT IT RULES OUT, ON PURPOSE</div>
 
-    <div class="r no"><span class="s">✕</span><span class="t">Feedback and review transparency</span><span class="n">server · accounts · moderation</span></div>
-    <div class="r no"><span class="s">✕</span><span class="t">Reputation and factual ranking</span><span class="n">makes us a rating authority<br>over projects we also compete with</span></div>
-    <div class="r no"><span class="s">✕</span><span class="t">Advertisement systems</span><span class="n">a revenue interest in a table<br>people trust because we have none</span></div>
-    <div class="r no"><span class="s">✕</span><span class="t">Leaderboards</span><span class="n">server · ranking · gaming</span></div>
+    <div class="r no"><span class="s">✕</span><span class="t">Feedback and review transparency</span><span class="n">a server, and moderation</span></div>
+    <div class="r no"><span class="s">✕</span><span class="t">Reputation and factual ranking</span><span class="n">makes us a rating authority over<br>projects we compete with</span></div>
+    <div class="r no"><span class="s">✕</span><span class="t">Advertisement systems</span><span class="n">a revenue interest in a table<br>trusted because we have none</span></div>
+    <div class="r no"><span class="s">✕</span><span class="t">Leaderboards</span><span class="n">a server, and a game to farm</span></div>
   </div>
 
   <div class="why">
     <h2>Why the line is where it is</h2>
     <p>
-      Those four all need the same three things: <b>a server, an account, and someone to
-      moderate it.</b> Add them and PipRail stops being a library you install and becomes a
-      service you join, which is the one thing it was built not to be. <span class="k">npm i</span>,
-      name a chain, add a wallet. No account, no API key, no facilitator, no fee.
+      Reviews, reputation, ads and leaderboards all need the same three things:
+      <b>a server, an account, and someone to moderate it.</b> Add those and PipRail stops
+      being a library you install and becomes a service you join, which is the one thing it
+      was built not to be.
     </p>
   </div>
 
