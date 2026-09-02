@@ -1,0 +1,163 @@
+---
+import Layout from '../layouts/Layout.astro'
+import Navigation from '../components/Navigation.astro'
+import Footer from '../components/Footer.astro'
+import Breadcrumbs from '../components/Breadcrumbs.astro'
+import { ShieldOff, Server, BarChart3, Mail, Wallet } from 'lucide-astro'
+
+/*
+ * /privacy — the honest privacy statement for piprail.com, @piprail/sdk and @piprail/mcp.
+ *
+ * WHY THIS PAGE EXISTS AT ALL, given a project with no backend: because a Privacy policy
+ * URL is a REQUIRED field on a LinkedIn developer app, and it will be required again by the
+ * next directory, registry or partner form. Writing it once, truthfully, is cheaper than
+ * pointing five submissions at five different improvised answers.
+ *
+ * 🔴 EVERY CLAIM HERE IS CHECKABLE, AND THAT IS THE POINT. The "no telemetry" line is not a
+ * promise about intent, it is a statement about a public MIT repository anybody can grep.
+ * The GA4 disclosure is here because the site DOES run GA4 (Layout.astro, G-17GKJNMGDX) and
+ * a privacy page that omitted it would be the one dishonest page on a site whose entire
+ * pitch is verifiable claims.
+ *
+ * ⚠️ IF ANY OF THESE CHANGE, THIS PAGE CHANGES THE SAME DAY:
+ *   - analytics on the site (Layout.astro / components/Analytics.astro)
+ *   - anything resembling telemetry in sdk/ or mcp/
+ *   - the contact address (owner: scripts/contacts.mjs)
+ */
+
+const title = 'Privacy — what PipRail collects, and what it cannot'
+const description =
+  'PipRail has no backend and no accounts. The SDK and MCP server send no telemetry and run entirely on your machine. This page states exactly what piprail.com measures and how to opt out.'
+
+const updated = '2 September 2026'
+
+const points = [
+  {
+    icon: ShieldOff,
+    t: 'No accounts, ever',
+    d: 'There is nothing to sign up for. PipRail has no login, no dashboard and no user records, so there is no account data to hold, lose or hand over.',
+  },
+  {
+    icon: Server,
+    t: 'No backend to collect anything',
+    d: 'The SDK and the MCP server run on your machine and talk to the blockchain RPC endpoint you configure. Nothing is proxied through a PipRail server, because there is no PipRail server.',
+  },
+  {
+    icon: Wallet,
+    t: 'No keys, no funds',
+    d: 'Private keys stay in your process. Payments go straight from your wallet to the recipient. PipRail never holds, routes or can move your money.',
+  },
+]
+---
+
+<Layout title={title} description={description}>
+  <Navigation path="/privacy" />
+
+  <main class="mx-auto max-w-3xl px-4 sm:px-6">
+    <div class="pt-6"><Breadcrumbs items={[{ name: 'Privacy' }]} /></div>
+
+    <section class="fade-up py-12 sm:py-16">
+      <h1 class="text-[2.25rem] font-semibold leading-[1.08] tracking-tight sm:text-5xl">
+        Privacy
+      </h1>
+      <p class="mt-5 text-base leading-relaxed text-neutral-400 sm:text-lg">
+        PipRail is a library you install, not a service you join. Most privacy policies describe
+        what a company does with your data. This one mostly describes
+        <span class="text-neutral-200"> what it is structurally unable to collect</span>.
+      </p>
+      <p class="mt-3 text-sm text-neutral-500">Last updated {updated}.</p>
+    </section>
+
+    <section class="pb-4">
+      <div class="grid gap-4 sm:grid-cols-3">
+        {points.map((p) => {
+          const Icon = p.icon
+          return (
+            <div class="rounded-2xl border border-white/10 bg-white/2.5 p-6">
+              <div class="flex h-10 w-10 items-center justify-center rounded-xl border border-accent/20 bg-accent/10 text-accent">
+                <Icon size={18} aria-hidden="true" />
+              </div>
+              <h2 class="mt-4 text-base font-semibold">{p.t}</h2>
+              <p class="mt-1.5 text-sm leading-relaxed text-neutral-400">{p.d}</p>
+            </div>
+          )
+        })}
+      </div>
+    </section>
+
+    <section class="prose-invert py-10">
+      <h2 class="text-2xl font-semibold tracking-tight">The software: @piprail/sdk and @piprail/mcp</h2>
+      <p class="mt-4 leading-relaxed text-neutral-400">
+        Neither package sends telemetry, usage statistics, crash reports or any other data to
+        PipRail. There is no endpoint for them to send it to. Both are MIT-licensed and public,
+        so this is a claim you can check rather than one you have to accept:
+        <a class="text-accent hover:underline" href="https://github.com/piprail/piprail" target="_blank" rel="noopener noreferrer">github.com/piprail/piprail</a>.
+      </p>
+      <p class="mt-4 leading-relaxed text-neutral-400">
+        The network requests the SDK makes are the ones you ask it to make: to the blockchain RPC
+        endpoint in your configuration, and to the paywalled URL your agent is paying. Both are
+        addresses you chose. Blockchain transactions are, by design, public and permanent on the
+        chain you send them to; that is a property of the chain, not of PipRail.
+      </p>
+
+      <h2 class="mt-12 text-2xl font-semibold tracking-tight">This website</h2>
+      <div class="mt-4 flex items-start gap-3 rounded-2xl border border-white/10 bg-white/2.5 p-5">
+        <div class="mt-0.5 text-accent"><BarChart3 size={18} aria-hidden="true" /></div>
+        <div>
+          <p class="text-sm leading-relaxed text-neutral-300">
+            <span class="font-semibold text-white">piprail.com and docs.piprail.com use Google
+            Analytics 4</span>, so we can tell whether anybody is reading. It records the usual
+            aggregate things: pages viewed, approximate location from IP, browser and device,
+            and the site that referred you. It sets cookies in your browser to do that.
+          </p>
+          <p class="mt-3 text-sm leading-relaxed text-neutral-400">
+            The site is hosted on Netlify, which keeps standard server logs including IP
+            addresses. We do not run advertising, tracking pixels, or any third-party script
+            beyond the analytics tag above.
+          </p>
+          <p class="mt-3 text-sm leading-relaxed text-neutral-400">
+            <span class="text-neutral-200">To opt out of the analytics</span>, visit
+            <a class="text-accent hover:underline" href="/?ga_optout=1">piprail.com/?ga_optout=1</a>
+            once in this browser. The choice is stored locally and survives until you clear site
+            data; <a class="text-accent hover:underline" href="/?ga_optout=0">?ga_optout=0</a>
+            undoes it. Browser Do Not Track and content blockers work as normal.
+          </p>
+        </div>
+      </div>
+
+      <h2 class="mt-12 text-2xl font-semibold tracking-tight">Email</h2>
+      <p class="mt-4 leading-relaxed text-neutral-400">
+        If you email us, we keep the email so we can reply to it. That is the whole of it: no
+        newsletter, no mailing list, and your address is not passed to anybody or used for
+        anything else.
+      </p>
+
+      <h2 class="mt-12 text-2xl font-semibold tracking-tight">Your rights</h2>
+      <p class="mt-4 leading-relaxed text-neutral-400">
+        We hold no account for you, so in almost every case there is nothing to access, correct
+        or delete. Where we do hold something, an email you sent us, ask and it goes. Analytics
+        data is aggregate and not linked to a name; the opt-out above is the practical control.
+      </p>
+
+      <h2 class="mt-12 text-2xl font-semibold tracking-tight">Changes</h2>
+      <p class="mt-4 leading-relaxed text-neutral-400">
+        If PipRail ever collects something this page does not describe, this page changes first.
+        The site is open source, so a change here is a public commit with a date on it.
+      </p>
+    </section>
+
+    <section class="py-12 text-center sm:py-16">
+      <h2 class="text-2xl font-semibold tracking-tight">Questions about any of this?</h2>
+      <div class="mt-6 flex justify-center">
+        <a
+          href="mailto:john@piprail.com?subject=PipRail%20privacy%20question"
+          class="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110"
+        >
+          <Mail size={16} aria-hidden="true" /> john@piprail.com
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <Footer />
+</Layout>

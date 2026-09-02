@@ -273,6 +273,12 @@ fails only when that workflow next runs, which may be at release time.
 - **`robots-sitemaps`** — every `Sitemap:` line resolves against the host **it names**, not the host
   that declared it. Both robots files cross-declare the other property, so a local-only check would
   silently pass.
+- **`sameas-mirrors`** — the `Organization.sameAs` identity list is byte-identical on both hosts,
+  and every entry is an absolute https URL. 🔴 It also **refuses a numeric LinkedIn company URL**:
+  logged out, `linkedin.com/company/<id>/` serves a SIGN-IN WALL at HTTP 200, so a status check
+  passes it while the crawler (logged out by definition) sees a login screen where our identity
+  should be. A sister project shipped exactly that across its whole site. Only the vanity form is
+  a real identity claim.
 
 ---
 
