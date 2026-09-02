@@ -1,0 +1,129 @@
+<!doctype html><html><head><meta charset="utf-8">
+<!--
+  post-402-terminal — the real 402 from piprail.com/x402/demo, as a terminal card.
+
+  🔴 THIS IS EVIDENCE, NOT DECORATION, AND THE DISTINCTION IS THE WHOLE POINT.
+  linkedin-page/POSTING.md: on a claim-making post an image is evidence or it is
+  nothing, and a generated brand graphic next to a checkable claim costs trust,
+  because the reader can see you had the option to show the real thing. Every
+  byte in the window below was captured with `curl -i` on 2026-09-02.
+
+  🔴 THE payTo ADDRESS IS DELIBERATELY ABSENT. The response really does carry
+  one and it is public on our own site. It is left out because the outreach
+  guards' first rule is structural: a wallet address in unsolicited content from
+  a crypto domain is byte-for-byte the shape of the scam every reader has been
+  trained to report, and LinkedIn's audience is not crypto native. The elision
+  is LABELLED, outside the window, so the card never reads as a complete
+  response.
+
+  Render: node render.mjs 402-terminal
+-->
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+* { margin:0; padding:0; box-sizing:border-box; }
+:root { --accent:#2ee6a6; --bg:#0a0b0c; --muted:#8d959e; --amber:#e3b25c; }
+html,body { width:1080px; height:1080px; }
+body { background:var(--bg); color:#fff; font-family:'Inter',sans-serif; position:relative;
+       overflow:hidden; display:flex; flex-direction:column; }
+
+/* Ambience. One emerald whisper behind the window, a faint grid, a vignette.
+   Contrast, not glow: the restraint is the brand. */
+.glow { position:absolute; width:1150px; height:1150px; border-radius:50%; left:26%; top:-40%;
+  background:radial-gradient(circle, rgba(46,230,166,0.14) 0%, rgba(46,230,166,0.04) 44%, rgba(0,0,0,0) 70%); }
+.grid { position:absolute; inset:0;
+  background-image:linear-gradient(rgba(255,255,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.03) 1px,transparent 1px);
+  background-size:54px 54px;
+  -webkit-mask-image:radial-gradient(ellipse at 50% 26%, #000 0%, transparent 70%);
+          mask-image:radial-gradient(ellipse at 50% 26%, #000 0%, transparent 70%); }
+.vig { position:absolute; inset:0; box-shadow:inset 0 0 260px 90px rgba(0,0,0,0.6); }
+
+header { position:relative; z-index:2; padding:52px 60px 0; }
+.top { display:flex; align-items:center; justify-content:space-between; }
+.lock { display:flex; align-items:center; gap:14px; }
+.lock img { width:42px; height:42px; }
+.lock .wm { font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:29px; letter-spacing:-0.02em; }
+.pill { display:inline-flex; align-items:center; gap:9px; padding:8px 16px; border-radius:999px;
+        border:1px solid rgba(46,230,166,0.28); background:rgba(46,230,166,0.09);
+        font-family:'JetBrains Mono',monospace; font-size:16px; color:var(--accent); }
+.pill b { width:7px; height:7px; border-radius:50%; background:var(--accent);
+          box-shadow:0 0 12px 2px rgba(46,230,166,0.6); }
+
+h1 { margin-top:28px; font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:50px;
+     line-height:1.06; letter-spacing:-0.028em; }
+h1 em { font-style:normal; color:var(--accent); }
+.sub { margin-top:13px; color:var(--muted); font-size:19px; }
+
+/* The window. A real terminal has depth: a hairline top highlight, a dark well,
+   and a shadow that sits it above the canvas. */
+.term { position:relative; z-index:2; margin:30px 60px 0; border-radius:18px;
+        border:1px solid rgba(255,255,255,0.11); overflow:hidden;
+        background:linear-gradient(180deg, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0.018) 120px, rgba(255,255,255,0.012) 100%);
+        box-shadow:0 30px 70px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.07); }
+.bar { display:flex; align-items:center; gap:9px; padding:14px 20px;
+       border-bottom:1px solid rgba(255,255,255,0.075); background:rgba(255,255,255,0.03); }
+.bar i { width:11px; height:11px; border-radius:50%; display:block; background:rgba(255,255,255,0.16); }
+.bar .t { flex:1; text-align:center; margin-right:46px; font-family:'JetBrains Mono',monospace;
+          font-size:15px; color:rgba(255,255,255,0.34); letter-spacing:0.02em; }
+pre { padding:24px 28px 24px; font-family:'JetBrains Mono',monospace; font-size:18.5px;
+      line-height:1.6; white-space:pre-wrap; word-break:break-word; }
+.c { color:rgba(255,255,255,0.34); }   /* prompt */
+.k { color:#eef1f3; }                  /* keys and headers */
+.s { color:var(--accent); }            /* string values */
+.n { color:var(--amber); }             /* numbers */
+.d { color:#69707a; }                  /* punctuation */
+/* The status line is the whole point of the card, so it gets the one flourish. */
+.status { display:inline-block; padding:1px 12px; border-radius:7px; color:var(--amber);
+          background:rgba(227,178,92,0.13); border:1px solid rgba(227,178,92,0.3); }
+
+footer { position:relative; z-index:2; margin-top:auto; padding:24px 60px 48px; }
+.elide { font-family:'JetBrains Mono',monospace; font-size:15px; color:rgba(255,255,255,0.3);
+         margin-bottom:20px; }
+.row { display:flex; align-items:center; justify-content:space-between; }
+.code { font-family:'JetBrains Mono',monospace; font-size:24px; color:#fff;
+        border:1px solid rgba(255,255,255,0.14); border-radius:12px; padding:14px 22px;
+        background:rgba(255,255,255,0.045); box-shadow:inset 0 1px 0 rgba(255,255,255,0.06); }
+.note { color:var(--muted); font-size:17.5px; text-align:right; line-height:1.55; }
+.note b { color:#dfe4e8; font-weight:500; }
+</style></head>
+<body>
+  <div class="glow"></div><div class="grid"></div><div class="vig"></div>
+
+  <header>
+    <div class="top">
+      <div class="lock"><img src="../../../../../../site/public/logo.png" alt=""><span class="wm">PipRail</span></div>
+      <span class="pill"><b></b>live on mainnet</span>
+    </div>
+    <h1>This is what a machine sees<br>when it hits a <em>paywall</em>.</h1>
+    <div class="sub">Real response from piprail.com, captured 2 September 2026.</div>
+  </header>
+
+  <div class="term">
+    <div class="bar"><i></i><i></i><i></i><span class="t">bash</span></div>
+<pre><span class="c">$</span> curl -i https://piprail.com/x402/demo
+
+<span class="k">HTTP/2</span> <span class="status">402</span>  <span class="d">Payment Required</span>
+<span class="k">content-type</span><span class="d">:</span> application/json
+
+<span class="d">{</span>
+  <span class="k">"x402Version"</span><span class="d">:</span> <span class="n">2</span><span class="d">,</span>
+  <span class="k">"resource"</span><span class="d">: {</span>
+    <span class="k">"description"</span><span class="d">:</span> <span class="s">"PipRail live x402 demo,
+                    pay $0.01 USDC on Base to unlock."</span>
+  <span class="d">},</span>
+  <span class="k">"accepts"</span><span class="d">: [{</span>
+    <span class="k">"scheme"</span><span class="d">:</span>  <span class="s">"exact"</span><span class="d">,</span>
+    <span class="k">"network"</span><span class="d">:</span> <span class="s">"eip155:8453"</span><span class="d">,</span>
+    <span class="k">"amount"</span><span class="d">:</span>  <span class="s">"10000"</span><span class="d">,</span>
+    <span class="k">"symbol"</span><span class="d">:</span>  <span class="s">"USDC"</span>
+  <span class="d">}]</span>
+<span class="d">}</span></pre>
+  </div>
+
+  <footer>
+    <div class="elide">payTo address omitted from this card. Everything else is verbatim.</div>
+    <div class="row">
+      <span class="code">npm i @piprail/sdk</span>
+      <span class="note"><b>No account. No API key.</b><br>No facilitator. No fee.</span>
+    </div>
+  </footer>
+</body></html>

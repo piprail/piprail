@@ -34,6 +34,10 @@ site/.astro/
 # printed in the authorization URL anyway, but nothing in this family belongs in git,
 # and the next sibling should not need a second lesson.
 .linkedin-token.json*
+# The X OAuth pair. Rewritten on every refresh (the access token lives two
+# hours), and a .pending sibling holds the PKCE verifier mid-authorization.
+# A glob, for the same reason the one above is.
+.x-token.json*
 .env.bak
 .env.*.local
 

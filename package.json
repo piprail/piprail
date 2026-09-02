@@ -28,7 +28,11 @@
     "post:check": "node .claude/skills/linkedin/scripts/draft.mjs check",
     "post:route": "node .claude/skills/linkedin-page/scripts/channel.mjs route",
     "post:vet": "node .claude/skills/linkedin-page/scripts/channel.mjs vet",
-    "brand:linkedin": "node .claude/skills/branding/design/social/profile/render-linkedin.mjs"
+    "brand:linkedin": "node .claude/skills/branding/design/social/profile/render-linkedin.mjs",
+    "test:x": "node --test \".claude/skills/x-api/tests/*.test.mjs\"",
+    "x": "node .claude/skills/x-api/scripts/x.mjs",
+    "x:check": "node .claude/skills/x-api/scripts/x.mjs check",
+    "x:doctor": "node .claude/skills/x-api/scripts/x.mjs doctor"
   },
   "engines": {
     "node": ">=20"

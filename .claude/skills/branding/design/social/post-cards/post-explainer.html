@@ -65,9 +65,12 @@
   .arr { display: flex; align-items: center; color: #2ee6a6; font-size: 30px; font-weight: 800; opacity: 0.8; }
 
   /* facts */
-  .facts { display: flex; flex-wrap: wrap; gap: 12px; }
+  /* 🔴 A 2x2 GRID, not a wrapping flex row. Flex wrapped these four as 3 + 1,
+     and the orphan on its own line reads as a layout accident rather than a
+     deliberate block. Four equal cells say "these are the four facts". */
+  .facts { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
   .chip {
-    display: flex; align-items: center; gap: 11px;
+    display: flex; align-items: center; justify-content: center; gap: 11px;
     font-family: 'JetBrains Mono', monospace; font-weight: 500; font-size: 23px; color: #c9cdd1;
     background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
     border-radius: 13px; padding: 14px 20px; letter-spacing: -0.3px;
