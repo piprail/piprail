@@ -1,0 +1,72 @@
+<!doctype html><html><head><meta charset="utf-8">
+<!--
+  LinkedIn COMPANY PAGE cover, 2256x384 (2x of LinkedIn's 1128x191 slot).
+
+  🔴 THE CROP IS THE WHOLE DESIGN PROBLEM HERE, and it is why this is not just
+  the X banner resized. LinkedIn overlaps the lower-left of a page cover with
+  the page avatar, and centre-crops the banner on mobile. So:
+
+    - nothing that must be READ may sit in the left ~22%
+    - nothing that must be READ may sit in the outer thirds either
+
+  Everything legible therefore lives in the middle band, and the left is
+  deliberately empty ambience. That is not wasted space, it is the avatar's.
+
+  Renders with ../post-cards/render.mjs's sibling, ./render-linkedin.mjs.
+-->
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+* { margin:0; padding:0; box-sizing:border-box; }
+:root { --accent:#2ee6a6; --bg:#0a0b0c; --muted:#9aa3ad; }
+html,body { width:2256px; height:384px; }
+body { background:var(--bg); color:#fff; font-family:'Inter',sans-serif; position:relative; overflow:hidden; }
+
+/* Ambience. One emerald whisper, a faint grid, a vignette. Contrast, not glow. */
+.glow  { position:absolute; width:1400px; height:1400px; border-radius:50%; left:52%; top:-160%;
+  background:radial-gradient(circle, rgba(46,230,166,0.17) 0%, rgba(46,230,166,0.05) 42%, rgba(0,0,0,0) 70%); }
+.glow2 { position:absolute; width:1100px; height:1100px; border-radius:50%; left:8%; top:20%;
+  background:radial-gradient(circle, rgba(74,134,250,0.07) 0%, rgba(0,0,0,0) 64%); }
+.grid  { position:absolute; inset:0;
+  background-image:linear-gradient(rgba(255,255,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.03) 1px,transparent 1px);
+  background-size:48px 48px;
+  -webkit-mask-image:radial-gradient(ellipse at 58% 50%, #000 0%, transparent 72%);
+          mask-image:radial-gradient(ellipse at 58% 50%, #000 0%, transparent 72%); }
+.vig   { position:absolute; inset:0; box-shadow:inset 0 0 220px 70px rgba(0,0,0,0.55); }
+
+/* The safe band. Left 22% is the avatar's; nothing readable starts before it. */
+.band { position:absolute; left:22%; right:8%; top:0; bottom:0;
+        display:flex; flex-direction:column; justify-content:center; align-items:center;
+        text-align:center; gap:22px; z-index:3; }
+
+.lock { display:flex; align-items:center; gap:18px; }
+.lock img { width:56px; height:56px; }
+.lock .wm { font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:40px; letter-spacing:-0.02em; }
+.lock .dot { width:9px; height:9px; border-radius:50%; background:var(--accent);
+             box-shadow:0 0 16px 3px rgba(46,230,166,0.55); }
+
+h1 { font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:56px; line-height:1.06;
+     letter-spacing:-0.025em; }
+h1 em { font-style:normal; color:var(--accent); }
+
+.sub { display:flex; align-items:center; gap:26px; color:var(--muted); font-size:23px; }
+.sub .code { font-family:'JetBrains Mono',monospace; font-size:22px; color:#fff;
+             border:1px solid rgba(255,255,255,0.12); border-radius:9px; padding:9px 16px;
+             background:rgba(255,255,255,0.035); }
+.sub .sep { width:5px; height:5px; border-radius:50%; background:rgba(255,255,255,0.22); }
+</style></head>
+<body>
+  <div class="glow"></div><div class="glow2"></div><div class="grid"></div><div class="vig"></div>
+  <div class="band">
+    <div class="lock">
+      <img src="../../../../../../site/public/logo.png" alt="">
+      <span class="wm">PipRail</span>
+      <span class="dot"></span>
+    </div>
+    <h1>The x402 rail with <em>nothing to sign up for</em>.</h1>
+    <div class="sub">
+      <span class="code">npm i @piprail/sdk</span>
+      <span class="sep"></span>
+      <span>No account. No API key. No facilitator. No fee.</span>
+    </div>
+  </div>
+</body></html>

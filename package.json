@@ -22,7 +22,13 @@
     "test:mcp": "npm test -w @piprail/mcp",
     "typecheck": "npm run typecheck -w @piprail/sdk && npm run typecheck -w @piprail/mcp",
     "sync": "node scripts/sync/check.mjs",
-    "verify-gate": "node scripts/verify-gate.mjs"
+    "verify-gate": "node scripts/verify-gate.mjs",
+    "test:linkedin": "node --test \".claude/skills/linkedin/tests/*.test.mjs\" \".claude/skills/linkedin-page/tests/*.test.mjs\"",
+    "post": "node .claude/skills/linkedin/scripts/draft.mjs",
+    "post:check": "node .claude/skills/linkedin/scripts/draft.mjs check",
+    "post:route": "node .claude/skills/linkedin-page/scripts/channel.mjs route",
+    "post:vet": "node .claude/skills/linkedin-page/scripts/channel.mjs vet",
+    "brand:linkedin": "node .claude/skills/branding/design/social/profile/render-linkedin.mjs"
   },
   "engines": {
     "node": ">=20"

@@ -1758,6 +1758,72 @@ export const RULES = [
       return ok('guard live in verify-gate · gate needs no secret · claim stated on 4 surfaces')
     },
   },
+  /* ═════════════════════════ IDENTITY (sameAs) ═════════════════════════ */
+  {
+    domain: 'seo',
+    id: 'sameas-mirrors',
+    what: 'The Organization.sameAs identity list is identical on both hosts, and every entry is a real profile URL',
+    source: {
+      file: 'site/src/layouts/Layout.astro',
+      note: 'the canonical sameAs list — every other copy follows this one',
+    },
+    mirrors: [
+      { file: 'docs/src/components/Head.astro', note: 'the docs host repeats the same Organization node' },
+    ],
+    check() {
+      /*
+       * WHY THIS RULE EXISTS.
+       *
+       * `sameAs` is a machine-readable identity claim: it tells an answer engine "these accounts
+       * are also us". Two hand-kept copies of one list is the shape this checker exists to guard,
+       * and the failure is silent — a profile added to one host and not the other splits our
+       * identity graph in half without breaking a page or a test.
+       *
+       * 🔴 AND A sameAs THAT DOES NOT RESOLVE IS WORSE THAN SAYING NOTHING. The trap that
+       * prompted this rule is LinkedIn's: a new company page hands you
+       * `/company/<numeric-id>/`, which serves a SIGN-IN WALL when logged out while still
+       * answering HTTP 200 — so a status check passes it and the crawler, which is logged out by
+       * definition, sees a login screen where our identity should be. A sister project shipped
+       * exactly that across its whole site. This rule therefore refuses the numeric form.
+       *
+       * It checks SHAPE, not liveness: a rule that made network calls could not run in a build.
+       */
+      const files = ['site/src/layouts/Layout.astro', 'docs/src/components/Head.astro']
+      const present = files.filter(exists)
+      if (present.length < 2) return skip('both Organization nodes not present')
+
+      const lists = present.map((f) => {
+        const m = read(f).match(/sameAs:\s*\[([^\]]*)\]/)
+        return { f, urls: m ? [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]) : null }
+      })
+
+      const empty = lists.filter((l) => !l.urls || !l.urls.length)
+      if (empty.length) return bad(`no sameAs list found in: ${empty.map((l) => l.f).join(', ')}`)
+
+      const [a, b] = lists
+      const only = (x, y) => x.urls.filter((u) => !y.urls.includes(u))
+      const diff = [...only(a, b).map((u) => `${u} (only in ${a.f})`), ...only(b, a).map((u) => `${u} (only in ${b.f})`)]
+      if (diff.length) {
+        return bad(`the two sameAs lists disagree — an identity claim on one host and not the other:\n      ${diff.join('\n      ')}`)
+      }
+
+      /* 🔴 The numeric LinkedIn company URL is a sign-in wall to anyone logged out, which is
+         every crawler. Only the vanity form is a real identity claim. */
+      const numericLinkedIn = a.urls.filter((u) => /linkedin\.com\/company\/\d+/.test(u))
+      if (numericLinkedIn.length) {
+        return bad(
+          `numeric LinkedIn company URL in sameAs (${numericLinkedIn.join(', ')}) — logged out that ` +
+            `serves a SIGN-IN WALL at HTTP 200, so it points our identity at a login screen. ` +
+            `Use the vanity form: linkedin.com/company/piprail`
+        )
+      }
+
+      const bare = a.urls.filter((u) => !/^https:\/\//.test(u))
+      if (bare.length) return bad(`sameAs entries must be absolute https URLs: ${bare.join(', ')}`)
+
+      return ok(`${a.urls.length} identity URLs, identical on both hosts`)
+    },
+  },
 ]
 
 export const DOMAINS = [...new Set(RULES.map((r) => r.domain))]

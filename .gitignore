@@ -26,6 +26,10 @@ site/.astro/
 # Env files
 .env
 .env.local
+# The LinkedIn OAuth token: a 60-day bearer that can post as John. Also denied to
+# the Read tool in .claude/settings.json, and to Bash by .claude/hooks/no-secret-reads.mjs.
+.linkedin-token.json
+.env.bak
 .env.*.local
 
 # Editor
