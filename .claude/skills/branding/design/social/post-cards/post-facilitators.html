@@ -1,0 +1,145 @@
+<!doctype html><html><head><meta charset="utf-8">
+<!--
+  post-facilitators — every keyless x402 facilitator PipRail has settled through.
+
+  🔴 EVERY NUMBER AND NAME BELOW IS DERIVED, NOT TYPED. They come from
+  site/src/data/facilitators.ts, which is GENERATED from the SDK's own
+  KNOWN_FACILITATORS by site/scripts/gen-facilitators.mjs. Re-read them before
+  re-rendering:
+      node .claude/skills/branding/design/social/post-cards/facilitator-facts.mjs
+  As of 2026-09-02: 9 facilitators, 13 chains, 28 pairings, 25 live-settled
+  receipts, all keyless.
+
+  🔴 THE NAMES LIVE ON THE CARD ON PURPOSE, NOT AS @-MENTIONS IN THE POST.
+  RULES.md §4 caps a post at 5-6 total tags and requires every handle to be
+  verified first; nine unverified handles is both spam-shaped and a real risk
+  of tagging a squatter. On the card they are plain text: same information, no
+  handle to get wrong, no reach penalty.
+
+  Render: node render.mjs facilitators
+-->
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+* { margin:0; padding:0; box-sizing:border-box; }
+:root { --accent:#2ee6a6; --bg:#0a0b0c; --muted:#8d959e; }
+html,body { width:1080px; height:1080px; }
+body { background:var(--bg); color:#fff; font-family:'Inter',sans-serif; position:relative;
+       overflow:hidden; display:flex; flex-direction:column; }
+
+.glow { position:absolute; width:1150px; height:1150px; border-radius:50%; left:30%; top:-44%;
+  background:radial-gradient(circle, rgba(46,230,166,0.14) 0%, rgba(46,230,166,0.04) 44%, rgba(0,0,0,0) 70%); }
+.grid { position:absolute; inset:0;
+  background-image:linear-gradient(rgba(255,255,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.03) 1px,transparent 1px);
+  background-size:54px 54px;
+  -webkit-mask-image:radial-gradient(ellipse at 50% 24%, #000 0%, transparent 70%);
+          mask-image:radial-gradient(ellipse at 50% 24%, #000 0%, transparent 70%); }
+.vig { position:absolute; inset:0; box-shadow:inset 0 0 260px 90px rgba(0,0,0,0.6); }
+
+header { position:relative; z-index:2; padding:52px 58px 0; }
+.top { display:flex; align-items:center; justify-content:space-between; }
+.lock { display:flex; align-items:center; gap:14px; }
+.lock img { width:42px; height:42px; }
+.lock .wm { font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:29px; letter-spacing:-0.02em; }
+.pill { display:inline-flex; align-items:center; gap:9px; padding:8px 16px; border-radius:999px;
+        border:1px solid rgba(46,230,166,0.28); background:rgba(46,230,166,0.09);
+        font-family:'JetBrains Mono',monospace; font-size:16px; color:var(--accent); }
+.pill b { width:7px; height:7px; border-radius:50%; background:var(--accent);
+          box-shadow:0 0 12px 2px rgba(46,230,166,0.6); }
+h1 { margin-top:26px; font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:48px;
+     line-height:1.06; letter-spacing:-0.028em; }
+h1 em { font-style:normal; color:var(--accent); }
+.sub { margin-top:12px; color:var(--muted); font-size:20px; }
+
+/* the numbers */
+.nums { position:relative; z-index:2; margin:26px 58px 0; display:grid;
+        grid-template-columns:repeat(3,1fr); gap:12px; }
+.num { border:1px solid rgba(255,255,255,0.09); border-radius:14px; padding:16px 8px;
+       background:rgba(255,255,255,0.028); text-align:center; }
+.num .n { font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:40px; color:var(--accent);
+          line-height:1; letter-spacing:-0.02em; }
+.num .l { margin-top:7px; font-size:15.5px; color:var(--muted); }
+
+/* the list */
+.list { position:relative; z-index:2; margin:22px 58px 0; display:grid;
+        grid-template-columns:1fr 1fr; gap:9px 14px; }
+.f { display:flex; align-items:baseline; gap:9px; font-family:'JetBrains Mono',monospace;
+     font-size:17px; padding:9px 13px; border-radius:11px;
+     background:rgba(255,255,255,0.026); border:1px solid rgba(255,255,255,0.07); }
+.f .d { width:6px; height:6px; border-radius:50%; background:var(--accent); flex:none;
+        position:relative; top:-2px; }
+.f .n { color:#eef1f3; }
+.f .h { color:#69707a; font-size:14px; }
+.f.wide { grid-column:1 / -1; }
+
+/* The 13 chains, as information rather than filler: the card had dead space in
+   its lower third and this is the fact the numbers above are counting. */
+.chains { position:relative; z-index:2; margin:26px 58px 0; }
+.chains .lbl { font-family:'JetBrains Mono',monospace; font-size:14px; letter-spacing:0.18em;
+               color:#5f666e; margin-bottom:12px; }
+.chains .strip { display:flex; flex-wrap:wrap; gap:8px; }
+.chains .strip span { font-family:'JetBrains Mono',monospace; font-size:16px; color:#b9c0c7;
+                      padding:7px 13px; border-radius:9px; background:rgba(255,255,255,0.035);
+                      border:1px solid rgba(255,255,255,0.06); }
+
+footer { position:relative; z-index:2; margin-top:auto; padding:22px 58px 46px; }
+.line { color:var(--muted); font-size:17px; margin-bottom:18px; }
+.line b { color:#fff; font-weight:500; }
+.row { display:flex; align-items:center; justify-content:space-between; }
+.code { font-family:'JetBrains Mono',monospace; font-size:23px; color:#fff;
+        border:1px solid rgba(255,255,255,0.14); border-radius:12px; padding:13px 20px;
+        background:rgba(255,255,255,0.045); }
+.dom { font-family:'JetBrains Mono',monospace; font-size:23px; color:var(--accent); }
+</style></head>
+<body>
+  <div class="glow"></div><div class="grid"></div><div class="vig"></div>
+
+  <header>
+    <div class="top">
+      <div class="lock"><img src="../../../../../../site/public/logo.png" alt=""><span class="wm">PipRail</span></div>
+      <span class="pill"><b></b>all keyless</span>
+    </div>
+    <h1>Every facilitator we list,<br>we <em>paid through</em> first.</h1>
+    <div class="sub">x402 facilitator coverage, verified on-chain.</div>
+  </header>
+
+  <div class="nums">
+    <div class="num"><div class="n">9</div><div class="l">facilitators</div></div>
+    <div class="num"><div class="n">13</div><div class="l">chains</div></div>
+    <div class="num"><div class="n">25</div><div class="l">on-chain receipts</div></div>
+  </div>
+
+  <div class="list">
+    <div class="f"><span class="d"></span><span class="n">PayAI</span><span class="h">payai.network</span></div>
+    <div class="f"><span class="d"></span><span class="n">Dexter</span><span class="h">dexter.cash</span></div>
+    <div class="f"><span class="d"></span><span class="n">xpay</span><span class="h">xpay.sh</span></div>
+    <div class="f"><span class="d"></span><span class="n">Cascade</span><span class="h">cascade.fyi</span></div>
+    <div class="f"><span class="d"></span><span class="n">GoPlausible</span><span class="h">goplausible.xyz</span></div>
+    <div class="f"><span class="d"></span><span class="n">Pieverse</span><span class="h">pieverse.io</span></div>
+    <div class="f"><span class="d"></span><span class="n">Polygon Labs</span><span class="h">polygon.technology</span></div>
+    <div class="f"><span class="d"></span><span class="n">OpenFacilitator</span><span class="h">openfacilitator.io</span></div>
+    <div class="f wide"><span class="d"></span><span class="n">Ultravioleta DAO</span><span class="h">ultravioletadao.xyz</span></div>
+  </div>
+
+  <div class="chains">
+    <div class="lbl">SETTLED ON</div>
+    <div class="strip">
+      <span>Base</span><span>Ethereum</span><span>Polygon</span><span>Arbitrum</span><span>Optimism</span>
+      <span>Avalanche</span><span>BNB Chain</span><span>Solana</span><span>Algorand</span><span>Monad</span>
+      <span>HyperEVM</span><span>Sei</span><span>Unichain</span>
+    </div>
+  </div>
+
+  <footer>
+    <!-- 🔴 THIS LINE WAS "you do not need any of them", AND THAT WAS THE WRONG
+         FRAMING. BRAND.md: we extend, we do not attack, and the contrast does
+         the work by itself. The old wording made the card a jab at the nine
+         projects named directly above it, which is a bad look on its own and
+         an impossible one if the post also tags them. Same fact, stated as
+         what PipRail can do rather than as what they are not for. -->
+    <div class="line">On all 13, PipRail can also settle <b>with no facilitator at all</b>, verifying against your own RPC.</div>
+    <div class="row">
+      <span class="code">npm i @piprail/sdk</span>
+      <span class="dom">piprail.com/facilitators</span>
+    </div>
+  </footer>
+</body></html>
