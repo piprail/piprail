@@ -64,7 +64,25 @@ describe('payExactXrpl — the buyer signs a complete, submittable Payment', () 
     expect(tx.Destination).toBe(PAY_TO)
     expect(tx.Amount).toBe(AMOUNT) // integer drops, verbatim
     expect(tx.Sequence).toBe(42)
-    expect(tx.Flags).toBe(0)
+    // tfFullyCanonicalSig ON (0x80000000), tfPartialPayment OFF (0x00020000). We used to send
+    // Flags: 0 "to be explicit", which made our transactions the only ones on the ledger without
+    // the canonical-signature flag — diffed against a payment a live merchant HAD accepted from
+    // another client, and that flag was the difference.
+    expect(tx.Flags).toBe(0x80000000)
+    expect((tx.Flags as number) & 0x00020000).toBe(0)
+  })
+
+  it('mirrors extra.sourceTag into SourceTag — 1,728 of 1,732 live rails carry it', () => {
+    // Not in the scheme's extra table, but it is how the deployed vendors correlate a payment back
+    // to their own quote. Inert if they ignore it; a plausible refusal if we omit it.
+    return signedFields(accept({ extra: { invoiceId: 'inv-abc-123', sourceTag: 804681468 } })).then(({ tx }) => {
+      expect(tx.SourceTag).toBe(804681468)
+    })
+  })
+
+  it('omits SourceTag when the rail states none', async () => {
+    const { tx } = await signedFields(accept({ extra: {} }))
+    expect(tx.SourceTag).toBeUndefined()
   })
 
   it('is FULLY signed — the merchant can submit it as-is, with no co-signature', async () => {
@@ -89,9 +107,28 @@ describe('payExactXrpl — the buyer signs a complete, submittable Payment', () 
     expect(tx.InvoiceID).toBeUndefined()
   })
 
-  it('sets LastLedgerSequence — the only bound on how long a merchant may sit on the blob', async () => {
-    const { tx } = await signedFields()
-    expect(tx.LastLedgerSequence).toBe(90_000_020)
+  it('derives LastLedgerSequence from the rail OWN maxTimeoutSeconds', async () => {
+    /*
+     * The settler checks that LastLedgerSequence is "within policy window", and the merchant's
+     * policy is exactly what maxTimeoutSeconds announces. A fixed window is a conformance bug: a
+     * rail offering 60s used to get an ~80s blob from us — one that outlives the merchant's own
+     * quote. ~4s a ledger, clamped to [5, 60] ledgers.
+     */
+    const { tx } = await signedFields() // maxTimeoutSeconds 300 → 75 ledgers, clamped to 60
+    expect(tx.LastLedgerSequence).toBe(90_000_060)
+
+    const short = await signedFields(accept({ maxTimeoutSeconds: 60 })) // → 15 ledgers
+    expect(short.tx.LastLedgerSequence).toBe(90_000_015)
+
+    const silly = await signedFields(accept({ maxTimeoutSeconds: 1 })) // → clamped up to 5
+    expect(silly.tx.LastLedgerSequence).toBe(90_000_005)
+  })
+
+  it('accepts the wild spelling of the native coin ("XRP") as well as our own ("native")', async () => {
+    // PipRail writes 'native'; all 863 native rails in the wild write 'XRP'. Not recognising it
+    // was invisible — the rail was simply dropped and the agent heard "no compatible accept".
+    const { tx } = await signedFields(accept({ asset: 'XRP' }))
+    expect(tx.Amount).toBe(AMOUNT)
   })
 
   it('omits SendMax, Paths, DeliverMin and DeliverMax on a native payment', async () => {

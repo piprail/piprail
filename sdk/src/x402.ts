@@ -162,6 +162,11 @@ export interface X402ExactAcceptEntry {
      *  binding on this rail (there is no memo — the scheme has facilitators REJECT `Memos`).
      *  Present on 1,732 of 1,732 live rails, so treat it as always-on in practice. */
     invoiceId?: string
+    /** **XRPL** — a vendor correlation tag, copied verbatim into the transaction's `SourceTag`.
+     *  NOT in `scheme_exact_xrpl.md`'s extra table, but present on **1,728 of the 1,732** live XRPL
+     *  rails: it is how the deployed vendors match a payment back to their own quote. Mirrored
+     *  because it costs nothing and omitting it is a plausible reason a merchant refuses. */
+    sourceTag?: number
     /** **XRPL, OPTIONAL** — a destination tag the buyer MUST copy verbatim into the transaction
      *  when the rail states one (hosted/exchange accounts route deposits by it). Never invented
      *  when absent: unlike the onchain-proof path, which derives a tag from the nonce, the exact

@@ -22,6 +22,7 @@ import {
   XRP_DECIMALS,
   XRP_SYMBOL,
   xrplAssetId,
+  isXrpNative,
   type XrplPreset,
 } from './chains.js'
 import { payXrpl, type XrplPayClient } from './pay.js'
@@ -185,7 +186,14 @@ function makeXrplNetwork(preset: XrplPreset, rpcUrl: string): ResolvedNetwork {
     },
 
     describeAsset(asset: string) {
-      if (asset === 'native') return { symbol: XRP_SYMBOL, decimals: XRP_DECIMALS }
+      // PipRail writes the native coin as `'native'` on every family. The XRPL x402 web writes it
+      // as the literal `'XRP'` — every one of the 863 native rails in the CDP Bazaar does, and a
+      // live probe of eight independent merchants found no other spelling. Not recognising it here
+      // is invisible: the rail is simply dropped at gather and the agent is told "no compatible
+      // accept" on a chain it fully supports. Same class of bug as the `assetTransferMethod`
+      // requirement that made 74% of the whole x402 web unpayable — a foreign spelling of a thing
+      // we already handle. We still EMIT `'native'`.
+      if (isXrpNative(asset)) return { symbol: XRP_SYMBOL, decimals: XRP_DECIMALS }
       for (const info of Object.values(preset.tokens)) {
         if (xrplAssetId(info.currencyHex, info.issuer) === asset) {
           return { symbol: info.symbol, decimals: info.decimals }
@@ -227,7 +235,7 @@ function makeXrplNetwork(preset: XrplPreset, rpcUrl: string): ResolvedNetwork {
     // prices and spend-caps in base units — signing one would let a 12-RLUSD rail pass a cap set in
     // base units. Dropping it here means the gather skips it, rather than planning `payable` and
     // throwing at signing time.
-    exactPayableAsset: (asset) => asset === 'native' || asset === 'XRP',
+    exactPayableAsset: (asset) => isXrpNative(asset),
 
     async payExact(wallet: WalletHandle, accept) {
       const w: Wallet = resolveXrplWallet(wallet._native as XrplWalletConfig)
@@ -330,7 +338,7 @@ function makeXrplNetwork(preset: XrplPreset, rpcUrl: string): ResolvedNetwork {
       } catch (e) {
         native = isXrplActNotFound(e) ? 0n : null
       }
-      if (asset === 'native') return { token: native, native }
+      if (isXrpNative(asset)) return { token: native, native }
       let token: bigint | null = null
       try {
         const [currencyHex, issuer] = asset.split(':')
@@ -364,7 +372,10 @@ function makeXrplNetwork(preset: XrplPreset, rpcUrl: string): ResolvedNetwork {
         if (isXrplActNotFound(e)) return { ready: false as const, reason: 'INACTIVE' as const }
         return { ready: 'unknown' as const }
       }
-      if (asset === 'native') return { ready: true as const } // activated → can receive XRP
+      // An activated account can always receive XRP — a trustline is an ISSUED-currency concept
+      // and the native coin cannot have one. Reaching the trustline branch with `'XRP'` reported
+      // NO_TRUSTLINE for every live merchant and blocked the plan on a rail that was fine.
+      if (isXrpNative(asset)) return { ready: true as const }
       try {
         const [currencyHex, issuer] = asset.split(':')
         const r = await rpc<{ lines: { currency: string; account: string }[] }>('account_lines', {

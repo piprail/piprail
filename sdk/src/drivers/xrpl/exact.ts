@@ -44,6 +44,7 @@
 import type { Wallet } from 'xrpl'
 import { createHash } from 'node:crypto'
 import { SettlementError, UnsupportedSchemeError } from '../../errors.js'
+import { isXrpNative } from './chains.js'
 import { exactTransferMethod } from '../../x402.js'
 import type {
   ExactXrplPaymentPayload,
@@ -52,9 +53,28 @@ import type {
   X402ExactAcceptEntry,
 } from '../../x402.js'
 
-/** How many ledgers a signed payment stays submittable. ~4s a ledger, so 20 ≈ 80 seconds — long
- *  enough for a merchant round-trip, short enough that an unsubmitted blob expires quickly. */
-const LEDGER_WINDOW = 20
+/** XRPL closes a ledger roughly every 4 seconds. */
+const SECONDS_PER_LEDGER = 4
+
+/** Bounds on the `LastLedgerSequence` window, in ledgers (~20s … ~4min). */
+const MIN_LEDGER_WINDOW = 5
+const MAX_LEDGER_WINDOW = 60
+
+/**
+ * How many ledgers the signed payment stays submittable, derived from the rail's OWN
+ * `maxTimeoutSeconds`.
+ *
+ * The scheme has the settler check that `LastLedgerSequence` is "within policy window", and a
+ * merchant's policy is exactly what `maxTimeoutSeconds` announces — so a fixed window is a
+ * conformance bug waiting to happen: a rail offering 60s got an ~80s blob from us, i.e. one that
+ * outlives the merchant's own quote. Erring SHORT is also the safer direction for the buyer, since
+ * the window is the only bound on how long a merchant may sit on a signed payment.
+ */
+function ledgerWindowFor(maxTimeoutSeconds: number): number {
+  const secs = Number.isFinite(maxTimeoutSeconds) && maxTimeoutSeconds > 0 ? maxTimeoutSeconds : 60
+  const ledgers = Math.floor(secs / SECONDS_PER_LEDGER)
+  return Math.min(MAX_LEDGER_WINDOW, Math.max(MIN_LEDGER_WINDOW, ledgers))
+}
 
 /** The ledger's floor fee, in drops. Used when the open-ledger fee reads lower or unparseable. */
 const MIN_FEE_DROPS = 12
@@ -64,6 +84,21 @@ const MIN_FEE_DROPS = 12
  *  fat-fingered blob before it is submitted. (The payer pays, so this protects the BUYER's own
  *  wallet on the buyer side, and on the gate side it just refuses to broadcast something silly.) */
 const MAX_FEE_DROPS = 1_000_000
+
+/**
+ * `tfFullyCanonicalSig` — the flag every real XRPL client sets, and what `xrpl.js` autofills when
+ * you don't specify `Flags` at all.
+ *
+ * We used to send `Flags: 0` to be explicit about NOT setting `tfPartialPayment`. That is a
+ * different bit (`0x00020000`), so zero was never necessary to exclude it — and it made our
+ * transactions the only ones on the ledger without the canonical-signature flag, which at least one
+ * live merchant's verifier rejected as `invalid_payload`. Diffed against a payment that merchant
+ * had successfully accepted from another client; the flag was the difference.
+ */
+const TF_FULLY_CANONICAL_SIG = 0x80000000
+
+/** `tfPartialPayment` — lets a sender deliver LESS than `Amount`. Must never be set. */
+const TF_PARTIAL_PAYMENT = 0x00020000
 
 /** The JSON-RPC reads the exact BUYER needs — a subset of `XrplPayClient`, minus `submit`, because
  *  this side never broadcasts. Injected so the signer is unit-testable against a plain mock. */
@@ -125,7 +160,7 @@ export async function payExactXrpl(input: {
 }> {
   const { client, wallet, accept } = input
 
-  if (accept.asset !== 'native' && accept.asset !== 'XRP') {
+  if (!isXrpNative(accept.asset)) {
     throw new UnsupportedSchemeError(
       `XRPL exact currently signs native XRP only — ${accept.asset} is an issued currency, whose wire ` +
         'amount is a decimal rather than base units and would misprice the spend cap. Pay it via onchain-proof.'
@@ -177,12 +212,23 @@ export async function payExactXrpl(input: {
     Amount: accept.amount, // integer drops, verbatim from the trusted accept
     Sequence: sequence,
     Fee: feeForSubmit(openLedgerFee),
-    LastLedgerSequence: ledgerIndex + LEDGER_WINDOW,
-    Flags: 0, // NOT tfPartialPayment — the scheme rejects partial delivery
+    LastLedgerSequence: ledgerIndex + ledgerWindowFor(accept.maxTimeoutSeconds),
+    // tfFullyCanonicalSig ON, tfPartialPayment OFF — the shape every other XRPL client sends.
+    Flags: TF_FULLY_CANONICAL_SIG,
   }
   // Only when the rail asks. Unlike the onchain-proof path, the exact rail never INVENTS a tag.
   if (typeof accept.extra?.destinationTag === 'number') {
     tx.DestinationTag = accept.extra.destinationTag
+  }
+  /*
+   * `sourceTag` is NOT in the scheme's `extra` table, yet 1,728 of the 1,732 live XRPL rails carry
+   * it — it is how the deployed vendors correlate a payment back to their own quote. Copying it
+   * costs nothing, is inert if they ignore it, and omitting it is a plausible reason a merchant
+   * refuses a payment it cannot match to an invoice. Mirroring an unknown-but-ubiquitous key is
+   * the same tolerance the rest of this release is built on.
+   */
+  if (typeof accept.extra?.sourceTag === 'number') {
+    tx.SourceTag = accept.extra.sourceTag
   }
   if (typeof accept.extra?.invoiceId === 'string' && accept.extra.invoiceId.length > 0) {
     tx.InvoiceID = invoiceIdHash(accept.extra.invoiceId)
@@ -246,9 +292,10 @@ export async function verifyAndSettleExactXrpl(input: {
   if (tx.Amount !== undefined && tx.DeliverMax !== undefined) {
     return fail('signature_invalid', 'XRPL exact: Amount and DeliverMax must not both be present.')
   }
-  // tfPartialPayment (0x00020000) would let the sender deliver LESS than Amount — the whole point
-  // of the flag, and fatal for a payment gate.
-  if (typeof tx.Flags === 'number' && (tx.Flags & 0x00020000) !== 0) {
+  // tfPartialPayment would let the sender deliver LESS than Amount — the whole point of the flag,
+  // and fatal for a payment gate. Only that bit is checked: other flags (notably
+  // tfFullyCanonicalSig, which every real client sets) are none of our business.
+  if (typeof tx.Flags === 'number' && (tx.Flags & TF_PARTIAL_PAYMENT) !== 0) {
     return fail('signature_invalid', 'XRPL exact: tfPartialPayment is rejected.')
   }
   if (typeof tx.LastLedgerSequence !== 'number') {

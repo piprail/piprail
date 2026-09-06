@@ -42,10 +42,32 @@ versions follow [Semantic Versioning](https://semver.org/).
   true until XRPL, where it is wrong in *both* directions. A driver that declares the hook is
   authoritative for all of its assets; every other family omits it and behaves exactly as before.
 
+- **Three conformance fixes found by pointing the buyer at real merchants**, each of which made a
+  live XRPL rail unpayable on its own:
+  - `describeAsset` and `recipientReady` only knew the native coin as `'native'`. The XRPL x402 web
+    writes it `'XRP'` — all 863 native rails do. The first miss dropped every rail at gather ("no
+    compatible accept" on a chain we fully support); the second then demanded a **trustline** for a
+    coin that cannot have one. Both now go through one `isXrpNative()` predicate.
+  - `LastLedgerSequence` was a fixed 20-ledger window. The settler checks it is "within policy
+    window", and the merchant's policy is what `maxTimeoutSeconds` announces — so a rail offering
+    60s was getting an ~80s blob, one that outlives the merchant's own quote. Now derived, clamped.
+  - `Flags` was hard-set to `0`. `tfPartialPayment` is a different bit, so zero was never needed to
+    exclude it — but it made our transactions the only ones on the ledger without
+    `tfFullyCanonicalSig`. Now set, matching what every other XRPL client sends.
+- `extra.sourceTag` is mirrored into the transaction's `SourceTag`. Not in the scheme's `extra`
+  table, but present on **1,728 of the 1,732** live rails — it is how deployed vendors correlate a
+  payment back to their own quote.
 - Live-proven on mainnet: settle tx
-  `C5C1EE29D5BB6FA52E1870416AC8D1B15B9E51FE89AA94F89556B9F8E714B4A7` — 0.01 XRP through our own
-  gate on the `exact` rail, payer debited 0.010011 XRP (the amount **plus its own 12-drop fee**),
+  `F673064D2E0D982481844A769E829FD8B486EB9FB7B014F866C92F1C49770505` — 0.01 XRP through our own
+  gate on the `exact` rail, payer debited 0.010012 XRP (the amount **plus its own 12-drop fee**),
   merchant credited 0.010000, and a genuine replay of the same signed blob refused with a 402.
+- **Not yet proven: a paid round-trip against a THIRD-PARTY XRPL merchant.** Two live vendors were
+  tried and both refuse our payload (`invalid_payload` / a bare re-challenge), while the ledger
+  shows they do accept payments from some other client. Our transaction now matches a known-good
+  one on every visible field — `Amount`, `Destination`, `InvoiceID`, `SourceTag`, `Fee`, `Flags`,
+  `Sequence`, `LastLedgerSequence` — so the remaining difference is in the HTTP envelope, which is
+  not observable from outside. **No funds were lost in any attempt** (both merchants reject before
+  settling; the ledger confirms no payment left the wallet). Tracked in the plan.
 
 
 ### Fixed — the buyer required a field the spec makes optional, and so could not pay 91% of the x402 web
