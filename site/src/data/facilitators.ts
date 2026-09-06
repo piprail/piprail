@@ -428,6 +428,91 @@ export const facilitatorCoverage: FacilitatorChain[] = [
     ]
   },
   {
+    "caip2": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+    "chain": "Solana",
+    "slug": "solana",
+    "facilitators": [
+      {
+        "name": "PayAI",
+        "nameNote": null,
+        "url": "https://facilitator.payai.network",
+        "host": "facilitator.payai.network",
+        "keyless": true,
+        "schemes": [
+          "exact"
+        ],
+        "settles": [
+          "svm"
+        ],
+        "note": "PayAI: keyless fee-payer sponsor (Solana SPL SVM). LIVE-settled 2026-06-14 (tx 4dL8jRKH…).",
+        "settled": true,
+        "date": "2026-06-14",
+        "txs": [
+          {
+            "hash": "4dL8jRKH…",
+            "url": null,
+            "full": false
+          }
+        ],
+        "asset": "Solana SPL SVM",
+        "floor": null,
+        "floorNote": null,
+        "gasSponsored": true,
+        "caveat": "PayAI: keyless fee-payer sponsor (Solana SPL SVM)."
+      },
+      {
+        "name": "OpenFacilitator",
+        "nameNote": null,
+        "url": "https://pay.openfacilitator.io",
+        "host": "pay.openfacilitator.io",
+        "keyless": true,
+        "schemes": [
+          "exact"
+        ],
+        "settles": [
+          "svm"
+        ],
+        "note": "OpenFacilitator: keyless (no signup), fee-payer sponsor. LIVE-settled on Solana 2026-06-15 (tx 5BabDtX…).",
+        "settled": true,
+        "date": "2026-06-15",
+        "txs": [
+          {
+            "hash": "5BabDtX…",
+            "url": null,
+            "full": false
+          }
+        ],
+        "asset": null,
+        "floor": null,
+        "floorNote": null,
+        "gasSponsored": true,
+        "caveat": "OpenFacilitator: keyless (no signup), fee-payer sponsor."
+      },
+      {
+        "name": "GoPlausible",
+        "nameNote": null,
+        "url": "https://facilitator.goplausible.xyz",
+        "host": "facilitator.goplausible.xyz",
+        "keyless": true,
+        "schemes": [
+          "exact"
+        ],
+        "settles": [
+          "svm"
+        ],
+        "note": "GoPlausible: keyless fee-payer sponsor (Solana SPL SVM). LIVE-settled on Solana mainnet 2026-09-06 (tx 3DEGg6Lue8471meBH8hbLxV1bLmZGKvmvmSY3tjg7tQFnxzE9GQXUXokjQnZgTqaEU4SaXuY9F7v3m7JsX5xDgrZ): buyer paid 0 SOL, GoPlausible's sponsor 8a8fFNfk… paid the 10,001-lamport fee, replay rejected.",
+        "settled": true,
+        "date": "2026-09-06",
+        "txs": [],
+        "asset": "Solana SPL SVM",
+        "floor": null,
+        "floorNote": null,
+        "gasSponsored": true,
+        "caveat": "GoPlausible: keyless fee-payer sponsor (Solana SPL SVM)."
+      }
+    ]
+  },
+  {
     "caip2": "eip155:43114",
     "chain": "Avalanche",
     "slug": "avalanche",
@@ -681,69 +766,6 @@ export const facilitatorCoverage: FacilitatorChain[] = [
         "floorNote": null,
         "gasSponsored": true,
         "caveat": "Ultravioleta DAO: keyless, 100% gas-sponsored."
-      }
-    ]
-  },
-  {
-    "caip2": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
-    "chain": "Solana",
-    "slug": "solana",
-    "facilitators": [
-      {
-        "name": "PayAI",
-        "nameNote": null,
-        "url": "https://facilitator.payai.network",
-        "host": "facilitator.payai.network",
-        "keyless": true,
-        "schemes": [
-          "exact"
-        ],
-        "settles": [
-          "svm"
-        ],
-        "note": "PayAI: keyless fee-payer sponsor (Solana SPL SVM). LIVE-settled 2026-06-14 (tx 4dL8jRKH…).",
-        "settled": true,
-        "date": "2026-06-14",
-        "txs": [
-          {
-            "hash": "4dL8jRKH…",
-            "url": null,
-            "full": false
-          }
-        ],
-        "asset": "Solana SPL SVM",
-        "floor": null,
-        "floorNote": null,
-        "gasSponsored": true,
-        "caveat": "PayAI: keyless fee-payer sponsor (Solana SPL SVM)."
-      },
-      {
-        "name": "OpenFacilitator",
-        "nameNote": null,
-        "url": "https://pay.openfacilitator.io",
-        "host": "pay.openfacilitator.io",
-        "keyless": true,
-        "schemes": [
-          "exact"
-        ],
-        "settles": [
-          "svm"
-        ],
-        "note": "OpenFacilitator: keyless (no signup), fee-payer sponsor. LIVE-settled on Solana 2026-06-15 (tx 5BabDtX…).",
-        "settled": true,
-        "date": "2026-06-15",
-        "txs": [
-          {
-            "hash": "5BabDtX…",
-            "url": null,
-            "full": false
-          }
-        ],
-        "asset": null,
-        "floor": null,
-        "floorNote": null,
-        "gasSponsored": true,
-        "caveat": "OpenFacilitator: keyless (no signup), fee-payer sponsor."
       }
     ]
   },

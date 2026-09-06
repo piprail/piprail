@@ -633,7 +633,15 @@ export const RULES = [
       const group = (n) => n.toLocaleString('en-US') // 15686 → "15,686", the form prose uses
       const okTotals = new Set([group(resources), group(rails)])
       // Any 5-digit grouped number that looks like a catalogue total but is not the current one.
-      const suspicious = /\b(1[0-9],[0-9]{3}|[34][0-9],[0-9]{3})\b/g
+      // 🔴 NOT when it carries a unit. A chain fee written as "10,001 lamports" matches the
+      // shape exactly and is not a coverage figure at all; the 2.16.1 GoPlausible entry tripped
+      // this and the prose was correct. A gate that fires on a correct line is the one people
+      // learn to wave through, so the unit is excluded rather than the sentence reworded.
+      const UNITS = String.raw`lamports?|gwei|wei|satoshis?|sats|drops?|stroops?|microalgos?|nanotons?|yocto\w*`
+      const suspicious = new RegExp(
+        String.raw`\b(1[0-9],[0-9]{3}|[34][0-9],[0-9]{3})\b(?![\s-]*(?:${UNITS})\b)`,
+        'g',
+      )
       const problems = []
       for (const f of [
         'sdk/CHANGELOG.md',

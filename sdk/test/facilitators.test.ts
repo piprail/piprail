@@ -109,6 +109,21 @@ describe('KNOWN_FACILITATORS (seed data)', () => {
     expect(sol.some((f) => f.url.includes('payai') && f.settles.includes('svm') && f.keyless)).toBe(true)
   })
 
+  // GoPlausible on Solana (2026-09-06). They told us they settle Solana as well as Algorand and
+  // Base, and it checked out: LIVE-settled on mainnet, buyer paid 0 SOL, their sponsor paid the
+  // fee (tx 3DEGg6Lu…). Locks the seed so a regression that drops it fails the gate, and asserts
+  // Solana keeps MORE THAN ONE keyless option so the chain never silently narrows to a single
+  // vendor.
+  it('seeds GoPlausible keyless for Solana (svm), alongside the other Solana options', () => {
+    const sol = knownFacilitatorsFor('solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp')
+    const gp = sol.find((f) => f.url.includes('goplausible'))
+    expect(gp, 'GoPlausible is not seeded for Solana').toBeDefined()
+    expect(gp!.keyless).toBe(true)
+    expect(gp!.settles).toContain('svm')
+    expect(gp!.schemes).toContain('exact')
+    expect(sol.filter((f) => f.keyless && f.settles.includes('svm')).length).toBeGreaterThanOrEqual(3)
+  })
+
   // gasless-extension (2026-06-18): 7 more EVM mainnets, each LIVE-settled keyless (buyer paid zero
   // native). Locks in the expansion so a regression that drops a network fails the gate.
   it('seeds keyless eip3009 facilitators for the 7 gasless-extension EVM mainnets', () => {

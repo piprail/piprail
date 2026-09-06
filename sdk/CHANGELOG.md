@@ -4,6 +4,26 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.16.1] — 2026-09-06 — GoPlausible settles Solana, live-proven
+
+### Added
+
+- **GoPlausible is now seeded as a keyless Solana facilitator.** They told us directly that they
+  settle Solana as well as Algorand and Base, and they were right: their `/supported` advertises
+  `solana:5eykt4Us…` `exact` with a sponsor fee payer, and PipRail's own `facilitatorCoverage()`
+  reads the same.
+
+  **Live-proven on Solana mainnet 2026-09-06** rather than taken on trust. A real
+  `402 → pay → verify → 200` round trip on the `exact` rail: the merchant received exactly
+  0.01 USDC, the **buyer paid 0 SOL**, GoPlausible's sponsor `8a8fFNfk…RAYi` paid the
+  10,001-lamport fee (confirmed by reading `accountKeys[0]` on the settled transaction), and a
+  replay of the same proof was rejected. Tx
+  `3DEGg6Lue8471meBH8hbLxV1bLmZGKvmvmSY3tjg7tQFnxzE9GQXUXokjQnZgTqaEU4SaXuY9F7v3m7JsX5xDgrZ`.
+
+  Solana previously seeded only PayAI and OpenFacilitator, so this is a third keyless option on
+  that chain. No default changes: the seed list is a convenience, and the SDK still depends on no
+  facilitator.
+
 ## [2.16.0] — 2026-09-06 — the XRP Ledger `exact` buyer, and paying the 91% of the x402 web we could not
 
 ### Added — the XRP Ledger `exact` buyer (stage 04, first family)
@@ -2110,6 +2130,7 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[2.16.1]: https://www.npmjs.com/package/@piprail/sdk
 [2.16.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.15.1]: https://www.npmjs.com/package/@piprail/sdk
 [2.15.0]: https://www.npmjs.com/package/@piprail/sdk
