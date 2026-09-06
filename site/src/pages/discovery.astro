@@ -10,7 +10,7 @@ import {
   Search, Megaphone, Code2, Globe, ShieldCheck, Zap, ArrowRight, Sparkles, Plug, Bot, ChevronDown,
 } from 'lucide-astro'
 
-const title = 'Discovery — make your x402 endpoint findable | PipRail'
+const title = 'Discovery: make your x402 endpoint findable | PipRail'
 const description =
   'How a PipRail merchant becomes discoverable and how an agent finds payable x402 resources, built on the open indexes. No backend, no registry, no fee.'
 
@@ -19,7 +19,7 @@ const indexes = [
   {
     name: '402 Index',
     role: 'Primary register · free read',
-    note: 'One POST to list yourself — no auth, no signature, no fee, every chain. Probed on submit; verify your domain to go live instantly. A superset (it also re-ingests the CDP Bazaar).',
+    note: 'One POST to list yourself. No auth, no signature, no fee, every chain. Probed on submit; verify your domain to go live instantly. A superset (it also re-ingests the CDP Bazaar).',
   },
   {
     name: 'CDP Bazaar',
@@ -29,13 +29,13 @@ const indexes = [
   {
     name: 'x402scan',
     role: 'Secondary register (SIWX)',
-    note: 'List with one wallet signature — the strongest ownership-proof model, facilitator-free. Base + Solana only; reads are paid (opt-in).',
+    note: 'List with one wallet signature, the strongest ownership-proof model, facilitator-free. Base + Solana only; reads are paid (opt-in).',
   },
 ]
 
-// The centerpiece — exactly how it works, three opt-in moves.
+// The centerpiece: exactly how it works, three opt-in moves.
 // Only the two clearest moves carry a code snippet (register + discover); the
-// emit step keeps its value prop, no snippet — full reference at docs.piprail.com.
+// emit step keeps its value prop, no snippet. Full reference at docs.piprail.com.
 const moves = [
   {
     n: '01',
@@ -44,7 +44,7 @@ const moves = [
     title: 'Turn your gate into a crawlable file',
     points: [
       'gate.describe() exposes your price, token, chain and payTo as static, nonce-free metadata.',
-      'buildOpenApi / buildWellKnownX402 / buildX402DnsTxt are pure — no network, no chain library.',
+      'buildOpenApi / buildWellKnownX402 / buildX402DnsTxt are pure: no network, no chain library.',
       'Serve the result as a static file on your own origin (/openapi.json). No backend, ever.',
     ],
   },
@@ -55,9 +55,9 @@ const moves = [
     title: 'List yourself on the open registries',
     code: discoverRegisterCode,
     points: [
-      'client.register(url) POSTs to 402 Index by default — no auth, no signature, no payment.',
+      'client.register(url) POSTs to 402 Index by default: no auth, no signature, no payment.',
       'Add x402scan via SIWX (one wallet signature; Base/Solana) for an ownership-verified listing.',
-      'Returns one outcome per index — a step a chain can’t satisfy is reported, never thrown.',
+      'Returns one outcome per index. A step a chain can’t satisfy is reported, never thrown.',
     ],
   },
   {
@@ -69,53 +69,53 @@ const moves = [
     points: [
       'client.discover() reads the open indexes (free), filtered to your chain by default.',
       'Each hit carries its rails; feed a chosen resource into the usual quote → plan → pay.',
-      'Never throws — a down or changed index simply contributes nothing.',
+      'Never throws. A down or changed index simply contributes nothing.',
     ],
   },
 ]
 
 // The two end-to-end flows.
 const merchantFlow = [
-  { n: '01', t: 'Gate the route', d: 'requirePayment() — it’s now payable, but invisible.' },
+  { n: '01', t: 'Gate the route', d: 'requirePayment(). It’s now payable, but invisible.' },
   { n: '02', t: 'Describe + emit', d: 'gate.describe() → buildOpenApi() → serve /openapi.json on your origin.' },
   { n: '03', t: 'Register', d: 'client.register(url) → 402 Index (no auth) [+ x402scan SIWX].' },
   { n: '04', t: 'Found', d: 'Probed, then searchable (instant if you verify your domain). Nothing PipRail-hosted.' },
 ]
 const agentFlow = [
-  { n: '01', t: 'Discover', d: 'client.discover({ query }) — candidates from the open indexes.' },
-  { n: '02', t: 'Quote', d: 'client.quote(resource) — the exact live price.' },
-  { n: '03', t: 'Plan', d: 'client.planPayment(resource) — can I actually settle it?' },
-  { n: '04', t: 'Pay', d: 'client.fetch(resource) — merchant-direct, verified locally. No facilitator.' },
+  { n: '01', t: 'Discover', d: 'client.discover({ query }): candidates from the open indexes.' },
+  { n: '02', t: 'Quote', d: 'client.quote(resource): the exact live price.' },
+  { n: '03', t: 'Plan', d: 'client.planPayment(resource): can I actually settle it?' },
+  { n: '04', t: 'Pay', d: 'client.fetch(resource): merchant-direct, verified locally. No facilitator.' },
 ]
 
 // Full transparency: exactly what each step needs. No PipRail account, no x402 sign-up anywhere.
 const requirements = [
   { step: 'Gate an endpoint', wallet: 'receiving address only', signing: 'No', signup: 'No', cost: 'Free' },
-  { step: 'Emit /openapi.json', wallet: '—', signing: 'No', signup: 'No', cost: 'Free' },
-  { step: 'Register · 402 Index (default)', wallet: '—', signing: 'No', signup: 'No', cost: 'Free', fast: true },
+  { step: 'Emit /openapi.json', wallet: 'None', signing: 'No', signup: 'No', cost: 'Free' },
+  { step: 'Register · 402 Index (default)', wallet: 'None', signing: 'No', signup: 'No', cost: 'Free', fast: true },
   { step: 'Register · x402scan (optional)', wallet: 'your own', signing: '1 SIWX signature · no funds move', signup: 'No', cost: 'Free' },
   { step: 'Ownership badge (optional)', wallet: 'your own', signing: 'sign the origin string', signup: 'No', cost: 'Free' },
-  { step: 'Discover', wallet: '—', signing: 'No', signup: 'No', cost: 'Free' },
-  { step: 'Quote / plan', wallet: '—', signing: 'No', signup: 'No', cost: 'Free' },
+  { step: 'Discover', wallet: 'None', signing: 'No', signup: 'No', cost: 'Free' },
+  { step: 'Quote / plan', wallet: 'None', signing: 'No', signup: 'No', cost: 'Free' },
   { step: 'Pay a discovered API', wallet: 'funded wallet', signing: 'the payment tx', signup: 'No', cost: 'price + gas', fast: true },
 ]
 
 const faqs = [
   {
     q: 'How does an AI agent discover my x402 endpoint?',
-    a: 'Discovery is built into the SDK and backendless — PipRail builds on the open x402 indexes that already exist (402 Index, the CDP Bazaar read API, x402scan) and hosts none of its own. To be found, call client.register(url): one POST to 402 Index, no auth and no signature — probed on submit, then searchable once it passes automated checks (or instantly, if you verify your domain). To find resources to pay, an agent calls client.discover({ query }), which reads those open indexes for free and returns candidates it then quotes and pays. No registry, no database, no fee.',
+    a: 'Discovery is built into the SDK and backendless. PipRail builds on the open x402 indexes that already exist (402 Index, the CDP Bazaar read API, x402scan) and hosts none of its own. To be found, call client.register(url): one POST to 402 Index, no auth and no signature. It is probed on submit, then searchable once it passes automated checks (or instantly, if you verify your domain). To find resources to pay, an agent calls client.discover({ query }), which reads those open indexes for free and returns candidates it then quotes and pays. No registry, no database, no fee.',
   },
   {
     q: 'Does PipRail run a registry or database for discovery?',
-    a: 'No. PipRail hosts nothing — no registry, no database, no backend, no fee. Emitting a discovery file produces a static file you serve on your own origin; registering and discovering are runtime calls to third-party open indexes; and payment still settles wallet-to-wallet with local verification. We consume and contribute to open infrastructure rather than running our own directory, which would turn the tool into a platform you sign up for.',
+    a: 'No. PipRail hosts nothing: no registry, no database, no backend, no fee. Emitting a discovery file produces a static file you serve on your own origin; registering and discovering are runtime calls to third-party open indexes; and payment still settles wallet-to-wallet with local verification. We consume and contribute to open infrastructure rather than running our own directory, which would turn the tool into a platform you sign up for.',
   },
   {
     q: 'Why don’t my PipRail endpoints appear in the Coinbase Bazaar automatically?',
-    a: 'The CDP Bazaar catalogs a resource only when Coinbase’s facilitator settles a payment for it. PipRail is backendless and uses no facilitator — payments settle straight to your wallet, verified against your own RPC — so it never appears in the Bazaar by construction. That’s by design; discoverability for a backendless merchant comes from 402 Index (every chain) and x402scan (Base/Solana). PipRail can still read the Bazaar to help an agent find other people’s endpoints.',
+    a: 'The CDP Bazaar catalogs a resource only when Coinbase’s facilitator settles a payment for it. PipRail is backendless and uses no facilitator (payments settle straight to your wallet, verified against your own RPC) so it never appears in the Bazaar by construction. That’s by design; discoverability for a backendless merchant comes from 402 Index (every chain) and x402scan (Base/Solana). PipRail can still read the Bazaar to help an agent find other people’s endpoints.',
   },
   {
     q: 'Is there a single official x402 discovery standard?',
-    a: 'Not yet. The ratified x402 v2 spec defines discovery only as the read-only facilitator Bazaar. The OpenAPI-first convention PipRail emits (x-payment-info per operation) is an emerging multi-vendor convention — it’s what the live indexes parse today and where an early IETF draft points — but it isn’t ratified, so PipRail emits it while treating it as a moving target, never overselling it as “the standard.”',
+    a: 'Not yet. The ratified x402 v2 spec defines discovery only as the read-only facilitator Bazaar. The OpenAPI-first convention PipRail emits (x-payment-info per operation) is an emerging multi-vendor convention. It’s what the live indexes parse today and where an early IETF draft points, but it isn’t ratified, so PipRail emits it while treating it as a moving target, never overselling it as “the standard.”',
   },
 ]
 
@@ -142,9 +142,9 @@ const faqLd = {
         Be discoverable. <span class="text-accent">Find anything.</span>
       </h1>
       <p class="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-neutral-400 sm:text-lg">
-        x402 makes an endpoint <span class="text-neutral-200">payable</span> — but not <span class="text-neutral-200">findable</span>.
+        x402 makes an endpoint <span class="text-neutral-200">payable</span>, but not <span class="text-neutral-200">findable</span>.
         PipRail closes the gap by building on the <span class="text-neutral-200">open</span> x402 indexes that already exist,
-        so any merchant or AI agent gets discovered the moment they gate a route. No registry, no database, no fee — nothing PipRail-hosted.
+        so any merchant or AI agent gets discovered the moment they gate a route. No registry, no database, no fee, nothing PipRail-hosted.
       </p>
       <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
         <a href="#how" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto">
@@ -161,15 +161,15 @@ const faqLd = {
       <div class="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
         <div>
           <SectionHeading title="Payable, but invisible." class="mb-6 max-w-xl">
-            The x402 protocol answers one question — <span class="text-neutral-200">“how do I pay for THIS url?”</span> It
+            The x402 protocol answers one question: <span class="text-neutral-200">“how do I pay for THIS url?”</span> It
             does not answer <span class="text-neutral-200">“what payable URLs exist?”</span> So a fresh endpoint is a shop with
-            no sign, on a street with no name — and an agent has no phone book to look in.
+            no sign, on a street with no name, and an agent has no phone book to look in.
           </SectionHeading>
         </div>
         <div class="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 sm:grid-cols-2">
           <div class="bg-neutral-950 p-6">
             <p class="text-sm font-medium text-neutral-300">The seller</p>
-            <p class="mt-2 text-sm leading-relaxed text-neutral-500">adds <code class="text-neutral-300">requirePayment()</code> — now charging, but no one knows the URL exists.</p>
+            <p class="mt-2 text-sm leading-relaxed text-neutral-500">adds <code class="text-neutral-300">requirePayment()</code>. Now charging, but no one knows the URL exists.</p>
           </div>
           <div class="bg-neutral-950 p-6">
             <p class="text-sm font-medium text-neutral-300">The buyer</p>
@@ -182,7 +182,7 @@ const faqLd = {
     <!-- Built on open infra -->
     <section class="border-t border-white/10 py-16 sm:py-20">
       <SectionHeading title="Built on open infra. Nothing hosted.">
-        We don’t run a directory — we plug into the open x402 indexes that already exist, and contribute back.
+        We don’t run a directory. We plug into the open x402 indexes that already exist, and contribute back.
         A registry of our own would be a backend forever; that’s the one thing PipRail refuses to become.
       </SectionHeading>
       <div class="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 md:grid-cols-3">
@@ -199,18 +199,18 @@ const faqLd = {
         <Globe size={18} class="mt-0.5 shrink-0 text-accent" aria-hidden="true" />
         <p class="text-sm leading-relaxed text-neutral-300">
           <span class="font-medium text-neutral-100">Every chain, guaranteed.</span> 402 Index needs no signature and
-          has no chain allowlist — so a built-in preset, any non-EVM family, or a custom <code class="text-neutral-200">&#123; id, rpcUrl &#125;</code>
+          has no chain allowlist, so a built-in preset, any non-EVM family, or a custom <code class="text-neutral-200">&#123; id, rpcUrl &#125;</code>
           chain is listed and findable, and <code class="text-neutral-200">discover()</code> never silently hides a chain it can’t resolve.
           x402scan is the one Base/Solana-only bonus target.
         </p>
       </div>
     </section>
 
-    <!-- The three moves — the centerpiece -->
+    <!-- The three moves: the centerpiece -->
     <section id="how" class="scroll-mt-20 border-t border-white/10 py-16 sm:py-20">
-      <SectionHeading title="Exactly how it works — three opt-in moves.">
+      <SectionHeading title="Exactly how it works: three opt-in moves.">
         Two moves to <span class="text-neutral-200">be found</span>, one to <span class="text-neutral-200">find</span>.
-        All opt-in, the pay path byte-identical to before — each a couple of lines.
+        All opt-in, the pay path byte-identical to before, each a couple of lines.
       </SectionHeading>
       <div class="space-y-px overflow-hidden rounded-2xl border border-white/10 bg-white/10">
         {moves.map((m, i) => {
@@ -248,11 +248,11 @@ const faqLd = {
     <section class="border-t border-white/10 py-16 sm:py-20">
       <SectionHeading title="The round trip, end to end.">
         The merchant becomes findable; the agent finds and pays. The index is third-party, but the
-        <span class="text-neutral-200"> payment never touches it</span> — value still settles wallet-to-wallet with local verify.
+        <span class="text-neutral-200"> payment never touches it</span>. Value still settles wallet-to-wallet with local verify.
       </SectionHeading>
       <div class="grid gap-8 lg:grid-cols-2 lg:gap-10">
         <div>
-          <p class="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-neutral-300"><Megaphone size={15} class="text-accent" aria-hidden="true" /> Merchant — be found</p>
+          <p class="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-neutral-300"><Megaphone size={15} class="text-accent" aria-hidden="true" /> Merchant: be found</p>
           <ol class="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10">
             {merchantFlow.map((s) => (
               <li class="bg-neutral-950 p-5">
@@ -264,7 +264,7 @@ const faqLd = {
           </ol>
         </div>
         <div>
-          <p class="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-neutral-300"><Search size={15} class="text-accent" aria-hidden="true" /> Agent — find &amp; pay</p>
+          <p class="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-neutral-300"><Search size={15} class="text-accent" aria-hidden="true" /> Agent: find &amp; pay</p>
           <ol class="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10">
             {agentFlow.map((s) => (
               <li class="bg-neutral-950 p-5">
@@ -280,9 +280,9 @@ const faqLd = {
 
     <!-- What you need at each step (full transparency) -->
     <section class="border-t border-white/10 py-16 sm:py-20">
-      <SectionHeading title="What you actually need — no surprises.">
+      <SectionHeading title="What you actually need. No surprises.">
         Full transparency on wallets, signing, and sign-ups. There's <span class="text-neutral-200">no PipRail
-        account and no x402 sign-up anywhere</span> — the only thing ever registered is a merchant's own URL,
+        account and no x402 sign-up anywhere</span>. The only thing ever registered is a merchant's own URL,
         by one call. The fastest path to discoverable (highlighted) needs <span class="text-neutral-200">no
         wallet, no signature, no account</span>.
       </SectionHeading>
@@ -311,7 +311,7 @@ const faqLd = {
         </table>
       </div>
       <p class="mt-4 text-sm leading-relaxed text-neutral-500">
-        The reliable attribution rides along automatically — your emitted <code class="text-neutral-300">/openapi.json</code>
+        The reliable attribution rides along automatically. Your emitted <code class="text-neutral-300">/openapi.json</code>
         carries a <code class="text-neutral-300">x-generator: "@piprail/sdk"</code> stamp (opt-out), and index
         requests send a PipRail <code class="text-neutral-300">User-Agent</code>. Nothing is hidden, nothing is forced.
       </p>
@@ -330,13 +330,13 @@ const faqLd = {
           </h2>
           <p class="mt-4 max-w-2xl leading-relaxed text-neutral-400">
             The <a href="/mcp/" class="text-accent underline-offset-4 hover:underline">PipRail MCP server</a> hands an agent the
-            same discovery the SDK has — budget-bound, local-only.
+            same discovery the SDK has, budget-bound and local-only.
           </p>
           <div class="mt-7 grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 sm:grid-cols-2">
             <div class="bg-neutral-950 p-6">
               <span class="flex h-9 w-9 items-center justify-center rounded-lg border border-accent/20 bg-accent/10 text-accent"><Search size={16} aria-hidden="true" /></span>
               <p class="mt-4 font-mono text-[13px] font-medium text-neutral-100">piprail_discover</p>
-              <p class="mt-2 text-sm leading-relaxed text-neutral-500">Search the open indexes for payable APIs — the phone book. Filtered to the agent’s chain by default.</p>
+              <p class="mt-2 text-sm leading-relaxed text-neutral-500">Search the open indexes for payable APIs: the phone book. Filtered to the agent’s chain by default.</p>
             </div>
             <div class="bg-neutral-950 p-6">
               <span class="flex h-9 w-9 items-center justify-center rounded-lg border border-accent/20 bg-accent/10 text-accent"><Megaphone size={16} aria-hidden="true" /></span>
@@ -351,7 +351,7 @@ const faqLd = {
     <!-- Honest caveats -->
     <section class="border-t border-white/10 py-16 sm:py-20">
       <SectionHeading title="The honest caveats." class="mb-8 max-w-2xl">
-        We document the rough edges plainly — discovery is a young, moving layer, so we ship it
+        We document the rough edges plainly. Discovery is a young, moving layer, so we ship it
         <span class="text-neutral-200">experimental</span>. (The read path + 402 Index register are
         live-verified; 402 Index only lists endpoints that truly return a <code class="text-neutral-300">402</code>.)
       </SectionHeading>
@@ -362,11 +362,11 @@ const faqLd = {
         </div>
         <div class="bg-neutral-950 p-6">
           <p class="flex items-center gap-2 font-medium text-neutral-100"><Globe size={16} class="text-accent" aria-hidden="true" /> Coverage</p>
-          <p class="mt-2 text-sm leading-relaxed text-neutral-500">x402scan indexes <span class="text-neutral-300">Base + Solana only</span>. 402 Index has no such limit, so it’s the default register target — every chain.</p>
+          <p class="mt-2 text-sm leading-relaxed text-neutral-500">x402scan indexes <span class="text-neutral-300">Base + Solana only</span>. 402 Index has no such limit, so it’s the default register target, on every chain.</p>
         </div>
         <div class="bg-neutral-950 p-6">
           <p class="flex items-center gap-2 font-medium text-neutral-100"><Zap size={16} class="text-accent" aria-hidden="true" /> Standard</p>
-          <p class="mt-2 text-sm leading-relaxed text-neutral-500">No single ratified discovery standard yet. OpenAPI-first is an <span class="text-neutral-300">emerging convention</span> — we emit it, never oversell it.</p>
+          <p class="mt-2 text-sm leading-relaxed text-neutral-500">No single ratified discovery standard yet. OpenAPI-first is an <span class="text-neutral-300">emerging convention</span>. We emit it, and never oversell it.</p>
         </div>
       </div>
     </section>
@@ -393,7 +393,7 @@ const faqLd = {
         Get found in one line.
       </h2>
       <p class="mx-auto mt-5 max-w-xl text-base leading-relaxed text-neutral-400">
-        Gate a route, then <code class="text-neutral-300">client.register(url)</code> — one POST, searchable on infra you don’t run.
+        Gate a route, then <code class="text-neutral-300">client.register(url)</code>. One POST, searchable on infra you don’t run.
       </p>
       <div class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
         <a href="/sdk/" class="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110">

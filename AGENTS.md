@@ -58,6 +58,7 @@ Confirm any signature against `sdk/src/index.ts` before using it.
 - **Drivers mirror each other** — every family is `chains · wallet · pay · verify · index`, with family-suffixed functions (`payEvm`, `verifySui`, …). Copy the pattern to add one.
 - **Verify every token address on-chain** before shipping it (symbol + decimals). A wrong decimal count breaks amount math and replay protection.
 - Keep `npm run test:sdk`, `npm run typecheck`, and `npm run build:sdk` green before you finish.
+- **Run text for `site/src/` or `docs/src/` through the `humanizer` skill before it ships** — house voice in `.claude/skills/humanizer/PIPRAIL.md` (technically correct, simple, **no em dashes**). `npm run prose` is the gate, and it runs inside `npm run verify-gate`.
 - Keep examples **dead simple** and standalone (they `npm install @piprail/sdk` from npm).
 
 ## Ask first

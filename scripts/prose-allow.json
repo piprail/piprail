@@ -1,0 +1,4 @@
+{
+  "//": "Exceptions to the prose audit. PIPRAIL.md permits exactly two: text quoted verbatim from a third party, and literal terminal output where the dash is what the tool actually printed. An entry suppresses findings on any line of `file` containing `snippet` exactly. Keep `why` honest; if you cannot write one, rewrite the line instead.",
+  "allow": []
+}

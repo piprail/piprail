@@ -3,12 +3,12 @@
  *
  * WHY THIS EXISTS
  * ───────────────
- * `CodeWindow` renders its `code` prop with `set:html`, expecting pre-highlighted markup —
+ * `CodeWindow` renders its `code` prop with `set:html`, expecting pre-highlighted markup:
  * the `tok-*` spans styled in global.css. Every snippet in `data/snippets.ts` was therefore
  * written with those spans typed BY HAND, which has two failure modes:
  *
  *   1. A new snippet written as plain text renders as plain text. Nothing errors, nothing
- *      warns — it just quietly looks worse than every other block on the site. That is
+ *      warns. It just quietly looks worse than every other block on the site. That is
  *      exactly what happened to the two blocks on /facilitators.
  *   2. Hand-written markup goes through `set:html` unescaped, so a snippet containing a
  *      literal `<` or `&` renders as markup rather than as code.
@@ -17,7 +17,7 @@
  * unconditionally, which closes (2) as a side effect.
  *
  * This is deliberately a small tokenizer rather than a real parser. It highlights the
- * TypeScript/JSON we actually put on the site — imports, calls, strings, numbers, comments —
+ * TypeScript/JSON we actually put on the site (imports, calls, strings, numbers, comments)
  * and when it does not recognise something it emits it as plain escaped text. The worst
  * output it can produce is under-highlighted, never wrong or unsafe.
  */
@@ -54,7 +54,7 @@ const span = (cls: string, text: string) => `<span class="tok-${cls}">${esc(text
 /**
  * Highlight one snippet.
  *
- * `chainKeys` are property names whose STRING VALUE gets the amber `tok-chain` treatment —
+ * `chainKeys` are property names whose STRING VALUE gets the amber `tok-chain` treatment,
  * the site's one bit of semantic highlighting, so the eye lands on the chain in
  * `chain: 'solana'`. It is opt-out because a snippet about something else should not have a
  * random word turn amber.

@@ -1,13 +1,13 @@
 ---
 title: SDK API reference
-description: The full public surface of @piprail/sdk — every export grouped by job, with the headline APIs marked and a link to where each one is documented.
+description: The full public surface of @piprail/sdk. Every export grouped by job, with the headline APIs marked and a link to where each one is documented.
 sidebar:
   order: 1
 ---
 
 ## Introduction
 
-This is the map of everything `@piprail/sdk` exports — grouped by the job it does, with the
+This is the map of everything `@piprail/sdk` exports, grouped by the job it does, with the
 **headline** APIs marked and the **advanced** tiers (wire codecs, low-level `exact`, the driver
 SPI) kept clearly separate. Each group links to the page that documents it in full.
 
@@ -27,38 +27,38 @@ the same logic, framework-free.
 | --- | --- | --- |
 | `requirePayment` | fn | **Headline** |
 | `createPaymentGate` | fn | **Headline** |
-| `createPaywall`, `createTipJar` | fn | Presets — named sugar over `createPaymentGate` (fixed-price paywall / pay-what-you-want tip jar). See [Presets & self-test](/accepting-payments/merchant-presets/) |
-| `toFetchHandler`, `toWorker`, `proxyTo` | fn | Adapters for every `fetch` runtime — `toFetchHandler` (universal `(request, …) => Response`) + `toWorker` (the `{ fetch }` export). `proxyTo(origin)` is a `serve` that forwards paid requests to an existing backend → [gate any API](/accepting-payments/proxy/). See [Framework adapters](/accepting-payments/framework-adapters/) |
-| `deliverReceipt` | fn | Reliable receipt webhook — signed + retried POST to **your** endpoint |
+| `createPaywall`, `createTipJar` | fn | Presets: named sugar over `createPaymentGate` (fixed-price paywall / pay-what-you-want tip jar). See [Presets & self-test](/accepting-payments/merchant-presets/) |
+| `toFetchHandler`, `toWorker`, `proxyTo` | fn | Adapters for every `fetch` runtime: `toFetchHandler` (universal `(request, …) => Response`) + `toWorker` (the `{ fetch }` export). `proxyTo(origin)` is a `serve` that forwards paid requests to an existing backend → [gate any API](/accepting-payments/proxy/). See [Framework adapters](/accepting-payments/framework-adapters/) |
+| `deliverReceipt` | fn | Reliable receipt webhook: a signed + retried POST to **your** endpoint |
 | `toInvalidBody` | fn | Deprecated |
 | `RequirePaymentOptions`, `AcceptOption`, `ExactRailOption` | type | carries `onPaid` / `onPaidError` / `awaitOnPaid` **and their failure mirrors `onFailed` / `onFailedError` / `awaitOnFailed`**; `mimeType` (→ v2 `resource.mimeType` + the self-describe `endpoint`) |
-| `UptoRailOption` | type | The `createPaymentGate({ upto })` rail option — metered / variable-amount billing (buyer signs a MAX, you settle the actual ≤ max). See [upto rail (seller)](/accepting-payments/upto-rail-seller/) |
-| `ReceiptOption` | type | The `createPaymentGate({ receipt })` rail option — emit a signed, anyone-verifiable [verifiable receipt](/accepting-payments/verifiable-receipts/) alongside the response |
-| `ChainSelector`, `TokenInput` | type | — |
-| `PaymentGate`, `VerifyPaymentResult` | type | — |
-| `GateSelfTest` | type | The result of `gate.selfTest()` — `{ ok, rails, warnings, error? }` (read-only, never-throw config check) |
+| `UptoRailOption` | type | The `createPaymentGate({ upto })` rail option: metered / variable-amount billing (buyer signs a MAX, you settle the actual ≤ max). See [upto rail (seller)](/accepting-payments/upto-rail-seller/) |
+| `ReceiptOption` | type | The `createPaymentGate({ receipt })` rail option: emit a signed, anyone-verifiable [verifiable receipt](/accepting-payments/verifiable-receipts/) alongside the response |
+| `ChainSelector`, `TokenInput` | type | |
+| `PaymentGate`, `VerifyPaymentResult` | type | |
+| `GateSelfTest` | type | The result of `gate.selfTest()`: `{ ok, rails, warnings, error? }` (read-only, never-throw config check) |
 | `PaywallOptions`, `TipJarOptions`, `Serve` | type | The preset + adapter option types |
 | `PaidReceipt` | type | The enriched receipt `onPaid` receives |
-| `FailedPayment` | type | The failure object `onFailed` receives — `{ code, detail, transient }` (the mirror of `PaidReceipt`) |
-| `DeliverReceiptOptions`, `DeliverAttempt`, `DeliverResult` | type | — |
-| `X402InvalidBody` | type | — |
-| `ExpressLike{Request,Response,Next,Middleware}` | type | — |
+| `FailedPayment` | type | The failure object `onFailed` receives: `{ code, detail, transient }` (the mirror of `PaidReceipt`) |
+| `DeliverReceiptOptions`, `DeliverAttempt`, `DeliverResult` | type | |
+| `X402InvalidBody` | type | |
+| `ExpressLike{Request,Response,Next,Middleware}` | type | |
 
 See [requirePayment & createPaymentGate](/accepting-payments/require-payment-and-gate/),
 [Defining accepts](/accepting-payments/defining-accepts/),
 [Verifying payments](/accepting-payments/verifying-payments/), and
 [Receipts & onPaid](/accepting-payments/receipts-and-onpaid/) (the `PaidReceipt`, `onPaidError`,
-`awaitOnPaid`, and `deliverReceipt` — plus the failure mirror `onFailed` / `FailedPayment` /
+`awaitOnPaid`, and `deliverReceipt`, plus the failure mirror `onFailed` / `FailedPayment` /
 `onFailedError` / `awaitOnFailed`, fired when a submitted proof is rejected).
 
 :::note
 `onFailed` is the exact mirror of `onPaid`: it fires only when a SUBMITTED proof is **rejected**
-(a `kind:'invalid'` verdict from `gate.verify()` — wrong amount, expired, replayed, unknown asset,
+(a `kind:'invalid'` verdict from `gate.verify()`: wrong amount, expired, replayed, unknown asset,
 wrong recipient, bad signature, …), never on a normal no-proof first-request 402 and never when
 `verify()` *throws* (a transient RPC blip or a 5xx `SettlementError` isn't a verdict). The
 `FailedPayment` it receives carries the SAME machine `code` the buyer's client is told, so both
 sides see one consistent reason. `transient` is `true` only for the two transient codes
-(`tx_not_found` / `insufficient_confirmations`) — the proof may still be settling and the buyer
+(`tx_not_found` / `insufficient_confirmations`), so the proof may still be settling and the buyer
 auto-retries, so alert on `!transient`. See
 [Why payments fail](/errors/why-payments-fail/) and [VerifyErrorCode](/errors/verify-error-code/).
 :::
@@ -72,14 +72,14 @@ per chain and auto-routes a 402 to whichever chain can settle it.
 | Export | Kind | Marked |
 | --- | --- | --- |
 | `PipRailClient` | class | **Headline** |
-| `MultiChainPayer` | class | **Headline** — one buyer, a wallet per chain |
+| `MultiChainPayer` | class | **Headline.** One buyer, a wallet per chain |
 | `planAcross`, `fetchAcross` | fn | plan / pay across an array of single-chain clients |
-| `PipRailClientOptions`, `MultiChainPayerOptions`, `WalletInput`, `PaymentScheme` | type | — |
+| `PipRailClientOptions`, `MultiChainPayerOptions`, `WalletInput`, `PaymentScheme` | type | |
 | `PayingClient` | type | the read-+-pay surface both `PipRailClient` and `MultiChainPayer` satisfy |
 | `PipRailQuote`, `PipRailCostQuote`, `PipRailEvent` | type | the `payment-failed` event gained `code?` / `detail?` and ALSO fires on a pre-send DECLINE (policy / `onBeforePay` / no settleable rail) |
-| `PaymentPlan`, `PayOption`, `PayBlocker`, `PayWarning` | type | — |
-| `SessionBudget`, `SpendRemaining` | type | — |
-| `ReceiptVerification` | type | The verdict returned by the static `PipRailClient.verifyReceipt` / `PipRailClient.verifyAttestation` — re-verify a [verifiable receipt](/making-payments/verifying-receipts/) against the chain, wallet-free (never throws). `client.lastReceipt()` returns the most recent one the client received. |
+| `PaymentPlan`, `PayOption`, `PayBlocker`, `PayWarning` | type | |
+| `SessionBudget`, `SpendRemaining` | type | |
+| `ReceiptVerification` | type | The verdict returned by the static `PipRailClient.verifyReceipt` / `PipRailClient.verifyAttestation`. Re-verify a [verifiable receipt](/making-payments/verifying-receipts/) against the chain, wallet-free (never throws). `client.lastReceipt()` returns the most recent one the client received. |
 
 See [Quote](/making-payments/quote/), [Estimate cost](/making-payments/estimate-cost/),
 [planPayment()](/making-payments/plan-payment/),
@@ -92,7 +92,7 @@ The `payment-failed` event (on `onEvent`) now carries an optional `code?` + `det
 **server rejection** that's the SAME canonical `code` the merchant's `onFailed` hook receives (a
 [VerifyErrorCode](/errors/verify-error-code/)); on a **pre-send client decline** it's the decline
 reason (e.g. `'BUDGET'` / `'APPROVAL'` / `'MAX_AMOUNT'`). `payment-failed` also fires on those
-pre-send declines now (policy, `onBeforePay`, or no settleable rail) — previously those *only*
+pre-send declines now (policy, `onBeforePay`, or no settleable rail), where previously those *only*
 threw. The typed `PaymentDeclinedError` throw is unchanged and zero funds still move, so a consumer
 watching `onEvent` alone now learns of **every** failure type, not just server rejections. See
 [Events](/making-payments/events/).
@@ -102,19 +102,19 @@ watching `onEvent` alone now learns of **every** failure type, not just server r
 
 The policy + ledger primitives. `evaluatePolicy` is the pure decision function the client and
 MCP both call before any spend. The ledger + store are how caps survive a restart and span chains
-— still no backend, no database, no fee: `SpendLedger` is in-memory and a `SpendStore` is a
+and still no backend, no database, no fee: `SpendLedger` is in-memory and a `SpendStore` is a
 caller-owned file (or anything you implement).
 
 | Export | Kind | Marked |
 | --- | --- | --- |
 | `evaluatePolicy` | fn | **Headline** |
 | `SpendLedger` | class | Share one across several clients for a cross-chain grand total (`MultiChainPayer.fromWallets` wires it for you) |
-| `memorySpendStore` | fn | A `SpendStore` backed by an in-memory array — `memorySpendStore(seed?)`; from `@piprail/sdk` |
-| `fileSpendStore` | fn | A durable JSONL `SpendStore` — `fileSpendStore(path)`; from `@piprail/sdk/node` (Node-only, keeps `node:fs` out of the browser bundle) |
-| `denomOf` | fn | Pure — `denomOf(symbol, asset, policy)` → the unit a token folds into, or none |
+| `memorySpendStore` | fn | A `SpendStore` backed by an in-memory array: `memorySpendStore(seed?)`; from `@piprail/sdk` |
+| `fileSpendStore` | fn | A durable JSONL `SpendStore`: `fileSpendStore(path)`; from `@piprail/sdk/node` (Node-only, keeps `node:fs` out of the browser bundle) |
+| `denomOf` | fn | Pure. `denomOf(symbol, asset, policy)` → the unit a token folds into, or none |
 | `BUILTIN_DENOMS`, `DENOM_PRECISION` | const | the built-in symbol→unit map (USDC/USDT/USD1/FDUSD/U/RLUSD → `'USD'`, EURC → `'EUR'`) and the fixed-point precision (`24`) |
 | `PaymentPolicy`, `PaymentIntent`, `PolicyDecision`, `PolicyDenyCode` | type | `PaymentPolicy` gained `maxTotalPerDenom` / `denomFor` / `maxPayments` / `maxPaymentsPerWindow` / `warnAtFraction`; `PolicyDenyCode` gained `MAX_TOTAL_DENOM` / `MAX_PAYMENTS` / `WINDOW_COUNT` |
-| `SpendStore` | type | `{ load(): SpendRecord[]; append(record): void }` — pass as the client's `spendStore` to persist the ledger (never throws) |
+| `SpendStore` | type | `{ load(): SpendRecord[]; append(record): void }`. Pass as the client's `spendStore` to persist the ledger (never throws) |
 | `SpendRecord`, `SpendSummary`, `SpendAssetTotal`, `SpendDenomTotal` | type | `SpendSummary` gained `byDenom: SpendDenomTotal[]`; `SpendRecord` gained optional `decimals` / `denom` |
 | `DenomRemaining`, `CountStatus` | type | the per-denomination remaining row + the payment-count status `SessionBudget` now also reports |
 
@@ -132,11 +132,11 @@ make a bound client legible to the model.
 | Export | Kind | Marked |
 | --- | --- | --- |
 | `paymentTools` | fn | **Headline** |
-| `AgentTool`, `ToolAnnotations` | type | — |
-| `summarizePlan`, `explainDecline`, `formatSpendReport`, `describeChallenge` | fn | — |
-| `PIPRAIL_AGENT_GUIDE`, `agentGuide` | const / fn | — |
-| `classifyChallenge` | fn | — |
-| `ChallengeTriage`, `ChallengeVerdict` | type | — |
+| `AgentTool`, `ToolAnnotations` | type | |
+| `summarizePlan`, `explainDecline`, `formatSpendReport`, `describeChallenge` | fn | |
+| `PIPRAIL_AGENT_GUIDE`, `agentGuide` | const / fn | |
+| `classifyChallenge` | fn | |
+| `ChallengeTriage`, `ChallengeVerdict` | type | |
 | `buildSelfDescription`, `buildEndpointInfo`, `BRAND` | fn / const | the `extensions.piprail` self-description builder, the `endpoint` sub-block assembler, + brand single-source-of-truth |
 | `SelfDescription`, `SelfDescribeRail`, `SelfDescribeEndpoint` | type | the self-describe block, a rail in it, and the agent-readable `endpoint` (summary/input/output) |
 
@@ -159,14 +159,14 @@ See [Chains overview](/chains/overview/) and [Chains & tokens](/concepts/chains-
 
 ## Discovery
 
-Be found, and find others — on the open x402 indexes, with nothing PipRail-hosted. The builders
+Be found, and find others, on the open x402 indexes, with nothing PipRail-hosted. The builders
 are pure (emit static artifacts); the `register*` / `searchOpenIndexes` functions talk to the
 free public directories.
 
 | Export | Kind |
 | --- | --- |
 | `buildOpenApi`, `buildWellKnownX402`, `buildWellKnownX402Manifest`, `buildX402DnsTxt`, `buildBazaarExtension`, `GENERATOR` | fn / const | `buildWellKnownX402Manifest` emits the forward-compatible `/.well-known/x402.json` (a richer second artifact beside the legacy flat `buildWellKnownX402`); takes `ManifestInput & { lastUpdated?: number }` |
-| `discoveryHeaders`, `POWERED_BY`, `renderLandingPage` | fn / const | self-describing HTTP surfaces — the Link/`x-powered-by` header bag + the human HTML landing page |
+| `discoveryHeaders`, `POWERED_BY`, `renderLandingPage` | fn / const | self-describing HTTP surfaces: the Link/`x-powered-by` header bag + the human HTML landing page |
 | `searchOpenIndexes`, `register402Index`, `registerX402Scan` | fn |
 | `claim402IndexDomain`, `verify402IndexDomain` | fn |
 | `normalizeNetwork`, `getDirectoryInfo`, `decorateOutcome`, `DIRECTORY_INFO` | fn / const |
@@ -175,7 +175,7 @@ free public directories.
 | `appendAttribution`, `REGISTER_ATTRIBUTION` | fn / const | the opt-in `· Built with @piprail/sdk` listing marker |
 | `PaymentRail`, `ResourceDescription`, `ManifestInput` | type | `ResourceDescription` carries an optional `mimeType` (v2 ResourceInfo) |
 | `OpenApiDocument`, `OpenApiOperation`, `WellKnownX402`, `WellKnownX402Manifest`, `WellKnownX402Item`, `X402DnsRecord` | type |
-| `DiscoveryDescriptor`, `BazaarExtension` | type | `DiscoveryDescriptor` gained `summary` — feeds both `extensions.bazaar` and `extensions.piprail.endpoint` |
+| `DiscoveryDescriptor`, `BazaarExtension` | type | `DiscoveryDescriptor` gained `summary`, which feeds both `extensions.bazaar` and `extensions.piprail.endpoint` |
 | `DiscoverySource`, `DiscoverySort`, `DiscoveredRail`, `DiscoveredResource` | type | `DiscoveredResource` gained `tags` / `reliabilityScore` / `health` / `verified` / `score` |
 | `RegisterOutcome`, `RegisterInput`, `SearchOpenIndexesOptions` | type | `RegisterInput` + `SearchOpenIndexesOptions` gained the category / tags / asset / reliability / sort fields |
 | `DirectoryInfo`, `ListingVisibility`, `DomainClaim`, `DomainVerification` | type |
@@ -208,7 +208,7 @@ See [Error model](/errors/error-model/), [Error hierarchy](/errors/error-hierarc
 ## Advanced: wire codecs
 
 The raw envelope codecs, for building a client or server by hand. `PipRailClient` and
-`createPaymentGate` cover the 99% case — reach for these only when you're hand-rolling the wire
+`createPaymentGate` cover the 99% case, so reach for these only when you're hand-rolling the wire
 format (server: `buildChallengeHeader` → verify → `buildReceiptHeader`; client: `parseChallenge`
 → `buildSignatureHeader` → `parseReceipt`).
 
@@ -217,10 +217,10 @@ format (server: `buildChallengeHeader` → verify → `buildReceiptHeader`; clie
 | `pickAccept` | fn |
 | `parseChallenge`, `parseReceipt`, `parseReceiptExtension`, `parseSettleResponse` | fn |
 | `parseSignatureHeader`, `parseExactPaymentHeader`, `parseUptoPaymentHeader` | fn |
-| `parseSignatureObject`, `parseExactObject`, `parseUptoObject`, `decodeBase64Json` | fn — the object-accepting parser **cores** the base64 header parsers wrap, for a transport that carries the SAME payload as raw JSON (A2A), fed via `gate.verifyObject` |
+| `parseSignatureObject`, `parseExactObject`, `parseUptoObject`, `decodeBase64Json` | fn: the object-accepting parser **cores** the base64 header parsers wrap, for a transport that carries the SAME payload as raw JSON (A2A), fed via `gate.verifyObject` |
 | `buildChallengeHeader`, `buildSignatureHeader`, `buildExactSignatureHeader`, `buildUptoSignatureHeader`, `buildReceiptHeader` | fn |
 | `buildReceiptExtension`, `EXT_OFFER_RECEIPT` | fn / const | build the `extensions.piprail.receipt` block (the anyone-verifiable [verifiable receipt](/accepting-payments/verifiable-receipts/)) + the offer-receipt extension key |
-| `buildPaymentIdentifierAdvertisement`, `readPaymentIdentifier`, `EXT_PAYMENT_IDENTIFIER` | fn / const | the opt-in [`payment-identifier`](/accepting-payments/replay-protection/) idempotency extension — advertise it on a challenge (default OFF, `info.required:false`) and validate/dedupe an echoed `id` (16–128 chars, `[A-Za-z0-9_-]`) on the gate's used-proof set; `readPaymentIdentifier` returns the id \| `null` (absent) \| `{ invalid }` (malformed), never throws |
+| `buildPaymentIdentifierAdvertisement`, `readPaymentIdentifier`, `EXT_PAYMENT_IDENTIFIER` | fn / const | the opt-in [`payment-identifier`](/accepting-payments/replay-protection/) idempotency extension. Advertise it on a challenge (default OFF, `info.required:false`) and validate/dedupe an echoed `id` (16 to 128 chars, `[A-Za-z0-9_-]`) on the gate's used-proof set; `readPaymentIdentifier` returns the id \| `null` (absent) \| `{ invalid }` (malformed), never throws |
 | `HEADER_REQUIRED`, `HEADER_SIGNATURE`, `HEADER_RESPONSE`, `HEADER_SIGNATURE_V1`, `HEADER_RESPONSE_V1` | const |
 | `Caip2`, `AssetId`, `AddressId` | type |
 | `VerifyResult`, `VerifyErrorCode` | type |
@@ -232,37 +232,37 @@ format (server: `buildChallengeHeader` → verify → `buildReceiptHeader`; clie
 
 See [Wire codecs](/reference/wire-codecs/) and [VerifyErrorCode](/errors/verify-error-code/).
 
-## Advanced: low-level exact (EVM — EIP-3009 + Permit2)
+## Advanced: low-level exact (EVM: EIP-3009 + Permit2)
 
 The standard x402 `exact` scheme at the codec tier. For the high-level paths use
-`PipRailClient({ schemes: ['exact'] })` (buyer) or `createPaymentGate({ exact })` (seller) — these
+`PipRailClient({ schemes: ['exact'] })` (buyer) or `createPaymentGate({ exact })` (seller). These
 exports are for hand-rolled clients, v1 servers, and custom flows. The `exact` scheme has six
 asset-transfer methods: **EIP-3009** (`transferWithAuthorization`, on EVM tokens that implement it) and
-**Permit2** (for EVM ERC-20s that don't — e.g. Binance-Peg USDC/USDT on BNB), plus **SVM** (Solana —
+**Permit2** (for EVM ERC-20s that don't, e.g. Binance-Peg USDC/USDT on BNB), plus **SVM** (Solana:
 any SPL token, the merchant is the fee payer), **Algorand**, **Aptos**, and **NEAR** on their respective
-L1s. The codecs in the table below are the EVM tier (EIP-3009 + Permit2); the non-EVM payloads — SVM's
+L1s. The codecs in the table below are the EVM tier (EIP-3009 + Permit2); the non-EVM payloads, SVM's
 `{ transaction }` shape (`ExactSvmPaymentPayload`), Algorand (`ExactAlgorandPaymentPayload`), Aptos
-(`ExactAptosPaymentPayload`), NEAR (`ExactNearPaymentPayload`) — are built/verified inside their
-respective drivers — they are variants of the exported `ExactPaymentPayloadAny` union (reached via
+(`ExactAptosPaymentPayload`) and NEAR (`ExactNearPaymentPayload`), are built and verified inside their
+respective drivers. They are variants of the exported `ExactPaymentPayloadAny` union (reached via
 `ParsedExactPayment`), not importable individually. See [Gasless payments](/making-payments/gasless-payments/).
 
 | Export | Kind | Note |
 | --- | --- | --- |
 | `parseExactRequirements`, `chainIdForExactNetwork`, `encodeXPaymentHeader` | fn | EVM tier |
 | `readExactDomain`, `eip3009Abi` | fn / const | reads/uses a token's true on-chain EIP-712 domain (EVM) |
-| `EXACT_NETWORK_SLUGS`, `EIP3009_TYPES` | const | — |
+| `EXACT_NETWORK_SLUGS`, `EIP3009_TYPES` | const | |
 | `PERMIT2_ADDRESS`, `X402_EXACT_PERMIT2_PROXY`, `PERMIT2_WITNESS_TYPES` | const | Permit2 method: the canonical Permit2 + x402ExactPermit2Proxy + witness types |
 | `PERMIT2_PROXY_CHAIN_IDS`, `isPermit2ProxyChain` | const / fn | EVM chains where the x402 Permit2 proxy is deployed (where the Permit2 exact method can settle) |
-| `buildExactAuthorization` | fn | Deprecated — trusts the server-supplied domain |
-| `ExactAccept`, `ExactAuthorization`, `BuildExactParams` | type | — |
+| `buildExactAuthorization` | fn | Deprecated, because it trusts the server-supplied domain |
+| `ExactAccept`, `ExactAuthorization`, `BuildExactParams` | type | |
 | `Permit2Authorization`, `Permit2PaymentPayload`, `ExactPaymentPayloadAny` | type | the per-method wire payloads (EIP-3009 / Permit2 / SVM / Algorand / Aptos / NEAR); `ParsedExactPayment` is a union on `method` (`'eip3009'`/`'permit2'`/`'svm'`/`'algorand'`/`'aptos'`/`'near'`) |
 
-## Advanced: upto rail (EVM — metered / variable-amount Permit2)
+## Advanced: upto rail (EVM, metered / variable-amount Permit2)
 
-The `upto` (metered) scheme — the buyer signs a Permit2 witness transfer for a **MAX**, and the
+The `upto` (metered) scheme: the buyer signs a Permit2 witness transfer for a **MAX**, and the
 merchant settles the **actual** (≤ max) after serving. EVM-Permit2 **only**. The high-level paths are
 `createPaymentGate({ upto })` (seller) and `PipRailClient({ schemes: ['onchain-proof', 'upto'] })`
-(buyer) — these constants are the canonical proxy + witness types, for reference / advanced use. The
+(buyer). These constants are the canonical proxy + witness types, for reference and advanced use. The
 proxy (vanity `…0002`, distinct from the exact `…0001`) is BOTH the signature `spender` and the
 seller's settle contract.
 
@@ -276,14 +276,14 @@ See the [upto rail (seller)](/accepting-payments/upto-rail-seller/) page for how
 
 ## Advanced: A2A transport (x402 over Google Agent2Agent)
 
-The seller-side A2A adapter — the A2A analogue of `requirePayment`. Wrap a `PaymentGate` and map A2A
+The seller-side A2A adapter, the A2A analogue of `requirePayment`. Wrap a `PaymentGate` and map A2A
 `Task`/`Message` metadata ⇄ x402's existing envelopes, backendless: zero driver/scheme/chain changes,
 so every family rides A2A for free. The raw-JSON dispatch seam it relies on, `gate.verifyObject`, is a
 method on the already-exported `PaymentGate`.
 
 | Export | Kind | Note |
 | --- | --- | --- |
-| `createA2APaymentHandler` | fn | **Headline (A2A)** — wrap a `PaymentGate` into an A2A payment handler. |
+| `createA2APaymentHandler` | fn | **Headline (A2A).** Wrap a `PaymentGate` into an A2A payment handler. |
 | `toA2APaymentRequired`, `toA2APaymentReceipts`, `toA2APaymentFailed` | fn | Map an x402 challenge / receipts / failure **into** A2A `Task`/`Message` metadata. |
 | `fromA2APaymentRequired`, `fromA2APaymentPayload` | fn | Read an A2A `payment-required` / payment payload back **out** of A2A metadata. |
 | `toA2AErrorCode`, `VERIFY_CODE_TO_A2A_ERROR` | fn / const | Map a `VerifyErrorCode` to its A2A error code. |
@@ -297,24 +297,24 @@ See [A2A transport](/accepting-payments/a2a-transport/).
 
 ## Advanced: x402-over-MCP transport (the third official transport)
 
-The seller-side MCP adapter — the MCP analogue of `requirePayment` / `createA2APaymentHandler`. Carry
+The seller-side MCP adapter, the MCP analogue of `requirePayment` / `createA2APaymentHandler`. Carry
 x402's existing envelopes over MCP **tool calls** instead of HTTP headers, backendless: verify/settle/
 replay all run through the gate's `verifyObject` (zero new crypto, zero driver/scheme/chain changes),
 so every family rides MCP for free.
 
 | Export | Kind | Note |
 | --- | --- | --- |
-| `createMcpPaymentTool` | fn | **Headline (MCP)** — wrap a `PaymentGate` as a paid MCP tool. A `fulfill()` throw *after* settle still returns a success `_meta` payment-response, never a re-challenge (B7 at-most-once). |
+| `createMcpPaymentTool` | fn | **Headline (MCP).** Wrap a `PaymentGate` as a paid MCP tool. A `fulfill()` throw *after* settle still returns a success `_meta` payment-response, never a re-challenge (B7 at-most-once). |
 | `toMcpPaymentRequired`, `toMcpPaymentResponse` | fn | Build the 402-challenge (`isError` + `structuredContent` + a byte-equal `content[0].text`) and the settled tool result. |
-| `fromMcpPayment`, `fromMcpPaymentRequired`, `fromMcpPaymentResponse`, `isMcpPaymentRequired` | fn | Buyer/seller read helpers — pull the payment / challenge / settlement out of an MCP message. |
+| `fromMcpPayment`, `fromMcpPaymentRequired`, `fromMcpPaymentResponse`, `isMcpPaymentRequired` | fn | Buyer/seller read helpers. Pull the payment / challenge / settlement out of an MCP message. |
 | `buildMcpPaymentMeta` | fn | Frame an already-produced `{ accepted, payload }` into the retry call's `params._meta["x402/payment"]`. |
-| `MCP_PAYMENT_META_KEY`, `MCP_PAYMENT_RESPONSE_META_KEY` | const | The spec `_meta` keys (`x402/payment` / `x402/payment-response` — a slash, not A2A's dot). |
+| `MCP_PAYMENT_META_KEY`, `MCP_PAYMENT_RESPONSE_META_KEY` | const | The spec `_meta` keys (`x402/payment` / `x402/payment-response`, with a slash, not A2A's dot). |
 | `McpPaymentTool`, `McpPaymentToolOptions`, `McpContentBlock`, `McpToolCallParams`, `McpToolResult`, `McpPaymentMeta` | type | the MCP wire types (duck-typed; zero `@modelcontextprotocol/sdk` dependency) |
 
 A fully-automatic `McpPayer` (the buyer side) is a documented fast-follow, exactly as A2A shipped
 seller-first. See [MCP transport (seller)](/accepting-payments/mcp-transport/).
 
-## Advanced: exact facilitator (Mode B) — `facilitator.js`
+## Advanced: exact facilitator (Mode B), `facilitator.js`
 
 The Mode-B facilitator path (`createPaymentGate({ exact: { settle: { facilitator } } })`) delegates
 verify + settle to a third-party facilitator you choose. PipRail hosts nothing.

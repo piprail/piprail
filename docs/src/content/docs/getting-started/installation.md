@@ -7,7 +7,7 @@ sidebar:
 
 ## Introduction
 
-PipRail is pure TypeScript with a single required peer dependency — `viem` — and a set of
+PipRail is pure TypeScript with a single required peer dependency, `viem`, and a set of
 **optional** peers, one per non-EVM family, that are lazy-loaded only when you actually name
 that chain. A pure-EVM install never downloads them.
 
@@ -17,7 +17,7 @@ that chain. A pure-EVM install never downloads them.
 npm install @piprail/sdk viem
 ```
 
-That's everything you need for **every EVM chain** — Base, BNB, Polygon, Arbitrum, Optimism, and
+That's everything you need for **every EVM chain**: Base, BNB, Polygon, Arbitrum, Optimism, and
 the rest of the built-in presets, plus any other EVM chain by `{ id, rpcUrl }`.
 
 :::note
@@ -25,7 +25,7 @@ the rest of the built-in presets, plus any other EVM chain by `{ id, rpcUrl }`.
 `viem` version across your app.
 :::
 
-## Non-EVM families — add a peer when you use one
+## Non-EVM families: add a peer when you use one
 
 Each non-EVM family lazy-imports its own library on first use, so you only install what you
 actually pay on. Add the peer alongside `@piprail/sdk`:
@@ -49,18 +49,18 @@ npm install @piprail/sdk @solana/web3.js @solana/spl-token bs58
 
 If you name a family whose peer isn't installed, PipRail throws a
 [`MissingDriverError`](/errors/error-model/) whose message tells you the exact `npm install` to
-run — it never fails silently.
+run. It never fails silently.
 
 ## Requirements
 
-- **Node.js 20+** (or any modern runtime — Bun, Deno, Cloudflare Workers, the browser).
+- **Node.js 20+** (or any modern runtime: Bun, Deno, Cloudflare Workers, the browser).
 - **An RPC endpoint** for each chain you use. The built-in presets ship sensible public
   defaults; pass your own `rpcUrl` for production. Fold any API key directly into the RPC URL.
 
-## In the browser — no build, no npm
+## In the browser, with no build and no npm
 
 The SDK runs unbundled in the browser via an ESM CDN, so you can pay a 402 from a plain HTML
-page. In the browser you **never paste a private key** — you hand the SDK an injected
+page. In the browser you **never paste a private key**. You hand the SDK an injected
 `walletClient` (MetaMask, Rabbit, any EIP-1193 provider) so signing stays in the wallet:
 
 ```html
@@ -69,7 +69,7 @@ page. In the browser you **never paste a private key** — you hand the SDK an i
   import { createWalletClient, custom } from 'https://esm.sh/viem'
   import { base } from 'https://esm.sh/viem/chains'
 
-  // Build a viem wallet client from the injected EIP-1193 provider — keys stay in the wallet.
+  // Build a viem wallet client from the injected EIP-1193 provider. Keys stay in the wallet.
   // Attach the connected account + chain: the SDK rejects an account-less client, and the
   // JSON-RPC account routes every signature back through the wallet.
   const [address] = await window.ethereum.request({ method: 'eth_requestAccounts' })
@@ -91,7 +91,7 @@ that assume Node and are **server-side only**. Pay on those from a backend.
 :::
 
 :::danger
-The raw-key wallet shape `{ key }` is for **server-side use only** — never
+The raw-key wallet shape `{ key }` is for **server-side use only**. Never
 ship a private key to the browser. In a page, always use an injected `{ walletClient }` as
 shown above so the key never leaves the user's wallet.
 :::

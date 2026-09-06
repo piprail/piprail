@@ -20,7 +20,7 @@ const canonical = `${site}/blog/${post.slug}/`
 const ogImageAbs = `${site}${post.ogImage}`
 const more = relatedPosts(post.slug, 2)
 
-const pageTitle = post.seoTitle ?? `${post.title} — PipRail`
+const pageTitle = post.seoTitle ?? `${post.title} | PipRail`
 
 const articleLd = {
   '@context': 'https://schema.org',
@@ -49,12 +49,12 @@ const articleLd = {
 }
 
 const takeaways = [
-  'One <span class="font-mono text-neutral-200">chain:</span> parameter picks the network, its RPC defaults, and the canonical USDC address — switching from Base to Solana is a one-word change.',
+  'One <span class="font-mono text-neutral-200">chain:</span> parameter picks the network, its RPC defaults, and the canonical USDC address. Switching from Base to Solana is a one-word change.',
   'PipRail pays across <strong>29 chains in ten families</strong>: 20 EVM mainnets plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger.',
-  'USDC is available on almost every chain, the native coin on every chain, and any other token by address — chains are <em>data you pass</em>, not an allowlist the SDK ships.',
+  'USDC is available on almost every chain, the native coin on every chain, and any other token by address. Chains are <em>data you pass</em>, not an allowlist the SDK ships.',
 ]
 
-// Built-in EVM presets — the 20 chains you can name without passing a custom Chain.
+// Built-in EVM presets: the 20 chains you can name without passing a custom Chain.
 const evm = [
   'Ethereum', 'Base', 'Arbitrum', 'Optimism', 'Polygon', 'BNB Chain', 'Avalanche',
   'HyperEVM', 'Monad', 'Mantle', 'Sonic', 'Linea', 'Scroll', 'Celo', 'zkSync',
@@ -74,39 +74,39 @@ const families: { name: string; tokens: string; scheme: string }[] = [
   { name: 'XRP Ledger', tokens: 'RLUSD · XRP', scheme: 'onchain-proof' },
 ]
 
-const codePreset = `// A built-in preset — the canonical USDC address is pre-filled for you:
+const codePreset = `// A built-in preset. The canonical USDC address is pre-filled for you:
 new PipRailClient({ chain: 'base', wallet: { key } })
 
 // Switch chains by changing one word:
 new PipRailClient({ chain: 'solana', wallet: { key } })
 
-// Any other EVM chain works too — pass a viem Chain or a plain { id, rpcUrl }:
+// Any other EVM chain works too. Pass a viem Chain or a plain { id, rpcUrl }:
 new PipRailClient({ chain: { id: 100, rpcUrl: '…' }, wallet: { key } })`
 
 const faqs = [
   {
     q: 'How many chains does PipRail support for x402 payments?',
-    a: 'Twenty-nine, across ten families. Twenty are EVM mainnets — Ethereum, Base, Arbitrum, Optimism, Polygon, BNB Chain, Avalanche, HyperEVM, Monad, Mantle, Sonic, Linea, Scroll, Celo, zkSync, Unichain, World Chain, Sei, Injective and Kaia — and nine are non-EVM families: Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar and the XRP Ledger. You select any of them with a single chain: parameter, and any other EVM chain works by passing it directly.',
+    a: 'Twenty-nine, across ten families. Twenty are EVM mainnets (Ethereum, Base, Arbitrum, Optimism, Polygon, BNB Chain, Avalanche, HyperEVM, Monad, Mantle, Sonic, Linea, Scroll, Celo, zkSync, Unichain, World Chain, Sei, Injective and Kaia) and nine are non-EVM families: Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar and the XRP Ledger. You select any of them with a single chain: parameter, and any other EVM chain works by passing it directly.',
   },
   {
     q: 'Which chains support USDC?',
-    a: 'Almost all of them. Circle-native USDC is pre-filled on nearly every EVM chain and on Solana, NEAR, Sui, Aptos and Algorand. The exceptions are chains where there is no Circle-native USDC — TON and Tron ship USDT instead, and the XRP Ledger ships RLUSD. The native coin (ETH, SOL, XRP, and so on) is a valid payment asset on every chain, and any other token works by address.',
+    a: 'Almost all of them. Circle-native USDC is pre-filled on nearly every EVM chain and on Solana, NEAR, Sui, Aptos and Algorand. The exceptions are chains where there is no Circle-native USDC: TON and Tron ship USDT instead, and the XRP Ledger ships RLUSD. The native coin (ETH, SOL, XRP, and so on) is a valid payment asset on every chain, and any other token works by address.',
   },
   {
     q: 'Can I pay on a chain that is not built in?',
-    a: 'Yes, for any EVM chain. The built-in presets are a convenience — each ships with its canonical USDC address pre-filled — but the SDK does not gatekeep. Pass a viem Chain object or a plain { id, rpcUrl } and PipRail will pay on it. Chain details are data the caller provides, not an allowlist the SDK ships.',
+    a: 'Yes, for any EVM chain. The built-in presets are a convenience, each shipping with its canonical USDC address pre-filled, but the SDK does not gatekeep. Pass a viem Chain object or a plain { id, rpcUrl } and PipRail will pay on it. Chain details are data the caller provides, not an allowlist the SDK ships.',
   },
   {
     q: 'Does naming a non-EVM chain bloat a pure-EVM install?',
-    a: 'No. The non-EVM driver libraries (for Solana, TON, NEAR, and the rest) are optional peer dependencies that lazy-load only when you actually name a non-EVM chain. A pure-EVM install never downloads them — the built EVM bundle has zero static non-EVM imports.',
+    a: 'No. The non-EVM driver libraries (for Solana, TON, NEAR, and the rest) are optional peer dependencies that lazy-load only when you actually name a non-EVM chain. A pure-EVM install never downloads them: the built EVM bundle has zero static non-EVM imports.',
   },
   {
     q: 'What is the difference between the exact scheme and onchain-proof?',
-    a: 'Both are ways to prove a payment. onchain-proof is PipRail’s universal rail: the payer broadcasts their own transfer and the merchant verifies the transaction locally — it works on every chain. exact is the ratified x402 scheme, where the buyer signs an authorization and the payment can be settled gaslessly; PipRail implements it on five families (EVM, Solana, Aptos, NEAR and Algorand). Where exact is available, an agent can also pay standard x402 servers that expect it.',
+    a: 'Both are ways to prove a payment. onchain-proof is PipRail’s universal rail: the payer broadcasts their own transfer and the merchant verifies the transaction locally, and it works on every chain. exact is the ratified x402 scheme, where the buyer signs an authorization and the payment can be settled gaslessly; PipRail implements it on five families (EVM, Solana, Aptos, NEAR and Algorand). Where exact is available, an agent can also pay standard x402 servers that expect it.',
   },
   {
     q: 'Which stablecoins can I accept?',
-    a: 'USDC almost everywhere; USDT on most chains (omitted where the local “USDT” is a bridged token rather than Tether-native); EURC where Circle issues it — Ethereum, Base, Avalanche and Stellar; RLUSD on the XRP Ledger; and the native coin on every chain. On BNB Chain, PipRail also ships FDUSD, USD1 and U. Any other token can be paid by passing its address.',
+    a: 'USDC almost everywhere; USDT on most chains (omitted where the local “USDT” is a bridged token rather than Tether-native); EURC where Circle issues it (Ethereum, Base, Avalanche and Stellar); RLUSD on the XRP Ledger; and the native coin on every chain. On BNB Chain, PipRail also ships FDUSD, USD1 and U. Any other token can be paid by passing its address.',
   },
 ]
 
@@ -155,7 +155,7 @@ const faqLd = {
           {post.title}
         </h1>
         <p class="mt-5 text-lg leading-relaxed text-neutral-400 sm:text-xl">
-          An AI agent should be able to pay with whatever it already holds — on whatever chain that lives on.
+          An AI agent should be able to pay with whatever it already holds, on whatever chain that lives on.
           PipRail covers <em class="not-italic text-neutral-200">29 chains from a single parameter</em>. Here is every
           one, the tokens on each, and the design choice that lets it reach chains it has never heard of.
         </p>
@@ -196,15 +196,15 @@ const faqLd = {
       </aside>
 
       <div class="article-prose mt-10">
-        <p>Most payment SDKs answer “which chains do you support?” with a list they maintain — an allowlist, baked into a release, that grows one pull request at a time. PipRail answers it differently: <strong>chain details are data the caller passes, not an allowlist the SDK ships.</strong> The built-in presets are a convenience — each comes with its canonical USDC address already filled in — but they are not a fence. Name a preset, or hand the SDK a chain it has never seen, and it pays either way.</p>
+        <p>Most payment SDKs answer “which chains do you support?” with a list they maintain: an allowlist, baked into a release, that grows one pull request at a time. PipRail answers it differently: <strong>chain details are data the caller passes, not an allowlist the SDK ships.</strong> The built-in presets are a convenience, each coming with its canonical USDC address already filled in, but they are not a fence. Name a preset, or hand the SDK a chain it has never seen, and it pays either way.</p>
 
-        <p>That is the whole idea behind one parameter. The <span class="font-mono text-[0.9em] text-neutral-200">chain:</span> value you pass selects the network, its sensible RPC default, the native coin, and the right stablecoin addresses — all at once. Going from Base to Solana, or from Polygon to the XRP Ledger, is a one-word change in your code and nothing else.</p>
+        <p>That is the whole idea behind one parameter. The <span class="font-mono text-[0.9em] text-neutral-200">chain:</span> value you pass selects the network, its sensible RPC default, the native coin, and the right stablecoin addresses, all at once. Going from Base to Solana, or from Polygon to the XRP Ledger, is a one-word change in your code and nothing else.</p>
 
         <div class="cb"><Code code={codePreset} lang="ts" theme={CODE_THEME} /></div>
 
         <h2>The 20 EVM mainnets</h2>
 
-        <p>Every major EVM chain is a built-in preset, with its Circle-native USDC pre-filled. If a chain you want is not in this list, you do not wait for us to add it — you pass it as a viem <span class="font-mono text-[0.9em] text-neutral-200">Chain</span> or a bare <span class="font-mono text-[0.9em] text-neutral-200">{'{ id, rpcUrl }'}</span>, and it just works.</p>
+        <p>Every major EVM chain is a built-in preset, with its Circle-native USDC pre-filled. If a chain you want is not in this list, you do not wait for us to add it. You pass it as a viem <span class="font-mono text-[0.9em] text-neutral-200">Chain</span> or a bare <span class="font-mono text-[0.9em] text-neutral-200">{'{ id, rpcUrl }'}</span>, and it just works.</p>
 
         <figure class="article-fig">
           <div class="card rounded-2xl p-6 sm:p-7">
@@ -220,7 +220,7 @@ const faqLd = {
 
         <h2>The nine non-EVM families</h2>
 
-        <p>This is where breadth stops being a number and starts being an advantage. PipRail does not just speak EVM — it puts the payer’s own wallet on Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar and the XRP Ledger, each as a self-contained driver that mirrors the others file-for-file. The libraries for these chains are optional peers that load only when you name one, so a pure-EVM install never pays for them.</p>
+        <p>This is where breadth stops being a number and starts being an advantage. PipRail speaks more than EVM. It puts the payer’s own wallet on Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar and the XRP Ledger, each as a self-contained driver that mirrors the others file-for-file. The libraries for these chains are optional peers that load only when you name one, so a pure-EVM install never pays for them.</p>
 
         <figure class="article-fig">
           <div class="card hidden overflow-hidden rounded-2xl sm:block">
@@ -264,12 +264,12 @@ const faqLd = {
         <figure class="article-fig">
           <div class="card rounded-2xl p-6 sm:p-7">
             <ul class="space-y-3.5">
-              <li class="flex gap-3 text-[15px] leading-relaxed text-neutral-300"><Coins size={17} class="mt-0.5 shrink-0 text-accent" aria-hidden="true" /><span><strong class="text-white">USDC</strong> — on almost every chain (Circle-native, pre-filled).</span></li>
-              <li class="flex gap-3 text-[15px] leading-relaxed text-neutral-300"><Coins size={17} class="mt-0.5 shrink-0 text-accent" aria-hidden="true" /><span><strong class="text-white">USDT</strong> — on most chains, wherever there is a Tether-native (not bridged) version.</span></li>
-              <li class="flex gap-3 text-[15px] leading-relaxed text-neutral-300"><Coins size={17} class="mt-0.5 shrink-0 text-accent" aria-hidden="true" /><span><strong class="text-white">EURC</strong> — on Ethereum, Base, Avalanche and Stellar (every one EIP-3009, so exact-payable).</span></li>
-              <li class="flex gap-3 text-[15px] leading-relaxed text-neutral-300"><Coins size={17} class="mt-0.5 shrink-0 text-accent" aria-hidden="true" /><span><strong class="text-white">RLUSD</strong> — on the XRP Ledger. On BNB Chain, also <strong class="text-white">FDUSD</strong>, <strong class="text-white">USD1</strong> and <strong class="text-white">U</strong>.</span></li>
-              <li class="flex gap-3 text-[15px] leading-relaxed text-neutral-300"><Coins size={17} class="mt-0.5 shrink-0 text-accent" aria-hidden="true" /><span><strong class="text-white">The native coin</strong> — ETH, SOL, XRP, TRX, NEAR, and so on — a valid payment asset on every family.</span></li>
-              <li class="flex gap-3 text-[15px] leading-relaxed text-neutral-300"><Coins size={17} class="mt-0.5 shrink-0 text-accent" aria-hidden="true" /><span><strong class="text-white">Anything else</strong> — by address, on any chain. Every shipped token address is verified on-chain before release.</span></li>
+              <li class="flex gap-3 text-[15px] leading-relaxed text-neutral-300"><Coins size={17} class="mt-0.5 shrink-0 text-accent" aria-hidden="true" /><span><strong class="text-white">USDC</strong>: on almost every chain (Circle-native, pre-filled).</span></li>
+              <li class="flex gap-3 text-[15px] leading-relaxed text-neutral-300"><Coins size={17} class="mt-0.5 shrink-0 text-accent" aria-hidden="true" /><span><strong class="text-white">USDT</strong>: on most chains, wherever there is a Tether-native (not bridged) version.</span></li>
+              <li class="flex gap-3 text-[15px] leading-relaxed text-neutral-300"><Coins size={17} class="mt-0.5 shrink-0 text-accent" aria-hidden="true" /><span><strong class="text-white">EURC</strong>: on Ethereum, Base, Avalanche and Stellar (every one EIP-3009, so exact-payable).</span></li>
+              <li class="flex gap-3 text-[15px] leading-relaxed text-neutral-300"><Coins size={17} class="mt-0.5 shrink-0 text-accent" aria-hidden="true" /><span><strong class="text-white">RLUSD</strong>: on the XRP Ledger. On BNB Chain, also <strong class="text-white">FDUSD</strong>, <strong class="text-white">USD1</strong> and <strong class="text-white">U</strong>.</span></li>
+              <li class="flex gap-3 text-[15px] leading-relaxed text-neutral-300"><Coins size={17} class="mt-0.5 shrink-0 text-accent" aria-hidden="true" /><span><strong class="text-white">The native coin</strong>: ETH, SOL, XRP, TRX, NEAR, and so on. A valid payment asset on every family.</span></li>
+              <li class="flex gap-3 text-[15px] leading-relaxed text-neutral-300"><Coins size={17} class="mt-0.5 shrink-0 text-accent" aria-hidden="true" /><span><strong class="text-white">Anything else</strong>: by address, on any chain. Every shipped token address is verified on-chain before release.</span></li>
             </ul>
           </div>
           <figcaption class="fig-cap">USDC almost everywhere, the native coin everywhere, and an open door for the rest.</figcaption>
@@ -277,15 +277,15 @@ const faqLd = {
 
         <h2>Why breadth is the point</h2>
 
-        <p>An agent does not get to choose what it holds when it meets a paywall. It holds what it holds — maybe USDC on Base, maybe SOL on Solana, maybe XRP because that is where its budget lives. A rail that only speaks one chain forces a bridge, a swap, and a wait before the agent can do the one thing it was asked to do: pay and move on. A rail that speaks twenty-nine lets it pay with what it has.</p>
+        <p>An agent does not get to choose what it holds when it meets a paywall. It holds what it holds: maybe USDC on Base, maybe SOL on Solana, maybe XRP because that is where its budget lives. A rail that only speaks one chain forces a bridge, a swap, and a wait before the agent can do the one thing it was asked to do: pay and move on. A rail that speaks twenty-nine lets it pay with what it has.</p>
 
-        <p>That is why PipRail treats chains as data and not as a gate. The list above is what ships today, verified address by verified address — but the design is built so the list is never the limit. Name a chain. If we have a preset, you get USDC for free. If we do not, pass it in. Either way, your agent pays.</p>
+        <p>That is why PipRail treats chains as data and not as a gate. The list above is what ships today, verified address by verified address, but the design is built so the list is never the limit. Name a chain. If we have a preset, you get USDC for free. If we do not, pass it in. Either way, your agent pays.</p>
       </div>
 
       <div class="mt-12 flex flex-wrap items-center gap-3 border-t border-white/10 pt-6">
         <span class="mr-1 inline-flex items-center gap-1.5 text-xs text-neutral-500"><Share2 size={13} aria-hidden="true" /> Share</span>
         <a
-          href={`https://x.com/intent/tweet?text=${encodeURIComponent(post.title + ' — by ' + post.author.name)}&url=${encodeURIComponent(canonical)}&via=piprailhq`}
+          href={`https://x.com/intent/tweet?text=${encodeURIComponent(post.title + ' by ' + post.author.name)}&url=${encodeURIComponent(canonical)}&via=piprailhq`}
           class="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-neutral-300 transition hover:border-white/20 hover:text-white"
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path></svg>
@@ -312,7 +312,7 @@ const faqLd = {
           <div class="text-sm font-semibold text-neutral-100">{post.author.name}</div>
           <div class="text-xs text-neutral-500">{post.author.role}</div>
           <p class="mt-2.5 text-sm leading-relaxed text-neutral-400">
-            Building PipRail — the open, neutral, no-fee x402 payment rail for AI agents, across 29 chains.
+            Building PipRail, the open, neutral, no-fee x402 payment rail for AI agents, across 29 chains.
             Writing about how agents pay, and the trust layer the agent economy still has to build.
           </p>
           <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs">
@@ -342,7 +342,7 @@ const faqLd = {
     <section class="mt-14 overflow-hidden rounded-2xl border border-accent/20 bg-accent/6 p-7 text-center sm:p-10">
       <h2 class="text-2xl font-semibold tracking-tight text-white sm:text-3xl">Build on the open rail.</h2>
       <p class="mx-auto mt-3 max-w-xl text-neutral-300">
-        PipRail is the open, self-custody x402 rail — no backend, no middleman, no fee. Name a chain, add a wallet,
+        PipRail is the open, self-custody x402 rail: no backend, no middleman, no fee. Name a chain, add a wallet,
         get paid across 29 of them.
       </p>
       <div class="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">

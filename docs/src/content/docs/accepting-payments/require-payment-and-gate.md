@@ -1,6 +1,6 @@
 ---
 title: requirePayment & createPaymentGate
-description: Turn any route paid-only — Express middleware with requirePayment, or framework-agnostic logic with createPaymentGate.
+description: Turn any route paid-only, with Express middleware via requirePayment, or framework-agnostic logic via createPaymentGate.
 sidebar:
   order: 1
 ---
@@ -13,10 +13,10 @@ turn a resource paid-only: it answers `402` until a payment verifies on-chain, t
 
 :::note
 Before you start, you need a wallet address to be paid to (`payTo`) and an RPC endpoint for the
-chain. PipRail never holds funds — the payment settles directly to `payTo`.
+chain. PipRail never holds funds; the payment settles directly to `payTo`.
 :::
 
-## Express / Connect — `requirePayment`
+## Express / Connect: `requirePayment`
 
 Drop it in front of any route handler:
 
@@ -32,13 +32,13 @@ app.get(
 
 The middleware issues the 402 challenge, verifies the proof on the retry, and only then calls
 `next()`. Your handler never runs unpaid. A server-side settlement failure on the optional
-`exact` rail (relayer out of gas / facilitator down) returns `502` — never a 402 — so a payer is
+`exact` rail (relayer out of gas / facilitator down) returns `502`, never a 402, so a payer is
 never told to re-pay for the merchant's fault.
 
-## Any framework — `createPaymentGate`
+## Any framework: `createPaymentGate`
 
-`createPaymentGate` returns a [`PaymentGate`](#the-paymentgate-object) — a plain object you drive
-yourself — ideal for Hono, Fastify, Cloudflare Workers, Next.js route handlers, Bun, or Deno:
+`createPaymentGate` returns a [`PaymentGate`](#the-paymentgate-object), a plain object you drive
+yourself, ideal for Hono, Fastify, Cloudflare Workers, Next.js route handlers, Bun, or Deno:
 
 ```ts
 import { createPaymentGate } from '@piprail/sdk'
@@ -51,7 +51,7 @@ app.get('/report', async (c) => {
   // → { kind: 'paid', receipt, receiptHeader }  on a verified, unused proof
 
   if (result.kind !== 'paid') {
-    // 'challenge' (first hit) or 'invalid' (rejected proof) — both carry `challenge`
+    // 'challenge' (first hit) or 'invalid' (rejected proof). Both carry `challenge`
     c.header('payment-required', result.requiredHeader)
     return c.json(result.challenge, 402)
   }
@@ -71,32 +71,32 @@ app.get('/report', async (c) => {
 | `'invalid'` | A proof that failed verification | `402` + `result.challenge` |
 
 :::caution
-Always send back `result.challenge` on the 402 — it carries the `accepts[]` a standard client
+Always send back `result.challenge` on the 402, because it carries the `accepts[]` a standard client
 needs to retry. (The legacy `toInvalidBody` helper omits it and is deprecated.)
 :::
 
 ## The PaymentGate object
 
-`createPaymentGate` returns a `PaymentGate` with six methods — all driven by you, none of
+`createPaymentGate` returns a `PaymentGate` with six methods, all driven by you, none of
 which move anything on-chain except an actual verified payment:
 
 | Method | Returns | Use |
 | --- | --- | --- |
 | `gate.verify(header)` | `Promise<VerifyPaymentResult>` | Verify the inbound `payment-signature` header on each request. |
-| `gate.verifyObject(payload)` | `Promise<VerifyPaymentResult>` | Verify an already-decoded `PaymentPayload` **object** (raw JSON, not a base64 header) — the seam for non-HTTP transports like A2A, which carry the payload as JSON metadata. Runs the identical dispatch as `verify`, shares the same replay set, and fires the same `onPaid`/`onFailed`; you normally let the transport call it. See [A2A transport](/accepting-payments/a2a-transport/). |
-| `gate.challenge(url?)` | `Promise<{ challenge, requiredHeader }>` | Mint a fresh 402 challenge (new nonce) for a URL — when you issue the 402 yourself. |
+| `gate.verifyObject(payload)` | `Promise<VerifyPaymentResult>` | Verify an already-decoded `PaymentPayload` **object** (raw JSON, not a base64 header): the seam for non-HTTP transports like A2A, which carry the payload as JSON metadata. Runs the identical dispatch as `verify`, shares the same replay set, and fires the same `onPaid`/`onFailed`; you normally let the transport call it. See [A2A transport](/accepting-payments/a2a-transport/). |
+| `gate.challenge(url?)` | `Promise<{ challenge, requiredHeader }>` | Mint a fresh 402 challenge (new nonce) for a URL, for when you issue the 402 yourself. |
 | `gate.describe(url?)` | `Promise<ResourceDescription>` | Static, nonce-free metadata for discovery emitters (no nonce minted). |
 | `gate.landingPage(challenge)` | `string` | Render the self-describing HTML landing page for a human who opens the gated URL in a browser (from a `challenge`). |
-| `gate.selfTest()` | `Promise<GateSelfTest>` | Read-only config check — **never throws**, never signs/sends. Resolves the rails and reports what the gate would charge (`{ ok, rails, warnings }`) or why it can't (`{ ok:false, error }`). See [Presets & self-test](/accepting-payments/merchant-presets/). |
+| `gate.selfTest()` | `Promise<GateSelfTest>` | Read-only config check. **Never throws**, never signs or sends. Resolves the rails and reports what the gate would charge (`{ ok, rails, warnings }`) or why it can't (`{ ok:false, error }`). See [Presets & self-test](/accepting-payments/merchant-presets/). |
 
-`requirePayment` is just `createPaymentGate` wrapped in an Express adapter — it builds one gate
+`requirePayment` is just `createPaymentGate` wrapped in an Express adapter, so it builds one gate
 per gated route and reuses it (the gate's in-memory used-proof set is what stops a proof being
 redeemed twice).
 
 ## Defining what you accept
 
 The single-rail form (`chain` + `token` + `amount` + `payTo`) is the common case. To offer
-**several rails at once**, pass `accept[]` — the client pays with whatever it holds:
+**several rails at once**, pass `accept[]` and the client pays with whatever it holds:
 
 ```ts
 requirePayment({
@@ -111,12 +111,12 @@ requirePayment({
 
 Each entry can override `payTo` and `rpcUrl` for its chain (per-family `payTo` usually lives on
 the entry, since address shapes differ across chains). The single and multi forms are mutually
-exclusive — pass one or the other. See [Defining
+exclusive, so pass one or the other. See [Defining
 accepts](/accepting-payments/defining-accepts/) for the full options.
 
 ## Receipts and `onPaid`
 
-Pass an `onPaid` callback to record every settled payment — log it, fulfil an order, increment a
+Pass an `onPaid` callback to record every settled payment: log it, fulfil an order, increment a
 counter. It fires after verification succeeds, with an enriched
 [`PaidReceipt`](/accepting-payments/receipts-and-onpaid/#the-paidreceipt) (the wire receipt **plus**
 `decimals` / `symbol` / `amountFormatted` / `idempotencyKey`):
@@ -124,20 +124,20 @@ counter. It fires after verification succeeds, with an enriched
 ```ts
 requirePayment({
   chain: 'bnb', token: 'FDUSD', amount: '0.05', payTo: '0xYourWallet',
-  onPaid: (r) => console.log(`paid ${r.amountFormatted} ${r.symbol} — tx ${r.transaction}`),
+  onPaid: (r) => console.log(`paid ${r.amountFormatted} ${r.symbol} (tx ${r.transaction})`),
 })
 ```
 
-`onPaid` may be **sync or async** and is fully isolated — a thrown error or a rejected promise can
+`onPaid` may be **sync or async** and is fully isolated: a thrown error or a rejected promise can
 never break the request (route them to `onPaidError`). It's fire-and-forget by default; set
 `awaitOnPaid` to record before the resource is served, and for a durable webhook use
 [`deliverReceipt`](/accepting-payments/receipts-and-onpaid/#reliable-delivery). Delivery is
-**at-least-once** — dedupe on `idempotencyKey`. See
+**at-least-once**, so dedupe on `idempotencyKey`. See
 [Receipts & onPaid](/accepting-payments/receipts-and-onpaid/) for the full story.
 
-## Failure notifications — `onFailed`
+## Failure notifications: `onFailed`
 
-`onFailed` is the **mirror of `onPaid`**: it fires when a submitted proof is *rejected* — every
+`onFailed` is the **mirror of `onPaid`**: it fires when a submitted proof is *rejected*, so every
 time `gate.verify()` returns [`kind: 'invalid'`](/accepting-payments/verifying-payments/) (wrong
 amount, expired, replayed, unknown asset, wrong recipient, bad signature, …). Where `onPaid`
 records a settlement, `onFailed` records a rejection, so you can log, count, or alert on bad
@@ -151,7 +151,7 @@ requirePayment({
 })
 ```
 
-It receives a `FailedPayment` — and because a rejection has no settlement, it's a much leaner
+It receives a `FailedPayment`, and because a rejection has no settlement, it's a much leaner
 shape than `PaidReceipt` (no tx, no amount, no payer):
 
 ```ts
@@ -163,24 +163,24 @@ interface FailedPayment {
 ```
 
 The `code` is identical to the one the buyer's client receives for that rejection (both sides see
-one consistent reason — see the [VerifyErrorCode table](/accepting-payments/verifying-payments/#why-a-proof-was-rejected)).
+one consistent reason; see the [VerifyErrorCode table](/accepting-payments/verifying-payments/#why-a-proof-was-rejected)).
 Use `transient` to avoid false alarms: it's `true` only for the two transient codes
 (`tx_not_found` / `insufficient_confirmations`), where the proof may still be settling and the
-buyer's client retries automatically — you'll usually then get `onPaid`. Alert only on
+buyer's client retries automatically, and you'll usually then get `onPaid`. Alert only on
 `!transient`.
 
 `onFailed` shares `onPaid`'s isolation and lifecycle exactly: it may be **sync or async**; a thrown
-error or a rejected promise is caught and routed to `onFailedError` — it can never break the
+error or a rejected promise is caught and routed to `onFailedError`, so it can never break the
 request or crash the process; and it's **fire-and-forget** unless you set `awaitOnFailed` to run
 it before the 402 is returned.
 
 :::note
 `onFailed` fires on every rejection that **reaches the gate**, but a backendless gate is passive
-by design: a failure the merchant never gets a request for — the buyer can't afford it, a
-`policy` / `onBeforePay` declines it, or the buyer abandons before paying — is seen **only** by the
+by design: a failure the merchant never gets a request for (the buyer can't afford it, a
+`policy` / `onBeforePay` declines it, or the buyer abandons before paying) is seen **only** by the
 buyer's client (its [`payment-failed` event](/making-payments/events/) now carries that reason).
-And a *thrown* error — a transient RPC blip that re-throws, or a 5xx
-[`SettlementError`](/accepting-payments/verifying-payments/#verifying-the-exact-rail) — is not a
+And a *thrown* error, either a transient RPC blip that re-throws or a 5xx
+[`SettlementError`](/accepting-payments/verifying-payments/#verifying-the-exact-rail), is not a
 verdict, so it does **not** fire `onFailed`.
 :::
 
@@ -201,9 +201,9 @@ verdict, so it does **not** fire `onFailed`.
 | `awaitOnFailed` | Await `onFailed` before the 402 is returned (default `false` = fire-and-forget). |
 | `generateNonce` | Custom per-challenge nonce generator. Default `crypto.randomUUID()`. |
 | `isUsed` / `markUsed` | Pluggable replay store for multi-instance deploys. |
-| `exact` | Also accept the standard `exact` scheme — zero-config keyless (`exact: true`, Mode 0 — start here), your own relayer (`settle: 'self'`, Mode A), or a named facilitator (`settle: { facilitator }`, Mode B). |
-| `upto` | Also advertise the metered / variable-amount [`upto` rail](/accepting-payments/upto-rail-seller/) (buyer signs a MAX; you settle the actual). EVM-Permit2 only; settle with a direct `gate.verify()` — it **throws through `requirePayment`**. |
-| `receipts` | Emit a verifiable [receipt](/accepting-payments/verifiable-receipts/) on every settled payment — a self-contained, anyone-re-verifiable record. Default off. |
+| `exact` | Also accept the standard `exact` scheme: zero-config keyless (`exact: true`, Mode 0, start here), your own relayer (`settle: 'self'`, Mode A), or a named facilitator (`settle: { facilitator }`, Mode B). |
+| `upto` | Also advertise the metered / variable-amount [`upto` rail](/accepting-payments/upto-rail-seller/) (buyer signs a MAX; you settle the actual). EVM-Permit2 only; settle with a direct `gate.verify()`, because it **throws through `requirePayment`**. |
+| `receipts` | Emit a verifiable [receipt](/accepting-payments/verifiable-receipts/) on every settled payment: a self-contained, anyone-re-verifiable record. Default off. |
 | `selfDescribe` | Self-describe every 402 with an [`extensions.piprail`](/discovery/self-describing-endpoints/) block. Default `true`; set `false` to omit. |
 | `discovery` | Emit the discovery manifest so crawlers can find this endpoint. |
 

@@ -1,4 +1,4 @@
-// The built-in chains, ordered by prominence — the biggest networks first
+// The built-in chains, ordered by prominence, with the biggest networks first
 // (Ethereum, then the marquee non-EVM L1s Solana/TON/Tron/NEAR/Sui, then the
 // payment-native Stellar/XRPL), then the major EVM chains, then the rest.
 // `tokens` drives the stablecoin badges on each chain card.
@@ -18,7 +18,7 @@ export interface ChainEntry {
 export const chains: ChainEntry[] = [
   { name: 'Ethereum', slug: 'ethereum', tokens: ['usdc', 'usdt', 'eurc'], family: 'EVM' },
   { name: 'Solana', slug: 'solana', tokens: ['usdc', 'usdt'], family: 'Solana' },
-  { name: 'TON', slug: 'ton', tokens: ['usdt'], family: 'TON', setup: 'Needs a free API-keyed RPC (a toncenter key folded into rpcUrl). Ships USD₮ — there is no native USDC on TON.' },
+  { name: 'TON', slug: 'ton', tokens: ['usdt'], family: 'TON', setup: 'Needs a free API-keyed RPC (a toncenter key folded into rpcUrl). Ships USD₮; there is no native USDC on TON.' },
   { name: 'Tron', slug: 'tron', tokens: ['usdt'], family: 'Tron', setup: 'Pays USD₮ or native TRX; gas is real TRX. No native USDC exists on Tron.' },
   { name: 'NEAR', slug: 'near', tokens: ['usdc', 'usdt'], family: 'NEAR', setup: 'Native NEAR is zero-setup; a NEP-141 token (USDC/USDT) needs a one-time storage_deposit on the recipient.' },
   { name: 'Sui', slug: 'sui', tokens: ['usdc'], family: 'Sui' },

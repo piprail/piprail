@@ -1,6 +1,6 @@
 ---
 title: Multi-chain buying
-description: 'Pay a 402 on whichever chain it asks for — give a MultiChainPayer one wallet per chain and it auto-routes to the first funded chain that can settle.'
+description: 'Pay a 402 on whichever chain it asks for. Give a MultiChainPayer one wallet per chain and it auto-routes to the first funded chain that can settle.'
 sidebar:
   order: 10
 ---
@@ -8,17 +8,17 @@ sidebar:
 ## Introduction
 
 A [`PipRailClient`](/making-payments/piprail-client/) is bound to **one chain and one
-wallet** — and that's deliberate: keys are chain-family-specific, so an EVM private key
+wallet**, and that's deliberate: keys are chain-family-specific, so an EVM private key
 can't sign a Solana transaction and an XRPL seed can't sign on Base (pass the wrong shape
 and you get a [`WrongFamilyError`](/making-payments/wallets-by-family/)). So how does a
-buyer pay a merchant that demands **whatever chain it happens to offer** — Base today,
+buyer pay a merchant that demands **whatever chain it happens to offer**: Base today,
 Solana tomorrow, a multi-rail 402 that lists both?
 
 You give the buyer **one wallet per chain** and let `MultiChainPayer` route. It builds one
 single-chain client per chain, surveys every chain you hold a key for when it hits a 402,
-and pays the **first funded chain (in the order you listed them) that can actually settle** —
+and pays the **first funded chain (in the order you listed them) that can actually settle**,
 through each client's own spend policy, approval hook, retries, and replay-protection.
-**No price oracle, no backend, no custody** — it's a thin, chain-agnostic composition over
+**No price oracle, no backend, no custody.** It's a thin, chain-agnostic composition over
 primitives you can already call by hand.
 
 ## Mental model
@@ -39,7 +39,7 @@ primitives you can already call by hand.
 ```
 
 One payer, many single-chain clients, one shared budget. Each client is exactly the
-client you'd build yourself — `MultiChainPayer` only decides *which one* handles a given
+client you'd build yourself. `MultiChainPayer` only decides *which one* handles a given
 402 and aggregates their reads. It adds **no new payment logic**.
 
 ## `MultiChainPayer.fromWallets`
@@ -56,7 +56,7 @@ const payer = MultiChainPayer.fromWallets({
     solana:  { key: process.env.SOLANA_KEY }, // every chain takes the same field: { key }
     xrpl:    { key: process.env.XRPL_SEED },
   },
-  // ONE spend policy guards every chain — the buyer can never exceed it, whatever chain it pays on.
+  // ONE spend policy guards every chain. The buyer can never exceed it, whatever chain it pays on.
   policy: { maxAmount: '1.00', maxTotal: '10.00', tokens: ['USDC', 'USDT'] },
 })
 
@@ -67,7 +67,7 @@ const plan = await payer.planPayment('https://api.example.com/report')
 const res = await payer.get('https://api.example.com/report')
 ```
 
-Every wallet value is the same shape — **`{ key }`** (the chain's secret as a string) — with NEAR
+Every wallet value is the same shape, **`{ key }`** (the chain's secret as a string), with NEAR
 also taking an `accountId`. The `key` holds that chain's standard secret (0x-hex, base58, an `s…`
 seed, a 24-word mnemonic, …); see [Wallets by family](/making-payments/wallets-by-family/) for the
 per-chain format:
@@ -77,34 +77,34 @@ per-chain format:
 | Every chain (EVM, `solana`, `ton`, `tron`, `sui`, `aptos`, `algorand`, `stellar`, `xrpl`) | `{ key }` |
 | `near` | `{ accountId, key }` |
 
-**One key per family** — this map is just how a single buyer carries the keys for every
+**One key per family.** This map is just how a single buyer carries the keys for every
 chain it's willing to pay on. (A single EVM key is reused across every EVM chain; it's the
 same address on all of them.)
 
 The **iteration order** of `wallets` is your **chain preference**: when more than one chain
 can settle, the *first one you listed* wins. There's no oracle to compare gas across
-different native coins, so the SDK never guesses which is "cheaper" in dollars — you decide
+different native coins, so the SDK never guesses which is "cheaper" in dollars. You decide
 by ordering. List your preferred chain first, or fund only it.
 
 ### Every option
 
 `wallets` is the only required field. Everything else is **one setting that fans out to every
-chain's client identically** — so you configure spend caps, the gasless rail, approval, and
+chain's client identically**, so you configure spend caps, the gasless rail, approval, and
 retries *once* and they apply across the whole bundle:
 
 | Option | Type | Default | What it does |
 |---|---|---|---|
-| `wallets` *(required)* | `Record<string, WalletInput>` | — | One wallet per chain, keyed by chain selector. Iteration order = your chain preference (first that can settle wins). |
-| `policy` | [`PaymentPolicy`](/spend-controls/payment-policy/) | none (unbounded) | One spend policy applied to **every** chain's client — the buyer can never exceed it whatever chain it pays on. Each client still keeps its own per-(network, asset) ledger (no cross-token sum — there's no price oracle). |
+| `wallets` *(required)* | `Record<string, WalletInput>` | none | One wallet per chain, keyed by chain selector. Iteration order = your chain preference (first that can settle wins). |
+| `policy` | [`PaymentPolicy`](/spend-controls/payment-policy/) | none (unbounded) | One spend policy applied to **every** chain's client, so the buyer can never exceed it whatever chain it pays on. Each client still keeps its own per-(network, asset) ledger (no cross-token sum, because there's no price oracle). |
 | `schemes` | [`PaymentScheme[]`](/making-payments/exact-buyer/) | `['onchain-proof']` | Which rails every client may settle. Add `'exact'` to enable the [gasless rail](/making-payments/gasless-payments/) on every chain that supports it. |
-| `rpcUrls` | `Record<string, string>` | public presets | Per-chain RPC overrides, keyed by the **same chain selector as `wallets`**. Pass your own for anything serious — the public presets are rate-limited. |
+| `rpcUrls` | `Record<string, string>` | public presets | Per-chain RPC overrides, keyed by the **same chain selector as `wallets`**. Pass your own for anything serious, because the public presets are rate-limited. |
 | `onBeforePay` | `(quote) => boolean \| Promise<boolean>` | always allow | Final approval hook on every client; fires **after** the policy passes and **before** any send. Return `false` (or throw) to veto. |
-| `onEvent` | `(event) => void` | none | Observability hook on every client — receives each [`PipRailEvent`](/making-payments/events/) (quote, pay, verify, retry…). |
+| `onEvent` | `(event) => void` | none | Observability hook on every client. Receives each [`PipRailEvent`](/making-payments/events/) (quote, pay, verify, retry…). |
 | `maxPaymentRetries` | `number` | `3` | Retry budget for the post-broadcast leg, per client. |
 | `retryTimeoutMs` | `number` | `30000` | Timeout (ms) for the retry leg, per client. |
 
 A chain you only want to **read** from (`quote`/`estimateCost`/`discover`, never pay) just
-needs its wallet omitted — but `fromWallets` always builds a paying client per key, so for a
+needs its wallet omitted, but `fromWallets` always builds a paying client per key, so for a
 read-only chain use the [array constructor](#the-primitives-underneath) with a wallet-less
 `PipRailClient`.
 
@@ -114,7 +114,7 @@ use the array form: `new MultiChainPayer([clientA, clientB, …])` (order = pref
 ## A different policy per chain
 
 `fromWallets` applies **one** shared `policy` to every chain. When you want a *different* policy
-per chain — generous caps on your main rail, a tight leash on a hot key — build each
+per chain (generous caps on your main rail, a tight leash on a hot key) build each
 [`PipRailClient`](/making-payments/piprail-client/) yourself (each with its own `policy`,
 `onBeforePay`, `schemes`, …) and pass them to the **array constructor**. `MultiChainPayer` stores
 them verbatim; every payment runs through *its owning client's own* policy and hooks:
@@ -123,13 +123,13 @@ them verbatim; every payment runs through *its owning client's own* policy and h
 import { PipRailClient, MultiChainPayer } from '@piprail/sdk'
 
 const payer = new MultiChainPayer([
-  // Base — your main rail, generous caps
+  // Base: your main rail, generous caps
   new PipRailClient({
     chain: 'base',
     wallet: { key: process.env.EVM_KEY! },
     policy: { maxAmount: '5.00', maxTotal: '100.00', tokens: ['USDC'] },
   }),
-  // Solana — a hot key on a tight leash
+  // Solana: a hot key on a tight leash
   new PipRailClient({
     chain: 'solana',
     wallet: { key: process.env.SOLANA_KEY! },
@@ -148,28 +148,28 @@ A subtlety worth internalising, because the two gates behave differently when mo
 could pay:
 
 - A per-chain **policy** refusal is a **plan signal**. `planPayment` evaluates each client's policy,
-  so a chain whose policy refuses surfaces as `state: 'blocked'` with an `OUTSIDE_POLICY` blocker —
-  **not payable** — and routing simply **skips it and settles on the next chain** that can. (So a
+  so a chain whose policy refuses surfaces as `state: 'blocked'` with an `OUTSIDE_POLICY` blocker,
+  meaning **not payable**, and routing simply **skips it and settles on the next chain** that can. (So a
   chain you cap out, or list last, won't be auto-charged while another rail is viable.)
 - An **`onBeforePay`** veto is a **pay-time gate on the chosen chain only**. `best` is chosen from
   the policy-aware plan *first*, then the owning client runs its hook; if it returns `false`, the
   payment is **declined outright** ([`PaymentDeclinedError`](/errors/error-model/),
-  `reasonCode: 'APPROVAL'`) — the payer does **not** silently fall back to another chain.
+  `reasonCode: 'APPROVAL'`), and the payer does **not** silently fall back to another chain.
 
 Rule of thumb: use **`policy`** (`maxAmount`/`tokens`/…) for *which chain may pay and how much*
 (it's routing-aware), and **`onBeforePay`** for a last-mile yes/no on the rail that was actually
 chosen.
 
-## How a rail is chosen — the exact rule
+## How a rail is chosen: the exact rule
 
 This is the one thing to internalise, because it's *not* "cheapest across chains":
 
 1. **Plan every funded chain in parallel.** Each client reads its own balance, gas, and
    recipient-readiness for the rails the 402 offers on *its* chain, and ranks them
-   payable-first / cheapest-gas-first **within that chain** (its own native coin — a valid
+   payable-first / cheapest-gas-first **within that chain** (its own native coin, a valid
    comparison).
 2. **Merge across chains by state only, preserving your listed order.** Payable rails come
-   before unknown, unknown before blocked — but rails are **never fee-compared across
+   before unknown, unknown before blocked. Rails are **never fee-compared across
    chains**. Base-unit gas magnitudes aren't comparable between different native coins
    (0.0001 ETH vs 0.5 SOL vs 2 XRP say nothing about dollar cost without an oracle, and
    there is no oracle).
@@ -177,17 +177,17 @@ This is the one thing to internalise, because it's *not* "cheapest across chains
    cheapest-gas rail.
 
 So with `wallets: { base, polygon, solana }`, a 402 payable on all three settles on
-**Base** — not because Base is cheapest, but because you listed it first. Reorder to
+**Base**, not because Base is cheapest, but because you listed it first. Reorder to
 `{ polygon, base, solana }` and Polygon wins. This keeps routing **predictable and
 oracle-free**, in line with PipRail's no-backend design.
 
-## When nothing can settle — the decline message
+## When nothing can settle: the decline message
 
-If no funded chain can pay, the failure is made **explicit and actionable** — for an AI agent
+If no funded chain can pay, the failure is made **explicit and actionable**. For an AI agent
 parsing fields *and* for a human reading the sentence. `planPayment` returns `payable: false`
 with a merged `fundingHint` that names **every funded chain's own blocker** (not just the
 first), and `fetch`/`get`/`post` throw [`PaymentDeclinedError`](/errors/error-model/) carrying
-the same sentence — **before any on-chain send**:
+the same sentence, **before any on-chain send**:
 
 ```text
 Can't settle on base: top up 0.05 USDC (to pay 0.05 USDC). · Can't settle on polygon: top
@@ -202,7 +202,7 @@ programmatically instead of parsing prose:
 |---|---|---|
 | `INSUFFICIENT_TOKEN` | Not enough of the payment token | Top up that token on that chain (`shortfall.token`) |
 | `INSUFFICIENT_GAS` | Not enough native coin for gas | Add native coin on that chain (`shortfall.native`) |
-| `RECIPIENT_NOT_READY` | The recipient can't receive yet | A recipient-side fix (trustline / opt-in / activation) — not your balance |
+| `RECIPIENT_NOT_READY` | The recipient can't receive yet | A recipient-side fix (trustline / opt-in / activation), not your balance |
 | `OUTSIDE_POLICY` | Refused by your spend policy | Raise the cap or allow the token; the amount/asset exceeded your `policy` |
 | `OUTSIDE_WINDOW` | Budget window or session exhausted | Wait for the window, raise `windowTotal`, or restart the session |
 
@@ -230,14 +230,14 @@ the same `PayingClient` interface, so anything that takes a `PipRailClient` take
 
 Because it implements the same `PayingClient` interface a `PipRailClient` does, the
 [agent toolkit](/agent-toolkit/payment-tools/) (`paymentTools`) and the
-[MCP server](/mcp/overview/) wrap it **unchanged** — point an LLM at one wallet or at a whole
+[MCP server](/mcp/overview/) wrap it **unchanged**, so you can point an LLM at one wallet or at a whole
 bundle and the tools are identical.
 
 ## Gasless `exact` works across chains
 
-The optional [`exact` scheme](/making-payments/exact-buyer/) — the standard x402 rail that lets
+The optional [`exact` scheme](/making-payments/exact-buyer/), the standard x402 rail that lets
 the buyer pay **gaslessly** (sign an EIP-3009 / Permit2 authorization; the merchant or a
-facilitator submits and pays the gas) — is applied to **every** chain in the bundle. Pass
+facilitator submits and pays the gas), is applied to **every** chain in the bundle. Pass
 `schemes` once and it propagates to each chain's client:
 
 ```ts
@@ -250,7 +250,7 @@ const payer = MultiChainPayer.fromWallets({
 
 When a 402 offers both rails on a chain, the gasless `exact` rail is preferred *within that
 chain* (it costs the buyer no gas, so it's the cheaper rail). The cross-chain rule is
-unchanged — the first funded chain you listed that can settle still wins. In the MCP server,
+unchanged: the first funded chain you listed that can settle still wins. In the MCP server,
 set `PIPRAIL_SCHEMES=onchain-proof,exact` and it applies to every chain in `PIPRAIL_CHAINS`.
 See [Gasless payments](/making-payments/gasless-payments/) for which chains/tokens support it.
 
@@ -268,7 +268,7 @@ PLAN: READY
   eip155:137 · USDC                    payable    0.012 POL        0.05 USDC
 ```
 
-All three are payable, so **Base wins because it's listed first** — even though Arbitrum's
+All three are payable, so **Base wins because it's listed first**, even though Arbitrum's
 gas is numerically smaller (the SDK won't compare ETH-gas against POL-gas without an
 oracle). `get()` then settles **only** that rail. To prefer Arbitrum, list it first. See the
 runnable [`examples/basics/multi-chain`](https://github.com/piprail/piprail/tree/main/examples/basics/multi-chain).
@@ -278,14 +278,14 @@ runnable [`examples/basics/multi-chain`](https://github.com/piprail/piprail/tree
 `MultiChainPayer` is a thin composition over two exported functions, for when you already
 hold an array of single-chain clients and want to skip the wrapper:
 
-- **`planAcross(clients, url, init?)`** — run each client's `planPayment` in parallel and
+- **`planAcross(clients, url, init?)`** runs each client's `planPayment` in parallel and
   merge the rails into one plan, ranked payable-first in client order. Returns `null` only
   if the URL isn't gated for any client; throws only if **every** client fails to reach the
   resource (a single chain being down just drops that chain).
-- **`fetchAcross(clients, url, init?)`** — the execution counterpart: plan across the
+- **`fetchAcross(clients, url, init?)`** is the execution counterpart: it plans across the
   clients, then pay on the owning client of the rail `planAcross` names as `best`. Throws
   [`PaymentDeclinedError`](/errors/error-model/) with a merged, per-chain funding hint when
-  no chain can settle — **before any on-chain send**.
+  no chain can settle, **before any on-chain send**.
 
 ```ts
 import { PipRailClient, planAcross, fetchAcross } from '@piprail/sdk'
@@ -294,46 +294,46 @@ const clients = [
   new PipRailClient({ chain: 'base', wallet: { key: EVM_KEY } }),
   new PipRailClient({ chain: 'solana', wallet: { key: SOLANA_KEY } }),
 ]
-const plan = await planAcross(clients, url) // read-only survey (Base preferred — listed first)
+const plan = await planAcross(clients, url) // read-only survey (Base preferred, listed first)
 const res = await fetchAcross(clients, url) // pay the winner on its owning client
 ```
 
 `fetchAcross` is **best-effort** at pay time: the owning client re-reads its balances and
 gas when it actually pays (via `autoRoute`), so if balances shift between plan and pay it
-can pick another settleable rail *on the same chain*, or decline — its spend policy and
+can pick another settleable rail *on the same chain*, or decline. Its spend policy and
 `onBeforePay` still gate whatever is paid.
 
 ## Notes & limits
 
 - **One budget, per-chain ledgers.** The shared `policy` applies to every chain, but each
-  client keeps its own per-(network, asset) spend ledger — `maxTotal` is enforced per token
+  client keeps its own per-(network, asset) spend ledger, so `maxTotal` is enforced per token
   (there's no price oracle to sum USDC-on-Base against SOL). Because the cap is per
-  (network, asset), the **same token across N chains gets N independent caps** —
+  (network, asset), the **same token across N chains gets N independent caps**:
   `maxTotal: '20'` with USDC on Base *and* Polygon allows 20 USDC on each. `payer.spent()` /
   `payer.budget()` give the merged view.
 - **Caps are in the paid token's units, not dollars.** `maxAmount`/`maxTotal` are scaled by
-  the token's *true on-chain decimals* (decimal-spoof-proof) — so `'1.00'` is ~\$1 for
+  the token's *true on-chain decimals* (decimal-spoof-proof), so `'1.00'` is ~\$1 for
   USDC/USDT (≈\$1 stablecoins) but **1.0 of a native coin** on a `native` rail (~\$1000s for
   ETH), since there's no oracle. If you include `'native'` in `tokens`, set the cap with that
-  in mind — or keep `tokens` to stablecoins for a ~dollar cap.
-- **Which chain is chosen — your order, not the cheapest.** Across different native coins
+  in mind, or keep `tokens` to stablecoins for a ~dollar cap.
+- **Which chain is chosen: your order, not the cheapest.** Across different native coins
   there's **no price oracle**, so chains are **not** fee-compared against each other: it pays
   the **first chain you list** that can settle. Within a single chain it still prefers the
   cheapest-gas rail. List your preferred chain first (or fund only it).
 - **Read-only chains are fine.** A client with no wallet contributes nothing to paying (it
-  can still `quote`/`estimateCost`/`discover` — `planPayment` needs a wallet, since it reads
+  can still `quote`/`estimateCost`/`discover`. `planPayment` needs a wallet, since it reads
   *your* balance). The payer pays on whichever funded chain wins.
 - **Total outage propagates; one chain down doesn't.** If a single chain's RPC is
   unreachable it's dropped from the plan; if *every* chain is unreachable, `planPayment` /
   `canAfford` throw rather than falsely reporting "free" or "affordable".
 - **No 402 → straight through.** A free resource is returned verbatim; nothing moves.
 - **At most one client per chain.** Two clients on the same network would double-count in
-  `spent()`/`budget()` — `fromWallets` can't produce that (its keys are unique chains); only
+  `spent()`/`budget()`, which `fromWallets` can't produce (its keys are unique chains); only
   the array constructor can, so don't.
 
 ## Zero-code: the MCP equivalent
 
-The [`@piprail/mcp`](/mcp/configuration/) server does this for any AI client — list several
+The [`@piprail/mcp`](/mcp/configuration/) server does this for any AI client. List several
 chains and give each its own key:
 
 ```jsonc
@@ -344,6 +344,6 @@ chains and give each its own key:
 }
 ```
 
-The model's `piprail_pay_request` then pays whichever chain a 402 asks for — preferring the
-first chain you listed — under one shared budget across every chain you funded. Full setup in
+The model's `piprail_pay_request` then pays whichever chain a 402 asks for, preferring the
+first chain you listed, under one shared budget across every chain you funded. Full setup in
 [Configuration → pay on several chains](/mcp/configuration/#pay-on-several-chains-from-one-server).

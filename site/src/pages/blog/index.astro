@@ -6,13 +6,13 @@ import Breadcrumbs from '../../components/Breadcrumbs.astro'
 import { postsByDate, formatDate } from '../../data/posts'
 import { Clock, ArrowRight, BookText } from 'lucide-astro'
 
-const title = 'Blog — PipRail'
+const title = 'Blog: PipRail'
 const description =
   'Writing from the PipRail team on x402, agent payments, and the trust layer the agent economy still has to build. The open, self-custody, any-chain rail.'
 
 const site = Astro.site?.href.replace(/\/$/, '') ?? 'https://piprail.com'
 
-// Blog + ItemList structured data — lets search + answer engines see the post list.
+// Blog + ItemList structured data, so search and answer engines see the post list.
 const blogLd = {
   '@context': 'https://schema.org',
   '@type': 'Blog',
@@ -60,12 +60,12 @@ const rest = postsByDate.slice(1)
         The trust layer, <span class="text-accent">in the open.</span>
       </h1>
       <p class="mt-5 max-w-2xl text-base leading-relaxed text-neutral-400 sm:text-lg">
-        Notes from building PipRail — on x402, agent payments, and the questions the agent economy
+        Notes from building PipRail: x402, agent payments, and the questions the agent economy
         has to answer next. No backend, no custody, no fee.
       </p>
     </section>
 
-    <!-- Coming soon — shown while no posts are published. -->
+    <!-- Coming soon, shown while no posts are published. -->
     {!featured && (
       <section class="pb-16">
         <div class="card flex flex-col items-center rounded-3xl border border-white/10 bg-white/2.5 px-6 py-16 text-center sm:py-20">
@@ -102,7 +102,7 @@ const rest = postsByDate.slice(1)
           <div class="relative flex aspect-40/21 items-center justify-center overflow-hidden border-b border-white/10 bg-bg md:aspect-auto md:border-b-0 md:border-r">
             <img
               src={featured.ogImage}
-              alt={`Cover image for “${featured.title}” — a payment-grounded reputation score of 92/100`}
+              alt={`Cover image for “${featured.title}”: a payment-grounded reputation score of 92/100`}
               width="1200"
               height="630"
               loading="eager"
@@ -134,7 +134,7 @@ const rest = postsByDate.slice(1)
     </section>
     )}
 
-    <!-- Rest of posts (grid) — appears once there's more than one. -->
+    <!-- Rest of posts (grid), shown once there's more than one. -->
     {rest.length > 0 && (
       <section class="pb-16">
         <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">

@@ -10,34 +10,34 @@ import { mcpConfigCode } from '../data/snippets'
 import { liveIntegrations, comingSoon } from '../data/integrations'
 import { Wallet, ShieldCheck, Terminal, ArrowRight, ChevronDown, Code2, Sparkles, Plug } from 'lucide-astro'
 
-const title = 'MCP server for Claude & Cursor that pays for APIs — budget-capped | PipRail'
+const title = 'MCP server for Claude & Cursor that pays for APIs, budget-capped | PipRail'
 const description =
   'Give Claude, Cursor or any MCP client a budget-capped wallet so it can pay for APIs on its own. No backend, no custody, spend caps the model cannot exceed.'
 
-// The eight tools your agent gets — only piprail_pay_request moves money.
+// The eight tools your agent gets. Only piprail_pay_request moves money.
 const tools = [
   { name: 'piprail_discover', d: 'Find payable x402 APIs on the open indexes.' },
-  { name: 'piprail_quote_payment', d: 'Read a URL’s exact price — without paying.' },
+  { name: 'piprail_quote_payment', d: 'Read a URL’s exact price, without paying.' },
   { name: 'piprail_plan_payment', d: 'Check balance, gas + policy across every rail first.' },
   { name: 'piprail_pay_request', d: 'Pay the cheapest affordable rail, return the resource.', pays: true },
   { name: 'piprail_register', d: 'List an endpoint you run so other agents find it.' },
   { name: 'piprail_budget', d: 'Read remaining spend + time leash.' },
   { name: 'piprail_guide', d: 'Read the agent contract (quote → plan → pay).' },
-  { name: 'piprail_verify_receipt', d: 'Re-verify a payment receipt on-chain — wallet-free.' },
+  { name: 'piprail_verify_receipt', d: 'Re-verify a payment receipt on-chain, wallet-free.' },
 ]
 
 // Trimmed to the trust + decision questions (the how-to lives in the docs). Keeps the FAQ schema.
 const faqs = [
-  { q: 'How does spend budgeting work — can the agent overspend?', a: 'No. PIPRAIL_MAX_AMOUNT caps each individual payment and PIPRAIL_MAX_TOTAL caps lifetime spend per token. Both are enforced by the SDK before any on-chain send, and checked against the token’s true on-chain decimals — so a malicious server can’t slip past a limit by misstating the price. An over-budget request comes back as { declined: true, reason } and nothing moves. You can also restrict tokens (PIPRAIL_TOKENS) and destination hosts (PIPRAIL_HOSTS).' },
+  { q: 'How does spend budgeting work, and can the agent overspend?', a: 'No. PIPRAIL_MAX_AMOUNT caps each individual payment and PIPRAIL_MAX_TOTAL caps lifetime spend per token. Both are enforced by the SDK before any on-chain send, and checked against the token’s true on-chain decimals, so a malicious server can’t slip past a limit by misstating the price. An over-budget request comes back as { declined: true, reason } and nothing moves. You can also restrict tokens (PIPRAIL_TOKENS) and destination hosts (PIPRAIL_HOSTS).' },
   // Probed 2026-08-30: MoonPay PayBox wins "spending-capped crypto wallet in Claude", and
-  // Ramp/Locus/MoltPe win "budget limit for an AI agent" — all with fiat-ops vocabulary.
+  // Ramp/Locus/MoltPe win "budget limit for an AI agent", all with fiat-ops vocabulary.
   // The two entries below answer those questions in the words people actually type. Every
   // variable named here was read out of mcp/src/config.ts, not from memory.
-  { q: 'How do I give Claude Desktop a spending-capped crypto wallet?', a: 'Add @piprail/mcp to your MCP config with a wallet key, a chain, and your caps — PIPRAIL_MAX_AMOUNT for the per-payment ceiling and PIPRAIL_MAX_TOTAL for lifetime spend. Claude Desktop then has a wallet it can spend from autonomously and cannot exceed, because the policy is enforced by the SDK before any on-chain send, not by asking the model to behave. Nothing is hosted: the server runs locally, the key stays on your machine, and payments go wallet-to-wallet with no custodian and no PipRail account. The same block works in Cursor, Claude Code, Windsurf, VS Code and Cline.' },
+  { q: 'How do I give Claude Desktop a spending-capped crypto wallet?', a: 'Add @piprail/mcp to your MCP config with a wallet key, a chain, and your caps: PIPRAIL_MAX_AMOUNT for the per-payment ceiling and PIPRAIL_MAX_TOTAL for lifetime spend. Claude Desktop then has a wallet it can spend from autonomously and cannot exceed, because the policy is enforced by the SDK before any on-chain send, not by asking the model to behave. Nothing is hosted: the server runs locally, the key stays on your machine, and payments go wallet-to-wallet with no custodian and no PipRail account. The same block works in Cursor, Claude Code, Windsurf, VS Code and Cline.' },
   { q: 'How do I set a budget limit on an AI agent that spends money?', a: 'PipRail enforces the limit in code, below the model, so a looping or jailbroken agent cannot talk its way past it. You get a per-payment cap (PIPRAIL_MAX_AMOUNT), a lifetime cap per token (PIPRAIL_MAX_TOTAL), a cross-token grand total by denomination (PIPRAIL_MAX_TOTAL_DENOM, e.g. USD:20.00), rolling-window caps on both spend and payment count (PIPRAIL_WINDOW_SECONDS with PIPRAIL_WINDOW_TOTAL and PIPRAIL_MAX_PAYMENTS_PER_WINDOW), plus token, chain and host allowlists. Set PIPRAIL_CONFIRM to require a human to approve each payment where the client supports elicitation, PIPRAIL_WARN_AT_FRACTION to be warned as a cap approaches, and PIPRAIL_SPEND_LOG to keep the budget durable across restarts. An over-budget request returns { declined: true, reason } and nothing moves.' },
-  { q: 'Does the MCP take custody of my funds or run a backend?', a: 'No. The server runs locally on your machine with your key, your RPC, and your limits. Payments settle wallet-to-wallet straight to the recipient — PipRail runs no service and holds nothing. There’s no PipRail backend to compromise and no facilitator in the path. The server code is MIT and open; you can audit or run it yourself.' },
-  { q: 'Which AI clients and chains does the MCP support?', a: 'Clients: Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, and Cline — any MCP client. Chains: all 29 PipRail supports — 20 EVM mainnets plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger. EVM works out of the box (the server ships with viem); non-EVM chains pull their SDK peer library on demand. Each server instance is one wallet on one chain — register it once per chain to give an agent several rails.' },
-  { q: 'What’s the difference between @piprail/sdk and @piprail/mcp?', a: 'The SDK is for developers who write code — you call requirePayment / createPaymentGate to charge, or PipRailClient to pay, in TypeScript. The MCP flips that: you write no code, you add an env block, and agents in your MCP client pay x402 URLs autonomously, capped by a spend policy. Same engine, same 29 chains, same backendless self-custody — the MCP is the zero-integration path for AI/agent operators.' },
+  { q: 'Does the MCP take custody of my funds or run a backend?', a: 'No. The server runs locally on your machine with your key, your RPC, and your limits. Payments settle wallet-to-wallet straight to the recipient. PipRail runs no service and holds nothing. There’s no PipRail backend to compromise and no facilitator in the path. The server code is MIT and open; you can audit or run it yourself.' },
+  { q: 'Which AI clients and chains does the MCP support?', a: 'Clients: Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, and Cline, or any MCP client. Chains: all 29 PipRail supports, meaning 20 EVM mainnets plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger. EVM works out of the box (the server ships with viem); non-EVM chains pull their SDK peer library on demand. Each server instance is one wallet on one chain, so register it once per chain to give an agent several rails.' },
+  { q: 'What’s the difference between @piprail/sdk and @piprail/mcp?', a: 'The SDK is for developers who write code: you call requirePayment / createPaymentGate to charge, or PipRailClient to pay, in TypeScript. The MCP flips that: you write no code, you add an env block, and agents in your MCP client pay x402 URLs autonomously, capped by a spend policy. Same engine, same 29 chains, same backendless self-custody. The MCP is the zero-integration path for AI/agent operators.' },
 ]
 
 const faqLd = {
@@ -64,7 +64,7 @@ const faqLd = {
       </h1>
       <p class="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-neutral-400 sm:text-lg">
         Hand any MCP client a <span class="text-neutral-200">budget-bound payment wallet</span>. Claude Desktop,
-        Cursor, Claude Code, Windsurf, VS Code, and Cline can pay x402-gated URLs on their own — across 29 chains,
+        Cursor, Claude Code, Windsurf, VS Code, and Cline can pay x402-gated URLs on their own, across 29 chains,
         capped by a spend policy the model <span class="text-neutral-200">cannot exceed</span>. No backend, no custody, no code.
       </p>
       <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -82,18 +82,18 @@ const faqLd = {
     <section class="border-t border-white/10 py-16 sm:py-20">
       <SectionHeading title="Add it in one block.">
         Drop this into your MCP client with your wallet key and a budget. The defaults are deliberately
-        small and safe — <span class="text-neutral-200">0.10 per payment, 10.00 lifetime per token, USDC on Base</span>.
+        small and safe: <span class="text-neutral-200">0.10 per payment, 10.00 lifetime per token, USDC on Base</span>.
       </SectionHeading>
       <div class="grid gap-6 lg:grid-cols-[1.05fr_1fr] lg:items-start">
         <div class="min-w-0">
           <CodeWindow file="claude_desktop_config.json" code={mcpConfigCode} />
-          <p class="mt-3 text-sm text-neutral-500">Restart your client — the tools appear.</p>
+          <p class="mt-3 text-sm text-neutral-500">Restart your client and the tools appear.</p>
         </div>
         <div class="rounded-2xl border border-white/10 bg-white/2 p-5">
           <p class="flex items-start gap-2.5 text-sm leading-snug text-neutral-400">
             <ShieldCheck size={16} class="mt-0.5 shrink-0 text-accent" aria-hidden="true" />
             <span><span class="text-neutral-200">Never commit your key.</span> Cursor, Claude Code, Windsurf and VS Code support
-            <code class="rounded bg-white/5 px-1 text-neutral-300">{'${env:PIPRAIL_PRIVATE_KEY}'}</code> interpolation — keep it out of the file. Claude Desktop takes the plain value, so treat that config as a secret.</span>
+            <code class="rounded bg-white/5 px-1 text-neutral-300">{'${env:PIPRAIL_PRIVATE_KEY}'}</code> interpolation, so keep it out of the file. Claude Desktop takes the plain value, so treat that config as a secret.</span>
           </p>
           <div class="mt-5 flex flex-wrap gap-2 border-t border-white/10 pt-5">
             <a href="https://docs.piprail.com/mcp/client-setup/" class="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[13px] font-medium text-neutral-300 transition hover:border-white/20">Per-client config <ArrowRight size={13} aria-hidden="true" /></a>
@@ -106,7 +106,7 @@ const faqLd = {
     <!-- The eight tools -->
     <section class="border-t border-white/10 py-16 sm:py-20">
       <SectionHeading title="Eight tools, the moment it connects.">
-        A complete, safe payment workflow — <span class="text-neutral-200">discover → quote → plan → pay</span>, then
+        A complete, safe payment workflow: <span class="text-neutral-200">discover → quote → plan → pay</span>, then
         <span class="text-neutral-200">verify</span>. Only <code class="text-neutral-300">piprail_pay_request</code> moves money; the rest are read-only.
       </SectionHeading>
       <ul class="grid gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -122,7 +122,7 @@ const faqLd = {
         ))}
       </ul>
       <p class="mt-8 text-sm text-neutral-500">
-        Budget-bound and local-only — the policy is enforced before any send, so the model can’t overspend even if it tries.
+        Budget-bound and local-only. The policy is enforced before any send, so the model can’t overspend even if it tries.
         <a href="https://docs.piprail.com/mcp/tools/" class="ml-1 text-accent underline-offset-4 hover:underline">Full tool reference →</a>
       </p>
     </section>
@@ -130,9 +130,9 @@ const faqLd = {
     <!-- Framework integrations -->
     <section id="integrations" class="scroll-mt-24 border-t border-white/10 py-16 sm:py-20">
       <SectionHeading title="Drop it into your framework.">
-        First-party integrations give your agent a budget-bound wallet — most by wrapping this same MCP server (the native elizaOS plugin and n8n node use the SDK directly). No config wrangling.
+        First-party integrations give your agent a budget-bound wallet, most by wrapping this same MCP server (the native elizaOS plugin and n8n node use the SDK directly). No config wrangling.
       </SectionHeading>
-      <!-- live integrations — the same reusable component as the home page (src/components/IntegrationCard.astro) -->
+      <!-- live integrations, the same reusable component as the home page (src/components/IntegrationCard.astro) -->
       <div class="space-y-4">
         {liveIntegrations.map((i) => <IntegrationCard {...i} />)}
       </div>
@@ -150,27 +150,27 @@ const faqLd = {
     <!-- Why it's safe -->
     <section class="border-t border-white/10 py-16 sm:py-20">
       <SectionHeading title="Why it's safe.">
-        The spend policy is the boundary — and it's enforced where it counts.
+        The spend policy is the boundary, and it's enforced where it counts.
       </SectionHeading>
       <div class="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 md:grid-cols-3">
         <div class="bg-neutral-950 p-6 sm:p-7">
           <ShieldCheck size={18} class="text-accent" aria-hidden="true" />
           <p class="mt-4 text-lg font-medium text-neutral-100">Caps enforced before any send</p>
-          <p class="mt-2 leading-relaxed text-neutral-500">Per-call and lifetime-per-token limits are checked against the token's true on-chain decimals — a server can't understate a price to slip past a cap. Over budget → declined, nothing moves.</p>
+          <p class="mt-2 leading-relaxed text-neutral-500">Per-call and lifetime-per-token limits are checked against the token's true on-chain decimals, so a server can't understate a price to slip past a cap. Over budget → declined, nothing moves.</p>
         </div>
         <div class="bg-neutral-950 p-6 sm:p-7">
           <Wallet size={18} class="text-accent" aria-hidden="true" />
           <p class="mt-4 text-lg font-medium text-neutral-100">No custody, no backend</p>
-          <p class="mt-2 leading-relaxed text-neutral-500">Runs locally with your key, your RPC, your limits. Payments settle wallet-to-wallet — PipRail holds nothing and runs no service. Nothing to compromise.</p>
+          <p class="mt-2 leading-relaxed text-neutral-500">Runs locally with your key, your RPC, your limits. Payments settle wallet-to-wallet. PipRail holds nothing and runs no service. Nothing to compromise.</p>
         </div>
         <div class="bg-neutral-950 p-6 sm:p-7">
           <Code2 size={18} class="text-accent" aria-hidden="true" />
           <p class="mt-4 text-lg font-medium text-neutral-100">Open and auditable</p>
-          <p class="mt-2 leading-relaxed text-neutral-500">MIT-licensed and open source — read it, audit it, run it yourself. No key ever leaves your machine.</p>
+          <p class="mt-2 leading-relaxed text-neutral-500">MIT-licensed and open source: read it, audit it, run it yourself. No key ever leaves your machine.</p>
         </div>
       </div>
       <p class="mt-6 text-sm leading-relaxed text-neutral-500">
-        Pay across all 29 chains — 20 EVM mainnets plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and
+        Pay across all 29 chains: 20 EVM mainnets plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and
         the XRP Ledger. <a href="/chains/" class="text-accent underline-offset-4 hover:underline">See every chain →</a>
       </p>
     </section>

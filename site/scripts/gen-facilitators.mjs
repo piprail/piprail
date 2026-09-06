@@ -50,13 +50,18 @@ const EVM_HASH = /0x[0-9a-fA-F]{64}/g
 const ALGO_HASH = /\b[A-Z2-7]{52}\b/g
 
 /**
- * The facilitator's display name — the note's own leading label, which is how its operators
+ * The facilitator's display name: the note's own leading label, which is how its operators
  * write it. A trailing parenthetical is split off rather than shown inline, so
  * "Polygon Labs (the official Polygon facilitator)" renders as a name plus a badge instead of
  * a name that wraps onto three lines on a phone.
+ *
+ * The separator is the note's first colon. It used to be an em dash, until the 2026-09-06
+ * prose sweep removed those from every reader-facing surface. The match is bounded (no dot, at
+ * most 60 chars, and a space after the colon) so a note that loses its leading label degrades
+ * to the hostname fallback instead of rendering a whole sentence as the facilitator's name.
  */
 const label = (f) => {
-  const m = (f.note || '').match(/^([^—]+)\s*—/)
+  const m = (f.note || '').match(/^([^:.]{1,60}):\s/)
   const raw = m
     ? m[1].trim()
     : f.url.replace(/^https?:\/\//, '').replace(/^(facilitator|pay|x402)\./, '').replace(/\/.*$/, '')
@@ -174,7 +179,7 @@ for (const [caip2, list] of Object.entries(KNOWN_FACILITATORS)) {
 }
 rows.sort((a, b) => b.facilitators.length - a.facilitators.length || a.chain.localeCompare(b.chain))
 
-const out = `// ⚠️ GENERATED — do not edit by hand.
+const out = `// ⚠️ GENERATED. Do not edit by hand.
 // Source: sdk/src/facilitators.ts (KNOWN_FACILITATORS)
 // Regenerate: node site/scripts/gen-facilitators.mjs
 //
@@ -187,7 +192,7 @@ const out = `// ⚠️ GENERATED — do not edit by hand.
 export interface FacilitatorTx {
   /** Full 0x…/base32 hash, or the prefix the note recorded if that is all we kept. */
   hash: string
-  /** Block-explorer URL — null when the hash is truncated and cannot be linked. */
+  /** Block-explorer URL, or null when the hash is truncated and cannot be linked. */
   url: string | null
   full: boolean
 }
@@ -200,7 +205,7 @@ export interface FacilitatorEntry {
   keyless: boolean
   schemes: string[]
   settles: string[]
-  /** The registry note, verbatim — the source of every field below it. */
+  /** The registry note, verbatim: the source of every field below it. */
   note: string
   /** true when we settled a real payment; false when the entry rests on a lighter check. */
   settled: boolean

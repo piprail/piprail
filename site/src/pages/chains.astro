@@ -9,17 +9,17 @@ import { chains } from '../data/chains'
 import { exoticCode, solanaCode } from '../data/snippets'
 import { ChevronDown, Settings2, ArrowRight } from 'lucide-astro'
 
-// Counts are DERIVED from the data — never hardcoded, so they can't drift.
+// Counts are DERIVED from the data, never hardcoded, so they can't drift.
 const total = chains.length
 const families = [...new Set(chains.map((c) => c.family))]
 const familyCount = families.length
 const evmCount = chains.filter((c) => c.family === 'EVM').length
 const withSetup = chains.filter((c) => c.setup)
 
-const title = `x402 on ${total} chains — accept USDC, USDT & native coins | PipRail`
-const description = `Every chain PipRail supports for x402: ${total} chains across ${familyCount} families — EVM, Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, XRPL.`
+const title = `x402 on ${total} chains: accept USDC, USDT & native coins | PipRail`
+const description = `Every chain PipRail supports for x402: ${total} chains across ${familyCount} families: EVM, Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, XRPL.`
 
-// ItemList — every supported chain as a structured, citable entity.
+// ItemList: every supported chain as a structured, citable entity.
 const itemListLd = {
   '@context': 'https://schema.org',
   '@type': 'ItemList',
@@ -35,23 +35,23 @@ const itemListLd = {
   })),
 }
 
-// Chain-focused FAQ — mirrors the visible Q&A below (schema must match the page).
+// Chain-focused FAQ, mirroring the visible Q&A below (schema must match the page).
 const faqs = [
   {
     q: `Which chains and tokens does PipRail support?`,
-    a: `${total} chains across ${familyCount} families: ${evmCount} EVM mainnets (Ethereum, Base, Arbitrum, Optimism, Polygon, BNB Chain, Avalanche, HyperEVM, Monad, Mantle, Sonic, Linea, Scroll, Celo, zkSync, Unichain, World Chain, Sei, Injective, Kaia) plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger. USDC almost everywhere, USDT on most chains, EURC on Stellar, RLUSD on XRPL, the native coin on every chain, or any other token by address. One parameter — chain — picks everything.`,
+    a: `${total} chains across ${familyCount} families: ${evmCount} EVM mainnets (Ethereum, Base, Arbitrum, Optimism, Polygon, BNB Chain, Avalanche, HyperEVM, Monad, Mantle, Sonic, Linea, Scroll, Celo, zkSync, Unichain, World Chain, Sei, Injective, Kaia) plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger. USDC almost everywhere, USDT on most chains, EURC on Stellar, RLUSD on XRPL, the native coin on every chain, or any other token by address. One parameter, chain, picks everything.`,
   },
   {
     q: `Do any chains need extra setup before they work?`,
-    a: `Most don't — on EVM, Solana, Sui, and Aptos you install, add a wallet, and pay or get paid with no extra steps, in the native coin or a stablecoin. A few have one-time caveats. On Algorand, native ALGO is the zero-setup path, while receiving USDC needs a one-time ASA opt-in on the recipient. TON ships USD₮ (no native USDC) and needs an API-keyed RPC — one parameter, rpcUrl with a free toncenter key in the URL. Tron pays in USD₮ or native TRX, and gas is real TRX. On NEAR, native NEAR is zero-setup while a NEP-141 token like USDC needs a one-time storage_deposit on the recipient. Stellar and the XRP Ledger require the recipient to hold a one-time trustline and to be an activated, reserve-funded account; native XLM/XRP need no trustline. Native coin is a valid payment asset on every chain. Full per-chain setup and wallet formats are in the documentation at docs.piprail.com.`,
+    a: `Most don't. On EVM, Solana, Sui, and Aptos you install, add a wallet, and pay or get paid with no extra steps, in the native coin or a stablecoin. A few have one-time caveats. On Algorand, native ALGO is the zero-setup path, while receiving USDC needs a one-time ASA opt-in on the recipient. TON ships USD₮ (no native USDC) and needs an API-keyed RPC: one parameter, rpcUrl with a free toncenter key in the URL. Tron pays in USD₮ or native TRX, and gas is real TRX. On NEAR, native NEAR is zero-setup while a NEP-141 token like USDC needs a one-time storage_deposit on the recipient. Stellar and the XRP Ledger require the recipient to hold a one-time trustline and to be an activated, reserve-funded account; native XLM/XRP need no trustline. Native coin is a valid payment asset on every chain. Full per-chain setup and wallet formats are in the documentation at docs.piprail.com.`,
   },
   {
     q: `Can I use a chain PipRail doesn't ship a preset for?`,
-    a: `Yes — there is no allowlist. Any other EVM chain works by passing a viem Chain or a plain { id, rpcUrl }, with the token as { address, decimals }. Built-in presets (with canonical USDC pre-filled) are a convenience, not a gate. Non-EVM families auto-mount: name a non-EVM chain and the SDK lazily imports just that family's libraries on first use, so pure-EVM installs stay lean.`,
+    a: `Yes, there is no allowlist. Any other EVM chain works by passing a viem Chain or a plain { id, rpcUrl }, with the token as { address, decimals }. Built-in presets (with canonical USDC pre-filled) are a convenience, not a gate. Non-EVM families auto-mount: name a non-EVM chain and the SDK lazily imports just that family's libraries on first use, so pure-EVM installs stay lean.`,
   },
   {
     q: `How do I accept several chains in one request?`,
-    a: `Pass an accept array to requirePayment or createPaymentGate — one challenge that offers several chains/tokens under a shared nonce, and the paying agent picks whatever it holds. Verification matches by network + asset and re-derives every field from its own trusted spec, so a forged echo can't redirect it and a proof can't be redeemed twice.`,
+    a: `Pass an accept array to requirePayment or createPaymentGate. It is one challenge that offers several chains/tokens under a shared nonce, and the paying agent picks whatever it holds. Verification matches by network + asset and re-derives every field from its own trusted spec, so a forged echo can't redirect it and a proof can't be redeemed twice.`,
   },
 ]
 const faqLd = {
@@ -79,7 +79,7 @@ const faqLd = {
       </h1>
       <p class="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-neutral-400 sm:text-lg">
         Pay and get paid across <span class="text-neutral-200">{evmCount} EVM mainnets</span> plus
-        Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger — <span class="text-neutral-200">{total} chains</span>, one parameter.
+        Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger. <span class="text-neutral-200">{total} chains</span>, one parameter.
         USDC almost everywhere, USDT on most, the native coin everywhere, any other token by address.
         Switch chains by changing a single string.
       </p>
@@ -140,7 +140,7 @@ const faqLd = {
     <section class="border-t border-white/10 py-16 sm:py-20">
       <SectionHeading title="Not on the list? Still works.">
         No allowlist, ever. Any other EVM chain drops in with a
-        <code class="text-neutral-300">{'{ id, rpcUrl }'}</code> and the token by address — and the non-EVM
+        <code class="text-neutral-300">{'{ id, rpcUrl }'}</code> and the token by address. The non-EVM
         families auto-mount the instant you name one.
       </SectionHeading>
       <div class="grid gap-6 lg:grid-cols-2">
@@ -149,7 +149,7 @@ const faqLd = {
           <CodeWindow code={exoticCode} />
         </div>
         <div class="min-w-0">
-          <p class="mb-3 text-xs font-medium uppercase tracking-wider text-muted">Beyond EVM — auto-mounts on first use</p>
+          <p class="mb-3 text-xs font-medium uppercase tracking-wider text-muted">Beyond EVM: auto-mounts on first use</p>
           <CodeWindow code={solanaCode} />
         </div>
       </div>
@@ -158,7 +158,7 @@ const faqLd = {
     <!-- Per-chain setup -->
     <section class="border-t border-white/10 py-16 sm:py-20">
       <SectionHeading title="One-time setup, where it applies.">
-        Most chains need nothing but a wallet — pay in the native coin or a stablecoin, done.
+        Most chains need nothing but a wallet. Pay in the native coin or a stablecoin, done.
         Only these few have a one-time, recipient-side step, and the native coin is always zero-setup.
       </SectionHeading>
       <ul class="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10">
@@ -208,7 +208,7 @@ const faqLd = {
         Pick a chain. Ship in one line.
       </h2>
       <p class="mx-auto mt-5 max-w-xl text-base text-neutral-400 sm:text-lg">
-        The same integration pays and gets paid across all {total} — swap one word.
+        The same integration pays and gets paid across all {total}. Swap one word.
       </p>
       <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
         <a href="/sdk/" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto">

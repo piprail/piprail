@@ -1,6 +1,6 @@
 ---
 title: Use as a library
-description: Embed the PipRail MCP server in your own host — build the config from env, wire the server to a transport, and hold the client for budget reads.
+description: Embed the PipRail MCP server in your own host. Build the config from env, wire the server to a transport, and hold the client for budget reads.
 sidebar:
   order: 9
 ---
@@ -11,14 +11,14 @@ The MCP server ships as a runnable binary (`npx -y @piprail/mcp`), but it's also
 library with no side effects. If you're building your own MCP host, an agent runtime, or a
 custom transport, you can construct the server yourself and own the connection.
 
-For the common case there's a single turnkey entry — **`startServer`** — that runs the whole boot
+For the common case there's a single turnkey entry, **`startServer`**, that runs the whole boot
 flow. For full control, the lower-level pieces are also exported: `parseConfig` (env →
 [`Config`](/mcp/configuration/)), `configToClientOptions` (config → SDK client options),
 `configToClientOptionsList` (multi-chain config → an array of SDK client options), and
 `createMcpServer` (client options → `{ server, client }`). None of them touch the network or a chain.
 
 A few more primitives are exported for embedders: **`walletInputFor`** (a `{ chain, walletSecret?,
-nearAccountId? }` → the SDK's `WalletInput` — shape a wallet from your own config), **`TOOL_NAMES`**
+nearAccountId? }` → the SDK's `WalletInput`, to shape a wallet from your own config), **`TOOL_NAMES`**
 (the frozen list of the `piprail_*` tool names), **`VERSION`** (the package version string), the
 boot-banner helpers **`formatBanner`** / **`printBanner`** / **`chainWarnings`** (the stderr banner +
 per-chain caveats), and the **`ConfigError`** class + **`Config`** / **`ChainAccount`** types.
@@ -32,7 +32,7 @@ import {
 } from '@piprail/mcp'
 ```
 
-## The quickest path — `startServer`
+## The quickest path: `startServer`
 
 `startServer(env?)` is the entire binary in one call: it parses the env (defaults to
 `process.env`), builds the client + server, wires `confirm`/`guide` from the config, prints the
@@ -49,10 +49,10 @@ await startServer({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_CHAIN: 'base' })
 Reach for the lower-level wiring below only when you need a non-stdio transport or want to hold the
 `client` yourself.
 
-## The standard wiring — own the transport
+## The standard wiring: own the transport
 
 The steps `startServer` runs under the hood, for when you need a non-stdio transport: parse the env
-into a validated config, turn that into SDK client options, then build the server — passing the
+into a validated config, turn that into SDK client options, then build the server, passing the
 `confirm`/`guide` flags through as the **second argument** (omit it and Mode B never arms and the
 guide can't be suppressed).
 
@@ -69,7 +69,7 @@ const { server } = createMcpServer(configToClientOptions(config), {
 await server.connect(new StdioServerTransport())
 ```
 
-For a **multi-chain** config (`PIPRAIL_CHAINS`), use `configToClientOptionsList` instead — it
+For a **multi-chain** config (`PIPRAIL_CHAINS`), use `configToClientOptionsList` instead. It
 returns an array of client options, one per funded chain, that `createMcpServer` accepts to build
 the multi-chain payer. `configToClientOptions(config)` throws a `ConfigError` on a multi-chain
 config, so reach for the list form whenever `PIPRAIL_CHAINS` may be set:
@@ -87,7 +87,7 @@ it's testable without a wallet or RPC.
 
 ## Parsing config yourself
 
-`parseConfig(env)` takes the env object — it never reads `process.env` on its own — so you can
+`parseConfig(env)` takes the env object, and never reads `process.env` on its own, so you can
 feed it a fake env, defaults overridden in code, or values from your own config system. It
 returns a normalized [`Config`](/mcp/configuration/) and throws `ConfigError` (with a
 human-readable message) on anything missing or malformed.
@@ -109,13 +109,13 @@ try {
 ```
 
 The wallet key has one hard requirement and a few aliases: `parseConfig` reads
-`PIPRAIL_PRIVATE_KEY`, then `PIPRAIL_WALLET_KEY`, then `AGENT_KEY` — the first non-empty one
+`PIPRAIL_PRIVATE_KEY`, then `PIPRAIL_WALLET_KEY`, then `AGENT_KEY`. The first non-empty one
 wins. Everything else falls back to the safe defaults above (`base` / `0.10` / `10.00` / `USDC`).
 
 `configToClientOptions(config)` then maps the config to `PipRailClientOptions`: the budget knobs
 become the [spend policy](/spend-controls/payment-policy/), and the wallet secret is shaped to
 the chosen family's `WalletInput`. The `confirm` and `guide` flags are MCP-server concerns and
-deliberately do **not** appear here — pass them as the second argument to `createMcpServer`.
+deliberately do **not** appear here. Pass them as the second argument to `createMcpServer`.
 
 ```ts
 const clientOptions = configToClientOptions(config)
@@ -126,7 +126,7 @@ const clientOptions = configToClientOptions(config)
 ## Server options
 
 The second argument layers the opt-in features on top of the base tool wiring. All three are
-additive — omit them and the tools path is byte-identical.
+additive, so omit them and the tools path is byte-identical.
 
 | Option | Default | Effect |
 | --- | --- | --- |
@@ -143,7 +143,7 @@ const { server } = createMcpServer(configToClientOptions(config), {
 
 :::note
 Enabling `confirm` (Mode B) wires the SDK's `onBeforePay` seam to the server's
-`elicitInput()`. Elicitation is a **client** capability — the MCP client you connect to must
+`elicitInput()`. Elicitation is a **client** capability, so the MCP client you connect to must
 support it (specifically `elicitation.form`), or PipRail silently degrades to Mode A and the
 policy alone is the consent. See [Modes](/mcp/modes/).
 :::
@@ -167,9 +167,9 @@ client.budget()
 ```
 
 `spent()` is the per-`(network, asset)` tally of everything paid so far (never a cross-token
-sum — there's no price oracle); `budget()` adds the remaining-per-token leash and the session's
+sum, because there's no price oracle); `budget()` adds the remaining-per-token leash and the session's
 time envelope (`expiresAt` / `secondsRemaining` are `null` until you set a TTL). Both are
-read-only and move no funds — use them to surface "spent so far / remaining" in your own UI.
+read-only and move no funds. Use them to surface "spent so far / remaining" in your own UI.
 
 These are the same reads the `piprail://budget` resource exposes.
 
@@ -182,4 +182,4 @@ is a leash within one run, not a persistent ledger.
 
 Because the MCP is a language-agnostic, budget-bound payer over stdio, it's the natural bridge from a
 non-TypeScript agent runtime to PipRail's rail. Any program that can spawn `@piprail/mcp`, speak MCP
-JSON-RPC, and call `piprail_pay_request(url)` can settle a payment through it — no SDK port required.
+JSON-RPC, and call `piprail_pay_request(url)` can settle a payment through it, with no SDK port required.

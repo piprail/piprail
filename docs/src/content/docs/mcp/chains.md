@@ -1,6 +1,6 @@
 ---
 title: Chains
-description: Run the MCP server on any PipRail chain — EVM works out of the box, non-EVM families lazy-load a peer, and several chains means one namespaced server each.
+description: Run the MCP server on any PipRail chain. EVM works out of the box, non-EVM families lazy-load a peer, and several chains means one namespaced server each.
 sidebar:
   order: 7
 ---
@@ -9,7 +9,7 @@ sidebar:
 
 The MCP server pays on the chain(s) you name: set **`PIPRAIL_CHAIN`** for one wallet on one
 chain, or **`PIPRAIL_CHAINS`** to fund several chains in one process (a key each) and let it
-pay whichever chain a 402 asks for — see [Paying on multiple chains at once](#paying-on-multiple-chains-at-once).
+pay whichever chain a 402 asks for. See [Paying on multiple chains at once](#paying-on-multiple-chains-at-once).
 EVM presets run with nothing extra; non-EVM families need their SDK peer library available
 alongside the server.
 
@@ -19,7 +19,7 @@ The chain you pick also decides the wallet format you supply in `PIPRAIL_PRIVATE
 ## EVM runs out of the box
 
 `npx -y @piprail/mcp` ships with `viem`, so `base`, `ethereum`, `arbitrum`, `polygon`, `bnb`,
-and every other EVM preset just run — no extra install.
+and every other EVM preset just run, with no extra install.
 
 ```json
 {
@@ -48,14 +48,14 @@ npx -y -p @piprail/mcp -p @solana/web3.js -p @solana/spl-token -p bs58 piprail-m
 ```
 
 The binary is `piprail-mcp` and each `-p` adds one package to the run. The per-family peers are
-listed in [`@piprail/sdk`'s `peerDependencies`](https://www.npmjs.com/package/@piprail/sdk) —
+listed in [`@piprail/sdk`'s `peerDependencies`](https://www.npmjs.com/package/@piprail/sdk);
 pass the same set after the `-p` flags for whichever family you're running.
 
 ## The default token is chain-aware
 
 `PIPRAIL_TOKENS` defaults to the canonical stablecoin that actually **exists** on the chain:
 **USDC** where it exists, else **USDT** on any chain without native USDC (**Tron**, **TON**, and the
-**Kaia** EVM preset — a USDC-only policy would otherwise silently block every payment). Override it anytime:
+**Kaia** EVM preset, since a USDC-only policy would otherwise silently block every payment). Override it anytime:
 
 ```jsonc
 "PIPRAIL_TOKENS": "USDC,native"   // also allow the chain's own coin (NOTE: PIPRAIL_MAX_AMOUNT is then 1.0 of that coin, not ~$1)
@@ -69,24 +69,24 @@ the full coverage.
 ## Per-chain caveats
 
 The server prints a `⚠ notes:` block on startup where these apply. API keys are the recurring
-one: the SDK has **no separate API-key field** — fold any key into the `PIPRAIL_RPC_URL`.
+one: the SDK has **no separate API-key field**, so fold any key into the `PIPRAIL_RPC_URL`.
 
 | Chain | What to watch |
 | --- | --- |
-| **TON** | A keyed RPC is effectively required — the keyless public endpoint is rate-limited (~1 req/s) and stalls verification. Use `PIPRAIL_RPC_URL=https://toncenter.com/api/v2/jsonRPC?api_key=YOUR_KEY`. Pays **USDT**; key is a 24-word mnemonic. |
+| **TON** | A keyed RPC is effectively required, because the keyless public endpoint is rate-limited (~1 req/s) and stalls verification. Use `PIPRAIL_RPC_URL=https://toncenter.com/api/v2/jsonRPC?api_key=YOUR_KEY`. Pays **USDT**; key is a 24-word mnemonic. |
 | **Tron** | The default public RPC (TronGrid) is rate-limited; point `PIPRAIL_RPC_URL` at a higher-limit endpoint (URL-embedded key, no header field). Gas is real **TRX**, so the wallet needs TRX as well as USDT. Pays **USDT**; key is a `0x…` 32-byte hex private key. |
-| **NEAR** | Set `PIPRAIL_NEAR_ACCOUNT_ID` (your `you.near`) alongside the `ed25519:…` key — required when a NEAR key is present (a read-only, key-less NEAR server boots without it). |
+| **NEAR** | Set `PIPRAIL_NEAR_ACCOUNT_ID` (your `you.near`) alongside the `ed25519:…` key. It is required when a NEAR key is present (a read-only, key-less NEAR server boots without it). |
 | **Stellar / XRPL / Algorand** | Receiving needs a one-time trustline/opt-in on the *recipient* side. |
 
 For the recipient-readiness caveats, `piprail_plan_payment` reports `recipientReady` so the agent
-knows before it pays — see [planPayment()](/making-payments/plan-payment/). The full per-chain
+knows before it pays; see [planPayment()](/making-payments/plan-payment/). The full per-chain
 list lives under [Chains](/chains/overview/), where each family has its own page.
 
 ## Paying on multiple chains at once
 
 The simplest way is **one server, several chains**: set `PIPRAIL_CHAINS` and give each chain its
 own key. `piprail_pay_request` then pays whichever chain a 402 asks for (the first chain you
-listed that can settle it), under one shared budget — full details in [Configuration](/mcp/configuration/#pay-on-several-chains-from-one-server):
+listed that can settle it), under one shared budget. Full details in [Configuration](/mcp/configuration/#pay-on-several-chains-from-one-server):
 
 ```json
 {
@@ -106,7 +106,7 @@ listed that can settle it), under one shared budget — full details in [Configu
 ```
 
 Prefer **separate per-chain instances** when you want an independent budget (or token allowlist,
-or confirm mode) per chain — register the server once per chain, each MCP entry namespaced so the
+or confirm mode) per chain. Register the server once per chain, each MCP entry namespaced so the
 agent gets all of them:
 
 ```json
@@ -125,19 +125,19 @@ agent gets all of them:
 ```
 
 :::caution
-Each key above must be the right format for **its** chain — a `0x…` hex key for Base/Tron, a base58
+Each key above must be the right format for **its** chain: a `0x…` hex key for Base/Tron, a base58
 secret for Solana (see the [wallet key formats](/mcp/configuration/)). Never paste a raw key into the
 config file: keep it in an env var and interpolate with `${env:…}` where your client supports it, or
 treat the config file as a secret (Claude Desktop has no interpolation).
 :::
 
 :::note
-On Tron and TON, `PIPRAIL_TOKENS` already defaults to `USDT` — you don't need to set it. Swap the
+On Tron and TON, `PIPRAIL_TOKENS` already defaults to `USDT`, so you don't need to set it. Swap the
 TronGrid URL for your own higher-limit endpoint in production, and keep TRX in the wallet for gas.
 :::
 
 :::tip
-A custom EVM chain that isn't a preset isn't reachable from `PIPRAIL_CHAIN` — the server only
+A custom EVM chain that isn't a preset isn't reachable from `PIPRAIL_CHAIN`, because the server only
 accepts named presets and non-EVM families. For one of those, drive the SDK directly with a viem
 `Chain`; see [Use it as a library](/mcp/use-as-a-library/).
 :::

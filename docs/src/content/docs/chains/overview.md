@@ -9,14 +9,14 @@ sidebar:
 
 A chain is a parameter you pass, not an allowlist the SDK ships. The popular EVM mainnets are
 built in by **name** (`chain: 'base'`), each with canonical USDC pre-filled so you never paste a
-token address. Any other EVM chain works by passing a viem `Chain` or a bare `{ id, rpcUrl }` —
+token address. Any other EVM chain works by passing a viem `Chain` or a bare `{ id, rpcUrl }`:
 if viem can reach the RPC, PipRail works on it.
 
 This page covers the EVM side. The non-EVM families each have their own page (Solana, TON, Tron,
 NEAR, Sui, Aptos, Algorand, Stellar, XRPL), and the cross-chain setup caveats live in
 [Chains & tokens](/concepts/chains-and-tokens/).
 
-## Name a built-in chain — the easy path
+## Name a built-in chain, the easy path
 
 Every gate and client takes `chain`. Pass one of the built-in names and the SDK fills in the
 chain id, a default RPC, and the canonical token addresses:
@@ -24,26 +24,26 @@ chain id, a default RPC, and the canonical token addresses:
 ```ts
 import { requirePayment } from '@piprail/sdk'
 
-// USDC on Base, paid to your wallet — middleware you drop in front of a route.
+// USDC on Base, paid to your wallet. Middleware you drop in front of a route.
 requirePayment({ chain: 'base', token: 'USDC', amount: '0.10', payTo: '0xYourWallet' })
 ```
 
-`token: 'native'` pays in the chain's own gas coin (ETH, BNB, POL, AVAX, …) — accepted on every
+`token: 'native'` pays in the chain's own gas coin (ETH, BNB, POL, AVAX, …), accepted on every
 preset:
 
 ```ts
 requirePayment({ chain: 'bnb', token: 'native', amount: '0.01', payTo: '0xYourWallet' }) // BNB
 ```
 
-## Any other EVM chain — no allowlist
+## Any other EVM chain, with no allowlist
 
 Don't see your chain in the registry? Pass a viem `Chain` or a bare `{ id, rpcUrl }`, plus the
-exact token to be paid in. There's no gatekeeping — the registry is a convenience, not a limit.
+exact token to be paid in. There's no gatekeeping: the registry is a convenience, not a limit.
 
 ```ts
 requirePayment({
   chain: { id: 1313161554, rpcUrl: 'https://mainnet.aurora.dev' }, // any EVM chain
-  token: { address: '0x0b9aB...4802', decimals: 6 },               // any ERC-20 — symbol is optional
+  token: { address: '0x0b9aB...4802', decimals: 6 },               // any ERC-20, symbol optional
   amount: '0.10',
   payTo: '0xYourWallet',
 })
@@ -51,20 +51,20 @@ requirePayment({
 
 `symbol` on a custom token is **optional** (display-only metadata); `address` and `decimals` are
 what the SDK actually pays and verifies against. When you pass a custom chain, the SDK still
-recognises a built-in token address if its chain id matches a preset — so symbol resolution keeps
+recognises a built-in token address if its chain id matches a preset, so symbol resolution keeps
 working even off the named path.
 
 An **invalid token** is rejected up front, at config time, with a typed
-[`WrongFamilyError`](/errors/error-hierarchy/) — never a raw viem error later on the verify path:
+[`WrongFamilyError`](/errors/error-hierarchy/), never a raw viem error later on the verify path:
 a non-`0x` token `address` (e.g. a Tron `T…` string), or another family's token shape (a Solana
 `{ mint }`, a Stellar `{ issuer, code }`) on an EVM chain. A valid address is checksum-normalized
 for you. This mirrors how a non-`0x` `payTo` is rejected at config time.
 
-## The built-in EVM registry — `CHAINS`
+## The built-in EVM registry: `CHAINS`
 
 `CHAINS` is the registry itself: an object keyed by chain name, each value a `ChainPreset`. It's
-exported so you can iterate it — build a chain picker, list what's supported, or read a token
-address — without hardcoding anything.
+exported so you can iterate it and build a chain picker, list what's supported, or read a token
+address, without hardcoding anything.
 
 ```ts
 import { CHAINS } from '@piprail/sdk'
@@ -130,15 +130,15 @@ USDC/USDT, the EURC EIP-712 caveat, and BNB's 18-decimal peg tokens, see
 
 :::note
 On **BNB Chain**, all five built-in stablecoins are **18 decimals**, not 6 (the preset has it
-right — name `token: 'USDC'` and don't hardcode 6). They split by provenance: **USDC/USDT are
+right, so name `token: 'USDC'` and don't hardcode 6). They split by provenance: **USDC/USDT are
 Binance-Peg** (not EIP-3009 → the `exact` rail uses **Permit2**), while **FDUSD, USD1 and U
 (United Stables)** are **EIP-3009** (→ the gasless `transferWithAuthorization` path, **no Permit2
 approve**, and settleable by a keyless facilitator). `U` is the first-listed token in Binance's own
-x402 set (U/USD1/USDT/USDC) — live-proven on BNB mainnet (Pieverse sponsored the gas). The SDK
-auto-selects per token — see [Gasless payments](/making-payments/gasless-payments/).
+x402 set (U/USD1/USDT/USDC), live-proven on BNB mainnet (Pieverse sponsored the gas). The SDK
+auto-selects per token; see [Gasless payments](/making-payments/gasless-payments/).
 :::
 
-## Resolving a chain — `resolveChain`
+## Resolving a chain: `resolveChain`
 
 `resolveChain(input, rpcUrlOverride?)` is the one function that normalises whatever you pass for
 `chain` into the `{ chain, chainId, rpcUrl, tokens }` the wallet and verifier need. The gate and
@@ -166,7 +166,7 @@ interface ResolvedChain {
 }
 ```
 
-### The three input shapes — `ChainInput`
+### The three input shapes: `ChainInput`
 
 `ChainInput` is the union `chain` accepts. How each resolves:
 
@@ -192,7 +192,7 @@ resolveChain({
 
 Pass `rpcUrl` on the gate or client and it wins over every default. Public RPCs are
 rate-limited, so production callers should always pass their own (there's no separate API-key
-field — fold any key into the URL):
+field, so fold any key into the URL):
 
 ```ts
 requirePayment({
@@ -204,7 +204,7 @@ requirePayment({
 :::caution
 An unknown chain name throws. Via a gate or client (the normal path) it surfaces as a typed
 [`UnsupportedNetworkError`](/errors/error-hierarchy/) (`.code === 'UNSUPPORTED_NETWORK'`,
-`instanceof PipRailError`) — `resolveChain`'s helpful message (the built-in names + "pass a viem
+`instanceof PipRailError`). `resolveChain`'s helpful message (the built-in names + "pass a viem
 `Chain` or `{ id, rpcUrl }`") is preserved verbatim inside it. A `{ id, rpcUrl }` with no `rpcUrl`,
 or a chain whose viem default has no usable RPC, also throws: an EVM chain has no implicit RPC.
 :::
@@ -215,7 +215,7 @@ All of these are exported from `@piprail/sdk`:
 
 | Type | What it is |
 | --- | --- |
-| `ChainName` | A built-in EVM chain name — `keyof typeof CHAINS`. |
+| `ChainName` | A built-in EVM chain name, `keyof typeof CHAINS`. |
 | `ChainInput` | What `chain` accepts: a `ChainName`, a viem `Chain`, or `{ id, rpcUrl, name?, nativeCurrency? }`. |
 | `ResolvedChain` | The normalised `{ chain, chainId, rpcUrl, tokens }` returned by `resolveChain`. |
 | `ChainPreset` | One registry entry: `{ chain, defaultRpc?, tokens }`. |

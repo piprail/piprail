@@ -1,6 +1,6 @@
 ---
 title: Domain claim & verify
-description: Prove you own a domain on 402 Index so your self-registered listings flip from pending review to searchable — a two-step, no-auth, no-funds handshake.
+description: Prove you own a domain on 402 Index so your self-registered listings flip from pending review to searchable. A two-step, no-auth, no-funds handshake.
 sidebar:
   order: 4
 ---
@@ -8,19 +8,19 @@ sidebar:
 ## Introduction
 
 When you [register](/discovery/discover-and-register/) a resource on 402 Index, it lands as
-`pending-review` — accepted and probed, but not *instantly* searchable. A healthy listing becomes
+`pending-review`: accepted and probed, but not *instantly* searchable. A healthy listing becomes
 findable on its own once it passes 402 Index's automated checks (no verification required); verifying
 your domain is the **instant, guaranteed** path: prove you control the host, and **every** pending
 listing on that domain becomes findable at once, with a `domain_verified` badge.
 
 It's two steps, no auth, no signature, no payment. You `claimDomain` a host (402 Index issues a
 token), serve a small proof file, then `verifyDomain` so 402 Index re-fetches and approves. Both
-calls move no funds and **never throw** — a transport or HTTP error comes back as
+calls move no funds and **never throw**. A transport or HTTP error comes back as
 `{ ok: false, detail }`.
 
-## Step 1 — claim the domain
+## Step 1: claim the domain
 
-`client.claimDomain(urlOrDomain)` claims the host of whatever you pass — a full resource URL or
+`client.claimDomain(urlOrDomain)` claims the host of whatever you pass, either a full resource URL or
 a bare domain both resolve to the hostname. On success it returns the proof to serve.
 
 ```ts
@@ -34,7 +34,7 @@ const claim = await client.claimDomain('https://api.example.com/report')
 //   }
 
 if (!claim.ok) {
-  console.error('Claim failed:', claim.detail) // never throws — read detail
+  console.error('Claim failed:', claim.detail) // never throws, so read detail
 } else {
   // serve claim.verificationHash at claim.verificationUrl, then call verifyDomain
 }
@@ -64,7 +64,7 @@ interface DomainClaim {
 }
 ```
 
-Serve `verificationHash` as the **entire body** of the response at `verificationUrl` — it is the
+Serve `verificationHash` as the **entire body** of the response at `verificationUrl`. It is the
 SHA-256 of the issued token, and 402 Index fetches that one file to confirm you control the host.
 
 :::note
@@ -73,7 +73,7 @@ SHA-256 of the issued token, and 402 Index fetches that one file to confirm you 
 the token.
 :::
 
-## Step 2 — verify
+## Step 2: verify
 
 Once the file is live, call `client.verifyDomain(urlOrDomain)` (or the standalone
 `verify402IndexDomain`). 402 Index re-fetches the proof and, on a match, approves the domain.
@@ -103,12 +103,12 @@ went searchable. A subsequent [`discover()`](/discovery/discover-and-register/) 
 
 Once a domain is verified, you don't have to re-verify per listing. A
 [`register()`](/discovery/discover-and-register/) from a verified domain comes back **live**
-rather than `pending-review` — the `RegisterOutcome` reports `visibility: 'live'` directly, with
+rather than `pending-review`. The `RegisterOutcome` reports `visibility: 'live'` directly, with
 no review delay.
 
 ## Standalone functions
 
-If you're working below the client — a build script, a server-side tool — both steps are plain
+If you're working below the client, in a build script or a server-side tool, both steps are plain
 exported functions:
 
 | Function | Returns | Notes |
@@ -117,13 +117,13 @@ exported functions:
 | `verify402IndexDomain(domainOrUrl)` | `DomainVerification` | Call after the proof file is live. |
 
 The client methods `client.claimDomain()` / `client.verifyDomain()` are thin wrappers over these
-— use whichever fits.
+functions, so use whichever fits.
 
 ## Reading the network field
 
 Index payloads name chains by slug (`base`) or CAIP-2 (`eip155:8453`). `normalizeNetwork(network)`
 folds a recognised slug to its CAIP-2 form and passes a value that's already CAIP-2 through
-unchanged. An unknown slug is returned as-is — treat that as "unresolved", not a confident
+unchanged. An unknown slug is returned as-is; treat that as "unresolved", not a confident
 mismatch.
 
 ```ts
@@ -137,7 +137,7 @@ normalizeNetwork('madeupchain')  // → 'madeupchain' (unresolved, not dropped)
 ## Decorating a bare outcome
 
 The low-level register functions return a **bare** [`RegisterOutcome`](/discovery/discover-and-register/)
-— no `visibility`, no `note`. `decorateOutcome(outcome)` projects the static directory lifecycle
+with no `visibility` and no `note`. `decorateOutcome(outcome)` projects the static directory lifecycle
 facts onto it, so an agent gets `visibility` + `note` without a second lookup. It's idempotent,
 and respects a `visibility` the adapter already set (e.g. a verified-domain register that came
 back `'live'`).
@@ -151,7 +151,7 @@ const outcome = decorateOutcome(await register402Index({ url: 'https://api.examp
 ```
 
 :::tip
-`client.register()` already calls `decorateOutcome` for you — you only need it when you call the
+`client.register()` already calls `decorateOutcome` for you, so you only need it when you call the
 register functions directly. See [Open indexes](/discovery/open-indexes/) for the full lifecycle
 facts each outcome is projected from.
 :::

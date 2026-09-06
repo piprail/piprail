@@ -1,6 +1,6 @@
 ---
 title: Mocking the driver
-description: Test the protocol layer with no chain at all — register a fake PaymentDriver via the SPI so the gate and client run against an in-memory network.
+description: Test the protocol layer with no chain at all. Register a fake PaymentDriver via the SPI so the gate and client run against an in-memory network.
 sidebar:
   order: 3
 ---
@@ -9,18 +9,18 @@ sidebar:
 
 The whole point of the [PaymentDriver architecture](/concepts/payment-driver-architecture/)
 is that `server.ts`, `client.ts`, and `x402.ts` depend **only** on the `PaymentDriver`
-contract in `drivers/types.ts` — zero `viem`, zero `@solana/web3.js`. So to test that protocol
+contract in `drivers/types.ts`, with zero `viem` and zero `@solana/web3.js`. So to test that protocol
 layer you don't need a chain, an RPC, or a wallet: you register a **fake driver** that returns
 whatever you want, and drive the gate or client against it.
 
-This is exactly how PipRail's own test suite works — register a fake `ResolvedNetwork`, stub
+This is exactly how PipRail's own test suite works: register a fake `ResolvedNetwork`, stub
 `globalThis.fetch`, and assert the 402 flow without ever broadcasting. The driver SPI you use
 here is the same one documented on the [Driver SPI reference](/reference/driver-spi/).
 
 ## Register a fake network
 
 `registerDriver` is a public export. A `PaymentDriver` is just `{ family, resolve() }`, and
-`resolve()` hands back a `ResolvedNetwork` — so the minimal fake is one object whose methods
+`resolve()` hands back a `ResolvedNetwork`, so the minimal fake is one object whose methods
 return canned values:
 
 ```ts
@@ -46,11 +46,11 @@ registerDriver({ family: 'stellar', resolve: () => fakeNet })
 ```
 
 :::note
-`detail` is **required** on every `VerifyResult` — `{ ok: false, error }` alone won't type-check.
+`detail` is **required** on every `VerifyResult`; `{ ok: false, error }` alone won't type-check.
 Use `detail: ''` (or a human string) on the failure branch.
 :::
 
-Registering a driver for a family **pre-empts the lazy real one** for that family — so naming
+Registering a driver for a family **pre-empts the lazy real one** for that family, so naming
 `chain: 'stellar'` now resolves to your fake instead of auto-mounting `@stellar/stellar-sdk`.
 The client and gate never know the difference.
 
@@ -62,19 +62,19 @@ eagerly-registered real EVM driver. Each test runner that isolates the module re
 
 ## The methods you'll actually stub
 
-You only have to make the methods your test exercises return something sensible — the rest can
+You only have to make the methods your test exercises return something sensible. The rest can
 stay trivial. These are the ones the protocol layer calls:
 
 | Method | Returns | Used by |
 | --- | --- | --- |
-| `verify(ref, accept)` | a `VerifyResult` — `{ ok: true, receipt }` or `{ ok: false, error, detail }` | the gate, on the paid retry |
+| `verify(ref, accept)` | a `VerifyResult`: `{ ok: true, receipt }` or `{ ok: false, error, detail }` | the gate, on the paid retry |
 | `send(wallet, accept)` | the proof ref (tx hash / signature) | the client, when it pays |
 | `confirm(ref, n)` | `{ height }` once confirmed | the client, after `send` |
 | `resolveToken` | the asset's `{ asset, decimals, symbol? }` | budget + symbol checks |
 | `describeAsset` | `{ symbol?, decimals } \| null` (null = the SDK doesn't recognise the asset) | budget + symbol checks |
 | `balanceOf` / `recipientReady` / `estimateCost` | balances, readiness, gas | [`planPayment()`](/making-payments/plan-payment/) |
 
-`verify` **returns** a `VerifyResult` and never throws for a transient read — so to simulate a
+`verify` **returns** a `VerifyResult` and never throws for a transient read. So to simulate a
 bad proof, return `{ ok: false, error: 'transfer_not_found', detail: '' }`; to simulate a paid
 request, return `{ ok: true, receipt }` (a full [`X402Receipt`](/accepting-payments/receipts-and-onpaid/)).
 See the [VerifyErrorCode](/errors/verify-error-code/) list for the error strings.
@@ -83,7 +83,7 @@ See the [VerifyErrorCode](/errors/verify-error-code/) list for the error strings
 
 With the fake registered, a [`createPaymentGate`](/accepting-payments/require-payment-and-gate/)
 on that family runs entirely in memory. The gate **parses the proof header first**, so you can't
-just hand it an arbitrary string and expect `kind: 'paid'` — an unparseable ref re-issues a fresh
+just hand it an arbitrary string and expect `kind: 'paid'`; an unparseable ref re-issues a fresh
 challenge. Build a real proof header from the challenge's own `accepts[]` nonce via
 [`buildSignatureHeader`](/reference/wire-codecs/), and point the fake's `verify` at `ok: true`:
 
@@ -97,7 +97,7 @@ import {
 } from '@piprail/sdk'
 import { expect } from 'vitest'
 
-// A fake that ACCEPTS the proof — echo the gate's own accept into the receipt.
+// A fake that ACCEPTS the proof. Echo the gate's own accept into the receipt.
 const okNet: ResolvedNetwork = {
   ...fakeNet,
   verify: async (ref, accept): Promise<{ ok: true; receipt: X402Receipt }> => ({
@@ -139,13 +139,13 @@ expect(paid.kind).toBe('paid')
 ```
 
 Because the protocol layer re-derives every checked field from the trusted `accept`, you can
-also point the fake at a *hostile* server response and assert the gate still refuses — the same
+also point the fake at a *hostile* server response and assert the gate still refuses. The same
 [proof-binding](/concepts/proof-binding/) guarantees hold against a mock.
 
 ## Spy on side effects
 
 A fake method is an ordinary function, so wrap it in a spy to assert that a refusal happens
-**before** any broadcast — e.g. that the client never calls `send` when a
+**before** any broadcast, e.g. that the client never calls `send` when a
 [payment policy](/spend-controls/payment-policy/) declines:
 
 ```ts
@@ -206,5 +206,5 @@ call `registerDriver`. There are six optional methods, all of which may be omitt
 `resolveExactRail`, `payExact`, `settleExactSelf`, `exactDomain`, `exactPermit2Supported`, and
 `discoverySigner`. The exact-rail methods (`resolveExactRail` / `payExact` / `settleExactSelf`)
 are implemented by EVM, Solana, Algorand, Aptos, NEAR and XRPL today (`exactPayableAsset` by XRPL alone), while `exactDomain` / `exactPermit2Supported` are
-EVM-specific. The full contract — every method's error behaviour and which are optional — is the
+EVM-specific. The full contract, every method's error behaviour and which are optional, is the
 [Driver SPI reference](/reference/driver-spi/).

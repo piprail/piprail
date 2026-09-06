@@ -15,9 +15,9 @@ const canonical = `${site}/blog/${post.slug}/` // trailing slash matches the pag
 const ogImageAbs = `${site}${post.ogImage}`
 const more = relatedPosts(post.slug, 2)
 
-const pageTitle = post.seoTitle ?? `${post.title} — PipRail`
+const pageTitle = post.seoTitle ?? `${post.title} | PipRail`
 
-// BlogPosting structured data — the post's own entity for search + answer engines.
+// BlogPosting structured data: the post's own entity for search + answer engines.
 const articleLd = {
   '@context': 'https://schema.org',
   '@type': 'BlogPosting',
@@ -44,38 +44,38 @@ const articleLd = {
   url: canonical,
 }
 
-// The argument, distilled — readable bullets that double as answer-engine fodder.
+// The argument, distilled into readable bullets that double as answer-engine fodder.
 const takeaways = [
-  'Every network that became an economy ran on open protocols — HTTP, TCP/IP, SMTP — not one company’s private network. Openness isn’t a nicety; it’s the mechanism that lets participation compound.',
-  'Agents pay constantly, autonomously, in tiny amounts, across many chains, with no human to open an account or approve a charge. A closed rail — gatekeepers, facilitators, fees, single-chain walls — doesn’t slow that down. It prevents it.',
-  'x402 was the right primitive; PipRail opened it up — MIT-licensed, 29 chains, no facilitator, settling to your own wallet, 0% protocol fee, gasless on 13 chains, one line of code. The open rail is the foundation the agent economy’s trust layer stands on.',
+  'Every network that became an economy ran on open protocols (HTTP, TCP/IP, SMTP) rather than one company’s private network. Openness isn’t a nicety; it’s the mechanism that lets participation compound.',
+  'Agents pay constantly, autonomously, in tiny amounts, across many chains, with no human to open an account or approve a charge. A closed rail, with its gatekeepers, facilitators, fees and single-chain walls, doesn’t slow that down. It prevents it.',
+  'x402 was the right primitive; PipRail opened it up: MIT-licensed, 29 chains, no facilitator, settling to your own wallet, 0% protocol fee, gasless on 13 chains, one line of code. The open rail is the foundation the agent economy’s trust layer stands on.',
 ]
 
-// FAQ — extracted from the essay. Renders FAQPage JSON-LD for rich results + AEO.
+// FAQ, extracted from the essay. Renders FAQPage JSON-LD for rich results + AEO.
 const faqs = [
   {
     q: 'Why does the agent economy need an open payment rail?',
-    a: 'Because agents pay in a way closed rails can’t support: constantly, autonomously, in tiny amounts, across many chains, with no human in the loop to open an account, approve a charge, or top up a balance. On a closed rail, every gatekeeper is a permission the agent can’t grant itself, every facilitator is a dependency that can fail or say no, every fee is a tax on sub-cent activity, and every single-chain limit is a wall. Open protocols are also simply how every network that became an economy actually scaled — the web on HTTP and TCP/IP, email on SMTP — never inside one company’s walled garden.',
+    a: 'Because agents pay in a way closed rails can’t support: constantly, autonomously, in tiny amounts, across many chains, with no human in the loop to open an account, approve a charge, or top up a balance. On a closed rail, every gatekeeper is a permission the agent can’t grant itself, every facilitator is a dependency that can fail or say no, every fee is a tax on sub-cent activity, and every single-chain limit is a wall. Open protocols are also simply how every network that became an economy actually scaled: the web on HTTP and TCP/IP, email on SMTP, never inside one company’s walled garden.',
   },
   {
     q: 'What is x402?',
-    a: 'x402 is a payment protocol that revives HTTP 402, the “Payment Required” status code that sat unused in the web’s plumbing for decades. Coinbase turned it into a way for software to pay per request with no account and no card. It is the right primitive for agent payments — but an implementation has to be open enough to carry an economy, which is what PipRail set out to make it.',
+    a: 'x402 is a payment protocol that revives HTTP 402, the “Payment Required” status code that sat unused in the web’s plumbing for decades. Coinbase turned it into a way for software to pay per request with no account and no card. It is the right primitive for agent payments, but an implementation has to be open enough to carry an economy, which is what PipRail set out to make it.',
   },
   {
     q: 'What makes PipRail an “open” rail?',
-    a: 'PipRail is an MIT-licensed x402 implementation that runs across 29 chains and every major chain family, with no facilitator in the path, settling straight to the recipient’s own wallet, with no fee at the protocol layer, gasless on 13 chains, in a single line of code. No gatekeeper, no middleman, no cut — an agent can pay almost anyone on almost any chain without asking permission and without holding anything but the funds it is spending.',
+    a: 'PipRail is an MIT-licensed x402 implementation that runs across 29 chains and every major chain family, with no facilitator in the path, settling straight to the recipient’s own wallet, with no fee at the protocol layer, gasless on 13 chains, in a single line of code. No gatekeeper, no middleman, no cut, so an agent can pay almost anyone on almost any chain without asking permission and without holding anything but the funds it is spending.',
   },
   {
     q: 'Why should an agent payment rail have no fee?',
-    a: 'A rail that takes a cut competes with everyone building on top of it and can never be the neutral default — and to take that cut it has to touch or hold funds, which drags it into custody and licensing. A rail that charges nothing and holds nothing stays neutral and wins distribution because it asks for nothing. The value does not disappear; it moves one layer up, into the trust layer built from the payments the rail carries.',
+    a: 'A rail that takes a cut competes with everyone building on top of it and can never be the neutral default. To take that cut it has to touch or hold funds, which drags it into custody and licensing. A rail that charges nothing and holds nothing stays neutral and wins distribution because it asks for nothing. The value does not disappear; it moves one layer up, into the trust layer built from the payments the rail carries.',
   },
   {
     q: 'How do settled payments become a trust layer for agents?',
-    a: 'Every settled payment is a receipt, and a receipt is far harder to fake than on-chain volume or self-reported reputation, because creating one cost real money. Once payments flow freely across every chain, that history of settled payments becomes the raw material for an agent’s credit score — strongest when it is weighed across many independent counterparties rather than taken as a raw count. The open rail is the foundation that trust layer stands on: payments have to flow freely before they can mean anything.',
+    a: 'Every settled payment is a receipt, and a receipt is far harder to fake than on-chain volume or self-reported reputation, because creating one cost real money. Once payments flow freely across every chain, that history of settled payments becomes the raw material for an agent’s credit score, strongest when it is weighed across many independent counterparties rather than taken as a raw count. The open rail is the foundation that trust layer stands on: payments have to flow freely before they can mean anything.',
   },
   {
     q: 'Is PipRail free and open source?',
-    a: 'Yes. PipRail is open source and MIT-licensed, with no fee at the protocol layer — payments settle straight to your own wallet. You can build on it at piprail.com or github.com/piprail, or install the SDK from npm and gate a route or pay an x402 URL in one line.',
+    a: 'Yes. PipRail is open source and MIT-licensed, with no fee at the protocol layer. Payments settle straight to your own wallet. You can build on it at piprail.com or github.com/piprail, or install the SDK from npm and gate a route or pay an x402 URL in one line.',
   },
 ]
 
@@ -92,13 +92,13 @@ const faqLd = {
 
 // The four conditions of "open" → what each one actually enables.
 const conditions = [
-  { Icon: Unlock, k: 'No gatekeeper', v: 'Permissionless action — the only way an autonomous agent can act on its own.' },
-  { Icon: Percent, k: 'No fee on the path', v: 'A neutral default — a rail that takes a cut competes with everyone building on it.' },
-  { Icon: Boxes, k: 'Multi-chain', v: 'Value moves where it needs to go — agents aren’t trapped in one ecosystem.' },
-  { Icon: Wallet, k: 'Self-custody', v: 'Real autonomy — no intermediary can freeze or reverse a payment.' },
+  { Icon: Unlock, k: 'No gatekeeper', v: 'Permissionless action: the only way an autonomous agent can act on its own.' },
+  { Icon: Percent, k: 'No fee on the path', v: 'A neutral default. A rail that takes a cut competes with everyone building on it.' },
+  { Icon: Boxes, k: 'Multi-chain', v: 'Value moves where it needs to go, so agents aren’t trapped in one ecosystem.' },
+  { Icon: Wallet, k: 'Self-custody', v: 'Real autonomy. No intermediary can freeze or reverse a payment.' },
 ]
 
-// The spec, as plain chips — what "open" looks like once it's in code.
+// The spec, as plain chips: what "open" looks like once it's in code.
 const specs = ['29 chains', '10 chain families', '0% protocol fee', 'no facilitator', 'settles to your wallet', 'gasless on 13 chains', 'MIT-licensed', 'one line of code']
 ---
 
@@ -137,7 +137,7 @@ const specs = ['29 chains', '10 chain families', '0% protocol fee', 'no facilita
         </h1>
         <p class="mt-5 text-lg leading-relaxed text-neutral-400 sm:text-xl">
           Every network that scaled ran on <em class="not-italic text-neutral-200">open</em> protocols, not private ones.
-          The agent economy will be no different — and its payment rail just got opened up.
+          The agent economy will be no different, and its payment rail just got opened up.
         </p>
 
         <!-- Byline -->
@@ -183,7 +183,7 @@ const specs = ['29 chains', '10 chain families', '0% protocol fee', 'no facilita
 
         <p>History is blunt on this point. Every network that grew into an economy ran on open protocols, not private ones. The web did not scale inside AOL’s walled garden; it scaled on HTTP and TCP/IP, protocols anyone could build on without asking permission. Email scaled on SMTP, not on one company’s messaging product. The pattern repeats because openness is not a nicety, it is the mechanism. A protocol anyone can use without a gatekeeper attracts everyone. A network that requires permission to join attracts almost no one. Closed networks optimize for the owner; open ones optimize for participation, and participation is the thing that compounds.</p>
 
-        <!-- Figure 1 — open protocols won -->
+        <!-- Figure 1: open protocols won -->
         <figure class="article-fig">
           <div class="card rounded-2xl p-6 sm:p-8">
             <div class="fig-eyebrow">Open won, every time</div>
@@ -205,7 +205,7 @@ const specs = ['29 chains', '10 chain families', '0% protocol fee', 'no facilita
                     <span class="rounded-md border border-white/12 bg-white/5 px-2.5 py-1 font-mono text-xs text-neutral-400">{p}</span>
                   ))}
                 </div>
-                <div class="mt-3.5 text-sm leading-relaxed text-neutral-400">Optimized for the owner. Required permission to join — and attracted almost no one.</div>
+                <div class="mt-3.5 text-sm leading-relaxed text-neutral-400">Optimized for the owner. Required permission to join, and attracted almost no one.</div>
               </div>
             </div>
           </div>
@@ -218,7 +218,7 @@ const specs = ['29 chains', '10 chain families', '0% protocol fee', 'no facilita
 
         <p>So we opened it up. At PipRail we built x402 into an open, MIT-licensed rail that runs across 29 chains and every major chain family, with no facilitator in the path, settling straight to the recipient’s own wallet, with no fee at the protocol layer, gasless on 13 chains, in a single line of code. An agent can now pay almost anyone, on almost any chain, without permission, without a middleman, and without holding anything but the funds it is spending. It was installed thousands of times in its first weeks with no marketing, because the moment a team needs to pay across chains, an open multi-chain rail stops being optional.</p>
 
-        <!-- Figure 2 — what "open" looks like in code -->
+        <!-- Figure 2: what "open" looks like in code -->
         <figure class="article-fig">
           <div class="card rounded-2xl p-6 sm:p-7">
             <div class="fig-eyebrow">What “open” looks like once it ships</div>
@@ -230,12 +230,12 @@ const specs = ['29 chains', '10 chain families', '0% protocol fee', 'no facilita
               ))}
             </div>
           </div>
-          <figcaption class="fig-cap">No gatekeeper, no middleman, no cut — and it installs in one line.</figcaption>
+          <figcaption class="fig-cap">No gatekeeper, no middleman, no cut, and it installs in one line.</figcaption>
         </figure>
 
         <p>It is worth being precise about why each piece of “open” matters, because none of it is decoration. No gatekeeper means no permission, which is the only way an autonomous agent can act on its own. No fee on the path means the rail can be the neutral default, because a rail that takes a cut competes with everyone building on it and can never be neutral. Multi-chain means agents are not trapped in one ecosystem, and value moves where it needs to go. Self-custody means no intermediary can freeze or reverse a payment, which is what autonomy requires to be real. These are not rows on a feature comparison. They are the conditions under which an agent economy can function at all.</p>
 
-        <!-- Figure 3 — four conditions, not four features -->
+        <!-- Figure 3: four conditions, not four features -->
         <figure class="article-fig">
           <div class="card rounded-2xl p-6 sm:p-8">
             <div class="fig-eyebrow">Four conditions, not four features</div>
@@ -259,9 +259,9 @@ const specs = ['29 chains', '10 chain families', '0% protocol fee', 'no facilita
           <figcaption class="fig-cap">Each one is a precondition for the economy, not a checkbox.</figcaption>
         </figure>
 
-        <p>And opening the rail is not the finish line. It is the step that makes everything above it possible. Once payments flow freely across every chain, they begin to accumulate into something new. Every settled payment is a receipt, and a receipt is far harder to fake than almost any other signal, because creating one cost real money. That is the raw material for the layer the agent economy is still missing: trust. An agent’s history of settled payments becomes the basis for its credit score — far harder to game than on-chain volume or self-reported reputation ever were. You cannot build that trust layer on a closed rail, because the payments never flow freely enough to mean anything. The open rail is the foundation the trust layer stands on, and the trust layer is what turns a stream of transactions into an economy.</p>
+        <p>And opening the rail is not the finish line. It is the step that makes everything above it possible. Once payments flow freely across every chain, they begin to accumulate into something new. Every settled payment is a receipt, and a receipt is far harder to fake than almost any other signal, because creating one cost real money. That is the raw material for the layer the agent economy is still missing: trust. An agent’s history of settled payments becomes the basis for its credit score, far harder to game than on-chain volume or self-reported reputation ever were. You cannot build that trust layer on a closed rail, because the payments never flow freely enough to mean anything. The open rail is the foundation the trust layer stands on, and the trust layer is what turns a stream of transactions into an economy.</p>
 
-        <!-- Figure 4 — the rail is the foundation -->
+        <!-- Figure 4: the rail is the foundation -->
         <figure class="article-fig">
           <div class="card rounded-2xl p-6 sm:p-8">
             <div class="fig-eyebrow">The rail is the foundation</div>
@@ -296,7 +296,7 @@ const specs = ['29 chains', '10 chain families', '0% protocol fee', 'no facilita
       <div class="mt-12 flex flex-wrap items-center gap-3 border-t border-white/10 pt-6">
         <span class="mr-1 inline-flex items-center gap-1.5 text-xs text-neutral-500"><Share2 size={13} aria-hidden="true" /> Share</span>
         <a
-          href={`https://x.com/intent/tweet?text=${encodeURIComponent(post.title + ' — by ' + post.author.name)}&url=${encodeURIComponent(canonical)}&via=piprailhq`}
+          href={`https://x.com/intent/tweet?text=${encodeURIComponent(post.title + ' by ' + post.author.name)}&url=${encodeURIComponent(canonical)}&via=piprailhq`}
           class="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-neutral-300 transition hover:border-white/20 hover:text-white"
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path></svg>
@@ -324,7 +324,7 @@ const specs = ['29 chains', '10 chain families', '0% protocol fee', 'no facilita
           <div class="text-sm font-semibold text-neutral-100">{post.author.name}</div>
           <div class="text-xs text-neutral-500">{post.author.role}</div>
           <p class="mt-2.5 text-sm leading-relaxed text-neutral-400">
-            Cofounder of PipRail — the open, self-custody, no-fee x402 rail for AI agents, across 29 chains.
+            Cofounder of PipRail, the open, self-custody, no-fee x402 rail for AI agents, across 29 chains.
             Writing about the open infrastructure the agent economy runs on.
           </p>
           <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs">
@@ -358,7 +358,7 @@ const specs = ['29 chains', '10 chain families', '0% protocol fee', 'no facilita
     <section class="mt-14 overflow-hidden rounded-2xl border border-accent/20 bg-accent/6 p-7 text-center sm:p-10">
       <h2 class="text-2xl font-semibold tracking-tight text-white sm:text-3xl">The rail is open. Build on it.</h2>
       <p class="mx-auto mt-3 max-w-xl text-neutral-300">
-        PipRail is open source and free — MIT-licensed, no backend, no middleman, no fee. Accept payments in one line,
+        PipRail is open source and free: MIT-licensed, no backend, no middleman, no fee. Accept payments in one line,
         or hand your agent a budget-bound wallet across 29 chains.
       </p>
       <div class="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -413,7 +413,7 @@ const specs = ['29 chains', '10 chain families', '0% protocol fee', 'no facilita
 </Layout>
 
 <style>
-  /* Article typography — comfortable measure, generous leading, emerald links. */
+  /* Article typography: comfortable measure, generous leading, emerald links. */
   .article-prose p {
     margin-block: 0 1.5rem;
     color: var(--color-fg);

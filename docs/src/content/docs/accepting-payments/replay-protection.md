@@ -12,7 +12,7 @@ A payment proof is a public on-chain transaction hash. Anyone who sees one settl
 could try to present that same hash again to unlock the resource for free. A gate stops that
 two ways: an **in-memory used-proof set** (each proof redeems exactly once) and a **recency
 window** (`maxTimeoutSeconds`, default 600s) that rejects stale proofs. Both are on by default
-— you don't configure anything for the single-process case, and the set is
+so you don't configure anything for the single-process case, and the set is
 [**bounded**](#bounded-memory) so it can't grow forever.
 
 This is one half of why a forged or replayed payment can't work; the other half is [proof
@@ -20,12 +20,12 @@ binding](/concepts/proof-binding/), which ties every checked field back to the g
 trusted spec.
 
 :::tip[The short version]
-- A proof redeems **exactly once**, and only while it's recent — replay and forgery both fail.
+- A proof redeems **exactly once**, and only while it's recent, so replay and forgery both fail.
 - A **failed or interrupted** verification (RPC blip, not-yet-confirmed, a thrown read) **frees
-  the proof**, so the payer retries the *same* proof — they never re-pay.
+  the proof**, so the payer retries the *same* proof and never re-pays.
 - The one unrecoverable case is narrow and deliberate: the proof verified, then *delivery*
-  failed after. That's **at-most-once by design** — see [Paid but didn't
-  receive](#paid-but-didnt-receive--the-recovery-model).
+  failed after. That's **at-most-once by design**; see [Paid but didn't
+  receive](#paid-but-didnt-receive-the-recovery-model).
 :::
 
 ## How it works
@@ -51,8 +51,8 @@ So reuse **one gate per route** and let it live for the lifetime of the process.
 on every request would have an empty set and defeat the guard.
 
 :::note
-`verify()` returns a `VerifyPaymentResult` — a `{ kind: 'paid' | 'challenge' | 'invalid' }`
-union — and **never throws** for a rejected proof. Branch on `result.kind`; on `'invalid'`,
+`verify()` returns a `VerifyPaymentResult`, a `{ kind: 'paid' | 'challenge' | 'invalid' }`
+union, and **never throws** for a rejected proof. Branch on `result.kind`; on `'invalid'`,
 the machine code is in `result.error` (a [`VerifyErrorCode`](/errors/verify-error-code/)) with
 a human `result.detail`. See [verifying payments](/accepting-payments/verifying-payments/).
 :::
@@ -82,63 +82,63 @@ See [proof binding](/concepts/proof-binding/) for which chains bind by digest ve
 
 The recency window does double duty: it also **bounds the used-proof set**. Because a proof older
 than `maxTimeoutSeconds` is rejected as stale *regardless* of the set, the gate evicts an entry
-once it ages past the window — there's no reason to remember a proof the recency check would reject
+once it ages past the window, because there's no reason to remember a proof the recency check would reject
 anyway. So the built-in set holds at most **one window's worth of recent proofs**, not every proof
 the gate has ever seen. A long-lived gate (a process that runs for weeks under PM2) stays flat
 instead of leaking memory, and eviction is safe: a dropped proof, re-presented, fails the recency
 check, so replay is still impossible.
 
-You don't configure this — it follows `maxTimeoutSeconds`. A tighter window keeps the set smaller;
+You don't configure this; it follows `maxTimeoutSeconds`. A tighter window keeps the set smaller;
 a wide window (say a day) deliberately remembers a day of proofs, which is exactly what's needed to
-stop replay over that window. A **custom** `isUsed`/`markUsed` store owns its own eviction — give it
+stop replay over that window. A **custom** `isUsed`/`markUsed` store owns its own eviction, so give it
 a TTL equal to the window (the Redis example below uses `EX: 900` for a 600s window plus slack).
 
 ## No false unlocks on flaky RPC
 
-Verification **fails closed**. If the gate's on-chain read fails — a rate-limited public RPC
-429s the lookup after the tx is already mined — the gate returns `402 (locked)`, never `paid`.
+Verification **fails closed**. If the gate's on-chain read fails (a rate-limited public RPC
+429s the lookup after the tx is already mined) the gate returns `402 (locked)`, never `paid`.
 An RPC outage can't be turned into free access.
 
 Just as important, a failed verification **releases the reservation**. The proof isn't burned,
-so the payer can re-submit the *same* proof once the RPC recovers — they never have to re-pay.
+so the payer can re-submit the *same* proof once the RPC recovers and never has to re-pay.
 This holds whether `verify()` returns a rejection **or throws** (an unexpected RPC exception is
-caught and the reservation released, then rethrown) — a transient blip never permanently burns a
+caught and the reservation released, then rethrown), so a transient blip never permanently burns a
 valid proof.
 
 ```ts
 const result = await gate.verify(proofHeader)
 // RPC read failed → { kind: 'invalid', error: 'tx_not_found', detail, …, statusCode: 402 }
-// (locked, 402) — the proof ref is freed; the same proofHeader can be re-submitted later.
+// (locked, 402). The proof ref is freed; the same proofHeader can be re-submitted later.
 if (result.kind === 'invalid') {
   console.log(result.error)   // → 'tx_not_found'
 }
 ```
 
-## Paid but didn't receive — the recovery model
+## Paid but didn't receive: the recovery model
 
 The question worth understanding before you ship: **a buyer pays, then the request doesn't finish
-— what happens to their money?** The answer depends entirely on *where* it failed, and the gate is
+what happens to their money?** The answer depends entirely on *where* it failed, and the gate is
 deliberately built so that almost every failure is recoverable without re-paying.
 
 | Where it fails | The payment | The proof | Recoverable? |
 | --- | --- | --- | --- |
-| Client paid on-chain but the request never reached the gate (or dropped pre-verify) | settled | never reserved | ✅ **Yes** — re-send the same proof |
-| Gate's read failed / threw / tx not yet confirmed (transient) | settled | reserved, then **released** | ✅ **Yes** — re-send the same proof |
-| Recency window elapsed before a successful retry | settled | n/a | ❌ Expired (`payment_expired`) — widen `maxTimeoutSeconds` if your settle is slow |
-| **Verify succeeded, then delivery failed *after*** (server crashed mid-response; connection dropped after the 402→200) | settled | **burned** | ⚠️ **Not via the same proof** — at-most-once by design |
+| Client paid on-chain but the request never reached the gate (or dropped pre-verify) | settled | never reserved | ✅ **Yes.** Re-send the same proof |
+| Gate's read failed / threw / tx not yet confirmed (transient) | settled | reserved, then **released** | ✅ **Yes.** Re-send the same proof |
+| Recency window elapsed before a successful retry | settled | n/a | ❌ Expired (`payment_expired`). Widen `maxTimeoutSeconds` if your settle is slow |
+| **Verify succeeded, then delivery failed *after*** (server crashed mid-response; connection dropped after the 402→200) | settled | **burned** | ⚠️ **Not via the same proof.** At-most-once by design |
 
 The first two rows are the common cases, and they Just Work: the proof is **freed on any
 non-success**, so the payer (or the [`PipRailClient`](/making-payments/piprail-client/), which
-retries automatically) re-presents the *same* proof and gets in — no second payment.
+retries automatically) re-presents the *same* proof and gets in, with no second payment.
 
-### Why the last row is at-most-once — and why that's correct
+### Why the last row is at-most-once, and why that's correct
 
 Once a proof **verifies successfully** it's burned, and the gate then hands `{ kind: 'paid' }` to
 your handler, which serves the bytes. If delivery fails *after* that point, the proof is already
 spent and re-presenting it is rejected as a replay. There is no "re-serve it within a grace
 window," and that's a **deliberate security choice, not a gap**:
 
-- The proof is a **public on-chain transaction hash** — anyone watching the chain (or sniffing the
+- The proof is a **public on-chain transaction hash**, so anyone watching the chain (or sniffing the
   header) can see it. A re-serve window would be exactly the window in which a stranger who never
   paid could replay that hash for free.
 - A verify-only, backendless gate hands "paid" to your app and your app ships the response; the gate
@@ -146,7 +146,7 @@ window," and that's a **deliberate security choice, not a gap**:
 
 This is the classic "exactly-once delivery is impossible" tradeoff, and PipRail picks
 **at-most-once (secure)** over at-least-once (replayable). Issuing a private re-access token would
-require sessions — server state — which is the backend this project is defined against.
+require sessions, meaning server state, which is the backend this project is defined against.
 
 ### Living with it
 
@@ -154,14 +154,14 @@ For the typical x402 resource (a sub-cent, idempotent, regenerable API response)
 verify-succeeded-then-delivery-lost case is a negligible loss. When it matters more:
 
 - **Keep the delivered payload regenerable** so a buyer who re-requests (and re-pays) gets the same
-  thing — most data endpoints already are.
+  thing, and most data endpoints already are.
 - **Record every settlement out-of-band** with [`onPaid` + a durable receipt
   webhook](/accepting-payments/receipts-and-onpaid/), so you can reconcile or comp a buyer who paid
-  and provably didn't receive — dedupe on the receipt's `idempotencyKey`.
+  and provably didn't receive. Dedupe on the receipt's `idempotencyKey`.
 - **Keep prices low and per-call**; x402 is built for many tiny payments, not one large one whose
   loss stings.
 
-## The client's half — never re-pay
+## The client's half: never re-pay
 
 The [`PipRailClient`](/making-payments/piprail-client/) is built to never turn a delivery hiccup
 into a double-spend. Once it broadcasts a payment it **holds the proof ref and re-presents the same
@@ -176,23 +176,23 @@ try {
 } catch (err) {
   if (err instanceof PaymentTimeoutError || err instanceof MaxRetriesExceededError) {
     // The payment was BROADCAST. err.ref is the on-chain proof.
-    // Re-submit ref to the SAME URL to finish delivery — NEVER pay again (it would double-spend).
+    // Re-submit ref to the SAME URL to finish delivery. NEVER pay again (it would double-spend).
     console.log('paid but not delivered; recover with proof', err.ref)
   }
 }
 ```
 
 :::caution
-The rule on any post-broadcast failure is **re-verify or re-submit the proof, never re-pay** — a
+The rule on any post-broadcast failure is **re-verify or re-submit the proof, never re-pay**. A
 fresh payment double-spends. The proof stays redeemable until the gate's `maxTimeoutSeconds` window
 elapses. See [why payments fail](/errors/why-payments-fail/).
 :::
 
-## Sharing across instances — `isUsed` / `markUsed`
+## Sharing across instances: `isUsed` / `markUsed`
 
 The built-in set is per-process. If you run multiple instances behind a load balancer, an
 in-memory set in each process can't stop a proof being redeemed once per instance. Pass your
-own store with the `isUsed` / `markUsed` hooks — a Redis `SET NX` is the canonical choice:
+own store with the `isUsed` / `markUsed` hooks. A Redis `SET NX` is the canonical choice:
 
 ```ts
 import { createPaymentGate } from '@piprail/sdk'
@@ -210,66 +210,66 @@ const gate = createPaymentGate({
 
 | Hook | Signature | Called |
 | --- | --- | --- |
-| `isUsed` | `(ref: string) => boolean \| Promise<boolean>` | Before verifying — return `true` if this proof was already redeemed. |
-| `markUsed` | `(ref: string) => void \| Promise<void>` | After a payment verifies successfully — record the redeemed proof. |
+| `isUsed` | `(ref: string) => boolean \| Promise<boolean>` | Runs before verifying. Return `true` if this proof was already redeemed. |
+| `markUsed` | `(ref: string) => void \| Promise<void>` | Runs after a payment verifies successfully. Record the redeemed proof. |
 
 Provide **both** `isUsed` and `markUsed` together to switch the gate off its built-in set
-entirely — they're validated as a pair at gate construction, and building a gate
+entirely. They're validated as a pair at gate construction, and building a gate
 (`requirePayment` / `createPaymentGate`) with only one **throws immediately** (only `isUsed`
-would record nothing, so every proof replays; only `markUsed` would reject nothing — either
+would record nothing, so every proof replays; only `markUsed` would reject nothing. Either
 silently disables replay protection). `markUsed` fires only on success, so a custom store never
 records a proof that failed verification.
 
 :::caution
 The built-in set reserves a ref **synchronously**, so two concurrent requests carrying the same
-proof can't both be redeemed. A custom store can't make that guarantee on its own — make the
+proof can't both be redeemed. A custom store can't make that guarantee on its own, so make the
 check-and-reserve atomic (Redis `SET NX`) if you need the same protection against a concurrent
 double-redeem. Your `isUsed` / `markUsed` receive the **raw** ref (the default set lowercases
 EVM tx hashes for you; a custom store does not).
 :::
 
-Running more than one gate instance is the headline production concern — it's the first item on the
+Running more than one gate instance is the headline production concern, and it's the first item on the
 [Running in production](/getting-started/running-in-production/) checklist.
 
 ## What the ref is, per chain
 
 The replay key is the proof's identifying ref. For the default `onchain-proof` rail it's the
 transaction hash (`payload.txHash`). For the standard [`exact` rail](/accepting-payments/exact-rail-seller/),
-it's the EIP-3009 authorization `nonce` — claimed the same way, with the on-chain
+it's the EIP-3009 authorization `nonce`, claimed the same way, with the on-chain
 `authorizationState` as a second canonical guard. Either way, a redeemed ref can't be redeemed
 twice.
 
-## Opt-in caller idempotency — the `payment-identifier` extension
+## Opt-in caller idempotency: the `payment-identifier` extension
 
 The proof-based dedupe above stops the **same proof** redeeming twice. A different concern is a buyer
-that wants its *own* idempotency key — a stable id it can retry under so a flaky network never charges
+that wants its *own* idempotency key: a stable id it can retry under so a flaky network never charges
 it twice, even across two distinct proofs. That's the x402 **`payment-identifier`** extension, off by
 default and enabled with one flag:
 
 ```ts
 const gate = createPaymentGate({
   chain: 'base', token: 'USDC', amount: '0.05', payTo: '0xYourWallet',
-  paymentIdentifier: true, // advertise the extension; default OFF (opt-in — defaults never change)
+  paymentIdentifier: true, // advertise the extension; default OFF (opt-in, because defaults never change)
 })
 ```
 
 With it on, the gate **advertises** the extension in every challenge (a `payment-identifier` block
-under the challenge `extensions`, `info.required: false` plus a JSON-Schema bound of **16–128 chars**).
+under the challenge `extensions`, `info.required: false` plus a JSON-Schema bound of **16 to 128 chars**).
 A buyer that wants idempotency supplies a stable id on its payload, under
 `extensions["payment-identifier"].info.id`. The gate then:
 
-- **Dedupes on the id** in the *same* replay set, keyed `pid:<id>` — reserved before verify, released
+- **Dedupes on the id** in the *same* replay set, keyed `pid:<id>`, reserved before verify, released
   if the proof is rejected or settlement throws (so a failed attempt never burns the id), claimed on
   success. A second call carrying an already-redeemed id is rejected as `tx_already_used`, even if its
   proof differs.
-- **Validates the id strictly.** It must be 16–128 chars matching `[A-Za-z0-9_-]`. A present-but-malformed
-  id is **rejected** (`signature_invalid`), never silently ignored — a buyer that asked for idempotency
+- **Validates the id strictly.** It must be 16 to 128 chars matching `[A-Za-z0-9_-]`. A present-but-malformed
+  id is **rejected** (`signature_invalid`), never silently ignored, because a buyer that asked for idempotency
   and typo'd the key gets told, rather than being charged un-deduped.
 - **Echoes the id back** in the success receipt's `extensions["payment-identifier"]`, so the buyer can
   correlate the receipt to the request it retried.
 
 When the flag is **off** (the default), the extension is neither advertised nor read, and an id on the
-payload is ignored — the proof-based dedupe is the only guard. The three on-chain verify branches are
+payload is ignored, so the proof-based dedupe is the only guard. The three on-chain verify branches are
 untouched either way; this is a thin pre-check layered in front of them, sharing the one replay set.
 
 `readPaymentIdentifier(payload)` and `buildPaymentIdentifierAdvertisement()` are exported for hand-built

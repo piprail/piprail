@@ -8,7 +8,7 @@ sidebar:
 ## Introduction
 
 PipRail's whole design follows from one constraint: **no backend.** No server PipRail runs sits
-between you and your money. That sounds like a limitation; it's the opposite — it's what lets
+between you and your money. That sounds like a limitation; it's the opposite. It's what lets
 payments settle straight to your wallet, with nothing to sign up for and no fee to skim.
 
 ## The round-trip
@@ -19,7 +19,7 @@ A payment is a four-step HTTP exchange:
    Required` with an x402 challenge describing what it will accept (chain, asset, amount,
    recipient, a one-time nonce).
 2. **Pay.** The client picks an acceptable rail, broadcasts the transfer on-chain from its own
-   wallet, and re-requests the resource — this time carrying a proof of payment.
+   wallet, and re-requests the resource, this time carrying a proof of payment.
 3. **Verify.** The server re-derives every field it cares about from its **own trusted
    challenge** (never the client's echo), then checks the proof on-chain against its own RPC.
 4. **Deliver.** If the proof is valid, recent, and unused, the server returns `200` with the
@@ -41,24 +41,24 @@ reason**:
 - **It settled.** The buyer gets the `200` plus the receipt (and a `payment-settled`
   [event](/making-payments/events/)); the merchant's [`onPaid`](/accepting-payments/receipts-and-onpaid/)
   hook fires with the verified [`PaidReceipt`](/accepting-payments/receipts-and-onpaid/#the-paidreceipt).
-- **It was rejected.** When `verify()` returns `kind: 'invalid'` — wrong amount, expired, replayed,
-  wrong recipient, bad signature — the buyer's client throws (and emits a `payment-failed` event),
-  and the merchant's [`onFailed`](/accepting-payments/receipts-and-onpaid/#failure-notifications--onfailed)
+- **It was rejected.** When `verify()` returns `kind: 'invalid'` (wrong amount, expired, replayed,
+  wrong recipient, bad signature) the buyer's client throws (and emits a `payment-failed` event),
+  and the merchant's [`onFailed`](/accepting-payments/receipts-and-onpaid/#failure-notifications-onfailed)
   hook fires with a `FailedPayment`. The machine `code` on each side is **the same**, so a log on
   one matches a log on the other.
 
-A no-proof first request (the normal `402` challenge) is neither — it fires no hook, because it
+A no-proof first request (the normal `402` challenge) is neither. It fires no hook, because it
 isn't a verdict.
 
 :::note[The one honest limit]
-Because the gate is **passive** — it only acts on a request that arrives — a failure that never
+Because the gate is **passive**, acting only on a request that arrives, a failure that never
 reaches it can only be observed by the buyer. If the buyer can't afford the payment, their
 [spend policy](/spend-controls/payment-policy/) or `onBeforePay` declines it, or they abandon
 before paying, the gate never sees a request, so there's no merchant-side notification. Every
 rejection that *does* reach the gate fires `onFailed`.
 :::
 
-## Verification is local — there's no facilitator
+## Verification is local, and there's no facilitator
 
 A "facilitator" is the third party most x402 stacks use to verify and settle payments. PipRail
 has none. The server verifies the proof **itself**, on-chain, against the RPC you give it, plus
@@ -70,14 +70,14 @@ multi-instance deploy, pass your own `isUsed` / `markUsed` (e.g. backed by Redis
 can't be spent twice across machines.
 :::
 
-## Proof binding — so a payment can't be forged or replayed
+## Proof binding, so a payment can't be forged or replayed
 
 A proof must be cryptographically bound to the specific challenge it answers. PipRail uses two
 templates, picked per family:
 
-- **Template A — memo/nonce-bound** (Stellar, XRPL, NEAR, Algorand, TON): the challenge nonce
+- **Template A, memo/nonce-bound** (Stellar, XRPL, NEAR, Algorand, TON): the challenge nonce
   rides in a memo/note/comment, and `verify()` matches it on the merchant's own account.
-- **Template B — digest-bound** (EVM, Solana, Tron, Sui, Aptos, and every native coin): the
+- **Template B, digest-bound** (EVM, Solana, Tron, Sui, Aptos, and every native coin): the
   proof is the transaction hash/digest, verified by reading the transaction plus a recency
   window and a single-use proof set.
 
@@ -88,8 +88,8 @@ binding](/concepts/proof-binding/).
 ## One driver per family
 
 Under the hood, each chain family is a self-contained **driver** (`evm`, `solana`, `ton`, …)
-implementing one contract. The protocol layer — the parts that issue challenges, parse
-envelopes, and run the client — depends only on that contract, never on `viem` or any chain
+implementing one contract. The protocol layer, meaning the parts that issue challenges, parse
+envelopes and run the client, depends only on that contract, never on `viem` or any chain
 library. That's what makes non-EVM families **lazy-load on demand**: a pure-EVM install never
 pulls in Solana or TON code.
 
@@ -97,6 +97,6 @@ Read more in [The PaymentDriver architecture](/concepts/payment-driver-architect
 
 ## Why backendless is allowed
 
-The x402 v2 spec (§7) explicitly permits merchant-local verification — "resource servers MAY…
+The x402 v2 spec (§7) explicitly permits merchant-local verification: "resource servers MAY…
 host the endpoints themselves." So PipRail's shape isn't a clever workaround; it's the
 spec-blessed path, just taken all the way.

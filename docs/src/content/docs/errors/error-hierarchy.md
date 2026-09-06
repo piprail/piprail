@@ -1,16 +1,16 @@
 ---
 title: PipRailError hierarchy
-description: Every error the SDK throws — the abstract PipRailError base, its eighteen typed subclasses, each stable .code, and what to do about it.
+description: 'Every error the SDK throws: the abstract PipRailError base, its eighteen typed subclasses, each stable .code, and what to do about it.'
 sidebar:
   order: 2
 ---
 
 ## Introduction
 
-Everything the SDK throws is a [`PipRailError`](/errors/error-model/) — an abstract base class
+Everything the SDK throws is a [`PipRailError`](/errors/error-model/), an abstract base class
 with one contract: a stable `SCREAMING_SNAKE` `.code` and a `.name` set to the subclass name.
 A thrown error is always a config, flow, wallet, registry, or affordability problem the caller
-can act on. (A *rejected proof* is the other channel — a returned
+can act on. (A *rejected proof* is the other channel: a returned
 [`VerifyErrorCode`](/errors/verify-error-code/), never a throw.)
 
 Catch SDK-originated errors and ignore the rest with one guard:
@@ -29,7 +29,7 @@ try {
   await client.fetch(url)
 } catch (err) {
   if (err instanceof PipRailError) console.error(err.code, err.message)
-  else throw err // not ours — rethrow
+  else throw err // not ours, so rethrow
 }
 ```
 
@@ -40,7 +40,7 @@ narrow on it directly (`err instanceof PaymentDeclinedError`).
 
 ## The base class
 
-`PipRailError` is `abstract`, so you never construct it — you catch it. Every subclass extends
+`PipRailError` is `abstract`, so you never construct it; you catch it. Every subclass extends
 `Error`, supports `{ cause }` (the untouched chain-library error is preserved there), and
 exposes a `readonly code`. Branch on `.code` for stable, machine-readable handling; read
 `.message` for the human reason.
@@ -60,24 +60,24 @@ Every class below is exported from the package root and is caught by
 | --- | --- | --- |
 | `InsufficientFundsError` | `INSUFFICIENT_FUNDS` | The **payer** can't cover the transfer plus fees / reserve / its own trustline. |
 | `RecipientNotReadyError` | `RECIPIENT_NOT_READY` | The **recipient** (`payTo`) isn't set up to receive on this chain (not activated / no trustline / not registered / not opted-in). |
-| `WrongChainError` | `WRONG_CHAIN` | The chain doesn't match — the 402 challenge demands a network the client isn't on, or a bring-your-own `walletClient` is on a different chain than configured. |
+| `WrongChainError` | `WRONG_CHAIN` | The chain doesn't match. The 402 challenge demands a network the client isn't on, or a bring-your-own `walletClient` is on a different chain than configured. |
 | `WrongFamilyError` | `WRONG_FAMILY` | The wallet, `payTo`, or token was given in another family's shape (e.g. an `0x…` address on Solana). |
 | `UnknownTokenError` | `UNKNOWN_TOKEN` | A built-in token symbol the chosen chain doesn't ship (e.g. `token: 'DOGE'`). |
-| `InvalidConfigError` | `INVALID_CONFIG` | Invalid merchant gate / manifest config caught at the boundary — an invalid `amount` (non-string, or a non-decimal string such as scientific notation), an invalid `token` (a primitive, not a symbol/`{address}`/`{mint}`), a missing `payTo`, a null/garbage `accept[]` element, or invalid `resources` (non-array, or a null/url-less element) in the discovery builders. |
-| `MissingDriverError` | `MISSING_DRIVER` | A family's optional peer deps aren't installed — message names the exact `npm install`. |
+| `InvalidConfigError` | `INVALID_CONFIG` | Invalid merchant gate / manifest config caught at the boundary: an invalid `amount` (non-string, or a non-decimal string such as scientific notation), an invalid `token` (a primitive, not a symbol/`{address}`/`{mint}`), a missing `payTo`, a null/garbage `accept[]` element, or invalid `resources` (non-array, or a null/url-less element) in the discovery builders. |
+| `MissingDriverError` | `MISSING_DRIVER` | A family's optional peer deps aren't installed. The message names the exact `npm install`. |
 | `UnsupportedNetworkError` | `UNSUPPORTED_NETWORK` | No registered driver recognised the given `chain` value. |
-| `PaymentTimeoutError` | `PAYMENT_TIMEOUT` | Broadcast confirmed, but the **server** didn't return 200 in time — carries `.ref`. |
-| `ConfirmationTimeoutError` | `CONFIRMATION_TIMEOUT` | Broadcast OK, but the tx didn't confirm within the driver's window — re-check the ref. |
-| `MaxRetriesExceededError` | `MAX_RETRIES_EXCEEDED` | Paid, retried, still 402 — the server rejected the proof on every attempt; carries `.ref`. |
-| `PaymentDeclinedError` | `PAYMENT_DECLINED` | The client refused to pay **before any send** — over policy, or an `onBeforePay` hook said no. |
+| `PaymentTimeoutError` | `PAYMENT_TIMEOUT` | Broadcast confirmed, but the **server** didn't return 200 in time. Carries `.ref`. |
+| `ConfirmationTimeoutError` | `CONFIRMATION_TIMEOUT` | Broadcast OK, but the tx didn't confirm within the driver's window. Re-check the ref. |
+| `MaxRetriesExceededError` | `MAX_RETRIES_EXCEEDED` | Paid, retried, still 402. The server rejected the proof on every attempt; carries `.ref`. |
+| `PaymentDeclinedError` | `PAYMENT_DECLINED` | The client refused to pay **before any send**, either over policy or because an `onBeforePay` hook said no. |
 | `InvalidEnvelopeError` | `INVALID_ENVELOPE` | The server returned 402 but the PAYMENT-REQUIRED envelope was missing or malformed. |
 | `NoCompatibleAcceptError` | `NO_COMPATIBLE_ACCEPT` | The challenge offered no `accepts[]` entry the client can pay on its chain + enabled schemes. |
 | `UnsupportedSchemeError` | `UNSUPPORTED_SCHEME` | Asked to pay a scheme the bound family / asset / signer can't settle, with no fallback rail. |
 | `NonReplayableBodyError` | `NON_REPLAYABLE_BODY` | `init.body` was provided but isn't replayable (e.g. a one-shot `ReadableStream`). |
-| `SettlementError` | `SETTLEMENT_FAILED` | An `exact`-rail payment was valid but settlement failed **server-side** — the gate throws this so the adapter returns 5xx, never 402. |
+| `SettlementError` | `SETTLEMENT_FAILED` | An `exact`-rail payment was valid but settlement failed **server-side**. The gate throws this so the adapter returns 5xx, never 402. |
 | `WalletRequiredError` | `WALLET_REQUIRED` | A wallet-bound op (pay / plan / sign) was called on a **read-only** client built with no `wallet`. The read-only methods (quote / discover / register / budget) still work. |
 
-## Affordability always converges — `InsufficientFundsError`
+## Affordability always converges on `InsufficientFundsError`
 
 "Wallet can't pay" always surfaces as one error, no matter the chain. The detection differs
 per family (EVM walks viem's `BaseError`, Stellar reads Horizon `result_codes`, Solana and TON
@@ -94,7 +94,7 @@ try {
 }
 ```
 
-`toInsufficientFundsError(err)` is the shared backstop that powers this — it's exported for
+`toInsufficientFundsError(err)` is the shared backstop that powers this, and it's exported for
 custom drivers. Inside a custom driver's `send()` catch block, it matches a chain library's
 "can't afford it" message and returns an `InsufficientFundsError`, or `null` on a miss so the
 original error propagates unchanged:
@@ -117,13 +117,13 @@ trustline, `storage_deposit`-register, or opt into the ASA). The recipient error
 language and echoes the raw chain code (e.g. `(XRPL: tecNO_DST_INSUF_XRP)`).
 :::
 
-## Recovering a broadcast proof — `.ref`
+## Recovering a broadcast proof with `.ref`
 
 `PaymentTimeoutError` and `MaxRetriesExceededError` mean the transaction is already on-chain;
 **these are the only two classes that carry `.ref`**, the broadcast proof. The base
 `PipRailError` and `ConfirmationTimeoutError` have no `.ref`, so narrow on the two concrete
 classes before reading it. The recovery rule is the same for each:
-**re-verify or re-submit `ref` — never re-pay.** A fresh payment would double-spend. The proof
+**re-verify or re-submit `ref`, and never re-pay.** A fresh payment would double-spend. The proof
 stays redeemable until the server's `maxTimeoutSeconds` recency window elapses (default 600s).
 
 ```ts
@@ -134,20 +134,20 @@ try {
 } catch (err) {
   if (err instanceof PaymentTimeoutError || err instanceof MaxRetriesExceededError) {
     const ref = err.ref // the already-broadcast proof
-    // re-submit ref to the server — do NOT re-pay
+    // re-submit ref to the server. Do NOT re-pay
   } else throw err
 }
 ```
 
-For an `exact` rail, `.ref` is the authorization's single-use marker (not a tx hash) — re-present
+For an `exact` rail, `.ref` is the authorization's single-use marker (not a tx hash), so re-present
 the same signed authorization, and verify it on-chain before assuming it didn't settle. On EVM
 that's the EIP-3009 authorization **nonce** (a `0x…` value), checked via the token's
-`authorizationState(from, nonce)`; the non-EVM `exact` rails key off their own marker (Solana — the
-buyer's tx signature; Algorand — the group/tx id; Aptos — the sender's account sequence number;
-NEAR — the access-key nonce). See [the exact-buyer recovery section](/making-payments/exact-buyer/)
+`authorizationState(from, nonce)`; the non-EVM `exact` rails key off their own marker (Solana uses the
+buyer's tx signature; Algorand the group/tx id; Aptos the sender's account sequence number;
+NEAR the access-key nonce). See [the exact-buyer recovery section](/making-payments/exact-buyer/)
 for the per-family detail.
 
-## Why a payment was declined — `DeclineReasonCode`
+## Why a payment was declined: `DeclineReasonCode`
 
 `PaymentDeclinedError` fires before any send when a [spend policy](/spend-controls/payment-policy/)
 or an `onBeforePay` hook refuses the quote. Its `.code` is always `'PAYMENT_DECLINED'`; the
@@ -157,10 +157,10 @@ message.
 | `reasonCode` | Meaning | Retry? |
 | --- | --- | --- |
 | `'POLICY'` | A chain / host / token / per-payment cap refused it. | After fixing the target. |
-| `'BUDGET'` | A lifetime spend cap is exhausted — the per-(network, asset) `maxTotal`, the cross-token [`maxTotalPerDenom`](/spend-controls/total-budget/) grand total, or the [`maxPayments`](/spend-controls/payment-policy/) count. | No — budget exhausted. |
-| `'OUTSIDE_WINDOW'` | A rolling-window cap — `windowTotal` (value) or `maxPaymentsPerWindow` (count). | Yes — once the window slides. |
-| `'SESSION_EXPIRED'` | The session TTL elapsed. **Terminal.** | No — restart / extend the TTL. |
-| `'APPROVAL'` | An `onBeforePay` hook (e.g. MCP human-in-the-loop) declined. **Terminal.** | No — don't auto-retry. |
+| `'BUDGET'` | A lifetime spend cap is exhausted: the per-(network, asset) `maxTotal`, the cross-token [`maxTotalPerDenom`](/spend-controls/total-budget/) grand total, or the [`maxPayments`](/spend-controls/payment-policy/) count. | No, budget exhausted. |
+| `'OUTSIDE_WINDOW'` | A rolling-window cap: `windowTotal` (value) or `maxPaymentsPerWindow` (count). | Yes, once the window slides. |
+| `'SESSION_EXPIRED'` | The session TTL elapsed. **Terminal.** | No. Restart or extend the TTL. |
+| `'APPROVAL'` | An `onBeforePay` hook (e.g. MCP human-in-the-loop) declined. **Terminal.** | No, don't auto-retry. |
 
 The `DeclineReasonCode` set is unchanged. What grew is the finer-grained `PolicyDenyCode` on
 the underlying `quote.policyCode`, which folds into these five buckets:
@@ -173,7 +173,7 @@ try {
   await client.fetch(url)
 } catch (err) {
   if (err instanceof PaymentDeclinedError && err.reasonCode === 'SESSION_EXPIRED') {
-    // terminal for this process — extend the session, don't retry the payment
+    // terminal for this process: extend the session, don't retry the payment
   } else throw err
 }
 ```
@@ -185,5 +185,5 @@ try {
 A deliberate split: `MISSING_DRIVER` means a family's lazy `import()` failed because its
 optional peer deps aren't installed (the message names the exact `npm install` and sets
 `{ cause }`); `UNSUPPORTED_NETWORK` means no driver recognised the `chain` value at all. Don't
-reuse one for the other — see [Chains and tokens](/concepts/chains-and-tokens/) for the family
+reuse one for the other. See [Chains and tokens](/concepts/chains-and-tokens/) for the family
 peer deps.

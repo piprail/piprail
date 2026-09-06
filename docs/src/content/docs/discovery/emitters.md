@@ -1,19 +1,19 @@
 ---
 title: Discovery emitters
-description: 'Pure functions that turn a gate''s payment options into the static artifacts a crawler reads — an OpenAPI doc, a well-known file, a DNS line.'
+description: 'Pure functions that turn a gate''s payment options into the static artifacts a crawler reads: an OpenAPI doc, a well-known file, a DNS line.'
 sidebar:
   order: 3
 ---
 
 ## Introduction
 
-The emitters are pure, deterministic functions that turn what your gate already knows — its
-payment rails — into the open-standard files a crawler or index reads. They do **no network
+The emitters are pure, deterministic functions that turn what your gate already knows, its
+payment rails, into the open-standard files a crawler or index reads. They do **no network
 I/O** and import no chain library: you feed them metadata, they hand back JSON or a string,
 and you serve it as a static asset on your own origin. Nothing is PipRail-hosted.
 
 You get the metadata from [`gate.describe()`](/accepting-payments/require-payment-and-gate/),
-which returns a `ResourceDescription` — your gate's resolved rails, nonce-free (discovery
+which returns a `ResourceDescription`: your gate's resolved rails, nonce-free (discovery
 metadata is long-lived, so it mints no challenge nonce).
 
 ```ts
@@ -34,21 +34,21 @@ const resource = await gate.describe('https://api.example.com/report')
 ```
 
 A `ResourceDescription` has `url`, an optional `method`/`description`, and an `accepts: PaymentRail[]`.
-Each `PaymentRail` is the static, nonce-free shape of one payment option — `scheme`
+Each `PaymentRail` is the static, nonce-free shape of one payment option: `scheme`
 (`'onchain-proof'`, `'exact'`, or `'upto'`), `network` (CAIP-2), `asset`, `payTo`, `amount` (base units),
 `amountFormatted` (e.g. `'0.10'`), `decimals`, an optional `symbol`, and `maxTimeoutSeconds`.
 The emitters below consume `ResourceDescription[]` and never invent anything not already in it.
 
 :::note
-There is no single ratified discovery standard yet — OpenAPI-first is an emerging multi-vendor
+There is no single ratified discovery standard yet. OpenAPI-first is an emerging multi-vendor
 convention. Emit it, but treat it as a moving target. See [Discover &
 register](/discovery/discover-and-register/) for the runtime side (searching and registering on
 the open indexes).
 :::
 
-## `buildOpenApi` — the primary doc
+## `buildOpenApi`: the primary doc
 
-`buildOpenApi(input)` returns an `OpenApiDocument` — a minimal, valid OpenAPI 3.1 document with
+`buildOpenApi(input)` returns an `OpenApiDocument`, a minimal, valid OpenAPI 3.1 document with
 an `x-payment-info` block per paid operation. This is the doc the live open indexes parse today
 (x402scan via `@agentcash/discovery`). Serve the result at `https://<origin>/openapi.json`.
 
@@ -73,13 +73,13 @@ collapse into a single entry. Each paid op carries `x-payment-info` with `x402Ve
 the resource's `accepts[]` (a `PaymentRail[]`).
 
 Each per-method operation object inside the document is typed as `OpenApiOperation` (exported
-from `@piprail/sdk`) — the `{ summary?, responses, 'x-payment-info' }` value under a path's
+from `@piprail/sdk`): the `{ summary?, responses, 'x-payment-info' }` value under a path's
 `get`/`post` key (the optional `summary` comes from the resource's `description`). You rarely
 reference it directly; it's there for typing a hand-built document.
 
 ### The `x-generator` stamp
 
-By default the document is stamped with `x-generator` — an unobtrusive "built with" marker (à
+By default the document is stamped with `x-generator`, an unobtrusive "built with" marker (à
 la Swagger or Hugo) that rides along wherever an index crawls your `/openapi.json`. It is
 metadata only and changes nothing about how the resource is paid or listed. Set
 `attribution: false` to omit it.
@@ -91,7 +91,7 @@ console.log(GENERATOR)
 // → '@piprail/sdk · https://piprail.com'
 ```
 
-## `ManifestInput` — the shared input
+## `ManifestInput`: the shared input
 
 `buildOpenApi` and `buildWellKnownX402` take the same `ManifestInput`:
 
@@ -99,21 +99,21 @@ console.log(GENERATOR)
 | --- | --- |
 | `origin` | The origin you control, e.g. `https://api.example.com` (no path). |
 | `resources` | The discoverable `ResourceDescription[]`, one per `gate.describe()`. |
-| `ownershipProofs` | Optional eip191 signatures of the bare origin string by a `payTo` key — a trust badge on indexes that verify them. Never required to be listed. |
+| `ownershipProofs` | Optional eip191 signatures of the bare origin string by a `payTo` key, giving a trust badge on indexes that verify them. Never required to be listed. |
 | `title` | OpenAPI `info.title`. Default `'PipRail x402 resources'`. |
 | `version` | OpenAPI `info.version`. Default `'1.0.0'`. |
 | `attribution` | Stamp `x-generator`. Default `true`; set `false` to omit. |
 
-When you pass `ownershipProofs`, `buildOpenApi` adds them at `x-agentcash-provenance` — the
+When you pass `ownershipProofs`, `buildOpenApi` adds them at `x-agentcash-provenance`, the
 provenance block the open indexes read. Produce one by getting the signer and signing the bare
-origin string with its single-arg `signMessage` — `const signer = await client.discoverySigner();
+origin string with its single-arg `signMessage`: `const signer = await client.discoverySigner();
 const proof = await signer.signMessage(origin)` (see
 [`client.discoverySigner()`](/making-payments/piprail-client/)); see [Domain
 verification](/discovery/domain-verification/).
 
-## `buildWellKnownX402` — the compatibility breadcrumb
+## `buildWellKnownX402`: the compatibility breadcrumb
 
-`buildWellKnownX402(input)` returns a `WellKnownX402` — x402scan's legacy origin file: the list
+`buildWellKnownX402(input)` returns a `WellKnownX402`, x402scan's legacy origin file: the list
 of resource URLs plus optional ownership proofs. `/openapi.json` is the primary doc; this is a
 fallback for crawlers that read the older format. Serve it at `https://<origin>/.well-known/x402`.
 
@@ -127,13 +127,13 @@ const wellKnown = buildWellKnownX402({
 // → WellKnownX402: { version: 1, resources: ['https://api.example.com/report'] }
 ```
 
-## `buildWellKnownX402Manifest` — the forward-compatible manifest
+## `buildWellKnownX402Manifest`: the forward-compatible manifest
 
-`buildWellKnownX402Manifest(input)` returns a `WellKnownX402Manifest` — the **richer, V2-shaped**
+`buildWellKnownX402Manifest(input)` returns a `WellKnownX402Manifest`, the **richer, V2-shaped**
 `.well-known/x402.json` an index reads to enumerate your resources *and* their rails in one fetch,
 without crawling each 402. Where `buildWellKnownX402` is a flat URL list (the legacy breadcrumb),
-this emits a self-describing item per resource — the chosen `accepts[]`, the call method, and the
-output hint — so a crawler never has to hit the endpoint to learn what it costs.
+this emits a self-describing item per resource: the chosen `accepts[]`, the call method, and the
+output hint, so a crawler never has to hit the endpoint to learn what it costs.
 
 ```ts
 import { buildWellKnownX402Manifest } from '@piprail/sdk'
@@ -141,7 +141,7 @@ import { buildWellKnownX402Manifest } from '@piprail/sdk'
 const manifest = buildWellKnownX402Manifest({
   origin: 'https://api.example.com',
   resources: [await gate.describe('https://api.example.com/report')],
-  // lastUpdated: 1735000000, // optional — Unix seconds; defaults to now
+  // lastUpdated: 1735000000, // optional Unix seconds; defaults to now
 })
 // → WellKnownX402Manifest:
 //   {
@@ -158,17 +158,17 @@ const manifest = buildWellKnownX402Manifest({
 ```
 
 Serve it at `https://<origin>/.well-known/x402.json`. It takes the same
-[`ManifestInput`](#manifestinput--the-shared-input) as the others, plus an optional `lastUpdated`
+[`ManifestInput`](#manifestinput-the-shared-input) as the others, plus an optional `lastUpdated`
 (Unix seconds; defaults to the build time). The shape is **forward-compatible**: `WellKnownX402Item`
 carries optional fields some indexes use (`serviceName`, `tags`, `requires`, `output.example`) that
-the builder leaves unset today — a reader that wants them finds them absent, never malformed. PipRail
+the builder leaves unset today, so a reader that wants them finds them absent, never malformed. PipRail
 emits `type: 'http'` for HTTP resources; the legacy `buildWellKnownX402` is unchanged, so serve both
 if you want to satisfy old and new crawlers at once.
 
-## `buildX402DnsTxt` — the DNS pointer
+## `buildX402DnsTxt`: the DNS pointer
 
-`buildX402DnsTxt(input)` returns an `X402DnsRecord` — the experimental `_x402` TXT record that
-points at a discovery doc. It hands back the record `name` and `value` to paste into your zone —
+`buildX402DnsTxt(input)` returns an `X402DnsRecord`, the experimental `_x402` TXT record that
+points at a discovery doc. It hands back the record `name` and `value` to paste into your zone;
 PipRail never touches DNS. `host` is the exact host the agent talks to (no inheritance), and
 `discoveryUrl` is typically your `/openapi.json`.
 
@@ -186,10 +186,10 @@ const txt = buildX402DnsTxt({
 
 Pass an optional `descriptor` string to prepend a `descriptor=…;` segment to the value.
 
-## `buildBazaarExtension` — the input schema x402scan requires
+## `buildBazaarExtension`: the input schema x402scan requires
 
 x402scan rejects a listing without an input schema. `buildBazaarExtension(descriptor)` takes a
-`DiscoveryDescriptor` and returns a `BazaarExtension` — the `extensions.bazaar` block that
+`DiscoveryDescriptor` and returns a `BazaarExtension`, the `extensions.bazaar` block that
 satisfies that check: `info.input` describes the request and `schema` is its JSON Schema. With
 no argument it defaults to a no-input GET, the minimal shape a live listing accepts.
 
@@ -223,7 +223,7 @@ The `DiscoveryDescriptor` fields:
 
 PipRail's own rails advertise `scheme: 'onchain-proof'`. A merchant who wants to be *usefully*
 listed on the open indexes should additionally offer a standard `exact` USDC rail on
-Base/Solana — and can also advertise a metered [`upto` rail](/accepting-payments/upto-rail-seller/).
+Base/Solana, and can also advertise a metered [`upto` rail](/accepting-payments/upto-rail-seller/).
 The emitters carry whichever rails `gate.describe()` returns, so dual-advertising flows through
 automatically. See the [exact rail seller guide](/accepting-payments/exact-rail-seller/) for how to
 turn it on.

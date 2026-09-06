@@ -1,13 +1,13 @@
 ---
 title: "Chains & tokens"
-description: One chain parameter picks the chain, the token, and the settlement family — here's what's covered and how the built-in presets are filled in.
+description: One chain parameter picks the chain, the token, and the settlement family. Here's what's covered and how the built-in presets are filled in.
 sidebar:
   order: 4
 ---
 
 ## Introduction
 
-PipRail charges and pays the same way everywhere — `requirePayment({ chain, token, amount, payTo })`
+PipRail charges and pays the same way everywhere: `requirePayment({ chain, token, amount, payTo })`
 to charge, `new PipRailClient({ chain, wallet }).fetch(url)` to pay. A single `chain` value
 selects the chain, its tokens, and the settlement family behind it. There is **no allowlist**:
 the popular chains ship as presets for convenience, and any other EVM chain works by passing
@@ -20,7 +20,7 @@ parameter:
 
 | Family | `chain` values |
 | --- | --- |
-| **EVM** | `ethereum`, `base`, `arbitrum`, `optimism`, `polygon`, `bnb`, `avalanche`, `mantle`, `sonic`, `linea`, `scroll`, `celo`, `zksync`, `unichain`, `worldchain`, `sei`, `injective`, `hyperevm`, `monad`, `kaia` — **plus any other EVM chain** by viem `Chain` or `{ id, rpcUrl }` |
+| **EVM** | `ethereum`, `base`, `arbitrum`, `optimism`, `polygon`, `bnb`, `avalanche`, `mantle`, `sonic`, `linea`, `scroll`, `celo`, `zksync`, `unichain`, `worldchain`, `sei`, `injective`, `hyperevm`, `monad`, `kaia`, **plus any other EVM chain** by viem `Chain` or `{ id, rpcUrl }` |
 | **Solana** | `solana` |
 | **TON** | `ton` |
 | **Tron** | `tron` |
@@ -32,7 +32,7 @@ parameter:
 | **XRP Ledger** | `xrpl` |
 
 The authoritative, always-current list and the per-chain receive prerequisites live in
-[Chains overview](/chains/overview/). Mainnets only — there are no testnet presets.
+[Chains overview](/chains/overview/). Mainnets only; there are no testnet presets.
 
 ```ts
 // On the server you charge; pass your own receiving address as payTo.
@@ -48,13 +48,13 @@ coverage follows a simple rule:
 | Token | Where it's built in |
 | --- | --- |
 | **USDC** | Almost everywhere Circle issues it natively. |
-| **USDT** | Most chains — **omitted where the chain's "USDT" is a bridged LayerZero/USDT0 token** rather than Tether-native. |
-| **EURC** | Where Circle issues it — on EVM that's Ethereum, Base, and Avalanche; also Stellar. |
+| **USDT** | Most chains, but **omitted where the chain's "USDT" is a bridged LayerZero/USDT0 token** rather than Tether-native. |
+| **EURC** | Where Circle issues it. On EVM that's Ethereum, Base, and Avalanche; also Stellar. |
 | **RLUSD** | XRP Ledger. |
 | **native coin** | Valid on **every** family via `token: 'native'`. |
 
 The native coin (ETH, SOL, XRP, …) is the chain's gas token and is always a valid payment
-asset. Anything else works by address — there's no allowlist for tokens either:
+asset. Anything else works by address, because there's no allowlist for tokens either:
 
 ```ts
 requirePayment({ chain: 'base', token: 'native', amount: '0.10', payTo: '0xYourWallet' })
@@ -66,21 +66,21 @@ requirePayment({
 })
 ```
 
-The custom-token shape is per-family — an EVM `{ address, decimals }`, a Solana
+The custom-token shape is per-family: an EVM `{ address, decimals }`, a Solana
 `{ mint, decimals }`, a TON `{ master, decimals }`, and so on. The full set of shapes is on
 [Chains overview](/chains/overview/).
 
 :::note
 The omission of USDT on some chains is deliberate. PipRail only ships a symbol when it maps to
 the issuer-native token. Where a chain's "USDT" is actually a bridged USDT0 / LayerZero token,
-`token: 'USDT'` is left out — pass it as a custom `{ address, decimals }` if you specifically
+`token: 'USDT'` is left out. Pass it as a custom `{ address, decimals }` if you specifically
 want it. See [Chains overview](/chains/overview/) for the per-chain provenance.
 :::
 
-## Per-chain setup & caveats — at a glance
+## Per-chain setup & caveats, at a glance
 
 Most chains are zero-setup: install, name the chain, add a wallet. A few have one-time caveats
-worth knowing **before you ship** — the peer library to install, what the *recipient* must do to
+worth knowing **before you ship**: the peer library to install, what the *recipient* must do to
 receive a token, and which native coin pays gas. Each family page has the full detail.
 
 | Chain | Install (lazy peer) | To **receive**, the recipient needs… | Gas / notes |
@@ -98,18 +98,18 @@ receive a token, and which native coin pays gas. Each family page has the full d
 
 A recipient that isn't set up surfaces as a typed [`RecipientNotReadyError`](/errors/why-payments-fail/)
 (or a `RECIPIENT_NOT_READY` blocker from [`planPayment()`](/making-payments/plan-payment/)) with the
-exact fix — never a silent failure. The base-reserve XLM/XRP is **locked, not spent**.
+exact fix, never a silent failure. The base-reserve XLM/XRP is **locked, not spent**.
 
 :::note
 EVM, Solana, Tron, Sui, and Aptos need no receive setup at all. Native coin is zero-setup on
 **every** family. The caveats above only apply to the specific issued tokens noted.
 :::
 
-## The built-in EVM registry — `CHAINS`
+## The built-in EVM registry: `CHAINS`
 
 `CHAINS` is the exported registry of built-in EVM presets. Each preset carries the underlying
 viem `Chain` and a `tokens` map keyed by uppercase symbol, with the canonical address and
-decimals pre-filled — so you never paste a token address for a supported chain:
+decimals pre-filled, so you never paste a token address for a supported chain:
 
 ```ts
 import { CHAINS } from '@piprail/sdk'
@@ -140,7 +140,7 @@ address for a known chain. `ChainName` is the union of built-in preset keys (`'b
 
 :::tip
 On **BNB Chain**, all five built-in stablecoins are **18 decimals**, not 6 (the preset carries the
-correct decimals, so naming `token: 'USDC'` is always right — don't hardcode 6). Provenance differs:
+correct decimals, so naming `token: 'USDC'` is always right; don't hardcode 6). Provenance differs:
 **USDC/USDT are Binance-Peg** (not EIP-3009 → the `exact` rail uses Permit2), while **FDUSD, USD1, and U
 are EIP-3009** (→ the gasless `transferWithAuthorization` path, no Permit2 approve). The SDK
 auto-selects per token; see [Gasless payments](/making-payments/gasless-payments/).
@@ -170,12 +170,12 @@ The accepted `chain` types are captured by `ChainInput`:
 | `{ id, rpcUrl, name?, nativeCurrency? }` | Any EVM chain by id + RPC. Native coin defaults to 18-decimal ETH; override `nativeCurrency` if it isn't. |
 
 When you pass a raw viem `Chain` or `{ id, rpcUrl }` that happens to match a built-in chain id,
-symbol resolution still works — the preset's tokens are looked up by chain id.
+symbol resolution still works, because the preset's tokens are looked up by chain id.
 
 ## RPC endpoints
 
 The public default RPC on every chain is rate-limited. **Pass your own `rpcUrl` in
-production.** There is no separate API-key field — fold any key into the URL:
+production.** There is no separate API-key field, so fold any key into the URL:
 
 ```ts
 requirePayment({
@@ -186,4 +186,4 @@ requirePayment({
 
 Each entry in a multi-rail `accept[]` can carry its own `rpcUrl`. A few non-EVM families
 effectively **require** a keyed endpoint (TON's keyless toncenter is too slow for
-`verify()`) — those caveats are on each chain's page under [Chains](/chains/overview/).
+`verify()`). Those caveats are on each chain's page under [Chains](/chains/overview/).

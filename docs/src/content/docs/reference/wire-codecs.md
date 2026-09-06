@@ -1,6 +1,6 @@
 ---
 title: Wire-format codecs
-description: The raw x402 envelope codecs — parse and build the challenge, signature, and receipt headers by hand when you're rolling your own client or server.
+description: The raw x402 envelope codecs. Parse and build the challenge, signature, and receipt headers by hand when you're rolling your own client or server.
 sidebar:
   order: 2
 ---
@@ -11,7 +11,7 @@ The high-level [`PipRailClient`](/making-payments/piprail-client/) and
 [`createPaymentGate`](/accepting-payments/require-payment-and-gate/) cover the 99% case. These
 are the raw codecs underneath them: pure functions that turn x402 envelopes into base64 header
 values and back, with nothing chain-specific in them. Reach for these only when you're building
-a client or server by hand — a non-Node runtime, a custom transport, or a protocol bridge.
+a client or server by hand: a non-Node runtime, a custom transport, or a protocol bridge.
 
 Everything here is exported from `@piprail/sdk`. The codecs are chain-agnostic: identifiers
 round-trip as plain strings (CAIP-2 networks, base-unit amounts), and each
@@ -41,7 +41,7 @@ client: parseChallenge  →  buildSignatureHeader  →  parseReceipt
 ## Building the challenge (server)
 
 A server emits a 402 by base64-encoding an `X402Challenge` into the `payment-required` header.
-The challenge carries the `resource` it gates and an `accepts[]` array — one entry per rail you
+The challenge carries the `resource` it gates and an `accepts[]` array, one entry per rail you
 offer. Only `scheme` / `network` / `amount` / `asset` / `payTo` / `maxTimeoutSeconds` are
 top-level; the `nonce`, `decimals`, `minConfirmations`, and `amountFormatted` live under `extra`.
 
@@ -66,7 +66,7 @@ res.status(402).setHeader(HEADER_REQUIRED, buildChallengeHeader(challenge))
 // buildChallengeHeader → a base64-JSON string for the payment-required header
 ```
 
-`buildReceiptHeader(receipt)` does the same for an `X402Receipt` on a successful 200 — see
+`buildReceiptHeader(receipt)` does the same for an `X402Receipt` on a successful 200; see
 [Receipts](/accepting-payments/receipts-and-onpaid/).
 
 ## Building the proof (client)
@@ -74,7 +74,7 @@ res.status(402).setHeader(HEADER_REQUIRED, buildChallengeHeader(challenge))
 After paying on-chain, a client base64-encodes an `X402PaymentSignature` into the
 `payment-signature` header and retries the request. The `accepted` field is the rail you chose,
 echoed back verbatim from the challenge; the `payload` binds the challenge `nonce` to your proof
-ref (`txHash` — an EVM tx hash, a Solana signature, a TON locator, …).
+ref (`txHash`: an EVM tx hash, a Solana signature, a TON locator, …).
 
 ```ts
 import {
@@ -103,8 +103,8 @@ const value = buildSignatureHeader({
 await fetch(url, { headers: { [HEADER_SIGNATURE]: value } })
 ```
 
-How the `nonce` rides in the proof — and how `verify()` re-derives every checked field from the
-trusted `accept` rather than this echo — is covered under [proof binding](/concepts/proof-binding/).
+How the `nonce` rides in the proof, and how `verify()` re-derives every checked field from the
+trusted `accept` rather than this echo, is covered under [proof binding](/concepts/proof-binding/).
 
 ## Parsing (both sides)
 
@@ -130,7 +130,7 @@ if (res.status === 402) {
 }
 
 const settledResponse = await fetch(url, { headers: { /* payment-signature */ } })
-const receipt = parseReceipt(settledResponse)   // X402Receipt | null — null if no receipt header
+const receipt = parseReceipt(settledResponse)   // X402Receipt | null, null if no receipt header
 if (receipt) {
   console.log(receipt.transaction, receipt.payer)
   // → { scheme, success: true, network, transaction, asset, amount, payer, payTo, verifiedAt }
@@ -140,16 +140,16 @@ if (receipt) {
 `parseChallenge` is async because it may `await response.clone().json()` to fall back to a
 JSON challenge body. `parseSignatureHeader` is what a hand-rolled server calls on the inbound
 `payment-signature`; it returns `null` for anything that isn't a well-formed `onchain-proof`
-proof (so an `exact` payment falls through — see below).
+proof (so an `exact` payment falls through; see below).
 
 :::note
 A returned value passed PipRail's structural checks (`x402Version === 2`, a non-empty
 `accepts[]`, a `payload` with both `nonce` and `txHash`). That's a shape gate, not a payment
-verification — the on-chain `verify()` is the only thing that proves a payment.
+verification. The on-chain `verify()` is the only thing that proves a payment.
 See [Verifying payments](/accepting-payments/verifying-payments/).
 :::
 
-## Selecting a rail — `pickAccept`
+## Selecting a rail with `pickAccept`
 
 A 402 may offer several rails. `pickAccept` returns the first `onchain-proof` entry whose
 network your predicate accepts, or `null`:
@@ -165,7 +165,7 @@ if (!rail) throw new Error('no rail I can pay')
 // → an X402AcceptEntry on the matched network, or null
 ```
 
-The predicate gets the raw CAIP-2 string, so you decide what "I can pay this" means — a single
+The predicate gets the raw CAIP-2 string, so you decide what "I can pay this" means: a single
 chain, a family prefix (`network.startsWith('solana:')`), or a set you hold a wallet for. Only
 `onchain-proof` rails are considered; `exact` rails are skipped.
 
@@ -177,7 +177,7 @@ The codecs are typed by a small set of interfaces, all exported as `type`s:
 | --- | --- |
 | `X402Challenge` | the 402 body: `resource` + `accepts[]` |
 | `X402AcceptEntry` | one `onchain-proof` rail in `accepts[]` |
-| `X402AnyAccept` | `X402AcceptEntry \| X402ExactAcceptEntry \| X402UptoAcceptEntry` (a challenge entry of any rail — onchain-proof, exact, or upto) |
+| `X402AnyAccept` | `X402AcceptEntry \| X402ExactAcceptEntry \| X402UptoAcceptEntry` (a challenge entry of any rail: onchain-proof, exact, or upto) |
 | `X402PaymentSignature` | the client's proof: `accepted` + `{ nonce, txHash }` |
 | `X402Receipt` | the settled receipt on a 200 (the wire shape) |
 | `X402ResourceObject` | the gated resource: `url`, optional `description` / `mimeType` |
@@ -186,11 +186,11 @@ The codecs are typed by a small set of interfaces, all exported as `type`s:
 | `AddressId` | a chain-specific account id |
 
 The wire receipt is `X402Receipt`. A gate's [`onPaid`](/accepting-payments/receipts-and-onpaid/#the-paidreceipt)
-hook receives a **`PaidReceipt`** — the same fields plus `decimals` / `symbol` / `amountFormatted` /
-`idempotencyKey` — but that enrichment never goes on the wire; the `payment-response` header stays `X402Receipt`.
+hook receives a **`PaidReceipt`**, the same fields plus `decimals` / `symbol` / `amountFormatted` /
+`idempotencyKey`, but that enrichment never goes on the wire; the `payment-response` header stays `X402Receipt`.
 
-`VerifyResult` and [`VerifyErrorCode`](/errors/verify-error-code/) — the shape every driver's
-`verify()` returns — are exported here too. `VerifyResult` is the union
+`VerifyResult` and [`VerifyErrorCode`](/errors/verify-error-code/), the shape every driver's
+`verify()` returns, are exported here too. `VerifyResult` is the union
 `{ ok: true; receipt } | { ok: false; error: VerifyErrorCode; detail: string }`.
 
 ```ts
@@ -199,7 +199,7 @@ import type {
 } from '@piprail/sdk'
 ```
 
-## Version posture — strict v2 out, liberal in
+## Version posture: strict v2 out, liberal in
 
 PipRail **emits strict x402 v2** and **accepts both v2 and v1**. v2 replaced v1 on the wire
 (the header moved `X-PAYMENT` → `payment-signature`, the challenge moved into the
@@ -223,8 +223,8 @@ buyer can supply a stable idempotency `id` it can safely retry under. Two wire-l
 
 | Function / const | Role |
 | --- | --- |
-| `buildPaymentIdentifierAdvertisement()` | emit the advertisement block — `{ info: { required: false }, schema: { properties: { id: { type: 'string', minLength: 16, maxLength: 128 } } } }` under the `payment-identifier` extension key (a sibling of `extensions.piprail`) |
-| `readPaymentIdentifier(payload)` | read the buyer's id off `payload.extensions["payment-identifier"].info.id` — returns the validated `string`, `null` (absent), or `{ invalid }` (present-but-malformed: non-string, not 16–128 chars, or outside `[A-Za-z0-9_-]`). Never throws. |
+| `buildPaymentIdentifierAdvertisement()` | emit the advertisement block: `{ info: { required: false }, schema: { properties: { id: { type: 'string', minLength: 16, maxLength: 128 } } } }` under the `payment-identifier` extension key (a sibling of `extensions.piprail`) |
+| `readPaymentIdentifier(payload)` | read the buyer's id off `payload.extensions["payment-identifier"].info.id`. Returns the validated `string`, `null` (absent), or `{ invalid }` (present-but-malformed: non-string, not 16 to 128 chars, or outside `[A-Za-z0-9_-]`). Never throws. |
 | `EXT_PAYMENT_IDENTIFIER` | the extension key string (`'payment-identifier'`) |
 
 The gate dedupes the id on its existing used-proof set (keyed `pid:<id>`, case-sensitive). Full
@@ -234,15 +234,15 @@ behavior: [Replay protection → opt-in caller idempotency](/accepting-payments/
 
 A PipRail gate can **dual-advertise** a standard x402 `exact` rail alongside its
 `onchain-proof` rail, so any off-the-shelf x402 client can pay it. That rail has its own
-codecs — they're advanced and live on the [exact low-level page](/reference/exact-lowlevel/);
+codecs. They're advanced and live on the [exact low-level page](/reference/exact-lowlevel/);
 here's the map:
 
 | Function / type | Role |
 | --- | --- |
-| `X402ExactAcceptEntry` | an `exact` rail in `accepts[]`. `extra` and `extra.assetTransferMethod` are both **optional** — absent means the scheme default `'eip3009'`, so read it via `exactTransferMethod(rail)`, never bare ([why](/making-payments/exact-buyer/#the-transfer-method-is-optional--and-usually-absent)). Stated values are the six-value union `'eip3009'`/`'permit2'`/`'svm'`/`'algorand'`/`'aptos'`/`'near'`, plus the family-specific bits: the EVM EIP-712 domain, or the `feePayer` gas sponsor for Solana/Algorand/Aptos/NEAR, + the Solana `tokenProgram` |
-| `buildExactSignatureHeader({ accepted, payload })` | frame an `exact` payment for the wire (buyer) — works for every method |
+| `X402ExactAcceptEntry` | an `exact` rail in `accepts[]`. `extra` and `extra.assetTransferMethod` are both **optional**, so absent means the scheme default `'eip3009'`; read it via `exactTransferMethod(rail)`, never bare ([why](/making-payments/exact-buyer/#the-transfer-method-is-optional-and-usually-absent)). Stated values are the six-value union `'eip3009'`/`'permit2'`/`'svm'`/`'algorand'`/`'aptos'`/`'near'`, plus the family-specific bits: the EVM EIP-712 domain, or the `feePayer` gas sponsor for Solana/Algorand/Aptos/NEAR, + the Solana `tokenProgram` |
+| `buildExactSignatureHeader({ accepted, payload })` | frame an `exact` payment for the wire (buyer). Works for every method |
 | `parseExactPaymentHeader(value)` | parse an inbound `exact` payment, normalised across v1/v2 (seller) |
-| `ParsedExactPayment` | what `parseExactPaymentHeader` returns — a union discriminated on `method` (`'eip3009'` / `'permit2'` / `'svm'` / `'algorand'` / `'aptos'` / `'near'`) |
+| `ParsedExactPayment` | what `parseExactPaymentHeader` returns: a union discriminated on `method` (`'eip3009'` / `'permit2'` / `'svm'` / `'algorand'` / `'aptos'` / `'near'`) |
 | `ExactPaymentPayload` / `ExactAuthorizationWire` | the EVM EIP-3009 `{ signature, authorization }` payload |
 | `Permit2PaymentPayload` | the EVM Permit2 `{ signature, permit2Authorization }` payload |
 
@@ -250,11 +250,11 @@ here's the map:
 shapes, and discriminates each payload shape on `method` (`'eip3009'` → `authorization`,
 `'permit2'` → `permit2Authorization`, `'svm'` → `transaction`, `'algorand'` → `paymentGroup`,
 `'aptos'` → `transaction` + `senderAuth`, `'near'` → `signedDelegateAction`). The `network`/`asset` it returns are
-the client's *claim*, used only to match an offered rail — the gate re-derives every verified field
+the client's *claim*, used only to match an offered rail. The gate re-derives every verified field
 from its own trusted rail. See [selling the exact rail](/accepting-payments/exact-rail-seller/) and
 the [exact buyer path](/making-payments/exact-buyer/).
 
-## Reading a foreign settle result — `parseSettleResponse`
+## Reading a foreign settle result with `parseSettleResponse`
 
 When a PipRail buyer pays a *third-party* `exact` server, that server replies with a standard
 SettleResponse rather than a PipRail receipt. `parseSettleResponse` reads it from
@@ -267,14 +267,14 @@ const outcome: SettleOutcome | null = parseSettleResponse(response)
 // → { success: boolean, transaction?, network?, payer?, errorReason? } | null
 
 if (outcome && outcome.success === false) {
-  // an explicit rejection — never record a spend on it
+  // an explicit rejection. Never record a spend on it
   throw new Error(`exact settle rejected: ${outcome.errorReason ?? 'unknown'}`)
 }
 ```
 
 The `success` flag is authoritative, and the distinction is load-bearing: `null` (no settle
-body at all) means the server just served the resource — treat it as an affirmative 2xx
-settlement. An explicit `success: false` is a real rejection — **never record a spend on it**.
+body at all) means the server just served the resource, so treat it as an affirmative 2xx
+settlement. An explicit `success: false` is a real rejection, so **never record a spend on it**.
 Only a body with a boolean `success` is parsed; anything else returns `null`.
 
 :::caution

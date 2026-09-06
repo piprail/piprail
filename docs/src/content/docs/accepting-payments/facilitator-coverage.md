@@ -8,7 +8,7 @@ sidebar:
 ## Introduction
 
 When you offer a standard [`exact` rail](/accepting-payments/exact-rail-seller/) settled by a
-third-party facilitator, you need to know **which facilitator settles `exact` on your chain** — and
+third-party facilitator, you need to know **which facilitator settles `exact` on your chain**, and
 ideally a *keyless* one, so neither you nor the buyer pays gas. PipRail ships that knowledge as plain
 data (no hosted registry, no backend) plus a live reader, so you can choose or verify a facilitator up
 front.
@@ -18,42 +18,42 @@ facilitator for your gate's network from this map, or fails with a clear message
 
 ## Live-verified facilitators
 
-The third-party x402 facilitators below were **probed live (2026-06-14 → 2026-06-17)** — each one's
+The third-party x402 facilitators below were **probed live (2026-06-14 → 2026-06-17)**, and each one's
 `GET /supported` was read, and every row marked ✅ was then settled with a **real mainnet `exact` payment
 through PipRail**, where the **buyer paid zero gas**. "Keyless" means it settles with **no API key**, so the
 facilitator sponsors the network fee for the buyer *and* the merchant. You point a gate at any of them
-with `exact: { settle: { facilitator: '<facilitator url>' } }` — see
+with `exact: { settle: { facilitator: '<facilitator url>' } }`; see
 [the exact rail seller guide](/accepting-payments/exact-rail-seller/). On a facilitator-sponsored
-fee-payer rail the gate also **bounds the fee** a buyer can make the sponsor pay — see
-[sponsor protection](/making-payments/gasless-payments/#sponsor-protection--the-fee-drain-guard).
+fee-payer rail the gate also **bounds the fee** a buyer can make the sponsor pay; see
+[sponsor protection](/making-payments/gasless-payments/#sponsor-protection-the-fee-drain-guard).
 
 | Facilitator | Keyless? | PipRail live-tested | Mainnet `exact` networks |
 |---|---|---|---|
 | **[PayAI](https://facilitator.payai.network/)** | ✅ keyless | ✅ **Base, Polygon, Arbitrum, Avalanche, Sei, Solana** | Base, Solana, Avalanche, Polygon, Arbitrum, Sei +24 |
-| **[Ultravioleta DAO](https://facilitator.ultravioletadao.xyz/)** | ✅ keyless | ✅ **Ethereum, Polygon, Arbitrum, Optimism, Unichain, HyperEVM, Base, Monad** | HyperEVM, Base, Monad, Celo, Unichain, Optimism, Scroll, Ethereum, Arbitrum, Polygon, Avalanche, BNB + Solana, Stellar, Sui, Algorand, NEAR, XRPL (18 listed — but Celo/Scroll/Avalanche `contract_call_failed`; non-EVM advertise-only) |
-| **[Dexter](https://x402.dexter.cash/)** | ✅ keyless | ✅ **Base, Polygon, Arbitrum, Optimism, Avalanche, BNB** | Base, BNB, Solana, Polygon, Arbitrum, Optimism, Avalanche *(BNB: FDUSD/USD1/U only; ~$0.003 dynamic floor — sub-floor payments rejected)* |
+| **[Ultravioleta DAO](https://facilitator.ultravioletadao.xyz/)** | ✅ keyless | ✅ **Ethereum, Polygon, Arbitrum, Optimism, Unichain, HyperEVM, Base, Monad** | HyperEVM, Base, Monad, Celo, Unichain, Optimism, Scroll, Ethereum, Arbitrum, Polygon, Avalanche, BNB + Solana, Stellar, Sui, Algorand, NEAR, XRPL (18 listed, but Celo/Scroll/Avalanche `contract_call_failed`; non-EVM advertise-only) |
+| **[Dexter](https://x402.dexter.cash/)** | ✅ keyless | ✅ **Base, Polygon, Arbitrum, Optimism, Avalanche, BNB** | Base, BNB, Solana, Polygon, Arbitrum, Optimism, Avalanche *(BNB: FDUSD/USD1/U only; ~$0.003 dynamic floor, so sub-floor payments are rejected)* |
 | **[Polygon Labs](https://x402.polygon.technology/)** | ✅ keyless | ✅ **Polygon** | Polygon (the official Polygon facilitator) |
 | **[GoPlausible](https://facilitator.goplausible.xyz/)** | ✅ keyless | ✅ **Algorand + Base** | **Algorand** (the only keyless Algorand facilitator), Base, Solana |
 | **[Pieverse](https://facilitator.pieverse.io/)** | ✅ keyless | ✅ **Monad + BNB** | Monad, BNB, Base *(BNB: FDUSD/USD1/U)* |
 | **[Cascade](https://facilitator.cascade.fyi/)** | ✅ keyless | ✅ **Base** | Base, Solana |
 | **[OpenFacilitator](https://www.openfacilitator.io/)** | ✅ keyless | ✅ Solana | Base, Solana, Stacks |
 | **[xpay](https://www.xpay.sh/)** | ✅ zero-fee | ✅ Base | Base |
-| **[Daydreams](https://daydreams.systems/)** | 🔑 API key | — | Ethereum, Base, Solana |
-| **[Questflow](https://questflow.ai/)** | 🔑 API key | — | Base |
-| **[Coinbase CDP](https://docs.cdp.coinbase.com/)** | 🔑 CDP auth | — | Base, Solana |
-| **[Kora](https://github.com/solana-foundation/kora)** | self-host | — | Solana |
+| **[Daydreams](https://daydreams.systems/)** | 🔑 API key | none | Ethereum, Base, Solana |
+| **[Questflow](https://questflow.ai/)** | 🔑 API key | none | Base |
+| **[Coinbase CDP](https://docs.cdp.coinbase.com/)** | 🔑 CDP auth | none | Base, Solana |
+| **[Kora](https://github.com/solana-foundation/kora)** | self-host | none | Solana |
 
-**Base URLs** (pass to `exact: { settle: { facilitator } }`) — the keyless ones, live-proven:
+**Base URLs** (pass to `exact: { settle: { facilitator } }`), the keyless ones, live-proven:
 `https://facilitator.payai.network` · `https://pay.openfacilitator.io` · `https://facilitator.xpay.sh` · `https://facilitator.ultravioletadao.xyz` · `https://x402.dexter.cash` · `https://x402.polygon.technology` (Polygon) · `https://facilitator.goplausible.xyz` (Algorand) · `https://facilitator.pieverse.io` · `https://facilitator.cascade.fyi`.
 
-:::note[Removed 2026-08-28 — two facilitators went offline]
+:::note[Removed 2026-08-28: two facilitators went offline]
 **Corbits** (`facilitator.corbits.dev`) and **Satoshi / bitcoinsapi**
-(`facilitator.bitcoinsapi.com`) were live-settled here in June 2026 and have since **died** —
+(`facilitator.bitcoinsapi.com`) were live-settled here in June 2026 and have since **died**.
 Corbits' subdomain now returns **NXDOMAIN**, and bitcoinsapi's CNAME points at a **deleted Azure
 Container App**. Both were removed from `KNOWN_FACILITATORS` in `@piprail/sdk`.
 
 This mattered: Corbits was **first** in the Monad list, so `firstKeylessFacilitator('eip155:143')`
-was handing callers a URL that does not resolve. The root cause was structural — the map only ever
+was handing callers a URL that does not resolve. The root cause was structural: the map only ever
 *grew*, so nothing ever re-checked an entry after the day it was added. There are now regression
 tests asserting neither host can be listed or returned, and a liveness sweep
 (`.claude/skills/facilitator-probe/`) that is re-run before any release touching facilitator routing.
@@ -63,8 +63,8 @@ in the opt-in gasless `exact` rail, and the default `onchain-proof` rail never t
 :::
 
 :::caution[A public `/supported` is NOT proof of keyless settlement]
-Daydreams and Questflow both expose a public `GET /supported`, but their `/verify` returns **401 — an
-API key is required** — so they are **not** keyless for *settlement*. We mark a facilitator "keyless ✅"
+Daydreams and Questflow both expose a public `GET /supported`, but their `/verify` returns **401, so an
+API key is required**, and they are **not** keyless for *settlement*. We mark a facilitator "keyless ✅"
 only after a real payment settled with **no key**. That's exactly why PipRail's `KNOWN_FACILITATORS`
 seed map (below) lists **only the live-confirmed keyless** ones.
 :::
@@ -81,26 +81,26 @@ The **2026-06-18 gasless-extension** added **17 more live proofs** across Ethere
 Optimism, Avalanche, Sei, and Unichain (e.g. UVD Ethereum
 [`0x7fcc3c…`](https://etherscan.io/tx/0x7fcc3cafdf43c52888f0117cde633eff35371f832dfb8dbd84e6fd7704ae5cfc) ·
 PayAI Polygon
-[`0xb37630…`](https://polygonscan.com/tx/0xb37630871504618c4db35e8ef0edd3c99deac102b143b7e5eb738c03fb13a619)) —
-the full per-pair tx hash lives in each `KNOWN_FACILITATORS` entry, and every one was re-verified
+[`0xb37630…`](https://polygonscan.com/tx/0xb37630871504618c4db35e8ef0edd3c99deac102b143b7e5eb738c03fb13a619)).
+The full per-pair tx hash lives in each `KNOWN_FACILITATORS` entry, and
 on-chain to confirm a **third-party** (the facilitator) paid the gas, never the buyer or merchant.
-All **25** recorded hashes were re-confirmed on-chain again on **2026-08-28** — 25/25 still present
-and successful — by reading each network's RPC directly rather than an explorer page.
+All **25** recorded hashes were re-confirmed on-chain again on **2026-08-28**, with 25/25 still present
+and successful, by reading each network's RPC directly rather than an explorer page.
 
-You're never locked to any of them — keep one, swap it, or run your own (self-settle / Kora). See
+You're never locked to any of them. Keep one, swap it, or run your own (self-settle / Kora). See
 [keep PayAI, or swap it](/making-payments/gasless-payments/#keep-payai-or-swap-it). **PipRail depends on
 no facilitator.**
 
-## `KNOWN_FACILITATORS` — the seed map
+## `KNOWN_FACILITATORS`: the seed map
 
 A `Record<Caip2, KnownFacilitator[]>` mapping a CAIP-2 network to the facilitators known to settle
-`exact` there. It is **deliberately conservative** — only endpoint-verified entries — and grows only
+`exact` there. It is **deliberately conservative**, carrying only endpoint-verified entries, and grows only
 after a live `/supported` read confirms a new pair.
 
 ```ts
 import { KNOWN_FACILITATORS, knownFacilitatorsFor, firstKeylessFacilitator } from '@piprail/sdk'
 
-knownFacilitatorsFor('eip155:8453') // Base — six live-verified keyless facilitators (all settle eip3009)
+knownFacilitatorsFor('eip155:8453') // Base: six live-verified keyless facilitators (all settle eip3009)
 // → [PayAI, xpay, Ultravioleta DAO, Dexter, GoPlausible, Cascade]
 //   (6 entries; each shaped { url, keyless: true, schemes: ['exact'], settles: ['eip3009'], note })
 
@@ -116,28 +116,28 @@ facilitator sponsors gas), the `schemes` it settles (today `'exact'`), the exact
 methods (`'eip3009' | 'permit2' | 'svm' | 'algorand' | 'aptos' | 'near'`), and an optional `note`.
 
 :::caution
-**What's seeded, and what isn't.** The map carries only **live-confirmed keyless** entries — each
+**What's seeded, and what isn't.** The map carries only **live-confirmed keyless** entries, each
 settled a real mainnet payment with no key, buyer paid zero gas (see
 [Live-verified facilitators](#live-verified-facilitators)):
 
-- **Base** (`eip155:8453`) → PayAI + xpay + **Ultravioleta DAO** + **Dexter** + **GoPlausible** + **Cascade** (`eip3009`) — six keyless facilitators *(UVD/Dexter/GoPlausible 2026-06-17; Cascade 2026-06-18)*
-- **Ethereum** (`eip155:1`) → **Ultravioleta DAO** (`eip3009`) — *live-settled 2026-06-18.* UVD 100%-sponsors L1 gas with no floor; the keyless Ethereum option (Primev rejects PipRail's `exact` as `unsupported_scheme`).
-- **Polygon** (`eip155:137`) → **PayAI + Polygon Labs + Ultravioleta DAO + Dexter** (`eip3009`) — *live-settled 2026-06-18.* Four keyless facilitators — the broadest coverage after Base.
+- **Base** (`eip155:8453`) → PayAI + xpay + **Ultravioleta DAO** + **Dexter** + **GoPlausible** + **Cascade** (`eip3009`), six keyless facilitators *(UVD/Dexter/GoPlausible 2026-06-17; Cascade 2026-06-18)*
+- **Ethereum** (`eip155:1`) → **Ultravioleta DAO** (`eip3009`), *live-settled 2026-06-18.* UVD 100%-sponsors L1 gas with no floor; the keyless Ethereum option (Primev rejects PipRail's `exact` as `unsupported_scheme`).
+- **Polygon** (`eip155:137`) → **PayAI + Polygon Labs + Ultravioleta DAO + Dexter** (`eip3009`), *live-settled 2026-06-18.* Four keyless facilitators, the broadest coverage after Base.
 - **Arbitrum** (`eip155:42161`) → **PayAI + Ultravioleta DAO + Dexter** (`eip3009`) *(live-settled 2026-06-18)*
 - **Optimism** (`eip155:10`) → **Dexter + Ultravioleta DAO** (`eip3009`) *(live-settled 2026-06-18)*
 - **Avalanche** (`eip155:43114`) → **PayAI + Dexter** (`eip3009`) *(live-settled 2026-06-18)*
 - **Sei** (`eip155:1329`) → **PayAI** (`eip3009`) *(live-settled 2026-06-18)*
 - **Unichain** (`eip155:130`) → **Ultravioleta DAO** (`eip3009`) *(live-settled 2026-06-18)*
-- **BNB** (`eip155:56`) → **Dexter** + **Pieverse** (`eip3009`) — *live-settled 2026-06-17 with FDUSD; U live-settled 2026-06-21 via Pieverse (buyer 0 BNB).* BNB's USDC/USDT are Binance-Peg (Permit2, not facilitator-settleable), so keyless BNB works only for the **EIP-3009 tokens FDUSD/USD1/U**, and Dexter enforces a **~$0.003 dynamic floor**. This beats the BNB token-overlap wall — both Dexter and Pieverse accept U, and Pieverse settles FDUSD too, so BNB now has two keyless facilitators.
+- **BNB** (`eip155:56`) → **Dexter** + **Pieverse** (`eip3009`), *live-settled 2026-06-17 with FDUSD; U live-settled 2026-06-21 via Pieverse (buyer 0 BNB).* BNB's USDC/USDT are Binance-Peg (Permit2, not facilitator-settleable), so keyless BNB works only for the **EIP-3009 tokens FDUSD/USD1/U**, and Dexter enforces a **~$0.003 dynamic floor**. This beats the BNB token-overlap wall: both Dexter and Pieverse accept U, and Pieverse settles FDUSD too, so BNB now has two keyless facilitators.
 - **Monad** (`eip155:143`) → **Ultravioleta DAO** + **Pieverse** (`eip3009`) *(live-settled 2026-06-17)*
 - **HyperEVM** (`eip155:999`) → Ultravioleta DAO (`eip3009`) *(live-settled 2026-06-17)*
-- **Algorand** (`algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=`) → **GoPlausible** (`algorand`) — *new, live-settled 2026-06-17.* Atomic-group fee pooling: GoPlausible's sponsor pools the whole group fee, so **both the buyer AND the merchant pay 0 ALGO**. The first non-EVM/non-Solana keyless chain.
+- **Algorand** (`algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=`) → **GoPlausible** (`algorand`), *new, live-settled 2026-06-17.* Atomic-group fee pooling: GoPlausible's sponsor pools the whole group fee, so **both the buyer AND the merchant pay 0 ALGO**. The first non-EVM/non-Solana keyless chain.
 - **Solana** → PayAI + OpenFacilitator (`svm`)
 
-So **`exact: true` is zero-config gasless on 13 chains today — Ethereum, Polygon, Arbitrum, Optimism, Avalanche, Sei, Unichain, Base, BNB, HyperEVM, Monad, Solana, and Algorand** (multiple keyless facilitators per chain = automatic failover). **Celo and Scroll are NOT seeded** — Ultravioleta DAO advertises them but its sponsor contract reverts there (`contract_call_failed`), proving again that a `/supported` listing isn't settlement. **Daydreams** and
-**Questflow** are deliberately **omitted** — their `/supported` is public but `/verify` needs an API key.
-`x402.org/facilitator` is **not** seeded either — it's a Base *Sepolia* testnet facilitator, not a
-mainnet rail. **Aptos** has no keyless x402 facilitator on mainnet yet — use **self-settle** for
+So **`exact: true` is zero-config gasless on 13 chains today: Ethereum, Polygon, Arbitrum, Optimism, Avalanche, Sei, Unichain, Base, BNB, HyperEVM, Monad, Solana, and Algorand** (multiple keyless facilitators per chain = automatic failover). **Celo and Scroll are NOT seeded**, because Ultravioleta DAO advertises them but its sponsor contract reverts there (`contract_call_failed`), proving again that a `/supported` listing isn't settlement. **Daydreams** and
+**Questflow** are deliberately **omitted**, because their `/supported` is public but `/verify` needs an API key.
+`x402.org/facilitator` is **not** seeded either. It's a Base *Sepolia* testnet facilitator, not a
+mainnet rail. **Aptos** has no keyless x402 facilitator on mainnet yet, so use **self-settle** for
 gasless Aptos (proven on mainnet). **Sui**'s ratified `exact` scheme is *interactive* (the buyer must
 round-trip to a gas station to fill in gas objects before signing), so it isn't wired as a one-shot
 keyless rail here yet. On a network not in the map, pass an explicit `exact: { settle: { facilitator } }`.
@@ -146,7 +146,7 @@ keyless rail here yet. On a network not in the map, pass an explicit `exact: { s
 ## Reading a facilitator's live `/supported`
 
 `facilitatorCoverage(url)` fetches a facilitator's `GET /supported` and returns the `(scheme, network)`
-kinds it advertises. It is best-effort and **never throws** — a dead or changed endpoint resolves to
+kinds it advertises. It is best-effort and **never throws**: a dead or changed endpoint resolves to
 `[]`, mirroring the SDK's other read-only methods.
 
 ```ts
@@ -158,7 +158,7 @@ await facilitatorCoverage('https://facilitator.payai.network')
 ```
 
 Each kind also carries two **optional** fields when the facilitator advertises them: `x402Version`
-(the envelope version it reports per kind) and `assetTransferMethod` (`'eip3009' | 'permit2'`) — so a
+(the envelope version it reports per kind) and `assetTransferMethod` (`'eip3009' | 'permit2'`), so a
 reader can tell a v1 rail from a v2 rail, or a gasless EIP-3009 kind from a Permit2 one, straight from
 `/supported`. Both are omitted entirely when absent (never a `undefined` key), so a facilitator that
 reports neither parses exactly as before.
@@ -172,7 +172,7 @@ import { parseFacilitatorSupported } from '@piprail/sdk'
 parseFacilitatorSupported({ kinds: [{ scheme: 'exact', network: 'eip155:8453' }] })
 // → [{ scheme: 'exact', network: 'eip155:8453' }]
 
-parseFacilitatorSupported('garbage') // tolerant — never throws
+parseFacilitatorSupported('garbage') // tolerant, never throws
 // → []
 ```
 

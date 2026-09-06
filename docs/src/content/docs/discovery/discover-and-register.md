@@ -1,16 +1,16 @@
 ---
 title: Discover & register
-description: Find payable x402 resources on the open indexes, and list one you run — both free, with no PipRail-hosted registry in the loop.
+description: Find payable x402 resources on the open indexes, and list one you run. Both are free, with no PipRail-hosted registry in the loop.
 sidebar:
   order: 1
 ---
 
 ## Introduction
 
-Discovery is two read/write moves against the **open** x402 directories that already exist —
+Discovery is two read/write moves against the **open** x402 directories that already exist,
 PipRail hosts none of them. `client.discover({ query })` reads them to find payable resources;
 `client.register(url)` lists a resource you run. Both are $0, move no funds, and never throw
-for a read/transport problem — a dead or changed index simply contributes nothing.
+for a read/transport problem: a dead or changed index simply contributes nothing.
 
 :::note
 There is no PipRail registry. `discover()` reads **CDP Bazaar** + **402 Index** (both free);
@@ -19,13 +19,13 @@ normalizer, not a directory.
 :::
 
 :::caution[Discovery is an emerging layer]
-x402 has no single ratified discovery standard yet — the open indexes and their conventions are a
+x402 has no single ratified discovery standard yet, so the open indexes and their conventions are a
 moving target. PipRail stays conformant (a standard x402 v2 wire, OpenAPI-first, the `extensions.bazaar`
 input schema) and hosts nothing, so you're never locked to one index. Treat the per-index facts below
 as current behaviour, not a permanent SLA.
 :::
 
-## Discover — find payable resources
+## Discover: find payable resources
 
 `discover()` reads the open indexes, merges and dedupes them by resource URL, and by default
 returns only resources payable on **this client's chain**. Each result is a
@@ -41,24 +41,24 @@ const client = new PipRailClient({
 })
 
 const found = await client.discover({ query: 'weather' })
-// → DiscoveredResource[] — [] if every index is down or empty (never throws)
+// → DiscoveredResource[], or [] if every index is down or empty (never throws)
 
 for (const r of found) {
-  // priceUsd is the index's advertised figure when it reports one — often absent
+  // priceUsd is the index's advertised figure when it reports one, and is often absent
   console.log(r.resource, r.priceUsd ?? '(no advertised price)', r.source)
   // feed r.resource into quote() / planPayment() to confirm + pay
 }
 ```
 
-### Pinpoint search — fan-out + relevance ranking
+### Pinpoint search: fan-out + relevance ranking
 
-A multi-word query used to return nothing. 402 Index's own `?q=` is **AND-tokenized** — it
-matches only listings whose text contains every word verbatim — so a query like `'crypto price
+A multi-word query used to return nothing. 402 Index's own `?q=` is **AND-tokenized**: it
+matches only listings whose text contains every word verbatim, so a query like `'crypto price
 feed'` missed a "Live BTC/USD oracle" listing that obviously answers it. `discover()` now closes
 that gap in three moves, so a natural-language query lands on the right resource:
 
 1. **Fan-out.** For a multi-word query it issues **one request per word** to 402 Index (plus the
-   full phrase), capped at **5 requests**, and unions the hits — so a listing that matches each
+   full phrase), capped at **5 requests**, and unions the hits, so a listing that matches each
    word *somewhere* is found even though no single field contains the exact phrase.
 2. **Relevance ranking.** The merged set is ranked client-side by a weighted score
    (**name > category/tags > URL path > description**, with a big bonus when **all** query tokens
@@ -68,7 +68,7 @@ that gap in three moves, so a natural-language query lands on the right resource
    are pushed to 402 Index so the index does the narrowing where it can.
 
 ```ts
-// Multi-word, filtered, sorted — pinpoint a reliable finance feed:
+// Multi-word, filtered, sorted, to pinpoint a reliable finance feed:
 const feeds = await client.discover({
   query: 'crypto price feed',
   category: 'finance',
@@ -86,22 +86,22 @@ to actually pay it.
 
 | Option | Default | Purpose |
 | --- | --- | --- |
-| `query` | — | Free-text. Tokenized + matched against name / category / tags / URL path / description; a multi-word query fans out across 402 Index (one request per word) and the merged set is relevance-ranked. |
+| `query` | none | Free-text. Tokenized + matched against name / category / tags / URL path / description; a multi-word query fans out across 402 Index (one request per word) and the merged set is relevance-ranked. |
 | `network` | `'self'` | `'self'` (this client's chain), `'any'` (every chain), or a CAIP-2 id / chain slug like `'base'`. |
-| `category` | — | Keep **only** this category (prefix match, e.g. `'ai'`). **Strict** — a result the index didn't categorize is dropped, so real category matches aren't drowned by uncategorized ones. Pushed to 402 Index server-side. |
-| `asset` | — | Keep only resources paying in this token symbol, e.g. `'USDC'`. Keeps results whose asset the index didn't report (confirm with `quote()`). |
-| `maxPrice` | — | Drop results whose advertised price exceeds this number. Results with no advertised price pass through. |
-| `minReliability` | — | Drop results whose reliability score (0–100) is below this. Unscored results (e.g. from Bazaar) pass through. |
-| `verified` | — | Prefer verified listings (402 Index server-side only). Its `verified` flag differs from the per-record `domain_verified`, so it is **not** re-filtered client-side — inspect `result.verified` for the per-record signal. |
-| `paymentValid` | — | Restrict to listings 402 Index confirmed are payable x402 (its `payment_valid` flag). |
+| `category` | none | Keep **only** this category (prefix match, e.g. `'ai'`). **Strict**: a result the index didn't categorize is dropped, so real category matches aren't drowned by uncategorized ones. Pushed to 402 Index server-side. |
+| `asset` | none | Keep only resources paying in this token symbol, e.g. `'USDC'`. Keeps results whose asset the index didn't report (confirm with `quote()`). |
+| `maxPrice` | none | Drop results whose advertised price exceeds this number. Results with no advertised price pass through. |
+| `minReliability` | none | Drop results whose reliability score (0 to 100) is below this. Unscored results (e.g. from Bazaar) pass through. |
+| `verified` | none | Prefer verified listings (402 Index server-side only). Its `verified` flag differs from the per-record `domain_verified`, so it is **not** re-filtered client-side; inspect `result.verified` for the per-record signal. |
+| `paymentValid` | none | Restrict to listings 402 Index confirmed are payable x402 (its `payment_valid` flag). |
 | `sort` | `'relevance'`\* | `'relevance'` \| `'reliability'` \| `'price'` \| `'uptime'` \| `'name'` (type `DiscoverySort`). \*Defaults to `'relevance'` when a `query` is given, else first-seen order. |
 | `order` | `'desc'` | Direction for a **non-relevance** `sort`. |
 | `sources` | `['bazaar', '402index']` | Which open indexes to read. |
-| `limit` | `20` | Max results to fetch per index request (default 20) — a multi-word query fans out into several, so the merged total before dedupe can exceed it. |
+| `limit` | `20` | Max results to fetch per index request (default 20). A multi-word query fans out into several, so the merged total before dedupe can exceed it. |
 
 `network: 'self'` is the useful default: it returns only what this wallet can actually pay,
 matched via the bound driver's own `supports()` so it works on every family, including custom
-chains. A rail whose network can't be resolved is kept rather than hidden — discovery is never
+chains. A rail whose network can't be resolved is kept rather than hidden, because discovery is never
 silently empty on an unmapped chain.
 
 ```ts
@@ -114,44 +114,44 @@ const all = await client.discover({ query: 'image', network: 'any', maxPrice: 1 
 
 ```ts
 interface DiscoveredResource {
-  resource: string          // the gated URL — quote/pay this
+  resource: string          // the gated URL. Quote or pay this
   source: DiscoverySource   // which index surfaced it ('bazaar' | '402index' from discover())
   name?: string
   description?: string
   category?: string
   tags?: string[]           // free-text keywords, when the index reports them
   priceUsd?: number         // advertised price, when the index reports one (402 Index)
-  reliabilityScore?: number // health/uptime score 0–100 (402 Index only; absent on Bazaar)
-  health?: string           // liveness as last probed — 'healthy' | 'degraded' | 'down' (402 Index)
+  reliabilityScore?: number // health/uptime score 0 to 100 (402 Index only; absent on Bazaar)
+  health?: string           // liveness as last probed: 'healthy' | 'degraded' | 'down' (402 Index)
   verified?: boolean        // per-record domain-ownership signal (402 Index domain_verified)
-  score?: number            // relevance score — present only when a query was given
+  score?: number            // relevance score, present only when a query was given
   rails: DiscoveredRail[]   // the advertised payment options (cross-scheme)
 }
 ```
 
 `reliabilityScore`, `health`, and `verified` are reported by **402 Index** and absent from
-sources that don't measure them (Bazaar), so treat a missing field as "unknown," not "bad" — the
+sources that don't measure them (Bazaar), so treat a missing field as "unknown," not "bad". The
 `minReliability` filter and the unscored-pass-through rule are built around exactly that.
 
 :::caution
-Results are **cross-scheme** — the open indexes mostly carry the mainstream `exact` scheme, not
+Results are **cross-scheme**. The open indexes mostly carry the mainstream `exact` scheme, not
 PipRail's `onchain-proof`, and a result may also offer a metered
 [`upto`](/accepting-payments/upto-rail-seller/) rail. `fetch()` pays `onchain-proof` rails by
 default; to pay a standard `exact` rail (EVM via EIP-3009/Permit2, plus Solana SVM, Algorand, Aptos, and NEAR) or an `upto`
-rail, opt in with `schemes: ['onchain-proof', 'exact', 'upto']` — or call `quote()` to learn which
+rail, opt in with `schemes: ['onchain-proof', 'exact', 'upto']`, or call `quote()` to learn which
 scheme a resource needs. The advertised `priceUsd` is a coarse pre-filter; always re-confirm with
 `quote()` before paying.
 :::
 
-## Register — list a resource you run
+## Register: list a resource you run
 
 `register()` lists a resource on the open registries so agents can find it. The default target is
-**402 Index** — one POST, no auth, no signature, no payment. It returns one `RegisterOutcome` per
+**402 Index**, in one POST, with no auth, no signature, and no payment. It returns one `RegisterOutcome` per
 target; a target the chain can't satisfy comes back `{ ok: false, detail }`, never a throw.
 
 :::caution[Advertise an `exact` rail before you list]
 Index payers are **overwhelmingly standard `exact` clients**. A default `onchain-proof`-only gate
-gets *listed* but those clients **cannot pay it** — a discoverable dead end. Before you register,
+gets *listed* but those clients **cannot pay it**, which is a discoverable dead end. Before you register,
 turn on a standard [`exact` rail](/accepting-payments/exact-rail-seller/) on the gate
 (`requirePayment({ exact: … })`) so the whole index audience can actually pay you, and set
 `discovery: true` (x402scan requires an input schema). See
@@ -164,7 +164,7 @@ const [outcome] = await client.register('https://api.example.com/report', {
   category: 'finance',                         // ← the #1 findability lever (see below)
   tags: ['market', 'stocks', 'daily report'],  // words an agent will search for
   description: 'Daily US equity market report.',
-  priceUsd: 0.1,   // advertised metadata only — no oracle reads this
+  priceUsd: 0.1,   // advertised metadata only; no oracle reads this
   asset: 'USDC',
 })
 
@@ -173,17 +173,17 @@ console.log(outcome.ok, outcome.visibility, outcome.note)
 //    passes automated health + payment checks … verify your domain for instant approval + a badge.'
 ```
 
-:::tip[`category` is the highest-leverage field — set it]
+:::tip[`category` is the field that moves the needle, so set it]
 Most of 402 Index's ~66k catalog is **`uncategorized`**, so a single real `category` makes your
 listing rank and filter where almost nothing else does. Pick the obvious bucket for what your
-endpoint does (`'ai'`, `'finance'`, `'data'`, …) — it costs one string and is the biggest
+endpoint does (`'ai'`, `'finance'`, `'data'`, …). It costs one string and is the biggest
 findability win available.
 :::
 
-:::tip[402 Index search is literal — pack the words in]
+:::tip[402 Index search is literal, so pack the words in]
 402 Index matches a search term only when it **appears in the name or description**. So the words
 an agent will type are the words you must put there. `tags` does this for you: each keyword is
-folded into the description as a compact `· Keywords: a, b, c` tail (tastefully — it skips tags
+folded into the description as a compact `· Keywords: a, b, c` tail (tastefully, since it skips tags
 already present, caps the description at 500 chars, and never double-stamps) **and** sent as a
 `tags` field for any index that indexes them natively. Write the description for a human, then list
 the search terms as `tags`.
@@ -193,23 +193,23 @@ the search terms as `tags`.
 
 | Option | Default | Purpose |
 | --- | --- | --- |
-| `category` | — | **The highest-leverage findability field.** A real category (`'ai'`, `'finance'`, `'data'`, …) makes a listing rank + filter where most of the `uncategorized` catalog can't. |
-| `tags` | — | Keywords. Folded into the description as a searchable `· Keywords: …` tail (402 Index search is literal) **and** sent as a `tags` field. |
+| `category` | none | **The field that moves the needle.** A real category (`'ai'`, `'finance'`, `'data'`, …) makes a listing rank + filter where most of the `uncategorized` catalog can't. |
+| `tags` | none | Keywords. Folded into the description as a searchable `· Keywords: …` tail (402 Index search is literal) **and** sent as a `tags` field. |
 | `name` | the URL's host | Display name for the listing. |
-| `description` | — | Listing description. The one field an index displays — pack the words agents search for into it (and `tags`). |
-| `priceUsd` | — | Advertised price (metadata only — no oracle reads it). |
-| `asset` | — | Payment asset symbol, e.g. `'USDC'`. |
+| `description` | none | Listing description. The one field an index displays, so pack the words agents search for into it (and `tags`). |
+| `priceUsd` | none | Advertised price (metadata only; no oracle reads it). |
+| `asset` | none | Payment asset symbol, e.g. `'USDC'`. |
 | `network` | the client's `chain` | Payment network slug, e.g. `'base'`. |
 | `method` | `'GET'` | HTTP method the resource answers on. |
-| `provider` | — | Who runs the resource (provider/org name). |
-| `contactEmail` | — | Contact email for the listing (also used by the domain claim). |
-| `probeBody` | — | A JSON request body the index sends when health-checking a **POST/PUT** resource, so probes pass and the reliability score stays high. |
+| `provider` | none | Who runs the resource (provider/org name). |
+| `contactEmail` | none | Contact email for the listing (also used by the domain claim). |
+| `probeBody` | none | A JSON request body the index sends when health-checking a **POST/PUT** resource, so probes pass and the reliability score stays high. |
 | `targets` | `['402index']` | Which indexes to list on. Add `'x402scan'` for the SIWX path. |
-| `attribution` | `true` | Attribute the listing to PipRail (the `via` field + a tasteful `· Built with @piprail/sdk` on the description). Metadata only; opt out with `attribution: false`. See [Attribution](#attribution--how-a-listing-is-associated-with-piprail). |
+| `attribution` | `true` | Attribute the listing to PipRail (the `via` field + a tasteful `· Built with @piprail/sdk` on the description). Metadata only; opt out with `attribution: false`. See [Attribution](#attribution-how-a-listing-is-associated-with-piprail). |
 
 ### A RegisterOutcome
 
-Listing is **asynchronous**, so each outcome carries a `visibility` and a one-line `note` — don't
+Listing is **asynchronous**, so each outcome carries a `visibility` and a one-line `note`. Don't
 read `ok: true` as "searchable now."
 
 ```ts
@@ -226,59 +226,59 @@ interface RegisterOutcome {
 
 | `visibility` | Meaning |
 | --- | --- |
-| `'live'` | Findable now — search it immediately. |
-| `'pending-review'` | Accepted and probed, but not instantly searchable — it becomes findable once it passes the index's automated checks (or instantly, if your domain is verified). Retry `discover()` later. |
-| `'not-listable'` | It didn't list — a failure, or this index structurally can't list a PipRail resource. |
+| `'live'` | Findable now, so search it immediately. |
+| `'pending-review'` | Accepted and probed, but not instantly searchable. It becomes findable once it passes the index's automated checks (or instantly, if your domain is verified). Retry `discover()` later. |
+| `'not-listable'` | It didn't list, either a failure or because this index structurally can't list a PipRail resource. |
 
 :::note
 402 Index **probes your URL on submit** (rejecting with a `422` anything that doesn't actually
-return a 402 — `detail` carries the reason). A self-registered listing then becomes searchable once
+return a 402; `detail` carries the reason). A self-registered listing then becomes searchable once
 it passes automated health + payment-validity checks; **verify your domain** for instant, guaranteed
-approval + a verified badge — see [Domain verification](/discovery/domain-verification/).
+approval + a verified badge. See [Domain verification](/discovery/domain-verification/).
 :::
 
 ## How long until it's discoverable?
 
-The honest answer, measured against the live demo — not a marketing number:
+The honest answer, measured against the live demo rather than a marketing number:
 
 | Path | What happens | When it's searchable |
 | --- | --- | --- |
-| **Self-register** (default) | 402 Index probes your URL on submit, then runs automated health + payment-validity checks. | Once it passes the checks — **no domain verification required**. |
-| **Verify your domain** | Serve one hash file, call `verifyDomain()` (see below). | **Instant + guaranteed** — and it flips every pending listing on that domain live at once, with a `domain_verified` badge. |
+| **Self-register** (default) | 402 Index probes your URL on submit, then runs automated health + payment-validity checks. | Once it passes the checks, with **no domain verification required**. |
+| **Verify your domain** | Serve one hash file, call `verifyDomain()` (see below). | **Instant and guaranteed.** It flips every pending listing on that domain live at once, with a `domain_verified` badge. |
 
 **The real data point** (facts, not a marketing number). PipRail's own live demo,
 [`piprail.com/x402/demo`](https://piprail.com/x402/demo), was self-registered on 402 Index on
-**2026-06-09** with **no domain verification** (`domain_verified: 0`), and is confirmed searchable —
+**2026-06-09** with **no domain verification** (`domain_verified: 0`), and is confirmed searchable.
 `client.discover({ query: 'piprail' })` returns it, with `health_status: healthy`,
 `x402_payment_valid: 1`, `reliability_score: 90`. So a healthy, genuinely-payable endpoint **does**
 become discoverable on the self-register path with no verification step (402 Index doesn't expose the
 exact probe-to-search latency). If you need a guaranteed, immediate go-live, verify your domain.
 
 ```ts
-// The exact call that finds the live demo today — register → discover, end to end:
+// The exact call that finds the live demo today: register → discover, end to end:
 const found = await client.discover({ query: 'piprail' })
 // → [{ resource: 'https://piprail.com/x402/demo', source: '402index', priceUsd: 0.01,
 //      name: 'PipRail x402 demo', rails: [ { network: 'eip155:8453', … } ] }]
 ```
 
-To go live immediately instead of waiting on the probe, verify your domain — two calls, no funds:
+To go live immediately instead of waiting on the probe, verify your domain in two calls, no funds:
 
 ```ts
 const claim = await client.claimDomain('https://api.example.com/report')
 // serve claim.verificationHash as the body of claim.verificationUrl
 //   (your /.well-known/402index-verify.txt), then:
 const res = await client.verifyDomain('api.example.com')
-// → { ok: true, status: 'verified' } — your listings on that domain are now live
+// → { ok: true, status: 'verified' }. Your listings on that domain are now live
 ```
 
-## Attribution — how a listing is associated with PipRail
+## Attribution: how a listing is associated with PipRail
 
-By default, a listing you register is **attributed to PipRail** — the same unobtrusive "Made with X"
+By default, a listing you register is **attributed to PipRail**, the same unobtrusive "Made with X"
 marker tools like Swagger and Hugo add, so the SDK spreads as endpoints get found. It's two things,
 both metadata only (they never change how your resource is paid, ranked, or found):
 
 - a `via: '@piprail/sdk'` provenance field on the registration payload, and
-- a compact `· Built with @piprail/sdk` appended to your listing **description** — the one field an
+- a compact `· Built with @piprail/sdk` appended to your listing **description**, the one field an
   index actually displays.
 
 It's *tasteful by construction*: it never double-stamps a description that already mentions PipRail,
@@ -286,18 +286,18 @@ never fabricates a description you didn't provide, and never pushes one past a s
 request `User-Agent` (`@piprail/sdk (+https://piprail.com)`) carries PipRail on every call regardless.
 
 ```ts
-// Default — attributed:
+// Default, attributed:
 await client.register(url, { description: 'Real-time weather by lat/lon.' })
 //   description listed as: "Real-time weather by lat/lon. · Built with @piprail/sdk"
 
-// Opt out — your listing, untouched:
+// Opt out, and your listing is untouched:
 await client.register(url, { description: 'Real-time weather by lat/lon.', attribution: false })
 ```
 
 ## Branch on a directory before you call
 
 The per-source lifecycle facts live in `DIRECTORY_INFO` (importable), so an agent can reason about
-an index — auth, chains, whether `discover()` reads it — without embedding directory knowledge.
+an index (auth, chains, whether `discover()` reads it) without embedding directory knowledge.
 `getDirectoryInfo(source)` returns one `DirectoryInfo`:
 
 ```ts
@@ -305,26 +305,26 @@ import { getDirectoryInfo } from '@piprail/sdk'
 
 const info = getDirectoryInfo('402index')
 info.auth            // 'none'
-info.readByDiscover  // true  — discover() reads 402 Index
+info.readByDiscover  // true: discover() reads 402 Index
 info.onSuccess       // 'pending-review'
-info.review          // 'probe-sync' — a synchronous URL probe (not facilitator-coupled)
+info.review          // 'probe-sync': a synchronous URL probe (not facilitator-coupled)
 ```
 
 | Source | Read by `discover()` | Write auth | Notes |
 | --- | --- | --- | --- |
-| `bazaar` | yes | — (facilitator-only) | Free to read. Can't be written to — Bazaar catalogs only what its own facilitator settles, and PipRail uses none. |
+| `bazaar` | yes | no (facilitator-only) | Free to read. Can't be written to, because Bazaar catalogs only what its own facilitator settles, and PipRail uses none. |
 | `402index` | yes | none | The primary register target: one POST, no auth. Probed on submit, then searchable once it passes automated checks; verify your domain for instant approval. |
 | `x402scan` | **no** | SIWX | Base/Solana only; needs one wallet signature and a resolvable input schema. A live listing here won't appear in `discover()`. |
 
 :::caution
-`discover()` reads `bazaar` + `402index` only — **not `x402scan`** (its reads are paid). A resource
+`discover()` reads `bazaar` + `402index` only, **not `x402scan`** (its reads are paid). A resource
 you registered on x402scan is live on x402scan.com but won't show up in `discover()` results;
 don't read that absence as failure.
 :::
 
 ## Register on x402scan (SIWX)
 
-Adding `'x402scan'` to `targets` lists via Sign-In-With-X — one wallet signature, facilitator-free,
+Adding `'x402scan'` to `targets` lists via Sign-In-With-X: one wallet signature, facilitator-free,
 but **Base/Solana-only** and EVM signing today. It needs a `discoverySigner` (the EVM families
 have one); a chain family without one returns `{ ok: false, detail }` rather than throwing.
 
@@ -332,13 +332,13 @@ have one); a chain family without one returns `{ ok: false, detail }` rather tha
 const outcomes = await client.register('https://api.example.com/report', {
   targets: ['402index', 'x402scan'],  // x402scan needs an EVM signer + a Base/Solana rail
 })
-// → RegisterOutcome[] — one per target, in target order
+// → RegisterOutcome[], one per target, in target order
 for (const o of outcomes) {
   console.log(o.source, o.ok, o.visibility)  // e.g. 'x402scan' true 'live'
 }
 ```
 
-The open SIWX handshake is a moving convention — validate against x402scan before relying on it.
+The open SIWX handshake is a moving convention, so validate against x402scan before relying on it.
 x402scan also requires a resolvable input schema, which you supply by [emitting](/discovery/emitters/)
 an `/openapi.json` or the `extensions.bazaar` block in your 402 body.
 
@@ -348,6 +348,6 @@ an `/openapi.json` or the `extensions.bazaar` block in your 402 body.
 exports, which take the same fields. Reach for those only if you need discovery without binding a
 client; the client methods add what only a bound client can: `discover()` applies the chain-aware
 `'self'`-network filter, and `register()` adds the `visibility`/`note` decoration. (The
-`maxPrice`/`priceUsd` cap is not one of them — `searchOpenIndexes` already applies it itself, so the
+`maxPrice`/`priceUsd` cap is not one of them, because `searchOpenIndexes` already applies it itself, so the
 low-level call honours it too.)
 :::

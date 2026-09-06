@@ -1,6 +1,6 @@
 ---
 title: quote()
-description: Learn the price of a gated URL before paying it — the true token decimals and symbol, the policy verdict, and a scam-smell flag, with no funds moved.
+description: 'Learn the price of a gated URL before paying it: the true token decimals and symbol, the policy verdict, and a scam-smell flag, with no funds moved.'
 sidebar:
   order: 4
 ---
@@ -9,7 +9,7 @@ sidebar:
 
 `quote(url)` answers the first question an agent asks at a 402: *what does this cost, and can I
 trust the number?* It does the initial request, and if the resource is payment-gated it returns
-a `PipRailQuote` — the amount in the token's **true decimals**, the chain, the recipient, and
+a `PipRailQuote`: the amount in the token's **true decimals**, the chain, the recipient, and
 whether your `policy` would allow it. **No funds move.** It returns `null` when the URL isn't
 gated (no 402).
 
@@ -33,11 +33,11 @@ const quote = await client.quote(url)
 //     payTo: '0xYourWallet', withinPolicy: true, recognized: true, … } | null
 
 if (quote && quote.withinPolicy) {
-  await client.fetch(url)  // pay it — we checked the price
+  await client.fetch(url)  // pay it, we checked the price
 }
 ```
 
-If `quote` is `null`, the URL returned something other than a 402 — it isn't paid, so just
+If `quote` is `null`, the URL returned something other than a 402, so it isn't paid; just
 `fetch` it.
 
 ## The PipRailQuote
@@ -48,7 +48,7 @@ interface PipRailQuote {
   chain: ChainSelector       // the chain this client is configured for
   network: Caip2
   asset: string              // 0x… / mint / jetton master / CODE:ISSUER / 'native'
-  amount: string             // base units — what actually transfers
+  amount: string             // base units: what actually transfers
   amountFormatted: string    // human-readable, e.g. '0.10'
   decimals: number
   symbol?: string
@@ -63,7 +63,7 @@ interface PipRailQuote {
 }
 ```
 
-## True decimals — the SDK never trusts the server
+## True decimals: the SDK never trusts the server
 
 A malicious or buggy server can state any `decimals` it likes in the challenge, which would let
 it misrepresent what `0.10` means. PipRail doesn't take the server's word: when it recognises the
@@ -73,9 +73,9 @@ agent sees the real figure.
 
 ```ts
 const quote = await client.quote(url)
-if (!quote) return  // not a 402 — nothing to price
+if (!quote) return  // not a 402, so nothing to price
 
-console.log(`${quote.amountFormatted} ${quote.symbol}`)  // '0.10 USDC' — re-derived from TRUE decimals
+console.log(`${quote.amountFormatted} ${quote.symbol}`)  // '0.10 USDC', re-derived from TRUE decimals
 console.log(quote.recognized)                            // true → decimals/symbol are the SDK's
 ```
 
@@ -85,16 +85,16 @@ stated decimals and symbol. If the challenge states no decimals and the SDK can'
 token, `quote()` refuses to price it and throws `InvalidEnvelopeError` rather than guess.
 :::
 
-## symbolMismatch — the scam smell
+## symbolMismatch: the scam smell
 
 `symbolMismatch` is `true` when the challenge's stated symbol disagrees with the symbol the SDK
-knows for that asset (only ever set for a recognised token). It's a red flag worth surfacing — a
+knows for that asset (only ever set for a recognised token). It's a red flag worth surfacing: a
 server claiming to charge "USDC" against a token whose real symbol is something else.
 
 ```ts
 const quote = await client.quote(url)
 if (quote?.symbolMismatch) {
-  // the on-chain symbol differs from what the challenge claims — surface it, don't auto-pay
+  // the on-chain symbol differs from what the challenge claims. Surface it, don't auto-pay
 }
 ```
 
@@ -105,14 +105,14 @@ warning.
 ## The policy verdict
 
 If you constructed the client with a [`policy`](/spend-controls/payment-policy/), `quote()`
-evaluates this payment against it and reports the verdict without enforcing it — `withinPolicy` is
+evaluates this payment against it and reports the verdict without enforcing it. `withinPolicy` is
 the boolean, and when it's `false` you also get a human `policyReason` and a typed `policyCode`.
 With no policy set, `withinPolicy` is always `true`.
 
 ```ts
 const quote = await client.quote(url)
 if (quote && !quote.withinPolicy) {
-  console.log(quote.policyCode, '—', quote.policyReason)  // e.g. 'MAX_AMOUNT' — over per-payment cap
+  console.log(quote.policyCode, ':', quote.policyReason)  // e.g. 'MAX_AMOUNT', over the per-payment cap
 }
 ```
 
@@ -133,17 +133,17 @@ if (quote && !quote.withinPolicy) {
 | `WINDOW_COUNT` | The rolling-window payment-count cap (`maxPaymentsPerWindow`) is exhausted. |
 
 :::note
-`quote()` only *reports* the verdict — it never refuses. `fetch()` enforces it: a payment that
+`quote()` only *reports* the verdict; it never refuses. `fetch()` enforces it: a payment that
 breaches the policy throws [`PaymentDeclinedError`](/errors/why-payments-fail/) before any funds
 move. The coarser `PaymentDeclinedError.reasonCode` a `catch` sees is a lossy mapping of this
-`policyCode` — see [Why payments fail](/errors/why-payments-fail/). Use `quote()` to see the
+`policyCode`. See [Why payments fail](/errors/why-payments-fail/). Use `quote()` to see the
 refusal coming.
 :::
 
 ## Read-only by construction
 
 `quote()` issues exactly one GET (or your chosen method via `init`) and, on a 402, parses the
-challenge to build the quote. It signs nothing and broadcasts nothing — it can't move funds. Pass
+challenge to build the quote. It signs nothing and broadcasts nothing, so it can't move funds. Pass
 a `RequestInit` to control the probe request:
 
 ```ts

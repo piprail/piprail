@@ -1,17 +1,17 @@
 ---
 title: Local verification
-description: 'How a payment is verified with no backend — on-chain against your own RPC, plus an in-memory used-proof set and recency window.'
+description: 'How a payment is verified with no backend: on-chain against your own RPC, plus an in-memory used-proof set and recency window.'
 sidebar:
   order: 1
 ---
 
 ## Introduction
 
-PipRail has no server, no database, and no facilitator — yet a gate still has to be sure a
+PipRail has no server, no database, and no facilitator, yet a gate still has to be sure a
 payment really happened. It does that **locally**: when a proof arrives, `verify()` does a
 targeted lookup on **your own RPC**, confirms the transaction succeeded and moved the required
 amount of the right token to `payTo`, checks it's recent enough, and checks it hasn't been
-redeemed before. All in-process — no facilitator round-trip — a single targeted read against
+redeemed before. All in-process, with no facilitator round-trip: a single targeted read against
 your own RPC.
 
 ```ts
@@ -31,7 +31,7 @@ const result = await gate.verify(headerValue) // reads your RPC
 // → { kind: 'challenge', challenge, requiredHeader, … } when no proof was sent
 ```
 
-`verify()` returns a [`VerifyPaymentResult`](/accepting-payments/verifying-payments/) — a
+`verify()` returns a [`VerifyPaymentResult`](/accepting-payments/verifying-payments/), a
 three-way union, never a thrown error for a bad proof. This page explains what that guarantees
 and how the SDK's own tests pin it. For the gate API itself see
 [requirePayment & createPaymentGate](/accepting-payments/require-payment-and-gate/); for the
@@ -40,22 +40,22 @@ proof-binding theory see [Proof binding](/concepts/proof-binding/).
 ## What local verification checks
 
 The proof is a real, public on-chain transaction. `verify()` re-derives **every** checked field
-from the **trusted `accept`** it issued — never the client-supplied ref — so a forged echo can't
+from the **trusted `accept`** it issued, never the client-supplied ref, so a forged echo can't
 redirect it. A proof passes only when all of these hold:
 
 | Check | What it confirms |
 | --- | --- |
 | Transaction exists & succeeded | A real, mined transfer (not reverted) on your RPC. |
 | Amount + token + `payTo` | It moved at least the required amount of the right token to your wallet. |
-| Recency | It's newer than `maxTimeoutSeconds` (default `600`s) — stale proofs are rejected. |
+| Recency | It's newer than `maxTimeoutSeconds` (default `600`s). Stale proofs are rejected. |
 | Single-use | It hasn't been redeemed before (the in-memory used-proof set). |
 | Confirmations | It has at least `minConfirmations` (default `1`). |
 
 A failed check yields a typed [`VerifyErrorCode`](/errors/verify-error-code/) (`amount_too_low`,
 `transfer_not_found`, `payment_expired`, `tx_reverted`, …) carried on a `kind: 'invalid'` result
-— not a thrown error — and the gate answers `402`, never `paid`.
+rather than a thrown error, and the gate answers `402`, never `paid`.
 
-## Replay protection — used-proof set + recency window
+## Replay protection: used-proof set + recency window
 
 One transaction can be redeemed **once**. The gate keeps an in-memory used-proof set, and the
 recency window (`maxTimeoutSeconds`) rejects anything older. Together they bound the replay
@@ -89,18 +89,18 @@ Full treatment on the [Replay protection](/accepting-payments/replay-protection/
 
 :::note
 Verification **fails closed**. If the RPC read fails, the gate returns `tx_not_found` →
-`402`, never `paid` — an outage can't be exploited for free access. On failure it also **releases
+`402`, never `paid`, so an outage can't be exploited for free access. On failure it also **releases
 the replay claim**, so the same proof can be re-submitted once the RPC recovers; the proof isn't
 burned.
 :::
 
 ## The Vitest suite is the canonical contract
 
-`sdk/test/` (Vitest) **is** the spec — behaviour changes there before it changes in the SDK. Run
+`sdk/test/` (Vitest) **is** the spec, so behaviour changes there before it changes in the SDK. Run
 it from the `sdk/` directory:
 
 ```bash
-npm test            # vitest run — the full suite
+npm test            # vitest run, the full suite
 npm run test:watch  # re-run on change while developing
 ```
 
@@ -129,10 +129,10 @@ globalThis.fetch = stubFetch
 
 This is by design: because the protocol layer depends only on the `PaymentDriver` contract in
 `drivers/types.ts` (zero chain libraries), a fake network is enough to exercise gates, the client,
-policy, and the replay guard — fast, offline, and deterministic. See the
+policy, and the replay guard: fast, offline, and deterministic. See the
 [PaymentDriver architecture](/concepts/payment-driver-architecture/) for the contract these fakes
-implement. The full set of layers the suite covers — pure unit, fake-driver flow, and adversarial
-— is the test contract in `sdk/STANDARDS.md` §4.
+implement. The full set of layers the suite covers (pure unit, fake-driver flow, and adversarial)
+is the test contract in `sdk/STANDARDS.md` §4.
 
 ## When you need a real chain
 

@@ -1,6 +1,6 @@
 ---
 title: Live mainnet smoke test
-description: Prove a chain end to end — a real 402 → pay → confirm → verify → 200 round-trip plus a replay reject, on mainnet, with a tiny amount and a funded wallet.
+description: Prove a chain end to end with a real 402 → pay → confirm → verify → 200 round-trip plus a replay reject, on mainnet, with a tiny amount and a funded wallet.
 sidebar:
   order: 2
 ---
@@ -8,8 +8,8 @@ sidebar:
 ## Introduction
 
 Unit and contract tests prove the protocol; a live smoke test proves the *chain*. It runs the
-whole loop against a real network — a merchant gate issues a `402`, a [`PipRailClient`](/making-payments/piprail-client/)
-pays on-chain, the gate verifies the proof, and the request returns `200` — then submits the same
+whole loop against a real network: a merchant gate issues a `402`, a [`PipRailClient`](/making-payments/piprail-client/)
+pays on-chain, the gate verifies the proof, and the request returns `200`. It then submits the same
 proof again and confirms the gate rejects it. If that passes on mainnet with real money, the
 driver is correct.
 
@@ -19,14 +19,14 @@ chain is real.
 
 :::danger
 Real money moves on this page. The wallet key reaches a live network, so use a **dedicated test
-key** (`process.env.AGENT_KEY`) holding tiny amounts — never a production key, and never a key
+key** (`process.env.AGENT_KEY`) holding tiny amounts. Never a production key, and never a key
 checked into source.
 :::
 
 ## The round-trip you're proving
 
 Stand up a real gate, point a client at it, and pay. The gate verifies the on-chain transfer
-against its own RPC before the handler runs — nothing is mocked.
+against its own RPC before the handler runs, so nothing is mocked.
 
 ```ts
 import express from 'express'
@@ -53,8 +53,8 @@ const client = new PipRailClient({
 
 try {
   const res = await client.fetch(`http://127.0.0.1:${port}/report`)
-  console.log(res.status)            // 200 — paid, verified, unlocked
-  console.log(client.spent().count)  // 1 — settled exactly once
+  console.log(res.status)            // 200: paid, verified, unlocked
+  console.log(client.spent().count)  // 1: settled exactly once
 } catch (err) {
   // Real money is in flight, so handle a failed settlement explicitly rather than crashing.
   if (err instanceof PipRailError) {
@@ -83,7 +83,7 @@ import { createPaymentGate, buildSignatureHeader } from '@piprail/sdk'
 
 const gate = createPaymentGate({ chain: 'base', token: 'USDC', amount: '0.001', payTo: '0xYourWallet' })
 
-// The rail the proof claims — taken from a fresh challenge, so nonce + asset already match.
+// The rail the proof claims, taken from a fresh challenge, so nonce + asset already match.
 const { challenge } = await gate.challenge('https://api.example.com/report')
 const accepted = challenge.accepts.find((a) => a.scheme === 'onchain-proof')!
 
@@ -110,7 +110,7 @@ verify shows it can't settle **twice**. A driver isn't done until both pass on m
 
 ## Use a funded wallet
 
-The payer needs the payment token **and** a little of the chain's native coin for gas — they're
+The payer needs the payment token **and** a little of the chain's native coin for gas. They're
 separate balances. Fund a dedicated test wallet with tiny amounts before you run; never put a
 production key on the open internet.
 
@@ -119,7 +119,7 @@ const url = 'https://api.example.com/report'
 const plan = await client.planPayment(url)
 
 if (!plan) {
-  console.log('not payment-gated — nothing to fund')
+  console.log('not payment-gated, nothing to fund')
 } else if (!plan.payable) {
   console.log(plan.fundingHint)
   // → "Can't settle on base: add ~0.000021 ETH for gas (to pay 0.10 USDC)."
@@ -128,7 +128,7 @@ if (!plan) {
 
 [`planPayment()`](/making-payments/plan-payment/) is the pre-flight: it returns `null` when the
 URL isn't payment-gated (so null-guard it), and otherwise reads your balances, the gas, and
-recipient readiness, telling you exactly what to top up — so you fund the wallet once instead of
+recipient readiness, telling you exactly what to top up, so you fund the wallet once instead of
 discovering a shortfall mid-test. On chains with a receive prerequisite (a Stellar/XRPL
 trustline, an Algorand ASA opt-in, a NEAR `storage_deposit`) the `payTo` account must be set up
 too, or verification has nothing to find. See [Why payments fail](/errors/why-payments-fail/).
@@ -140,18 +140,18 @@ thing:
 
 | Template | Chains | What to confirm |
 | --- | --- | --- |
-| **B — digest-bound** | EVM, Solana, Tron, Sui, Aptos, **native NEAR** | The proof is the tx hash; verify reads the confirmed transfer + recency window + single-use set. |
-| **A — memo/nonce-bound** | Stellar, XRPL, TON, **NEAR tokens** (NEP-141), Algorand | The challenge nonce rides in the memo/note/comment, matched on the merchant's own account. |
+| **B, digest-bound** | EVM, Solana, Tron, Sui, Aptos, **native NEAR** | The proof is the tx hash; verify reads the confirmed transfer + recency window + single-use set. |
+| **A, memo/nonce-bound** | Stellar, XRPL, TON, **NEAR tokens** (NEP-141), Algorand | The challenge nonce rides in the memo/note/comment, matched on the merchant's own account. |
 
-A few rails settle slowly or read on a confirmed node — give `maxTimeoutSeconds` headroom and
+A few rails settle slowly or read on a confirmed node, so give `maxTimeoutSeconds` headroom and
 expect a wait on TON (asynchronous settlement) and Tron (verified on the solidity node).
 
-## A reference harness — the Anvil end-to-end
+## A reference harness: the Anvil end-to-end
 
 For EVM you don't need mainnet at all: the `examples/basics/sdk-sandbox` harness runs the same accept ↔
-pay round-trip — USDC **and** the native coin — against a **local Anvil fork of Base** with fake
+pay round-trip (USDC **and** the native coin) against a **local Anvil fork of Base** with fake
 funds, and asserts the second redemption is `tx_already_used`. It forks via a public RPC, deals
-itself fake USDC by writing contract storage, and skips cleanly if Anvil isn't installed — so
+itself fake USDC by writing contract storage, and skips cleanly if Anvil isn't installed, so
 it's a regression gate that costs nothing.
 
 ```bash
@@ -160,7 +160,7 @@ node run-all.mjs                          # suite 05 is the live on-chain round-
 ```
 
 Suite 05 runs against the installed `@piprail/sdk` (a real `node_modules` dir), and `examples/`
-isn't a root workspace member — so `npm run build:sdk` doesn't reach it; you `npm install` instead.
+isn't a root workspace member, so `npm run build:sdk` doesn't reach it; you `npm install` instead.
 To exercise **working-tree** SDK code (it imports `../../../sdk/dist`), build first and run suite 07:
 
 ```bash
@@ -169,5 +169,5 @@ node examples/basics/sdk-sandbox/suites/07-exact-rail.mjs
 ```
 
 Use the fork to prove the *shape* of the loop, and a funded mainnet wallet to prove the *chain*.
-For deterministic, offline tests of your own integration code, stub the driver instead — see
+For deterministic, offline tests of your own integration code, stub the driver instead; see
 [Mocking](/testing/mocking/).

@@ -20,7 +20,7 @@ const canonical = `${site}/blog/${post.slug}/`
 const ogImageAbs = `${site}${post.ogImage}`
 const more = relatedPosts(post.slug, 2)
 
-const pageTitle = post.seoTitle ?? `${post.title} — PipRail`
+const pageTitle = post.seoTitle ?? `${post.title} | PipRail`
 
 const articleLd = {
   '@context': 'https://schema.org',
@@ -49,9 +49,9 @@ const articleLd = {
 }
 
 const takeaways = [
-  'A facilitator is a custodian, a toll booth, and a single point of failure rolled into one. PipRail removes it — the merchant verifies the payment <em>itself</em>.',
+  'A facilitator is a custodian, a toll booth, and a single point of failure rolled into one. PipRail removes it, so the merchant verifies the payment <em>itself</em>.',
   'The x402 v2 spec blesses merchant-local verification (§7), so a backendless rail is <strong>spec-supported, not a workaround.</strong>',
-  'Verification re-derives every checked field from the trusted payment requirement, never from the client’s echo — a forged proof has nothing to forge against.',
+  'Verification re-derives every checked field from the trusted payment requirement, never from the client’s echo, so a forged proof has nothing to forge against.',
 ]
 
 const codeMirror = `drivers/
@@ -72,27 +72,27 @@ const codeReplay = `requirePayment({
 const faqs = [
   {
     q: 'What is a facilitator in x402, and why would you avoid one?',
-    a: 'A facilitator is a third-party service that sits between the buyer and the seller: it settles the payment, often takes custody of the funds in transit, and usually charges a cut. It also becomes a single point of failure and a party both sides must trust. PipRail avoids it because none of that work actually requires a middleman — the buyer can broadcast their own transfer and the seller can verify it directly. Removing the facilitator removes the custody, the fee, and the dependency in one move.',
+    a: 'A facilitator is a third-party service that sits between the buyer and the seller: it settles the payment, often takes custody of the funds in transit, and usually charges a cut. It also becomes a single point of failure and a party both sides must trust. PipRail avoids it because none of that work actually requires a middleman. The buyer can broadcast their own transfer and the seller can verify it directly. Removing the facilitator removes the custody, the fee, and the dependency in one move.',
   },
   {
     q: 'How does PipRail verify a payment without a backend or database?',
-    a: 'Verification is local. The seller reads the transaction straight from their own RPC node — viem for EVM chains, the native client for each non-EVM family — and checks it against the exact payment requirement they issued. Replay protection is an in-memory set of already-seen proofs plus a recency window. There is no server to run, no database to provision, and no external service in the path; everything the gate needs, it computes itself.',
+    a: 'Verification is local. The seller reads the transaction straight from their own RPC node (viem for EVM chains, the native client for each non-EVM family) and checks it against the exact payment requirement they issued. Replay protection is an in-memory set of already-seen proofs plus a recency window. There is no server to run, no database to provision, and no external service in the path; everything the gate needs, it computes itself.',
   },
   {
     q: 'Can a payment proof be replayed or forged?',
-    a: 'No. Every proof is single-use: the gate records each settled proof and rejects a second presentation, within a recency window that bounds how long a proof is even considered. And it cannot be forged against, because verify() re-derives every field it checks — amount, asset, recipient, network — from the trusted payment requirement it issued, never from the client-supplied echo. A forged or altered proof has nothing legitimate to point at.',
+    a: 'No. Every proof is single-use: the gate records each settled proof and rejects a second presentation, within a recency window that bounds how long a proof is even considered. And it cannot be forged against, because verify() re-derives every field it checks (amount, asset, recipient, network) from the trusted payment requirement it issued, never from the client-supplied echo. A forged or altered proof has nothing legitimate to point at.',
   },
   {
     q: 'What happens if I run multiple server instances?',
-    a: 'The in-memory used-proof set is per-process, which is fine for a single instance. For a multi-instance deployment, the replay store is pluggable: pass isUsed and markUsed callbacks backed by Redis, a database, or any shared store, and all instances share one view of which proofs have been spent. The protocol logic does not change — only where the “seen” set lives.',
+    a: 'The in-memory used-proof set is per-process, which is fine for a single instance. For a multi-instance deployment, the replay store is pluggable: pass isUsed and markUsed callbacks backed by Redis, a database, or any shared store, and all instances share one view of which proofs have been spent. The protocol logic does not change. Only where the “seen” set lives does.',
   },
   {
     q: 'Is backendless verification actually allowed by the x402 spec?',
-    a: 'Yes. The x402 v2 specification (§7) explicitly says resource servers may host the verification endpoints themselves rather than delegating to a facilitator. So PipRail’s backendless shape is a first-class, spec-supported configuration — not a clever workaround or a deviation from the standard.',
+    a: 'Yes. The x402 v2 specification (§7) explicitly says resource servers may host the verification endpoints themselves rather than delegating to a facilitator. So PipRail’s backendless shape is a first-class, spec-supported configuration, not a clever workaround or a deviation from the standard.',
   },
   {
     q: 'How does the driver architecture keep the protocol layer chain-agnostic?',
-    a: 'The protocol layer — the payment gate, the client, the wire envelopes — depends only on a PaymentDriver contract, with zero imports of viem, @solana/web3.js, or any chain library. Each chain family is a self-contained driver that implements that contract, and the families mirror each other file-for-file: chains, wallet, pay, verify, index. Adding a new family means implementing the same contract and registering it — the core never changes, and a pure-EVM install never downloads the non-EVM drivers.',
+    a: 'The protocol layer (the payment gate, the client, the wire envelopes) depends only on a PaymentDriver contract, with zero imports of viem, @solana/web3.js, or any chain library. Each chain family is a self-contained driver that implements that contract, and the families mirror each other file-for-file: chains, wallet, pay, verify, index. Adding a new family means implementing the same contract and registering it. The core never changes, and a pure-EVM install never downloads the non-EVM drivers.',
   },
 ]
 
@@ -141,7 +141,7 @@ const faqLd = {
           {post.title}
         </h1>
         <p class="mt-5 text-lg leading-relaxed text-neutral-400 sm:text-xl">
-          Most x402 implementations put a service in the middle of every payment. PipRail does not —
+          Most x402 implementations put a service in the middle of every payment. PipRail does not,
           and the reason it can get away with that is a single design decision:
           <em class="not-italic text-neutral-200">the merchant verifies the payment itself.</em>
           Here is the architecture that makes backendless possible.
@@ -183,11 +183,11 @@ const faqLd = {
       </aside>
 
       <div class="article-prose mt-10">
-        <p>When people picture an x402 payment, they usually picture three parties: a buyer, a seller, and a <strong>facilitator</strong> in between that settles the transaction. The facilitator is convenient — it abstracts the chain away — but look closely at what it actually is. It holds the funds in transit, which makes it a custodian. It usually takes a cut, which makes it a toll booth. And every payment depends on it being up and honest, which makes it a single point of failure. Three liabilities, bundled into one box that both sides have to trust.</p>
+        <p>When people picture an x402 payment, they usually picture three parties: a buyer, a seller, and a <strong>facilitator</strong> in between that settles the transaction. The facilitator is convenient, because it abstracts the chain away, but look closely at what it actually is. It holds the funds in transit, which makes it a custodian. It usually takes a cut, which makes it a toll booth. And every payment depends on it being up and honest, which makes it a single point of failure. Three liabilities, bundled into one box that both sides have to trust.</p>
 
         <p>PipRail’s central claim is that the box is unnecessary. None of the work a facilitator does actually requires a middleman to do it. The buyer can broadcast their own transfer. The seller can read that transfer and check it. Remove the box, and the custody, the fee, and the dependency all leave with it.</p>
 
-        <!-- Figure 1 — with a facilitator vs. without -->
+        <!-- Figure 1: with a facilitator vs. without -->
         <figure class="article-fig">
           <div class="card rounded-2xl p-6 sm:p-8">
             <div class="fig-eyebrow">Two shapes for one payment</div>
@@ -207,7 +207,7 @@ const faqLd = {
 
         <h2>Verification is local</h2>
 
-        <p>Here is the part that surprises people: removing the facilitator does not weaken verification, because verification never needed a third party in the first place. A blockchain is already a shared, public source of truth. When a buyer pays, the seller reads the transaction directly from its own node — viem for EVM chains, the native client for each non-EVM family — and confirms it matches the exact payment it asked for. There is no server to run and no database to provision; the gate computes everything it needs from the chain and from the challenge it issued.</p>
+        <p>Here is the part that surprises people: removing the facilitator does not weaken verification, because verification never needed a third party in the first place. A blockchain is already a shared, public source of truth. When a buyer pays, the seller reads the transaction directly from its own node (viem for EVM chains, the native client for each non-EVM family) and confirms it matches the exact payment it asked for. There is no server to run and no database to provision; the gate computes everything it needs from the chain and from the challenge it issued.</p>
 
         <p>This is not PipRail bending the rules. The x402 v2 specification, in §7, explicitly says resource servers <em>may host the verification endpoints themselves</em> rather than handing them to a facilitator. The backendless shape is a configuration the standard anticipates and blesses. We just took it as the default instead of the exception.</p>
 
@@ -215,31 +215,31 @@ const faqLd = {
 
         <p>A payment proof has to be cryptographically bound to the specific challenge it answers, or it could be replayed or forged. PipRail binds proofs two ways depending on the chain: for some families the challenge nonce rides in a memo or note and verification matches it on the merchant’s own account; for others the proof is the transaction hash itself, verified by reading the transaction plus a recency window and a single-use proof set.</p>
 
-        <p>But the load-bearing detail is smaller and easier to miss. <strong>Verification always re-derives every field it checks — amount, asset, recipient, network — from the trusted payment requirement the gate issued, never from the client-supplied reference.</strong> A malicious client can echo back anything it likes; it does not matter, because <span class="font-mono text-[0.9em] text-neutral-200">verify()</span> never reads its own truth from the echo. A forged or altered proof has nothing legitimate to point at, and replayed proofs are caught by the single-use set. The honesty of the check does not depend on the honesty of the payer.</p>
+        <p>But the load-bearing detail is smaller and easier to miss. <strong>Verification always re-derives every field it checks (amount, asset, recipient, network) from the trusted payment requirement the gate issued, never from the client-supplied reference.</strong> A malicious client can echo back anything it likes; it does not matter, because <span class="font-mono text-[0.9em] text-neutral-200">verify()</span> never reads its own truth from the echo. A forged or altered proof has nothing legitimate to point at, and replayed proofs are caught by the single-use set. The honesty of the check does not depend on the honesty of the payer.</p>
 
         <h2>One contract, ten families, mirrored</h2>
 
-        <p>Reaching 29 chains without the core turning into a tangle takes discipline, and the discipline has a name: the <strong>PaymentDriver</strong> abstraction. The protocol layer — the payment gate, the client, the wire envelopes — depends only on that one contract. It imports no chain libraries at all: no viem, no <span class="font-mono text-[0.9em] text-neutral-200">@solana/web3.js</span>, nothing chain-specific. Each chain family is a self-contained driver behind the contract, and the families mirror each other file-for-file.</p>
+        <p>Reaching 29 chains without the core turning into a tangle takes discipline, and the discipline has a name: the <strong>PaymentDriver</strong> abstraction. The protocol layer, meaning the payment gate, the client and the wire envelopes, depends only on that one contract. It imports no chain libraries at all: no viem, no <span class="font-mono text-[0.9em] text-neutral-200">@solana/web3.js</span>, nothing chain-specific. Each chain family is a self-contained driver behind the contract, and the families mirror each other file-for-file.</p>
 
         <div class="cb"><Code code={codeMirror} lang="text" theme={CODE_THEME} /></div>
 
-        <p>Adding a chain family means implementing the same five files and registering the driver — the core never moves. It also means the non-EVM drivers are optional peers that load only when you name one of their chains, so a pure-EVM install carries none of their weight. Breadth on the outside, a small unchanging contract on the inside.</p>
+        <p>Adding a chain family means implementing the same five files and registering the driver. The core never moves. It also means the non-EVM drivers are optional peers that load only when you name one of their chains, so a pure-EVM install carries none of their weight. Breadth on the outside, a small unchanging contract on the inside.</p>
 
         <h2>Replay protection you can make durable</h2>
 
-        <p>Out of the box, the used-proof set lives in memory, which is exactly right for a single instance. Run several, and you want them to share one view of which proofs have been spent — so the store is pluggable. Hand the gate an <span class="font-mono text-[0.9em] text-neutral-200">isUsed</span> and a <span class="font-mono text-[0.9em] text-neutral-200">markUsed</span> backed by Redis or a database, and every instance reads from the same set. The protocol logic does not change; only where “seen” is recorded does.</p>
+        <p>Out of the box, the used-proof set lives in memory, which is exactly right for a single instance. Run several, and you want them to share one view of which proofs have been spent, so the store is pluggable. Hand the gate an <span class="font-mono text-[0.9em] text-neutral-200">isUsed</span> and a <span class="font-mono text-[0.9em] text-neutral-200">markUsed</span> backed by Redis or a database, and every instance reads from the same set. The protocol logic does not change; only where “seen” is recorded does.</p>
 
         <div class="cb"><Code code={codeReplay} lang="ts" theme={CODE_THEME} /></div>
 
         <h2>Why this is the whole product</h2>
 
-        <p>It is tempting to add a backend. A backend is where dashboards live, where analytics accrue, where a fee can be inserted. But the moment a payment routes through your server, you are a custodian and a point of failure, and the thing you built stops being a tool the developer owns and starts being a platform they depend on. PipRail’s architecture is a standing refusal to cross that line. No backend, no database, no account, no fee — not because we couldn’t build them, but because the absence is the point. The rail should be something you own, not a platform you join. Verifying your own payments, against your own node, with nobody in the middle, is what owning it looks like.</p>
+        <p>It is tempting to add a backend. A backend is where dashboards live, where analytics accrue, where a fee can be inserted. But the moment a payment routes through your server, you are a custodian and a point of failure, and the thing you built stops being a tool the developer owns and starts being a platform they depend on. PipRail’s architecture is a standing refusal to cross that line. No backend, no database, no account, no fee. Not because we couldn’t build them, but because the absence is the point. The rail should be something you own, not a platform you join. Verifying your own payments, against your own node, with nobody in the middle, is what owning it looks like.</p>
       </div>
 
       <div class="mt-12 flex flex-wrap items-center gap-3 border-t border-white/10 pt-6">
         <span class="mr-1 inline-flex items-center gap-1.5 text-xs text-neutral-500"><Share2 size={13} aria-hidden="true" /> Share</span>
         <a
-          href={`https://x.com/intent/tweet?text=${encodeURIComponent(post.title + ' — by ' + post.author.name)}&url=${encodeURIComponent(canonical)}&via=piprailhq`}
+          href={`https://x.com/intent/tweet?text=${encodeURIComponent(post.title + ' by ' + post.author.name)}&url=${encodeURIComponent(canonical)}&via=piprailhq`}
           class="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-neutral-300 transition hover:border-white/20 hover:text-white"
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path></svg>
@@ -266,7 +266,7 @@ const faqLd = {
           <div class="text-sm font-semibold text-neutral-100">{post.author.name}</div>
           <div class="text-xs text-neutral-500">{post.author.role}</div>
           <p class="mt-2.5 text-sm leading-relaxed text-neutral-400">
-            Cofounder of PipRail — the open, no-fee x402 rail for AI agents, across 29 chains.
+            Cofounder of PipRail, the open, no-fee x402 rail for AI agents, across 29 chains.
             Writing about the architecture of self-custody payments, and why the rail should have no middle.
           </p>
           <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs">
@@ -296,7 +296,7 @@ const faqLd = {
     <section class="mt-14 overflow-hidden rounded-2xl border border-accent/20 bg-accent/6 p-7 text-center sm:p-10">
       <h2 class="text-2xl font-semibold tracking-tight text-white sm:text-3xl">No middle. No fee. Yours.</h2>
       <p class="mx-auto mt-3 max-w-xl text-neutral-300">
-        PipRail is the open, self-custody x402 rail — verify your own payments, against your own node, with nobody
+        PipRail is the open, self-custody x402 rail. Verify your own payments, against your own node, with nobody
         in between.
       </p>
       <div class="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">

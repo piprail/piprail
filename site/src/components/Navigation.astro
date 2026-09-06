@@ -1,5 +1,5 @@
 ---
-// Shared top navigation — sticky, translucent, used on every page for consistency.
+// Shared top navigation: sticky, translucent, used on every page for consistency.
 // `path` highlights the active link (e.g. the Demo pill on /demo). At tablet and
 // below (< lg) the secondary links collapse into a hamburger that opens a
 // full-height slide-in overlay (backdrop + right panel). CSS does the slide
@@ -21,19 +21,19 @@ const linkCls = (p: string) =>
     ? 'hidden items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-neutral-100 lg:inline-flex'
     : 'hidden items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-muted transition hover:bg-white/5 hover:text-neutral-100 lg:inline-flex'
 
-// Every secondary link, in one list — rendered in the desktop bar and/or the
+// Every secondary link, in one list, rendered in the desktop bar and/or the
 // mobile overlay, so the two can never drift. `mobileOnly` keeps the desktop bar
 // uncrowded (Partners lives in the overlay + footer, not the inline bar).
 // Facilitators is a full desktop link, not `mobileOnly`: it is the page people arrive at from
 // search, and it must be reachable from the header wherever the header shows links at all.
 //
 // 🔴 IT CANNOT BE `mobileOnly` OR xl-ONLY. The hamburger is `lg:hidden`, so between 1024px and
-// 1279px there is no overlay AND no burger — an overlay-only link is simply unreachable from
+// 1279px there is no overlay AND no burger, so an overlay-only link is simply unreachable from
 // the header in that whole range. Measured at 1024px: the bar with Facilitators is 877px
 // against a 916px budget, so it fits with room to spare; adding the burger back as an overflow
 // affordance does NOT fit (921px), which is why the link goes in the bar rather than the burger
-// staying on. (Discovery and Partners are still overlay-only and so share that 1024–1279 gap —
-// they remain reachable from the footer on every page.)
+// staying on. (Discovery and Partners are still overlay-only and so share that 1024 to 1279 gap,
+// but they remain reachable from the footer on every page.)
 const navLinks = [
   { href: 'https://docs.piprail.com', label: 'Docs', icon: BookText },
   { href: '/sdk/', label: 'SDK', icon: Package },
@@ -55,13 +55,13 @@ const mobileLinkCls = (href: string) =>
 
 <header class="sticky top-0 z-50 border-b border-white/5 bg-bg/70 backdrop-blur-md">
   <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
-    <a href="/" class="flex items-center gap-2.5 font-semibold tracking-tight" aria-label="PipRail — home">
+    <a href="/" class="flex items-center gap-2.5 font-semibold tracking-tight" aria-label="PipRail home">
       <img src="/logo.png" alt="" width="28" height="28" class="h-7 w-7 rounded-lg ring-1 ring-white/10" />
       <span>PipRail</span>
     </a>
 
     <nav class="flex items-center gap-1.5 sm:gap-2" aria-label="Primary">
-      <!-- Desktop inline nav — md and up -->
+      <!-- Desktop inline nav: md and up -->
       <a
         href="/demo/"
         aria-current={onDemo ? 'page' : undefined}
@@ -83,7 +83,7 @@ const mobileLinkCls = (href: string) =>
         )
       })}
 
-      <!-- Hamburger — tablet & mobile only. Opens the slide-in overlay below. -->
+      <!-- Hamburger: tablet & mobile only. Opens the slide-in overlay below. -->
       <button
         id="nav-open"
         type="button"
@@ -95,7 +95,7 @@ const mobileLinkCls = (href: string) =>
         <Menu size={18} aria-hidden="true" />
       </button>
 
-      <!-- primary CTA — always visible -->
+      <!-- primary CTA: always visible -->
       <a
         href="https://www.npmjs.com/package/@piprail/sdk"
         class="ml-1 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:px-4"
@@ -163,7 +163,7 @@ const mobileLinkCls = (href: string) =>
 
 <!-- Progressive enhancement: toggle the overlay (slide + fade via CSS), lock
      scroll, manage focus, and close on backdrop / link / Escape. Also survives a
-     resize past the lg breakpoint and a bfcache restore — so the scroll lock can
+     resize past the lg breakpoint and a bfcache restore, so the scroll lock can
      never strand a page. -->
 <script is:inline>
   ;(() => {
@@ -195,11 +195,11 @@ const mobileLinkCls = (href: string) =>
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && overlay.dataset.open === 'true') close()
     })
-    // Crossing to desktop (lg) hides the overlay via CSS — clear the lock + state too.
+    // Crossing to desktop (lg) hides the overlay via CSS, so clear the lock + state too.
     window.matchMedia('(min-width: 1024px)').addEventListener('change', (e) => {
       if (e.matches) set(false)
     })
-    // A bfcache restore can return with a stale lock — reset on show.
+    // A bfcache restore can return with a stale lock, so reset on show.
     window.addEventListener('pageshow', (e) => {
       if (e.persisted) set(false)
     })

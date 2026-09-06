@@ -22,6 +22,7 @@
     "test:mcp": "npm test -w @piprail/mcp",
     "typecheck": "npm run typecheck -w @piprail/sdk && npm run typecheck -w @piprail/mcp",
     "sync": "node scripts/sync/check.mjs",
+    "prose": "node scripts/prose-audit.mjs",
     "verify-gate": "node scripts/verify-gate.mjs",
     "test:linkedin": "node --test \".claude/skills/linkedin/tests/*.test.mjs\" \".claude/skills/linkedin-page/tests/*.test.mjs\"",
     "post": "node .claude/skills/linkedin/scripts/draft.mjs",

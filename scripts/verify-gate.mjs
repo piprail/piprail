@@ -43,6 +43,7 @@ const steps = [
   ['ops scripts parse', null, null, 'the gitignored .claude/ + scripts/ tooling still compiles'],
   ['env loader tests', 'node', ['--test', 'scripts/load-env.test.mjs'], 'the credential parser has a contract'],
   ['sync', 'npm', ['run', 'sync'], 'every mirrored fact agrees with its source'],
+  ['prose', 'npm', ['run', 'prose'], 'the site + docs carry no AI tells (no em dashes)'],
   ['clean-clone sync', null, null, '🔴 the same rules against ONLY what git ships — this is what Netlify runs'],
   ...(quick ? [] : [
     ['build site', 'npm', ['run', 'build'], 'also re-runs the sync guard as prebuild'],
