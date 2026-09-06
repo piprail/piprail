@@ -27,7 +27,7 @@ const { items, cols = 1 } = Astro.props
         <Check size={12} class="text-accent" aria-hidden="true" />
       </span>
       <span class="leading-snug text-neutral-200">
-        {it.label}{it.desc && <span class="text-neutral-500"> — {it.desc}</span>}
+        {it.label}{it.desc && <span class="text-neutral-500">: {it.desc}</span>}
       </span>
     </li>
   ))}

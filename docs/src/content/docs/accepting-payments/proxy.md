@@ -7,9 +7,9 @@ sidebar:
 
 ## The idea
 
-Already have an API — in Python, Go, Rails, anything? You don't have to rewrite it to charge for it.
+Already have an API, in Python, Go, Rails, anything? You don't have to rewrite it to charge for it.
 `proxyTo(origin)` is a ready-made handler that **forwards a paid request to your existing backend,
-untouched** — and rejects unpaid ones before they ever reach it. Deploy it on the edge in front of
+untouched**, and rejects unpaid ones before they ever reach it. Deploy it on the edge in front of
 your API; the API never changes and never sees an unpaid request.
 
 ```ts
@@ -22,12 +22,12 @@ export default toWorker(gate, proxyTo('https://api.example.com'))
 ```
 
 `proxyTo` preserves the method, path, query, body, and headers; it strips the x402 proof headers so
-they don't leak upstream. The origin only ever receives requests that have already paid — an unpaid
+they don't leak upstream. The origin only ever receives requests that have already paid. An unpaid
 request gets a `402` and **never reaches your backend**.
 
 ## Scaffold it
 
-The fastest way is the scaffolder's `proxy` mode — it generates a complete, mainnet-default edge proxy:
+The fastest way is the scaffolder's `proxy` mode, which generates a complete, mainnet-default edge proxy:
 
 ```sh
 npm create @piprail -- my-gateway \
@@ -43,18 +43,18 @@ can discover and price it. → [Scaffold a merchant](/getting-started/scaffolder
 
 ## How it compares
 
-Cloudflare ships an `x402-proxy` template too — but it defaults to **testnet** and routes settlement
+Cloudflare ships an `x402-proxy` template too, but it defaults to **testnet** and routes settlement
 through a facilitator. PipRail's proxy is **mainnet-default** and **facilitator-free**: it verifies
-each payment locally against your own RPC, and receiving needs only your public address — no key, no
+each payment locally against your own RPC, and receiving needs only your public address: no key, no
 account, no middleman.
 
 ## Notes
 
-- The proxy is **edge-only** (Cloudflare Workers / Vercel Edge Functions) — that's where a low-latency
+- The proxy is **edge-only** (Cloudflare Workers / Vercel Edge Functions), because that's where a low-latency
   forward belongs. For a Node/Express app you own, gate the route directly with
   [`requirePayment`](/accepting-payments/require-payment-and-gate/) instead.
 - It gates **every path**. Carve out free routes by checking `new URL(request.url).pathname` before
-  the gate — exactly like the scaffolded `/.well-known/x402` route does.
+  the gate, exactly like the scaffolded `/.well-known/x402` route does.
 - `proxyTo` composes with both [framework adapters](/accepting-payments/framework-adapters/):
   `toWorker(gate, proxyTo(origin))` for the `{ fetch }` export, or
   `toFetchHandler(gate, proxyTo(origin))` for a bare handler.

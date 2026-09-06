@@ -1,6 +1,6 @@
 ---
 title: evaluatePolicy()
-description: The pure, dependency-free heart of the spend leash — evaluate one payment intent against a policy and get a typed allow/deny decision back.
+description: The pure, dependency-free heart of the spend leash. Evaluate one payment intent against a policy and get a typed allow/deny decision back.
 sidebar:
   order: 4
 ---
@@ -9,7 +9,7 @@ sidebar:
 
 `evaluatePolicy()` is the testable core of the [spend policy](/spend-controls/payment-policy/).
 It takes a `PaymentIntent` (the facts about one payment the client is about to make) and a
-`PaymentPolicy`, and returns a `PolicyDecision` — `allowed` plus a typed `code` and a
+`PaymentPolicy`, and returns a `PolicyDecision`: `allowed` plus a typed `code` and a
 human-readable `reason` when it refuses. It is **pure and chain-agnostic**: it imports nothing
 from any driver, never touches the network, and never throws.
 
@@ -42,7 +42,7 @@ if (!decision.allowed) console.log(decision.code, decision.reason)
 
 ## The PaymentIntent
 
-The intent is the value object the policy reasons over — what the client builds from the chosen
+The intent is the value object the policy reasons over, meaning what the client builds from the chosen
 accept after it has resolved the asset against the driver. The cardinal rule lives here: amounts
 are checked against the token's **true** decimals (the SDK's own, via the driver), never the
 server-stated `extra.decimals`, so a server can't slip past a cap by claiming a cheap-looking
@@ -54,7 +54,7 @@ interface PaymentIntent {
   chain: ChainSelector  // the selector the client is configured with
   network: Caip2         // e.g. 'eip155:8453'
   asset: string          // token address, or 'native'
-  amountBase: bigint     // server-stated base units — what actually transfers
+  amountBase: bigint     // server-stated base units: what actually transfers
   decimals: number       // TRUE decimals if recognised, else server-stated
   symbol?: string        // TRUE symbol if recognised, else server-stated
   recognized: boolean    // did the driver's describeAsset recognise this asset?
@@ -72,7 +72,7 @@ interface PolicyDecision {
 ```
 
 Branch on `code`, never on the prose. The `reason` is for humans and logs; the `code` is the
-stable contract — it won't break when the wording is tweaked.
+stable contract, so it won't break when the wording is tweaked.
 
 ## Deny codes
 
@@ -80,7 +80,7 @@ Each guard refuses with one typed `PolicyDenyCode`, matching the field it enforc
 
 | Code | Fired when |
 | --- | --- |
-| `SESSION_EXPIRED` | The session's TTL or deadline has elapsed — refuses every payment, amount-blind. |
+| `SESSION_EXPIRED` | The session's TTL or deadline has elapsed. Refuses every payment, amount-blind. |
 | `CHAIN` | `intent.chain` / `network` is not in `policy.chains`. |
 | `HOST` | `intent.host` is not in `policy.hosts` (exact or `*.suffix` wildcard). |
 | `UNKNOWN_TOKEN` | The asset isn't one the SDK can price and `allowUnknownTokens` is off. |
@@ -102,11 +102,11 @@ session expiry → chains → hosts → unknown-token → tokens → maxAmount
               → maxTotal → maxTotalPerDenom → maxPayments → windowTotal → maxPaymentsPerWindow
 ```
 
-Expiry is first because it's session-global, not asset-scoped — an expired session must always
+Expiry is first because it's session-global, not asset-scoped, and an expired session must always
 report expiry, not whichever other gate also happens to fail. The budget caps run cheapest-first:
 the per-asset `maxTotal`, then the cross-token `maxTotalPerDenom` (`MAX_TOTAL_DENOM`) and the
-lifetime `maxPayments` count (`MAX_PAYMENTS`), and the two rolling-window checks — `windowTotal`
-and the window count `maxPaymentsPerWindow` (`WINDOW_COUNT`) — last, because they're the heaviest.
+lifetime `maxPayments` count (`MAX_PAYMENTS`), and the two rolling-window checks, `windowTotal`
+and the window count `maxPaymentsPerWindow` (`WINDOW_COUNT`), last, because they're the heaviest.
 
 :::note
 The expiry check is **inclusive** (`now >= deadline` is expired), while the amount caps are
@@ -117,7 +117,7 @@ the cap is allowed.
 ## The spentForAssetBase argument
 
 The third argument is the running total already spent on **this** `(network, asset)` pair, in
-base units — the client supplies it from its [spend ledger](/spend-controls/spend-ledger/). It
+base units, which the client supplies from its [spend ledger](/spend-controls/spend-ledger/). It
 powers the `maxTotal` cap. With no policy `maxTotal`, pass `0n`.
 
 ```ts
@@ -126,14 +126,14 @@ evaluatePolicy({ ...intent, amountBase: 100_000n }, { maxTotal: '0.10' }, 70_000
 // → { allowed: false, code: 'MAX_TOTAL', reason: 'this payment would push spend on USDC past …' }
 ```
 
-`maxTotal` is **per distinct asset**, not a grand total across tokens — summing different tokens
+`maxTotal` is **per distinct asset**, not a grand total across tokens, because summing different tokens
 is meaningless without a price oracle (which the SDK deliberately omits). Pair it with
 `tokens: ['USDC']` for a true single-currency budget.
 
 ## Unknown tokens
 
 An asset the SDK can't recognise can't have its decimals verified, so it can't be priced safely
-— and an unpriceable asset is **declined by default**. Set `allowUnknownTokens: true` to opt in
+and an unpriceable asset is **declined by default**. Set `allowUnknownTokens: true` to opt in
 to trusting the server-stated decimals (the explicit risk).
 
 ```ts
@@ -146,7 +146,7 @@ evaluatePolicy({ ...intent, recognized: false }, { allowUnknownTokens: true }, 0
 
 ## No policy is allow-all
 
-Omit the policy (or pass `undefined`) and every payment is allowed — the leash is opt-in.
+Omit the policy (or pass `undefined`) and every payment is allowed. The leash is opt-in.
 
 ```ts
 evaluatePolicy(intent, undefined, 0n)
@@ -156,23 +156,23 @@ evaluatePolicy(intent, undefined, 0n)
 ## Checks that need the injected context
 
 The third argument carries only the per-asset spend (`spentForAssetBase`). Several caps need
-more than that — a clock, the cross-token grand totals, or the settled-payment counts — and the
+more than that (a clock, the cross-token grand totals, or the settled-payment counts) and the
 client supplies all of it through the **same private context** it uses for the clock. There is
 **no public way to pass it**, so calling `evaluatePolicy` directly (as in a unit test) skips
 these checks entirely; behaviour is byte-identical to a policy without those fields. The
 context-dependent guards are:
 
 - **Session expiry** (`ttlSeconds` / `expiresAt`) and the **rolling window** (`windowTotal` +
-  `windowSeconds`) — need a clock; surface as `SESSION_EXPIRED` and `WINDOW_TOTAL`.
-- **Cross-token grand total** (`maxTotalPerDenom`) — needs the per-denomination sums the client
+  `windowSeconds`) need a clock; they surface as `SESSION_EXPIRED` and `WINDOW_TOTAL`.
+- **Cross-token grand total** (`maxTotalPerDenom`) needs the per-denomination sums the client
   rolls up from its [spend ledger](/spend-controls/spend-ledger/); surfaces as `MAX_TOTAL_DENOM`.
-- **Payment counts** (`maxPayments`, `maxPaymentsPerWindow`) — need the settled-payment count
+- **Payment counts** (`maxPayments`, `maxPaymentsPerWindow`) need the settled-payment count
   (lifetime and per-window); surface as `MAX_PAYMENTS` and `WINDOW_COUNT`.
 
 So `SESSION_EXPIRED`, `WINDOW_TOTAL`, `MAX_TOTAL_DENOM`, `MAX_PAYMENTS`, and `WINDOW_COUNT` all
 fire **only through the live client**, never from a bare `evaluatePolicy` call.
 
-To test these leashes, drive them through the client's session surfaces — see the
+To test these leashes, drive them through the client's session surfaces; see the
 [time envelope](/spend-controls/time-envelope/) page.
 
 ## Two enums, not one
@@ -180,12 +180,12 @@ To test these leashes, drive them through the client's session surfaces — see 
 `evaluatePolicy` returns the fine-grained `PolicyDenyCode` (every code in the table above), which
 the client surfaces unchanged on a read-only [`quote()`](/making-payments/quote/) as `quote.policyCode`.
 But when a live payment is actually refused, the thrown `PaymentDeclinedError` carries a **coarser**
-[`DeclineReasonCode`](/errors/error-hierarchy/) on `.reasonCode` — the client maps the
+[`DeclineReasonCode`](/errors/error-hierarchy/) on `.reasonCode`. The client maps the
 policy codes down to five:
 
 | `PolicyDenyCode` (read-only) | `DeclineReasonCode` (`catch`) |
 | --- | --- |
-| `SESSION_EXPIRED` | `SESSION_EXPIRED` (terminal — restart/extend the TTL, don't retry) |
+| `SESSION_EXPIRED` | `SESSION_EXPIRED` (terminal: restart/extend the TTL, don't retry) |
 | `WINDOW_TOTAL` / `WINDOW_COUNT` | `OUTSIDE_WINDOW` |
 | `MAX_TOTAL` / `MAX_TOTAL_DENOM` / `MAX_PAYMENTS` | `BUDGET` |
 | `CHAIN` / `HOST` / `UNKNOWN_TOKEN` / `TOKEN` / `MAX_AMOUNT` | `POLICY` |
@@ -198,7 +198,7 @@ try {
 } catch (err) {
   if (err instanceof PaymentDeclinedError) {
     console.log(err.reasonCode) // 'POLICY' | 'BUDGET' | 'OUTSIDE_WINDOW' | 'SESSION_EXPIRED' | 'APPROVAL'
-    if (err.reasonCode === 'SESSION_EXPIRED' || err.reasonCode === 'APPROVAL') return // terminal — don't retry
+    if (err.reasonCode === 'SESSION_EXPIRED' || err.reasonCode === 'APPROVAL') return // terminal, don't retry
   } else {
     throw err
   }

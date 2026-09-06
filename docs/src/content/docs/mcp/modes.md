@@ -1,6 +1,6 @@
 ---
-title: "Modes — headless & supervised"
-description: How the MCP server decides whether to pay — Mode A where the spend policy is the consent, and the opt-in Mode B that asks a human to approve each payment.
+title: "Modes: headless & supervised"
+description: How the MCP server decides whether to pay. Mode A makes the spend policy the consent; the opt-in Mode B asks a human to approve each payment.
 sidebar:
   order: 6
 ---
@@ -13,11 +13,11 @@ pays autonomously up to its caps with no per-payment prompt. **Mode B (supervise
 it additionally asks a human to approve each fund-moving payment, in the host's own UI, at the
 moment of spend.
 
-Mode B is **additive** — it layers on top of the policy, it never replaces it. The budget gate
+Mode B is **additive**: it layers on top of the policy and never replaces it. The budget gate
 always runs first; the confirmation only ever sees a payment that already passed it. There is no
 way to confirm your way past a spend cap.
 
-## Mode A — headless (default)
+## Mode A: headless (default)
 
 With no extra configuration, the server is headless. Every payment passes through the spend
 policy before any on-chain send; if it's within the caps, it settles without asking.
@@ -34,7 +34,7 @@ policy before any on-chain send; if it's within the caps, it settles without ask
 ```
 
 A payment that breaches the policy is refused **before any funds move**. The
-[`piprail_pay_request`](/mcp/tools/) tool doesn't throw — it returns a structured refusal the
+[`piprail_pay_request`](/mcp/tools/) tool doesn't throw. It returns a structured refusal the
 model can read and reason about (the SDK raises a `PaymentDeclinedError`, which the tool funnels
 into this object):
 
@@ -60,11 +60,11 @@ The policy is the leash, and the model can't loosen it. `PIPRAIL_MAX_AMOUNT`,
 already-gated client.
 :::
 
-## Mode B — supervised (`PIPRAIL_CONFIRM=1`)
+## Mode B: supervised (`PIPRAIL_CONFIRM=1`)
 
 Set `PIPRAIL_CONFIRM=1` to wire the SDK's `onBeforePay` seam to the MCP
 `server.elicitInput()` call. Now, after a payment clears the policy, the host (Claude Desktop,
-Cursor, …) shows a human a one-line approval form — and no funds move unless they explicitly
+Cursor, …) shows a human a one-line approval form, and no funds move unless they explicitly
 check approve.
 
 ```jsonc
@@ -77,20 +77,20 @@ check approve.
 }
 ```
 
-The prompt reads, for example (the network is shown as its CAIP-2 id — `eip155:8453` is Base):
+The prompt reads, for example (the network is shown as its CAIP-2 id, so `eip155:8453` is Base):
 
 ```text
 Approve paying 0.10 USDC to api.example.com on eip155:8453?
 ```
 
-Decline, cancel, or ignore it and the payment comes back as a clean refusal —
-`{ ok: false, declined: true, code: "PAYMENT_DECLINED", reasonCode: "APPROVAL" }` — with nothing
+Decline, cancel, or ignore it and the payment comes back as a clean refusal,
+`{ ok: false, declined: true, code: "PAYMENT_DECLINED", reasonCode: "APPROVAL" }`, with nothing
 spent.
 
-### What the prompt shows — and never shows
+### What the prompt shows, and never shows
 
 The confirmation form is built only from the quote's own non-secret fields. It is **secret-free
-by construction**: no wallet key, no RPC URL, not even the full URL — only the **host** (the
+by construction**: no wallet key, no RPC URL, not even the full URL, only the **host** (the
 path can carry query-string secrets).
 
 | Shown | Withheld |
@@ -98,19 +98,19 @@ path can carry query-string secrets).
 | Amount + token symbol | Wallet key / seed |
 | Recipient **host** (not the full URL) | RPC URL |
 | Network (chain) | Query-string params |
-| An unverified-token warning, where the symbol can't be confirmed on-chain | — |
+| An unverified-token warning, where the symbol can't be confirmed on-chain | none |
 
 :::caution
 A token the SDK can't verify is **flagged** in the prompt and shown by its on-chain asset id,
 not by a symbol the server merely claims. Mode B exists for exactly this kind of human vigilance
-— if you see the warning, look before you approve.
+vigilance: if you see the warning, look before you approve.
 :::
 
 ## Fail-safe: silence is "no"
 
-Mode B refuses by default. Only an explicit approval authorises a payment; everything else —
+Mode B refuses by default. Only an explicit approval authorises a payment; everything else,
 decline, cancel, a round-trip timeout, a dropped transport, a validation error, or **any** throw
-inside `elicitInput` — maps to *not paying*.
+inside `elicitInput`, maps to *not paying*.
 
 | Outcome | Result |
 | --- | --- |
@@ -118,7 +118,7 @@ inside `elicitInput` — maps to *not paying*.
 | Decline / cancel | `{ declined: true, reasonCode: "APPROVAL", … }` |
 | Timeout / transport drop / error | `{ declined: true, reasonCode: "APPROVAL", … }` |
 
-The approval window defaults to 55 seconds — deliberately just under the MCP client's 60-second
+The approval window defaults to 55 seconds, deliberately just under the MCP client's 60-second
 call timeout, so a slow human times out *inside* the elicitation and the decline reaches the
 agent as a clean refusal rather than an opaque transport error. To give a human longer to
 deliberate, raise both `PIPRAIL_CONFIRM_TIMEOUT_MS` **and** your MCP client's own request
@@ -131,7 +131,7 @@ timeout.
 ## Degrades silently on clients that can't elicit
 
 Elicitation is a *client* capability. The server detects it at pay-time: a host that doesn't
-advertise the elicitation form (or any elicitation at all) **silently degrades to Mode A** — the
+advertise the elicitation form (or any elicitation at all) **silently degrades to Mode A**. The
 payment proceeds under the policy alone, and the agent is never blocked by a prompt the host
 can't render. Mode B never weakens the budget; degrading just drops the extra ask.
 
@@ -143,7 +143,7 @@ connects. Check your client's MCP support before relying on Mode B for hands-on 
 
 ## Choosing a mode
 
-| | Mode A — headless | Mode B — supervised |
+| | Mode A, headless | Mode B, supervised |
 | --- | --- | --- |
 | Trigger | default | `PIPRAIL_CONFIRM=1` |
 | Per-payment human approval | no | yes (where the host can elicit) |
@@ -151,5 +151,5 @@ connects. Check your client's MCP support before relying on Mode B for hands-on 
 | Best for | unattended agents, CI, servers | a person at the keyboard, larger or rare spends |
 
 Mode A suits an agent running unattended within a tight budget. Mode B suits a human in the loop
-who wants eyes on each spend — and falls back to Mode A automatically wherever the host can't ask.
+who wants eyes on each spend, and it falls back to Mode A automatically wherever the host can't ask.
 In both modes the [spend policy](/spend-controls/payment-policy/) is the floor that always holds.

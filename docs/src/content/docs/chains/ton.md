@@ -1,6 +1,6 @@
 ---
 title: "Accept USDT payments on TON"
-description: 'Take and make payments on TON (the Telegram blockchain) in USD₮ or native Gram (formerly Toncoin) — the one chain that needs a free RPC API key.'
+description: 'Take and make payments on TON (the Telegram blockchain) in USD₮ or native Gram (formerly Toncoin), the one chain that needs a free RPC API key.'
 sidebar:
   label: TON
   order: 3
@@ -8,7 +8,7 @@ sidebar:
 
 ## Introduction
 
-TON (The Open Network, the Telegram blockchain) is a non-EVM family. Name it — `chain: 'ton'` —
+TON (The Open Network, the Telegram blockchain) is a non-EVM family. Name it with `chain: 'ton'`
 and the driver **auto-mounts on first use**, so a pure-EVM or Solana install never downloads the
 TON libraries. The protocol layer is unchanged; only the wallet shape and one RPC caveat differ.
 
@@ -20,11 +20,11 @@ requirePayment({ chain: 'ton', token: 'USDT', amount: '0.10', payTo: 'EQ…' })
 
 ## TON, Gram & the network id
 
-Three names show up on this chain — here's the map, because it trips people up:
+Three names show up on this chain. Here's the map, because it trips people up:
 
 | What | Value | Stays the same? |
 | --- | --- | --- |
-| **Network** (the blockchain) | The Open Network — **TON** | ✅ Select it with `chain: 'ton'`. |
+| **Network** (the blockchain) | The Open Network, **TON** | ✅ Select it with `chain: 'ton'`. |
 | **Native coin** (the token) | **Gram** · ticker `GRAM` | 🔁 Renamed from *Toncoin* (`TON`) on **2026-06-15**. |
 | **CAIP-2 network id** (on the wire) | **`tvm:-239`** | ✅ The canonical id x402 tooling matches on. |
 
@@ -32,7 +32,7 @@ Three names show up on this chain — here's the map, because it trips people up
 
 On **2026-06-15**, a TON community governance vote renamed the native token **Toncoin → Gram** and
 its ticker **`TON` → `GRAM`**. It is a *presentation-layer* change: balances, addresses, smart
-contracts, jettons, and staking are untouched — **no migration, swap, or bridge**. So in the SDK,
+contracts, jettons, and staking are untouched, with **no migration, swap, or bridge**. So in the SDK,
 `chain: 'ton'` and `token: 'native'` are exactly as before; the only difference is that the native
 coin's **symbol now reads `GRAM`** (e.g. a 402's `extra.symbol`, and `estimateCost`'s `feeSymbol`).
 USD₮ and every other jetton are unaffected.
@@ -40,22 +40,22 @@ USD₮ and every other jetton are unaffected.
 ### The network id is `tvm:-239` (not `ton:-239`)
 
 Every x402 payment labels its chain with a [CAIP-2](https://chainagnostic.org/CAIPs/caip-2)
-identifier — a universal `namespace:reference` string that lets any wallet, facilitator, or
+identifier: a universal `namespace:reference` string that lets any wallet, facilitator, or
 discovery index agree on **which chain** a payment is on. For TON mainnet that is **`tvm:-239`**:
 
-- **`tvm`** — the namespace for the **T**ON **V**irtual **M**achine family, per the
+- **`tvm`** is the namespace for the **T**ON **V**irtual **M**achine family, per the
   [chain-agnostic registry](https://namespaces.chainagnostic.org/tvm/caip2). (There is **no** `ton`
-  namespace — that was a non-canonical id some tools, PipRail included, used early on.)
-- **`-239`** — TON mainnet's *network global id*, a constant carried in every TON block. (Testnet is `-3`.)
+  namespace; that was a non-canonical id some tools, PipRail included, used early on.)
+- **`-239`** is TON mainnet's *network global id*, a constant carried in every TON block. (Testnet is `-3`.)
 
 PipRail emits the canonical **`tvm:-239`** so its TON 402s are matchable by standard x402 clients and
 discovery indexes; an inbound challenge that still uses the legacy `ton:-239` is accepted and
 normalized on parse, so nothing breaks either way. (Unrelated: the SDK-internal proof **locator**
-`ton:<jetton-wallet>|<nonce>` is a private string, **not** the network id — it is unchanged.)
+`ton:<jetton-wallet>|<nonce>` is a private string, **not** the network id, and it is unchanged.)
 
 ## Install the peer dependency
 
-The TON libraries are optional peer deps — install them once and the lazy import finds them:
+The TON libraries are optional peer deps. Install them once and the lazy import finds them:
 
 ```bash
 npm install @ton/ton @ton/core @ton/crypto
@@ -64,8 +64,8 @@ npm install @ton/ton @ton/core @ton/crypto
 ## The wallet
 
 A TON wallet is `{ key }`, where `key` is a 24-word mnemonic (a `string[]` or one space-separated
-string) — or a ready `{ keyPair }`. The wallet contract defaults to `v4`; pass `version: 'v5r1'`
-for a W5 wallet — it **must match** the version your funded address was created with.
+string), or a ready `{ keyPair }`. The wallet contract defaults to `v4`; pass `version: 'v5r1'`
+for a W5 wallet, and it **must match** the version your funded address was created with.
 
 ```ts
 import { PipRailClient } from '@piprail/sdk'
@@ -95,7 +95,7 @@ new PipRailClient({ chain: 'ton', wallet: { key: mnemonic }, rpcUrl })
 
 :::tip
 Free keys take about 30 seconds: message **@tonapibot** on Telegram, or sign up at
-toncenter.com. Skip the key and you'll hit rate limits; add it and TON is as seamless as every
+toncenter.com. Skip the key and you'll hit rate limits; add it and TON behaves like every
 other chain.
 :::
 
@@ -107,7 +107,7 @@ Name the symbol; the SDK fills in the jetton master and decimals.
 | --- | --- | --- |
 | `'USDT'` | Yes | USD₮ (Tether-native, dominant on TON). Master + 6 decimals verified on-chain. |
 | `'native'` | Yes | Gram (ticker `GRAM`, formerly Toncoin/`TON`), 9 decimals (nanoton). |
-| custom jetton | — | Any other jetton via `{ master, decimals }` (e.g. USDe). |
+| custom jetton | n/a | Any other jetton via `{ master, decimals }` (e.g. USDe). |
 
 ```ts
 // A custom jetton is { master, decimals }:
@@ -115,17 +115,17 @@ requirePayment({ chain: 'ton', token: { master: 'EQ…', decimals: 6 }, amount: 
 ```
 
 :::caution
-**Native USDC does not exist on TON** — Circle doesn't issue it there, so it's intentionally
+**Native USDC does not exist on TON.** Circle doesn't issue it there, so it's intentionally
 absent and `token: 'USDC'` throws [`UnknownTokenError`](/errors/error-hierarchy/). Pay in
 `'USDT'`, `'native'`, or a custom jetton.
 :::
 
-## Receive prerequisite — none
+## Receive prerequisite: none
 
 The merchant needs no setup. The payer's attached gas (~0.05 GRAM, leftover refunded)
 auto-deploys the merchant's jetton wallet on first receipt, so there's no trustline or opt-in to
-register — `planPayment()` won't raise `RECIPIENT_NOT_READY` for TON. The payer, however,
-**needs GRAM (the native coin) for gas** even when paying USD₮ — budget it with
+register, so `planPayment()` won't raise `RECIPIENT_NOT_READY` for TON. The payer, however,
+**needs GRAM (the native coin) for gas** even when paying USD₮. Budget it with
 [`estimateCost()`](/making-payments/estimate-cost/), which reports the fee in the native coin.
 
 ```ts
@@ -150,7 +150,7 @@ try {
   console.log(await res.text())
 } catch (err) {
   if (err instanceof InsufficientFundsError) {
-    // fund the payer — USD₮ for the payment, and GRAM for gas
+    // fund the payer: USD₮ for the payment, and GRAM for gas
     console.error('Top up the TON wallet (USD₮ and/or GRAM gas):', err.message)
   } else {
     throw err
@@ -171,15 +171,15 @@ if (!plan) {
 }
 ```
 
-## Proof binding — Template A (memo-bound)
+## Proof binding: Template A (memo-bound)
 
 TON uses [Template A](/concepts/proof-binding/): the challenge nonce rides in the jetton transfer
-**comment**, and `verify()` matches it on the merchant's own jetton wallet — so a look-alike
+**comment**, and `verify()` matches it on the merchant's own jetton wallet, so a look-alike
 jetton can't satisfy the gate, and the proof is cryptographically bound to the challenge that
 issued it.
 
 :::note
-TON settles **asynchronously** — value crosses contracts, so a credit can take seconds to appear.
+TON settles **asynchronously**, because value crosses contracts, so a credit can take seconds to appear.
 Because of that the proof ref is a self-contained **locator** (`ton:<jetton-wallet>|<nonce>`), not
 a tx hash. `verify()` re-derives every checked field from the trusted `accept`, never the
 client-supplied ref.
@@ -188,7 +188,7 @@ client-supplied ref.
 :::note[Jetton credits require a successful VM compute]
 A **jetton** credit only counts if the merchant's jetton wallet actually *executed* the transfer:
 `verify()` requires a successful `vm` compute phase. This rejects a forged `internal_transfer` body
-sent to a **not-yet-deployed** merchant jetton wallet — it lands `aborted=false` with a *skipped*
+sent to a **not-yet-deployed** merchant jetton wallet: it lands `aborted=false` with a *skipped*
 compute (no code ran) and credits nothing, so the forged amount can't satisfy the gate. A **native
 GRAM** transfer is exempt: value moves on message delivery regardless of the recipient's compute
 phase (so a brand-new payTo can still receive native).
@@ -196,7 +196,7 @@ phase (so a brand-new payTo can still receive native).
 
 ## Server-side only
 
-TON's libraries don't ship a clean browser ESM build yet, so run the TON path **server-side** —
+TON's libraries don't ship a clean browser ESM build yet, so run the TON path **server-side**:
 the identical one line, on Node, Bun, Deno, or Workers. The lazy import means a pure-EVM page
 never downloads them. See [Chains & tokens](/concepts/chains-and-tokens/) for the full
 cross-chain caveat list.

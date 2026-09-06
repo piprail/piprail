@@ -5,14 +5,14 @@
   --color-fg: oklch(0.985 0 0);
   --color-muted: oklch(0.62 0.01 260);
   --color-line: oklch(1 0 0 / 0.08);
-  --color-accent: oklch(0.78 0.17 162);        /* emerald — "paid" */
+  --color-accent: oklch(0.78 0.17 162);        /* emerald = "paid" */
   --color-accent-soft: oklch(0.78 0.17 162 / 0.12);
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", "Menlo", monospace;
   --font-display: "Space Grotesk", "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
-/* Display face for headings — a geometric grotesk that gives headers their own
+/* Display face for headings: a geometric grotesk that gives headers their own
    voice against the Inter body + JetBrains Mono code (site-wide; the `font-display`
    utility is also available for one-offs like the footer wordmark). */
 h1, h2 {
@@ -30,14 +30,14 @@ html {
 
 /* Contain the decorative, full-bleed background art (the wide .hero-orb glows and
    drifting particles are absolutely positioned and intentionally over-sized) so it
-   can never push the layout sideways on narrow screens. `clip` — not `hidden` — so
+   can never push the layout sideways on narrow screens. `clip`, not `hidden`, so
    it doesn't become a scroll container and break `position: sticky` (the FAQ aside). */
 html, body {
   overflow-x: clip;
   max-width: 100%;
 }
 
-/* Hero ambience — two slow-drifting emerald/blue glow orbs behind the header give the
+/* Hero ambience: two slow-drifting emerald/blue glow orbs behind the header give the
    background gentle life (it's the first thing visitors see). Subtle + slow; the static
    grid sits in front. Honors reduced-motion (the orbs hold still). */
 .hero-orb {
@@ -64,7 +64,7 @@ html, body {
 }
 @media (prefers-reduced-motion: reduce) { .hero-orb { animation: none; opacity: 0.9; } }
 
-/* Hero particles — faint emerald specks drifting far in the background, like distant
+/* Hero particles: faint emerald specks drifting far in the background, like distant
    stars. Decorative; tiny + low-opacity so they read as deep background. Each <i> gets
    its position/size/timing inline; three drift keyframes keep them out of sync. */
 .hero-dots { position: absolute; inset: 0 0 auto 0; height: 760px; z-index: -1; pointer-events: none; overflow: hidden; }
@@ -85,7 +85,7 @@ html, body {
   color: var(--color-bg);
 }
 
-/* ── Surfaces — subtle card depth ──────────────────────────────────────────
+/* ── Surfaces: subtle card depth ──────────────────────────────────────────
    Restrained on purpose: a quiet top-down gradient, a 1px top edge-light, and a
    soft ambient lift, so panels read as crafted surfaces while the accent
    sections (demo/MCP) still lead. `card` = a full surface (gradient + border +
@@ -106,7 +106,7 @@ html, body {
     0 16px 36px -20px oklch(0 0 0 / 0.55);
 }
 
-/* Soft emerald halo under the primary (accent) CTAs — premium lift, deepens on hover. */
+/* Soft emerald halo under the primary (accent) CTAs. Premium lift, deepens on hover. */
 .cta-glow { box-shadow: 0 10px 34px -12px oklch(0.78 0.17 162 / 0.55); }
 .cta-glow:hover { box-shadow: 0 12px 40px -10px oklch(0.78 0.17 162 / 0.72); }
 
@@ -114,7 +114,7 @@ html, body {
 pre::-webkit-scrollbar { height: 6px; }
 pre::-webkit-scrollbar-thumb { background: oklch(1 0 0 / 0.12); border-radius: 999px; }
 
-/* Code-token colors — one word (the chain) is amber so the eye lands on it. */
+/* Code-token colors: one word (the chain) is amber so the eye lands on it. */
 .tok-kw    { color: oklch(0.62 0.01 260); }
 .tok-str   { color: oklch(0.84 0.13 162); }
 .tok-fn    { color: oklch(0.8 0.11 235); }
@@ -122,10 +122,10 @@ pre::-webkit-scrollbar-thumb { background: oklch(1 0 0 / 0.12); border-radius: 9
 .tok-num   { color: oklch(0.8 0.12 25); }
 .tok-com   { color: oklch(0.5 0.01 260); font-style: italic; }
 
-/* ── Chain marquee — two lanes drifting opposite ways, edge-faded so chips slip
+/* ── Chain marquee: two lanes drifting opposite ways, edge-faded so chips slip
    in and out at the sides. Pure CSS transform (GPU-cheap); pauses on hover and
    for reduced-motion. Each lane holds two identical copies, so translateX(-50%)
-   loops seamlessly. ── */
+   loops with no visible seam. ── */
 .marquee {
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
           mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
@@ -141,7 +141,7 @@ pre::-webkit-scrollbar-thumb { background: oklch(1 0 0 / 0.12); border-radius: 9
   .marquee { -webkit-mask-image: none; mask-image: none; }
 }
 
-/* Load-in motion — CSS only, no JS runtime. */
+/* Load-in motion: CSS only, no JS runtime. */
 @keyframes fade-up {
   from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: none; }

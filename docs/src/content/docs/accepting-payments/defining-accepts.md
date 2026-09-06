@@ -1,6 +1,6 @@
 ---
 title: Defining accepts
-description: The RequirePaymentOptions shape — single-rail shorthand or a multi-rail accept[] — that says exactly which chains, tokens, and amounts a gate will take.
+description: The RequirePaymentOptions shape, either single-rail shorthand or a multi-rail accept[], that says exactly which chains, tokens, and amounts a gate will take.
 sidebar:
   order: 2
 ---
@@ -10,8 +10,8 @@ sidebar:
 `RequirePaymentOptions` is the one object you pass to
 [`requirePayment`](/accepting-payments/require-payment-and-gate/) or
 [`createPaymentGate`](/accepting-payments/require-payment-and-gate/). It declares **what you
-accept**: which chain, which token, how much, and where the money lands. There are two forms —
-a single-rail shorthand and a multi-rail `accept[]` — and you pass exactly one of them.
+accept**: which chain, which token, how much, and where the money lands. There are two forms,
+a single-rail shorthand and a multi-rail `accept[]`, and you pass exactly one of them.
 
 ## Single-rail shorthand
 
@@ -24,7 +24,7 @@ import { requirePayment } from '@piprail/sdk'
 requirePayment({ chain: 'base', token: 'USDC', amount: '0.10', payTo: '0xYourWallet' })
 ```
 
-`token` is required — every gate states exactly what it takes, so there's never any doubt
+`token` is required. Every gate states exactly what it takes, so there's never any doubt
 whether a route wants USDC, USDT, or the native coin. Name a built-in symbol (`'USDC'`,
 `'USDT'`), use `'native'` for the chain's own coin, or pass a custom token by address. The
 symbol is all you write; the SDK fills in the contract address and decimals.
@@ -35,14 +35,14 @@ requirePayment({ chain: 'base',   token: 'native', amount: '0.001', payTo: '0xYo
 requirePayment({ chain: 'solana', token: 'USDC',   amount: '0.10',  payTo: 'YourSolanaAddr' })
 ```
 
-`amount` is **human units**, given as a **plain-decimal string** — `'0.10'` is ten cents of a
+`amount` is **human units**, given as a **plain-decimal string**: `'0.10'` is ten cents of a
 6-decimal USDC, not ten base units. The SDK scales it to base units against the token's decimals,
 so you never write `100000`. It must be a literal decimal: **scientific notation (`'1e3'`) is
 rejected** with an [`InvalidConfigError`](/errors/error-hierarchy/), never silently read as `1000`.
 See [Chains and tokens](/concepts/chains-and-tokens/) for the full token grammar and custom-token
 descriptors per family.
 
-## Multi-rail — `accept[]`
+## Multi-rail: `accept[]`
 
 To offer **several rails in one challenge**, pass `accept[]`. The agent pays with whatever it
 holds, on whichever of the offered chains it can settle.
@@ -64,9 +64,9 @@ requirePayment({
 })
 ```
 
-The two forms are **mutually exclusive** — pass `accept[]` *or* top-level
+The two forms are **mutually exclusive**. Pass `accept[]` *or* top-level
 `chain`/`token`/`amount`, never both. Passing both, or neither in full, throws a clear `Error` on
-the **first request** (the gate resolves lazily, not at construction time) — under `requirePayment`
+the **first request** (the gate resolves lazily, not at construction time). Under `requirePayment`
 that error is forwarded to `next(err)`.
 
 ### Per-rail overrides and fallbacks
@@ -89,12 +89,12 @@ chain.
 
 Each rail also resolves through its **own** driver with its **own** `rpcUrl`, so one throttled
 public RPC can't take down verification for the others. In production, set `rpcUrl` on every rail
-— public endpoints are rate-limited. The `rpcUrl` is used server-side only; it is never leaked
+because public endpoints are rate-limited. The `rpcUrl` is used server-side only; it is never leaked
 into the challenge.
 
 ## How the client picks
 
-A [`PipRailClient`](/making-payments/piprail-client/) is bound to **one** chain — its own `chain`
+A [`PipRailClient`](/making-payments/piprail-client/) is bound to **one** chain: its own `chain`
 plus wallet. When it receives a multi-rail challenge it picks the offered rail whose network it
 supports **and** whose [spend policy](/spend-controls/payment-policy/) allows, pays that one, and
 ignores the rest. With [`autoRoute`](/making-payments/fetch-and-autoroute/) on it pays the
@@ -103,12 +103,12 @@ ranking first. To compare cost across chains yourself, point one client per chai
 and compare their [`estimateCost()`](/making-payments/estimate-cost/) results.
 
 On the gate side, verification selects the matching rail by **network + asset** and re-derives
-every checked field from its own trusted spec — a forged echo of the offered terms can't redirect
+every checked field from its own trusted spec, so a forged echo of the offered terms can't redirect
 it. See [Verifying payments](/accepting-payments/verifying-payments/).
 
 ## Describing the charge
 
-`description` is shown to the agent inside the challenge — a short human label for what the
+`description` is shown to the agent inside the challenge, a short human label for what the
 payment buys.
 
 ```ts
@@ -122,7 +122,7 @@ requirePayment({
 
 | Option | Default | Purpose |
 | --- | --- | --- |
-| `maxTimeoutSeconds` | `600` | Max age of an accepted payment, in seconds — how long a challenge stays valid. |
+| `maxTimeoutSeconds` | `600` | Max age of an accepted payment, in seconds. How long a challenge stays valid. |
 | `minConfirmations` | `1` | Confirmations required on-chain before access is granted. |
 
 ```ts

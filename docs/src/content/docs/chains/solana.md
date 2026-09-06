@@ -1,6 +1,6 @@
 ---
 title: "Accept USDC payments on Solana"
-description: 'Accept and pay x402 payments on Solana — SOL, USDC, and USDT — with one lazy peer dep, a Keypair wallet, digest-bound on-chain verification.'
+description: 'Accept and pay x402 payments on Solana in SOL, USDC, and USDT, with one lazy peer dep, a Keypair wallet, and digest-bound on-chain verification.'
 sidebar:
   label: Solana
   order: 2
@@ -8,7 +8,7 @@ sidebar:
 
 ## Introduction
 
-Solana works exactly like an EVM chain — you name it. The driver **auto-mounts** on first use
+Solana works exactly like an EVM chain: you name it. The driver **auto-mounts** on first use
 via a single lazy import, so a pure-EVM install never downloads the Solana libraries. The only
 setup is installing the peer dependencies, and there is **no receiver prerequisite**: the
 payer's transaction idempotently creates the recipient's token account for you.
@@ -28,7 +28,7 @@ import { requirePayment } from '@piprail/sdk'
 requirePayment({ chain: 'solana', token: 'USDC', amount: '0.10', payTo: 'YourSolanaAddr' })
 ```
 
-The driver mounts on first use — there is no setup call. See
+The driver mounts on first use, so there is no setup call. See
 [requirePayment & createPaymentGate](/accepting-payments/require-payment-and-gate/) for the
 full server side.
 
@@ -45,7 +45,7 @@ const client = new PipRailClient({
 })
 
 const res = await client.fetch('https://api.example.com/report')
-// → a normal Response — the 402 was paid and retried transparently
+// → a normal Response. The 402 was paid and retried transparently
 const report = await res.json()
 ```
 
@@ -73,7 +73,7 @@ See [Wallets by family](/making-payments/wallets-by-family/) for every family's 
 | `{ mint, decimals }` | Any other SPL token, by mint | as given |
 
 USDC and USDT are pre-filled with their canonical mints, so you never paste a mint address. Any
-other SPL token works by passing `{ mint, decimals }` — no allowlist.
+other SPL token works by passing `{ mint, decimals }`, with no allowlist.
 
 ```ts
 // A custom SPL token by mint:
@@ -81,48 +81,48 @@ const payTo = 'YourSolanaAddr'
 requirePayment({ chain: 'solana', token: { mint: 'EPjF…Dt1v', decimals: 6 }, amount: '0.10', payTo })
 ```
 
-## Gasless — the standard `exact` rail
+## Gasless: the standard `exact` rail
 
 Solana supports the ratified x402 **`exact`** scheme (the `svm` method), so any standard x402 client
-can pay your gate **and** the buyer spends **zero SOL**. It works for **any SPL token** — USDC and
-**USDT alike** — because the gasless-ness comes from the transaction's **fee payer**, not from a token
+can pay your gate **and** the buyer spends **zero SOL**. It works for **any SPL token**, USDC and
+**USDT alike**, because the gasless-ness comes from the transaction's **fee payer**, not from a token
 feature (there is no EIP-3009/Permit2 equivalent on Solana, and none is needed).
 
-**Fully gasless via a facilitator (recommended)** — neither buyer nor merchant pays SOL; the
+**Fully gasless via a facilitator (recommended).** Neither buyer nor merchant pays SOL; the
 facilitator (e.g. [PayAI](https://facilitator.payai.network/), no API key) sponsors the gas. The gate
 discovers the facilitator's fee-payer pubkey from its `GET /supported` automatically. **Live-proven on
 mainnet.**
 
 ```ts
-// Seller — fully gasless. No relayer, no SOL.
+// Seller: fully gasless. No relayer, no SOL.
 requirePayment({
   chain: 'solana', token: 'USDC', amount: '0.05', payTo: 'YourReceiveAddr',
   exact: { settle: { facilitator: 'https://facilitator.payai.network' } },
 })
 
-// Or self-settle with your own relayer (fee payer ≠ payTo) — your relayer pays the sub-cent fee:
+// Or self-settle with your own relayer (fee payer ≠ payTo). Your relayer pays the sub-cent fee:
 //   exact: { settle: 'self', relayer: { key: process.env.SOLANA_RELAYER_KEY } }
 
-// Buyer — opt in; the client signs the transfer, the sponsor pays the fee.
+// Buyer: opt in. The client signs the transfer, the sponsor pays the fee.
 new PipRailClient({ chain: 'solana', wallet, schemes: ['onchain-proof', 'exact'] })
 ```
 
-The buyer partial-signs the canonical `[cu-limit, cu-price, TransferChecked, Memo]` transaction — adding a
-spec-required SPL-Memo (the rail's `extra.memo`, else a random hex nonce) for transaction uniqueness — and
+The buyer partial-signs the canonical `[cu-limit, cu-price, TransferChecked, Memo]` transaction, adding a
+spec-required SPL-Memo (the rail's `extra.memo`, else a random hex nonce) for transaction uniqueness, and
 leaves the fee-payer slot empty; the facilitator (or your relayer) co-signs as fee payer and broadcasts. The
-buyer needs only the token (zero SOL). The recipient's **token account must already exist** — the exact rail
+buyer needs only the token (zero SOL). The recipient's **token account must already exist**, because the exact rail
 won't create it (a brand-new recipient is payable on `onchain-proof`, which does). Native **SOL** is not
 exact-payable.
 
 Because the fee payer (the facilitator, or your self-settle relayer) co-signs a buyer-built transaction,
 the gate enforces the scheme's fee-payer safety rules (the fee payer in no instruction, never a program,
 never drained) **and caps the compute budget** before co-signing (`MAX_COMPUTE_UNIT_LIMIT` = 300 000 units,
-`MAX_COMPUTE_UNIT_PRICE_MICROLAMPORTS` = 100 000) — so a buyer can't inflate the fee to drain the sponsor.
-See [sponsor protection](/making-payments/gasless-payments/#sponsor-protection--the-fee-drain-guard). Full
+`MAX_COMPUTE_UNIT_PRICE_MICROLAMPORTS` = 100 000), so a buyer can't inflate the fee to drain the sponsor.
+See [sponsor protection](/making-payments/gasless-payments/#sponsor-protection-the-fee-drain-guard). Full
 details: [Gasless payments](/making-payments/gasless-payments/) ·
 [exact rail (buyer)](/making-payments/exact-buyer/) · [exact rail (seller)](/accepting-payments/exact-rail-seller/).
 
-## Receiver setup — none
+## Receiver setup: none
 
 Solana needs **no recipient prerequisite**. The payer's transaction idempotently creates the
 recipient's associated token account and pays its ~0.00204 SOL rent as part of the same
@@ -135,18 +135,18 @@ derives the associated token account itself.
 
 The payer needs SOL for gas plus a funded source token account for the SPL token being sent.
 
-## Proof binding — digest-bound (Template B)
+## Proof binding: digest-bound (Template B)
 
 Solana uses **Template B**: the payment proof is the transaction signature, and `verify()` reads
 the transaction back from your RPC to prove it. It re-derives every checked field from the
 trusted `accept`, never the client-supplied reference, and confirms four things:
 
 - the transaction **exists and succeeded** (`meta.err === null`);
-- it is **recent** — its `blockTime` falls inside the `maxTimeoutSeconds` window (a missing
+- it is **recent**, meaning its `blockTime` falls inside the `maxTimeoutSeconds` window (a missing
   `blockTime` fails closed, not open);
 - it actually **moved at least `amount`** of the asset to `payTo`, proven from the
   transaction's own balance deltas (`pre/postTokenBalances` for SPL, `pre/postBalances` for
-  SOL) — the same way Solana Pay's `validateTransfer` does, robust to however the transfer was
+  SOL), the same way Solana Pay's `validateTransfer` does, robust to however the transfer was
   built;
 - the signature is **single-use** against the proof set.
 
@@ -158,7 +158,7 @@ Because the proof is single-use, multi-instance deployments should plug in a per
 ## Planning a payment before you spend
 
 `planPayment(url)` reads balances, gas, and recipient readiness on-chain and tells you whether a
-rail is settleable — without paying and without throwing. On Solana "I hold USDC but no SOL for
+rail is settleable, without paying and without throwing. On Solana "I hold USDC but no SOL for
 gas" surfaces as an `INSUFFICIENT_GAS` blocker rather than a failed broadcast. It returns
 `PaymentPlan | null` (`null` when the URL isn't payment-gated), so null-guard the result first.
 
@@ -167,9 +167,9 @@ const url = 'https://api.example.com/report'
 const plan = await client.planPayment(url)
 
 if (!plan) {
-  await client.fetch(url) // not payment-gated — fetch it for free
+  await client.fetch(url) // not payment-gated, so fetch it for free
 } else if (plan.payable) {
-  await client.fetch(url) // safe — we checked
+  await client.fetch(url) // safe, we checked
 } else {
   console.log(plan.fundingHint) // one human-readable line: what to top up (SOL gas, or the token)
 }
@@ -180,7 +180,7 @@ See [planPayment()](/making-payments/plan-payment/) for the full `PaymentPlan` s
 ## When a payment can't go through
 
 Affordability always converges on one typed
-[`InsufficientFundsError`](/errors/error-hierarchy/) (`.code === 'INSUFFICIENT_FUNDS'`) — whether
+[`InsufficientFundsError`](/errors/error-hierarchy/) (`.code === 'INSUFFICIENT_FUNDS'`), whether
 you're short on the **token** or short on **SOL for gas**. On Solana the gas-token shortfall is
 the headline trap: you hold USDC but no SOL to send it. Catch it and read the `.code`:
 
@@ -193,7 +193,7 @@ try {
   const report = await res.json()
 } catch (err) {
   if (err instanceof PipRailError && err.code === 'INSUFFICIENT_FUNDS') {
-    // out of USDC, or out of SOL for gas — fund the payer and retry
+    // out of USDC, or out of SOL for gas. Fund the payer and retry
     console.error('Payer is short:', err.message)
   } else {
     throw err
@@ -210,7 +210,7 @@ spend, call [`planPayment()`](/making-payments/plan-payment/): it distinguishes 
 ## RPC
 
 The built-in default RPC (`api.mainnet-beta.solana.com`) is rate-limited. **Pass your own
-`rpcUrl`** in production — there is no separate API-key field, so fold any key into the URL.
+`rpcUrl`** in production. There is no separate API-key field, so fold any key into the URL.
 
 ```ts
 requirePayment({

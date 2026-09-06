@@ -41,4 +41,22 @@ describe('exact-family enumerations name all five families (EVM, Solana, Algoran
     expect(guide).toContain('EVM, Solana, Algorand, Aptos + NEAR')
     expect(guide).not.toContain('EVM, Solana + Algorand')
   })
+
+  /*
+   * XRPL (stage 04) is the SIXTH exact family and the first that breaks the "exact means gasless"
+   * shorthand these strings lean on: there the fee is a field inside the signed transaction, so the
+   * PAYER pays it. An agent that reads "exact ⇒ you need no native coin" and holds zero XRP would
+   * simply fail to pay. So the capability wording must name XRPL, and the gasless wording must NOT
+   * quietly absorb it — those pull in opposite directions, which is exactly why both are asserted.
+   */
+  it('client.ts + agentGuide.ts name XRPL as an exact family', () => {
+    expect(client).toContain('NEAR + XRPL native XRP')
+    expect(guide).toContain('XRPL also supports exact')
+  })
+
+  it('the gasless claim is NOT widened to XRPL — the payer pays there', () => {
+    expect(guide).toContain('the\n  PAYER pays the network fee'.replace(/\n\s+/g, ' '))
+    // the in-SDK guide must say so in the same breath as the gasless promise
+    expect(guide).toMatch(/ZERO gas[\s\S]{0,600}PAYER pays the network fee/)
+  })
 })

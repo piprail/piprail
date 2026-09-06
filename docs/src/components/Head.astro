@@ -1,8 +1,8 @@
 ---
-// Starlight `Head` override — adds JSON-LD to every docs page.
+// Starlight `Head` override: adds JSON-LD to every docs page.
 //
 // WHY: Starlight ships no structured data at all. Measured 2026-08-27, all 91 pages on
-// docs.piprail.com emitted ZERO JSON-LD — 87% of PipRail's indexable surface, invisible
+// docs.piprail.com emitted ZERO JSON-LD. That is 87% of PipRail's indexable surface, invisible
 // as machine-readable entities to search and AI answer engines. Since the docs ARE the
 // citable asset for a developer product, that was the single biggest AEO gap we had.
 //
@@ -45,7 +45,7 @@ const breadcrumbLd = {
   })),
 }
 
-// TechArticle (not Article) — this is developer documentation, and the more specific
+// TechArticle (not Article), because this is developer documentation and the more specific
 // type is what gives an answer engine the confidence to quote it as a technical source.
 const articleLd = {
   '@context': 'https://schema.org',
@@ -116,7 +116,7 @@ const blocks = [articleLd, breadcrumbLd, websiteLd, organizationLd, softwareLd]
 //
 // docs.piprail.com is a SEPARATE property from piprail.com: the apex is verified as a
 // URL-prefix property (`https://piprail.com/`), which does NOT cover a subdomain. Without
-// this tag the 91 docs pages — 87% of our indexable surface — have no Search Console
+// this tag the 91 docs pages, 87% of our indexable surface, have no Search Console
 // coverage at all: no index reporting, no sitemap submission, no URL inspection.
 // Google issues one verification token per account, so this is the same value the apex uses.
 const GSC_VERIFICATION =
@@ -127,7 +127,7 @@ const GSC_VERIFICATION =
 const BING_VERIFICATION =
   import.meta.env.PUBLIC_BING_VERIFICATION ?? '4C2A94BD8695D97BC9033E2A6E5002D5'
 
-// GA4 — the docs stream of the SAME property as piprail.com (properties/551957171),
+// GA4, on the docs stream of the SAME property as piprail.com (properties/551957171),
 // so apex and docs traffic unify in one report instead of two disconnected ones.
 // Deferred + bot-gated exactly like the apex; see site/src/components/Analytics.astro
 // for the full reasoning.

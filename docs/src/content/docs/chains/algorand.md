@@ -1,6 +1,6 @@
 ---
 title: "Accept USDC payments on Algorand"
-description: Accept and pay x402 payments on Algorand — native ALGO (zero-setup) plus native Circle USDC, with the one-time ASA opt-in caveat for receiving USDC.
+description: Accept and pay x402 payments on Algorand in native ALGO (zero-setup) plus native Circle USDC, with the one-time ASA opt-in caveat for receiving USDC.
 sidebar:
   label: Algorand
   order: 8
@@ -9,7 +9,7 @@ sidebar:
 ## Introduction
 
 Algorand is a pure-PoS, payments-focused L1: ~3s single-step finality with no reorgs, and
-sub-cent fees. Name `chain: 'algorand'` and the driver **auto-mounts** on first use — a
+sub-cent fees. Name `chain: 'algorand'` and the driver **auto-mounts** on first use, so a
 pure-EVM install never downloads its library.
 
 Assets are ASAs (Algorand Standard Assets), identified by a numeric **asset id** rather than a
@@ -26,7 +26,7 @@ npm install algosdk
 
 ## Wallet shape
 
-An Algorand wallet is `{ key }`, where `key` is a 25-word Algorand recovery phrase — or a ready
+An Algorand wallet is `{ key }`, where `key` is a 25-word Algorand recovery phrase, or a ready
 `{ account }` (an algosdk `{ addr, sk }`, if you built the signer yourself):
 
 ```ts
@@ -44,7 +44,7 @@ family](/making-payments/wallets-by-family/) for every family's shape, and
 
 :::note
 The mnemonic field is named the same as TON's, but `chain: 'algorand'` routes here and the phrase
-is validated as a **25-word** Algorand mnemonic — a 24-word TON phrase is the wrong length and
+is validated as a **25-word** Algorand mnemonic, so a 24-word TON phrase is the wrong length and
 surfaces a clear `WrongFamilyError`.
 :::
 
@@ -54,8 +54,8 @@ Name a token by symbol, `'native'`, or a custom ASA:
 
 | `token` | What it is |
 | --- | --- |
-| `'native'` | Native ALGO (6 decimals, microAlgos). **Zero-setup** — no opt-in needed. |
-| `'USDC'` | Circle's native USDC (ASA `31566704`, 6dp) — verified live on mainnet before shipping. |
+| `'native'` | Native ALGO (6 decimals, microAlgos). **Zero-setup**, no opt-in needed. |
+| `'USDC'` | Circle's native USDC (ASA `31566704`, 6dp), verified live on mainnet before shipping. |
 | `{ assetId, decimals }` | Any other ASA, by numeric asset id. |
 
 ```ts
@@ -79,7 +79,7 @@ fails the issuer-native rule and is intentionally absent. You can still pass it 
 `{ assetId, decimals }` if you must.
 :::
 
-## Native ALGO — the zero-setup path
+## Native ALGO, the zero-setup path
 
 `token: 'native'` pays in ALGO and needs **no opt-in** at either end. It's the simplest way to
 charge on Algorand: name the chain, name the amount, get paid.
@@ -104,7 +104,7 @@ ALGO is ideal.
 
 ## Receiving USDC needs a one-time ASA opt-in
 
-Before an account can *receive* USDC — or any ASA — it must **opt into that asset** once: a
+Before an account can *receive* USDC, or any ASA, it must **opt into that asset** once: a
 0-amount asset-transfer to itself, which raises its minimum balance by 0.1 ALGO (locked, and
 recoverable). Without it, the payment fails. The payer is implicitly opted-in if it already
 holds USDC.
@@ -116,13 +116,13 @@ holds USDC.
 ```ts
 const plan = await client.planPayment('https://api.example.com/report')
 if (!plan) {
-  // not payment-gated — nothing to plan
+  // not payment-gated, so nothing to plan
 } else if (!plan.payable) {
   console.log(plan.fundingHint)  // → "must opt into the USDC ASA" etc.
 }
 ```
 
-The opt-in is plain `algosdk` — PipRail stays a payments SDK, not a wallet manager. Run it once
+The opt-in is plain `algosdk`, because PipRail stays a payments SDK rather than a wallet manager. Run it once
 per account, per ASA:
 
 ```ts
@@ -141,16 +141,16 @@ const optIn = algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
 await algod.sendRawTransaction(optIn.signTxn(account.sk)).do()  // one-time, per account per ASA
 ```
 
-The payer needs a little **ALGO for gas** on the `onchain-proof` rail — fees are a flat 0.001 ALGO. On
+The payer needs a little **ALGO for gas** on the `onchain-proof` rail, where fees are a flat 0.001 ALGO. On
 the gasless **`exact`** rail (below) the payer needs **no ALGO at all**.
 
-## Gasless — the `exact` rail (the buyer pays zero ALGO)
+## Gasless: the `exact` rail (the buyer pays zero ALGO)
 
 Beyond `onchain-proof`, Algorand supports the ratified x402 **`exact` rail** (opt-in), and it's
 **gasless for the buyer**. Algorand has no per-account fee payer like Solana; instead a transaction
 **group pools fees**, so the buyer signs an ASA transfer at **fee 0**, atomically grouped with a
-0-ALGO `pay` whose pooled fee covers the whole group. The sponsor — your own relayer, or a keyless
-facilitator — signs that fee txn and submits the group. The buyer spends **zero ALGO**, holding only
+0-ALGO `pay` whose pooled fee covers the whole group. The sponsor, either your own relayer or a keyless
+facilitator, signs that fee txn and submits the group. The buyer spends **zero ALGO**, holding only
 USDC:
 
 ```ts
@@ -162,15 +162,15 @@ requirePayment({
 })
 ```
 
-Unlike Solana, the relayer **may be `payTo` itself** (the fee txn is separate — no isolation rule), so
+Unlike Solana, the relayer **may be `payTo` itself** (the fee txn is separate, so there is no isolation rule), so
 a single merchant account can self-settle. `payTo` must be opted into the ASA. Native **ALGO** isn't
-exact-payable (the scheme is an ASA transfer) — it stays `onchain-proof`. **Live-proven on Algorand
-mainnet.** Full mechanism: [Gasless payments → Algorand](/making-payments/gasless-payments/#algorand--how-fee-pooled-gasless-works).
+exact-payable (the scheme is an ASA transfer), so it stays `onchain-proof`. **Live-proven on Algorand
+mainnet.** Full mechanism: [Gasless payments → Algorand](/making-payments/gasless-payments/#algorand-how-fee-pooled-gasless-works).
 
-### Keyless — both sides pay zero ALGO
+### Keyless: both sides pay zero ALGO
 
 For **truly gasless** (neither buyer nor merchant pays), use the keyless
-[GoPlausible](https://facilitator.goplausible.xyz) facilitator — the only keyless Algorand x402
+[GoPlausible](https://facilitator.goplausible.xyz) facilitator, the only keyless Algorand x402
 facilitator. Its sponsor pools the whole group fee, so the **merchant pays 0 ALGO too**:
 
 ```ts
@@ -181,17 +181,17 @@ requirePayment({
 ```
 
 The gate reads GoPlausible's sponsor address from its `GET /supported`, advertises it, and forwards
-verify+settle to GoPlausible — no relayer key needed. **Live-settled on mainnet 2026-06-17**
+verify+settle to GoPlausible, with no relayer key needed. **Live-settled on mainnet 2026-06-17**
 (tx `PDVDVRFGJAG2K6AJ7L26OTSCSRL7AURVKEX4D4KHBAOLNSCYENXA`), buyer **and** merchant both 0 ALGO. This
 makes Algorand the first non-EVM/non-Solana keyless PipRail chain. See
 [Facilitator coverage](/accepting-payments/facilitator-coverage/).
 
 Because the sponsor (GoPlausible, or your self-settle relayer) co-signs a buyer-built group, the gate
 **caps the pooled group fee** it will pay before co-signing (`MAX_GROUP_FEE` = 20 000 µALGO; the honest
-path is ~2 000 µALGO) and rejects any asset/account close or rekey — so a buyer can't drain the sponsor on
-a sub-cent payment. See [sponsor protection](/making-payments/gasless-payments/#sponsor-protection--the-fee-drain-guard).
+path is ~2 000 µALGO) and rejects any asset/account close or rekey, so a buyer can't drain the sponsor on
+a sub-cent payment. See [sponsor protection](/making-payments/gasless-payments/#sponsor-protection-the-fee-drain-guard).
 
-## Proof binding — Template A (note-bound)
+## Proof binding: Template A (note-bound)
 
 Algorand uses [Template A](/concepts/proof-binding/): the challenge nonce rides in the
 transaction's **note field**, so the proof is cryptographically bound to its challenge.
@@ -204,13 +204,13 @@ protection](/accepting-payments/replay-protection/).
 
 `rpcUrl` overrides the **algod** endpoint (used to submit transactions and fetch suggested
 params). The verify side reads inbound transfers from an **indexer**, which uses the public
-AlgoNode default — the public indexer is production-grade for this read, so overriding it is
+AlgoNode default. The public indexer is production-grade for this read, so overriding it is
 rarely necessary. The public algod is rate-limited; pass your own `rpcUrl` in production.
 
 :::tip
 Algorand's `exact` scheme is part of the official x402 standard, and the incumbent on-chain path there
 uses a hosted **facilitator**. PipRail gives you **both**: the backendless `onchain-proof` default (the
-payer broadcasts, the merchant verifies locally — no facilitator) **and** the gasless `exact` rail
-(above), which you can **self-settle** with your own relayer — still no third party. See [Chains and
+payer broadcasts, the merchant verifies locally, no facilitator) **and** the gasless `exact` rail
+(above), which you can **self-settle** with your own relayer, still with no third party. See [Chains and
 tokens](/concepts/chains-and-tokens/).
 :::

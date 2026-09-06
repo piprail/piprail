@@ -1,6 +1,6 @@
 ---
 title: Total budget (cross-token)
-description: One spend cap across every stablecoin and every chain — "$20 total, full stop" — plus payment-count caps. A unit-of-account sum, never a price oracle.
+description: One spend cap across every stablecoin and every chain ("$20 total, full stop"), plus payment-count caps. A unit-of-account sum, never a price oracle.
 sidebar:
   order: 2
 ---
@@ -20,7 +20,7 @@ policy: { maxTotal: '20.00', tokens: ['USDC', 'USDT'] }
 
 When you mean **"spend at most $20, across everything"**, reach for `maxTotalPerDenom`.
 
-## `maxTotalPerDenom` — one number across everything
+## `maxTotalPerDenom`: one number across everything
 
 A **denomination** is a unit of account you cap as a whole: e.g. `USD` across every USD
 stablecoin, on every chain.
@@ -31,12 +31,12 @@ import { PipRailClient } from '@piprail/sdk'
 const client = new PipRailClient({
   chain: 'base',
   wallet: { key: process.env.AGENT_KEY! },
-  policy: { maxTotalPerDenom: { USD: '20.00' } }, // $20 total — full stop
+  policy: { maxTotalPerDenom: { USD: '20.00' } }, // $20 total, full stop
 })
 ```
 
-The SDK sums the **human value** of every token of that denomination — USDC, USDT, and any other
-USD stablecoin — and refuses the payment that would push the running total past the cap, with a
+The SDK sums the **human value** of every token of that denomination (USDC, USDT, and any other
+USD stablecoin) and refuses the payment that would push the running total past the cap, with a
 typed [`PaymentDeclinedError`](/errors/error-hierarchy/) (`reasonCode: 'BUDGET'`,
 `policyCode: 'MAX_TOTAL_DENOM'`). It coexists with the per-asset `maxTotal`; **the stricter cap wins.**
 
@@ -44,8 +44,8 @@ typed [`PaymentDeclinedError`](/errors/error-hierarchy/) (`reasonCode: 'BUDGET'`
 PipRail still reads no market and never prices a volatile coin. A token's denomination is a
 **static, ship-time label** (the same kind of fact as its symbol or decimals); the grand total
 simply **adds up tokens you've grouped as one unit, each counted 1:1**. Native coins (ETH, SOL, …)
-and unrecognised tokens have **no denomination** — they are never in a bucket. Cap those with
-`maxTotal` or the [count caps](#cap-the-number-of-payments) below.
+and unrecognised tokens have **no denomination**, so they are never in a bucket. Cap those with
+`maxTotal` or the [count caps](#-cap-the-number-of-payments) below.
 :::
 
 ### Which tokens count as which unit
@@ -57,7 +57,7 @@ The built-in labels cover every stablecoin PipRail ships:
 | `USD` | USDC · USDT · USD1 · FDUSD · U · RLUSD |
 | `EUR` | EURC |
 
-Extend or override them with `denomFor` (your assertion of equivalence — by symbol or asset id):
+Extend or override them with `denomFor` (your assertion of equivalence, by symbol or asset id):
 
 ```ts
 policy: {
@@ -113,12 +113,12 @@ payer.budget().byDenom[0] // → { denom: 'USD', spentFormatted: '…', remainin
 
 ```ts
 policy: { maxTotalPerDenom: { USD: '20.00', EUR: '5.00' } }
-// Two independent grand totals — USDC/USDT roll into USD, EURC into EUR.
+// Two independent grand totals: USDC/USDT roll into USD, EURC into EUR.
 ```
 
 ### ⑤ Cap the number of payments
 
-Counts need no oracle, so they span **every** chain and token — including native coins:
+Counts need no oracle, so they span **every** chain and token, including native coins:
 
 ```ts
 policy: {

@@ -335,6 +335,15 @@ fails only when that workflow next runs, which may be at release time.
   every input; this makes that impossible to leave in.
 - **`surfaces-index`** — every domain in the checker appears in *this file*. It is why the two maps
   cannot silently diverge.
+- **`prose-gate-wired`** — ⭐ **the no-slop gate stays plugged in.** Every page written for
+  `site/src/` or `docs/src/` goes through the [`humanizer`](skills/humanizer/PIPRAIL.md) skill, and
+  `npm run prose` ([`scripts/prose-audit.mjs`](../scripts/prose-audit.mjs)) is the half of that a
+  build can actually fail on: no em dashes, no brochure vocabulary. The docs carried **3,320 em
+  dashes** before the 2026-09-06 sweep, every one added by somebody who had, in principle, read the
+  guidance — which is the whole argument for a gate over a style note. This rule guards the
+  *wiring* (script → `verify-gate` → PIPRAIL.md), because a gate that has quietly fallen out of the
+  release chain is worse than none: the house-voice doc keeps promising a red build that can no
+  longer happen.
 - **`changelog-unreleased`** — a warning, not a failure: fine right after a release, but add an
   `[Unreleased]` section as soon as you touch `sdk/src`.
 - **`x402-coverage-figure`** — ⭐ **one owner for the coverage number.** The CDP Bazaar moves

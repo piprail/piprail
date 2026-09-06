@@ -543,8 +543,10 @@ type ResolvedExactMode =
  *  settles. Present when `options.exact` is set and the spec's family can carry it
  *  (EVM ERC-20 via EIP-3009/Permit2, or Solana SPL via the SVM scheme). */
 interface ResolvedExactRail {
-  /** `'eip3009'`/`'permit2'` (EVM), `'svm'` (Solana), `'algorand'`, `'aptos'`, or `'near'` (NEP-366). */
-  method: 'eip3009' | 'permit2' | 'svm' | 'algorand' | 'aptos' | 'near'
+  /** `'eip3009'`/`'permit2'` (EVM), `'svm'` (Solana), `'algorand'`, `'aptos'`, `'near'` (NEP-366),
+   *  or `'sequence'` (XRPL — the ledger has one transfer mechanism, so its scheme spends this
+   *  field on the SEQUENCING strategy instead). */
+  method: 'eip3009' | 'permit2' | 'svm' | 'algorand' | 'aptos' | 'near' | 'sequence'
   /** Family-specific keys the driver supplies, merged verbatim into the accept's `extra`
    *  (EVM EIP-3009: the token's `name`/`version`; Solana/Algorand: `feePayer`[/`tokenProgram`]). */
   extra?: Record<string, unknown>
@@ -1622,6 +1624,14 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
       } catch {
         nonce = exact.payload.signedDelegateAction
       }
+    } else if ('signedTxBlob' in exact.payload) {
+      // XRPL: the fully signed Payment blob IS the dedupe key. `scheme_exact_xrpl.md` has the
+      // facilitator "deduplicate in-flight settlements by transaction hash" — and the blob is a
+      // deterministic encoding of exactly one transaction, so it keys the same thing without
+      // server.ts having to decode XRPL binary (the protocol layer stays chain-agnostic). Hex case
+      // is the only malleability, so fold it; the ledger's own sequence/ticket single-use is the
+      // second backstop, exactly as NEAR leans on its access-key nonce.
+      nonce = exact.payload.signedTxBlob.trim().toUpperCase()
     } else if ('permit2Authorization' in exact.payload) {
       evmAuth = exact.payload.permit2Authorization
       nonce = evmAuth.nonce

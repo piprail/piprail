@@ -80,11 +80,27 @@ export function xrplAssetId(currencyHex: string, issuer: string): string {
   return `${currencyHex}:${issuer}`
 }
 
-/** Parse a `currencyHex:issuer` asset id back into parts. Null for `'native'`/malformed. */
+/**
+ * Is this asset id the native coin? THE ONE OWNER of that question for XRPL.
+ *
+ * PipRail writes the native coin as `'native'` on every family, but the XRPL x402 web writes it as
+ * the literal **`'XRP'`** — all 863 native rails in the CDP Bazaar do, and a live probe of eight
+ * independent merchants found no other spelling. Every read path has to accept both, because
+ * missing one is invisible: the rail is silently dropped and the agent hears "no compatible accept"
+ * on a chain it fully supports. (`describeAsset` missed it, then `recipientReady` demanded a
+ * trustline for a coin that cannot have one — two separate live failures from the same gap.)
+ *
+ * We still EMIT `'native'`; this is parse-side tolerance only.
+ */
+export function isXrpNative(asset: string): boolean {
+  return asset === 'native' || asset === 'XRP'
+}
+
+/** Parse a `currencyHex:issuer` asset id back into parts. Null for the native coin/malformed. */
 export function parseXrplAssetId(
   asset: string
 ): { currencyHex: string; issuer: string } | null {
-  if (asset === 'native') return null
+  if (isXrpNative(asset)) return null
   const i = asset.indexOf(':')
   if (i <= 0 || i === asset.length - 1) return null
   return { currencyHex: asset.slice(0, i), issuer: asset.slice(i + 1) }

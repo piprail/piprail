@@ -105,6 +105,7 @@ describe('the methods we DO implement', () => {
       'near',
       'permit2',
       'permit2-exact', // Binance b402's foreign-dialect spelling of `permit2`
+      'sequence', // XRPL — names the SEQUENCING strategy, not a mechanism
       'svm',
     ])
   })
@@ -122,6 +123,20 @@ describe('the per-family default (what a rail that names nothing actually means)
     expect(exactTransferMethod(rail('NO_EXTRA'), 'algorand')).toBe('algorand')
     expect(exactTransferMethod(rail('NO_EXTRA'), 'aptos')).toBe('aptos')
     expect(exactTransferMethod(rail('NO_EXTRA'), 'near')).toBe('near')
+    expect(exactTransferMethod(rail('NO_EXTRA'), 'xrpl')).toBe('sequence')
+  })
+
+  it('XRPL "ticketSequence" is a KNOWN wire value we deliberately cannot sign', () => {
+    /*
+     * The scheme defines `"sequence" | "ticketSequence"`. We implement only the first: a ticket
+     * has to be pre-minted on the payer account and PipRail does not manage tickets. Leaving the
+     * literal OUT of the known set is what makes such a rail get SKIPPED at gather instead of
+     * planning `payable` and throwing at signing — the plan-vs-pay break that `extra.decimals`
+     * caused on Solana. If a driver ever learns to mint tickets, add the literal AND the
+     * family-default entry together; the orphan test below enforces the pair.
+     */
+    expect(isSettleableExactMethod(rail('ticketSequence'))).toBe(false)
+    expect(isSettleableExactMethod(rail('sequence'))).toBe(true)
   })
 
   /*
@@ -133,6 +148,7 @@ describe('the per-family default (what a rail that names nothing actually means)
   it('every non-EVM method in the known set is some family default', () => {
     const EVM_METHODS = new Set(['eip3009', 'permit2', 'permit2-exact'])
     const FAMILIES = ['evm', 'solana', 'algorand', 'aptos', 'near', 'ton', 'tron', 'sui', 'stellar', 'xrpl']
+    // (XRPL now contributes 'sequence'; Stellar/Hedera will add theirs when stage 04 reaches them.)
     const reachable = new Set(FAMILIES.map((f) => exactTransferMethod(rail('NO_EXTRA'), f)))
     const orphaned = [...KNOWN_EXACT_TRANSFER_METHODS].filter(
       (m) => !EVM_METHODS.has(m) && !reachable.has(m)

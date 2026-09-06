@@ -138,6 +138,40 @@ export interface X402ExactAcceptEntry {
       | 'algorand'
       | 'aptos'
       | 'near'
+      /** **XRPL** — the ledger has exactly ONE way to move value (a `Payment`), so
+       *  `scheme_exact_xrpl.md` spends this field on SEQUENCING instead of mechanism.
+       *  `'sequence'` (the DEFAULT, and what all 1,732 live XRPL rails mean by omitting it) uses
+       *  the payer's account sequence; `'ticketSequence'` sets `Sequence: 0` and supplies a
+       *  pre-minted `TicketSequence`, letting a payer sign several payments that settle out of
+       *  order. */
+      | 'sequence'
+      | 'ticketSequence'
+    /** **XRPL, REQUIRED by the scheme — and absent from 100% of live rails.** The spec says it
+     *  "must be false" (XRPL charges the fee to the transaction's own `Account`, so the payer
+     *  always pays). Read it as *false unless present*: REQUIRING it would reject the entire
+     *  deployed XRPL x402 web, which is exactly the bug class `assetTransferMethod` already caused
+     *  once. A rail that explicitly says `true` is refused — we cannot honour a sponsor here. */
+    areFeesSponsored?: boolean
+    /** **XRPL** — the issuer's classic address for an IOU rail (RLUSD and friends). Required by the
+     *  scheme for issued currencies, absent for native XRP; present on 869 of the 1,732 live rails,
+     *  which is precisely the IOU half. Also the discriminator the buyer uses to pick the
+     *  issued-currency `Amount` object over a bare drops string. */
+    issuer?: string
+    /** **XRPL, OPTIONAL** — an opaque invoice identifier. When present the buyer MUST set the
+     *  transaction's `InvoiceID` to its **SHA-256**, as 32-byte hex; that hash is the challenge
+     *  binding on this rail (there is no memo — the scheme has facilitators REJECT `Memos`).
+     *  Present on 1,732 of 1,732 live rails, so treat it as always-on in practice. */
+    invoiceId?: string
+    /** **XRPL** — a vendor correlation tag, copied verbatim into the transaction's `SourceTag`.
+     *  NOT in `scheme_exact_xrpl.md`'s extra table, but present on **1,728 of the 1,732** live XRPL
+     *  rails: it is how the deployed vendors match a payment back to their own quote. Mirrored
+     *  because it costs nothing and omitting it is a plausible reason a merchant refuses. */
+    sourceTag?: number
+    /** **XRPL, OPTIONAL** — a destination tag the buyer MUST copy verbatim into the transaction
+     *  when the rail states one (hosted/exchange accounts route deposits by it). Never invented
+     *  when absent: unlike the onchain-proof path, which derives a tag from the nonce, the exact
+     *  rail sets `DestinationTag` only if the merchant asked for one. */
+    destinationTag?: number
     /** EIP-712 domain name of the token. OPTIONAL per the exact-EVM scheme (only
      *  `assetTransferMethod` is required) — a foreign rail may omit it. NEVER assumed
      *  from the symbol (USDC's on-chain name() is "USD Coin", not "USDC"); a PipRail gate
@@ -200,6 +234,17 @@ export const KNOWN_EXACT_TRANSFER_METHODS: ReadonlySet<string> = new Set([
   'algorand',
   'aptos',
   'near',
+  // XRPL names the SEQUENCING strategy here, not a transfer mechanism — the ledger has exactly one
+  // way to move value (a `Payment`), so `scheme_exact_xrpl.md` spends the field on how the tx is
+  // ordered. `'sequence'` (the account sequence) is the scheme's DEFAULT and what all 1,732 live
+  // rails mean by omitting the field.
+  //
+  // `'ticketSequence'` is deliberately NOT here. It needs the payer to have pre-minted a Ticket on
+  // the ledger, which PipRail does not manage, so we cannot sign one. Leaving it out means such a
+  // rail is SKIPPED at gather — the X5 rule — instead of planning `payable` and then throwing at
+  // signing time. That plan-vs-pay break is exactly the bug `extra.decimals` caused on Solana; do
+  // not "fix" this by adding the literal until a driver can actually produce the transaction.
+  'sequence',
 ])
 
 /**
@@ -214,6 +259,9 @@ const DEFAULT_METHOD_BY_FAMILY: Readonly<Record<string, string>> = Object.freeze
   algorand: 'algorand',
   aptos: 'aptos',
   near: 'near',
+  // XRPL is the only family whose scheme WRITES its default down (`"sequence"`), alongside EVM's
+  // `eip3009`. All 1,732 live XRPL rails omit the field, so this default is what we actually meet.
+  xrpl: 'sequence',
 })
 
 /**
@@ -474,9 +522,25 @@ export interface ExactNearPaymentPayload {
   signedDelegateAction: string
 }
 
+/**
+ * The `payload` a client sends for the **XRPL `exact`** variant, per `scheme_exact_xrpl.md`:
+ * a **fully signed** XRPL `Payment` transaction, hex-encoded, that the resource server (or its
+ * facilitator) submits. The signed blob IS the proof — there is no separate authorization object.
+ *
+ * XRPL is the one family where **the payer pays the network fee**: the fee is a field inside the
+ * signed transaction and the ledger charges it to `Account`. So there is no sponsor, no fee-payer
+ * co-signature, and no fee-drain guard to write — the buyer needs XRP for the amount *and* the fee.
+ * That also means the buyer signs something immediately submittable, so `LastLedgerSequence` is
+ * mandatory: it is the only thing bounding how long the merchant may sit on it.
+ */
+export interface ExactXrplPaymentPayload {
+  /** Hex-encoded, fully signed XRPL `Payment` transaction blob. */
+  signedTxBlob: string
+}
+
 /** Any `exact`-rail payload shape — EIP-3009 (`authorization`), Permit2 (`permit2Authorization`),
- *  SVM (`transaction`), Algorand (`paymentGroup`), Aptos (`transaction` + `senderAuth`), or NEAR
- *  (`signedDelegateAction`). */
+ *  SVM (`transaction`), Algorand (`paymentGroup`), Aptos (`transaction` + `senderAuth`), NEAR
+ *  (`signedDelegateAction`), or XRPL (`signedTxBlob`). */
 export type ExactPaymentPayloadAny =
   | ExactPaymentPayload
   | Permit2PaymentPayload
@@ -484,6 +548,7 @@ export type ExactPaymentPayloadAny =
   | ExactAlgorandPaymentPayload
   | ExactAptosPaymentPayload
   | ExactNearPaymentPayload
+  | ExactXrplPaymentPayload
 
 interface ParsedExactBase {
   x402Version: number
@@ -506,7 +571,9 @@ interface ParsedExactBase {
  * `'svm'` → {@link ExactSvmPaymentPayload} (`transaction`), `'algorand'` →
  * {@link ExactAlgorandPaymentPayload} (`paymentGroup`); `'aptos'` →
  * {@link ExactAptosPaymentPayload} (`transaction` + `senderAuth`); `'near'` →
- * {@link ExactNearPaymentPayload} (`signedDelegateAction`).
+ * {@link ExactNearPaymentPayload} (`signedDelegateAction`); `'sequence'` / `'ticketSequence'` →
+ * {@link ExactXrplPaymentPayload} (`signedTxBlob`) — XRPL is the one family whose method literal
+ * names the SEQUENCING strategy rather than a transfer mechanism, because it has only one.
  */
 export type ParsedExactPayment =
   | (ParsedExactBase & { method: 'eip3009'; payload: ExactPaymentPayload })
@@ -515,6 +582,8 @@ export type ParsedExactPayment =
   | (ParsedExactBase & { method: 'algorand'; payload: ExactAlgorandPaymentPayload })
   | (ParsedExactBase & { method: 'aptos'; payload: ExactAptosPaymentPayload })
   | (ParsedExactBase & { method: 'near'; payload: ExactNearPaymentPayload })
+  | (ParsedExactBase & { method: 'sequence'; payload: ExactXrplPaymentPayload })
+  | (ParsedExactBase & { method: 'ticketSequence'; payload: ExactXrplPaymentPayload })
 
 /**
  * What {@link parseUptoPaymentHeader} extracts from an inbound `upto` payment — the
@@ -1225,6 +1294,17 @@ export function parseExactObject(parsed: unknown): ParsedExactPayment | null {
   // from every other family, so it's checked first.
   if (typeof payload.signedDelegateAction === 'string') {
     return { ...base, method: 'near', payload: { signedDelegateAction: payload.signedDelegateAction } }
+  }
+
+  // XRPL shape: payload.signedTxBlob is a hex-encoded, FULLY signed Payment. Another unique field
+  // name, so it needs no ordering care. The method discriminant records how the tx was sequenced —
+  // the rail's `assetTransferMethod`, defaulting to `'sequence'` per scheme_exact_xrpl.md. It is
+  // read from the ECHO purely to narrow the payload type; the gate re-derives every trusted field
+  // from its own rail, and the blob itself is decoded and checked before anything is submitted.
+  if (typeof payload.signedTxBlob === 'string') {
+    const claimed = accepted?.extra as { assetTransferMethod?: unknown } | undefined
+    const method = claimed?.assetTransferMethod === 'ticketSequence' ? 'ticketSequence' : 'sequence'
+    return { ...base, method, payload: { signedTxBlob: payload.signedTxBlob } }
   }
 
   // Aptos shape: payload.transaction + payload.senderAuth (both base64 BCS, no top-level `signature`).

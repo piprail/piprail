@@ -1,14 +1,14 @@
 ---
-// Global "like & share" quick-links — shown on every page via Layout.astro.
+// Global "like & share" quick-links, shown on every page via Layout.astro.
 // Two presentations, one data source, deliberately low-key:
 //   • ≥ xl (≥1280px): a slim ALWAYS-ON vertical dock pinned to the left edge,
 //     vertically centred. The content column is max-w-6xl (1152px) and centred,
-//     so there's empty margin to the left — the rail sits there, never over text.
+//     so there's empty margin to the left. The rail sits there, never over text.
 //   • < xl: a single round FLOATING ACTION BUTTON at the bottom-right. Tap it to
 //     pop open a labelled list of the links (and tap-away / Esc to close), so
 //     phones & tablets get one tidy affordance instead of a persistent bar.
 // Brand: dark, hairline-bordered, emerald accent ("emerald = paid").
-// (Fragment is Astro's built-in element — no import needed.)
+// (Fragment is Astro's built-in element, so no import needed.)
 
 // Inline SVGs (kept local so the component has no icon-lib dependency, like Footer).
 const ICON = {
@@ -41,13 +41,13 @@ const links = [
 const brandImg = (src: string, px: number) =>
   `<img src="${src}" alt="" width="${px}" height="${px}" loading="lazy" class="rounded-md object-cover ring-1 ring-white/15" style="width:${px}px;height:${px}px" />`
 
-// — Desktop rail (xl+): icon-only buttons, name surfaced as a hover/focus tooltip.
+// Desktop rail (xl+): icon-only buttons, name surfaced as a hover/focus tooltip.
 const railBtn =
   'group/item relative flex h-9 w-9 items-center justify-center rounded-lg text-neutral-400 outline-none transition hover:bg-white/8 hover:text-white focus-visible:ring-2 focus-visible:ring-accent/60'
 const tip =
   'pointer-events-none absolute left-full top-1/2 z-10 ml-2 -translate-y-1/2 whitespace-nowrap rounded-md border border-white/10 bg-neutral-900/95 px-2 py-1 text-[11px] font-medium text-neutral-200 opacity-0 shadow-lg shadow-black/40 backdrop-blur-sm transition-opacity duration-150 group-hover/item:opacity-100 group-focus-within/item:opacity-100'
 
-// — Mobile menu (< xl): a labelled row per link.
+// Mobile menu (< xl): a labelled row per link.
 const menuRow =
   'flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm text-neutral-200 outline-none transition hover:bg-white/8 hover:text-white focus-visible:bg-white/8'
 const menuIcon = 'flex h-5 w-5 shrink-0 items-center justify-center text-neutral-400'
@@ -88,7 +88,7 @@ const menuIcon = 'flex h-5 w-5 shrink-0 items-center justify-center text-neutral
   data-open="false"
   class="group/fab fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 z-40 flex flex-col items-end gap-3 print:hidden xl:hidden"
 >
-  <!-- The link list — hidden until the FAB is pressed. -->
+  <!-- The link list, hidden until the FAB is pressed. -->
   <div
     id="social-fab-menu"
     role="menu"
@@ -134,7 +134,7 @@ const menuIcon = 'flex h-5 w-5 shrink-0 items-center justify-center text-neutral
 </div>
 
 <style>
-  /* Quiet entrance for the desktop rail — fades/rises in once, after the page
+  /* Quiet entrance for the desktop rail: fades and rises in once, after the page
      settles. Held still for reduced-motion. Only the inner card animates, so it
      never fights the aside's centring transform. */
   @media (prefers-reduced-motion: no-preference) {
@@ -184,7 +184,7 @@ const menuIcon = 'flex h-5 w-5 shrink-0 items-center justify-center text-neutral
     btn.addEventListener('click', async () => {
       const data = {
         title: 'PipRail',
-        text: 'PipRail — x402 crypto payments for AI agents, on every chain. No backend, no fee.',
+        text: 'PipRail: x402 crypto payments for AI agents, on every chain. No backend, no fee.',
         url: 'https://piprail.com',
       }
       if (navigator.share) {

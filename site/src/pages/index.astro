@@ -14,36 +14,36 @@ import {
   Search, Megaphone,
 } from 'lucide-astro'
 
-// Counts are DERIVED from the chain data — never hardcoded, so nothing can drift.
+// Counts are DERIVED from the chain data, never hardcoded, so nothing can drift.
 const total = chains.length
 const familyCount = [...new Set(chains.map((c) => c.family))].length
 const evmCount = chains.filter((c) => c.family === 'EVM').length
 
-// Hero chain marquee — BNB leads, then prominence order; the 2nd row runs the
+// Hero chain marquee. BNB leads, then prominence order; the 2nd row runs the
 // reverse so the two lanes never read as vertical twins. Rendered twice per lane
-// for a seamless loop (see .marquee in global.css).
+// so the loop has no visible seam (see .marquee in global.css).
 const marqueeA = [...chains].sort((a, b) => (a.slug === 'bnb' ? -1 : b.slug === 'bnb' ? 1 : 0))
 const marqueeB = [...marqueeA].reverse()
 
-// Concise, front-loaded, count-derived meta — the homepage is the brand anchor.
-const title = 'PipRail — x402 crypto payments for AI agents, every chain'
+// Concise, front-loaded, count-derived meta. The homepage is the brand anchor.
+const title = 'PipRail: x402 crypto payments for AI agents, every chain'
 const description = `Accept x402 crypto payments on ${total} chains, or give your AI agent a wallet to pay on its own. One line. No backend, no fee, MIT.`
 
 // The neutrality pillar: open standard, nobody in the middle, both rails.
 const interop = [
-  { icon: ShieldCheck, t: 'Nobody in the middle', d: 'No facilitator, no relayer, no custody by default. The payer broadcasts their own transfer; you verify it against your own RPC. Funds land straight in your wallet — no one can take a cut, throttle you, or shut you off. A facilitator stays an option you choose, never a dependency you inherit.' },
-  { icon: Handshake, t: 'The open standard', d: 'x402 was donated to the Linux Foundation — the neutral rail the agent economy is converging on. PipRail’s envelope is v2-conformant, so any x402 client — Coinbase’s, the reference client, anyone’s — can pay your gate.' },
-  { icon: Boxes, t: 'One gate, both rails', d: 'Advertise the backendless onchain-proof rail and the ratified exact (EIP-3009) rail at once — standard clients pick one, PipRail clients the other. Proven end-to-end against the official x402 reference client on Base mainnet.' },
+  { icon: ShieldCheck, t: 'Nobody in the middle', d: 'No facilitator, no relayer, no custody by default. The payer broadcasts their own transfer; you verify it against your own RPC. Funds land straight in your wallet, so no one can take a cut, throttle you, or shut you off. A facilitator stays an option you choose, never a dependency you inherit.' },
+  { icon: Handshake, t: 'The open standard', d: 'x402 was donated to the Linux Foundation, and it is the neutral rail the agent economy is converging on. PipRail’s envelope is v2-conformant, so any x402 client (Coinbase’s, the reference client, anyone’s) can pay your gate.' },
+  { icon: Boxes, t: 'One gate, both rails', d: 'Advertise the backendless onchain-proof rail and the ratified exact (EIP-3009) rail at once. Standard clients pick one, PipRail clients the other. Proven end-to-end against the official x402 reference client on Base mainnet.' },
 ]
 
 const steps = [
-  { icon: Zap, n: '01', t: 'Agent calls your route', d: 'It gets back a 402 quote — price, token, payTo, chain.' },
+  { icon: Zap, n: '01', t: 'Agent calls your route', d: 'It gets back a 402 quote: price, token, payTo, chain.' },
   { icon: Coins, n: '02', t: 'Agent pays on-chain', d: 'One transfer, straight to your wallet. PipRail never touches the funds.' },
   { icon: ShieldCheck, n: '03', t: 'You verify locally', d: 'Your server checks the tx against your own RPC: succeeded, recent, right amount + recipient.' },
-  { icon: PackageCheck, n: '04', t: 'You return the data', d: '200 OK — and the same proof can never be spent twice.' },
+  { icon: PackageCheck, n: '04', t: 'You return the data', d: '200 OK, and the same proof can never be spent twice.' },
 ]
 
-// Representative logo per family — EVM stands for all its mainnets behind one driver.
+// Representative logo per family. EVM stands for all its mainnets behind one driver.
 const familyLogos = [
   { slug: 'ethereum', label: `EVM ×${evmCount}` },
   { slug: 'solana', label: 'Solana' }, { slug: 'ton', label: 'TON' }, { slug: 'tron', label: 'Tron' },
@@ -51,7 +51,7 @@ const familyLogos = [
   { slug: 'algorand', label: 'Algorand' }, { slug: 'stellar', label: 'Stellar' }, { slug: 'xrpl', label: 'XRPL' },
 ]
 
-// "One protocol. Every chain." panel — surface the flagship EVM family with BNB
+// "One protocol. Every chain." panel. Surfaces the flagship EVM family with BNB
 // FIRST (and highlighted), then the 9 non-EVM families (one native driver each).
 const evmOrdered = [...chains.filter((c) => c.family === 'EVM')].sort((a, b) => (a.slug === 'bnb' ? -1 : b.slug === 'bnb' ? 1 : 0))
 const evmFeatured = evmOrdered.slice(0, 8)
@@ -62,45 +62,45 @@ const nonEvmFamilies = familyLogos.slice(1)
 const fragmentLogos = ['ethereum', 'solana', 'bnb', 'xrpl', 'tron', 'stellar']
 
 const mcpTools = [
-  { name: 'piprail_discover', desc: 'find payable APIs on the open indexes — the phone book' },
-  { name: 'piprail_quote_payment', desc: 'price a gated URL — without paying' },
+  { name: 'piprail_discover', desc: 'find payable APIs on the open indexes: the phone book' },
+  { name: 'piprail_quote_payment', desc: 'price a gated URL, without paying' },
   { name: 'piprail_plan_payment', desc: 'check it can afford it: balance, gas, recipient-readiness' },
   { name: 'piprail_pay_request', desc: 'fetch it, paying the 402 automatically' },
   { name: 'piprail_register', desc: 'list an endpoint you run so other agents find it' },
   { name: 'piprail_budget', desc: 'read the remaining spend budget + time leash' },
-  { name: 'piprail_guide', desc: 'read the agent contract — how to quote, plan, pay' },
-  { name: 'piprail_verify_receipt', desc: 're-verify a payment receipt on-chain — wallet-free, trustless' },
+  { name: 'piprail_guide', desc: 'read the agent contract: how to quote, plan, pay' },
+  { name: 'piprail_verify_receipt', desc: 're-verify a payment receipt on-chain, wallet-free and trustless' },
 ]
 
-// Top questions only — the rest live on /sdk, /mcp, /chains, /discovery (each with its own schema).
+// Top questions only. The rest live on /sdk, /mcp, /chains, /discovery (each with its own schema).
 const faqs = [
   {
     q: `What is PipRail?`,
-    a: `PipRail is an open-source (MIT) TypeScript SDK for x402 crypto payments. It lets any HTTP endpoint charge for itself, and lets AI agents pay for APIs on their own — across ${total} chains, with no backend, no database, no account, and no fee. Payments settle straight to your own wallet, verified locally against your own RPC. It ships as two packages: @piprail/sdk (the library) and @piprail/mcp (an MCP server that hands any AI agent a budget-bound wallet). It also does x402 discovery, so endpoints can be registered on open indexes and found by agents.`,
+    a: `PipRail is an open-source (MIT) TypeScript SDK for x402 crypto payments. It lets any HTTP endpoint charge for itself, and lets AI agents pay for APIs on their own, across ${total} chains, with no backend, no database, no account, and no fee. Payments settle straight to your own wallet, verified locally against your own RPC. It ships as two packages: @piprail/sdk (the library) and @piprail/mcp (an MCP server that hands any AI agent a budget-bound wallet). It also does x402 discovery, so endpoints can be registered on open indexes and found by agents.`,
   },
   {
     q: `What is x402?`,
-    a: `x402 revives the dormant HTTP 402 "Payment Required" status code as a real payment protocol. A server answers a request with 402 plus a machine-readable challenge (price, token, chain, pay-to address); the caller pays on-chain and retries with proof, and the request goes through. It lets an HTTP endpoint charge for itself — no API keys, accounts, or invoices — which is exactly what AI agents need to pay for data and compute autonomously.`,
+    a: `x402 revives the dormant HTTP 402 "Payment Required" status code as a real payment protocol. A server answers a request with 402 plus a machine-readable challenge (price, token, chain, pay-to address); the caller pays on-chain and retries with proof, and the request goes through. It lets an HTTP endpoint charge for itself, with no API keys, accounts, or invoices, which is exactly what AI agents need to pay for data and compute autonomously.`,
   },
   {
     q: `How do AI agents pay for APIs with PipRail?`,
-    a: `Wrap the agent's HTTP calls with PipRailClient. Give it a wallet and a chain, then call client.fetch(url): on a 402 it reads the challenge, sends the payment on-chain, waits for confirmation, and retries with proof — automatically. An opt-in spend policy (maxAmount, maxTotal, chains, tokens, hosts) refuses out-of-bounds calls before any send, and paymentTools(client) hands the same to an LLM via MCP or function-calling — budget-bound so it can't overspend.`,
+    a: `Wrap the agent's HTTP calls with PipRailClient. Give it a wallet and a chain, then call client.fetch(url): on a 402 it reads the challenge, sends the payment on-chain, waits for confirmation, and retries with proof, automatically. An opt-in spend policy (maxAmount, maxTotal, chains, tokens, hosts) refuses out-of-bounds calls before any send, and paymentTools(client) hands the same to an LLM via MCP or function-calling, budget-bound so it can't overspend.`,
   },
   {
     q: `How do I let Claude or Cursor pay for things autonomously?`,
-    a: `Install the PipRail MCP server: add a small config block to your MCP client (Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, or Cline) that runs "npx -y @piprail/mcp" with your wallet key, chain, and spend caps. The agent gains eight tools — piprail_discover (find payable APIs), piprail_quote_payment, piprail_plan_payment, piprail_pay_request, piprail_register (list its own), piprail_budget (read its remaining budget), piprail_guide (the agent contract), and piprail_verify_receipt (re-verify a payment receipt on-chain) — so it finds and pays x402-gated APIs on its own across ${total} chains. It runs locally with your own wallet, and the spend policy is enforced before any on-chain send, so the model literally cannot overspend.`,
+    a: `Install the PipRail MCP server: add a small config block to your MCP client (Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, or Cline) that runs "npx -y @piprail/mcp" with your wallet key, chain, and spend caps. The agent gains eight tools: piprail_discover (find payable APIs), piprail_quote_payment, piprail_plan_payment, piprail_pay_request, piprail_register (list its own), piprail_budget (read its remaining budget), piprail_guide (the agent contract), and piprail_verify_receipt (re-verify a payment receipt on-chain). So it finds and pays x402-gated APIs on its own across ${total} chains. It runs locally with your own wallet, and the spend policy is enforced before any on-chain send, so the model literally cannot overspend.`,
   },
   {
     q: `Which chains and tokens does PipRail support?`,
-    a: `${total} chains across ${familyCount} families: ${evmCount} EVM mainnets (Ethereum, Base, Arbitrum, Optimism, Polygon, BNB Chain, Avalanche, HyperEVM, Monad, Mantle, Sonic, Linea, Scroll, Celo, zkSync, Unichain, World Chain, Sei, Injective, Kaia) plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger. USDC almost everywhere, USDT on most chains, EURC on Stellar, RLUSD on XRPL, the native coin on every chain, or any other token by address. One parameter — chain — picks everything.`,
+    a: `${total} chains across ${familyCount} families: ${evmCount} EVM mainnets (Ethereum, Base, Arbitrum, Optimism, Polygon, BNB Chain, Avalanche, HyperEVM, Monad, Mantle, Sonic, Linea, Scroll, Celo, zkSync, Unichain, World Chain, Sei, Injective, Kaia) plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger. USDC almost everywhere, USDT on most chains, EURC on Stellar, RLUSD on XRPL, the native coin on every chain, or any other token by address. One parameter, chain, picks everything.`,
   },
   {
     q: `Is there a fee to use PipRail?`,
-    a: `No. PipRail charges no fee and takes no cut. It's an open-source (MIT) npm package, not a platform or hosted service. Payments settle straight into your own wallet — there's no PipRail backend, facilitator, or middleman in the path. You pay only normal network gas on whichever chain you choose.`,
+    a: `No. PipRail charges no fee and takes no cut. It's an open-source (MIT) npm package, not a platform or hosted service. Payments settle straight into your own wallet. There's no PipRail backend, facilitator, or middleman in the path. You pay only normal network gas on whichever chain you choose.`,
   },
   {
     q: `Can any x402 client pay a PipRail endpoint?`,
-    a: `Yes. PipRail's wire envelope is x402 v2-conformant, and a gate can opt into advertising the ratified "exact" (EIP-3009) scheme alongside its default backendless "onchain-proof" rail. A standard x402 client (Coinbase's, the open-source reference client) picks the exact rail; a PipRail client picks onchain-proof — both offered in the same 402. Settlement stays backendless either way: your own relayer key broadcasts the signed authorization, or you delegate to a third-party facilitator you choose, so the payer spends no gas and PipRail hosts nothing. It's verified end-to-end against the official x402 reference client on Base mainnet. The standard exact rail is EVM + EIP-3009 tokens (USDC/EURC) today; every other chain and token is paid via onchain-proof, which is itself x402.`,
+    a: `Yes. PipRail's wire envelope is x402 v2-conformant, and a gate can opt into advertising the ratified "exact" (EIP-3009) scheme alongside its default backendless "onchain-proof" rail. A standard x402 client (Coinbase's, the open-source reference client) picks the exact rail; a PipRail client picks onchain-proof, and both are offered in the same 402. Settlement stays backendless either way: your own relayer key broadcasts the signed authorization, or you delegate to a third-party facilitator you choose, so the payer spends no gas and PipRail hosts nothing. It's verified end-to-end against the official x402 reference client on Base mainnet. The standard exact rail is EVM + EIP-3009 tokens (USDC/EURC) today; every other chain and token is paid via onchain-proof, which is itself x402.`,
   },
 ]
 const faqLd = {
@@ -136,15 +136,15 @@ const howToLd = {
         <span class="text-accent">agent economy</span>.
       </h1>
       <p class="mx-auto mt-6 max-w-xl text-base leading-relaxed text-neutral-400 sm:text-lg md:text-xl">
-        Any API <span class="text-neutral-200">charges for itself</span> — any AI agent
+        Any API <span class="text-neutral-200">charges for itself</span>, and any AI agent
         <span class="text-neutral-200">pays on its own</span>. One line, every chain, straight to your wallet.
         <span class="text-neutral-200">No account, no API key</span>, no backend, no fee.
       </p>
 
-      <!-- dual CTA — route the two audiences -->
+      <!-- dual CTA: route the two audiences -->
       <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
         <a href="/sdk/" class="inline-flex w-full items-center justify-center gap-2 cta-glow rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110 sm:w-auto">
-          <Code2 size={16} aria-hidden="true" /> Get paid — the SDK
+          <Code2 size={16} aria-hidden="true" /> Get paid: the SDK
         </a>
         <a href="/mcp/" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-neutral-200 transition hover:border-white/20 sm:w-auto">
           <Bot size={16} class="text-accent" aria-hidden="true" /> Give your agent a wallet
@@ -157,11 +157,11 @@ const howToLd = {
 
       <!-- the credential claim: the one thing a facilitator-based rail structurally cannot say -->
       <p class="mx-auto mt-5 max-w-lg text-sm leading-relaxed text-neutral-500">
-        Nothing to sign up for. Paste a public wallet address and you’re accepting stablecoins —
-        <span class="text-neutral-400">no key to hand over, because there’s nothing to hand it to.</span>
+        Nothing to sign up for. Paste a public wallet address and you’re accepting stablecoins.
+        <span class="text-neutral-400">No key to hand over, because there’s nothing to hand it to.</span>
       </p>
 
-      <!-- chain strip — two-lane animated marquee, edge-faded, BNB first -->
+      <!-- chain strip: two-lane animated marquee, edge-faded, BNB first -->
       <div class="mt-14 sm:mt-16">
         <p class="mb-7 text-[11px] uppercase tracking-[0.2em] text-neutral-600">Live on every major chain</p>
         <div class="space-y-3 sm:space-y-4">
@@ -189,7 +189,7 @@ const howToLd = {
       </div>
     </section>
 
-    <!-- 2 · The story — the universal payment adapter -->
+    <!-- 2 · The story: the universal payment adapter -->
     <section id="story" aria-label="What PipRail is" class="scroll-mt-24 py-12 sm:py-16">
       <div class="mx-auto max-w-3xl text-center">
         <span class="inline-flex items-center rounded-full border border-accent/25 bg-accent/8 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-accent">The universal payment adapter</span>
@@ -198,7 +198,7 @@ const howToLd = {
           <span class="text-accent">PipRail rebuilds it for agents.</span>
         </h2>
         <p class="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-neutral-400 sm:text-lg">
-          AI agents now earn and spend on their own — buying data, paying for compute, selling their work. But money
+          AI agents now earn and spend on their own: buying data, paying for compute, selling their work. But money
           online still assumes a human with a credit card, scattered across dozens of blockchains that each settle
           differently. An agent can’t swipe a card, and no endpoint can charge across them all.
         </p>
@@ -214,7 +214,7 @@ const howToLd = {
               <img src={`/chains/${slug}.svg`} alt="" width="30" height="30" class="h-7 w-7 rounded-full ring-1 ring-white/10 opacity-80" />
             ))}
           </div>
-          <p class="mt-3.5 text-sm leading-snug text-neutral-400">{total} chains — each its own tokens, signing &amp; gas</p>
+          <p class="mt-3.5 text-sm leading-snug text-neutral-400">{total} chains, each with its own tokens, signing &amp; gas</p>
         </div>
 
         <!-- connector → -->
@@ -253,7 +253,7 @@ const howToLd = {
 
       <!-- the resolution + the proof, woven in -->
       <p class="mx-auto mt-10 max-w-2xl text-center text-base leading-relaxed text-neutral-300 sm:text-lg">
-        Name a chain — PipRail handles the token, the signing, the proof.
+        Name a chain. PipRail handles the token, the signing, the proof.
         <span class="text-white">One line, every chain, straight to your wallet.</span> No backend, no custody, no fee.
       </p>
       <div class="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm text-neutral-500">
@@ -267,26 +267,26 @@ const howToLd = {
       </div>
     </section>
 
-    <!-- 3 · The fork — two audiences, two doors -->
+    <!-- 3 · The fork: two audiences, two doors -->
     <section class="py-20 sm:py-24">
       <SectionHeading title="Two sides, one SDK." class="mb-10 max-w-2xl sm:mb-12">
         The same package lets a server <span class="text-neutral-200">charge</span> for a route and an agent
-        <span class="text-neutral-200">pay</span> for one. Pick your side — both are a couple of lines.
+        <span class="text-neutral-200">pay</span> for one. Pick your side; both are a couple of lines.
       </SectionHeading>
       <div class="grid gap-6 lg:grid-cols-2">
         <div class="flex min-w-0 flex-col card rounded-2xl p-6 sm:p-7">
           <h3 class="flex items-center gap-2 text-sm font-medium uppercase tracking-wider text-muted">
-            <span class="h-1.5 w-1.5 rounded-full bg-accent"></span> Accept — your server gets paid
+            <span class="h-1.5 w-1.5 rounded-full bg-accent"></span> Accept: your server gets paid
           </h3>
-          <p class="mt-2 mb-4 text-sm leading-relaxed text-neutral-400">Gate any route so it charges for itself. Express, Next.js, or any edge runtime — no backend, no database.</p>
+          <p class="mt-2 mb-4 text-sm leading-relaxed text-neutral-400">Gate any route so it charges for itself. Express, Next.js, or any edge runtime. No backend, no database.</p>
           <CodeWindow file="server.ts" code={acceptCode} class="min-w-0" />
           <a href="/sdk/" class="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-accent transition hover:gap-2.5">Build a paid API <ArrowRight size={15} aria-hidden="true" /></a>
         </div>
         <div class="flex min-w-0 flex-col card rounded-2xl p-6 sm:p-7">
           <h3 class="flex items-center gap-2 text-sm font-medium uppercase tracking-wider text-muted">
-            <span class="h-1.5 w-1.5 rounded-full bg-accent"></span> Pay — your agent pays for itself
+            <span class="h-1.5 w-1.5 rounded-full bg-accent"></span> Pay: your agent pays for itself
           </h3>
-          <p class="mt-2 mb-4 text-sm leading-relaxed text-neutral-400">Point an agent at a paid URL and it pays the 402 on its own — inside a budget it can’t exceed.</p>
+          <p class="mt-2 mb-4 text-sm leading-relaxed text-neutral-400">Point an agent at a paid URL and it pays the 402 on its own, inside a budget it can’t exceed.</p>
           <CodeWindow file="agent.ts" code={payCode} class="min-w-0" />
           <a href="/mcp/" class="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-accent transition hover:gap-2.5">Give your agent a wallet <ArrowRight size={15} aria-hidden="true" /></a>
         </div>
@@ -310,7 +310,7 @@ const howToLd = {
             <span class="text-accent">Run it in your browser.</span>
           </h2>
           <p class="mt-4 max-w-xl text-base leading-relaxed text-neutral-400 sm:text-lg">
-            Build a real <span class="font-mono text-neutral-200">402</span> challenge and watch an agent price it —
+            Build a real <span class="font-mono text-neutral-200">402</span> challenge and watch an agent price it,
             live, client-side, no install. The SDK loads from a CDN right on the page.
           </p>
           <div class="mt-8">
@@ -347,7 +347,7 @@ const howToLd = {
     <!-- 5 · Why PipRail -->
     <section class="border-t border-white/10 py-20 sm:py-24">
       <SectionHeading title="One protocol. Every chain.">
-        One x402 line, one self-custodial driver per family — the same integration pays and gets paid across all
+        One x402 line, one self-custodial driver per family. The same integration pays and gets paid across all
         {familyCount} families, native coin or stablecoin. And PipRail reaches chains no other x402 SDK touches:
         TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar &amp; the XRP Ledger, alongside every major EVM chain.
       </SectionHeading>
@@ -356,11 +356,11 @@ const howToLd = {
         <!-- emerald wash -->
         <div class="pointer-events-none absolute -right-24 -top-28 h-72 w-72 rounded-full bg-accent/10 blur-3xl"></div>
         <div class="relative space-y-7">
-          <!-- EVM — the flagship family, BNB first + highlighted -->
+          <!-- EVM: the flagship family, BNB first + highlighted -->
           <div>
             <div class="mb-4 flex flex-wrap items-center gap-x-2.5 gap-y-1">
               <span class="inline-flex items-center rounded-md border border-accent/30 bg-accent/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-accent">EVM</span>
-              <span class="text-sm text-neutral-400">{evmCount} mainnets — one driver covers them all</span>
+              <span class="text-sm text-neutral-400">{evmCount} mainnets, one driver covers them all</span>
             </div>
             <div class="flex flex-wrap items-center gap-2.5">
               {evmFeatured.map((c) => (
@@ -377,10 +377,10 @@ const howToLd = {
 
           <div class="h-px bg-linear-to-r from-transparent via-white/12 to-transparent"></div>
 
-          <!-- the 9 non-EVM families — each its own native, self-custodial driver -->
+          <!-- the 9 non-EVM families, each its own native, self-custodial driver -->
           <div>
             <p class="mb-4 text-sm text-neutral-400">
-              <span class="font-medium text-neutral-200">+ {familyCount - 1} more families</span> — each a native, self-custodial driver
+              <span class="font-medium text-neutral-200">+ {familyCount - 1} more families</span>, each a native, self-custodial driver
             </p>
             <div class="flex flex-wrap items-center gap-2.5">
               {nonEvmFamilies.map((f) => (
@@ -393,8 +393,8 @@ const howToLd = {
           </div>
 
           <p class="text-sm leading-snug text-neutral-500">
-            Need a chain we don’t ship? Pass a <code class="rounded bg-white/5 px-1 text-neutral-300">{'{ id, rpcUrl }'}</code> —
-            any EVM chain works, no allowlist. <a href="/chains/" class="text-accent transition hover:underline">Browse every chain →</a>
+            Need a chain we don’t ship? Pass a <code class="rounded bg-white/5 px-1 text-neutral-300">{'{ id, rpcUrl }'}</code>.
+            Any EVM chain works, with no allowlist. <a href="/chains/" class="text-accent transition hover:underline">Browse every chain →</a>
           </p>
         </div>
       </div>
@@ -423,13 +423,13 @@ const howToLd = {
       </ol>
     </section>
 
-    <!-- 6.5 · Universal — speaks the standard, stays backendless -->
+    <!-- 6.5 · Universal: speaks the standard, stays backendless -->
     <section class="border-t border-white/10 py-20 sm:py-24">
       <SectionHeading title="Open standard. No middleman.">
-        x402 is the open payment rail the agent economy is converging on — and PipRail speaks it
+        x402 is the open payment rail the agent economy is converging on, and PipRail speaks it
         <span class="text-neutral-200">without ever putting anyone in the middle</span>. Funds settle to your wallet,
-        verified against your own RPC. Nobody to rate-limit you, take a cut, or shut you off — yet any x402 client in
-        the world can still pay you. Want a facilitator anyway? Use one — you pick it, and you can drop it.
+        verified against your own RPC. Nobody to rate-limit you, take a cut, or shut you off, yet any x402 client in
+        the world can still pay you. Want a facilitator anyway? Use one. You pick it, and you can drop it.
         <a href="/facilitators/" class="text-accent underline-offset-4 hover:underline">Which settles on your chain →</a>
       </SectionHeading>
       <div class="lift grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 md:grid-cols-3">
@@ -449,7 +449,7 @@ const howToLd = {
     </section>
 
     <!--
-      6.7 · Agent safety — the spend leash + the pre-flight.
+      6.7 · Agent safety: the spend leash + the pre-flight.
       The two deepest things in the SDK (policy.ts, planPayment) had no surface here at all, while
       the docs for both were already written. Snippets existed too and were never rendered.
       Deliberately framed as AGENT SAFETY, not crypto: "how do I stop my agent draining a wallet"
@@ -458,7 +458,7 @@ const howToLd = {
     <section id="agent-safety" class="scroll-mt-24 border-t border-white/10 py-20 sm:py-24">
       <SectionHeading title="Give an agent a wallet. Keep hold of the leash." class="mb-10 max-w-3xl">
         An autonomous agent spending your money is only safe if it <span class="text-neutral-200">can't</span> overspend.
-        Every cap is enforced <span class="text-neutral-200">before</span> any on-chain send — and the budget lives on the
+        Every cap is enforced <span class="text-neutral-200">before</span> any on-chain send, and the budget lives on the
         client, not in the prompt, so the model can't talk its way past it.
       </SectionHeading>
 
@@ -466,7 +466,7 @@ const howToLd = {
         <div class="min-w-0">
           <CodeWindow file="agent.ts" code={agentSafeCode} class="min-w-0" />
           <p class="mt-4 text-sm leading-relaxed text-neutral-500">
-            Per-call and lifetime caps, rolling windows, session deadlines, chain/token/host allowlists — and a
+            Per-call and lifetime caps, rolling windows, session deadlines, chain/token/host allowlists, plus a
             cross-chain grand total.
             <a href="https://docs.piprail.com/spend-controls/payment-policy/" class="text-accent transition hover:underline">Every control →</a>
           </p>
@@ -474,7 +474,7 @@ const howToLd = {
         <div class="min-w-0">
           <CodeWindow file="plan.ts" code={planCode} class="min-w-0" />
           <p class="mt-4 text-sm leading-relaxed text-neutral-500">
-            Most payments don't fail for want of USDC — they fail for want of <span class="text-neutral-400">gas</span>.
+            Most payments don't fail for want of USDC. They fail for want of <span class="text-neutral-400">gas</span>.
             <code class="font-mono text-[0.9em] text-neutral-400">planPayment()</code> reads balances, gas and recipient
             readiness first, and never pays.
             <a href="https://docs.piprail.com/making-payments/plan-payment/" class="text-accent transition hover:underline">Plan a payment →</a>
@@ -487,7 +487,7 @@ const howToLd = {
         <div class="bg-neutral-950 p-6 sm:p-7">
           <p class="text-base font-medium text-neutral-100">A seller can't understate a price</p>
           <p class="mt-2 text-sm leading-relaxed text-neutral-500">
-            Caps are compared using the token's <span class="text-neutral-400">true decimals</span>, read on-chain — not
+            Caps are compared using the token's <span class="text-neutral-400">true decimals</span>, read on-chain, not
             the number the server claims.
           </p>
         </div>
@@ -523,7 +523,7 @@ const howToLd = {
               </h2>
               <p class="mt-5 max-w-xl text-base leading-relaxed text-neutral-400 sm:text-lg">
                 Paste one config block and Claude Desktop, Cursor, or any MCP client pays x402-gated APIs
-                <span class="text-neutral-200">on its own</span> — across {total} chains, capped by a spend policy it
+                <span class="text-neutral-200">on its own</span>, across {total} chains, capped by a spend policy it
                 <span class="text-neutral-200">cannot exceed</span>. No code, no backend, no custody.
               </p>
               <div class="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -540,7 +540,7 @@ const howToLd = {
               <div class="card mt-4 flex items-center gap-3 rounded-xl px-4 py-3">
                 <Wallet size={16} class="shrink-0 text-accent" aria-hidden="true" />
                 <p class="text-sm leading-snug text-neutral-400">
-                  <span class="font-mono text-neutral-200">npx -y @piprail/mcp</span> — nothing to install. Then say
+                  <span class="font-mono text-neutral-200">npx -y @piprail/mcp</span>. Nothing to install. Then say
                   <span class="text-neutral-300">“pay for and summarize that report.”</span>
                 </p>
               </div>
@@ -569,12 +569,12 @@ const howToLd = {
     <!-- 7.4 · Integrations -->
     <section id="integrations" class="scroll-mt-24 border-t border-white/10 py-20 sm:py-24">
       <SectionHeading title="Use it where your agents already live.">
-        Drop PipRail into the frameworks agents are built in — <span class="text-neutral-200">no payment code</span>.
-        Each one wraps what already ships — <code class="text-neutral-300">@piprail/mcp</code> or
-        <code class="text-neutral-300">@piprail/sdk</code> — so the agent gets a budget-bound wallet straight to your own.
+        Drop PipRail into the frameworks agents are built in, with <span class="text-neutral-200">no payment code</span>.
+        Each one wraps what already ships, either <code class="text-neutral-300">@piprail/mcp</code> or
+        <code class="text-neutral-300">@piprail/sdk</code>, so the agent gets a budget-bound wallet straight to your own.
       </SectionHeading>
 
-      <!-- live integrations — one reusable component, shared with /mcp (src/components/IntegrationCard.astro) -->
+      <!-- live integrations: one reusable component, shared with /mcp (src/components/IntegrationCard.astro) -->
       <div class="space-y-4">
         {liveIntegrations.map((i) => <IntegrationCard {...i} />)}
       </div>
@@ -592,19 +592,19 @@ const howToLd = {
     <!-- 7.5 · Discoverability teaser -->
     <section class="border-t border-white/10 py-20 sm:py-24">
       <SectionHeading title="Payable isn’t the same as findable.">
-        x402 lets your endpoint charge — PipRail makes it <span class="text-neutral-200">discoverable</span>, built on the
-        open x402 indexes that already exist. No registry, no database, no fee — nothing PipRail-hosted. Three opt-in moves:
+        x402 lets your endpoint charge. PipRail makes it <span class="text-neutral-200">discoverable</span>, built on the
+        open x402 indexes that already exist. No registry, no database, no fee, nothing PipRail-hosted. Three opt-in moves:
       </SectionHeading>
       <div class="lift grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 md:grid-cols-3">
         <div class="bg-neutral-950 p-6 sm:p-7">
           <span class="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5"><Code2 size={18} class="text-accent" aria-hidden="true" /></span>
           <p class="mt-4 text-lg font-medium text-neutral-100">Emit</p>
-          <p class="mt-2 leading-relaxed text-neutral-500">Turn your gate’s config into a crawlable <code class="text-neutral-300">/openapi.json</code> — a static file on your own origin.</p>
+          <p class="mt-2 leading-relaxed text-neutral-500">Turn your gate’s config into a crawlable <code class="text-neutral-300">/openapi.json</code>: a static file on your own origin.</p>
         </div>
         <div class="bg-neutral-950 p-6 sm:p-7">
           <span class="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5"><Megaphone size={18} class="text-accent" aria-hidden="true" /></span>
           <p class="mt-4 text-lg font-medium text-neutral-100">Register</p>
-          <p class="mt-2 leading-relaxed text-neutral-500"><code class="text-neutral-300">client.register(url)</code> lists you on 402 Index — no auth, no signature, no fee.</p>
+          <p class="mt-2 leading-relaxed text-neutral-500"><code class="text-neutral-300">client.register(url)</code> lists you on 402 Index. No auth, no signature, no fee.</p>
         </div>
         <div class="bg-neutral-950 p-6 sm:p-7">
           <span class="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5"><Search size={18} class="text-accent" aria-hidden="true" /></span>

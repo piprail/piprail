@@ -3,7 +3,7 @@
  * GA4, deferred and gated. Ported from a sister project's implementation 2026-08-28.
  *
  * WHY THIS EXISTS: piprail.com had NO analytics of any kind. Search Console shows
- * search impressions but says nothing about what people do once they arrive — which
+ * search impressions but says nothing about what people do once they arrive: which
  * install command they copy, whether they reach the docs, where they drop.
  *
  * WHY IT IS DEFERRED: gtag.js is ~470KB. It loads on first interaction or on idle
@@ -15,7 +15,7 @@
  *
  * `navigator.webdriver` is true in Playwright, Puppeteer and Selenium and false in a
  * hand-driven browser. This repo points Playwright at production, and GA4's own bot
- * filter never catches those — a real Chromium really is executing the tag. On a site
+ * filter never catches those, because a real Chromium really is executing the tag. On a site
  * with ~6 organic impressions a day, a handful of self-inflicted sessions would be a
  * multiple of the real audience, and every content decision reads these numbers.
  *

@@ -14,72 +14,72 @@ import { Zap, Coins, ShieldCheck, PackageCheck, ArrowRight, ChevronDown, Check, 
 const total = chains.length
 const familyCount = [...new Set(chains.map((c) => c.family))].length
 
-const title = 'x402 SDK — accept & make crypto payments in one line | PipRail'
-const description = `@piprail/sdk — gate any route to charge for itself, or point an agent at a paid URL and it pays itself. x402 on ${total} chains, no backend, no fee.`
+const title = 'x402 SDK: accept & make crypto payments in one line | PipRail'
+const description = `@piprail/sdk. Gate any route to charge for itself, or point an agent at a paid URL and it pays itself. x402 on ${total} chains, no backend, no fee.`
 
 const verifyKinds = [
   { kind: 'paid', resp: '200 + your data + the payment-response receipt header' },
   { kind: 'challenge', resp: '402 + the challenge JSON + the payment-required header' },
-  { kind: 'invalid', resp: '402 + toInvalidBody(result) — wrong amount, expired, replayed…' },
+  { kind: 'invalid', resp: '402 + toInvalidBody(result): wrong amount, expired, replayed…' },
 ]
 
 const agentGuards = [
   { label: 'Spend limits', desc: 'per-call + lifetime caps, enforced on the token’s true decimals' },
   { label: 'Quote first', desc: 'learn the exact price without paying it' },
-  { label: 'Estimate the gas', desc: 'native-coin network fee before you pay — on every chain' },
+  { label: 'Estimate the gas', desc: 'native-coin network fee before you pay, on every chain' },
   { label: 'Approve each pay', desc: 'a final yes/no hook before any funds move' },
   { label: 'Spend ledger', desc: 'read back exactly what was spent, per token' },
-  { label: 'One wallet, an LLM tool', desc: 'drop into MCP or the AI SDK — budget rides along' },
+  { label: 'One wallet, an LLM tool', desc: 'drop into MCP or the AI SDK, budget rides along' },
 ]
 const planChecks = [
   { label: 'Enough token?', desc: 'your live balance of the exact payment token, per rail' },
-  { label: 'Enough gas?', desc: 'the native coin to send it — you can hold USDC but no ETH' },
-  { label: 'Can they receive?', desc: 'trustline / ATA / storage_deposit / ASA opt-in — before you broadcast' },
+  { label: 'Enough gas?', desc: 'the native coin to send it. You can hold USDC but no ETH' },
+  { label: 'Can they receive?', desc: 'trustline / ATA / storage_deposit / ASA opt-in, checked before you broadcast' },
   { label: 'Within budget?', desc: 'your spend policy, all checked in one read-only call' },
 ]
 const steps = [
-  { icon: Zap, n: '01', t: 'Agent calls your route', d: 'It gets back a 402 quote — price, token, payTo, and chain.' },
+  { icon: Zap, n: '01', t: 'Agent calls your route', d: 'It gets back a 402 quote: price, token, payTo, and chain.' },
   { icon: Coins, n: '02', t: 'Agent pays on-chain', d: 'One transfer, straight to your wallet. PipRail never touches the funds.' },
   { icon: ShieldCheck, n: '03', t: 'You verify locally', d: 'Your server checks the tx against your own RPC: succeeded, recent, right amount and recipient.' },
   { icon: PackageCheck, n: '04', t: 'You return the data', d: '200 OK, the gated content flows, and the same proof can never be spent twice.' },
 ]
 
-// Factual positioning vs a typical facilitator-based x402 stack — true, sourced
+// Factual positioning vs a typical facilitator-based x402 stack. True, sourced
 // from PipRail's own architecture, non-disparaging.
 const compare = [
-  { f: 'Backend to run', pip: 'None — it’s an npm package', other: 'A hosted facilitator service' },
-  { f: 'Protocol fee', pip: '0 — payments settle wallet-to-wallet', other: 'Often a per-transaction cut' },
+  { f: 'Backend to run', pip: 'None, it’s an npm package', other: 'A hosted facilitator service' },
+  { f: 'Protocol fee', pip: '0. Payments settle wallet-to-wallet', other: 'Often a per-transaction cut' },
   { f: 'Custody', pip: 'Self-custody; keys never leave your process', other: 'Funds routed via the facilitator' },
   { f: 'Verification', pip: 'Local, against your own RPC', other: 'Delegated to the facilitator' },
   { f: 'Chain coverage', pip: `${total} chains, ${familyCount} families`, other: 'Commonly one or two chains' },
-  { f: 'Lock-in', pip: 'None — MIT, runs headless or in the browser', other: 'Tied to the provider' },
+  { f: 'Lock-in', pip: 'None. MIT, runs headless or in the browser', other: 'Tied to the provider' },
 ]
 
-// Dev-focused FAQ — mirrors the visible Q&A (schema must match the page).
+// Dev-focused FAQ, mirroring the visible Q&A (schema must match the page).
 const faqs = [
   {
     q: `What is x402?`,
-    a: `x402 revives the dormant HTTP 402 "Payment Required" status code as a real payment protocol. A server answers a request with 402 plus a machine-readable challenge (price, token, chain, pay-to address); the caller pays on-chain and retries with proof, and the request goes through. It lets an HTTP endpoint charge for itself — no API keys, accounts, or invoices — which is exactly what AI agents need to pay for data and compute autonomously.`,
+    a: `x402 revives the dormant HTTP 402 "Payment Required" status code as a real payment protocol. A server answers a request with 402 plus a machine-readable challenge (price, token, chain, pay-to address); the caller pays on-chain and retries with proof, and the request goes through. It lets an HTTP endpoint charge for itself, with no API keys, accounts, or invoices, which is exactly what AI agents need to pay for data and compute autonomously.`,
   },
   {
     q: `How do I accept crypto payments in Next.js (or any framework)?`,
-    a: `Install @piprail/sdk and viem, then in a Route Handler build a gate once with createPaymentGate({ chain: 'base', token: 'USDC', amount: '0.05', payTo }) and call gate.verify(req.headers.get('payment-signature')) inside GET. If the result is 'paid', return the resource + receipt header; if 'challenge', return it with status 402; otherwise return toInvalidBody(result) with 402. No backend or database — verification runs locally against your own RPC. The same createPaymentGate pattern covers Hono, Fastify, Workers, Bun, and Deno; Express gets the requirePayment one-liner.`,
+    a: `Install @piprail/sdk and viem, then in a Route Handler build a gate once with createPaymentGate({ chain: 'base', token: 'USDC', amount: '0.05', payTo }) and call gate.verify(req.headers.get('payment-signature')) inside GET. If the result is 'paid', return the resource + receipt header; if 'challenge', return it with status 402; otherwise return toInvalidBody(result) with 402. No backend or database: verification runs locally against your own RPC. The same createPaymentGate pattern covers Hono, Fastify, Workers, Bun, and Deno; Express gets the requirePayment one-liner.`,
   },
   {
     // Probed 2026-08-30: this query returns coinbase/x402, thirdweb and solana.com, never us,
     // even though cross-family coverage is the thing we actually have that they don't.
     q: `Is there an x402 SDK that supports both Solana and EVM chains?`,
-    a: `Yes — @piprail/sdk speaks both from one install, and one parameter picks the chain: chain: 'base' or chain: 'solana'. It goes further than the EVM/Solana pair, covering ${total} chains across ${familyCount} families — every major EVM chain plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar and the XRP Ledger. The protocol layer is chain-agnostic and each family is a self-contained driver behind the same contract, so nothing about your code changes when the chain does. Non-EVM families load lazily on first use, so a pure-EVM install never downloads the Solana or XRPL libraries.`,
+    a: `Yes. @piprail/sdk speaks both from one install, and one parameter picks the chain: chain: 'base' or chain: 'solana'. It goes further than the EVM/Solana pair, covering ${total} chains across ${familyCount} families: every major EVM chain plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar and the XRP Ledger. The protocol layer is chain-agnostic and each family is a self-contained driver behind the same contract, so nothing about your code changes when the chain does. Non-EVM families load lazily on first use, so a pure-EVM install never downloads the Solana or XRPL libraries.`,
   },
   {
     // Probed 2026-08-30: x402magic, l402-ts and Medium tutorials answer this. The existing
     // Next.js entry covers the same ground but never says "HTTP 402", which is what's typed.
     q: `How do I add HTTP 402 Payment Required to a Node.js or TypeScript API?`,
-    a: `Install @piprail/sdk and add one line: requirePayment({ chain: 'base', token: 'USDC', amount: '0.05', payTo }) as Express middleware, or createPaymentGate(...) for Hono, Fastify, Next.js Route Handlers, Workers, Bun and Deno. The route then answers unpaid requests with a real 402 and a machine-readable challenge, and serves normally once a valid proof arrives. Verification runs in your own process against your own RPC — there is no backend to deploy, no database, no account, and no fee. It is TypeScript-first, viem is the only required peer dependency (the non-EVM chain libraries are optional peers that load lazily), and it runs headless or in the browser.`,
+    a: `Install @piprail/sdk and add one line: requirePayment({ chain: 'base', token: 'USDC', amount: '0.05', payTo }) as Express middleware, or createPaymentGate(...) for Hono, Fastify, Next.js Route Handlers, Workers, Bun and Deno. The route then answers unpaid requests with a real 402 and a machine-readable challenge, and serves normally once a valid proof arrives. Verification runs in your own process against your own RPC, so there is no backend to deploy, no database, no account, and no fee. It is TypeScript-first, viem is the only required peer dependency (the non-EVM chain libraries are optional peers that load lazily), and it runs headless or in the browser.`,
   },
   {
     q: `How do AI agents pay for APIs with PipRail?`,
-    a: `Wrap the agent's HTTP calls with PipRailClient. Give it a wallet and a chain, then call client.fetch(url): on a 402 it reads the challenge, sends the payment on-chain, waits for confirmation, and retries with proof — automatically. Use client.quote(url) to learn a price without paying, client.estimateCost(url) to budget gas, and an opt-in spend policy (maxAmount, maxTotal, chains, tokens, hosts) that refuses out-of-bounds calls before any send. paymentTools(client) hands the same to an LLM via MCP, the Vercel AI SDK, or function-calling — budget-bound so it can't overspend.`,
+    a: `Wrap the agent's HTTP calls with PipRailClient. Give it a wallet and a chain, then call client.fetch(url): on a 402 it reads the challenge, sends the payment on-chain, waits for confirmation, and retries with proof, automatically. Use client.quote(url) to learn a price without paying, client.estimateCost(url) to budget gas, and an opt-in spend policy (maxAmount, maxTotal, chains, tokens, hosts) that refuses out-of-bounds calls before any send. paymentTools(client) hands the same to an LLM via MCP, the Vercel AI SDK, or function-calling, budget-bound so it can't overspend.`,
   },
   {
     q: `How does an agent know if it can actually pay before paying?`,
@@ -87,11 +87,11 @@ const faqs = [
   },
   {
     q: `How do agents discover my x402 endpoint, and how do I get listed?`,
-    a: `Discovery is built in and backendless — PipRail builds on the open x402 indexes that already exist (402 Index, the CDP Bazaar read API, x402scan) and hosts none of its own. To be found, call client.register(url): one POST to 402 Index, no auth and no signature — probed on submit, then searchable once it passes automated checks (or instantly, if you verify your domain; optionally also x402scan via one wallet signature, Base/Solana only). To find resources to pay, call client.discover({ query }), which reads those open indexes for free and returns candidates you then quote and pay as usual. You can also emit a static discovery file from your gate's config with buildOpenApi / buildWellKnownX402 / buildX402DnsTxt (fed by gate.describe()) and serve it on your own origin. For an LLM/MCP it's two tools: piprail_discover and piprail_register. No registry, no database, no fee.`,
+    a: `Discovery is built in and backendless. PipRail builds on the open x402 indexes that already exist (402 Index, the CDP Bazaar read API, x402scan) and hosts none of its own. To be found, call client.register(url): one POST to 402 Index, no auth and no signature. It is probed on submit, then searchable once it passes automated checks (or instantly, if you verify your domain; optionally also x402scan via one wallet signature, Base/Solana only). To find resources to pay, call client.discover({ query }), which reads those open indexes for free and returns candidates you then quote and pay as usual. You can also emit a static discovery file from your gate's config with buildOpenApi / buildWellKnownX402 / buildX402DnsTxt (fed by gate.describe()) and serve it on your own origin. For an LLM/MCP it's two tools: piprail_discover and piprail_register. No registry, no database, no fee.`,
   },
   {
     q: `Is there a fee to use PipRail?`,
-    a: `No. PipRail charges no fee and takes no cut. It's an open-source (MIT) npm package, not a platform or hosted service. Payments settle straight into your own wallet — there's no PipRail backend, facilitator, or middleman in the path. You pay only normal network gas on whichever chain you choose.`,
+    a: `No. PipRail charges no fee and takes no cut. It's an open-source (MIT) npm package, not a platform or hosted service. Payments settle straight into your own wallet. There's no PipRail backend, facilitator, or middleman in the path. You pay only normal network gas on whichever chain you choose.`,
   },
   {
     q: `Does PipRail need a backend, database, or account?`,
@@ -99,7 +99,7 @@ const faqs = [
   },
   {
     q: `Can the same app both take and make payments?`,
-    a: `Yes — that's the design. Use requirePayment (Express) or createPaymentGate (everything else) to charge for a route, and PipRailClient to pay for calls the same app makes outbound. Install the one package, add a wallet, and you can monetize and pay in the same process. It's pure TypeScript and runs headless or in the browser.`,
+    a: `Yes, that's the design. Use requirePayment (Express) or createPaymentGate (everything else) to charge for a route, and PipRailClient to pay for calls the same app makes outbound. Install the one package, add a wallet, and you can monetize and pay in the same process. It's pure TypeScript and runs headless or in the browser.`,
   },
 ]
 
@@ -150,7 +150,7 @@ const glossaryLd = {
       </h1>
       <p class="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-neutral-400 sm:text-lg">
         PipRail is an open-source x402 SDK: <span class="text-neutral-200">{total} chains</span>, {familyCount} families,
-        <span class="text-neutral-200">0 protocol fee</span>, no backend — payments settle straight to your wallet,
+        <span class="text-neutral-200">0 protocol fee</span>, no backend. Payments settle straight to your wallet,
         verified locally against your own RPC. Gate a route to charge for itself, or point an agent at a paid URL and it pays itself.
       </p>
       <div class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -166,7 +166,7 @@ const glossaryLd = {
 
     <!-- Accept -->
     <section class="border-t border-white/10 py-16 sm:py-20">
-      <SectionHeading title="Accept — charge for any endpoint.">
+      <SectionHeading title="Accept: charge for any endpoint.">
         Build a gate, switch on <code class="text-neutral-300">verify()</code>. <code class="text-neutral-300">createPaymentGate</code>
         is the framework-agnostic core (Next.js, Hono, Fastify, Workers, Bun, Deno); Express gets the
         <code class="text-neutral-300">requirePayment</code> one-liner.
@@ -174,7 +174,7 @@ const glossaryLd = {
       <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-center">
         <CodeWindow file="route.ts" code={gateCode} class="min-w-0" />
         <p class="text-base leading-relaxed text-neutral-400">
-          Three outcomes, three responses — no backend, no database, verified locally against your own RPC.
+          Three outcomes, three responses. No backend, no database, verified locally against your own RPC.
           <a href="https://docs.piprail.com" class="text-accent underline-offset-4 hover:underline">Read the docs →</a>
         </p>
       </div>
@@ -194,9 +194,9 @@ const glossaryLd = {
 
     <!-- Pay -->
     <section class="border-t border-white/10 py-16 sm:py-20">
-      <SectionHeading title="Pay — let an agent pay for itself.">
+      <SectionHeading title="Pay: let an agent pay for itself.">
         Wrap the agent's calls with <code class="text-neutral-300">PipRailClient</code>. On a 402 it reads the
-        challenge, pays on-chain, retries with proof — you just get the 200 back. Node, edge, or browser.
+        challenge, pays on-chain, retries with proof. You just get the 200 back. Node, edge, or browser.
       </SectionHeading>
       <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-center">
         <CodeWindow file="agent.ts" code={payCode} class="min-w-0" />
@@ -212,7 +212,7 @@ const glossaryLd = {
     <!-- One word picks the chain -->
     <section class="border-t border-white/10 py-16 sm:py-20">
       <SectionHeading title="One word picks the chain.">
-        Change a single string — Ethereum, Solana, TON — and you've switched networks. Same line, same wallet.
+        Change a single string (Ethereum, Solana, TON) and you've switched networks. Same line, same wallet.
         Or offer several rails in one challenge (one nonce, no per-chain routes) and let the agent pay with whatever it holds.
       </SectionHeading>
       <div class="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
@@ -225,7 +225,7 @@ const glossaryLd = {
     <section class="border-t border-white/10 py-16 sm:py-20">
       <SectionHeading title="Agent-safe by default.">
         Hand an autonomous agent a wallet without losing sleep. Set a budget and PipRail refuses anything
-        outside it <span class="text-neutral-200">before a single token moves</span> — the safety lives in code, not a prompt.
+        outside it <span class="text-neutral-200">before a single token moves</span>. The safety lives in code, not a prompt.
       </SectionHeading>
       <FeatureGrid items={agentGuards} />
       <p class="mt-6 text-sm text-neutral-500">
@@ -236,15 +236,15 @@ const glossaryLd = {
     <!-- Plan before you pay -->
     <section class="border-t border-white/10 py-16 sm:py-20">
       <SectionHeading title="Plan before you pay.">
-        One read-only call checks a 402 against your own wallet — balance, native gas, and whether the
-        recipient can receive — then tells you the rail to use, or exactly what to top up. Then
+        One read-only call checks a 402 against your own wallet: balance, native gas, and whether the
+        recipient can receive. Then it tells you the rail to use, or exactly what to top up. Then
         <span class="text-accent">one line</span> pays it.
       </SectionHeading>
       <FeatureGrid items={planChecks} />
       <p class="mx-auto mt-8 max-w-3xl text-center text-sm text-neutral-400">
         <code class="text-neutral-200">quote()</code> tells you the price,
         <code class="text-neutral-200">estimateCost()</code> the gas, and
-        <code class="text-accent">planPayment()</code> whether you can actually settle it — all on your own RPC,
+        <code class="text-accent">planPayment()</code> whether you can actually settle it, all on your own RPC,
         with no facilitator, oracle, or bridge.
       </p>
     </section>
@@ -272,7 +272,7 @@ const glossaryLd = {
         })}
       </div>
       <p class="mt-6 max-w-3xl text-sm leading-relaxed text-neutral-500">
-        x402 v2 (§7) explicitly endorses merchant-local verification — no facilitator required. Self-custody
+        x402 v2 (§7) explicitly endorses merchant-local verification, with no facilitator required. Self-custody
         throughout: the payer signs and broadcasts their own transfer; PipRail never holds funds.
       </p>
     </section>
@@ -280,7 +280,7 @@ const glossaryLd = {
     <!-- Comparison -->
     <section class="border-t border-white/10 py-16 sm:py-20">
       <SectionHeading title="Backendless by design.">
-        How PipRail differs from a typical facilitator-based x402 stack — all of it a consequence of one
+        How PipRail differs from a typical facilitator-based x402 stack, all of it a consequence of one
         choice: the payer broadcasts their own transfer and you verify it yourself.
       </SectionHeading>
       <div class="overflow-x-auto rounded-2xl border border-white/10">
@@ -319,9 +319,9 @@ const glossaryLd = {
       <div class="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {[
           { t: 'Full documentation', h: 'https://docs.piprail.com' },
-          { t: 'Chains — per chain', h: 'https://docs.piprail.com/chains/overview/' },
+          { t: 'Chains, per chain', h: 'https://docs.piprail.com/chains/overview/' },
           { t: 'Error model', h: 'https://docs.piprail.com/errors/error-model/' },
-          { t: 'Examples — runnable', h: 'https://github.com/piprail/piprail/tree/main/examples' },
+          { t: 'Examples, runnable', h: 'https://github.com/piprail/piprail/tree/main/examples' },
         ].map((d) => (
           <a href={d.h} class="flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/2.5 px-4 py-3.5 text-sm font-medium text-neutral-200 transition hover:border-accent/30 hover:bg-white/5">
             {d.t} <ArrowRight size={14} class="shrink-0 text-accent" aria-hidden="true" />
@@ -333,7 +333,7 @@ const glossaryLd = {
     <!-- Glossary -->
     <section class="border-t border-white/10 py-16 sm:py-20">
       <SectionHeading title="Glossary.">
-        The terms PipRail sits on — defined plainly, for humans and answer engines.
+        The terms PipRail sits on, defined plainly, for humans and answer engines.
       </SectionHeading>
       <dl class="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 sm:grid-cols-2">
         {glossary.map((t) => (
@@ -352,7 +352,7 @@ const glossaryLd = {
       <div class="grid gap-8 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:gap-16">
         <div class="lg:sticky lg:top-24 lg:self-start">
           <SectionHeading title="SDK FAQ." class="max-w-sm">
-            For the developers — and agents — wiring PipRail in.
+            For the developers (and agents) wiring PipRail in.
           </SectionHeading>
         </div>
         <div class="divide-y divide-white/10 overflow-hidden rounded-2xl border border-white/10 bg-neutral-950">

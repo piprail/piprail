@@ -65,7 +65,9 @@ import {
 
 /** The payment schemes a client can settle: PipRail's native `onchain-proof` (the
  *  default), the standard x402 `exact` rail (EVM EIP-3009/Permit2 + Solana SVM + Algorand
- *  + Aptos + NEAR, opt-in), and the standard x402 `upto` (metered) rail (EVM-Permit2, opt-in). */
+ *  + Aptos + NEAR + XRPL native XRP, opt-in), and the standard x402 `upto` (metered) rail
+ *  (EVM-Permit2, opt-in). NB exact is gasless on every family EXCEPT XRPL, where the fee is a
+ *  field inside the signed transaction and the payer therefore pays it. */
 export type PaymentScheme = 'onchain-proof' | 'exact' | 'upto'
 
 /** The scheme set when none is configured — `onchain-proof` only, so the zero-config
@@ -1330,7 +1332,7 @@ export class PipRailClient {
    * - Results are cross-scheme (mostly the mainstream `exact` scheme); `fetch()` pays
    *   `onchain-proof` rails by default, and standard `exact` rails too once you opt in
    *   with `schemes: ['onchain-proof', 'exact']` (EVM EIP-3009/Permit2 + Solana SVM + Algorand
-   *   + Aptos + NEAR).
+   *   + Aptos + NEAR + XRPL native XRP).
    */
   async discover(opts: DiscoverOptions = {}): Promise<DiscoveredResource[]> {
     // searchOpenIndexes does the fan-out, server-side + client-side filters, and ranking;
@@ -1681,12 +1683,23 @@ export class PipRailClient {
             a.scheme === 'exact' &&
             this.supportsNetwork(net, a.network) &&
             typeof net.payExact === 'function' &&
-            // `native` is never `exact`-payable on ANY family (exact = an EIP-3009/Permit2-style
-            // signed-authorization scheme a native coin can't support; every driver's payExact
-            // throws/returns-null for it). describeAsset('native') IS non-null (onchain-proof needs
-            // it), so without this guard a malformed 402 advertising a native `exact` rail would be
-            // gathered, planned `payable`, even chosen by autoRoute — then throw at pay time.
-            a.asset !== 'native' &&
+            /*
+             * Can this family sign an `exact` payment for THIS asset?
+             *
+             * The default — for every family that doesn't say otherwise — is "any recognised token
+             * yes, the native coin no". `exact` is an EIP-3009/Permit2-style signed-authorization
+             * scheme a native coin can't carry, and `describeAsset('native')` IS non-null
+             * (onchain-proof needs it), so without the rule a 402 advertising a native exact rail
+             * would gather, plan `payable`, even win autoRoute — then throw at pay time.
+             *
+             * XRPL is the first family to overturn it, in BOTH directions. There an `exact` payment
+             * is simply a fully signed `Payment`, so native XRP is the most natural thing to send —
+             * 863 of its 1,732 live rails are priced in XRP. Its ISSUED currencies are excluded
+             * instead: they state a decimal `value` on the wire while the spend policy caps in base
+             * units, so pricing one as base units would let a 12-RLUSD rail slip under any cap.
+             * A driver that declares `exactPayableAsset` replaces this rule for all of its assets.
+             */
+            (net.exactPayableAsset ? net.exactPayableAsset(a.asset) : a.asset !== 'native') &&
             /*
              * The rail's transfer method must be one a driver can sign — but an ABSENT method is
              * not an unknown one. `scheme_exact_evm.md`: "If no `assetTransferMethod` is specified

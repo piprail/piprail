@@ -394,6 +394,10 @@ function makeEvmNetwork(resolved: ResolvedChain): ResolvedNetwork {
         // A NEAR-shaped payload reached the EVM driver — impossible via per-spec routing; fail closed.
         return { ok: false, error: 'signature_invalid', detail: 'A NEAR payload was submitted to an EVM exact rail.' }
       }
+      if ('signedTxBlob' in payload) {
+        // An XRPL-shaped payload reached the EVM driver — impossible via per-spec routing; fail closed.
+        return { ok: false, error: 'signature_invalid', detail: 'An XRPL payload was submitted to an EVM exact rail.' }
+      }
       return verifyAndSettleExactEvm({
         publicClient,
         walletClient: a.walletClient,

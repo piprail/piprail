@@ -1,6 +1,6 @@
 ---
 title: Self-describing endpoints
-description: 'Every PipRail 402 announces what it is and how to pay it — to humans, AI agents, and crawlers alike — so an endpoint is never invisible.'
+description: 'Every PipRail 402 announces what it is and how to pay it, to humans, AI agents, and crawlers alike, so an endpoint is never invisible.'
 sidebar:
   order: 0
 ---
@@ -9,21 +9,21 @@ sidebar:
 
 A bare HTTP `402 Payment Required` is a dead end: a human who opens it sees nothing useful, and a
 generic x402 client that doesn't speak PipRail's default `onchain-proof` scheme throws
-`Unsupported scheme` and gives up. **PipRail makes every 402 self-describing instead** — the instant
+`Unsupported scheme` and gives up. **PipRail makes every 402 self-describing instead**, so the instant
 anyone lands on a gated endpoint they learn *what it is* (a PipRail x402 payment endpoint), *what to
 pay* (the amount, token, chain, and recipient), and *how to pay it programmatically* (`npm i
-@piprail/sdk` or the MCP, with a paste-ready snippet) — plus where the discovery docs live.
+@piprail/sdk` or the MCP, with a paste-ready snippet), plus where the discovery docs live.
 
 This is **on by default** and **purely additive**: it lives in the x402 v2 `extensions` bag, which the
-spec treats as opaque, so a standard client ignores it. The block rides in the **response body** only —
+spec treats as opaque, so a standard client ignores it. The block rides in the **response body** only, so
 the base64 `payment-required` **header stays slim** (just `accepts[]` + a small `bazaar`/rejection block),
 so it never bloats past a proxy's header limit on a many-rail gate. The pay path, `accepts[]`, the
-`payment-required` header, and status are byte-identical to a gate without it — you can prove that by
+`payment-required` header, and status are byte-identical to a gate without it. You can prove that by
 turning it off (below).
 
 :::note
 The point is reach: even an `onchain-proof`-only endpoint that stock tooling *cannot pay* is no longer
-invisible — the block tells the caller to install `@piprail/sdk` and pay. For the non-EVM families that
+invisible: the block tells the caller to install `@piprail/sdk` and pay. For the non-EVM families that
 have no standard `exact` rail at all (XRPL, TON, Stellar, Tron, Sui), this block
 is the *entire* interop story.
 :::
@@ -55,7 +55,7 @@ the gate already resolved (no new data):
   "mcp": { "run": "npx -y @piprail/mcp", "tool": "piprail_pay_request" },
   "docs": { "home": "https://piprail.com", "agents": "https://docs.piprail.com", "pay": "https://docs.piprail.com/paying" },
   "discovery": { "openapi": "/openapi.json", "wellKnown": "/.well-known/x402" },
-  "instruction": "PipRail x402 payment endpoint — pay 0.01 USDC on eip155:8453 to 0xYourWallet. Programmatic: npm i @piprail/sdk then client.fetch(url). Docs: https://piprail.com."
+  "instruction": "PipRail x402 payment endpoint. Pay 0.01 USDC on eip155:8453 to 0xYourWallet. Programmatic: npm i @piprail/sdk then client.fetch(url). Docs: https://piprail.com."
 }
 ```
 
@@ -64,13 +64,13 @@ When a gate dual-advertises a standard [`exact`](/accepting-payments/exact-rail-
 that tells a stock client it can pay it directly.
 
 When the gate offers [verifiable receipts](/accepting-payments/verifiable-receipts/)
-(`receipts: true`), the block also carries **`verifiableReceipts: true`** — so an agent knows, from
+(`receipts: true`), the block also carries **`verifiableReceipts: true`**, so an agent knows, from
 the 402 alone, that a successful `200` will return a self-verifiable receipt it can re-check on-chain.
 
-### `endpoint` — what the resource *does* (agent-readable)
+### `endpoint`: what the resource *does* (agent-readable)
 
 The block above answers *"how do I pay?"* The optional **`endpoint`** sub-block answers the other
-half — *"what does this endpoint do, what does it take, and what comes back?"* — so an AI agent can
+half, *"what does this endpoint do, what does it take, and what comes back?"*, so an AI agent can
 decide whether a resource is worth paying for **from the 402 alone, with no paid call**:
 
 ```jsonc
@@ -86,10 +86,10 @@ decide whether a resource is worth paying for **from the 402 alone, with no paid
 }
 ```
 
-It's **present only when the merchant described the resource** — via the gate's `description` /
+It's **present only when the merchant described the resource**, via the gate's `description` /
 `mimeType`, or a [`discovery` descriptor](#one-descriptor-lights-up-both-blocks). On a zero-config
 gate it's **absent entirely**, so the default 402 stays byte-identical (prove it by [turning
-self-describe off](#turning-it-off) — but `endpoint` simply never appears unless you describe
+self-describe off](#turning-it-off), but `endpoint` simply never appears unless you describe
 something). The `example` matters: a concrete sample grounds an LLM far better than a bare schema,
 so it can reason about the response shape before spending.
 
@@ -108,7 +108,7 @@ const gate = createPaymentGate({
 })
 ```
 
-### `resource.mimeType` — at the v2 root too
+### `resource.mimeType`, at the v2 root too
 
 The gate also stamps the response content-type on the v2 `resource` object in the 402 body, so the
 standard ResourceInfo shape carries it for any client that reads the root rather than the extension:
@@ -126,13 +126,13 @@ standard ResourceInfo shape carries it for any client that reads the root rather
 ```
 
 Both `resource.description` and `resource.mimeType` are present only when you set them on the gate
-— omit them and the `resource` object is just `{ url }`, byte-identical to before.
+(see below). Omit them and the `resource` object is just `{ url }`, byte-identical to before.
 
 ### One descriptor lights up both blocks
 
 If you're already emitting the index-facing [`extensions.bazaar`](/discovery/emitters/) block by
 passing a `discovery` [`DiscoveryDescriptor`](/discovery/discover-and-register/), that **same
-descriptor** now populates the human/agent-facing `endpoint` too — one description, two audiences
+descriptor** now populates the human/agent-facing `endpoint` too: one description, two audiences
 (the open indexes *and* any agent reading the live 402). The descriptor gained a `summary` field
 for exactly this:
 
@@ -174,14 +174,14 @@ const gate = createPaymentGate({
 ### Coexistence with rejections and discovery
 
 On a *rejected* proof the gate already stamps `extensions.piprail.{code,detail}` (the machine-readable
-reason a client reads to retry). The self-describe fields are merged in as **siblings** — the rejection
+reason a client reads to retry). The self-describe fields are merged in as **siblings**, so the rejection
 `code`/`detail` always win on collision, and an opt-in [`extensions.bazaar`](/discovery/emitters/)
 discovery block is left untouched. So a rejection response is *both* actionable (it says why) *and*
 self-describing (it says what PipRail is + how to pay correctly).
 
-## `buildSelfDescription` — the pure builder
+## `buildSelfDescription`: the pure builder
 
-The gate wires this for you; call it directly only when you assemble a challenge yourself. It's pure —
+The gate wires this for you; call it directly only when you assemble a challenge yourself. It's pure,
 it imports no chain library and does no I/O.
 
 ```ts
@@ -204,16 +204,16 @@ const block = buildSelfDescription({
 is the same pure helper the gate uses; the `descriptor` is a `DiscoveryDescriptor`-shaped
 `{ summary?, method?, queryParams?, output? }` whose `summary` wins over `description`.
 
-## `describeChallenge` — the one-line summary
+## `describeChallenge`: the one-line summary
 
-`describeChallenge(challenge)` renders a single model- and human-readable line from a challenge —
+`describeChallenge(challenge)` renders a single model- and human-readable line from a challenge,
 used as the block's `instruction` and as a landing page's headline.
 
 ```ts
 import { describeChallenge } from '@piprail/sdk'
 
 describeChallenge(challenge)
-// → 'PipRail x402 payment endpoint — pay 0.01 USDC on eip155:8453 to 0xYourWallet.
+// → 'PipRail x402 payment endpoint. Pay 0.01 USDC on eip155:8453 to 0xYourWallet.
 //    Programmatic: npm i @piprail/sdk then client.fetch(url). Docs: https://piprail.com.'
 ```
 
@@ -224,12 +224,12 @@ throws).
 
 Agents and crawlers want the JSON 402; a **human** who opens the URL in a browser wants a readable
 page. `gate.landingPage(challenge)` returns a tiny, self-contained HTML document. It leads with the
-primary action — **how to pay** (the install + snippet + MCP command) — and a prominent **caution**:
+primary action, **how to pay** (the install + snippet + MCP command), and a prominent **caution**:
 payment must go through an x402 client, so the address is shown only as *"what the client pays, NOT a
 manual-send address"*. That matters because a human who sends funds straight to the address from an
 ordinary wallet would reach the merchant but **not** unlock the resource or get matched to their request
-(there's no custody and no manual-payment desk) — the page makes that unmistakable. The
-SDK never serves the page — you opt in by branching on the request's `Accept` header:
+(there's no custody and no manual-payment desk), and the page makes that unmistakable. The
+SDK never serves the page; you opt in by branching on the request's `Accept` header:
 
 ```ts
 const { challenge, requiredHeader } = await gate.challenge(url)
@@ -249,7 +249,7 @@ function if you build the `SelfDescription` yourself.
 ## HTTP discovery pointers
 
 `discoveryHeaders()` returns a header bag to spread into **every** response (the 402 *and* the 200) so
-crawlers/agents find your discovery docs and a payer learns what served them — the 200's
+crawlers/agents find your discovery docs and a payer learns what served them. The 200's
 `x-powered-by` is how a settlement "self-advertises" without touching the `X402Receipt` body:
 
 ```ts
@@ -265,7 +265,7 @@ discoveryHeaders({ attribution: false }) // omit x-powered-by, keep the Link poi
 ```
 
 If a response already carries a `Link` header, comma-merge the two values rather than
-object-spreading `discoveryHeaders()` over your existing headers — an object spread silently
+object-spreading `discoveryHeaders()` over your existing headers, because an object spread silently
 replaces your existing `Link` with PipRail's discovery pointers.
 
 `POWERED_BY` is the response-side twin of the `/openapi.json` [`GENERATOR`](/discovery/emitters/) stamp.
@@ -275,7 +275,7 @@ replaces your existing `Link` with PipRail's discovery pointers.
 The cold-start loop the [agent guide](/agent-toolkit/agent-guide/) teaches:
 
 1. The agent fetches a gated URL and gets a 402 it can't pay with stock tooling.
-2. It reads `challenge.extensions.piprail` → identity, per-rail `how`, `sdk.install`, `docs` —
+2. It reads `challenge.extensions.piprail` → identity, per-rail `how`, `sdk.install`, `docs`,
    and, when the merchant described the resource, `endpoint.{summary,input,output}` so it knows
    **what the endpoint does and returns before paying a cent**.
 3. It installs `@piprail/sdk` (or runs `npx -y @piprail/mcp`) and pays via the
@@ -284,10 +284,10 @@ The cold-start loop the [agent guide](/agent-toolkit/agent-guide/) teaches:
 Because the agent guide is exposed over the MCP (as a prompt and the `piprail://guide` resource), an
 MCP-connected agent already knows to read this block.
 
-## Brand strings — one source of truth
+## Brand strings: one source of truth
 
 `BRAND` is the single source for the install command, the snippet, and the docs links that the block,
-the landing page, and the agent guide all reuse — so they can never drift:
+the landing page, and the agent guide all reuse, so they can never drift:
 
 ```ts
 import { BRAND } from '@piprail/sdk'

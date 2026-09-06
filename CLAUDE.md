@@ -174,7 +174,7 @@ piprail/
 - **No marketplace, activity profile, service registry, or fee contract.** Deliberately absent —
   they'd need a backend or compete on territory we don't own.
 - **🔄 Never let a fact drift — see [🗺️ START HERE](#-start-here-on-every-request--check-the-map-before-you-touch-anything) at the top.**
-  `npm run sync` is both the map and the guard: **52 rules across 13 domains** (chains · packages ·
+  `npm run sync` is both the map and the guard: **53 rules across 13 domains** (chains · packages ·
   mcp · facilitators · discovery · site · docs · api · errors · ci · security · seo · skills). Rules live in
   `scripts/sync/rules.mjs`, each declaring the fact's OWNER and every file that mirrors it.
   **One owner per fact** — if you are hand-maintaining a second copy, that is the bug: make it
@@ -190,6 +190,17 @@ piprail/
   there fails it as well. Two stores stay outside `.env` **by design** and are named in the
   example: `.secrets/wallets/<family>-wallet.json` (structured per-chain test wallets) and
   `~/.config/gcp/*-oauth.json` (Google OAuth for GSC/GA4).
+
+- **✍️ Every word a stranger reads goes through the `humanizer` skill.** Any text you write for
+  `site/src/` or `docs/src/` (a new page, a heading, a frontmatter `description`, a one-line tweak)
+  gets the same treatment outbound email already gets. The house voice is
+  [`.claude/skills/humanizer/PIPRAIL.md`](.claude/skills/humanizer/PIPRAIL.md): technically correct,
+  simple, easy to understand, and **no em dashes, ever** (two narrow exceptions, both listed there).
+  Draft, run **`npm run prose`**, fix what it flags, then read once more for the things a regex
+  cannot see (rule of three, uniform paragraphs, negative parallelism). The gate runs inside
+  `npm run verify-gate`, so a slop regression fails the build. Why it is a gate and not a style
+  note: the docs carried 3,320 em dashes before the 2026-09-06 sweep, every one added by somebody
+  who had, in principle, read the guidance.
 
 - **🔗 Record every URL — `.claude/URLS.md` is the address book.** The moment we interact with
   *any* URL, endpoint, dashboard, admin console, or API — ours or a third party's — **it gets a

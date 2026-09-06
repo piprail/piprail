@@ -1,19 +1,19 @@
 ---
 title: Persistence (durable budget)
-description: Make a client's budget survive a restart — a pluggable SpendStore, a one-line local file store, and an MCP env knob. No backend, no database; you own the store.
+description: Make a client's budget survive a restart with a pluggable SpendStore, a one-line local file store, and an MCP env knob. No backend, no database; you own the store.
 sidebar:
   order: 6
 ---
 
 ## Why
 
-By default the [spend ledger](/spend-controls/spend-ledger/) is **in-memory and process-scoped** —
+By default the [spend ledger](/spend-controls/spend-ledger/) is **in-memory and process-scoped**,
 the session *is* the process. That's the right default for a one-shot agent, but it means a restart
 zeroes `maxTotal`, [`maxTotalPerDenom`](/spend-controls/total-budget/), and the payment-count caps.
 A crash-loop could re-spend the whole budget on every boot.
 
 Pass a **`SpendStore`** and the ledger hydrates from it at construction and persists every settled
-payment — so the caps **resume where they left off**. There is no PipRail backend: you own the
+payment, so the caps **resume where they left off**. There is no PipRail backend: you own the
 store, exactly like the gate's [replay-protection](/accepting-payments/replay-protection/)
 `isUsed`/`markUsed` hook.
 
@@ -34,7 +34,7 @@ const client = new PipRailClient({
 })
 ```
 
-Restart the process and the `$20` USD cap + the 100-payment count pick up exactly where they were —
+Restart the process and the `$20` USD cap + the 100-payment count pick up exactly where they were, because
 the file is replayed on construction.
 
 ## Bring your own store
@@ -55,7 +55,7 @@ new PipRailClient({ chain: 'base', wallet, policy, spendStore: redisStore })
 ```
 
 Round-trip the **whole** `SpendRecord` (it carries `decimals` + `denom`) so the per-asset totals and
-the cross-token grand total rebuild exactly on reload — the built-in stores do.
+the cross-token grand total rebuild exactly on reload. The built-in stores do.
 
 `memorySpendStore(seed?)` is the in-memory implementation (handy for tests and seeding).
 
@@ -92,4 +92,4 @@ shared ledger). See [MCP configuration](/mcp/configuration/).
 | `maxPayments` (lifetime count) | |
 
 The store never throws: a failed `load()` falls back to an empty ledger, and a failed `append()` is
-swallowed — neither can break construction or a confirmed payment.
+swallowed, so neither can break construction or a confirmed payment.

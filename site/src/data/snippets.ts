@@ -31,14 +31,14 @@ export const oneParamCode = `<span class="tok-fn">requirePayment</span>({
   payTo,
 })`
 
-export const exoticCode = `<span class="tok-com">// Any chain we don't ship — no allowlist.</span>
+export const exoticCode = `<span class="tok-com">// Any chain we don't ship. No allowlist.</span>
 <span class="tok-fn">requirePayment</span>({
   chain: { id: <span class="tok-num">1313161554</span>, rpcUrl: <span class="tok-str">'https://…'</span> },
   token: { address: <span class="tok-str">'0x…'</span>, decimals: <span class="tok-num">6</span> },
   amount: <span class="tok-str">'0.05'</span>, payTo,
 })`
 
-export const solanaCode = `<span class="tok-com">// Name the chain — pay in its</span>
+export const solanaCode = `<span class="tok-com">// Name the chain, pay in its</span>
 <span class="tok-com">// stablecoin, or its native coin.</span>
 <span class="tok-fn">requirePayment</span>({
   chain: <span class="tok-chain">'solana'</span>, token: <span class="tok-str">'USDC'</span>,
@@ -58,7 +58,7 @@ export const agentSafeCode = `<span class="tok-kw">const</span> client = <span c
   },
 })
 
-<span class="tok-com">// Price it — without paying.</span>
+<span class="tok-com">// Price it, without paying.</span>
 <span class="tok-kw">const</span> q = <span class="tok-kw">await</span> client.<span class="tok-fn">quote</span>(url)
 
 <span class="tok-com">// …and the gas to send it (native coin).</span>
@@ -67,12 +67,12 @@ export const agentSafeCode = `<span class="tok-kw">const</span> client = <span c
 <span class="tok-com">// Over budget? Refused before any send.</span>
 <span class="tok-kw">await</span> client.<span class="tok-fn">fetch</span>(url)`
 
-// The killer agent move: check you can ACTUALLY pay — before paying.
-export const planCode = `<span class="tok-com">// Will this 402 go through — and on which rail?</span>
+// The killer agent move: check you can ACTUALLY pay, before paying.
+export const planCode = `<span class="tok-com">// Will this 402 go through, and on which rail?</span>
 <span class="tok-kw">const</span> plan = <span class="tok-kw">await</span> client.<span class="tok-fn">planPayment</span>(url)
 
 <span class="tok-kw">if</span> (plan.payable) {
-  <span class="tok-com">// pays plan.best — cheapest rail you can settle</span>
+  <span class="tok-com">// pays plan.best: cheapest rail you can settle</span>
   <span class="tok-kw">await</span> client.<span class="tok-fn">fetch</span>(url, { autoRoute: <span class="tok-kw">true</span> })
 } <span class="tok-kw">else</span> {
   <span class="tok-fn">console</span>.<span class="tok-fn">log</span>(plan.fundingHint)
@@ -82,14 +82,14 @@ export const planCode = `<span class="tok-com">// Will this 402 go through — a
 
 // TON's one-time setup: a free toncenter API key in the rpcUrl. The only TON-specific config.
 export const tonCode = `<span class="tok-com">// 1. Free key from @tonapibot on Telegram</span>
-<span class="tok-com">// 2. Drop it into rpcUrl — the whole TON setup</span>
+<span class="tok-com">// 2. Drop it into rpcUrl: the whole TON setup</span>
 <span class="tok-fn">requirePayment</span>({
   chain: <span class="tok-chain">'ton'</span>, token: <span class="tok-str">'USDT'</span>,
   amount: <span class="tok-str">'0.05'</span>, payTo,
   rpcUrl: <span class="tok-str">'…/jsonRPC?api_key=YOUR_KEY'</span>,
 })`
 
-// One challenge, several chains — the agent pays with whatever it holds.
+// One challenge, several chains. The agent pays with whatever it holds.
 export const multiAcceptCode = `<span class="tok-fn">requirePayment</span>({
   accept: [
     { chain: <span class="tok-chain">'arbitrum'</span>, token: <span class="tok-str">'USDC'</span>, amount: <span class="tok-str">'0.05'</span>, payTo: evm },
@@ -97,7 +97,7 @@ export const multiAcceptCode = `<span class="tok-fn">requirePayment</span>({
   ],
 })`
 
-// createPaymentGate — the framework-agnostic core (Next.js, Hono, Fastify, Workers,
+// createPaymentGate: the framework-agnostic core (Next.js, Hono, Fastify, Workers,
 // Bun, Deno). Build once, switch on what verify() returns.
 export const gateCode = `<span class="tok-kw">import</span> { createPaymentGate, toInvalidBody } <span class="tok-kw">from</span> <span class="tok-str">'@piprail/sdk'</span>
 
@@ -106,15 +106,15 @@ export const gateCode = `<span class="tok-kw">import</span> { createPaymentGate,
   amount: <span class="tok-str">'0.05'</span>, payTo,
 })
 
-<span class="tok-com">// in your handler — the proof rides in a header</span>
+<span class="tok-com">// in your handler: the proof rides in a header</span>
 <span class="tok-kw">const</span> r = <span class="tok-kw">await</span> gate.<span class="tok-fn">verify</span>(sig)
 <span class="tok-kw">if</span> (r.kind === <span class="tok-str">'paid'</span>)      <span class="tok-kw">return</span> <span class="tok-fn">ok</span>(data, r.receiptHeader)
 <span class="tok-kw">if</span> (r.kind === <span class="tok-str">'challenge'</span>) <span class="tok-kw">return</span> <span class="tok-fn">res402</span>(r.challenge)
 <span class="tok-kw">return</span> <span class="tok-fn">res402</span>(<span class="tok-fn">toInvalidBody</span>(r)) <span class="tok-com">// wrong amount / expired / replayed</span>`
 
-// @piprail/mcp — drop this into any MCP client (Claude Desktop, Cursor, …) and the
+// @piprail/mcp: drop this into any MCP client (Claude Desktop, Cursor, …) and the
 // agent gets a budget-bound wallet. npx fetches the server; no install step.
-export const mcpConfigCode = `<span class="tok-com">// claude_desktop_config.json — paste, restart, done</span>
+export const mcpConfigCode = `<span class="tok-com">// claude_desktop_config.json: paste, restart, done</span>
 {
   <span class="tok-str">"mcpServers"</span>: {
     <span class="tok-str">"piprail"</span>: {
@@ -129,7 +129,7 @@ export const mcpConfigCode = `<span class="tok-com">// claude_desktop_config.jso
   }
 }`
 
-// Discovery — be found + find. EMIT a crawlable file from your gate, REGISTER on
+// Discovery: be found + find. EMIT a crawlable file from your gate, REGISTER on
 // the open indexes, DISCOVER what's payable. Nothing PipRail-hosted.
 export const discoverEmitCode = `<span class="tok-kw">import</span> { createPaymentGate, buildOpenApi } <span class="tok-kw">from</span> <span class="tok-str">'@piprail/sdk'</span>
 
@@ -145,13 +145,13 @@ export const discoverEmitCode = `<span class="tok-kw">import</span> { createPaym
     <span class="tok-str">'https://api.acme.com/report'</span>,
   )],
 })
-<span class="tok-com">// serve doc at /openapi.json — static, no backend</span>`
+<span class="tok-com">// serve doc at /openapi.json: static, no backend</span>`
 
 export const discoverRegisterCode = `<span class="tok-kw">import</span> { PipRailClient } <span class="tok-kw">from</span> <span class="tok-str">'@piprail/sdk'</span>
 
 <span class="tok-kw">const</span> client = <span class="tok-kw">new</span> <span class="tok-fn">PipRailClient</span>({ chain: <span class="tok-chain">'base'</span>, wallet })
 
-<span class="tok-com">// one POST — no auth, no signature, no fee</span>
+<span class="tok-com">// one POST: no auth, no signature, no fee</span>
 <span class="tok-kw">await</span> client.<span class="tok-fn">register</span>(<span class="tok-str">'https://api.acme.com/report'</span>, {
   name: <span class="tok-str">'Market Report'</span>,
   priceUsd: <span class="tok-num">0.05</span>,

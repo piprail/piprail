@@ -22,9 +22,15 @@ import {
   XRP_DECIMALS,
   XRP_SYMBOL,
   xrplAssetId,
+  isXrpNative,
   type XrplPreset,
 } from './chains.js'
 import { payXrpl, type XrplPayClient } from './pay.js'
+import {
+  payExactXrpl,
+  verifyAndSettleExactXrpl,
+  type XrplExactSettleClient,
+} from './exact.js'
 import { verifyXrpl, type XrplReader, type XrplTxRecord } from './verify.js'
 import { assertXrplWallet, resolveXrplWallet, type XrplWalletConfig } from './wallet.js'
 import {
@@ -101,6 +107,24 @@ function makeXrplNetwork(preset: XrplPreset, rpcUrl: string): ResolvedNetwork {
     },
   }
 
+  // Submit + poll-by-hash, for the `exact` seller path. Separate from `payClient` because the
+  // exact BUYER never submits (it hands the merchant a signed blob) and the exact SELLER never
+  // signs — keeping the two capabilities apart is what makes each side mockable on its own.
+  const exactSettleClient: XrplExactSettleClient = {
+    submit: (txBlob) => payClient.submit(txBlob),
+    async txByHash(hash) {
+      try {
+        return await rpc<{
+          validated?: boolean
+          meta?: { TransactionResult?: string; delivered_amount?: unknown }
+          Account?: string
+        }>('tx', { transaction: hash, binary: false })
+      } catch {
+        return null // not yet propagated to this node — the caller keeps polling
+      }
+    },
+  }
+
   // Adapt account_tx to the narrow reader the verifier needs, handling both the
   // rippled (`tx`) and clio (`tx_json`) response shapes. Kept here so verify.ts
   // stays unit-testable with a plain mock.
@@ -162,7 +186,14 @@ function makeXrplNetwork(preset: XrplPreset, rpcUrl: string): ResolvedNetwork {
     },
 
     describeAsset(asset: string) {
-      if (asset === 'native') return { symbol: XRP_SYMBOL, decimals: XRP_DECIMALS }
+      // PipRail writes the native coin as `'native'` on every family. The XRPL x402 web writes it
+      // as the literal `'XRP'` — every one of the 863 native rails in the CDP Bazaar does, and a
+      // live probe of eight independent merchants found no other spelling. Not recognising it here
+      // is invisible: the rail is simply dropped at gather and the agent is told "no compatible
+      // accept" on a chain it fully supports. Same class of bug as the `assetTransferMethod`
+      // requirement that made 74% of the whole x402 web unpayable — a foreign spelling of a thing
+      // we already handle. We still EMIT `'native'`.
+      if (isXrpNative(asset)) return { symbol: XRP_SYMBOL, decimals: XRP_DECIMALS }
       for (const info of Object.values(preset.tokens)) {
         if (xrplAssetId(info.currencyHex, info.issuer) === asset) {
           return { symbol: info.symbol, decimals: info.decimals }
@@ -191,6 +222,62 @@ function makeXrplNetwork(preset: XrplPreset, rpcUrl: string): ResolvedNetwork {
     async send(wallet, accept) {
       const w: Wallet = resolveXrplWallet(wallet._native as XrplWalletConfig)
       return payXrpl({ client: payClient, wallet: w, accept })
+    },
+
+    /*
+     * ── Standard x402 `exact` rail (scheme_exact_xrpl.md) ───────────────────────────
+     * XRPL is the family where the PAYER pays the fee, so there is no sponsor to wire: the buyer
+     * signs a complete `Payment` and the merchant simply submits it. See drivers/xrpl/exact.ts for
+     * why the binding is `InvoiceID` (never a memo) and why only native XRP is exact-payable today.
+     */
+
+    // Native XRP only. An issued currency states its amount as a DECIMAL on the wire while the SDK
+    // prices and spend-caps in base units — signing one would let a 12-RLUSD rail pass a cap set in
+    // base units. Dropping it here means the gather skips it, rather than planning `payable` and
+    // throwing at signing time.
+    exactPayableAsset: (asset) => isXrpNative(asset),
+
+    async payExact(wallet: WalletHandle, accept) {
+      const w: Wallet = resolveXrplWallet(wallet._native as XrplWalletConfig)
+      return payExactXrpl({ client: payClient, wallet: w, accept })
+    },
+
+    // The gate advertises the rail. No `feePayer` and no sponsor key: uniquely on XRPL the buyer's
+    // own signed transaction carries its fee, so settlement is a bare submit.
+    //
+    // NB `server.ts` still requires a `relayer` for `settle: 'self'` — an unconditional config
+    // guard, and correctly chain-agnostic, so it cannot special-case XRPL. The relayer is accepted
+    // and then ignored here. Making it optional needs a driver-declared capability flag (the same
+    // shape as `exactPermit2Supported`); worth doing, since an XRPL merchant currently has to hand
+    // the gate a key it never uses, but it is a separate change from the buyer this rail is for.
+    async resolveExactRail({ asset }) {
+      if (asset !== 'native') return null
+      return {
+        method: 'sequence',
+        // `areFeesSponsored` is REQUIRED by the scheme and must be false; we emit it explicitly
+        // even though no deployed rail does, because emitting the conformant shape costs nothing
+        // and a strict third-party buyer may look for it. (Our own buyer reads it as false when
+        // absent — requiring it would have rejected the entire deployed XRPL web.)
+        extra: { areFeesSponsored: false },
+      }
+    },
+
+    // SELLER side — decode + check the buyer's blob against the trusted accept, submit it, and wait
+    // for a validated tesSUCCESS. `relayer` is accepted for signature-compatibility with the other
+    // families and deliberately unused: the payer already paid the fee inside the signed blob.
+    async settleExactSelf({ payload, accept }) {
+      if (!('signedTxBlob' in payload)) {
+        // A non-XRPL payload reached the XRPL driver — impossible via the gate's per-spec routing,
+        // but fail closed as a client fault rather than crash.
+        return { ok: false, error: 'signature_invalid', detail: 'XRPL exact expects a { signedTxBlob } payload.' }
+      }
+      const { decode } = await import('xrpl')
+      return verifyAndSettleExactXrpl({
+        client: exactSettleClient,
+        decode: (blob) => decode(blob) as Record<string, unknown>,
+        payload,
+        accept,
+      })
     },
 
     async confirm(ref) {
@@ -251,7 +338,7 @@ function makeXrplNetwork(preset: XrplPreset, rpcUrl: string): ResolvedNetwork {
       } catch (e) {
         native = isXrplActNotFound(e) ? 0n : null
       }
-      if (asset === 'native') return { token: native, native }
+      if (isXrpNative(asset)) return { token: native, native }
       let token: bigint | null = null
       try {
         const [currencyHex, issuer] = asset.split(':')
@@ -285,7 +372,10 @@ function makeXrplNetwork(preset: XrplPreset, rpcUrl: string): ResolvedNetwork {
         if (isXrplActNotFound(e)) return { ready: false as const, reason: 'INACTIVE' as const }
         return { ready: 'unknown' as const }
       }
-      if (asset === 'native') return { ready: true as const } // activated → can receive XRP
+      // An activated account can always receive XRP — a trustline is an ISSUED-currency concept
+      // and the native coin cannot have one. Reaching the trustline branch with `'XRP'` reported
+      // NO_TRUSTLINE for every live merchant and blocked the plan on a rail that was fine.
+      if (isXrpNative(asset)) return { ready: true as const }
       try {
         const [currencyHex, issuer] = asset.split(':')
         const r = await rpc<{ lines: { currency: string; account: string }[] }>('account_lines', {

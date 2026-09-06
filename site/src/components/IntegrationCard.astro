@@ -30,7 +30,7 @@ const { name, logo, tag, blurb, cmd, href } = Astro.props
     </div>
   </div>
 
-  <!-- copyable install command — wraps, never overflows -->
+  <!-- copyable install command: wraps, never overflows -->
   {cmd && (
     <div class="relative mt-5">
       <div class="flex items-start gap-2 rounded-lg border border-white/10 bg-black/40 py-2.5 pl-3 pr-12 font-mono text-[13px] leading-relaxed text-neutral-300">
@@ -64,7 +64,7 @@ const { name, logo, tag, blurb, cmd, href } = Astro.props
 </article>
 
 <script>
-  // Click-to-copy for every IntegrationCard command — one delegated listener, bundled once.
+  // Click-to-copy for every IntegrationCard command. One delegated listener, bundled once.
   document.addEventListener('click', async (e) => {
     const target = e.target
     if (!(target instanceof Element)) return

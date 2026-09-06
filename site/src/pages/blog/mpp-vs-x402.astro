@@ -16,9 +16,9 @@ const ogImageAbs = `${site}${post.ogImage}`
 const more = relatedPosts(post.slug, 2)
 
 // Prefer the authored, keyword-front-loaded SERP title when present; else brand the plain title.
-const pageTitle = post.seoTitle ?? `${post.title} — PipRail`
+const pageTitle = post.seoTitle ?? `${post.title} | PipRail`
 
-// BlogPosting structured data — the post's own entity for search + answer engines.
+// BlogPosting structured data: the post's own entity for search + answer engines.
 const articleLd = {
   '@context': 'https://schema.org',
   '@type': 'BlogPosting',
@@ -45,24 +45,24 @@ const articleLd = {
   url: canonical,
 }
 
-// The argument, distilled — readable bullets that double as answer-engine fodder.
+// The argument, distilled into readable bullets that double as answer-engine fodder.
 const takeaways = [
   'MPP (Stripe’s Machine Payments Protocol, on the Tempo chain) and x402 both revive HTTP 402 “Payment Required” so an AI agent can pay per call. The mechanism is the same; the custody model is not.',
-  'MPP routes the money through Stripe: cards or stablecoins, compliance and disputes handled, settled to your bank — for a fee (1.5% on stablecoins, 2.9% + $0.30 on cards), on a permissioned chain whose policy registry can freeze or block an address.',
-  'x402 is wallet-to-wallet and self-custody: 0% protocol fee, no account, no custodian, verified locally, across any chain — but you hold the keys, settlement is final, and compliance is on you.',
+  'MPP routes the money through Stripe: cards or stablecoins, compliance and disputes handled, settled to your bank, for a fee (1.5% on stablecoins, 2.9% + $0.30 on cards), on a permissioned chain whose policy registry can freeze or block an address.',
+  'x402 is wallet-to-wallet and self-custody: 0% protocol fee, no account, no custodian, verified locally, across any chain. But you hold the keys, settlement is final, and compliance is on you.',
 ]
 
-// FAQ — extracted from the essay. Renders FAQPage JSON-LD for rich results + AEO.
+// FAQ, extracted from the essay. Renders FAQPage JSON-LD for rich results + AEO.
 const faqs = [
   {
-    // The decision question, first — it is what a buyer actually types, and the existing
+    // The decision question, first, because it is what a buyer actually types, and the existing
     // "when should I use MPP instead" asks it from the other side only.
     q: 'x402 vs MPP: which should I use?',
-    a: 'Pick x402 if the payer is software paying another piece of software: agent-to-API and agent-to-agent calls, where you want 0% protocol fee, self-custody, no account or KYC gate, many chains, and settlement in seconds. Pick MPP if a human and a regulated business are on the other end: you need cards as well as stablecoins, fiat settlement to a bank, and someone else carrying compliance, chargebacks and disputes — and roughly 1.5% on stablecoins or 2.9% + $0.30 on cards is worth that. The honest test is custody: if you are unwilling to hold keys, MPP is the right answer, and if you are unwilling to let a processor hold your money or gate your account, x402 is. They are not exclusive — both ride HTTP 402, so one agent can speak both.',
+    a: 'Pick x402 if the payer is software paying another piece of software: agent-to-API and agent-to-agent calls, where you want 0% protocol fee, self-custody, no account or KYC gate, many chains, and settlement in seconds. Pick MPP if a human and a regulated business are on the other end: you need cards as well as stablecoins, fiat settlement to a bank, and someone else carrying compliance, chargebacks and disputes, and roughly 1.5% on stablecoins or 2.9% + $0.30 on cards is worth that. The honest test is custody: if you are unwilling to hold keys, MPP is the right answer, and if you are unwilling to let a processor hold your money or gate your account, x402 is. They are not exclusive: both ride HTTP 402, so one agent can speak both.',
   },
   {
     q: 'What is the difference between MPP and x402?',
-    a: 'Both are agent-payment protocols built on the HTTP 402 “Payment Required” response: a server asks for payment, the agent authorizes it, pays, and gets the resource plus a receipt. They diverge on custody. MPP — Stripe and Tempo’s Machine Payments Protocol — settles through Stripe and the permissioned Tempo blockchain: money passes through a custodian, can be paid out to a bank in fiat, carries a fee, and rides a chain whose policy registry can freeze or block addresses. x402 is a wallet-to-wallet on-chain transfer: the agent pays the merchant’s wallet directly, the merchant verifies it locally, no custodian holds the funds, the protocol fee is 0%, and it works across many chains — but the payer holds their own keys and settlement is final.',
+    a: 'Both are agent-payment protocols built on the HTTP 402 “Payment Required” response: a server asks for payment, the agent authorizes it, pays, and gets the resource plus a receipt. They diverge on custody. MPP, Stripe and Tempo’s Machine Payments Protocol, settles through Stripe and the permissioned Tempo blockchain: money passes through a custodian, can be paid out to a bank in fiat, carries a fee, and rides a chain whose policy registry can freeze or block addresses. x402 is a wallet-to-wallet on-chain transfer: the agent pays the merchant’s wallet directly, the merchant verifies it locally, no custodian holds the funds, the protocol fee is 0%, and it works across many chains. But the payer holds their own keys and settlement is final.',
   },
   {
     q: 'What is MPP (the Machine Payments Protocol)?',
@@ -70,23 +70,23 @@ const faqs = [
   },
   {
     q: 'What is Tempo?',
-    a: 'Tempo is an EVM-compatible Layer-1 blockchain incubated by Stripe and Paradigm, with sub-second finality and gas paid in stablecoins. It went live on mainnet on March 18, 2026. It runs a permissioned validator set — Stripe, Visa, Zodia Custody and MoneyGram among the confirmed validators — and includes a protocol-level policy registry that supports issuer allow/block lists and emergency freezing.',
+    a: 'Tempo is an EVM-compatible Layer-1 blockchain incubated by Stripe and Paradigm, with sub-second finality and gas paid in stablecoins. It went live on mainnet on March 18, 2026. It runs a permissioned validator set (Stripe, Visa, Zodia Custody and MoneyGram are among the confirmed validators) and includes a protocol-level policy registry that supports issuer allow/block lists and emergency freezing.',
   },
   {
     q: 'Is x402 free? What does it cost to use?',
-    a: 'x402 has no protocol fee — 0%. A payment is a direct on-chain transfer, so the only cost is the chain’s network (gas) fee, which on low-cost chains is a fraction of a cent, and which can be sponsored on gasless rails so the buyer pays nothing. There is no processor cut, no payout fee, and no monthly cost. By contrast, MPP charges Stripe’s standard rates: about 1.5% on stablecoin payments and 2.9% + $0.30 on cards, plus currency-conversion fees where they apply.',
+    a: 'x402 has no protocol fee: 0%. A payment is a direct on-chain transfer, so the only cost is the chain’s network (gas) fee, which on low-cost chains is a fraction of a cent, and which can be sponsored on gasless rails so the buyer pays nothing. There is no processor cut, no payout fee, and no monthly cost. By contrast, MPP charges Stripe’s standard rates: about 1.5% on stablecoin payments and 2.9% + $0.30 on cards, plus currency-conversion fees where they apply.',
   },
   {
     q: 'When should I use MPP instead of x402?',
-    a: 'Use MPP when you want Stripe to do the hard parts: accept both cards and stablecoins, settle to a bank account in fiat, and hand off compliance — Travel Rule, sanctions screening, chargebacks and dispute handling — to a regulated processor. It fits consumer commerce and regulated merchants that don’t want to touch crypto directly. Use x402 when you want self-custody, a 0% fee, no account or KYC gate, many chains, and machine-speed settlement — which fits agent-to-agent and agent-to-API micropayments, where a custodial payout schedule and a per-transaction cut make little sense.',
+    a: 'Use MPP when you want Stripe to do the hard parts: accept both cards and stablecoins, settle to a bank account in fiat, and hand off compliance (Travel Rule, sanctions screening, chargebacks and dispute handling) to a regulated processor. It fits consumer commerce and regulated merchants that don’t want to touch crypto directly. Use x402 when you want self-custody, a 0% fee, no account or KYC gate, many chains, and machine-speed settlement, which fits agent-to-agent and agent-to-API micropayments, where a custodial payout schedule and a per-transaction cut make little sense.',
   },
   {
     q: 'Does PipRail use MPP or x402?',
-    a: 'PipRail is an open, self-custody implementation of x402. It is a TypeScript SDK (and an MCP server for AI agents) that lets a developer accept x402 payments in one line, or hand an agent a budget-bound wallet to pay x402 URLs across roughly 29 chains. There is no backend, no account, and no fee — payments go straight to the developer’s wallet, verified locally against their own RPC.',
+    a: 'PipRail is an open, self-custody implementation of x402. It is a TypeScript SDK (and an MCP server for AI agents) that lets a developer accept x402 payments in one line, or hand an agent a budget-bound wallet to pay x402 URLs across roughly 29 chains. There is no backend, no account, and no fee. Payments go straight to the developer’s wallet, verified locally against their own RPC.',
   },
   {
     q: 'Can an agent support both protocols?',
-    a: 'Yes. Because both are built on HTTP 402, they are not mutually exclusive: an agent can speak both, and a server can advertise more than one way to be paid. Stripe’s own Agentic Commerce Suite supports both MPP and x402. The practical question is usually not “which protocol” but “which rail should this particular payment ride” — the custodial, compliance-handled one, or the open, self-custody one.',
+    a: 'Yes. Because both are built on HTTP 402, they are not mutually exclusive: an agent can speak both, and a server can advertise more than one way to be paid. Stripe’s own Agentic Commerce Suite supports both MPP and x402. The practical question is usually not “which protocol” but “which rail should this particular payment ride”: the custodial, compliance-handled one, or the open, self-custody one.',
   },
 ]
 
@@ -101,18 +101,18 @@ const faqLd = {
   })),
 }
 
-// The scorecard — accurate, sourced, and the artifact most readers will screenshot.
+// The scorecard: accurate, sourced, and the artifact most readers will screenshot.
 // `tone`: 'a' = friction/cost on the MPP side, 'e' = clean on the x402 side, 'n' = neutral fact.
 const rows: { k: string; mpp: string; x402: string }[] = [
   { k: 'The handshake', mpp: 'HTTP 402 “Payment Required”', x402: 'HTTP 402 “Payment Required”' },
-  { k: 'Who holds the money in transit', mpp: 'Stripe / Bridge — custodial', x402: 'Nobody — wallet-to-wallet' },
-  { k: 'Where it settles', mpp: 'Tempo — one permissioned L1', x402: 'Any of ~29 chains, 10 families' },
+  { k: 'Who holds the money in transit', mpp: 'Stripe / Bridge, custodial', x402: 'Nobody: wallet-to-wallet' },
+  { k: 'Where it settles', mpp: 'Tempo, one permissioned L1', x402: 'Any of ~29 chains, 10 families' },
   { k: 'Parties in the path', mpp: 'Stripe + card network + Tempo validators + your bank', x402: 'None (optional gas-relayer that cannot custody)' },
-  { k: 'Protocol fee', mpp: '1.5% stablecoin · 2.9% + $0.30 card · ~1% FX', x402: '0% — chain gas only' },
-  { k: 'Time to spendable funds', mpp: '~T+2 days (default card payout); USDC→wallet faster', x402: 'One on-chain transaction — seconds' },
-  { k: 'Can it be frozen or reversed?', mpp: 'Yes — chargebacks, Stripe holds, policy-registry freeze', x402: 'No — a final public-chain transfer' },
+  { k: 'Protocol fee', mpp: '1.5% stablecoin · 2.9% + $0.30 card · ~1% FX', x402: '0%, chain gas only' },
+  { k: 'Time to spendable funds', mpp: '~T+2 days (default card payout); USDC→wallet faster', x402: 'One on-chain transaction, seconds' },
+  { k: 'Can it be frozen or reversed?', mpp: 'Yes: chargebacks, Stripe holds, policy-registry freeze', x402: 'No: a final public-chain transfer' },
   { k: 'Onboarding', mpp: 'Stripe account · KYC · ~46 countries', x402: 'npm install · add a wallet · permissionless' },
-  { k: 'Compliance (Travel Rule, screening, disputes)', mpp: 'Built in — handled by Stripe', x402: 'Your responsibility' },
+  { k: 'Compliance (Travel Rule, screening, disputes)', mpp: 'Built in, handled by Stripe', x402: 'Your responsibility' },
   { k: 'Where the money ends up', mpp: 'Your bank (fiat) by default, or USDC to a wallet', x402: 'Your own wallet' },
 ]
 ---
@@ -151,7 +151,7 @@ const rows: { k: string; mpp: string; x402: string }[] = [
           {post.title}
         </h1>
         <p class="mt-5 text-lg leading-relaxed text-neutral-400 sm:text-xl">
-          Stripe’s Machine Payments Protocol and the open x402 rail both answer the same question —
+          Stripe’s Machine Payments Protocol and the open x402 rail both answer the same question,
           <em class="not-italic text-neutral-200">how does an AI agent pay for something?</em> They agree on the
           mechanism and disagree on the one thing that follows from it: <em class="not-italic text-neutral-200">who holds the money.</em>
         </p>
@@ -195,11 +195,11 @@ const rows: { k: string; mpp: string; x402: string }[] = [
 
       <!-- ── Body ───────────────────────────────────────────────────────────── -->
       <div class="article-prose mt-10">
-        <p>Two things happened to agent payments in quick succession, and they rhyme. The open-source <a href="https://www.x402.org/">x402</a> protocol took the long-dormant HTTP <strong>402 “Payment Required”</strong> response — a status code that sat reserved-but-unused in the web’s plumbing for decades — and turned it into a working rail, so software could pay per request with no account and no card. Then, in March 2026, Stripe and the new Tempo blockchain launched the <strong>Machine Payments Protocol</strong>, or MPP — and it, too, is built on HTTP 402.</p>
+        <p>Two things happened to agent payments in quick succession, and they rhyme. The open-source <a href="https://www.x402.org/">x402</a> protocol took the long-dormant HTTP <strong>402 “Payment Required”</strong> response, a status code that sat reserved-but-unused in the web’s plumbing for decades, and turned it into a working rail, so software could pay per request with no account and no card. Then, in March 2026, Stripe and the new Tempo blockchain launched the <strong>Machine Payments Protocol</strong>, or MPP, and it too is built on HTTP 402.</p>
 
-        <p>That coincidence is the most useful fact for understanding the landscape. The two are usually framed as competitors, and in places they are. But they don’t disagree about how an agent should ask to pay, or how a server should demand it. A server returns 402 with the payment details; the agent authorizes, pays, and receives the resource and a receipt. Both protocols do exactly that. The argument between them is not about the handshake. It is about everything that happens to the money <em>after</em> the agent agrees to pay — and that comes down to a single question: who holds it.</p>
+        <p>That coincidence is the most useful fact for understanding the landscape. The two are usually framed as competitors, and in places they are. But they don’t disagree about how an agent should ask to pay, or how a server should demand it. A server returns 402 with the payment details; the agent authorizes, pays, and receives the resource and a receipt. Both protocols do exactly that. The argument between them is not about the handshake. It is about everything that happens to the money <em>after</em> the agent agrees to pay, and that comes down to a single question: who holds it.</p>
 
-        <!-- Figure 1 — same handshake, then a fork -->
+        <!-- Figure 1: same handshake, then a fork -->
         <figure class="article-fig">
           <div class="card rounded-2xl p-6 sm:p-8">
             <div class="fig-eyebrow">One handshake, two rails</div>
@@ -226,7 +226,7 @@ const rows: { k: string; mpp: string; x402: string }[] = [
               </div>
               <div class="rounded-xl border border-accent/30 bg-accent/8 p-5">
                 <div class="flex items-center gap-2 text-accent"><Wallet size={17} aria-hidden="true" /><span class="font-display text-base font-semibold text-white">x402</span></div>
-                <div class="mt-2 text-sm leading-relaxed text-neutral-300">Nobody holds it — it goes wallet-to-wallet, and you verify it yourself.</div>
+                <div class="mt-2 text-sm leading-relaxed text-neutral-300">Nobody holds it. It goes wallet-to-wallet, and you verify it yourself.</div>
               </div>
             </div>
           </div>
@@ -235,25 +235,25 @@ const rows: { k: string; mpp: string; x402: string }[] = [
 
         <h2>The custodial rail: MPP, Stripe and Tempo</h2>
 
-        <p>MPP’s flagship settlement layer is <a href="https://www.paradigm.xyz/2025/09/tempo-payments-first-blockchain">Tempo</a>, an EVM-compatible Layer-1 incubated by Stripe and Paradigm that went live on mainnet in March 2026. It is fast — sub-second finality — and its gas is paid in stablecoins, so a transfer can cost a fraction of a cent. On paper it looks like any other modern chain. The difference is who runs it. Tempo is <em>permissioned</em>: it runs a closed validator set that includes Stripe, Visa, Zodia Custody and MoneyGram, and it ships with a protocol-level policy registry that can maintain allow- and block-lists and freeze funds in an emergency. That is a deliberate design choice, and for a regulated payments business it is a feature, not a bug.</p>
+        <p>MPP’s flagship settlement layer is <a href="https://www.paradigm.xyz/2025/09/tempo-payments-first-blockchain">Tempo</a>, an EVM-compatible Layer-1 incubated by Stripe and Paradigm that went live on mainnet in March 2026. It is fast, with sub-second finality, and its gas is paid in stablecoins, so a transfer can cost a fraction of a cent. On paper it looks like any other modern chain. The difference is who runs it. Tempo is <em>permissioned</em>: it runs a closed validator set that includes Stripe, Visa, Zodia Custody and MoneyGram, and it ships with a protocol-level policy registry that can maintain allow- and block-lists and freeze funds in an emergency. That is a deliberate design choice, and for a regulated payments business it is a feature, not a bug.</p>
 
-        <p>For the merchant, MPP rides on top of Stripe’s existing rails. You accept it the way you already accept Stripe payments — a few lines against the same APIs — and the funds arrive as a balance in your Stripe account. You can take cards or stablecoins; an agent can pay with a Shared Payment Token that never exposes the buyer’s real credentials. Then Stripe pays you out, on its schedule, to your bank — in your local currency, roughly two days later for the default US card payout — or, if you prefer, in USDC to a wallet. Through the whole journey, the money is held by Stripe (or by Bridge, the stablecoin custodian Stripe owns) until it lands with you.</p>
+        <p>For the merchant, MPP rides on top of Stripe’s existing rails. You accept it the way you already accept Stripe payments, a few lines against the same APIs, and the funds arrive as a balance in your Stripe account. You can take cards or stablecoins; an agent can pay with a Shared Payment Token that never exposes the buyer’s real credentials. Then Stripe pays you out, on its schedule, to your bank, in your local currency, roughly two days later for the default US card payout. Or, if you prefer, in USDC to a wallet. Through the whole journey, the money is held by Stripe (or by Bridge, the stablecoin custodian Stripe owns) until it lands with you.</p>
 
-        <p>Be honest about what that buys you, because it is a lot. Stripe absorbs the parts of payments that are genuinely hard and genuinely unglamorous: fraud scoring, chargebacks and dispute handling, sanctions screening, the Travel Rule, the tax and reporting machinery, and the regulatory licensing that makes all of it legal in dozens of countries. If an agent is defrauded, there is a party who can reverse the transaction. If a payment needs to settle as dollars in a bank account, it does. For a consumer-facing merchant — or any business that does not want to touch crypto, hold keys, or become its own compliance department — that is exactly the deal it wants.</p>
+        <p>Be honest about what that buys you, because it is a lot. Stripe absorbs the parts of payments that are genuinely hard and genuinely unglamorous: fraud scoring, chargebacks and dispute handling, sanctions screening, the Travel Rule, the tax and reporting machinery, and the regulatory licensing that makes all of it legal in dozens of countries. If an agent is defrauded, there is a party who can reverse the transaction. If a payment needs to settle as dollars in a bank account, it does. For a consumer-facing merchant, or any business that does not want to touch crypto, hold keys, or become its own compliance department, that is exactly the deal it wants.</p>
 
-        <p>The price of the deal is also clear. There is a cut: about <strong>1.5%</strong> on stablecoin payments, and Stripe’s standard <strong>2.9% + $0.30</strong> on cards, plus a currency-conversion fee of around 1% where it applies. There is custody: your money sits with a third party in transit, and is released on someone else’s timetable. There is onboarding: a Stripe account, KYC, and availability only in the countries Stripe supports. And there is the chain itself, whose policy registry means a payment can, in principle, be frozen or an address blocked. None of that is hidden or sinister — it is the cost of having a regulated intermediary do the work. It is simply the opposite of self-custody.</p>
+        <p>The price of the deal is also clear. There is a cut: about <strong>1.5%</strong> on stablecoin payments, and Stripe’s standard <strong>2.9% + $0.30</strong> on cards, plus a currency-conversion fee of around 1% where it applies. There is custody: your money sits with a third party in transit, and is released on someone else’s timetable. There is onboarding: a Stripe account, KYC, and availability only in the countries Stripe supports. And there is the chain itself, whose policy registry means a payment can, in principle, be frozen or an address blocked. None of that is hidden or sinister. It is the cost of having a regulated intermediary do the work. It is simply the opposite of self-custody.</p>
 
         <h2>The open rail: x402, wallet-to-wallet</h2>
 
-        <p>x402 makes the other choice at the fork. When the agent agrees to pay, it sends a transfer straight to the merchant’s own wallet — one on-chain transaction — and the merchant verifies that transaction itself, reading it against its own RPC node. No processor sits in the middle. No custodian ever holds the funds. There is no facilitator the merchant has to trust and no database it has to run; the protocol’s own specification blesses this merchant-local verification, so the backendless shape is supported, not a workaround. The money was in the buyer’s wallet, and a few seconds later it is in the seller’s. That is the entire path.</p>
+        <p>x402 makes the other choice at the fork. When the agent agrees to pay, it sends a transfer straight to the merchant’s own wallet, one on-chain transaction, and the merchant verifies that transaction itself, reading it against its own RPC node. No processor sits in the middle. No custodian ever holds the funds. There is no facilitator the merchant has to trust and no database it has to run; the protocol’s own specification blesses this merchant-local verification, so the backendless shape is supported, not a workaround. The money was in the buyer’s wallet, and a few seconds later it is in the seller’s. That is the entire path.</p>
 
-        <p>Because nothing intermediates, there is no protocol fee — <strong>0%</strong>. The only cost is the chain’s gas, which on a low-cost chain is a fraction of a cent, and which can be sponsored entirely so the buyer pays nothing at all. There is no account to create and no approval to wait for: a developer runs <span class="font-mono text-[0.9em] text-neutral-200">npm install</span>, names a chain, adds a wallet, and can accept payments. And it is not tied to one chain — it works across roughly 29 of them, from Base and Solana to the XRP Ledger, so an agent pays with whatever it already holds.</p>
+        <p>Because nothing intermediates, there is no protocol fee: <strong>0%</strong>. The only cost is the chain’s gas, which on a low-cost chain is a fraction of a cent, and which can be sponsored entirely so the buyer pays nothing at all. There is no account to create and no approval to wait for: a developer runs <span class="font-mono text-[0.9em] text-neutral-200">npm install</span>, names a chain, adds a wallet, and can accept payments. And it is not tied to one chain. It works across roughly 29 of them, from Base and Solana to the XRP Ledger, so an agent pays with whatever it already holds.</p>
 
-        <p>The honest cost of that openness is the mirror image of MPP’s. You hold your own keys, which means you carry the risk that comes with them — lose them and there is no support line. Settlement is final: a wallet-to-wallet transfer on a public chain has no chargeback, which protects the payee and exposes a defrauded payer. Compliance is yours to handle, not a processor’s. And unless you off-ramp the funds yourself, you end the journey holding stablecoins or crypto, not dollars in a bank. The open rail asks more of you precisely because it removes the party that would otherwise do those things — and take a cut for it.</p>
+        <p>The honest cost of that openness is the mirror image of MPP’s. You hold your own keys, which means you carry the risk that comes with them: lose them and there is no support line. Settlement is final: a wallet-to-wallet transfer on a public chain has no chargeback, which protects the payee and exposes a defrauded payer. Compliance is yours to handle, not a processor’s. And unless you off-ramp the funds yourself, you end the journey holding stablecoins or crypto, not dollars in a bank. The open rail asks more of you precisely because it removes the party that would otherwise do those things, and take a cut for it.</p>
 
-        <p>This is the side I build on. <a href="/">PipRail</a> is an open, self-custody implementation of x402 — a TypeScript SDK and an MCP server that let a developer accept payments in one line, or hand an agent a budget-bound wallet (a hard spend cap, per call and lifetime, that the agent cannot exceed) to pay across roughly 29 chains — the broadest reach of any x402 SDK, and the only one that puts the payer’s own wallet on chains like NEAR, Aptos, and the XRP Ledger. No backend, no account, no fee; payments go straight to the developer’s wallet, verified locally against their own node. So I have a side, and I am telling you which one. But the comparison below is the one I would want to read if I were choosing.</p>
+        <p>This is the side I build on. <a href="/">PipRail</a> is an open, self-custody implementation of x402: a TypeScript SDK and an MCP server that let a developer accept payments in one line, or hand an agent a budget-bound wallet (a hard spend cap, per call and lifetime, that the agent cannot exceed) to pay across roughly 29 chains. That is the broadest reach of any x402 SDK, and the only one that puts the payer’s own wallet on chains like NEAR, Aptos, and the XRP Ledger. No backend, no account, no fee; payments go straight to the developer’s wallet, verified locally against their own node. So I have a side, and I am telling you which one. But the comparison below is the one I would want to read if I were choosing.</p>
 
-        <!-- Figure 2 — the full lifecycle, side by side (the flow graphic) -->
+        <!-- Figure 2: the full lifecycle, side by side (the flow graphic) -->
         <figure class="article-fig">
           <div class="overflow-hidden rounded-2xl border border-white/10 bg-bg">
             <img
@@ -271,9 +271,9 @@ const rows: { k: string; mpp: string; x402: string }[] = [
 
         <h2>The two rails, side by side</h2>
 
-        <p>Strip away the framing and the differences are concrete. Here is the same payment, measured on the things a merchant or an agent actually cares about. Notice that the top row is identical — the disagreement starts the moment money has to move.</p>
+        <p>Strip away the framing and the differences are concrete. Here is the same payment, measured on the things a merchant or an agent actually cares about. Notice that the top row is identical. The disagreement starts the moment money has to move.</p>
 
-        <!-- Figure 3 — the scorecard. Table on ≥sm; stacked, color-coded cards on mobile. -->
+        <!-- Figure 3: the scorecard. Table on ≥sm; stacked, color-coded cards on mobile. -->
         <figure class="article-fig">
           <!-- Desktop / tablet: comparison table -->
           <div class="card hidden overflow-hidden rounded-2xl sm:block">
@@ -320,27 +320,27 @@ const rows: { k: string; mpp: string; x402: string }[] = [
             ))}
           </div>
 
-          <figcaption class="fig-cap">Figures: Stripe’s published pricing and the Tempo / MPP launch materials, March–June 2026. Neither rail is strictly “better” — they optimize for opposite things.</figcaption>
+          <figcaption class="fig-cap">Figures: Stripe’s published pricing and the Tempo / MPP launch materials, March to June 2026. Neither rail is strictly “better”; they optimize for opposite things.</figcaption>
         </figure>
 
         <h2>Which one should carry the payment?</h2>
 
-        <p>Because both speak 402, this was never really an either/or for the buyer. An agent can support both, and a server can advertise more than one way to be paid — Stripe’s own Agentic Commerce Suite, in fact, supports MPP <em>and</em> x402. So the useful question is not “which protocol wins,” but “which rail should this particular payment ride.”</p>
+        <p>Because both speak 402, this was never really an either/or for the buyer. An agent can support both, and a server can advertise more than one way to be paid. Stripe’s own Agentic Commerce Suite, in fact, supports MPP <em>and</em> x402. So the useful question is not “which protocol wins,” but “which rail should this particular payment ride.”</p>
 
         <p><strong>MPP is the right rail</strong> when the payment looks like commerce as we already know it. A regulated merchant selling to consumers, who needs chargebacks and a fraud net. A business that wants its money to land as dollars in a bank and never wants to see a private key. Anyone for whom “Stripe handles compliance” is worth more than the 1.5%. For those payments, the custodian is doing real work, and the fee is the price of not doing it yourself.</p>
 
         <p><strong>x402 is the right rail</strong> when the payment is small, frequent, and machine-to-machine. An agent buying a single API call, or paying another agent for a subtask, hundreds of times an hour. A builder who is already crypto-native and wants self-custody by default. Anyone who balks at a percentage cut on a sub-cent payment, or at a two-day payout schedule for money that moved in two seconds, or at asking permission to accept funds at all. For those payments, the intermediary is overhead, and removing it is the point.</p>
 
-        <p>It helps to look at the human web for the shape of where this goes. Most of the money online runs through processors like Stripe, and that is not changing — the convenience and the compliance are worth it to most businesses. But a real, durable share of the web is self-hosted and self-custodied, by people who want to own their stack rather than rent it. The agent economy will split the same way. There will be a custodial lane and an open one, and both will be large.</p>
+        <p>It helps to look at the human web for the shape of where this goes. Most of the money online runs through processors like Stripe, and that is not changing, because the convenience and the compliance are worth it to most businesses. But a real, durable share of the web is self-hosted and self-custodied, by people who want to own their stack rather than rent it. The agent economy will split the same way. There will be a custodial lane and an open one, and both will be large.</p>
 
-        <p>PipRail’s bet is simply that the open lane is bigger than it looks — and that the agent-to-agent payments at the center of it, the small and constant ones that will outnumber every other kind, want a rail with no middle: no account, no custodian, no cut. The custodial rail meets businesses where they are. The open rail is the one you own rather than the platform you join. Both will carry real money. We are building the one we would want to pay on.</p>
+        <p>PipRail’s bet is simply that the open lane is bigger than it looks, and that the agent-to-agent payments at the center of it, the small and constant ones that will outnumber every other kind, want a rail with no middle: no account, no custodian, no cut. The custodial rail meets businesses where they are. The open rail is the one you own rather than the platform you join. Both will carry real money. We are building the one we would want to pay on.</p>
       </div>
 
       <!-- Share -->
       <div class="mt-12 flex flex-wrap items-center gap-3 border-t border-white/10 pt-6">
         <span class="mr-1 inline-flex items-center gap-1.5 text-xs text-neutral-500"><Share2 size={13} aria-hidden="true" /> Share</span>
         <a
-          href={`https://x.com/intent/tweet?text=${encodeURIComponent(post.title + ' — by ' + post.author.name)}&url=${encodeURIComponent(canonical)}&via=piprailhq`}
+          href={`https://x.com/intent/tweet?text=${encodeURIComponent(post.title + ' by ' + post.author.name)}&url=${encodeURIComponent(canonical)}&via=piprailhq`}
           class="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-neutral-300 transition hover:border-white/20 hover:text-white"
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path></svg>
@@ -368,7 +368,7 @@ const rows: { k: string; mpp: string; x402: string }[] = [
           <div class="text-sm font-semibold text-neutral-100">{post.author.name}</div>
           <div class="text-xs text-neutral-500">{post.author.role}</div>
           <p class="mt-2.5 text-sm leading-relaxed text-neutral-400">
-            Building PipRail — the open, neutral, no-fee x402 payment rail for AI agents, across 29 chains.
+            Building PipRail, the open, neutral, no-fee x402 payment rail for AI agents, across 29 chains.
             Writing about how agents pay, and the trust layer the agent economy still has to build.
           </p>
           <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs">
@@ -400,7 +400,7 @@ const rows: { k: string; mpp: string; x402: string }[] = [
     <section class="mt-14 overflow-hidden rounded-2xl border border-accent/20 bg-accent/6 p-7 text-center sm:p-10">
       <h2 class="text-2xl font-semibold tracking-tight text-white sm:text-3xl">Build on the open rail.</h2>
       <p class="mx-auto mt-3 max-w-xl text-neutral-300">
-        PipRail is the open, self-custody x402 rail — no backend, no middleman, no fee. Accept payments in one line,
+        PipRail is the open, self-custody x402 rail: no backend, no middleman, no fee. Accept payments in one line,
         or hand your agent a budget-bound wallet across 29 chains.
       </p>
       <div class="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -455,7 +455,7 @@ const rows: { k: string; mpp: string; x402: string }[] = [
 </Layout>
 
 <style>
-  /* Article typography — comfortable measure, generous leading, emerald links. */
+  /* Article typography: comfortable measure, generous leading, emerald links. */
   .article-prose p {
     margin-block: 0 1.5rem;
     color: var(--color-fg);
@@ -509,7 +509,7 @@ const rows: { k: string; mpp: string; x402: string }[] = [
     color: oklch(0.62 0.01 260);
   }
 
-  /* Scorecard — table (≥sm) */
+  /* Scorecard: table (≥sm) */
   .scorecard { font-size: 0.92rem; }
   .scorecard th, .scorecard td {
     padding: 0.95rem 1.1rem;
@@ -545,7 +545,7 @@ const rows: { k: string; mpp: string; x402: string }[] = [
   .scorecard td.sc-x402-cell { color: oklch(0.88 0.06 162); }
   .scorecard tbody tr:first-child td { color: oklch(0.62 0.01 260); font-style: italic; }
 
-  /* Scorecard — stacked cards (<sm) */
+  /* Scorecard: stacked cards (<sm) */
   .sc-m-k {
     font-family: var(--font-display, inherit);
     font-weight: 700;

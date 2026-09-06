@@ -1,6 +1,6 @@
 ---
 title: "Accept USDC payments on Stellar"
-description: Pay and get paid on Stellar — native XLM, Circle USDC and EURC — with memo-bound proofs and a one-time trustline to receive.
+description: Pay and get paid on Stellar in native XLM, Circle USDC or EURC, with memo-bound proofs and a one-time trustline to receive.
 sidebar:
   label: Stellar
   order: 9
@@ -9,7 +9,7 @@ sidebar:
 ## Introduction
 
 Stellar is payment-native: ~5s single-step finality, sub-cent fees, and a built-in transaction
-memo the proof binds to. Name `chain: 'stellar'` and the driver **auto-mounts** on first use —
+memo the proof binds to. Name `chain: 'stellar'` and the driver **auto-mounts** on first use:
 the family's library loads lazily, so a pure-EVM install never downloads it.
 
 ```bash
@@ -21,7 +21,7 @@ is dynamic, fired the first time you name the chain.
 
 ## Wallet
 
-A Stellar wallet is `{ key }`, where `key` is an `S…` Ed25519 secret seed — or a ready
+A Stellar wallet is `{ key }`, where `key` is an `S…` Ed25519 secret seed, or a ready
 `{ keypair }` (a stellar-sdk `Keypair` you built yourself). `payTo` is a `G…` account address.
 
 ```ts
@@ -33,14 +33,14 @@ const client = new PipRailClient({
 })
 ```
 
-Pass anything that looks like another family's wallet — a `signer`, a `keyPair`, an `account`, or
-an `accountId` — and it's rejected up front with a [`WrongFamilyError`](/errors/error-hierarchy/).
+Pass anything that looks like another family's wallet (a `signer`, a `keyPair`, an `account`, or
+an `accountId`) and it's rejected up front with a [`WrongFamilyError`](/errors/error-hierarchy/).
 See [Wallets by family](/making-payments/wallets-by-family/) for the full set of shapes.
 
 ## Tokens
 
-USDC and EURC are built in — both Circle issuers verified live on Horizon mainnet before
-shipping — and native XLM works with `token: 'native'`.
+USDC and EURC are built in, both Circle issuers verified live on Horizon mainnet before
+shipping, and native XLM works with `token: 'native'`.
 
 | `token` | Asset |
 | --- | --- |
@@ -48,7 +48,7 @@ shipping — and native XLM works with `token: 'native'`.
 | `'EURC'` | Circle EURC (issuer pre-filled) |
 | `'native'` | XLM (Lumens) |
 
-Stellar assets are universally **7 decimal places** — there's no per-asset `decimals` like an
+Stellar assets are universally **7 decimal places**. There's no per-asset `decimals` like an
 ERC-20; USDC, EURC, and XLM are all 7dp. Any other classic asset works by passing it
 explicitly as `{ issuer, code, decimals }`:
 
@@ -63,10 +63,10 @@ requirePayment({
 })
 ```
 
-Internally an asset is identified across the wire as `CODE:ISSUER` (or `'native'` for XLM) — a
+Internally an asset is identified across the wire as `CODE:ISSUER` (or `'native'` for XLM), a
 contract-address-free scheme native to Stellar.
 
-## Receiving — the trustline prerequisite
+## Receiving: the trustline prerequisite
 
 :::caution
 To **receive** an issued asset (USDC or EURC), the merchant account (`payTo`) must already
@@ -76,12 +76,12 @@ payment fails. Native XLM needs neither.
 :::
 
 Each trustline locks an additional **+0.5 XLM** of reserve, and the reserves are **locked, not
-spent** — recoverable if you later remove the trustline. The driver sends a payment; it does
+spent**, so they are recoverable if you later remove the trustline. The driver sends a payment; it does
 **not** create accounts, so both ends must already be funded above reserve. The **payer**
 likewise needs its own trustline to hold and send the asset.
 
 When `payTo` isn't ready, [`planPayment()`](/making-payments/plan-payment/) surfaces this as a
-`RECIPIENT_NOT_READY` blocker before you spend — rather than letting you pay into a void — and a
+`RECIPIENT_NOT_READY` blocker before you spend, rather than letting you pay into a void, and a
 payment to an unready recipient raises a
 [`RecipientNotReadyError`](/errors/error-hierarchy/):
 
@@ -97,10 +97,10 @@ const url = 'https://api.example.com/report'
 const plan = await client.planPayment(url)
 
 if (!plan) {
-  // not payment-gated — fetch it for free
+  // not payment-gated, so fetch it for free
   await client.fetch(url)
 } else if (plan.payable) {
-  await client.fetch(url) // safe — we checked
+  await client.fetch(url) // safe, we checked
 } else {
   console.log(plan.fundingHint)  // "recipient has no trustline for the asset" etc.
 }
@@ -114,7 +114,7 @@ See [planPayment()](/making-payments/plan-payment/) for the full readiness model
 Stellar uses **Template A (memo-bound)**: the challenge nonce is written on-chain as a
 `MEMO_HASH = sha256(nonce)`, so a proof is cryptographically bound to its challenge and can't
 be replayed against a different one. Verification reads the payment to `payTo` on Horizon and
-matches the memo hash, the amount, and the asset's `CODE:ISSUER` — every field re-derived from
+matches the memo hash, the amount, and the asset's `CODE:ISSUER`. Every field is re-derived from
 the trusted `accept`, never the client-supplied ref.
 
 ```ts
@@ -128,7 +128,7 @@ template, and [Verifying payments](/accepting-payments/verifying-payments/) for 
 
 ## Endpoint
 
-The default Horizon endpoint (`https://horizon.stellar.org`) is public and rate-limited — pass
+The default Horizon endpoint (`https://horizon.stellar.org`) is public and rate-limited, so pass
 your own `rpcUrl` in production:
 
 ```ts
@@ -139,6 +139,6 @@ requirePayment({ chain: 'stellar', token: 'USDC', amount: '0.10', payTo: 'G…',
 
 :::note
 Stellar's library doesn't ship a clean browser-ESM build yet, so use this family **server-side**
-— the identical one line, on Node, Bun, Deno, or Workers. The lazy import means a pure-EVM
+server-side: the identical one line, on Node, Bun, Deno, or Workers. The lazy import means a pure-EVM
 browser page never downloads it.
 :::

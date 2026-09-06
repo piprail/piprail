@@ -1516,6 +1516,57 @@ export const RULES = [
    * by running it, which is exactly the accident this rule removes the need for.
    */
   {
+    domain: 'docs',
+    id: 'prose-gate-wired',
+    what: 'The no-slop gate exists, runs in verify-gate, and the house-voice doc points at the real script',
+    source: {
+      file: 'scripts/prose-audit.mjs',
+      note: 'the gate itself — the only thing that can actually fail a build on an em dash',
+    },
+    mirrors: [
+      { file: 'package.json', note: 'exposes it as `npm run prose`' },
+      { file: 'scripts/verify-gate.mjs', note: 'runs it in the release gate, so a regression fails the build' },
+      { file: '.claude/skills/humanizer/PIPRAIL.md', note: 'the house voice tells a writer the gate exists' },
+    ],
+    check() {
+      /*
+       * WHY THIS RULE EXISTS.
+       *
+       * The standing rule is that every page written for the site or the docs goes through the
+       * humanizer skill. Guidance nobody can measure rots: the docs carried 3,320 em dashes
+       * before the 2026-09-06 sweep, every one added by somebody who had, in principle, read the
+       * guidance. `npm run prose` is what makes it real, and it is only real while it is WIRED —
+       * a gate that has quietly fallen out of `verify-gate.mjs` is worse than no gate, because
+       * PIPRAIL.md keeps promising a red build that can no longer happen.
+       *
+       * So this guards the wiring, not the prose. The prose is the gate's own job.
+       *
+       * PIPRAIL.md lives under the gitignored `.claude/`, so it is ABSENT in a clean clone
+       * (CI, and the Netlify build that runs this checker as the site's prebuild). Its half of
+       * the check therefore degrades to a note rather than a failure, exactly like the other
+       * `.claude/`-dependent rules.
+       */
+      const problems = []
+      if (!exists('scripts/prose-audit.mjs')) problems.push('scripts/prose-audit.mjs is missing')
+      if (!/"prose":\s*"node scripts\/prose-audit\.mjs"/.test(read('package.json')))
+        problems.push('package.json has no `prose` script pointing at scripts/prose-audit.mjs')
+      if (!/\['prose', 'npm', \['run', 'prose'\]/.test(read('scripts/verify-gate.mjs')))
+        problems.push('scripts/verify-gate.mjs does not run `npm run prose`')
+
+      const voice = '.claude/skills/humanizer/PIPRAIL.md'
+      let note = 'PIPRAIL.md absent (clean clone)'
+      if (exists(voice)) {
+        note = 'PIPRAIL.md names the gate'
+        if (!read(voice).includes('scripts/prose-audit.mjs'))
+          problems.push(`${voice} does not point at scripts/prose-audit.mjs`)
+      }
+
+      return problems.length
+        ? bad(problems.join(' · '))
+        : ok(`gate wired: npm run prose → verify-gate · ${note}`)
+    },
+  },
+  {
     domain: 'skills',
     id: 'skill-paths-resolve',
     what: 'Every repo path a skill imports or cites still exists (skills are gitignored — no refactor updates them)',

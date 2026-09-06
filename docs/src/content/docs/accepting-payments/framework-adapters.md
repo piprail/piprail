@@ -8,8 +8,8 @@ sidebar:
 ## Introduction
 
 [`requirePayment`](/accepting-payments/require-payment-and-gate/) is Express/Connect
-middleware. Everywhere else — Hono, Fastify, Cloudflare Workers, Next.js route handlers, Bun,
-Deno, anything with `fetch` — you build a [`createPaymentGate`](/accepting-payments/require-payment-and-gate/)
+middleware. Everywhere else (Hono, Fastify, Cloudflare Workers, Next.js route handlers, Bun,
+Deno, anything with `fetch`) you build a [`createPaymentGate`](/accepting-payments/require-payment-and-gate/)
 once and drive it yourself. The gate is plain, framework-free logic; the adapter is the handful
 of lines that read one header in and write three back out.
 
@@ -20,21 +20,21 @@ const gate = createPaymentGate({ chain: 'base', token: 'USDC', amount: '0.10', p
 // → PaymentGate: { challenge(url?), verify(header), verifyObject(payload), describe(url?), landingPage(challenge), selfTest() }
 ```
 
-`createPaymentGate` returns a [`PaymentGate`](/accepting-payments/require-payment-and-gate/) — the
+`createPaymentGate` returns a [`PaymentGate`](/accepting-payments/require-payment-and-gate/), the
 same object `requirePayment` wraps. Reuse one gate per gated route. Its in-memory used-proof set
 is what stops a proof being redeemed twice; rebuilding it per request would lose that guard. (For
-multi-instance deploys, share the set with `isUsed` / `markUsed` — see
+multi-instance deploys, share the set with `isUsed` / `markUsed`; see
 [Replay protection](/accepting-payments/replay-protection/).)
 
-## The one-liner — built-in adapters
+## The one-liner: built-in adapters
 
-There are only **two shapes** among `fetch` runtimes, so there are two adapters — and between them
+There are only **two shapes** among `fetch` runtimes, so there are two adapters, and between them
 they cover essentially everything request-in, response-out:
 
 | Your runtime | Adapter |
 | --- | --- |
-| Next.js route handlers · Netlify Functions · `Bun.serve` · `Deno.serve` · Vercel Edge · Hono (`c.req.raw`) · AWS Lambda (Web adapter) · Fastly Compute | **`toFetchHandler`** — a universal `(request, …) => Response` you place anywhere |
-| Cloudflare Workers · Service Workers · any `export default { fetch }` | **`toWorker`** — the `{ fetch }` export object |
+| Next.js route handlers · Netlify Functions · `Bun.serve` · `Deno.serve` · Vercel Edge · Hono (`c.req.raw`) · AWS Lambda (Web adapter) · Fastly Compute | **`toFetchHandler`**: a universal `(request, …) => Response` you place anywhere |
+| Cloudflare Workers · Service Workers · any `export default { fetch }` | **`toWorker`**: the `{ fetch }` export object |
 | Express · Connect · Polka | [`requirePayment`](/accepting-payments/require-payment-and-gate/) (middleware) |
 | Fastify & other Node-native `req`/`reply` frameworks | drive `gate.verify()` by hand (below) |
 
@@ -43,7 +43,7 @@ import { createPaywall, toFetchHandler, toWorker } from '@piprail/sdk'
 
 const gate = createPaywall({ chain: 'base', amount: '0.05', payTo: '0xYourWallet' })
 
-// Next.js / Netlify / Bun / Deno / Hono / Vercel / Lambda — anything request-in, response-out:
+// Next.js / Netlify / Bun / Deno / Hono / Vercel / Lambda: anything request-in, response-out:
 export const GET = toFetchHandler(gate, () => Response.json({ report: 'unlocked' }))
 
 // Cloudflare Worker (the { fetch } export object):
@@ -54,7 +54,7 @@ Each takes the gate + a `serve` callback (what to return once payment is verifie
 whole contract for you: reads `payment-signature` (and the legacy `x-payment`), returns a conformant
 `402` on a missing/rejected proof, stamps the `payment-response` headers (v2 + v1) on success, and
 returns `502` on a server-side `SettlementError` (never a `402`). **Any extra arguments the runtime
-passes your handler — a Worker's `env`/`ctx`, a Next.js route `context` — are forwarded to `serve`**,
+passes your handler (a Worker's `env`/`ctx`, a Next.js route `context`) are forwarded to `serve`**,
 so a protected handler can reach them after payment is verified:
 
 ```ts
@@ -64,12 +64,12 @@ export default toWorker(gate, (request, env, ctx) => {
 })
 ```
 
-**Gate an existing backend** with [`proxyTo(origin)`](/accepting-payments/proxy/) as the `serve` — it
+**Gate an existing backend** with [`proxyTo(origin)`](/accepting-payments/proxy/) as the `serve`, and it
 forwards a paid request to your API in any language, untouched:
 `toWorker(gate, proxyTo('https://my-api.com'))`. The origin never sees an unpaid request.
 
 Express keeps its dedicated [`requirePayment`](/accepting-payments/require-payment-and-gate/)
-middleware. Prefer to wire it by hand — or on a non-`fetch` framework like Fastify? The exact
+middleware. Prefer to wire it by hand, or on a non-`fetch` framework like Fastify? The exact
 three-step contract every adapter implements is below.
 
 ## The contract every adapter implements
@@ -95,17 +95,17 @@ const result = await gate.verify(headerValue)
 
 `gate.verify()` accepts `string | string[] | undefined`, so hand it whatever your framework
 gives you for the `payment-signature` header without massaging it first. A missing header is
-not an error — it returns `kind: 'challenge'`, the first-request 402.
+not an error: it returns `kind: 'challenge'`, the first-request 402.
 
 :::caution
-On `'invalid'`, send back `result.challenge` — it carries the `accepts[]` a standard client
+On `'invalid'`, send back `result.challenge`, because it carries the `accepts[]` a standard client
 needs to retry. The legacy `toInvalidBody` helper omits `accepts[]` and is deprecated; a client
 that receives it can't retry.
 :::
 
 ## Hono / Workers / any `fetch` handler
 
-The Fetch API shape — `Request` in, `Response` out — covers Cloudflare Workers, Bun, Deno, and
+The Fetch API shape (`Request` in, `Response` out) covers Cloudflare Workers, Bun, Deno, and
 Hono in one form:
 
 ```ts
@@ -123,7 +123,7 @@ branch handles both.
 
 ## Next.js route handler
 
-A route handler is a `fetch` handler — same three branches, returning a `Response`:
+A route handler is a `fetch` handler: same three branches, returning a `Response`:
 
 ```ts
 export async function GET(req: Request) {
@@ -169,7 +169,7 @@ import {
 } from '@piprail/sdk'
 ```
 
-To accept both header generations, read the v2 name and fall back to v1 — the built-in
+To accept both header generations, read the v2 name and fall back to v1. The built-in
 `requirePayment` middleware does exactly this:
 
 ```ts
@@ -181,16 +181,16 @@ to read the receipt: `payment-response` and `x-payment-response`, both to `r.rec
 
 ## The Express-like types
 
-`requirePayment` is typed against a minimal local interface, not `@types/express` — so the SDK
+`requirePayment` is typed against a minimal local interface, not `@types/express`, so the SDK
 needs no Express dependency and the middleware drops into Connect, Polka, or any look-alike. The
 shapes are exported if you wrap or adapt the middleware:
 
 | Type | What it is |
 | --- | --- |
-| `ExpressLikeRequest` | `{ headers, originalUrl?, url? }` — just the fields the gate reads. |
-| `ExpressLikeResponse` | `{ setHeader, status, json }` — the three methods it writes through. |
-| `ExpressLikeNext` | `(err?: unknown) => void` — call to proceed on a paid request. |
-| `ExpressLikeMiddleware` | `(req, res, next) => Promise<void> \| void` — the return type of `requirePayment`. |
+| `ExpressLikeRequest` | `{ headers, originalUrl?, url? }`: just the fields the gate reads. |
+| `ExpressLikeResponse` | `{ setHeader, status, json }`: the three methods it writes through. |
+| `ExpressLikeNext` | `(err?: unknown) => void`: call to proceed on a paid request. |
+| `ExpressLikeMiddleware` | `(req, res, next) => Promise<void> \| void`: the return type of `requirePayment`. |
 
 ```ts
 import { requirePayment, type ExpressLikeMiddleware } from '@piprail/sdk'
@@ -204,7 +204,7 @@ const gated: ExpressLikeMiddleware = requirePayment({
 
 This only applies when you opt into the standard [`exact` rail](/accepting-payments/exact-rail-seller/),
 where the server settles the payment itself (own relayer or a chosen facilitator). If that
-server-side settle fails — relayer out of gas, facilitator down — `gate.verify()` **throws** a
+server-side settle fails (relayer out of gas, facilitator down) `gate.verify()` **throws** a
 `SettlementError`. That's not the payer's fault: their signed authorization is still valid and
 unused, so return a `5xx`, never a `402` (a `402` would tell them to pay again).
 
