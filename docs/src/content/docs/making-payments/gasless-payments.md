@@ -38,6 +38,7 @@ the SDK picks for you. You never name a method by hand.
   a 402 payment
   ├── onchain-proof   ← default · you broadcast · YOU PAY GAS · every chain
   └── exact           ← opt-in  · you only sign · ZERO gas for you · EVM + Solana + Algorand + Aptos + NEAR
+                         (also XRPL native XRP — you still only sign, but there the PAYER pays the fee)
         ├── EIP-3009   (EVM: USDC, EURC)         ┐ picked
         ├── Permit2    (EVM: other ERC-20s)      │ automatically
         ├── SVM        (Solana: any SPL token)   │ per chain+token
@@ -252,10 +253,17 @@ gas-station round-trip. Native **APT** isn't exact-payable. Live-proven on Aptos
 ### NOT gasless → `onchain-proof` (the buyer broadcasts)
 
 - **Native coins** (ETH, BNB, SOL, ALGO, APT, MATIC, …) — nothing to authorize / no fee-payer split.
-- **The non-EVM families without an `exact` rail** — TON, Tron, **Sui**, Stellar, XRPL. (Fees there are
+- **The non-EVM families without an `exact` rail** — TON, Tron, **Sui**, Stellar. (Fees there are
   sub-cent, but the buyer signs *and* broadcasts.) **Solana, Algorand, Aptos, and NEAR are the gasless
   exceptions** — via SVM, the fee-pooled Algorand rail, the Aptos sponsored-tx rail, and NEAR's
   **NEP-366 meta-transaction** (self-settle: the buyer signs at 0 NEAR, the merchant's relayer pays).
+- 🔴 **XRPL has an `exact` rail but it is NOT gasless — this is the one exception to the rule above,
+  and the only place "exact" and "gasless" come apart.** On the XRP Ledger the fee is a *field inside
+  the signed transaction* and the ledger charges it to the transaction's own `Account`, so there is
+  nobody else to charge: `scheme_exact_xrpl.md` requires `extra.areFeesSponsored: false`. The buyer
+  still only signs (the merchant submits), but it needs **XRP for the amount *and* the fee** — about
+  12 drops, i.e. 0.000012 XRP. Budget for it: an agent holding exactly the payment amount and no more
+  cannot pay an XRPL exact rail. See [the exact buyer](/making-payments/exact-buyer/).
   *(Sui has a ratified `exact` scheme, but its sponsored path needs a **gas-station round-trip** — a
   hosted service the buyer calls mid-flow — which doesn't fit PipRail's one-shot backendless model, so
   Sui stays on `onchain-proof`; its fees are sub-cent.)*

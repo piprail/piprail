@@ -21,7 +21,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { Wallet, decode } from 'xrpl'
 import { payExactXrpl, verifyAndSettleExactXrpl, invoiceIdHash } from '../../src/drivers/xrpl/exact.js'
-import { UnsupportedSchemeError, SettlementError } from '../../src/errors.js'
+import { InsufficientFundsError, UnsupportedSchemeError, SettlementError } from '../../src/errors.js'
 import type { X402ExactAcceptEntry } from '../../src/x402.js'
 
 /** A fixed test payer — deterministic, so a signature change shows up as a diff. */
@@ -201,6 +201,39 @@ describe('payExactXrpl — the buyer signs a complete, submittable Payment', () 
     await expect(
       payExactXrpl({ client: payClient, wallet: PAYER, accept: accept({ amount: '0.01' }) })
     ).rejects.toThrow(/integer drops/)
+  })
+})
+
+describe('error handling — ERRORS.md §9: no raw chain error escapes', () => {
+  it('an UNACTIVATED payer account becomes InsufficientFundsError, not a raw actNotFound', async () => {
+    // On XRPL an account only EXISTS once it holds the base reserve, so `actNotFound` from
+    // account_info is an affordability problem wearing a lookup error's clothes. It converges on
+    // the same typed error every other family raises (§6), with the fix in the message.
+    const dead = { ...payClient, accountSequence: async () => { throw new Error('XRPL RPC account_info error: actNotFound') } }
+    const err = await payExactXrpl({ client: dead, wallet: PAYER, accept: accept() }).catch((e) => e)
+    expect(err).toBeInstanceOf(InsufficientFundsError)
+    expect(err.message).toMatch(/base reserve/)
+    expect(err.cause).toBeInstanceOf(Error) // the raw chain error is preserved, never swallowed
+  })
+
+  it('any OTHER RPC failure is rethrown unchanged — not disguised as an affordability problem', async () => {
+    // Misreporting a transient RPC hiccup as "you are broke" would send an agent off to top up a
+    // wallet that is already funded.
+    const flaky = { ...payClient, feeDrops: async () => { throw new Error('ECONNRESET') } }
+    const err = await payExactXrpl({ client: flaky, wallet: PAYER, accept: accept() }).catch((e) => e)
+    expect(err).not.toBeInstanceOf(InsufficientFundsError)
+    expect(err.message).toMatch(/ECONNRESET/)
+  })
+
+  it('an xrpl.js ValidationError surfaces as a typed UnsupportedSchemeError with its reason', async () => {
+    // xrpl.js validates on sign. A payTo it considers malformed must not leak a raw library error.
+    const err = await payExactXrpl({
+      client: payClient,
+      wallet: PAYER,
+      accept: accept({ payTo: 'not-an-xrpl-address' }),
+    }).catch((e) => e)
+    expect(err).toBeInstanceOf(UnsupportedSchemeError)
+    expect(err.cause).toBeInstanceOf(Error)
   })
 })
 

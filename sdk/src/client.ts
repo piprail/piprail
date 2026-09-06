@@ -65,7 +65,9 @@ import {
 
 /** The payment schemes a client can settle: PipRail's native `onchain-proof` (the
  *  default), the standard x402 `exact` rail (EVM EIP-3009/Permit2 + Solana SVM + Algorand
- *  + Aptos + NEAR, opt-in), and the standard x402 `upto` (metered) rail (EVM-Permit2, opt-in). */
+ *  + Aptos + NEAR + XRPL native XRP, opt-in), and the standard x402 `upto` (metered) rail
+ *  (EVM-Permit2, opt-in). NB exact is gasless on every family EXCEPT XRPL, where the fee is a
+ *  field inside the signed transaction and the payer therefore pays it. */
 export type PaymentScheme = 'onchain-proof' | 'exact' | 'upto'
 
 /** The scheme set when none is configured — `onchain-proof` only, so the zero-config
@@ -1330,7 +1332,7 @@ export class PipRailClient {
    * - Results are cross-scheme (mostly the mainstream `exact` scheme); `fetch()` pays
    *   `onchain-proof` rails by default, and standard `exact` rails too once you opt in
    *   with `schemes: ['onchain-proof', 'exact']` (EVM EIP-3009/Permit2 + Solana SVM + Algorand
-   *   + Aptos + NEAR).
+   *   + Aptos + NEAR + XRPL native XRP).
    */
   async discover(opts: DiscoverOptions = {}): Promise<DiscoveredResource[]> {
     // searchOpenIndexes does the fan-out, server-side + client-side filters, and ranking;

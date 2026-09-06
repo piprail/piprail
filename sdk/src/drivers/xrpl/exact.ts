@@ -43,7 +43,7 @@
  */
 import type { Wallet } from 'xrpl'
 import { createHash } from 'node:crypto'
-import { SettlementError, UnsupportedSchemeError } from '../../errors.js'
+import { InsufficientFundsError, SettlementError, UnsupportedSchemeError } from '../../errors.js'
 import { isXrpNative } from './chains.js'
 import { exactTransferMethod } from '../../x402.js'
 import type {
@@ -190,11 +190,34 @@ export async function payExactXrpl(input: {
     )
   }
 
-  const [sequence, openLedgerFee, ledgerIndex] = await Promise.all([
-    client.accountSequence(wallet.classicAddress),
-    client.feeDrops(),
-    client.currentLedgerIndex(),
-  ])
+  /*
+   * ERRORS.md §9: no raw chain error escapes for a condition the SDK recognises.
+   *
+   * `account_info` throws `actNotFound` when the payer account does not exist on the ledger, which
+   * on XRPL is not "missing" so much as "unfunded" — an account only exists once it holds the base
+   * reserve. That is an affordability problem, so it converges on the same typed error every other
+   * family raises for one (§6), with the actionable fix in the message. Any other read failure is
+   * a transient RPC fault and is rethrown unchanged rather than disguised as a payment problem.
+   */
+  let sequence: number
+  let openLedgerFee: string
+  let ledgerIndex: number
+  try {
+    ;[sequence, openLedgerFee, ledgerIndex] = await Promise.all([
+      client.accountSequence(wallet.classicAddress),
+      client.feeDrops(),
+      client.currentLedgerIndex(),
+    ])
+  } catch (err) {
+    if (/actNotFound/i.test(String((err as Error)?.message ?? err))) {
+      throw new InsufficientFundsError(
+        `XRPL exact: the payer account ${wallet.classicAddress} does not exist on the ledger. An XRPL ` +
+          'account must hold the base reserve (currently 1 XRP) before it can send anything — fund it first.',
+        { cause: err instanceof Error ? err : new Error(String(err)) }
+      )
+    }
+    throw err
+  }
 
   /*
    * Exactly the fields the scheme allows, and nothing else. Notably ABSENT, each on purpose:
@@ -234,7 +257,22 @@ export async function payExactXrpl(input: {
     tx.InvoiceID = invoiceIdHash(accept.extra.invoiceId)
   }
 
-  const signed = wallet.sign(tx as never)
+  /*
+   * xrpl.js VALIDATES on sign and throws its own `ValidationError` for a transaction it considers
+   * malformed (it is what refuses `DeliverMin` without tfPartialPayment, for instance). That is a
+   * rail we cannot honour, not an internal fault, so it becomes the same typed error as every other
+   * unsignable rail — with the library's reason kept as the message and the original as `cause`,
+   * so nothing is swallowed.
+   */
+  let signed: { tx_blob: string; hash: string }
+  try {
+    signed = wallet.sign(tx as never)
+  } catch (err) {
+    throw new UnsupportedSchemeError(
+      `XRPL exact: could not sign this rail — ${err instanceof Error ? err.message : String(err)}`,
+      { cause: err instanceof Error ? err : new Error(String(err)) }
+    )
+  }
   return {
     payload: { signedTxBlob: signed.tx_blob },
     accepted: accept,

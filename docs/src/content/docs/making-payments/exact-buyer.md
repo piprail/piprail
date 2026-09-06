@@ -166,6 +166,68 @@ const challenge = normalizeV1Challenge(await res.json())  // v1 body → the sta
 const header = buildV1PaymentHeader({ scheme: 'exact', network: 'base', payload })
 ```
 
+## The XRP Ledger, in full
+
+XRPL is the only `exact` family that breaks two rules the others share, so it is worth reading once
+rather than discovering at runtime.
+
+**1. The payer pays the fee — `exact` is not gasless here.** On every other family the merchant or a
+facilitator broadcasts and absorbs the gas, which is why `exact` normally means "you need the token
+and no native coin". On the XRP Ledger the fee is a *field inside the signed transaction* and the
+ledger charges it to that transaction's own `Account`, so there is nobody else to charge. The scheme
+says so outright: `extra.areFeesSponsored` **must** be `false`. You still only sign — the merchant
+submits — but budget **XRP for the amount *and* the fee** (~12 drops = 0.000012 XRP). An agent
+holding exactly the payment amount cannot pay an XRPL rail.
+
+**2. The native coin IS payable — and only here.** Everywhere else `exact` is a token-only scheme and
+the native coin falls back to `onchain-proof`. On XRPL an `exact` payment is simply a signed
+`Payment`, and native XRP is the most natural thing to send: 863 of the 1,732 live XRPL rails are
+priced in XRP.
+
+### What PipRail signs
+
+A `Payment` carrying only what the scheme allows, and deliberately nothing else:
+
+| field | value |
+| --- | --- |
+| `Amount` | the rail's `amount`, verbatim — an **integer drops** string |
+| `Destination` | the rail's `payTo` |
+| `InvoiceID` | `SHA-256(extra.invoiceId)`, when the rail states one — **this is the challenge binding** |
+| `SourceTag` / `DestinationTag` | copied verbatim, only when the rail states them |
+| `LastLedgerSequence` | derived from the rail's own `maxTimeoutSeconds` (~4s a ledger, clamped to 5–60 ledgers) |
+| `Flags` | `tfFullyCanonicalSig`, and never `tfPartialPayment` |
+| `Memos`, `Paths`, `DeliverMin`, `DeliverMax`, `SendMax`, `Delegate`, `NetworkID` | **absent** — the scheme has settlers reject them |
+
+The binding deserves a note: PipRail's `onchain-proof` XRPL path binds the challenge with a **memo**,
+and the `exact` scheme *forbids* memos. The two paths therefore share no code, and the exact rail
+binds through `InvoiceID` instead. `invoiceId` is present on 1,732 of 1,732 live rails, so in
+practice it is always on.
+
+### What is not supported yet, and why
+
+**Issued currencies (RLUSD, USDC-on-XRPL) stay on `onchain-proof`.** The two XRPL asset forms use
+different wire conventions — native XRP is an integer drops string (`"10000"`), an issued currency is
+a **decimal** `value` (`"0.01"`). PipRail prices and spend-caps every rail in base units, so reading
+an IOU's `"12"` as base units would understate a 12-RLUSD payment by a factor of 10¹⁵ and let it slip
+under a policy cap while you signed the real amount. Rather than special-case that in the signer,
+issued-currency rails are dropped before they can be planned. Native XRP is 863 of the 1,732 live
+rails; the rest wait until decimal amounts are safe end to end.
+
+**`assetTransferMethod: "ticketSequence"` is skipped.** The scheme allows `"sequence"` (the default,
+and what every live rail means by omitting the field) or `"ticketSequence"`, which needs a Ticket
+pre-minted on the payer's account. PipRail doesn't manage tickets, so such a rail is skipped at
+selection rather than planned and then failed at signing. No live rail names it.
+
+### Interop status, honestly
+
+The rail is proven end to end on mainnet against a PipRail gate, including a rejected replay. A paid
+round-trip against a **third-party** XRPL merchant has **not** yet succeeded: two live vendors refuse
+our payload with `invalid_payload`, from their own pre-check — their facilitator never sees it. The
+same client, envelope and header pay one of those same gateways successfully on its **Base** rail, so
+the envelope is not the problem, and our transaction matches a payment that merchant has accepted
+from another client on every field visible on the ledger. We think the deployed XRPL dialect has
+drifted from the ratified scheme. If you hit this, it is known — not something you have misconfigured.
+
 ## Interoperability: any network label
 
 The `exact` rail is the *standard* x402 scheme, so a PipRail client interoperates with the wider x402
