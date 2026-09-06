@@ -4,7 +4,7 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [2.16.0] — 2026-09-06 — the XRP Ledger `exact` buyer, and paying the 91% of the x402 web we could not
 
 ### Added — the XRP Ledger `exact` buyer (stage 04, first family)
 
@@ -2110,6 +2110,7 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[2.16.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.15.1]: https://www.npmjs.com/package/@piprail/sdk
 [2.15.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.14.0]: https://www.npmjs.com/package/@piprail/sdk
