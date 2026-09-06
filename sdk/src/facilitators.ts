@@ -310,6 +310,13 @@ export const KNOWN_FACILITATORS: Readonly<Record<Caip2, ReadonlyArray<KnownFacil
       settles: ['svm'],
       note: 'OpenFacilitator: keyless (no signup), fee-payer sponsor. LIVE-settled on Solana 2026-06-15 (tx 5BabDtX…).',
     },
+    {
+      url: 'https://facilitator.goplausible.xyz',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['svm'],
+      note: 'GoPlausible: keyless fee-payer sponsor (Solana SPL SVM). LIVE-settled on Solana mainnet 2026-09-06 (tx 3DEGg6Lue8471meBH8hbLxV1bLmZGKvmvmSY3tjg7tQFnxzE9GQXUXokjQnZgTqaEU4SaXuY9F7v3m7JsX5xDgrZ): buyer paid 0 SOL, GoPlausible\'s sponsor 8a8fFNfk… paid the 10,001-lamport fee, replay rejected.',
+    },
   ],
   // NEAR (near:mainnet) — DELIBERATELY UNSEEDED: no x402 facilitator settles NEAR yet.
   // The NEAR `exact` BUYER payload PipRail builds (drivers/near/exact.ts) is LIVE-PROVEN on mainnet —

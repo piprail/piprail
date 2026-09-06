@@ -33,7 +33,7 @@ fee-payer rail the gate also **bounds the fee** a buyer can make the sponsor pay
 | **[Ultravioleta DAO](https://facilitator.ultravioletadao.xyz/)** | ✅ keyless | ✅ **Ethereum, Polygon, Arbitrum, Optimism, Unichain, HyperEVM, Base, Monad** | HyperEVM, Base, Monad, Celo, Unichain, Optimism, Scroll, Ethereum, Arbitrum, Polygon, Avalanche, BNB + Solana, Stellar, Sui, Algorand, NEAR, XRPL (18 listed, but Celo/Scroll/Avalanche `contract_call_failed`; non-EVM advertise-only) |
 | **[Dexter](https://x402.dexter.cash/)** | ✅ keyless | ✅ **Base, Polygon, Arbitrum, Optimism, Avalanche, BNB** | Base, BNB, Solana, Polygon, Arbitrum, Optimism, Avalanche *(BNB: FDUSD/USD1/U only; ~$0.003 dynamic floor, so sub-floor payments are rejected)* |
 | **[Polygon Labs](https://x402.polygon.technology/)** | ✅ keyless | ✅ **Polygon** | Polygon (the official Polygon facilitator) |
-| **[GoPlausible](https://facilitator.goplausible.xyz/)** | ✅ keyless | ✅ **Algorand + Base** | **Algorand** (the only keyless Algorand facilitator), Base, Solana |
+| **[GoPlausible](https://facilitator.goplausible.xyz/)** | ✅ keyless | ✅ **Algorand + Base + Solana** | **Algorand** (the only keyless Algorand facilitator), Base, Solana |
 | **[Pieverse](https://facilitator.pieverse.io/)** | ✅ keyless | ✅ **Monad + BNB** | Monad, BNB, Base *(BNB: FDUSD/USD1/U)* |
 | **[Cascade](https://facilitator.cascade.fyi/)** | ✅ keyless | ✅ **Base** | Base, Solana |
 | **[OpenFacilitator](https://www.openfacilitator.io/)** | ✅ keyless | ✅ Solana | Base, Solana, Stacks |
@@ -44,7 +44,7 @@ fee-payer rail the gate also **bounds the fee** a buyer can make the sponsor pay
 | **[Kora](https://github.com/solana-foundation/kora)** | self-host | none | Solana |
 
 **Base URLs** (pass to `exact: { settle: { facilitator } }`), the keyless ones, live-proven:
-`https://facilitator.payai.network` · `https://pay.openfacilitator.io` · `https://facilitator.xpay.sh` · `https://facilitator.ultravioletadao.xyz` · `https://x402.dexter.cash` · `https://x402.polygon.technology` (Polygon) · `https://facilitator.goplausible.xyz` (Algorand) · `https://facilitator.pieverse.io` · `https://facilitator.cascade.fyi`.
+`https://facilitator.payai.network` · `https://pay.openfacilitator.io` · `https://facilitator.xpay.sh` · `https://facilitator.ultravioletadao.xyz` · `https://x402.dexter.cash` · `https://x402.polygon.technology` (Polygon) · `https://facilitator.goplausible.xyz` (Algorand + Solana) · `https://facilitator.pieverse.io` · `https://facilitator.cascade.fyi`.
 
 :::note[Removed 2026-08-28: two facilitators went offline]
 **Corbits** (`facilitator.corbits.dev`) and **Satoshi / bitcoinsapi**
@@ -132,7 +132,7 @@ settled a real mainnet payment with no key, buyer paid zero gas (see
 - **Monad** (`eip155:143`) → **Ultravioleta DAO** + **Pieverse** (`eip3009`) *(live-settled 2026-06-17)*
 - **HyperEVM** (`eip155:999`) → Ultravioleta DAO (`eip3009`) *(live-settled 2026-06-17)*
 - **Algorand** (`algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=`) → **GoPlausible** (`algorand`), *new, live-settled 2026-06-17.* Atomic-group fee pooling: GoPlausible's sponsor pools the whole group fee, so **both the buyer AND the merchant pay 0 ALGO**. The first non-EVM/non-Solana keyless chain.
-- **Solana** → PayAI + OpenFacilitator (`svm`)
+- **Solana** (`solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp`) → PayAI + OpenFacilitator + **GoPlausible** (`svm`), *GoPlausible live-settled 2026-09-06 (tx `3DEGg6Lu…`): buyer paid 0 SOL, GoPlausible's sponsor paid the fee.*
 
 So **`exact: true` is zero-config gasless on 13 chains today: Ethereum, Polygon, Arbitrum, Optimism, Avalanche, Sei, Unichain, Base, BNB, HyperEVM, Monad, Solana, and Algorand** (multiple keyless facilitators per chain = automatic failover). **Celo and Scroll are NOT seeded**, because Ultravioleta DAO advertises them but its sponsor contract reverts there (`contract_call_failed`), proving again that a `/supported` listing isn't settlement. **Daydreams** and
 **Questflow** are deliberately **omitted**, because their `/supported` is public but `/verify` needs an API key.
