@@ -1036,6 +1036,49 @@ export const RULES = [
   },
 
   {
+    domain: 'site',
+    id: 'linkedin-page-feed',
+    what: 'Every LinkedIn company-page post in the registry is publishable as-is: unique id, image present, no first person, under the length cap',
+    source: { file: 'site/src/data/linkedin-page.ts', note: 'the registry; each entry is one page post' },
+    mirrors: [
+      { file: 'site/src/pages/linkedin-page.xml.ts', note: 'the RSS feed the Zapier Zap reads and posts from' },
+      { file: 'site/public/linkedin/', note: 'the images the feed points Zapier at' },
+    ],
+    check() {
+      /*
+       * WHY THIS RULE EXISTS. Posting as the page goes through a Zap that fires on a NEW
+       * <guid> within 15 minutes of a deploy, and a fired post cannot be un-fired. There is
+       * no human between a merge and LinkedIn. So the checks a person would do before pasting
+       * run here instead, and a failure blocks the build, which blocks the deploy, which
+       * blocks the post. The company page has no "I": first person singular is the one
+       * error that reads as a mistake on an organisation's page and it is the easiest to
+       * make when adapting a personal draft.
+       */
+      const src = 'site/src/data/linkedin-page.ts'
+      if (!exists(src)) return skip('no linkedin-page registry')
+      if (!exists('site/src/pages/linkedin-page.xml.ts')) return bad('registry exists but the feed endpoint is missing')
+      const text = read(src)
+      const entries = [...text.matchAll(/\{\s*id:\s*'([^']+)'[\s\S]*?date:\s*'([^']+)'[\s\S]*?title:\s*'([^']+)'[\s\S]*?(?:image:\s*'([^']*)'[\s\S]*?)?text:\s*`([\s\S]*?)`/g)]
+      if (!entries.length) return skip('registry has no entries yet')
+      const problems = []
+      const ids = new Set()
+      for (const [, id, date, , image, body] of entries) {
+        if (ids.has(id)) problems.push(`${id}: duplicate id (Zapier would treat one of them as already posted)`)
+        ids.add(id)
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) problems.push(`${id}: date "${date}" is not YYYY-MM-DD`)
+        if (image && !exists('site/public' + image)) problems.push(`${id}: image ${image} is not under site/public (Zapier fetches it by URL)`)
+        if (body.length > 3000) problems.push(`${id}: ${body.length} chars, LinkedIn caps a post at 3,000`)
+        // First person singular, as a whole word, ignoring URLs. "I", "I'm", "I've", "my", "me".
+        const prose = body.replace(/https?:\/\/\S+/g, '')
+        const fp = prose.match(/\b(I|I'm|I've|I'd|I'll|my|me|mine)\b/g)
+        if (fp) problems.push(`${id}: first person singular (${[...new Set(fp)].join(', ')}), the page has no "I"`)
+        if (/—|–/.test(body)) problems.push(`${id}: em/en dash in the post text`)
+      }
+      return problems.length ? bad(problems.join(' · ')) : ok(`${entries.length} page post(s), all publishable as-is`)
+    },
+  },
+
+  {
     domain: 'docs',
     id: 'examples-indexed',
     what: 'Every example directory is listed in examples/README.md',
