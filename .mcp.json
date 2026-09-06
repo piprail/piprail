@@ -4,9 +4,7 @@
       "command": "npx",
       "args": [
         "-y",
-        "@playwright/mcp@latest",
-        "--user-data-dir",
-        "/Users/john/.cache/piprail-x-browser-profile"
+        "@playwright/mcp@latest"
       ]
     },
     "repomix": {
