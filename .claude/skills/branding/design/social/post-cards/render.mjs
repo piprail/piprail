@@ -8,7 +8,7 @@
 // bundle `../../video/assets.js`, so run `node ../../video/genassets.mjs` once first.
 import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
-import { existsSync, readdirSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const HERE = import.meta.dirname
@@ -40,8 +40,25 @@ if (!src) {
 }
 const out = resolve(HERE, 'post-' + name + '.png')
 
+/*
+ * Cards are 1080 square by default, which is what the feed wants. A template
+ * that needs another shape says so itself:
+ *
+ *   <meta name="render-size" content="1240x1754">   (A4 portrait at 150dpi)
+ *
+ * 🔴 THE TEMPLATE DECLARES ITS OWN SIZE, rather than the size being a flag on
+ * the command. A flag has to be remembered every time and is wrong the first
+ * time somebody re-renders from the README; a meta tag travels with the file
+ * that depends on it. The `html,body` rule in the template must match, and if
+ * the two ever disagree the screenshot silently crops or letterboxes.
+ */
+const html = readFileSync(src, 'utf8')
+const sizeTag = html.match(/<meta\s+name=["']render-size["']\s+content=["'](\d+)x(\d+)["']/i)
+const width = sizeTag ? Number(sizeTag[1]) : 1080
+const height = sizeTag ? Number(sizeTag[2]) : 1080
+
 const browser = await chromium.launch({ executablePath: BIN, headless: true, args: ['--force-color-profile=srgb'] })
-const page = await browser.newPage({ viewport: { width: 1080, height: 1080 }, deviceScaleFactor: 2 })
+const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 2 })
 await page.goto(pathToFileURL(src).href, { waitUntil: 'load' })
 await page.evaluate(() => document.fonts.ready).catch(() => {})
 await page.waitForTimeout(400)
