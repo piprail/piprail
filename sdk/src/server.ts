@@ -20,6 +20,12 @@
 import { parseUnits, formatUnits, floorUnits } from './util/units.js'
 import { resolveNetwork } from './drivers/index.js'
 import type { ResolvedNetwork, TokenInput, ChainSelector, WalletHandle } from './drivers/types.js'
+// The gate matches an echoed network id through this, not by raw string equality: a
+// conformant buyer may canonicalise an id we bind under a different spelling (Algorand's
+// spec-form truncated genesis hash, TON's superseded `ton:-239`) before echoing it back.
+// The network is only a SELECTOR here — every verified field is re-derived from the gate's
+// own spec — so normalising both sides can widen what matches but never what is trusted.
+import { normalizeNetwork } from './indexes.js'
 import { buildBazaarExtension } from './discovery.js'
 import type { ResourceDescription, PaymentRail, DiscoveryDescriptor } from './discovery.js'
 import { describeChallenge } from './render.js'
@@ -1429,8 +1435,8 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
       // Mirror the rail-IDENTITY extra a discoverer needs to reconstruct the rail, straight from
       // the SAME builders the live 402 uses (so discovery == the challenge): the exact rail's
       // EIP-712 domain (name/version) + method, and the upto rail's MANDATORY facilitatorAddress.
-      if (s.exact) accepts.push({ scheme: 'exact', ...base, ...railExtra(buildExactAccept(s).extra) })
-      if (s.upto) accepts.push({ scheme: 'upto', ...base, ...railExtra(buildUptoAccept(s).extra) })
+      if (s.exact) accepts.push({ scheme: 'exact', ...base, ...railExtra(buildExactAccept(s).extra ?? {}) })
+      if (s.upto) accepts.push({ scheme: 'upto', ...base, ...railExtra(buildUptoAccept(s).extra ?? {}) })
       accepts.push({ scheme: 'onchain-proof', ...base })
     }
     return {
@@ -1448,7 +1454,9 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     // every verified field comes from the server's own spec, so a forged `accepted`
     // can't redirect anything (a wrong asset/network just won't match).
     const spec = specs.find(
-      (s) => s.net.network === sig.accepted.network && s.asset === sig.accepted.asset
+      (s) =>
+        normalizeNetwork(s.net.network) === normalizeNetwork(sig.accepted.network) &&
+        s.asset === sig.accepted.asset
     )
     if (!spec) {
       return rejection(
@@ -1533,7 +1541,10 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     // (solana:… / algorand:… / aptos:…), so a foreign non-EVM v2 payment filters by network
     // exactly like EVM (a v1 flat slug has no `:` and falls through to the slug fallback).
     const isCaip = exact.network.includes(':')
-    let candidates = isCaip ? exactSpecs.filter((s) => s.net.network === exact.network) : exactSpecs
+    const wantExactNet = normalizeNetwork(exact.network)
+    let candidates = isCaip
+      ? exactSpecs.filter((s) => normalizeNetwork(s.net.network) === wantExactNet)
+      : exactSpecs
     if (exact.asset) {
       candidates = candidates.filter((s) => s.asset.toLowerCase() === exact.asset!.toLowerCase())
     }
@@ -1634,10 +1645,10 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
         // sponsor (resolveExactRail returns null, or the gate drops the rail when /supported yields
         // none), so a missing feePayer here is an invariant violation — fail loudly with a clear
         // SettlementError (gate 5xx) rather than forwarding an empty string to the facilitator.
-        const ftMethod = accept.extra.assetTransferMethod
+        const ftMethod = accept.extra?.assetTransferMethod
         const needsFeePayer =
           ftMethod === 'svm' || ftMethod === 'algorand' || ftMethod === 'aptos' || ftMethod === 'near'
-        if (needsFeePayer && !accept.extra.feePayer) {
+        if (needsFeePayer && !accept.extra?.feePayer) {
           throw new SettlementError(
             `exact settle: the ${ftMethod} facilitator rail is missing extra.feePayer (the gas sponsor) — cannot settle.`
           )
@@ -1659,8 +1670,8 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
             payTo: accept.payTo,
             maxTimeoutSeconds: accept.maxTimeoutSeconds,
             extra: needsFeePayer
-              ? { feePayer: accept.extra.feePayer! }
-              : { name: accept.extra.name ?? '', version: accept.extra.version ?? '' },
+              ? { feePayer: accept.extra!.feePayer! }
+              : { name: accept.extra?.name ?? '', version: accept.extra?.version ?? '' },
           },
           receipt: { network: accept.network, asset: accept.asset, payTo: accept.payTo, amount: accept.amount },
           // The buyer address, for the receipt's `payer` fallback. EVM carries it in the
@@ -1748,7 +1759,10 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     // Match the rail exactly like exact: v2 echoes CAIP-2 network + asset; a v1 flat slug falls
     // back to the single offered upto rail (and is dropped if ambiguous across multiple).
     const isCaip = upto.network.includes(':')
-    let candidates = isCaip ? uptoSpecs.filter((s) => s.net.network === upto.network) : uptoSpecs
+    const wantUptoNet = normalizeNetwork(upto.network)
+    let candidates = isCaip
+      ? uptoSpecs.filter((s) => normalizeNetwork(s.net.network) === wantUptoNet)
+      : uptoSpecs
     if (upto.asset) {
       candidates = candidates.filter((s) => s.asset.toLowerCase() === upto.asset!.toLowerCase())
     }

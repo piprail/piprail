@@ -12,8 +12,8 @@ describe('auto-mount — naming "algorand" is enough (no setup call)', () => {
     expect(accept.network).toBe('algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=')
     expect(accept.asset).toBe('31566704')
     expect(accept.amount).toBe('50000') // 0.05 × 10^6
-    expect(accept.extra.symbol).toBe('USDC')
-    expect(accept.extra.decimals).toBe(6)
+    expect(accept.extra!.symbol).toBe('USDC')
+    expect(accept.extra!.decimals).toBe(6)
   })
 
   it('builds a native ALGO (6-decimal) challenge', async () => {
@@ -21,8 +21,8 @@ describe('auto-mount — naming "algorand" is enough (no setup call)', () => {
     const accept = (await gate.challenge()).challenge.accepts[0]!
     expect(accept.asset).toBe('native')
     expect(accept.amount).toBe('1000000') // 1 × 10^6
-    expect(accept.extra.symbol).toBe('ALGO')
-    expect(accept.extra.decimals).toBe(6)
+    expect(accept.extra!.symbol).toBe('ALGO')
+    expect(accept.extra!.decimals).toBe(6)
   })
 })
 
@@ -48,8 +48,8 @@ describe('Algorand tokens — USDC built in, custom ASA by { assetId, decimals }
     })
     const accept = (await gate.challenge()).challenge.accepts[0]!
     expect(accept.asset).toBe('312769')
-    expect(accept.extra.decimals).toBe(6)
-    expect(accept.extra.symbol).toBe('USDt')
+    expect(accept.extra!.decimals).toBe(6)
+    expect(accept.extra!.symbol).toBe('USDt')
   })
 })
 

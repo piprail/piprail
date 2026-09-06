@@ -34,7 +34,7 @@ describe('auto-mount — naming the chain is enough (no enableSolana)', () => {
     expect(accept.network).toBe('solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp')
     expect(accept.asset).toBe('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v')
     expect(accept.amount).toBe('50000') // 0.05 × 10^6
-    expect(accept.extra.symbol).toBe('USDC')
+    expect(accept.extra!.symbol).toBe('USDC')
   })
 })
 
@@ -49,8 +49,8 @@ describe('Solana custom token — total control via { mint }', () => {
     })
     const accept = (await gate.challenge()).challenge.accepts[0]!
     expect(accept.asset).toBe('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v')
-    expect(accept.extra.decimals).toBe(6)
-    expect(accept.extra.symbol).toBe('USDC')
+    expect(accept.extra!.decimals).toBe(6)
+    expect(accept.extra!.symbol).toBe('USDC')
   })
 })
 

@@ -1,0 +1,34 @@
+{
+  "x402Version": 2,
+  "resource": {
+    "url": "https://x402.ottoai.services/hyperliquid-market",
+    "description": "Hyperliquid perpetuals market data: live mark/oracle price, funding rate, open i"
+  },
+  "accepts": [
+    {
+      "amount": "1000",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "extra": {
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:8453",
+      "payTo": "0x5bB4B0C766E0D5D791d9403Fc275c22064709F68",
+      "scheme": "exact"
+    },
+    {
+      "amount": "1000",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "extra": {
+        "assetTransferMethod": "permit2",
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:8453",
+      "payTo": "0x5bB4B0C766E0D5D791d9403Fc275c22064709F68",
+      "scheme": "exact"
+    }
+  ]
+}

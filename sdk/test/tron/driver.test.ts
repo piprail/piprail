@@ -26,8 +26,8 @@ describe('auto-mount — naming "tron" is enough (no setup call)', () => {
     expect(accept.network).toBe('tron:mainnet')
     expect(accept.asset).toBe(USDT)
     expect(accept.amount).toBe('50000') // 0.05 × 10^6
-    expect(accept.extra.symbol).toBe('USDT')
-    expect(accept.extra.decimals).toBe(6)
+    expect(accept.extra!.symbol).toBe('USDT')
+    expect(accept.extra!.decimals).toBe(6)
   })
 })
 
@@ -38,8 +38,8 @@ describe('Tron tokens — TRC-20 USD₮ + native TRX (USDC absent)', () => {
     expect(accept.network).toBe('tron:mainnet')
     expect(accept.asset).toBe('native')
     expect(accept.amount).toBe('1000000') // 1 TRX × 10^6 (sun)
-    expect(accept.extra.symbol).toBe('TRX')
-    expect(accept.extra.decimals).toBe(6)
+    expect(accept.extra!.symbol).toBe('TRX')
+    expect(accept.extra!.decimals).toBe(6)
   })
 
   it('rejects USDC with a clear UnknownTokenError (does not exist on Tron)', async () => {
@@ -58,8 +58,8 @@ describe('Tron tokens — TRC-20 USD₮ + native TRX (USDC absent)', () => {
     })
     const accept = (await gate.challenge()).challenge.accepts[0]!
     expect(accept.asset).toBe(USDT)
-    expect(accept.extra.decimals).toBe(6)
-    expect(accept.extra.symbol).toBe('USDD')
+    expect(accept.extra!.decimals).toBe(6)
+    expect(accept.extra!.symbol).toBe('USDD')
   })
 
   it('rejects a custom token given as a 0x address (typed WrongFamilyError)', async () => {

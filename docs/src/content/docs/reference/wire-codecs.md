@@ -239,7 +239,7 @@ here's the map:
 
 | Function / type | Role |
 | --- | --- |
-| `X402ExactAcceptEntry` | an `exact` rail in `accepts[]` (carries `assetTransferMethod` — a six-value union `'eip3009'`/`'permit2'`/`'svm'`/`'algorand'`/`'aptos'`/`'near'` — plus the family-specific bits: the EVM EIP-712 domain, or the `feePayer` gas sponsor for Solana/Algorand/Aptos/NEAR, + the Solana `tokenProgram`) |
+| `X402ExactAcceptEntry` | an `exact` rail in `accepts[]`. `extra` and `extra.assetTransferMethod` are both **optional** — absent means the scheme default `'eip3009'`, so read it via `exactTransferMethod(rail)`, never bare ([why](/making-payments/exact-buyer/#the-transfer-method-is-optional--and-usually-absent)). Stated values are the six-value union `'eip3009'`/`'permit2'`/`'svm'`/`'algorand'`/`'aptos'`/`'near'`, plus the family-specific bits: the EVM EIP-712 domain, or the `feePayer` gas sponsor for Solana/Algorand/Aptos/NEAR, + the Solana `tokenProgram` |
 | `buildExactSignatureHeader({ accepted, payload })` | frame an `exact` payment for the wire (buyer) — works for every method |
 | `parseExactPaymentHeader(value)` | parse an inbound `exact` payment, normalised across v1/v2 (seller) |
 | `ParsedExactPayment` | what `parseExactPaymentHeader` returns — a union discriminated on `method` (`'eip3009'` / `'permit2'` / `'svm'` / `'algorand'` / `'aptos'` / `'near'`) |

@@ -1,0 +1,21 @@
+{
+  "x402Version": 1,
+  "accepts": [
+    {
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "discoverable": true,
+      "extra": {
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxAmountRequired": "1000",
+      "maxTimeoutSeconds": 300,
+      "mimeType": "application/json",
+      "network": "base",
+      "payTo": "0xd85096fAeC1aC03075667B4C1a1661F5623Bf111",
+      "resource": "https://api.slamai.dev/token/price",
+      "scheme": "exact",
+      "description": "\nReturns current token prices with FDV, liquidity, and 24h price change, quoted "
+    }
+  ]
+}

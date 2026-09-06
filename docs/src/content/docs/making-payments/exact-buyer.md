@@ -94,6 +94,67 @@ and settles on that chain. So an EIP-3009/Permit2 rail on your bound EVM chain, 
 a Solana-bound client, is payable; an `exact` rail naming a different chain (or a family without an
 `exact` scheme) simply isn't selected and falls back to `onchain-proof`.
 
+## The transfer method is optional — and usually absent
+
+`extra.assetTransferMethod` names which on-chain mechanism a rail uses, but **the scheme makes it
+optional and most live rails omit it**. `scheme_exact_evm.md` is explicit:
+
+> If no `assetTransferMethod` is specified in `PaymentRequired.extra`, clients should default to
+> `"eip3009"`.
+
+Only the *non-default* methods (`permit2`, `erc7710`) are required to name themselves, and the
+Solana, Algorand, Aptos, NEAR and Hedera schemes never define the key at all — their required extra
+is `feePayer`. Measured against the live CDP Bazaar catalogue (15,686 resources, 40,388 `exact`
+rails, 2026-09-06): **9%** of rails carry the marker, while **78%** carry only the EIP-712 domain
+(`extra.name` + `extra.version`).
+
+So PipRail applies the spec default. A rail with no marker, an empty `extra`, or no `extra` block at
+all is paid as `eip3009`, and the buyer re-derives the token's EIP-712 domain on-chain anyway — the
+absent field costs nothing in safety. A rail naming a method PipRail does **not** implement (the
+spec's `erc7710`) is skipped rather than signed blind, because a signature built for the wrong
+mechanism would only be rejected by the merchant's facilitator.
+
+Four helpers expose that contract if you are building a client by hand:
+
+```ts
+import {
+  exactTransferMethod,          // the effective method: what the rail names, or the spec default
+  isSettleableExactMethod,      // can any PipRail driver sign this rail?
+  KNOWN_EXACT_TRANSFER_METHODS, // the set we implement, across all families
+  DEFAULT_EXACT_TRANSFER_METHOD // 'eip3009'
+} from '@piprail/sdk'
+
+exactTransferMethod({ ...rail, extra: { name: 'USD Coin', version: '2' } }) // → 'eip3009'
+exactTransferMethod({ ...rail, extra: { assetTransferMethod: 'permit2' } }) // → 'permit2'
+isSettleableExactMethod({ ...rail, extra: { assetTransferMethod: 'erc7710' } }) // → false
+```
+
+:::caution
+Read the method through `exactTransferMethod`, never as a bare `extra.assetTransferMethod`.
+Requiring the field is a subtle way to reject most of the x402 web — PipRail shipped exactly that
+bug, and [`planPayment`](/making-payments/plan-payment/) now reports the inferred method on each
+option (`option.method`, e.g. `'eip3009 (default)'`) so it is visible rather than implicit.
+:::
+
+## Paying an x402 **v1** server
+
+x402 v2 replaced v1 on the wire — the header moved `X-PAYMENT` → `PAYMENT-SIGNATURE`, the challenge
+moved into a base64 `payment-required` header, `maxAmountRequired` became `amount`, and slug networks
+became CAIP-2. But v1 servers are still deployed (251 of the 15,686 catalogued resources), so PipRail
+follows Postel's law: **emit strict v2, accept liberal v1 and v2.**
+
+You don't configure anything. When a server answers with a v1 body the client normalizes it, prices
+it identically, and answers on the v1 wire (`X-PAYMENT`, the flat payload, and the network slug
+echoed back exactly as the server wrote it, because v1 verifiers string-compare it). The two codecs
+are exported for hand-built clients:
+
+```ts
+import { normalizeV1Challenge, buildV1PaymentHeader } from '@piprail/sdk'
+
+const challenge = normalizeV1Challenge(await res.json())  // v1 body → the standard shape, or null
+const header = buildV1PaymentHeader({ scheme: 'exact', network: 'base', payload })
+```
+
 ## Interoperability: any network label
 
 The `exact` rail is the *standard* x402 scheme, so a PipRail client interoperates with the wider x402

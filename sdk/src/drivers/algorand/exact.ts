@@ -119,7 +119,7 @@ export async function payExactAlgorand(input: {
       'Algorand exact is ASA-only (an asset transfer); native ALGO is not exact-payable. Pay via onchain-proof.'
     )
   }
-  const feePayer = accept.extra.feePayer
+  const feePayer = accept.extra?.feePayer
   if (!feePayer) {
     throw new UnsupportedSchemeError('Algorand exact rail must advertise extra.feePayer (the fee sponsor address).')
   }
@@ -240,7 +240,7 @@ export async function verifyAndSettleExactAlgorand(input: {
   const { client, feePayerSk, feePayerAddr, payload, accept } = input
 
   // --- C0. Config guards (the gate's own faults → throw, never a 402) ---
-  const railFeePayer = accept.extra.feePayer
+  const railFeePayer = accept.extra?.feePayer
   if (!railFeePayer) throw new SettlementError('Algorand exact: rail is missing extra.feePayer.')
   if (railFeePayer !== feePayerAddr) {
     throw new SettlementError('Algorand exact: the gate relayer address does not match the rail extra.feePayer — misconfigured rail.')

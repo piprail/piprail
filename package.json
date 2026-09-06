@@ -32,7 +32,8 @@
     "test:x": "node --test \".claude/skills/x-api/tests/*.test.mjs\"",
     "x": "node .claude/skills/x-api/scripts/x.mjs",
     "x:check": "node .claude/skills/x-api/scripts/x.mjs check",
-    "x:doctor": "node .claude/skills/x-api/scripts/x.mjs doctor"
+    "x:doctor": "node .claude/skills/x-api/scripts/x.mjs doctor",
+    "x402:coverage": "node scripts/x402-corpus/audit.mjs"
   },
   "engines": {
     "node": ">=20"

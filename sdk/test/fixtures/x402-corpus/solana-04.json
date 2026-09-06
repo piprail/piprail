@@ -1,0 +1,32 @@
+{
+  "x402Version": 2,
+  "resource": {
+    "url": "https://stableupload.dev/api/upload",
+    "description": "Buy an upload slot. Agent uploads file via returned URL."
+  },
+  "accepts": [
+    {
+      "amount": "5000",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "extra": {
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:8453",
+      "payTo": "0x06dFF3c8380b5D1799874adA903fc3422882FD6f",
+      "scheme": "exact"
+    },
+    {
+      "amount": "5000",
+      "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "extra": {
+        "feePayer": "CjNFTjvBhbJJd2B5ePPMHRLx1ELZpa8dwQgGL727eKww"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+      "payTo": "95xcrFtRVn2fkoAKiCUKxPpTc1GN8MTyonVwLFfJfzux",
+      "scheme": "exact"
+    }
+  ]
+}

@@ -18,6 +18,10 @@ const PAY_TO = '2OT6GLZYUNCBI4QFNH3DSYNXY7HKFVQ6UYW3CRJ4S5JT2L7T2J3GC5E4'
 
 let settleMode: 'ok' | 'invalid' = 'ok'
 const settleSpy = vi.fn()
+/** Did the onchain-proof path actually reach the driver's verifier? That is the only
+ *  externally visible difference between "the echoed network selected our rail" and "no rail
+ *  matched" — a rejected proof re-challenges either way, with no error string. */
+const verifySpy = vi.fn()
 
 const fakeAlgorand: PaymentDriver = {
   family: 'algorand',
@@ -36,7 +40,7 @@ const fakeAlgorand: PaymentDriver = {
       estimateCost: async () => ({ feeSymbol: 'ALGO', feeDecimals: 6, fee: '0', feeFormatted: '0', basis: 'estimated' as const }),
       balanceOf: async () => ({ token: 0n, native: 0n }),
       recipientReady: async () => ({ ready: 'n/a' as const }),
-      verify: async () => ({ ok: false, error: 'transfer_not_found', detail: 'unused' }),
+      verify: async () => { verifySpy(); return { ok: false as const, error: 'transfer_not_found' as const, detail: 'unused' } },
       // Mirror the real driver: a facilitator-provided feePayer wins; else the relayer's address
       // (FEE_PAYER stands in); with NEITHER, no rail (null). Native isn't exact-payable.
       resolveExactRail: async ({ asset, relayer, feePayer }) => {
@@ -54,7 +58,7 @@ const fakeAlgorand: PaymentDriver = {
 }
 registerDriver(fakeAlgorand)
 
-afterEach(() => { settleMode = 'ok'; settleSpy.mockClear() })
+afterEach(() => { settleMode = 'ok'; settleSpy.mockClear(); verifySpy.mockClear() })
 
 const b64 = (o: unknown) => Buffer.from(JSON.stringify(o), 'utf8').toString('base64')
 const algoHeader = (paymentGroup: string[], paymentIndex = 0) =>
@@ -75,7 +79,7 @@ describe('gate · Algorand exact (fake driver, no RPC)', () => {
     const rails = challenge.accepts
     const exact = rails.find((r) => r.scheme === 'exact')
     expect(exact).toBeTruthy()
-    expect(exact!.extra.assetTransferMethod).toBe('algorand')
+    expect(exact!.extra!.assetTransferMethod).toBe('algorand')
     expect((exact!.extra as { feePayer?: string }).feePayer).toBe(FEE_PAYER)
     expect(rails.some((r) => r.scheme === 'onchain-proof')).toBe(true)
   })
@@ -109,5 +113,70 @@ describe('gate · Algorand exact (fake driver, no RPC)', () => {
     settleMode = 'ok'
     const good = await g.verify(algoHeader(['Zm9v', 'YmFy']))
     expect(good.kind).toBe('paid') // the same group is NOT stuck "used" after a failed settle
+  })
+
+  /*
+   * The gate must tolerate a buyer that echoes a DIFFERENT SPELLING of the same chain.
+   *
+   * `scheme_exact_algo.md` gives Algorand mainnet as the genesis hash truncated to 32 chars;
+   * PipRail binds (and emits) the padded 44-char form. A conformant buyer that canonicalises to
+   * the spec form before echoing was being rejected outright, because the gate compared the two
+   * ids with `===`. Since 2.16.0 both sides go through `normalizeNetwork`, which maps the spec
+   * form onto the padded one.
+   *
+   * Safe by construction: the network here only SELECTS which offered rail is meant — payTo,
+   * amount and asset are all re-derived from the gate's own spec — so widening the match can
+   * never redirect a payment. The wrong-network case below proves it stayed narrow.
+   */
+  const ALGO_SPEC_CAIP2 = 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k'
+
+  it("matches a payment echoing the SPEC's truncated CAIP-2, not our padded one", async () => {
+    const header = b64({
+      x402Version: 2,
+      accepted: { scheme: 'exact', network: ALGO_SPEC_CAIP2, asset: ASSET },
+      payload: { paymentIndex: 0, paymentGroup: ['c3BlYw==', 'Zm9ybQ=='] },
+    })
+    const res = await gate().verify(header)
+    expect(res.kind).toBe('paid')
+    // and it settled against OUR rail — the echoed spelling selects, it never redirects
+    expect(settleSpy.mock.calls[0]![0].accept.network).toBe(NETWORK)
+    expect(settleSpy.mock.calls[0]![0].accept.payTo).toBe(PAY_TO)
+  })
+
+  it('still refuses a genuinely different network (the widening is only the alias)', async () => {
+    const header = b64({
+      x402Version: 2,
+      accepted: { scheme: 'exact', network: 'eip155:8453', asset: ASSET },
+      payload: { paymentIndex: 0, paymentGroup: ['d3Jvbmc=', 'Y2hhaW4='] },
+    })
+    const res = await gate().verify(header)
+    expect(res.kind).toBe('invalid')
+    expect(settleSpy).not.toHaveBeenCalled()
+  })
+
+  it('an onchain-proof echo on the spec-form id is matched too (same selector, both rails)', async () => {
+    const header = b64({
+      x402Version: 2,
+      accepted: { scheme: 'onchain-proof', network: ALGO_SPEC_CAIP2, asset: ASSET },
+      payload: { txHash: 'TNJO7RGPA34JQZ7XVWKQAPHKQ4MPHRSGKQZ2VCXKJHVWQ3AYQBFA', nonce: 'n-1' },
+    })
+    // The fake driver's `verify` always reports transfer_not_found, so this proof is always
+    // refused — and a refused proof re-challenges with no error string, so the OUTCOME can't
+    // distinguish "no rail matched" from "the rail matched and the proof was bad". Reaching the
+    // verifier at all is the observable, which is why the spy exists.
+    await gate().verify(header)
+    expect(verifySpy).toHaveBeenCalledOnce() // the spec-form id SELECTED our rail
+
+    // A genuinely different chain must still stop BEFORE the verifier — the widening is the
+    // alias and nothing else.
+    verifySpy.mockClear()
+    await gate().verify(
+      b64({
+        x402Version: 2,
+        accepted: { scheme: 'onchain-proof', network: 'eip155:8453', asset: ASSET },
+        payload: { txHash: 'WRONGCHAINQZ7XVWKQAPHKQ4MPHRSGKQZ2VCXKJHVWQ3AYQBFA', nonce: 'n-2' },
+      })
+    )
+    expect(verifySpy).not.toHaveBeenCalled()
   })
 })

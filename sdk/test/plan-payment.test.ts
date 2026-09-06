@@ -295,14 +295,75 @@ describe('F9 — native is never gathered as an exact/upto rail (plan-vs-pay con
     expect(plan.best?.accept.asset).toBe(USDC)
   })
 
-  it('G4: an exact rail for a RECOGNISED token but with NO `extra.assetTransferMethod` is NOT planned payable (would throw a raw TypeError mid-pay)', async () => {
+  it('G4: an exact rail for a RECOGNISED token with NO `extra.assetTransferMethod` IS planned payable (spec default eip3009)', async () => {
+    // THE REGRESSION THIS FILE EXISTS FOR. This test used to assert the OPPOSITE — that a
+    // marker-less rail is dropped — on the theory that the pay path would deref
+    // `extra.assetTransferMethod` and throw a raw TypeError. That theory was wrong, and the
+    // assertion cost us the x402 web: `scheme_exact_evm.md` says "if no assetTransferMethod is
+    // specified … clients should default to eip3009", the SVM/Algorand/Aptos/NEAR/Hedera schemes
+    // never define the key at all, and 91% of the 40,388 live rails on the CDP Bazaar omit it.
+    // A buyer that requires it can pay 26.3% of the listed x402 web; one that applies the default
+    // pays 98.8%. Never re-add a gather guard on a field a scheme makes optional.
     net = { ...baseNet(), payExact: (async () => 'ref') } as unknown as ResolvedNetwork
-    // recognised token (USDC), valid timeout, but `extra` omits assetTransferMethod → the pay path
-    // would deref it and throw. It must be dropped at gather time.
     const noMethod = { ...usdcAccept(), scheme: 'exact', extra: { decimals: 7, symbol: 'USDC', amountFormatted: '0.05' } } as unknown as X402AcceptEntry
     stub402([noMethod])
     const plan = (await client({ schemes: ['exact'] }).planPayment(URL))!
-    expect(plan.best ?? null).toBeNull() // nothing gathered → no payable rail
+    expect(plan.best?.accept.scheme).toBe('exact')
+    expect(plan.payable).toBe(true)
+    // …and the inferred method is surfaced, so "why is this payable/gasless" is answerable.
+    expect(plan.best?.method).toBe('eip3009 (default)')
+  })
+
+  it('G4b: an exact rail with NO `extra` block at all is planned payable (a conformant rail may omit it)', async () => {
+    net = { ...baseNet(), payExact: (async () => 'ref') } as unknown as ResolvedNetwork
+    // 5 live Bazaar rails ship neither the EIP-712 domain nor the marker. The token is recognised,
+    // so the SDK's own decimals price it — `extra` carries nothing the buyer needs.
+    const bare = { ...usdcAccept(), scheme: 'exact' } as unknown as Record<string, unknown>
+    delete bare.extra
+    stub402([bare as unknown as X402AcceptEntry])
+    const plan = (await client({ schemes: ['exact'] }).planPayment(URL))!
+    expect(plan.best?.accept.scheme).toBe('exact')
+    expect(plan.best?.method).toBe('eip3009 (default)')
+  })
+
+  it('G4c: an exact rail naming a transfer method we do NOT implement (erc7710) is still dropped', async () => {
+    net = { ...baseNet(), payExact: (async () => 'ref') } as unknown as ResolvedNetwork
+    // The spec lists erc7710 as a third EVM method; PipRail implements eip3009 + permit2 only.
+    // ABSENT means "default"; NAMED-but-unimplemented means "we cannot sign this" — signing an
+    // EIP-3009 authorization for a delegation rail would just be rejected by its facilitator.
+    const erc7710 = { ...usdcAccept(), scheme: 'exact', extra: { decimals: 7, symbol: 'USDC', assetTransferMethod: 'erc7710' } } as unknown as X402AcceptEntry
+    stub402([erc7710])
+    const plan = (await client({ schemes: ['exact'] }).planPayment(URL))!
+    expect(plan.best ?? null).toBeNull()
     expect(plan.options.some((o) => o.accept.scheme === 'exact')).toBe(false)
+  })
+
+  it('G4d: a Solana-shaped rail (extra.feePayer, no marker) is planned payable', async () => {
+    // The SVM scheme defines no assetTransferMethod — its required key is extra.feePayer. All
+    // 5,760 live Solana rails were unpayable under the old guard; exactly one carried a marker.
+    net = { ...baseNet(), payExact: (async () => 'ref') } as unknown as ResolvedNetwork
+    const svm = { ...usdcAccept(), scheme: 'exact', extra: { feePayer: 'FEEPAYER111', decimals: 7, symbol: 'USDC' } } as unknown as X402AcceptEntry
+    stub402([svm])
+    const plan = (await client({ schemes: ['exact'] }).planPayment(URL))!
+    expect(plan.best?.accept.scheme).toBe('exact')
+  })
+
+  it('G4e: the reported default method is PER FAMILY — a Solana rail is never labelled eip3009', async () => {
+    // Caught by a live dry-run against a real Solana merchant: the reported method said
+    // `eip3009 (default)` on an SVM rail, which is the one thing the SVM driver never signs.
+    // The inference is only useful if it names what the driver will actually do.
+    net = { ...baseNet(), family: 'solana', payExact: (async () => 'ref') } as unknown as ResolvedNetwork
+    const svm = { ...usdcAccept(), scheme: 'exact', extra: { feePayer: 'FEEPAYER111', decimals: 7, symbol: 'USDC' } } as unknown as X402AcceptEntry
+    stub402([svm])
+    const plan = (await client({ schemes: ['exact'] }).planPayment(URL))!
+    expect(plan.best?.method).toBe('svm (default)')
+  })
+
+  it('G4f: a rail that NAMES its method is reported verbatim, with no "(default)" suffix', async () => {
+    net = { ...baseNet(), family: 'evm', payExact: (async () => 'ref') } as unknown as ResolvedNetwork
+    const named = { ...usdcAccept(), scheme: 'exact', extra: { assetTransferMethod: 'permit2', decimals: 7, symbol: 'USDC' } } as unknown as X402AcceptEntry
+    stub402([named])
+    const plan = (await client({ schemes: ['exact'] }).planPayment(URL))!
+    expect(plan.best?.method).toBe('permit2')
   })
 })

@@ -496,7 +496,7 @@ export async function verifyAndSettlePermit2Evm(input: {
     )
   }
   try {
-    const confirmations = accept.extra.minConfirmations ?? 1
+    const confirmations = accept.extra?.minConfirmations ?? 1
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash, confirmations })
     if (receipt.status !== 'success') {
       return { ok: false, error: 'tx_reverted', detail: `Settlement tx ${txHash} reverted on-chain.` }

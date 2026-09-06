@@ -1,0 +1,45 @@
+{
+  "x402Version": 2,
+  "resource": {
+    "url": "https://x402.ottoai.services/tradfi-data",
+    "description": "TradFi macro intelligence: indices, VIX, DXY, treasury yields, commodities, and "
+  },
+  "accepts": [
+    {
+      "amount": "3000",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "extra": {
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:8453",
+      "payTo": "0x0E84dDEdAaE6A779c462C22a59F301EC31B6b808",
+      "scheme": "exact"
+    },
+    {
+      "amount": "3000",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "extra": {
+        "assetTransferMethod": "permit2",
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:8453",
+      "payTo": "0x0E84dDEdAaE6A779c462C22a59F301EC31B6b808",
+      "scheme": "exact"
+    },
+    {
+      "amount": "3000",
+      "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "extra": {
+        "feePayer": "D6ZhtNQ5nT9ZnTHUbqXZsTx5MH2rPFiBBggX4hY1WePM"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+      "payTo": "6XcSfqJHr9vNW2vbiRaMqUYVm7shDgLepca54wUTDPN5",
+      "scheme": "exact"
+    }
+  ]
+}

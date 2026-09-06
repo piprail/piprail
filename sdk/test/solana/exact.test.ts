@@ -83,10 +83,28 @@ function memoText(b64: string): string {
 // getAccountInfo → a non-null account means the recipient ATA EXISTS, so the buyer builds the
 // canonical [cu-limit, cu-price, TransferChecked]. (The "missing ATA → throws" path is tested below.)
 const ATA_EXISTS = { data: Buffer.alloc(165), owner: TOKEN_PROGRAM_ID, lamports: 2_039_280, executable: false }
+
+/**
+ * A real SPL **Mint** account: the 82-byte layout whose `decimals` byte sits at offset 44. The buyer
+ * reads the mint to learn the TransferChecked decimals rather than trusting the server's
+ * `extra.decimals` (which `scheme_exact_svm.md` never defines and 99.3% of live rails omit), so the
+ * mock has to answer that read with a real layout — a generic 165-byte token-account buffer decodes
+ * as 0 decimals and would silently misprice every transfer.
+ */
+function mintAccount(decimals: number) {
+  const data = Buffer.alloc(82)
+  data[44] = decimals
+  return { data, owner: TOKEN_PROGRAM_ID, lamports: 1_461_600, executable: false }
+}
+
 const buyerConn = {
   getLatestBlockhash: async () => ({ blockhash: BLOCKHASH, lastValidBlockHeight: 1000 }),
-  getAccountInfo: async () => ATA_EXISTS,
+  // Every address answers with a 6-decimal Mint layout. The buyer makes exactly two reads here —
+  // the mint (needs the real layout) and the recipient ATA (needs only to be non-null) — so one
+  // shape satisfies both, and it works for the suite's several different mints without listing them.
+  getAccountInfo: async () => mintAccount(6),
 }
+void ATA_EXISTS // kept for the docs above; the mint layout doubles as a non-null ATA
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyConn = any
@@ -116,7 +134,7 @@ async function buildPayload(accept = makeAccept()): Promise<{ transaction: strin
 function compileBuyer(accept: X402ExactAcceptEntry, opts: { extraFeePayerIx?: boolean; memoOnly?: boolean } = {}): VersionedTransaction {
   const mint = new PublicKey(accept.asset)
   const payTo = new PublicKey(accept.payTo)
-  const fp = new PublicKey(accept.extra.feePayer!)
+  const fp = new PublicKey(accept.extra!.feePayer!)
   const source = getAssociatedTokenAddressSync(mint, buyer.publicKey, true)
   const dest = getAssociatedTokenAddressSync(mint, payTo, true)
   const ixs = []
@@ -124,7 +142,7 @@ function compileBuyer(accept: X402ExactAcceptEntry, opts: { extraFeePayerIx?: bo
     ixs.push(SystemProgram.transfer({ fromPubkey: buyer.publicKey, toPubkey: payTo, lamports: 1 }))
   } else {
     ixs.push(createAssociatedTokenAccountIdempotentInstruction(buyer.publicKey, dest, payTo, mint))
-    ixs.push(createTransferCheckedInstruction(source, mint, dest, buyer.publicKey, BigInt(accept.amount), accept.extra.decimals!, [], TOKEN_PROGRAM_ID))
+    ixs.push(createTransferCheckedInstruction(source, mint, dest, buyer.publicKey, BigInt(accept.amount), accept.extra!.decimals!, [], TOKEN_PROGRAM_ID))
     if (opts.extraFeePayerIx) ixs.push(SystemProgram.transfer({ fromPubkey: fp, toPubkey: dest, lamports: 1 }))
   }
   const msg = new TransactionMessage({ payerKey: fp, recentBlockhash: BLOCKHASH, instructions: ixs }).compileToV0Message()
@@ -141,12 +159,12 @@ function compileTransfers(
 ): string {
   const mint = new PublicKey(accept.asset)
   const payTo = new PublicKey(accept.payTo)
-  const fp = new PublicKey(accept.extra.feePayer!)
+  const fp = new PublicKey(accept.extra!.feePayer!)
   const dest = getAssociatedTokenAddressSync(mint, payTo, true)
   const ixs = [createAssociatedTokenAccountIdempotentInstruction(buyer.publicKey, dest, payTo, mint)]
   for (const t of transfers) {
     const src = getAssociatedTokenAddressSync(mint, t.auth.publicKey, true)
-    ixs.push(createTransferCheckedInstruction(src, mint, dest, t.auth.publicKey, BigInt(t.amount), accept.extra.decimals!, [], TOKEN_PROGRAM_ID))
+    ixs.push(createTransferCheckedInstruction(src, mint, dest, t.auth.publicKey, BigInt(t.amount), accept.extra!.decimals!, [], TOKEN_PROGRAM_ID))
   }
   const msg = new TransactionMessage({ payerKey: fp, recentBlockhash: BLOCKHASH, instructions: ixs }).compileToV0Message()
   const tx = new VersionedTransaction(msg)
@@ -266,13 +284,13 @@ describe('SVM exact — adversarial (every field bound to the trusted accept)', 
     const accept = makeAccept()
     const mint = new PublicKey(accept.asset)
     const payTo = new PublicKey(accept.payTo)
-    const fp = new PublicKey(accept.extra.feePayer!)
+    const fp = new PublicKey(accept.extra!.feePayer!)
     const source = getAssociatedTokenAddressSync(mint, buyer.publicKey, true)
     const dest = getAssociatedTokenAddressSync(mint, payTo, true)
     const ixs = [
       ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1_000_000_000n }), // drain attempt
       ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 }), // Solana's per-tx max
-      createTransferCheckedInstruction(source, mint, dest, buyer.publicKey, BigInt(accept.amount), accept.extra.decimals!, [], TOKEN_PROGRAM_ID),
+      createTransferCheckedInstruction(source, mint, dest, buyer.publicKey, BigInt(accept.amount), accept.extra!.decimals!, [], TOKEN_PROGRAM_ID),
     ]
     const msg = new TransactionMessage({ payerKey: fp, recentBlockhash: BLOCKHASH, instructions: ixs }).compileToV0Message()
     const tx = new VersionedTransaction(msg)
@@ -289,12 +307,12 @@ describe('SVM exact — adversarial (every field bound to the trusted accept)', 
     const accept = makeAccept()
     const mint = new PublicKey(accept.asset)
     const payTo = new PublicKey(accept.payTo)
-    const fp = new PublicKey(accept.extra.feePayer!)
+    const fp = new PublicKey(accept.extra!.feePayer!)
     const source = getAssociatedTokenAddressSync(mint, buyer.publicKey, true)
     const dest = getAssociatedTokenAddressSync(mint, payTo, true)
     const ixs = [
       ComputeBudgetProgram.requestUnits({ units: 200_000, additionalFee: 4_000_000_000 }), // ~4 SOL drain
-      createTransferCheckedInstruction(source, mint, dest, buyer.publicKey, BigInt(accept.amount), accept.extra.decimals!, [], TOKEN_PROGRAM_ID),
+      createTransferCheckedInstruction(source, mint, dest, buyer.publicKey, BigInt(accept.amount), accept.extra!.decimals!, [], TOKEN_PROGRAM_ID),
     ]
     const msg = new TransactionMessage({ payerKey: fp, recentBlockhash: BLOCKHASH, instructions: ixs }).compileToV0Message()
     const tx = new VersionedTransaction(msg)
@@ -459,7 +477,7 @@ describe('SVM exact — Address Lookup Tables (MUST-rule #2: resolve every accou
   function compileWithAlt(accept: X402ExactAcceptEntry): { txB64: string; lut: AddressLookupTableAccount } {
     const mint = new PublicKey(accept.asset)
     const payTo = new PublicKey(accept.payTo)
-    const fp = new PublicKey(accept.extra.feePayer!)
+    const fp = new PublicKey(accept.extra!.feePayer!)
     const source = getAssociatedTokenAddressSync(mint, buyer.publicKey, true)
     const dest = getAssociatedTokenAddressSync(mint, payTo, true)
     // Pull the non-signer transfer accounts into a lookup table (the token program + the buyer
@@ -470,7 +488,7 @@ describe('SVM exact — Address Lookup Tables (MUST-rule #2: resolve every accou
     })
     const ixs = [
       createAssociatedTokenAccountIdempotentInstruction(buyer.publicKey, dest, payTo, mint),
-      createTransferCheckedInstruction(source, mint, dest, buyer.publicKey, BigInt(accept.amount), accept.extra.decimals!, [], TOKEN_PROGRAM_ID),
+      createTransferCheckedInstruction(source, mint, dest, buyer.publicKey, BigInt(accept.amount), accept.extra!.decimals!, [], TOKEN_PROGRAM_ID),
     ]
     const msg = new TransactionMessage({ payerKey: fp, recentBlockhash: BLOCKHASH, instructions: ixs }).compileToV0Message([lut])
     const tx = new VersionedTransaction(msg)
@@ -541,5 +559,57 @@ describe('SVM exact — token coverage: USDC, USDT, token-2022, memo all gasless
     expect(memoText(payload.transaction)).toBe('order-abc-123') // the buyer USES extra.memo verbatim
     const res = await verifyAndSettleExactSolana({ connection: sellerConn(), feePayerKeypair: feePayer, payload, accept })
     expect(res.ok).toBe(true) // and the (always-present) Memo never breaks the gate's verify
+  })
+})
+
+/*
+ * ── The decimals come from the MINT, not from the server ───────────────────────────────────────
+ *
+ * Found by a LIVE paid run against a real Solana merchant (hypernatt.com, 2026-09-06): the rail
+ * gathered, planned `payable`, and then threw `SVM exact rail must advertise extra.decimals` at
+ * signing time. `scheme_exact_svm.md` never defines `extra.decimals` — its one required extra is
+ * `feePayer` — and only 41 of the 5,760 live Solana rails carry it. Requiring it left 99.3% of
+ * Solana planning as payable and failing to pay: exactly the plan-vs-pay inconsistency the gather
+ * guards exist to prevent, and the same "we require a field the spec makes optional" mistake as
+ * `assetTransferMethod`. Reading the mint is also the safer source — see the mismatch test.
+ */
+describe('SVM exact — TransferChecked decimals are read from the mint', () => {
+  const noDecimals = () => {
+    const a = makeAccept()
+    delete (a.extra as { decimals?: number }).decimals
+    return a
+  }
+
+  it('builds a payment for a rail that states NO decimals (the shape 99.3% of live rails have)', async () => {
+    const { payload, payerFrom } = await payExactSolana({ connection: buyerConn as AnyConn, keypair: buyer, accept: noDecimals() })
+    expect(payerFrom).toBe(buyer.publicKey.toBase58())
+    const ixs = decodeInstructions(payload.transaction)
+    const transfer = ixs.find((ix) => ix.program === TOKEN_PROGRAM_ID.toBase58())
+    expect(transfer, 'a TransferChecked must be present').toBeTruthy()
+    // TransferChecked data = [tag(1) | amount(8) | decimals(1)] — the trailing byte is what the
+    // mint read produced (6), proving it was not taken from the (absent) extra.decimals.
+    expect(transfer!.data.at(-1)).toBe(6)
+  })
+
+  it('refuses to sign when the rail STATES decimals that disagree with the mint', async () => {
+    // A server understating decimals would otherwise have the buyer sign a transfer 10^n larger
+    // than the quote, and TransferChecked would accept it — the mint is the only honest source.
+    const lying = makeAccept({ decimals: 2 })
+    await expect(payExactSolana({ connection: buyerConn as AnyConn, keypair: buyer, accept: lying })).rejects.toThrow(/mint says 6|refusing to sign/i)
+  })
+
+  it('falls back to the rail\'s stated decimals when the mint read fails (transient RPC)', async () => {
+    const deadRead = { ...buyerConn, getAccountInfo: async () => { throw new Error('429 rate limited') } }
+    // The ATA-existence read fails too, which is explicitly non-blocking ("only a definitive
+    // missing blocks"), so the build proceeds on the rail's own value rather than stalling.
+    const { payload } = await payExactSolana({ connection: deadRead as AnyConn, keypair: buyer, accept: makeAccept() })
+    const transfer = decodeInstructions(payload.transaction).find((ix) => ix.program === TOKEN_PROGRAM_ID.toBase58())
+    expect(transfer!.data.at(-1)).toBe(6)
+  })
+
+  it('throws typed when the mint is unreadable AND the rail states nothing', async () => {
+    const deadRead = { ...buyerConn, getAccountInfo: async () => { throw new Error('429 rate limited') } }
+    await expect(payExactSolana({ connection: deadRead as AnyConn, keypair: buyer, accept: noDecimals() }))
+      .rejects.toThrow(UnsupportedSchemeError)
   })
 })

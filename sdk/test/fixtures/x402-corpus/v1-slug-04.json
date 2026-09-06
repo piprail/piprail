@@ -1,0 +1,20 @@
+{
+  "x402Version": 1,
+  "accepts": [
+    {
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "extra": {
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxAmountRequired": "5000",
+      "maxTimeoutSeconds": 120,
+      "mimeType": "application/json",
+      "network": "base",
+      "payTo": "0xaB6731A0BcDf511c2842C768a03448075aB654ca",
+      "resource": "https://rubric-protocol.com/v1/x402/tiered-attest",
+      "scheme": "exact",
+      "description": "One post-quantum-signed AI decision attestation, anchored to Hedera mainnet HCS."
+    }
+  ]
+}

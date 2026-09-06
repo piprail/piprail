@@ -14,8 +14,8 @@ describe('auto-mount — naming "aptos" is enough (no setup call)', () => {
     expect(accept.network).toBe('aptos:1')
     expect(accept.asset).toBe(USDC_META)
     expect(accept.amount).toBe('50000') // 0.05 × 10^6
-    expect(accept.extra.symbol).toBe('USDC')
-    expect(accept.extra.decimals).toBe(6)
+    expect(accept.extra!.symbol).toBe('USDC')
+    expect(accept.extra!.decimals).toBe(6)
   })
 
   it('builds a native USDT (6-decimal) challenge', async () => {
@@ -23,8 +23,8 @@ describe('auto-mount — naming "aptos" is enough (no setup call)', () => {
     const accept = (await gate.challenge()).challenge.accepts[0]!
     expect(accept.asset).toBe(USDT_META)
     expect(accept.amount).toBe('50000')
-    expect(accept.extra.symbol).toBe('USDT')
-    expect(accept.extra.decimals).toBe(6)
+    expect(accept.extra!.symbol).toBe('USDT')
+    expect(accept.extra!.decimals).toBe(6)
   })
 
   it('builds a native APT (8-decimal) challenge', async () => {
@@ -32,8 +32,8 @@ describe('auto-mount — naming "aptos" is enough (no setup call)', () => {
     const accept = (await gate.challenge()).challenge.accepts[0]!
     expect(accept.asset).toBe('native')
     expect(accept.amount).toBe('100000000') // 1 × 10^8
-    expect(accept.extra.symbol).toBe('APT')
-    expect(accept.extra.decimals).toBe(8)
+    expect(accept.extra!.symbol).toBe('APT')
+    expect(accept.extra!.decimals).toBe(8)
   })
 })
 
@@ -54,8 +54,8 @@ describe('Aptos tokens — USDC + USDT built in, custom by { metadata, decimals 
     })
     const accept = (await gate.challenge()).challenge.accepts[0]!
     expect(accept.asset).toBe('0xabc')
-    expect(accept.extra.decimals).toBe(8)
-    expect(accept.extra.symbol).toBe('FOO')
+    expect(accept.extra!.decimals).toBe(8)
+    expect(accept.extra!.symbol).toBe('FOO')
   })
 })
 

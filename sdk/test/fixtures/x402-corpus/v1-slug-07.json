@@ -1,0 +1,20 @@
+{
+  "x402Version": 1,
+  "accepts": [
+    {
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "extra": {
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxAmountRequired": "10000",
+      "maxTimeoutSeconds": 300,
+      "mimeType": "application/json",
+      "network": "base",
+      "payTo": "0xf80f9479ad1D2601Ee347D55b5b1F6B27071267f",
+      "resource": "https://api-dev.agents.skillfulai.io/api/x402/demo/mainnet/premium",
+      "scheme": "exact",
+      "description": "Demo X402 premium endpoint (mainnet) - pay $0.01 USDC"
+    }
+  ]
+}

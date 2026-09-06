@@ -6,6 +6,119 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed — the buyer required a field the spec makes optional, and so could not pay 91% of the x402 web
+
+- **`schemes: ['exact']` clients now pay the standard x402 web: 26.3% → 98.8% of the resources
+  listed on the CDP Bazaar** (15,686 resources / 40,388 `exact` rails, measured 2026-09-06 by
+  `npm run x402:coverage`; the figures live in `scripts/x402-corpus/coverage.json`, which owns
+  them). Rail-level coverage went 9.2% → 88.9%.
+
+  The buyer's gather predicate required `extra.assetTransferMethod` on every `exact` rail. The
+  ratified scheme says the opposite — `scheme_exact_evm.md`: *"If no `assetTransferMethod` is
+  specified in `PaymentRequired.extra`, clients should default to `"eip3009"`"* — and the SVM,
+  Algorand, Aptos, NEAR and Hedera schemes never define the key at all (their required extra is
+  `feePayer`). Only **9%** of live rails carry it; **79%** carry just the EIP-712 domain. So a
+  PipRail agent silently refused every Solana rail, every Arbitrum rail and 85% of Base rails —
+  including textbook canonical-USDC EIP-3009 rails it was perfectly able to sign.
+
+  This was never a pay-path bug: the EVM driver already defaulted to EIP-3009 and re-derives the
+  token's EIP-712 domain on-chain. Only the gather refused. A rail that NAMES a method we don't
+  implement (the spec's `erc7710`) is still skipped rather than signed blind.
+
+  Found by probing seven real third-party 402s and paying none of them, while 1,636 unit tests were
+  green. The tests agreed with their own hand-built fixtures; nothing checked the fixtures against
+  the world. That gap is now closed by `sdk/test/x402-corpus.test.ts` — 62 REAL challenges captured
+  from the live index, replayed through the real client.
+
+### Fixed — the Solana buyer required `extra.decimals`, which the SVM scheme never defines
+
+- **99.3% of live Solana rails planned as payable and then threw at signing time.**
+  `payExactSolana` required `extra.decimals` for the TransferChecked and raised
+  `UnsupportedSchemeError` without it — but `scheme_exact_svm.md` doesn't define `decimals` at all
+  (its one required extra is `feePayer`), and only **41 of the 5,760** live Solana rails carry it.
+  The same "we require a field the spec makes optional" mistake as `assetTransferMethod`, one layer
+  deeper, and worse because it broke the plan-vs-pay contract: the rail gathered, `planPayment`
+  said `payable`, and the payment then failed.
+
+  The decimals now come **from the mint on-chain**, which is also the safer source — a server that
+  understated them could otherwise have the buyer sign a transfer 10^n larger than the quote, and
+  TransferChecked would accept it. A rail that states decimals disagreeing with the mint is refused;
+  `extra.decimals` survives only as a fallback if the mint read fails.
+
+  Found by paying a real Solana merchant. No unit test could have caught it — every fixture in the
+  suite carried `extra.decimals`, because our own gate always emits it.
+
+### Live-proven on mainnet (2026-09-06)
+
+Real payments to real third-party merchants, one per wire shape this release unlocks:
+
+| shape | merchant | proof |
+|---|---|---|
+| v2 · Base · domain-only (no marker) | `api.onesource.io/api/chain/block-number` | 200, 0.001 USDC, `0x44e9fed18bf9…` |
+| v2 · Base · slug network | `coil.trade/api/crypto/gate` | 200, 0.001 USDC, `0xc38e6da9cbc2…` |
+| **v1** · Base · `X-PAYMENT` wire | `x402factory.ai/base/coinprice` | 200, 0.001 USDC, `eip3009-nonce:0xb6c321fa…` |
+| v2 · Solana · `feePayer`, no marker | `hypernatt.com/api/m2m/liq-radar` | 200, 0.001 USDC, `solana-nonce:3g3Wj5G6G7D…` |
+
+Every row is a real body from a real stranger's endpoint, re-run against the FINAL build of this
+release (an earlier run on the same day proved the same four shapes).
+
+Own-gate regression, also on mainnet and also re-run on the final build: Base USDC + EURC
+round-tripped gasless via EIP-3009 — payer ETH delta **0**, merchant received, **replay rejected**
+(settle `0x85dfcc2b480f…` / `0x41fa1bdf5ea1…`); Algorand settled live with the enriched receipt and
+a rejected replay (`TBRSSLNUJGCUS6…`).
+
+### Added — x402 **v1** challenges on the buyer path
+
+- **A v1 server can now be quoted and paid.** PipRail's stated posture has always been "emit strict
+  v2, accept liberal v1 + v2", and the gate honoured it — but the buyer's `isValidChallenge`
+  hard-required `x402Version === 2`, so every v1 server was an `InvalidEnvelopeError`, and no v1
+  header emitter existed to answer one with. 251 of the 15,686 catalogued resources are v1.
+  `normalizeV1Challenge` lifts a v1 body (`maxAmountRequired`, slug network, per-accept `resource`
+  string) into the standard shape, and `buildV1PaymentHeader` frames the answer on the v1 wire.
+  Probed live: a v1 server ignores `PAYMENT-SIGNATURE` and reads only `X-PAYMENT`, so the network
+  slug is echoed back exactly as the server sent it (v1 verifiers string-compare it).
+  The slug is remembered on a synthetic `wireNetwork` field, which is **stripped from every
+  outgoing `accepted` echo** — that block is documented as the merchant's rail returned verbatim,
+  and facilitators compare (some hash) it, so a key the merchant never published must not appear
+  in it.
+
+### Added — the Algorand CAIP-2 id the spec actually uses
+
+- `scheme_exact_algo.md` gives Algorand mainnet as the base64 genesis hash **truncated to 32 chars**
+  (`algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k`), and the deployed web follows it — 874 live rails on
+  the spec form vs 589 on the padded 44-char id PipRail binds. Both forms are now accepted on parse.
+  What PipRail *emits* is unchanged (switching that would break deployed 2.x Algorand buyers; it is
+  queued for the next major).
+
+- **The GATE now matches an echoed network id through the same canonicalisation.** It compared
+  `accepted.network` to its own rail with `===`, so a conformant buyer that canonicalised the id
+  before echoing it — the Algorand spec form, or TON's superseded `ton:-239` — had a perfectly
+  valid payment refused. All three selector sites (`onchain-proof`, `exact`, `upto`) now compare
+  through `normalizeNetwork`. This can only widen which of the gate's OWN rails is selected: payTo,
+  amount and asset are re-derived from the gate's spec either way, so a wrong network still cannot
+  redirect a payment. The Algorand driver's `supports()` accepts both spellings directly too,
+  mirroring TON.
+
+### Added — coverage is now measured, not asserted
+
+- **`npm run x402:coverage`** (`scripts/x402-corpus/audit.mjs`) pages the live CDP Bazaar, classifies
+  every rail against the SDK's own exported predicates, and writes `scripts/x402-corpus/coverage.json`.
+  Every coverage figure in this repo cites that file. `--live` runs a real read-only `quote()` against
+  live third-party 402s (8/9 quotable, the 9th a merchant whose `upto` rail omits the spec-mandated
+  `facilitatorAddress`); `--fixture` regenerates the regression corpus.
+- `PayOption.method` reports the transfer method the buyer would actually sign, appending
+  `' (default)'` when the rail named none — so the inference is visible instead of implicit.
+- New exports: `exactTransferMethod`, `isSettleableExactMethod`, `KNOWN_EXACT_TRANSFER_METHODS`,
+  `DEFAULT_EXACT_TRANSFER_METHOD`, `normalizeV1Challenge`, `buildV1PaymentHeader`.
+
+### Changed — types now admit what the wire allows
+
+- `X402ExactAcceptEntry.extra` and `extra.assetTransferMethod` are **optional**. A conformant rail may
+  ship `extra: {}` or omit the block entirely, and the type said otherwise, which is how a
+  bare-`extra` deref came to look like a real hazard. Every read on the buyer path optional-chains.
+  Defaults are unchanged: `schemes` still defaults to `['onchain-proof']`, so a zero-config client
+  behaves byte-identically.
+
 ## [2.15.1] — 2026-08-28 — a dead Sui RPC, an RPC failure blamed on the token, and fuzz hardening
 
 ### Fixed — Sui's shipped default RPC was dead (whole-chain outage)

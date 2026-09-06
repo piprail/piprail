@@ -1,0 +1,44 @@
+{
+  "x402Version": 2,
+  "resource": {
+    "url": "https://api.exa.ai/search",
+    "description": "Exa /search endpoint"
+  },
+  "accepts": [
+    {
+      "amount": "7000",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "extra": {
+        "acceptId": "legacy",
+        "breakdown": {
+          "search": 0.006999999999999999
+        },
+        "name": "USD Coin",
+        "totalUsd": 0.006999999999999999,
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 60,
+      "network": "eip155:8453",
+      "payTo": "0x6d6E695b09861467c7d462f5AAF31cF3540B9192",
+      "scheme": "exact"
+    },
+    {
+      "amount": "7000",
+      "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "extra": {
+        "acceptId": "solana-usdc-mainnet",
+        "breakdown": {
+          "search": 0.006999999999999999
+        },
+        "feePayer": "Hc3sdEAsCGQcpgfivywog9uwtk8gUBUZgsxdME1EJy88",
+        "name": "USD Coin",
+        "totalUsd": 0.006999999999999999,
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 60,
+      "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+      "payTo": "12Ec2cJmfR1C9uwejzxcuMhUgEC7wDrLgm1wBvvR5w9E",
+      "scheme": "exact"
+    }
+  ]
+}

@@ -15,8 +15,8 @@ describe('auto-mount — naming "ton" is enough (no setup call)', () => {
     expect(accept.network).toBe('tvm:-239')
     expect(accept.asset).toBe(USDT_MASTER)
     expect(accept.amount).toBe('50000') // 0.05 × 10^6
-    expect(accept.extra.symbol).toBe('USDT')
-    expect(accept.extra.decimals).toBe(6)
+    expect(accept.extra!.symbol).toBe('USDT')
+    expect(accept.extra!.decimals).toBe(6)
   })
 
   it('builds a native Gram (9-decimal) challenge — ticker GRAM, network still tvm:-239', async () => {
@@ -25,7 +25,7 @@ describe('auto-mount — naming "ton" is enough (no setup call)', () => {
     expect(accept.asset).toBe('native')
     expect(accept.amount).toBe('1000000000') // 1 × 10^9
     expect(accept.network).toBe('tvm:-239') // network unchanged by the token rebrand
-    expect(accept.extra.symbol).toBe('GRAM') // Toncoin → Gram (ticker TON → GRAM), live 2026-06-15
+    expect(accept.extra!.symbol).toBe('GRAM') // Toncoin → Gram (ticker TON → GRAM), live 2026-06-15
   })
 })
 
@@ -44,8 +44,8 @@ describe('TON tokens — USDT yes, USDC no, custom jetton by master', () => {
     })
     const accept = (await gate.challenge()).challenge.accepts[0]!
     expect(accept.asset).toBe(USDT_MASTER)
-    expect(accept.extra.decimals).toBe(6)
-    expect(accept.extra.symbol).toBe('USDe')
+    expect(accept.extra!.decimals).toBe(6)
+    expect(accept.extra!.symbol).toBe('USDe')
   })
 })
 

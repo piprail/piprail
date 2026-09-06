@@ -1,0 +1,59 @@
+{
+  "x402Version": 2,
+  "resource": {
+    "url": "https://token4u.ai/v1/chat/completions",
+    "description": "gpt-4o-mini API call (~128 tokens)"
+  },
+  "accepts": [
+    {
+      "amount": "9000",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "extra": {
+        "assetTransferMethod": "eip3009",
+        "maxTokens": 57142,
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:8453",
+      "payTo": "0x3ccC6565511f404716cAD2D578851ff3Ff95Fd85",
+      "scheme": "upto"
+    },
+    {
+      "amount": "9000",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "extra": {
+        "assetTransferMethod": "eip3009",
+        "maxTokens": 57142,
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:8453",
+      "payTo": "0x6D20a02E3F6afE5465397380e10B974cEd8564E0",
+      "scheme": "upto"
+    },
+    {
+      "extra": {
+        "agentId": "81740311443649000869813866819722323083753078282209344081713748983262886679832",
+        "endpoint": "/v1/chat/completions",
+        "httpVerb": "POST",
+        "version": "1"
+      },
+      "network": "eip155:8453",
+      "planId": "9484074460558240087113566015610071590999861629579979020535116603676207842363",
+      "scheme": "nvm:erc4337"
+    },
+    {
+      "amount": "0.00",
+      "extra": {
+        "currency": "CNY",
+        "method": "MACHINE_PAY",
+        "paymentNeeded": "eyJwcm90b2NvbCI6eyJvdXRfdHJhZGVfbm8iOiJ0b2tlbjR1X2h0dHBzOi8vdG9rZW40dS5haS92MS9jaGF0L2NvbXBsZXRpb25zXzE3ODYzMzQ1MTc3OTc1Njk4MjUiLCJhbW91bnQiOiIyIiwiY3VycmVuY3kiOiJDTlkiLCJyZXNvdXJjZV9pZCI6Imh0dHBzOi8vdG9rZW40dS5haS92MS9jaGF0L2NvbXBsZXRpb25zIiwicGF5X2JlZm9yZSI6IjIwMjYtMDgtMTBUMTI6MzE6NTcrMDg6MDAiLCJzZWxsZXJfc2lnbmF0dXJlIjoiWk5XZ0ozQjgxUVd4OHlGTFNVd3BoK1lJUUcvc29pRjdlSkd2V3VyY1I0ZWxKRXN1Y01RSjVBSHc2UElFUjVwT0x5UmdhQktXSzVXbzNqbVFuSWZabXlJZStuQVhuZU5CZVE5d21raGk3elVwaUtsYUhNZVZ1VUZVd2JhVlJDMnBOSHAvcWcwSjg2Wlk2TUovNE96NDJKVkpVRW9LeUVOUDk1NlZ4dmNJQWpVTUpTRVgyVkY5S0hJV3NBdS9XOE42bG9iZ2l4NWduVXpBZ2tKOTc1dk1YNnY5czNKdVNTM0h2Y0hjbDNJOFR6VFVFNWRDS2VtaGY1MmJPQ0prV1M5bkkxblIwUWtMYWRzaHlrRVlwY1d0VEhJanEvamE4NE15dzhWWVBtWXV4M2pZZzVXV1ZDRFphMWhsV28wUTFXNE9jWDhsdFZiY0ZUelk1WmZDYnp4SlpRPT0iLCJzZWxsZXJfc2lnbl90eXBlIjoiUlNBMiIsInNlbGxlcl91bmlxdWVfaWQiOiIyMDg4MTAyNTY4Njg3MDQ3In0sIm1ldGhvZCI6eyJzZWxsZXJfbmFtZSI6InRva2VuNHUiLCJzZWxsZXJfaWQiOiIyMDg4MTAyNTY4Njg3MDQ3Iiwic2VsbGVyX2FwcF9pZCI6IjIwMjEwMDYxODM2NjQwOTMiLCJnb29kc19uYW1lIjoidG9rZW40dSBBSSBBUEkgKH4wLjAwMzAgVVNEKSIsInNlbGxlcl91bmlxdWVfaWRfa2V5Ijoic2VsbGVyX2lkIiwic2VydmljZV9pZCI6IkFQSV9FOENFQTdBNDYxQzc0MzA4In19"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "alipay",
+      "scheme": "alipay:a2m"
+    }
+  ]
+}

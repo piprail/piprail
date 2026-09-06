@@ -528,3 +528,212 @@ describe('B: slug-network normalization on the BUYER pay path (BNB / AEON intero
     expect(payExactCalls).toBe(0)
   })
 })
+
+/*
+ * ── Spec conformance: the transfer method is OPTIONAL ──────────────────────────────────
+ *
+ * `scheme_exact_evm.md` §0: "If no `assetTransferMethod` is specified in `PaymentRequired.extra`,
+ * clients should default to `eip3009`. Payment payloads that use a non-default transfer method
+ * should echo the selected `assetTransferMethod` in `accepted.extra`." §1 restates it: eip3009 is
+ * "optional in PaymentRequired, default"; permit2 and erc7710 are "required". The SVM, Algorand,
+ * Aptos, NEAR and Hedera schemes define the key not at all.
+ *
+ * The buyer used to REQUIRE it at gather time, which made 91% of the deployed x402 web unpayable
+ * (measured: 3,750 of 40,388 live Bazaar rails carry it). These tests pin the corrected contract
+ * from the wire shapes that are actually out there.
+ */
+describe('exact: assetTransferMethod is optional (spec default eip3009)', () => {
+  /** Strip keys from a rail to reproduce a wild shape exactly. */
+  const without = (accept: X402ExactAcceptEntry, ...keys: string[]) => {
+    const copy = { ...(accept as unknown as Record<string, unknown>) }
+    for (const k of keys) delete copy[k]
+    return copy as unknown as X402ExactAcceptEntry
+  }
+
+  it('X1: pays a DOMAIN-ONLY rail (extra: {name, version}) — the single commonest shape on the web', async () => {
+    // 31,578 of 40,388 live exact rails look exactly like this: the EIP-712 domain, no marker.
+    let sentSig = ''
+    stub([exactAccept({ extra: { name: 'USD Coin', version: '2' } })], (sig) => {
+      sentSig = sig
+      return settle200()
+    })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
+    const res = await client.fetch(URL)
+    expect(res.status).toBe(200)
+    expect(payExactCalls).toBe(1)
+    expect(sendCalls).toBe(0)
+    const decoded = JSON.parse(Buffer.from(sentSig, 'base64').toString('utf8'))
+    expect(decoded.x402Version).toBe(2)
+    expect(decoded.accepted.scheme).toBe('exact')
+  })
+
+  it('X2: pays a rail with an EMPTY extra block (extra: {})', async () => {
+    stub([exactAccept({ extra: {} as X402ExactAcceptEntry['extra'] })], () => settle200())
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
+    expect((await client.fetch(URL)).status).toBe(200)
+    expect(payExactCalls).toBe(1)
+  })
+
+  it('X3: pays a rail with NO extra key at all — every read on the buyer path must optional-chain', async () => {
+    // This is the shape the old gather guard was written to protect against. It is not a crash
+    // hazard: the token is recognised (so the SDK's own decimals price it) and the EVM driver
+    // re-derives the EIP-712 domain on-chain rather than trusting extra.name/version.
+    stub([without(exactAccept(), 'extra')], () => settle200())
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
+    expect((await client.fetch(URL)).status).toBe(200)
+    expect(payExactCalls).toBe(1)
+  })
+
+  it('X3b: planPayment on an extra-less rail does not throw and reports the inferred method', async () => {
+    stub([without(exactAccept(), 'extra')], () => settle200())
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
+    const plan = (await client.planPayment(URL))!
+    expect(plan.payable).toBe(true)
+    expect(plan.best?.method).toBe('eip3009 (default)')
+    expect(payExactCalls).toBe(0) // planPayment is read-only — it must never sign
+  })
+
+  it('X4: an explicit permit2 rail still routes to Permit2 (the non-default method is honoured)', async () => {
+    let seenMethod: string | undefined
+    // Mutate the SHARED `net` (afterEach restores it) rather than registering a fresh driver —
+    // a registerDriver closure over a local would outlive this test and silently drive the rest.
+    net.payExact = async (_w, accept) => {
+      payExactCalls += 1
+      seenMethod = accept.extra?.assetTransferMethod
+      return {
+        payload: { signature: `0x${'ab'.repeat(65)}`, authorization: { from: '0xPAYER', to: accept.payTo, value: accept.amount, validAfter: '0', validBefore: '9999999999', nonce: '0x01' } } as ExactPaymentPayload,
+        accepted: accept,
+        payerFrom: '0xPAYER',
+        nonce: '0x01',
+      }
+    }
+    stub([exactAccept({ extra: { assetTransferMethod: 'permit2', name: 'USD Coin', version: '2' } })], () => settle200())
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
+    expect((await client.fetch(URL)).status).toBe(200)
+    expect(seenMethod).toBe('permit2') // reached the driver untouched — routing is the driver's job
+  })
+
+  it('X5: a rail naming an UNIMPLEMENTED method (erc7710) is skipped, never signed blind', async () => {
+    // The spec's third EVM method. Absent ⇒ default; named-but-unimplemented ⇒ we cannot sign it.
+    stub([exactAccept({ extra: { assetTransferMethod: 'erc7710' as unknown as 'eip3009', name: 'USD Coin', version: '2' } })], () => settle200())
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
+    await expect(client.fetch(URL)).rejects.toBeInstanceOf(NoCompatibleAcceptError)
+    expect(payExactCalls).toBe(0)
+  })
+
+  it('X5b: an unimplemented method on ONE rail does not poison a good rail beside it', async () => {
+    stub(
+      [
+        exactAccept({ extra: { assetTransferMethod: 'erc7710' as unknown as 'eip3009' } }),
+        exactAccept({ extra: { name: 'USD Coin', version: '2' } }),
+      ],
+      () => settle200()
+    )
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
+    expect((await client.fetch(URL)).status).toBe(200)
+    expect(payExactCalls).toBe(1)
+  })
+
+  it('X6: the `accepted` echo is VERBATIM — no assetTransferMethod is injected into a default rail', async () => {
+    // The spec asks for an echo only for a NON-default method. A facilitator may hash or
+    // strict-compare `accepted` against its own requirements, so inventing a key it never sent
+    // would break settlement on exactly the rails this change exists to unlock.
+    let sentSig = ''
+    const rail = exactAccept({ extra: { name: 'USD Coin', version: '2' } })
+    stub([rail], (sig) => {
+      sentSig = sig
+      return settle200()
+    })
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
+    await client.fetch(URL)
+    const decoded = JSON.parse(Buffer.from(sentSig, 'base64').toString('utf8'))
+    expect(decoded.accepted).toEqual(rail) // byte-for-byte, including the absence of the marker
+    expect(decoded.accepted.extra.assetTransferMethod).toBeUndefined()
+  })
+
+  it('X7: a Solana-shaped rail (extra.feePayer only, per scheme_exact_svm.md) is payable', async () => {
+    // The SVM scheme's required extra key is feePayer; it defines no assetTransferMethod. All
+    // 5,760 live Solana rails were unpayable under the old guard — exactly one carried a marker.
+    stub([exactAccept({ extra: { feePayer: '0xSPONSOR' } as unknown as X402ExactAcceptEntry['extra'] })], () => settle200())
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
+    expect((await client.fetch(URL)).status).toBe(200)
+    expect(payExactCalls).toBe(1)
+  })
+
+  it('X8: the policy cap still binds a marker-less rail (widening payability never widens spend)', async () => {
+    stub([exactAccept({ amount: '50000', extra: { name: 'USD Coin', version: '2' } })], () => settle200())
+    const client = new PipRailClient({
+      chain: 'base',
+      wallet: { key: '0x1' },
+      schemes: ['exact'],
+      policy: { maxAmount: '0.01' }, // 0.05 USDC offered → over the cap
+    })
+    await expect(client.fetch(URL)).rejects.toBeInstanceOf(PaymentDeclinedError)
+    expect(payExactCalls).toBe(0)
+  })
+})
+
+/*
+ * ── The widened gather, exercised through the OTHER client surfaces ────────────────────
+ *
+ * Relaxing the gather changes which rails reach *every* agent-facing entry point, not just
+ * `fetch`. `autoRoute` in particular now has more candidates to choose between, and choosing a
+ * rail whose mechanism no driver implements would turn a silent skip into a mid-pay throw — the
+ * precise failure the old over-strict guard was (wrongly) trying to prevent.
+ */
+describe('exact: the widened gather across autoRoute / canAfford / estimateCost / spent', () => {
+  const domainOnly = (over: Partial<X402ExactAcceptEntry> = {}) =>
+    exactAccept({ extra: { name: 'USD Coin', version: '2' }, ...over })
+
+  it('X9: autoRoute PICKS a marker-less rail when it is the only settleable one', async () => {
+    stub([domainOnly()], () => settle200())
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
+    expect((await client.fetch(URL, { autoRoute: true })).status).toBe(200)
+    expect(payExactCalls).toBe(1)
+  })
+
+  it('X10: autoRoute never picks a rail whose method we cannot sign, even if it is cheaper', async () => {
+    // The erc7710 rail is 10x cheaper. Cost must not outrank settleability: signing an EIP-3009
+    // authorization for a mechanism we never inspected is exactly what must not happen.
+    stub(
+      [
+        exactAccept({ amount: '5000', extra: { assetTransferMethod: 'erc7710' as unknown as 'eip3009', name: 'USD Coin', version: '2' } }),
+        domainOnly({ amount: '50000' }),
+      ],
+      () => settle200()
+    )
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
+    const plan = await client.planPayment(URL)
+    expect(plan!.options).toHaveLength(1) // the erc7710 rail never became an option
+    expect(plan!.best!.quote.amount).toBe('50000')
+    expect((await client.fetch(URL, { autoRoute: true })).status).toBe(200)
+  })
+
+  it('X11: canAfford + estimateCost read a marker-less rail (they used to see no rail at all)', async () => {
+    stub([domainOnly()], () => settle200())
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
+    expect(await client.canAfford(URL)).toBe(true)
+    const est = await client.estimateCost(URL)
+    expect(est!.quote.amount).toBe('50000')
+    expect(est!.cost.feeSymbol).toBe('ETH')
+  })
+
+  it('X12: the spend ledger records a marker-less payment exactly once, with the settled tx', async () => {
+    stub([domainOnly()], () => settle200('0xLEDGER'))
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' }, schemes: ['exact'] })
+    await client.fetch(URL)
+    const spent = client.spent()
+    expect(spent.count).toBe(1)
+    expect(spent.records.at(-1)!.ref).toBe('0xLEDGER')
+    expect(spent.records.at(-1)!.amountFormatted).toBe('0.05')
+  })
+
+  it('X13: `schemes` is still the gate — a default client ignores every marker-less rail too', async () => {
+    // Widening WHAT an opted-in client can pay must not change what a default client pays. The
+    // defaults-never-change rule (STANDARDS.md §0) applies to the relaxation as much as anything.
+    stub([domainOnly()], () => settle200())
+    const client = new PipRailClient({ chain: 'base', wallet: { key: '0x1' } }) // no `schemes`
+    await expect(client.fetch(URL)).rejects.toBeInstanceOf(NoCompatibleAcceptError)
+    expect(payExactCalls).toBe(0)
+  })
+})

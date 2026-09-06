@@ -134,7 +134,7 @@ describe('exact rail — config validation', () => {
     const { challenge } = await gate.challenge('https://api/x')
     const exact = challenge.accepts.find((a) => a.scheme === 'exact')
     expect(exact?.extra).toMatchObject({ assetTransferMethod: 'permit2' })
-    expect('name' in exact!.extra).toBe(false) // permit2 omits the token's EIP-712 domain
+    expect('name' in exact!.extra!).toBe(false) // permit2 omits the token's EIP-712 domain
   })
 
   it("still throws for `method:'eip3009'` FORCED on a non-EIP-3009 token", async () => {
@@ -193,7 +193,7 @@ describe('exact rail — verify + settle routing', () => {
     expect(res.kind).toBe('paid')
     if (res.kind === 'paid') expect(res.receipt.scheme).toBe('exact')
     // The driver received the SERVER's trusted accept (correct domain), not the client echo.
-    expect((lastSettleAccept as { extra: { name: string } }).extra.name).toBe('USD Coin')
+    expect((lastSettleAccept as { extra: { name: string } }).extra!.name).toBe('USD Coin')
   })
 
   it('verifies a v1 X-PAYMENT (slug network, no accepted) → paid via the single exact rail', async () => {
@@ -253,8 +253,8 @@ describe('exact rail — permit2 variant (non-EIP-3009 tokens, e.g. BNB)', () =>
     const { challenge } = await permit2Gate().challenge('https://api/x')
     const exact = challenge.accepts.find((a) => a.scheme === 'exact')!
     expect(exact.extra).toMatchObject({ assetTransferMethod: 'permit2' })
-    expect('name' in exact.extra).toBe(false)
-    expect('version' in exact.extra).toBe(false)
+    expect('name' in exact.extra!).toBe(false)
+    expect('version' in exact.extra!).toBe(false)
   })
 
   it('verifies + settles an inbound permit2 PAYMENT-SIGNATURE → paid (server-trusted accept)', async () => {
@@ -264,7 +264,7 @@ describe('exact rail — permit2 variant (non-EIP-3009 tokens, e.g. BNB)', () =>
     const res = await gate.verify(v2Permit2Header(exactRail, PA()))
     expect(res.kind).toBe('paid')
     if (res.kind === 'paid') expect(res.receipt.scheme).toBe('exact')
-    expect((lastSettleAccept as { extra: { assetTransferMethod: string } }).extra.assetTransferMethod).toBe('permit2')
+    expect((lastSettleAccept as { extra: { assetTransferMethod: string } }).extra!.assetTransferMethod).toBe('permit2')
   })
 
   it('replay-claims the permit2 nonce → a second submit of the same payment is tx_already_used', async () => {
@@ -508,5 +508,99 @@ describe('exact rail — `exact: true` keyless auto-pick', () => {
     const exacts = challenge.accepts.filter((a) => a.scheme === 'exact')
     expect(exacts).toHaveLength(1)
     expect(exacts[0]!.network).toBe('eip155:8453')
+  })
+})
+
+/*
+ * THE EMISSION INVARIANT — the guard that making `extra` optional took away from the compiler.
+ *
+ * 2.16.0 made `X402ExactAcceptEntry.extra` (and `extra.assetTransferMethod`) optional, because a
+ * conformant FOREIGN rail may omit either and the buyer must cope. That is a PARSE-side
+ * relaxation only. On the EMIT side nothing may change, and the reason is concrete: every
+ * PipRail buyer shipped before 2.16.0 *requires* the marker to consider a rail payable. If a gate
+ * ever stopped emitting it, those deployed agents would stop paying us — silently, with no error
+ * anywhere. The type no longer stops that; only this does.
+ *
+ * Covers every settle mode a gate can be in, because the rail extras are assembled on a different
+ * branch in each: self-relayer, pinned facilitator, and the keyless auto-pick.
+ */
+describe('exact rail — the gate ALWAYS emits extra.assetTransferMethod (all settle modes)', () => {
+  const realFetch = globalThis.fetch
+  afterEach(() => { globalThis.fetch = realFetch })
+
+  /** Both surfaces a client can read a rail from must agree — a discoverer that reconstructs the
+   *  rail from `describe()` has to end up with the same bytes the live 402 serves. */
+  async function railsFrom(gate: ReturnType<typeof createPaymentGate>) {
+    const { challenge } = await gate.challenge('https://api/x')
+    const described = await gate.describe('https://api/x')
+    return {
+      challenge: challenge.accepts.find((a) => a.scheme === 'exact')!,
+      described: described.accepts.find((a) => a.scheme === 'exact')!,
+    }
+  }
+
+  it("self-settle (no facilitator) emits eip3009 + the EIP-712 domain on both surfaces", async () => {
+    const { challenge, described } = await railsFrom(exactGate())
+    for (const rail of [challenge, described]) {
+      expect(rail.extra).toBeDefined()
+      expect(rail.extra!.assetTransferMethod).toBe('eip3009')
+      expect(rail.extra!.name).toBe('USD Coin')
+      expect(rail.extra!.version).toBe('2')
+    }
+  })
+
+  it('a pinned facilitator emits the marker too', async () => {
+    globalThis.fetch = (async () => new Response('{}', { status: 200 })) as typeof fetch
+    const gate = createPaymentGate({
+      chain: { id: 8453, rpcUrl: 'x' }, token: 'USDC', amount: '0.05', payTo: PAY_TO,
+      exact: { settle: { facilitator: 'https://x402.org/facilitator' } },
+    })
+    const { challenge, described } = await railsFrom(gate)
+    expect(challenge.extra!.assetTransferMethod).toBe('eip3009')
+    expect(described.extra!.assetTransferMethod).toBe('eip3009')
+  })
+
+  it('the keyless auto-pick emits the marker too', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const gate = createPaymentGate({ chain: { id: 8453, rpcUrl: 'x' }, token: 'USDC', amount: '0.05', payTo: PAY_TO, exact: true })
+    const { challenge, described } = await railsFrom(gate)
+    expect(challenge.extra!.assetTransferMethod).toBe('eip3009')
+    expect(described.extra!.assetTransferMethod).toBe('eip3009')
+  })
+
+  it('the non-default method (permit2) is emitted verbatim — the spec REQUIRES it for non-defaults', async () => {
+    // eip3009 is the only method a client may infer. Every other one has to be stated, or the
+    // buyer would sign the wrong mechanism.
+    const gate = createPaymentGate({
+      chain: { id: 8453, rpcUrl: 'x' }, token: 'USDT', amount: '1', payTo: PAY_TO,
+      exact: { settle: 'self', relayer: { key: '0x' + 'ab'.repeat(32) } },
+    })
+    const { challenge, described } = await railsFrom(gate)
+    expect(challenge.extra!.assetTransferMethod).toBe('permit2')
+    expect(described.extra!.assetTransferMethod).toBe('permit2')
+  })
+
+  /*
+   * The other half of the same story: our gate must still SETTLE a rail whose echo carries no
+   * marker at all. A 2.16.0+ buyer paying a marker-less foreign-shaped rail sends back exactly
+   * that, and `verifyExact` re-derives every trusted field from the gate's own spec — so the
+   * absent marker must be a non-event, not a crash on `accept.extra.assetTransferMethod`.
+   */
+  it('settles an echo that carries NO extra at all (the shape 91% of the web sends)', async () => {
+    const { challenge } = await exactGate().challenge('https://api/x')
+    const rail = challenge.accepts.find((a) => a.scheme === 'exact')!
+    const { extra: _dropped, ...markerLess } = rail
+    const res = await exactGate().verify(v2Header(markerLess, AUTH()))
+    expect(res.kind).toBe('paid')
+    // and it settled against the GATE's rail, not the stripped echo
+    expect((lastSettleAccept as { payTo: string }).payTo).toBe(PAY_TO)
+    expect((lastSettleAccept as { amount: string }).amount).toBe('50000')
+  })
+
+  it('settles an echo whose extra is present but EMPTY', async () => {
+    const { challenge } = await exactGate().challenge('https://api/x')
+    const rail = challenge.accepts.find((a) => a.scheme === 'exact')!
+    const res = await exactGate().verify(v2Header({ ...rail, extra: {} }, AUTH()))
+    expect(res.kind).toBe('paid')
   })
 })

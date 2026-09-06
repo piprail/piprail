@@ -75,7 +75,7 @@ describe('gate · Aptos exact (fake driver, no RPC)', () => {
     const rails = challenge.accepts
     const exact = rails.find((r) => r.scheme === 'exact')
     expect(exact).toBeTruthy()
-    expect(exact!.extra.assetTransferMethod).toBe('aptos')
+    expect(exact!.extra!.assetTransferMethod).toBe('aptos')
     expect((exact!.extra as { feePayer?: string }).feePayer).toBe(FEE_PAYER)
     expect(rails.some((r) => r.scheme === 'onchain-proof')).toBe(true)
   })

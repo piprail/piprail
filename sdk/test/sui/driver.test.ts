@@ -13,8 +13,8 @@ describe('auto-mount — naming "sui" is enough (no setup call)', () => {
     expect(accept.network).toBe('sui:mainnet')
     expect(accept.asset).toBe(USDC)
     expect(accept.amount).toBe('50000') // 0.05 × 10^6
-    expect(accept.extra.symbol).toBe('USDC')
-    expect(accept.extra.decimals).toBe(6)
+    expect(accept.extra!.symbol).toBe('USDC')
+    expect(accept.extra!.decimals).toBe(6)
   })
 
   it('builds a native SUI (9-decimal) challenge', async () => {
@@ -22,8 +22,8 @@ describe('auto-mount — naming "sui" is enough (no setup call)', () => {
     const accept = (await gate.challenge()).challenge.accepts[0]!
     expect(accept.asset).toBe('native')
     expect(accept.amount).toBe('1000000000') // 1 × 10^9
-    expect(accept.extra.symbol).toBe('SUI')
-    expect(accept.extra.decimals).toBe(9)
+    expect(accept.extra!.symbol).toBe('SUI')
+    expect(accept.extra!.decimals).toBe(9)
   })
 })
 
@@ -44,8 +44,8 @@ describe('Sui tokens — USDC built in (no native USDT), custom by { coinType, d
     })
     const accept = (await gate.challenge()).challenge.accepts[0]!
     expect(accept.asset).toBe('0xabc::foo::FOO')
-    expect(accept.extra.decimals).toBe(8)
-    expect(accept.extra.symbol).toBe('FOO')
+    expect(accept.extra!.decimals).toBe(8)
+    expect(accept.extra!.symbol).toBe('FOO')
   })
 })
 

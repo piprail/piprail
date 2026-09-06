@@ -1,0 +1,34 @@
+{
+  "x402Version": 1,
+  "accepts": [
+    {
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "extra": {
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxAmountRequired": "2000",
+      "maxTimeoutSeconds": 300,
+      "mimeType": "application/json",
+      "network": "base",
+      "payTo": "0x3b20d22540deb3CF1162B195CD15756adb5ceB5D",
+      "resource": "https://dartapi.ljaysk.com/v1/events",
+      "scheme": "exact",
+      "description": "Korean corporate disclosure (DART) event stream, cursor-based delta. All filings"
+    },
+    {
+      "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "extra": {
+        "feePayer": "Hc3sdEAsCGQcpgfivywog9uwtk8gUBUZgsxdME1EJy88"
+      },
+      "maxAmountRequired": "2000",
+      "maxTimeoutSeconds": 300,
+      "mimeType": "application/json",
+      "network": "solana",
+      "payTo": "5xrtB5SFAb214aC2EmLiyMJGop2EVef1zWBdDpLF7s9y",
+      "resource": "https://dartapi.ljaysk.com/v1/events",
+      "scheme": "exact",
+      "description": "Korean corporate disclosure (DART) event stream, cursor-based delta. All filings"
+    }
+  ]
+}
