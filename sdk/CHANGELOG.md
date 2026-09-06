@@ -4,6 +4,31 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.16.2] — 2026-09-06 — every facilitator now carries a verifiable receipt
+
+### Changed
+
+- **All 29 facilitator entries now cite a full, machine-verifiable transaction hash.** Four did
+  not: three kept only a truncated prefix (`tx 4dL8jRKH…`) and one recorded a verification with no
+  hash at all. A prefix cannot be opened on an explorer and cannot be re-checked by
+  `verify-tx.mjs`, so those four entries were claims rather than proofs.
+
+  Rather than reconstruct old hashes, each was **re-proven with a fresh mainnet payment**: PayAI
+  and OpenFacilitator on Solana, PayAI and xpay on Base. Every run asserted the full round trip,
+  the merchant balance moving by exactly the amount, the buyer paying **zero** native, and a
+  replay being rejected.
+
+  `verify-tx.mjs` now reports **30 verified, 0 refuted, 0 skipped**. Previously 4 were skipped as
+  unverifiable.
+
+### Fixed
+
+- **Solana proof hashes never rendered as explorer links on piprail.com.** The site generator
+  matched only EVM (`0x…64`) and Algorand (base32) hash shapes, so base58 Solana signatures fell
+  through to unlinked text while `solscan.io` sat configured and unused in the chain metadata.
+  Every Solana receipt is now a working link. This was invisible because the hash still displayed,
+  just without a link.
+
 ## [2.16.1] — 2026-09-06 — GoPlausible settles Solana, live-proven
 
 ### Added
@@ -2130,6 +2155,7 @@ straight into your wallet. The API is small and self-contained.
   to your wallet; PipRail never holds funds.
 - `viem ^2.21` is a peer dependency. Node 20+ or a modern browser.
 
+[2.16.2]: https://www.npmjs.com/package/@piprail/sdk
 [2.16.1]: https://www.npmjs.com/package/@piprail/sdk
 [2.16.0]: https://www.npmjs.com/package/@piprail/sdk
 [2.15.1]: https://www.npmjs.com/package/@piprail/sdk
