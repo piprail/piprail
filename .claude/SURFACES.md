@@ -158,6 +158,11 @@ first and SKIP (loudly) without it.
 - **`sitemap-covers-pages`** — every built page is in the sitemap.
 - **`blog-pages`** — `posts.ts` ↔ `pages/blog/<slug>.astro`, both directions. A post with no page
   is a 404 in the index *and* in the sitemap; a page absent from the data is unlinked.
+- **`linkedin-page-feed`** — `site/src/data/linkedin-page.ts` (one entry per company-page post) →
+  `/linkedin-page.xml` (the RSS feed a Zapier Zap posts to linkedin.com/company/piprail) and
+  `site/public/linkedin/` (the images). Fails on a duplicate id, a missing image, first person
+  singular, a dash, or >3,000 chars, because a merged entry is on LinkedIn within ~15 minutes and
+  a fired post cannot be un-fired. Runbook: `.claude/skills/linkedin-page/ZAPIER.md`.
 - **`assets-exist`** — every image/icon/file referenced by built HTML on **both** hosts ships.
   Checks the *artifact*, not the source: an earlier draft scanned `site/src` and flagged
   `/og-sdk.png`, which appears only inside a JSDoc example of what you *could* pass.

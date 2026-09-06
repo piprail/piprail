@@ -1,0 +1,142 @@
+<!doctype html><html><head><meta charset="utf-8">
+<meta name="render-size" content="1080x1350">
+<!--
+  post-receipts — the facilitator receipt audit of 2026-09-06.
+
+  🔴 EVERY NUMBER BELOW IS DERIVED, NOT TYPED. Re-read them before re-rendering:
+      node .claude/skills/branding/design/social/post-cards/facilitator-facts.mjs
+      node .claude/skills/facilitator-probe/scripts/verify-tx.mjs
+  As of 2026-09-06: 9 facilitators, 13 chains, 29 pairings, 30 live receipts,
+  all keyless. verify-tx.mjs: 30 verified / 0 refuted / 0 skipped.
+
+  🔴 THE FOUR ASSERTIONS ARE THE ONES THE HARNESS ACTUALLY MAKES, verbatim in
+  substance: 200 with the gated body, merchant delta == amount, buyer native
+  spend == 0, replay != 200. Do not add a fifth that sounds good; every line
+  here is something a reader could re-run.
+
+  🔴 NAMES ARE PLAIN TEXT, NOT @-MENTIONS. RULES.md §4 caps a post at 5-6 tags
+  and requires each handle be verified; nine unverified handles is spam-shaped
+  and risks tagging a squatter. Same information, no handle to get wrong.
+
+  Portrait 1080x1350 on purpose: this card carries more than the square ones and
+  the brief was "spacious, text big enough to read". Bigger type needs the room.
+
+  Render: node render.mjs receipts
+-->
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+* { margin:0; padding:0; box-sizing:border-box; }
+:root { --accent:#2ee6a6; --bg:#0a0b0c; --muted:#8d959e; }
+html,body { width:1080px; height:1350px; }
+body { background:var(--bg); color:#fff; font-family:'Inter',sans-serif; position:relative;
+       overflow:hidden; display:flex; flex-direction:column; }
+
+.glow { position:absolute; width:1250px; height:1250px; border-radius:50%; left:26%; top:-40%;
+  background:radial-gradient(circle, rgba(46,230,166,0.15) 0%, rgba(46,230,166,0.04) 44%, rgba(0,0,0,0) 70%); }
+.grid { position:absolute; inset:0;
+  background-image:linear-gradient(rgba(255,255,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.03) 1px,transparent 1px);
+  background-size:60px 60px;
+  -webkit-mask-image:radial-gradient(ellipse at 50% 22%, #000 0%, transparent 72%);
+          mask-image:radial-gradient(ellipse at 50% 22%, #000 0%, transparent 72%); }
+.vig { position:absolute; inset:0; box-shadow:inset 0 0 300px 100px rgba(0,0,0,0.62); }
+
+header { position:relative; z-index:2; padding:50px 72px 0; }
+.top { display:flex; align-items:center; justify-content:space-between; }
+.lock { display:flex; align-items:center; gap:16px; }
+.lock img { width:50px; height:50px; }
+.lock .wm { font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:35px; letter-spacing:-0.02em; }
+.pill { display:inline-flex; align-items:center; gap:11px; padding:11px 20px; border-radius:999px;
+        border:1px solid rgba(46,230,166,0.30); background:rgba(46,230,166,0.10);
+        font-family:'JetBrains Mono',monospace; font-size:19px; color:var(--accent); }
+.pill b { width:9px; height:9px; border-radius:50%; background:var(--accent);
+          box-shadow:0 0 14px 3px rgba(46,230,166,0.6); }
+
+h1 { margin-top:34px; font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:67px;
+     line-height:1.02; letter-spacing:-0.032em; }
+h1 em { font-style:normal; color:var(--accent); }
+.sub { margin-top:17px; color:var(--muted); font-size:25px; line-height:1.36; max-width:850px; }
+
+/* hero numbers */
+.nums { position:relative; z-index:2; margin:34px 72px 0; display:grid;
+        grid-template-columns:repeat(3,1fr); gap:18px; }
+.num { border:1px solid rgba(255,255,255,0.10); border-radius:20px; padding:24px 10px 20px;
+       background:rgba(255,255,255,0.030); text-align:center; }
+.num .n { font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:70px; color:var(--accent);
+          line-height:1; letter-spacing:-0.03em; }
+.num.zero .n { color:#fff; }
+.num .l { margin-top:11px; font-size:20px; color:var(--muted); }
+
+/* the assertions */
+.block { position:relative; z-index:2; margin:34px 72px 0; }
+.lbl { font-family:'JetBrains Mono',monospace; font-size:17px; letter-spacing:0.20em;
+       color:#5f666e; margin-bottom:16px; }
+.checks { display:grid; gap:11px; }
+.chk { display:flex; align-items:center; gap:18px; padding:16px 24px; border-radius:15px;
+       background:rgba(255,255,255,0.030); border:1px solid rgba(255,255,255,0.075); }
+.chk .t { width:30px; height:30px; border-radius:50%; flex:none; display:flex; align-items:center;
+          justify-content:center; background:rgba(46,230,166,0.14);
+          border:1px solid rgba(46,230,166,0.42); color:var(--accent); font-size:17px; font-weight:700; }
+.chk .x { font-size:25px; color:#e8ecef; letter-spacing:-0.01em; }
+.chk .x b { color:#fff; font-weight:600; }
+
+/* facilitators */
+.strip { display:flex; flex-wrap:wrap; gap:11px; }
+.strip span { font-family:'JetBrains Mono',monospace; font-size:21px; color:#c3cad1;
+              padding:12px 19px; border-radius:12px; background:rgba(255,255,255,0.038);
+              border:1px solid rgba(255,255,255,0.07); }
+
+footer { position:relative; z-index:2; margin-top:auto; padding:32px 72px 48px; }
+.line { color:var(--muted); font-size:23px; line-height:1.38; margin-bottom:22px; }
+.line b { color:#fff; font-weight:500; }
+.row { display:flex; align-items:center; justify-content:space-between; }
+.code { font-family:'JetBrains Mono',monospace; font-size:27px; color:#fff;
+        border:1px solid rgba(255,255,255,0.15); border-radius:14px; padding:16px 24px;
+        background:rgba(255,255,255,0.048); }
+.dom { font-family:'JetBrains Mono',monospace; font-size:27px; color:var(--accent); }
+</style></head>
+<body>
+  <div class="glow"></div><div class="grid"></div><div class="vig"></div>
+
+  <header>
+    <div class="top">
+      <div class="lock"><img src="../../../../../../site/public/logo.png" alt=""><span class="wm">PipRail</span></div>
+      <span class="pill"><b></b>re-checked 6 Sep 2026</span>
+    </div>
+    <h1>We re-checked every<br>receipt <em>on-chain</em>.</h1>
+    <div class="sub">Every x402 facilitator PipRail lists was paid through for real. Now every
+      receipt is a hash you can open on a block explorer.</div>
+  </header>
+
+  <div class="nums">
+    <div class="num"><div class="n">30</div><div class="l">verified</div></div>
+    <div class="num zero"><div class="n">0</div><div class="l">refuted</div></div>
+    <div class="num zero"><div class="n">0</div><div class="l">unverifiable</div></div>
+  </div>
+
+  <div class="block">
+    <div class="lbl">WHAT EVERY PAYMENT HAD TO PROVE</div>
+    <div class="checks">
+      <div class="chk"><span class="t">&#10003;</span><span class="x">A real <b>402 &rarr; pay &rarr; verify &rarr; 200</b> round trip</span></div>
+      <div class="chk"><span class="t">&#10003;</span><span class="x">The merchant received <b>exactly</b> the amount</span></div>
+      <div class="chk"><span class="t">&#10003;</span><span class="x">The buyer paid <b>zero gas</b>, the facilitator sponsored it</span></div>
+      <div class="chk"><span class="t">&#10003;</span><span class="x">Replaying the same proof was <b>rejected</b></span></div>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="lbl">9 KEYLESS FACILITATORS &middot; 13 CHAINS</div>
+    <div class="strip">
+      <span>PayAI</span><span>Dexter</span><span>xpay</span><span>Cascade</span><span>GoPlausible</span>
+      <span>Pieverse</span><span>Polygon Labs</span><span>OpenFacilitator</span><span>Ultravioleta DAO</span>
+    </div>
+  </div>
+
+  <footer>
+    <div class="line">No API key for any of them. And on all 13 chains PipRail can settle
+      <b>with no facilitator at all</b>, verified against your own RPC.</div>
+    <div class="row">
+      <span class="code">npm i @piprail/sdk</span>
+      <span class="dom">piprail.com/facilitators</span>
+    </div>
+  </footer>
+</body></html>

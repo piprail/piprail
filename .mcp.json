@@ -2,11 +2,20 @@
   "mcpServers": {
     "playwright": {
       "command": "npx",
-      "args": ["-y", "@playwright/mcp@latest"]
+      "args": [
+        "-y",
+        "@playwright/mcp@latest",
+        "--user-data-dir",
+        "/Users/john/.cache/piprail-x-browser-profile"
+      ]
     },
     "repomix": {
       "command": "npx",
-      "args": ["-y", "repomix@latest", "--mcp"]
+      "args": [
+        "-y",
+        "repomix@latest",
+        "--mcp"
+      ]
     }
   }
 }
