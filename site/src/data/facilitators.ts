@@ -65,10 +65,16 @@ export const facilitatorCoverage: FacilitatorChain[] = [
         "settles": [
           "eip3009"
         ],
-        "note": "PayAI: keyless, sponsors gas (Base USDC EIP-3009). Verified 2026-06-14 (/supported + live demo).",
-        "settled": false,
-        "date": "2026-06-14",
-        "txs": [],
+        "note": "PayAI: keyless, sponsors gas (Base USDC EIP-3009). LIVE-settled on Base 2026-09-06 (tx 0x0ca795dc9fec056304b4341bf0378ab4968766bf79a8bcda09c2f36d162efce8): buyer paid 0 ETH, replay rejected.",
+        "settled": true,
+        "date": "2026-09-06",
+        "txs": [
+          {
+            "hash": "0x0ca795dc9fec056304b4341bf0378ab4968766bf79a8bcda09c2f36d162efce8",
+            "url": "https://basescan.org/tx/0x0ca795dc9fec056304b4341bf0378ab4968766bf79a8bcda09c2f36d162efce8",
+            "full": true
+          }
+        ],
         "asset": "Base USDC EIP-3009",
         "floor": null,
         "floorNote": null,
@@ -87,14 +93,14 @@ export const facilitatorCoverage: FacilitatorChain[] = [
         "settles": [
           "eip3009"
         ],
-        "note": "xpay: keyless, zero-fee, sponsors gas. LIVE-settled on Base 2026-06-15 (tx 0x2273d5…).",
+        "note": "xpay: keyless, zero-fee, sponsors gas. LIVE-settled on Base 2026-09-06 (tx 0x46d360a20ded889a902d48b38922d3bb5e70ed325ca0eba9d4424454032d532e): buyer paid 0 ETH, replay rejected.",
         "settled": true,
-        "date": "2026-06-15",
+        "date": "2026-09-06",
         "txs": [
           {
-            "hash": "0x2273d5…",
-            "url": null,
-            "full": false
+            "hash": "0x46d360a20ded889a902d48b38922d3bb5e70ed325ca0eba9d4424454032d532e",
+            "url": "https://basescan.org/tx/0x46d360a20ded889a902d48b38922d3bb5e70ed325ca0eba9d4424454032d532e",
+            "full": true
           }
         ],
         "asset": null,
@@ -444,14 +450,14 @@ export const facilitatorCoverage: FacilitatorChain[] = [
         "settles": [
           "svm"
         ],
-        "note": "PayAI: keyless fee-payer sponsor (Solana SPL SVM). LIVE-settled 2026-06-14 (tx 4dL8jRKH…).",
+        "note": "PayAI: keyless fee-payer sponsor (Solana SPL SVM). LIVE-settled on Solana mainnet 2026-09-06 (tx 2Mcp9eewiRPBeCT5mAJXFtNzbNvXyVfYNb1sbgRcRg5fCMtqdqsYrBLq4L9hUn4rsPk19KrPfWqWXprXCvVAaWP4): buyer paid 0 SOL, replay rejected.",
         "settled": true,
-        "date": "2026-06-14",
+        "date": "2026-09-06",
         "txs": [
           {
-            "hash": "4dL8jRKH…",
-            "url": null,
-            "full": false
+            "hash": "2Mcp9eewiRPBeCT5mAJXFtNzbNvXyVfYNb1sbgRcRg5fCMtqdqsYrBLq4L9hUn4rsPk19KrPfWqWXprXCvVAaWP4",
+            "url": "https://solscan.io/tx/2Mcp9eewiRPBeCT5mAJXFtNzbNvXyVfYNb1sbgRcRg5fCMtqdqsYrBLq4L9hUn4rsPk19KrPfWqWXprXCvVAaWP4",
+            "full": true
           }
         ],
         "asset": "Solana SPL SVM",
@@ -472,14 +478,14 @@ export const facilitatorCoverage: FacilitatorChain[] = [
         "settles": [
           "svm"
         ],
-        "note": "OpenFacilitator: keyless (no signup), fee-payer sponsor. LIVE-settled on Solana 2026-06-15 (tx 5BabDtX…).",
+        "note": "OpenFacilitator: keyless (no signup), fee-payer sponsor. LIVE-settled on Solana mainnet 2026-09-06 (tx 2GAjZmvsBsPoTADzwAt65Ys8eW1KKvguqdyK5KDphUsTgb5SxvMpzT7FBVw6Ko4Z9vzB1xj7dbGzZ7KZ96ACiAyb): buyer paid 0 SOL, replay rejected.",
         "settled": true,
-        "date": "2026-06-15",
+        "date": "2026-09-06",
         "txs": [
           {
-            "hash": "5BabDtX…",
-            "url": null,
-            "full": false
+            "hash": "2GAjZmvsBsPoTADzwAt65Ys8eW1KKvguqdyK5KDphUsTgb5SxvMpzT7FBVw6Ko4Z9vzB1xj7dbGzZ7KZ96ACiAyb",
+            "url": "https://solscan.io/tx/2GAjZmvsBsPoTADzwAt65Ys8eW1KKvguqdyK5KDphUsTgb5SxvMpzT7FBVw6Ko4Z9vzB1xj7dbGzZ7KZ96ACiAyb",
+            "full": true
           }
         ],
         "asset": null,
@@ -503,7 +509,13 @@ export const facilitatorCoverage: FacilitatorChain[] = [
         "note": "GoPlausible: keyless fee-payer sponsor (Solana SPL SVM). LIVE-settled on Solana mainnet 2026-09-06 (tx 3DEGg6Lue8471meBH8hbLxV1bLmZGKvmvmSY3tjg7tQFnxzE9GQXUXokjQnZgTqaEU4SaXuY9F7v3m7JsX5xDgrZ): buyer paid 0 SOL, GoPlausible's sponsor 8a8fFNfk… paid the 10,001-lamport fee, replay rejected.",
         "settled": true,
         "date": "2026-09-06",
-        "txs": [],
+        "txs": [
+          {
+            "hash": "3DEGg6Lue8471meBH8hbLxV1bLmZGKvmvmSY3tjg7tQFnxzE9GQXUXokjQnZgTqaEU4SaXuY9F7v3m7JsX5xDgrZ",
+            "url": "https://solscan.io/tx/3DEGg6Lue8471meBH8hbLxV1bLmZGKvmvmSY3tjg7tQFnxzE9GQXUXokjQnZgTqaEU4SaXuY9F7v3m7JsX5xDgrZ",
+            "full": true
+          }
+        ],
         "asset": "Solana SPL SVM",
         "floor": null,
         "floorNote": null,

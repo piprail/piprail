@@ -48,6 +48,15 @@ const CHAIN_META = {
 
 const EVM_HASH = /0x[0-9a-fA-F]{64}/g
 const ALGO_HASH = /\b[A-Z2-7]{52}\b/g
+/*
+ * Solana signatures are base58, 87-88 chars. Without this they matched NEITHER of the two
+ * regexes above, so every Solana proof rendered as unlinked text while solscan sat unused in
+ * CHAIN_META. The chain had explorer links configured and could never produce one.
+ */
+const SOL_HASH = /\b[1-9A-HJ-NP-Za-km-z]{86,90}\b/g
+
+const hashRe = (caip2) =>
+  caip2.startsWith('algorand') ? ALGO_HASH : caip2.startsWith('solana') ? SOL_HASH : EVM_HASH
 
 /**
  * The facilitator's display name: the note's own leading label, which is how its operators
@@ -114,7 +123,7 @@ function parseNote(note, caip2) {
 
   // Full hashes get a link; a note that only kept a prefix (`tx 0x2273d5…`) is shown as
   // recorded, unlinked — the honest rendering of an incomplete record.
-  const full = [...new Set(note.match(caip2.startsWith('algorand') ? ALGO_HASH : EVM_HASH) || [])]
+  const full = [...new Set(note.match(hashRe(caip2)) || [])]
   const truncated = [...new Set(note.match(/\(tx\s+([0-9A-Za-z]{4,})[….]{1,3}\)/g) || [])]
     .map((m) => m.replace(/^\(tx\s+/, '').replace(/\)$/, ''))
   const txs = [
