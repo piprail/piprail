@@ -1,0 +1,121 @@
+{
+  "x402Version": 2,
+  "resource": {
+    "url": "https://app.heinrichstech.com/v1/cdp/echo",
+    "description": "BitBooth echo endpoint — pays a tiny USDC fee, returns a JSON echo. Reference im"
+  },
+  "accepts": [
+    {
+      "amount": "1000",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "extra": {
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:8453",
+      "payTo": "0xDa2F35d283c42dd60B965322394bc658a5c1769F",
+      "resource": "https://app.heinrichstech.com/v1/cdp/echo",
+      "scheme": "exact"
+    },
+    {
+      "amount": "1000",
+      "asset": "XRP",
+      "extra": {
+        "invoiceId": "bb-xrpl-5066ff5eeda1195e",
+        "sourceTag": 804681468
+      },
+      "maxTimeoutSeconds": 600,
+      "network": "xrpl:0",
+      "payTo": "rfryheo6yzFdLWj8qUQtZc7zG9MKkBkUEy",
+      "resource": "https://app.heinrichstech.com/v1/cdp/echo",
+      "scheme": "exact"
+    },
+    {
+      "amount": "0.001000",
+      "asset": "524C555344000000000000000000000000000000",
+      "extra": {
+        "invoiceId": "bb-xrpl-f4bde35637bc357c",
+        "issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+        "sourceTag": 804681468
+      },
+      "maxTimeoutSeconds": 600,
+      "network": "xrpl:0",
+      "payTo": "rfryheo6yzFdLWj8qUQtZc7zG9MKkBkUEy",
+      "resource": "https://app.heinrichstech.com/v1/cdp/echo",
+      "scheme": "exact"
+    },
+    {
+      "amount": "0.001000",
+      "asset": "5553444300000000000000000000000000000000",
+      "extra": {
+        "invoiceId": "bb-xrpl-d6b85b2e1c38aa17",
+        "issuer": "rcEGREd8NmkKRE8GE424sksyt1tJVFZwu",
+        "sourceTag": 804681468
+      },
+      "maxTimeoutSeconds": 600,
+      "network": "xrpl:0",
+      "payTo": "rfryheo6yzFdLWj8qUQtZc7zG9MKkBkUEy",
+      "resource": "https://app.heinrichstech.com/v1/cdp/echo",
+      "scheme": "exact"
+    },
+    {
+      "amount": "1000",
+      "asset": "XLM",
+      "extra": {
+        "currency": "XLM"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "stellar:pubnet",
+      "payTo": "GCB5WZT5VCBBATGMQMTB6TLUXD6KQC6N5ITRWK3CCP4J3YOCE45FA2GO",
+      "resource": "https://app.heinrichstech.com/v1/cdp/echo",
+      "scheme": "exact"
+    },
+    {
+      "amount": "1000",
+      "asset": "USDC",
+      "extra": {
+        "currency": "USDC",
+        "issuer": "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "stellar:pubnet",
+      "payTo": "GCB5WZT5VCBBATGMQMTB6TLUXD6KQC6N5ITRWK3CCP4J3YOCE45FA2GO",
+      "resource": "https://app.heinrichstech.com/v1/cdp/echo",
+      "scheme": "exact"
+    },
+    {
+      "amount": "100000000000000",
+      "asset": "0x88Fb150BDc53A65fe94Dea0c9BA0a6dAf8C6e196",
+      "extra": {
+        "decimals": 18,
+        "facilitator": "self-hosted-link-base",
+        "notes": "Agent submits ERC-20 transfer to payTo on Base, then sends X-PAYMENT with { payload: { transactionHash: \"0x...\" } }. Standard x402 SDKs do not speak this scheme; see /docs/LINK.md for the integration guide.",
+        "paymentPattern": "onchain-transfer-then-reference",
+        "symbol": "LINK"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:8453",
+      "payTo": "0xDa2F35d283c42dd60B965322394bc658a5c1769F",
+      "resource": "https://app.heinrichstech.com/v1/cdp/echo",
+      "scheme": "onchain"
+    },
+    {
+      "amount": "400000000000000",
+      "asset": "XRP",
+      "extra": {
+        "decimals": 18,
+        "facilitator": "self-hosted-xrpl-evm",
+        "nativeGasToken": true,
+        "notes": "Send a standard EVM transaction with value=amount + to=payTo on XRPL EVM Sidechain (chainID 1440000), then send X-PAYMENT with { payload: { transactionHash: \"0x...\" } }.",
+        "paymentPattern": "onchain-native-transfer-then-reference",
+        "symbol": "XRP"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:1440000",
+      "payTo": "0xDa2F35d283c42dd60B965322394bc658a5c1769F",
+      "resource": "https://app.heinrichstech.com/v1/cdp/echo",
+      "scheme": "onchain"
+    }
+  ]
+}

@@ -18,7 +18,7 @@ import { readExactDomain, verifyAndSettleExactEvm, payExactEvm, resolveExactRail
 import { payPermit2Evm, verifyAndSettlePermit2Evm, isPermit2ProxyChain } from './permit2.js'
 import { payUptoEvm, verifyAndSettleUptoEvm, resolveUptoRailEvm, isUptoProxyChain } from './upto.js'
 import { signReceiptEvm } from './receipt.js'
-import { networkForChain, chainIdFromNetwork } from '../../x402.js'
+import { networkForChain, chainIdFromNetwork, exactTransferMethod } from '../../x402.js'
 import {
   ConfirmationTimeoutError,
   InsufficientFundsError,
@@ -308,7 +308,10 @@ function makeEvmNetwork(resolved: ResolvedChain): ResolvedNetwork {
     // Throws UnsupportedSchemeError for a contract signer (or a non-EIP-3009 token on the eip3009 path).
     async payExact(wallet: WalletHandle, accept) {
       const a = wallet._native as WalletAdapter
-      const method = accept.extra.assetTransferMethod
+      // An ABSENT method is the spec default, not a malformed rail: scheme_exact_evm.md says
+      // "if no assetTransferMethod is specified … clients should default to eip3009", and 91% of
+      // the deployed web omits it. `exactTransferMethod` is the one sanctioned reader.
+      const method = exactTransferMethod(accept)
       if (method === 'permit2' || method === 'permit2-exact') {
         const { payload, payerFrom, nonce } = await payPermit2Evm({
           publicClient,

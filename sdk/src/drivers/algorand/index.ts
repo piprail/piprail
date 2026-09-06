@@ -50,6 +50,9 @@ import {
   WrongFamilyError,
 } from '../../errors.js'
 import { rejectForeignToken } from '../shared.js'
+// The spec's truncated mainnet id, owned by `indexes.ts` (which also aliases it to the padded
+// form we bind). Imported, never re-typed — a second copy of a genesis hash is a drift bug.
+import { ALGORAND_SPEC_CAIP2 } from '../../indexes.js'
 import { nativeCost } from '../../util/cost.js'
 import type {
   PaymentDriver,
@@ -142,7 +145,13 @@ function makeAlgorandNetwork(preset: AlgorandPreset, algodUrl: string): Resolved
   return {
     family: 'algorand',
     network,
-    supports: (n) => n === network,
+    // Accept our padded 44-char genesis-hash id AND the spec's 32-char truncated form
+    // (`scheme_exact_algo.md`'s Network Identifiers table — the form 874 of the 1,463 live
+    // Algorand rails use), so a caller that bypasses `normalizeNetwork` and hands the raw
+    // spec id to the driver still matches. Mirrors TON's legacy-id tolerance; the
+    // normalizeNetwork alias remains the canonical seam. We still EMIT the padded form —
+    // changing that would break every deployed PipRail 2.x buyer, so it waits for a major.
+    supports: (n) => n === network || n === ALGORAND_SPEC_CAIP2,
 
     resolveToken(token: TokenInput): ResolvedToken {
       if (token === 'native') {

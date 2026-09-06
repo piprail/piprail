@@ -1,0 +1,165 @@
+{
+  "x402Version": 2,
+  "resource": {
+    "url": "https://agent402.tools/api/random",
+    "description": "Cryptographically secure randomness. ?bytes=1..1024 returns hex; or ?min=&max= r"
+  },
+  "accepts": [
+    {
+      "amount": "1000",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "extra": {
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:8453",
+      "payTo": "0xaBF4FAbd7c416fB67202E5f9002389Fc75e2a9D0",
+      "scheme": "exact"
+    },
+    {
+      "amount": "1000",
+      "asset": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+      "extra": {
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:137",
+      "payTo": "0xaBF4FAbd7c416fB67202E5f9002389Fc75e2a9D0",
+      "scheme": "exact"
+    },
+    {
+      "amount": "1000",
+      "asset": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+      "extra": {
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:42161",
+      "payTo": "0xaBF4FAbd7c416fB67202E5f9002389Fc75e2a9D0",
+      "scheme": "exact"
+    },
+    {
+      "amount": "1000",
+      "asset": "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
+      "extra": {
+        "name": "USDC",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:143",
+      "payTo": "0xaBF4FAbd7c416fB67202E5f9002389Fc75e2a9D0",
+      "scheme": "exact"
+    },
+    {
+      "amount": "1000",
+      "asset": "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E",
+      "extra": {
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:43114",
+      "payTo": "0xaBF4FAbd7c416fB67202E5f9002389Fc75e2a9D0",
+      "scheme": "exact"
+    },
+    {
+      "amount": "1000",
+      "asset": "0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392",
+      "extra": {
+        "name": "USDC",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:1329",
+      "payTo": "0xaBF4FAbd7c416fB67202E5f9002389Fc75e2a9D0",
+      "scheme": "exact"
+    },
+    {
+      "amount": "2000",
+      "asset": "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85",
+      "extra": {
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:10",
+      "payTo": "0xaBF4FAbd7c416fB67202E5f9002389Fc75e2a9D0",
+      "scheme": "exact"
+    },
+    {
+      "amount": "1000",
+      "asset": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+      "extra": {
+        "name": "Global Dollar",
+        "version": "1"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:4663",
+      "payTo": "0xaBF4FAbd7c416fB67202E5f9002389Fc75e2a9D0",
+      "scheme": "exact"
+    },
+    {
+      "amount": "1000",
+      "asset": "0xcebA9300f2b948710d2653dD7B07f33A8B32118C",
+      "extra": {
+        "name": "USDC",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:42220",
+      "payTo": "0xaBF4FAbd7c416fB67202E5f9002389Fc75e2a9D0",
+      "scheme": "exact"
+    },
+    {
+      "amount": "1000",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "extra": {
+        "assetTransferMethod": "permit2",
+        "facilitatorAddress": "0x625d8a65134079f8faAAc39a7947c73d93C6aC39",
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:8453",
+      "payTo": "0xaBF4FAbd7c416fB67202E5f9002389Fc75e2a9D0",
+      "scheme": "upto"
+    },
+    {
+      "amount": "1000",
+      "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "extra": {
+        "feePayer": "BFK9TLC3edb13K6v4YyH3DwPb5DSUpkWvb7XnqCL9b4F"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+      "payTo": "J7aN3PLJnTCF5qpEnvJHJsnCjcGuqC2rYtEM8Gv3xwg",
+      "scheme": "exact"
+    },
+    {
+      "amount": "10000",
+      "asset": "CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75",
+      "extra": {
+        "areFeesSponsored": true
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "stellar:pubnet",
+      "payTo": "GDNJXCKW7ZM7GEEVP674TWPU26YJNBQ2FI4ZIPRKTPTNUEJMDHFJWWRL",
+      "scheme": "exact"
+    },
+    {
+      "amount": "1000",
+      "asset": "31566704",
+      "extra": {
+        "feePayer": "ZMFK2OI7ZBD2U27ISERZC4S6LKM6WMFJPZQ4MYNJDZ2VNBNMBA67RA22AA",
+        "tag": "x402-global-challenge"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=",
+      "payTo": "C7IIHG7SPLPZ5H7ZT6HW3UV2OQMQQE6Y2HBNGZXSLRJULE42BEE2OY2XIE",
+      "scheme": "exact"
+    }
+  ]
+}

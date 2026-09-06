@@ -1,0 +1,76 @@
+{
+  "x402Version": 2,
+  "resource": {
+    "url": "https://coil.trade/api/crypto/gate",
+    "description": "START HERE — the cheapest answer we sell ($0.001) and the first call most agents"
+  },
+  "accepts": [
+    {
+      "amount": "1000",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "extra": {
+        "name": "USD Coin",
+        "tag": "x402-global-challenge",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 3600,
+      "network": "eip155:8453",
+      "payTo": "0x7B53524d5c5D29EfB8C1d128C56F62FE38Cd9476",
+      "scheme": "exact"
+    },
+    {
+      "amount": "1000",
+      "asset": "31566704",
+      "extra": {
+        "decimals": 6,
+        "feePayer": "ZMFK2OI7ZBD2U27ISERZC4S6LKM6WMFJPZQ4MYNJDZ2VNBNMBA67RA22AA",
+        "name": "USDC",
+        "tag": "x402-global-challenge"
+      },
+      "maxTimeoutSeconds": 3600,
+      "network": "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=",
+      "payTo": "LYIVIUSN3FAFIC2NUN6UYU2VN764U6YTCPTIX2O6EWYYU5WHAJHYMVTZM4",
+      "scheme": "exact"
+    },
+    {
+      "amount": "1000",
+      "asset": "31566704",
+      "extra": {
+        "decimals": 6,
+        "feePayer": "ZMFK2OI7ZBD2U27ISERZC4S6LKM6WMFJPZQ4MYNJDZ2VNBNMBA67RA22AA",
+        "name": "USDC",
+        "tag": "x402-global-challenge"
+      },
+      "maxTimeoutSeconds": 3600,
+      "network": "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k",
+      "payTo": "LYIVIUSN3FAFIC2NUN6UYU2VN764U6YTCPTIX2O6EWYYU5WHAJHYMVTZM4",
+      "scheme": "exact"
+    },
+    {
+      "amount": "1000",
+      "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "extra": {
+        "decimals": 6,
+        "feePayer": "GVJJ7rdGiXr5xaYbRwRbjfaJL7fmwRygFi1H6aGqDveb",
+        "name": "USDC"
+      },
+      "maxTimeoutSeconds": 3600,
+      "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+      "payTo": "5HGarauHaGFynzwNBqLkKcQ4LFR4UCXKZE7bJuP6Ew2N",
+      "scheme": "exact"
+    },
+    {
+      "amount": "1000",
+      "asset": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+      "extra": {
+        "name": "GatewayWalletBatched",
+        "verifyingContract": "0x77777777dcc4d5a8b6e418fd04d8997ef11000ee",
+        "version": "1"
+      },
+      "maxTimeoutSeconds": 604800,
+      "network": "eip155:8453",
+      "payTo": "0x7B53524d5c5D29EfB8C1d128C56F62FE38Cd9476",
+      "scheme": "exact"
+    }
+  ]
+}

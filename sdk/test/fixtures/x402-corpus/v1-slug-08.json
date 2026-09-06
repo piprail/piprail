@@ -1,0 +1,20 @@
+{
+  "x402Version": 1,
+  "accepts": [
+    {
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "extra": {
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxAmountRequired": "1000",
+      "maxTimeoutSeconds": 300,
+      "mimeType": "application/json",
+      "network": "base",
+      "payTo": "0x6EDE3258BCe2ef32F9bB614C781818B4eFd0e765",
+      "resource": "https://liquita-x402-edge.liquita.workers.dev/v1/at-risk",
+      "scheme": "exact",
+      "description": "Real-time at-risk DeFi borrowers across Aave V3, Morpho, Comet, Euler V2, Fluid,"
+    }
+  ]
+}

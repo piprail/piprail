@@ -1,0 +1,622 @@
+[
+  {
+    "file": "v2-domain-only-01.json",
+    "shape": "v2-domain-only",
+    "source": "https://api.onesource.io/api/chain/erc20-balance",
+    "network": "eip155:8453",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "no marker → spec default eip3009"
+  },
+  {
+    "file": "v2-domain-only-02.json",
+    "shape": "v2-domain-only",
+    "source": "https://api.onesource.io/api/chain/ens/:input",
+    "network": "eip155:8453",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "no marker → spec default eip3009"
+  },
+  {
+    "file": "v2-domain-only-03.json",
+    "shape": "v2-domain-only",
+    "source": "https://api.onesource.io/api/chain/block-number",
+    "network": "eip155:8453",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "no marker → spec default eip3009"
+  },
+  {
+    "file": "v2-domain-only-04.json",
+    "shape": "v2-domain-only",
+    "source": "https://api.onesource.io/api/chain/live-balance",
+    "network": "eip155:8453",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "no marker → spec default eip3009"
+  },
+  {
+    "file": "v2-domain-only-05.json",
+    "shape": "v2-domain-only",
+    "source": "https://api.onesource.io/api/chain/tx/:hash",
+    "network": "eip155:8453",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "no marker → spec default eip3009"
+  },
+  {
+    "file": "v2-domain-only-06.json",
+    "shape": "v2-domain-only",
+    "source": "https://api.onesource.io/api/chain/nonce/:address",
+    "network": "eip155:8453",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "no marker → spec default eip3009"
+  },
+  {
+    "file": "v2-domain-only-07.json",
+    "shape": "v2-domain-only",
+    "source": "https://api.onesource.io/api/chain/block/:number",
+    "network": "eip155:8453",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "no marker → spec default eip3009"
+  },
+  {
+    "file": "v2-domain-only-08.json",
+    "shape": "v2-domain-only",
+    "source": "https://api.onesource.io/api/chain/contract/:address",
+    "network": "eip155:8453",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "no marker → spec default eip3009"
+  },
+  {
+    "file": "v2-domain-only-09.json",
+    "shape": "v2-domain-only",
+    "source": "https://api.onesource.io/api/chain/erc721-tokens",
+    "network": "eip155:8453",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "no marker → spec default eip3009"
+  },
+  {
+    "file": "v2-domain-only-10.json",
+    "shape": "v2-domain-only",
+    "source": "https://api.onesource.io/api/chain/erc20-transfers",
+    "network": "eip155:8453",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "no marker → spec default eip3009"
+  },
+  {
+    "file": "v2-domain-only-11.json",
+    "shape": "v2-domain-only",
+    "source": "https://api.onesource.io/api/chain/nft-metadata",
+    "network": "eip155:8453",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "no marker → spec default eip3009"
+  },
+  {
+    "file": "v2-domain-only-12.json",
+    "shape": "v2-domain-only",
+    "source": "https://api.onesource.io/api/chain/total-supply",
+    "network": "eip155:8453",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "no marker → spec default eip3009"
+  },
+  {
+    "file": "v2-domain-only-13.json",
+    "shape": "v2-domain-only",
+    "source": "https://api.onesource.io/api/chain/receipt/:hash",
+    "network": "eip155:8453",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "no marker → spec default eip3009"
+  },
+  {
+    "file": "v2-domain-only-14.json",
+    "shape": "v2-domain-only",
+    "source": "https://api.onesource.io/api/chain/nft-owner",
+    "network": "eip155:8453",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "no marker → spec default eip3009"
+  },
+  {
+    "file": "v2-domain-only-15.json",
+    "shape": "v2-domain-only",
+    "source": "https://api.onesource.io/api/chain/chain-id",
+    "network": "eip155:8453",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "no marker → spec default eip3009"
+  },
+  {
+    "file": "v2-domain-only-16.json",
+    "shape": "v2-domain-only",
+    "source": "https://api.onesource.io/api/chain/estimate-gas",
+    "network": "eip155:8453",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "no marker → spec default eip3009"
+  },
+  {
+    "file": "v2-domain-only-17.json",
+    "shape": "v2-domain-only",
+    "source": "https://api.onesource.io/api/chain/erc1155-balance",
+    "network": "eip155:8453",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "no marker → spec default eip3009"
+  },
+  {
+    "file": "v2-domain-only-18.json",
+    "shape": "v2-domain-only",
+    "source": "https://api.onesource.io/api/chain/events",
+    "network": "eip155:8453",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "no marker → spec default eip3009"
+  },
+  {
+    "file": "v2-domain-only-19.json",
+    "shape": "v2-domain-only",
+    "source": "https://api.onesource.io/api/chain/network-info",
+    "network": "eip155:8453",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "no marker → spec default eip3009"
+  },
+  {
+    "file": "v2-domain-only-20.json",
+    "shape": "v2-domain-only",
+    "source": "https://api.onesource.io/api/chain/code/:address",
+    "network": "eip155:8453",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "no marker → spec default eip3009"
+  },
+  {
+    "file": "v2-marker-01.json",
+    "shape": "v2-marker",
+    "source": "https://x402.ottoai.services/crypto-news",
+    "network": "eip155:8453",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "names a method we implement"
+  },
+  {
+    "file": "v2-marker-02.json",
+    "shape": "v2-marker",
+    "source": "https://x402.ottoai.services/hyperliquid-market",
+    "network": "eip155:8453",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "names a method we implement"
+  },
+  {
+    "file": "v2-marker-03.json",
+    "shape": "v2-marker",
+    "source": "https://x402.ottoai.services/token-details",
+    "network": "eip155:8453",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "names a method we implement"
+  },
+  {
+    "file": "v2-marker-04.json",
+    "shape": "v2-marker",
+    "source": "https://x402.ottoai.services/funding-rates",
+    "network": "eip155:8453",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "names a method we implement"
+  },
+  {
+    "file": "v2-marker-05.json",
+    "shape": "v2-marker",
+    "source": "https://x402.ottoai.services/tradfi-data",
+    "network": "eip155:8453",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "names a method we implement"
+  },
+  {
+    "file": "v1-slug-01.json",
+    "shape": "v1-slug",
+    "source": "https://x402factory.ai/base/coinprice",
+    "network": "base",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "v1 body is normalized; answered on the v1 wire"
+  },
+  {
+    "file": "v1-slug-02.json",
+    "shape": "v1-slug",
+    "source": "https://api.slamai.dev/chain/tokens/trending",
+    "network": "base",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "v1 body is normalized; answered on the v1 wire"
+  },
+  {
+    "file": "v1-slug-03.json",
+    "shape": "v1-slug",
+    "source": "https://dartapi.ljaysk.com/v1/events",
+    "network": "base",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "v1 body is normalized; answered on the v1 wire"
+  },
+  {
+    "file": "v1-slug-04.json",
+    "shape": "v1-slug",
+    "source": "https://rubric-protocol.com/v1/x402/tiered-attest",
+    "network": "base",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "v1 body is normalized; answered on the v1 wire"
+  },
+  {
+    "file": "v1-slug-05.json",
+    "shape": "v1-slug",
+    "source": "https://api.stakedbots.com/leaderboard",
+    "network": "base",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "v1 body is normalized; answered on the v1 wire"
+  },
+  {
+    "file": "v1-slug-06.json",
+    "shape": "v1-slug",
+    "source": "https://api.slamai.dev/token/price",
+    "network": "base",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "v1 body is normalized; answered on the v1 wire"
+  },
+  {
+    "file": "v1-slug-07.json",
+    "shape": "v1-slug",
+    "source": "https://api-dev.agents.skillfulai.io/api/x402/demo/mainnet/premium",
+    "network": "base",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "v1 body is normalized; answered on the v1 wire"
+  },
+  {
+    "file": "v1-slug-08.json",
+    "shape": "v1-slug",
+    "source": "https://liquita-x402-edge.liquita.workers.dev/v1/at-risk",
+    "network": "base",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "v1 body is normalized; answered on the v1 wire"
+  },
+  {
+    "file": "solana-01.json",
+    "shape": "solana",
+    "source": "https://stableenrich.dev/api/fullenrich/people-search",
+    "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "SVM scheme defines no marker; feePayer is its required key"
+  },
+  {
+    "file": "solana-02.json",
+    "shape": "solana",
+    "source": "https://api.exa.ai/search",
+    "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "SVM scheme defines no marker; feePayer is its required key"
+  },
+  {
+    "file": "solana-03.json",
+    "shape": "solana",
+    "source": "https://stableenrich.dev/api/exa/search",
+    "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "SVM scheme defines no marker; feePayer is its required key"
+  },
+  {
+    "file": "solana-04.json",
+    "shape": "solana",
+    "source": "https://stableupload.dev/api/upload",
+    "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "SVM scheme defines no marker; feePayer is its required key"
+  },
+  {
+    "file": "solana-05.json",
+    "shape": "solana",
+    "source": "https://crypto.apitoll.cloud/v1/crypto/price",
+    "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "SVM scheme defines no marker; feePayer is its required key"
+  },
+  {
+    "file": "solana-06.json",
+    "shape": "solana",
+    "source": "https://agi.apify.com/protocols/x402/prepaid-tokens",
+    "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "SVM scheme defines no marker; feePayer is its required key"
+  },
+  {
+    "file": "solana-07.json",
+    "shape": "solana",
+    "source": "https://api.bitrefill.com/x402/gift-cards/search",
+    "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "SVM scheme defines no marker; feePayer is its required key"
+  },
+  {
+    "file": "solana-08.json",
+    "shape": "solana",
+    "source": "https://laso.finance/get-card",
+    "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "SVM scheme defines no marker; feePayer is its required key"
+  },
+  {
+    "file": "algorand-spec-id-01.json",
+    "shape": "algorand-spec-id",
+    "source": "https://gridpulse.theaslangroupllc.com/api/energy/carbon-intensity",
+    "network": "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "the spec 32-char CAIP-2 aliases to our padded id"
+  },
+  {
+    "file": "algorand-spec-id-02.json",
+    "shape": "algorand-spec-id",
+    "source": "https://coil.trade/api/crypto/gate",
+    "network": "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "the spec 32-char CAIP-2 aliases to our padded id"
+  },
+  {
+    "file": "algorand-spec-id-03.json",
+    "shape": "algorand-spec-id",
+    "source": "https://stablecoinpulse.theaslangroupllc.com/api/depeg-tick",
+    "network": "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "the spec 32-char CAIP-2 aliases to our padded id"
+  },
+  {
+    "file": "algorand-spec-id-04.json",
+    "shape": "algorand-spec-id",
+    "source": "https://racingpulse.theaslangroupllc.com/api/going",
+    "network": "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "the spec 32-char CAIP-2 aliases to our padded id"
+  },
+  {
+    "file": "algorand-spec-id-05.json",
+    "shape": "algorand-spec-id",
+    "source": "https://onchainpulse.theaslangroupllc.com/api/evmtoken",
+    "network": "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "the spec 32-char CAIP-2 aliases to our padded id"
+  },
+  {
+    "file": "algorand-padded-01.json",
+    "shape": "algorand-padded",
+    "source": "https://agent402.tools/api/bestsellers",
+    "network": "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "our own bound id"
+  },
+  {
+    "file": "algorand-padded-02.json",
+    "shape": "algorand-padded",
+    "source": "https://agent402.tools/api/demand-radar",
+    "network": "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "our own bound id"
+  },
+  {
+    "file": "upto-01.json",
+    "shape": "upto",
+    "source": "https://x402.api.browser-use.com/api/v3/sessions",
+    "network": "eip155:8453",
+    "scheme": "upto",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "opt-in metered rail, conformant (carries the spec-mandated facilitatorAddress)"
+  },
+  {
+    "file": "upto-02.json",
+    "shape": "upto",
+    "source": "https://rpc.nodeflare.app/base/x402",
+    "network": "eip155:8453",
+    "scheme": "upto",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "opt-in metered rail, conformant (carries the spec-mandated facilitatorAddress)"
+  },
+  {
+    "file": "upto-03.json",
+    "shape": "upto",
+    "source": "https://rpc.nodeflare.app/eth/x402",
+    "network": "eip155:8453",
+    "scheme": "upto",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "opt-in metered rail, conformant (carries the spec-mandated facilitatorAddress)"
+  },
+  {
+    "file": "upto-04.json",
+    "shape": "upto",
+    "source": "https://agent402.tools/api/random",
+    "network": "eip155:8453",
+    "scheme": "upto",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "opt-in metered rail, conformant (carries the spec-mandated facilitatorAddress)"
+  },
+  {
+    "file": "upto-nonconformant-01.json",
+    "shape": "upto-nonconformant",
+    "source": "https://api.bitrefill.com/x402/invoice/pay",
+    "network": "eip155:8453",
+    "scheme": "upto",
+    "fetched": "2026-09-06",
+    "expect": "blocked",
+    "why": "upto rail missing the spec-mandated facilitatorAddress — correctly refused"
+  },
+  {
+    "file": "upto-nonconformant-02.json",
+    "shape": "upto-nonconformant",
+    "source": "https://token4u.ai/v1/chat/completions",
+    "network": "eip155:8453",
+    "scheme": "upto",
+    "fetched": "2026-09-06",
+    "expect": "blocked",
+    "why": "upto rail missing the spec-mandated facilitatorAddress — correctly refused"
+  },
+  {
+    "file": "xrpl-01.json",
+    "shape": "xrpl",
+    "source": "https://macropulse.theaslangroupllc.com/api/macro/us",
+    "network": "xrpl:0",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "blocked",
+    "why": "stage 04 — no XRPL exact BUYER yet"
+  },
+  {
+    "file": "xrpl-02.json",
+    "shape": "xrpl",
+    "source": "https://citepulse.theaslangroupllc.com/api/institution",
+    "network": "xrpl:0",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "blocked",
+    "why": "stage 04 — no XRPL exact BUYER yet"
+  },
+  {
+    "file": "xrpl-03.json",
+    "shape": "xrpl",
+    "source": "https://arbipulse.theaslangroupllc.com/api/fx-premium",
+    "network": "xrpl:0",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "blocked",
+    "why": "stage 04 — no XRPL exact BUYER yet"
+  },
+  {
+    "file": "xrpl-04.json",
+    "shape": "xrpl",
+    "source": "https://pulse.theaslangroupllc.com/api/blueprint",
+    "network": "xrpl:0",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "blocked",
+    "why": "stage 04 — no XRPL exact BUYER yet"
+  },
+  {
+    "file": "stellar-01.json",
+    "shape": "stellar",
+    "source": "https://app.heinrichstech.com/v1/cdp/echo",
+    "network": "stellar:pubnet",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "blocked",
+    "why": "stage 04 — no Stellar exact BUYER yet"
+  },
+  {
+    "file": "stellar-02.json",
+    "shape": "stellar",
+    "source": "https://agent402.tools/api/hash",
+    "network": "stellar:pubnet",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "blocked",
+    "why": "stage 04 — no Stellar exact BUYER yet"
+  },
+  {
+    "file": "batch-settlement-co-offer-01.json",
+    "shape": "batch-settlement-co-offer",
+    "source": "https://api.onesource.io/api/chain/call",
+    "network": "eip155:8453",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "we ignore batch-settlement and pay the co-offered exact rail"
+  },
+  {
+    "file": "batch-settlement-co-offer-02.json",
+    "shape": "batch-settlement-co-offer",
+    "source": "https://api.onesource.io/api/chain/allowance",
+    "network": "eip155:8453",
+    "scheme": "exact",
+    "fetched": "2026-09-06",
+    "expect": "payable",
+    "why": "we ignore batch-settlement and pay the co-offered exact rail"
+  }
+]

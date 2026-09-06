@@ -82,7 +82,28 @@ const CB_SET_UNIT_PRICE = 3
 /** Resolve the rail's token program (an ATA's address depends on it). Defaults to classic
  *  spl-token — the built-in USDC/USDT are classic. */
 function tokenProgramFor(accept: X402ExactAcceptEntry): PublicKey {
-  return accept.extra.tokenProgram === 'token-2022' ? TOKEN_2022_PROGRAM_ID : TOKEN_PROGRAM_ID
+  return accept.extra?.tokenProgram === 'token-2022' ? TOKEN_2022_PROGRAM_ID : TOKEN_PROGRAM_ID
+}
+
+/**
+ * Read an SPL mint's `decimals` straight off the chain. The SPL Mint account is a fixed 82-byte
+ * layout — `mintAuthorityOption(4) · mintAuthority(32) · supply(8) · decimals(1) · …` — so the
+ * decimals byte is at offset 44, for both the classic token program and token-2022 (whose extra
+ * data is appended AFTER the base layout). Returns `undefined` on any read failure or a
+ * short/absent account, so the caller can fall back rather than crash.
+ */
+async function readMintDecimals(
+  connection: Pick<Connection, 'getAccountInfo'>,
+  mint: PublicKey
+): Promise<number | undefined> {
+  try {
+    const info = await connection.getAccountInfo(mint)
+    const data = (info as { data?: Uint8Array } | null)?.data
+    if (!data || data.length < 45) return undefined
+    return data[44]
+  } catch {
+    return undefined // transient RPC failure — the caller falls back to the rail's stated value
+  }
 }
 
 /** A 64-byte signature slot is "empty" (unsigned) when every byte is zero. */
@@ -108,7 +129,7 @@ function memoRandomNonce(): Buffer {
 /** Spec §1.2/§3.1: the Memo data is `extra.memo` when present (verbatim UTF-8, ≤256 bytes), else a
  *  random ≥16-byte hex nonce. */
 function memoDataFor(accept: X402ExactAcceptEntry): Buffer {
-  if (accept.extra.memo !== undefined) {
+  if (accept.extra?.memo !== undefined) {
     const bytes = Buffer.from(accept.extra.memo, 'utf8')
     if (bytes.length > MAX_MEMO_BYTES) {
       throw new UnsupportedSchemeError(
@@ -138,8 +159,12 @@ function memoInstruction(accept: X402ExactAcceptEntry): TransactionInstruction {
  * the payer address, and a dedupe `nonce` = the buyer's signature (base58) — stable across
  * re-presentations of the SAME signed tx.
  *
+ * The TransferChecked `decimals` are read from the MINT on-chain, never taken from the server —
+ * `extra.decimals` is a PipRail convenience the SVM scheme doesn't define and 99.3% of live rails
+ * omit (it is kept only as a fallback if the mint read fails, and a mismatch is refused).
+ *
  * THROWS {@link UnsupportedSchemeError} for native (not SVM-exact-payable), a missing/invalid
- * `feePayer`, `feePayer === payTo`, a rail that omits the token `decimals`, an `extra.memo` over the
+ * `feePayer`, `feePayer === payTo`, an unreadable mint, an `extra.memo` over the
  * 256-byte scheme cap, or when `payTo`'s token account doesn't exist yet (the exact rail can't create
  * it — use `onchain-proof`, which does).
  */
@@ -155,23 +180,50 @@ export async function payExactSolana(input: {
       'SVM exact is SPL-token only (TransferChecked); native SOL is not exact-payable. Pay via onchain-proof.'
     )
   }
-  if (!accept.extra.feePayer) {
+  // A FOREIGN rail may omit `extra` entirely (the type now says so — the exact-EVM scheme makes
+  // every key optional and the SVM scheme defines no `assetTransferMethod` at all). The two keys
+  // the SVM scheme DOES require are checked right here, so a rail without them fails typed
+  // instead of dereferencing undefined.
+  const extra = accept.extra ?? {}
+  if (!extra.feePayer) {
     throw new UnsupportedSchemeError('SVM exact rail must advertise extra.feePayer (the merchant sponsor key).')
   }
-  if (accept.extra.decimals === undefined) {
-    throw new UnsupportedSchemeError('SVM exact rail must advertise extra.decimals for the TransferChecked.')
-  }
-
   let feePayer: PublicKey
   let mint: PublicKey
   let payTo: PublicKey
   try {
-    feePayer = new PublicKey(accept.extra.feePayer)
+    feePayer = new PublicKey(extra.feePayer)
     mint = new PublicKey(accept.asset)
     payTo = new PublicKey(accept.payTo)
   } catch (err) {
     throw new UnsupportedSchemeError(
       `SVM exact: bad feePayer/asset/payTo (${err instanceof Error ? err.message : String(err)}).`
+    )
+  }
+
+  /*
+   * TransferChecked carries the mint's decimals, and they come FROM THE MINT — never from the
+   * server. This used to require `extra.decimals` and throw without it, which is the same mistake
+   * the buyer made with `assetTransferMethod`: `decimals` is a PipRail convenience that
+   * `scheme_exact_svm.md` never defines (its only required extra is `feePayer`), and just 41 of the
+   * 5,760 live Solana rails carry it. Requiring it meant 99.3% of them planned as payable and then
+   * threw at signing time. Reading the mint is also strictly safer — a server that understated
+   * decimals could otherwise make the buyer sign a transfer 10^n times larger than quoted, and
+   * TransferChecked would happily accept it. `extra.decimals` survives only as a fallback for a
+   * transient RPC failure (a PipRail gate always sets it).
+   */
+  const onChainDecimals = await readMintDecimals(connection, mint)
+  const decimals = onChainDecimals ?? extra.decimals
+  if (decimals === undefined) {
+    throw new UnsupportedSchemeError(
+      `SVM exact: couldn't read the decimals of mint ${accept.asset} on-chain, and the rail states ` +
+        `none. Retry with a reliable rpcUrl — TransferChecked cannot be built without them.`
+    )
+  }
+  if (onChainDecimals !== undefined && extra.decimals !== undefined && extra.decimals !== onChainDecimals) {
+    throw new UnsupportedSchemeError(
+      `SVM exact: the rail states ${extra.decimals} decimals for ${accept.asset} but the mint says ` +
+        `${onChainDecimals} — refusing to sign (a mismatch this size misprices the transfer).`
     )
   }
   if (feePayer.equals(payTo)) {
@@ -219,7 +271,7 @@ export async function payExactSolana(input: {
       dest,
       keypair.publicKey,
       BigInt(accept.amount),
-      accept.extra.decimals,
+      decimals, // read from the MINT (see above), not from the server's `extra`
       [],
       program
     ),
@@ -303,7 +355,7 @@ export async function verifyAndSettleExactSolana(input: {
   try {
     payTo = new PublicKey(accept.payTo)
     mint = new PublicKey(accept.asset)
-    if (!accept.extra.feePayer) throw new Error('rail is missing extra.feePayer')
+    if (!accept.extra?.feePayer) throw new Error('rail is missing extra.feePayer')
     railFeePayer = new PublicKey(accept.extra.feePayer)
   } catch (err) {
     throw new SettlementError(`SVM exact: rail has a bad payTo/asset/feePayer (${err instanceof Error ? err.message : String(err)}).`)
@@ -444,7 +496,11 @@ export async function verifyAndSettleExactSolana(input: {
     if (!decoded.keys.destination.pubkey.equals(expectedDest)) {
       return fail('wrong_recipient', `A transfer pays ${decoded.keys.destination.pubkey.toBase58()}, not payTo's ATA ${expectedDest.toBase58()}.`)
     }
-    if (decoded.data.decimals !== accept.extra.decimals) {
+    // Belt-and-braces: a PipRail gate always states `extra.decimals`, so cross-check the
+    // instruction against it. A rail that states none (the SVM scheme never defines the key) is
+    // NOT rejected here — the chain itself is the guard, since TransferChecked reverts unless its
+    // decimals match the mint, and the amount is re-derived from the trusted accept regardless.
+    if (accept.extra?.decimals !== undefined && decoded.data.decimals !== accept.extra.decimals) {
       return fail('transfer_not_found', `Transfer decimals ${decoded.data.decimals} ≠ rail decimals ${accept.extra.decimals}.`)
     }
     sawTransferToPayTo = true

@@ -337,6 +337,12 @@ fails only when that workflow next runs, which may be at release time.
   cannot silently diverge.
 - **`changelog-unreleased`** — a warning, not a failure: fine right after a release, but add an
   `[Unreleased]` section as soon as you touch `sdk/src`.
+- **`x402-coverage-figure`** — ⭐ **one owner for the coverage number.** The CDP Bazaar moves
+  *intraday*: on 2026-09-06 a morning and an afternoon run of the same script disagreed by 854
+  resources, and five surfaces ended up quoting the morning totals under the afternoon's date —
+  each individually "correct when written". The rule polices the **denominators** (resource and
+  rail totals), not the share, against `scripts/x402-corpus/coverage.json`, which
+  `npm run x402:coverage -- --json` generates. Never type a coverage figure from anywhere else.
 
 ---
 

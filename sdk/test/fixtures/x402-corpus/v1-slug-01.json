@@ -1,0 +1,38 @@
+{
+  "x402Version": 1,
+  "accepts": [
+    {
+      "asset": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+      "extra": {
+        "avatarUrl": "https://x402factory.ai/x402factoryfavoicon.jpg",
+        "chainId": 8453,
+        "decimals": 6,
+        "eip712": {
+          "name": "USD Coin",
+          "version": "2"
+        },
+        "iconUrl": "https://x402factory.ai/x402factoryfavoicon.jpg",
+        "kind": "base-coinprice",
+        "name": "USD Coin",
+        "pricing": {
+          "amount": 0.001,
+          "currency": "USDC",
+          "mode": "fixed",
+          "network": "Base"
+        },
+        "serviceDescription": "x402Factory Base endpoints for agents (notes, LLMs, TTS, Telegram, coin prices, payments).",
+        "serviceName": "x402Factory",
+        "serviceUrl": "https://x402factory.ai",
+        "version": "2"
+      },
+      "maxAmountRequired": "1000",
+      "maxTimeoutSeconds": 60,
+      "mimeType": "application/json",
+      "network": "base",
+      "payTo": "0x402FaCcC3fAeb72351CC2b68C7966faF5f22B0d4",
+      "resource": "https://x402factory.ai/base/coinprice",
+      "scheme": "exact",
+      "description": "Base coin price mini-endpoint for major tokens only. Returns spot prices and 24h"
+    }
+  ]
+}

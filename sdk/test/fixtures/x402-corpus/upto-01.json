@@ -1,0 +1,47 @@
+{
+  "x402Version": 2,
+  "resource": {
+    "url": "https://x402.api.browser-use.com/api/v3/sessions",
+    "description": "Browser Use: AI browser automation agents in the cloud. POST a natural-language "
+  },
+  "accepts": [
+    {
+      "amount": "1000000",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "extra": {
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:8453",
+      "payTo": "0xC0CE6Bfb16bB6B6e10A9D806e509D8d20996380F",
+      "scheme": "exact"
+    },
+    {
+      "amount": "5000000",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "extra": {
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:8453",
+      "payTo": "0xC0CE6Bfb16bB6B6e10A9D806e509D8d20996380F",
+      "scheme": "exact"
+    },
+    {
+      "amount": "100000000",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "extra": {
+        "assetTransferMethod": "permit2",
+        "facilitatorAddress": "0x772003A2E9c2cCC8af956870a37A66F64F8CEC38",
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:8453",
+      "payTo": "0xC0CE6Bfb16bB6B6e10A9D806e509D8d20996380F",
+      "scheme": "upto"
+    }
+  ]
+}

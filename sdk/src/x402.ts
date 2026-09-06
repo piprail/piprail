@@ -28,6 +28,10 @@
 // and a typed error is required by ERRORS.md section 1 for anything a caller can trigger —
 // which includes handing a BigInt to a header builder.
 import { InvalidConfigError } from './errors.js'
+// Slug → CAIP-2 canonicalisation, used by the v1 challenge normalizer. `indexes.ts` owns the
+// table (it is the discovery surface that first needed it) and imports only TYPES from here,
+// so this value import adds no runtime cycle. Protocol → protocol: still no chain library.
+import { normalizeNetwork } from './indexes.js'
 
 /** A CAIP-2 network id, e.g. `eip155:8453` or `solana:5eykt4Us…`. */
 export type Caip2 = `${string}:${string}`
@@ -84,8 +88,28 @@ export interface X402ExactAcceptEntry {
   asset: AssetId
   payTo: AddressId
   maxTimeoutSeconds: number
-  extra: {
-    /** The exact transfer method. EVM: `'eip3009'` for tokens with native
+  /**
+   * The network id EXACTLY as an x402 **v1** server wrote it (a slug like `'base'`),
+   * preserved by {@link normalizeV1Challenge} because `network` above is canonicalised to
+   * CAIP-2 for matching while a v1 server string-compares the slug it sent. Internal to the
+   * v1 compat path — absent on every v2 rail, and STRIPPED from every outgoing `accepted`
+   * echo by `withoutWireNetwork`, since the merchant never published this key.
+   */
+  wireNetwork?: string
+  /**
+   * Scheme-defined extras. **OPTIONAL when PARSING a foreign 402** — the exact-EVM scheme
+   * makes every `extra` key optional (`assetTransferMethod` defaults to `'eip3009'`), and the
+   * SVM/Algorand/Aptos/NEAR/Hedera schemes define no `assetTransferMethod` at all, so a
+   * conformant rail may ship `extra: {}` or omit the block entirely. A PipRail **gate** always
+   * emits it. Every read on the buyer path must optional-chain.
+   */
+  extra?: {
+    /** The exact transfer method. **OPTIONAL** — `scheme_exact_evm.md`: *"If no
+     *  `assetTransferMethod` is specified in `PaymentRequired.extra`, clients should default
+     *  to `\"eip3009\"`"* (and only the non-default methods make it required). The SVM,
+     *  Algorand, Aptos, NEAR and Hedera schemes never define this key. Read it through
+     *  {@link exactTransferMethod}, never bare — 91% of the deployed x402 web omits it.
+     *  EVM: `'eip3009'` for tokens with native
      *  `transferWithAuthorization`, or `'permit2'` for tokens WITHOUT it (e.g.
      *  Binance-Peg USDC on BNB) — the payer signs a Permit2 witness transfer whose
      *  `spender` is the canonical x402ExactPermit2Proxy and whose `witness.to` binds the
@@ -101,7 +125,7 @@ export interface X402ExactAcceptEntry {
      *  authorizing exactly one NEP-141 `ft_transfer` to `payTo` (per `scheme_exact_near.md`); a
      *  facilitator-selected relayer (`feePayer` below) prepays gas + the 1 yoctoNEAR and submits, so
      *  the buyer holds zero NEAR. PipRail self-settles ALL. */
-    assetTransferMethod:
+    assetTransferMethod?:
       | 'eip3009'
       | 'permit2'
       /** A FOREIGN-dialect alias for `'permit2'` — Binance's x402 ("b402") facilitator labels its
@@ -146,6 +170,75 @@ export interface X402ExactAcceptEntry {
     amountFormatted?: string
     symbol?: string
   }
+}
+
+/**
+ * The transfer method an `exact` rail uses when it names none.
+ *
+ * `scheme_exact_evm.md` §0: *"If no `assetTransferMethod` is specified in
+ * `PaymentRequired.extra`, clients should default to `"eip3009"`."* §1 restates it per-method:
+ * `eip3009` is *"optional in `PaymentRequired`, default"*, while `permit2` and `erc7710` are
+ * *"required"*. So an absent marker is not a malformed rail — it is the common case (91% of the
+ * deployed web) and it means EIP-3009.
+ */
+export const DEFAULT_EXACT_TRANSFER_METHOD = 'eip3009' as const
+
+/**
+ * Every `assetTransferMethod` a PipRail buyer can actually sign, across all families.
+ *
+ * Used to SKIP a rail that names a method we don't implement (the spec's `erc7710`, or any
+ * future one) rather than sign an EIP-3009 authorization a facilitator built for a different
+ * mechanism and will reject. An **absent** marker is not "unknown" — see
+ * {@link DEFAULT_EXACT_TRANSFER_METHOD}. Family routing stays in each driver's `payExact`;
+ * this set only answers "could any driver of ours settle this?".
+ */
+export const KNOWN_EXACT_TRANSFER_METHODS: ReadonlySet<string> = new Set([
+  'eip3009',
+  'permit2',
+  'permit2-exact', // Binance b402's foreign-dialect alias for `permit2`
+  'svm',
+  'algorand',
+  'aptos',
+  'near',
+])
+
+/**
+ * What each family's driver signs when a rail names no method. Only the EVM scheme defines a
+ * written default (`eip3009`); the others define no `assetTransferMethod` at all because each has
+ * exactly ONE mechanism, so the family itself is the answer. Used for REPORTING (`PayOption.method`)
+ * — routing is the driver's own job. Keyed by `ResolvedNetwork.family`.
+ */
+const DEFAULT_METHOD_BY_FAMILY: Readonly<Record<string, string>> = Object.freeze({
+  evm: 'eip3009',
+  solana: 'svm',
+  algorand: 'algorand',
+  aptos: 'aptos',
+  near: 'near',
+})
+
+/**
+ * The effective transfer method of an `exact` rail: what it names, or the default when it names
+ * nothing. THE ONLY sanctioned way to read `extra.assetTransferMethod` — reading it bare is how
+ * the buyer came to reject 91% of the x402 web.
+ *
+ * Pass `family` to get the right default off-EVM: a Solana rail that names nothing means `svm`,
+ * not `eip3009`. Without it the EVM default is assumed (correct for the settleability check,
+ * since every family's own literal is in {@link KNOWN_EXACT_TRANSFER_METHODS} anyway).
+ */
+export function exactTransferMethod(accept: X402ExactAcceptEntry, family?: string): string {
+  return (
+    accept.extra?.assetTransferMethod ??
+    (family ? (DEFAULT_METHOD_BY_FAMILY[family] ?? DEFAULT_EXACT_TRANSFER_METHOD) : DEFAULT_EXACT_TRANSFER_METHOD)
+  )
+}
+
+/**
+ * Can any PipRail driver settle this rail's transfer method? True when the rail names a
+ * method we implement, AND when it names none (the spec default `eip3009`). False only for a
+ * method we don't implement — the rail is then skipped at gather rather than mis-signed.
+ */
+export function isSettleableExactMethod(accept: X402ExactAcceptEntry): boolean {
+  return KNOWN_EXACT_TRANSFER_METHODS.has(exactTransferMethod(accept))
 }
 
 /**
@@ -199,7 +292,13 @@ export interface X402UptoAcceptEntry {
 export type X402AnyAccept = X402AcceptEntry | X402ExactAcceptEntry | X402UptoAcceptEntry
 
 export interface X402Challenge {
-  x402Version: 2
+  /**
+   * `2` for every challenge PipRail EMITS. `1` appears only on the PARSE side, when
+   * {@link normalizeV1Challenge} has lifted a still-deployed v1 server's body into this
+   * shape — the buyer must then answer on the v1 wire (`X-PAYMENT`, flat payload). See the
+   * version-posture note above {@link HEADER_SIGNATURE_V1}.
+   */
+  x402Version: 1 | 2
   /**
    * Optional human-readable reason (v2 `error?: string`). PipRail EMITS it only on a
    * rejected-proof re-challenge (omitted on a fresh challenge). Typed to also tolerate
@@ -798,7 +897,32 @@ export function readPaymentIdentifier(payload: unknown): string | null | { inval
 /* ----------------------------- build (client) ----------------------------- */
 
 export function buildSignatureHeader(signature: X402PaymentSignature): string {
-  return toBase64Json(signature)
+  // Leave the object ALONE unless there is an `accepted` to clean: the transitional flat shape
+  // (top-level `scheme`, no `accepted` at all) must round-trip byte-identically, and spreading in
+  // an `accepted: undefined` key would break it.
+  if (!signature.accepted) return toBase64Json(signature)
+  return toBase64Json({ ...signature, accepted: withoutWireNetwork(signature.accepted) })
+}
+
+/**
+ * Strip the synthetic {@link X402ExactAcceptEntry.wireNetwork} from a rail about to go back on
+ * the wire.
+ *
+ * Every `accepted` echo is documented as the challenge's rail returned VERBATIM, and
+ * facilitators rely on that (some hash the block). `wireNetwork` is the one field that is OURS,
+ * not the server's — {@link normalizeV1Challenge} adds it to remember the slug a v1 server sent
+ * while `network` is canonicalised to CAIP-2 for matching. Echoing it would hand the merchant a
+ * key it never published, so stripping it is what MAKES the echo verbatim. Applied in all three
+ * builders because the v1 normalizer tags every accept it lifts, whatever its scheme.
+ */
+function withoutWireNetwork<T>(accepted: T): T {
+  // A hostile/garbage `accepted` (a string, a number, null) reaches here on the fuzzed paths —
+  // `in` throws a raw TypeError on a primitive, and ERRORS.md §1 says only typed errors escape.
+  // Nothing to strip from a non-object anyway.
+  if (accepted === null || typeof accepted !== 'object') return accepted
+  if (!('wireNetwork' in accepted)) return accepted
+  const { wireNetwork: _wire, ...rest } = accepted as T & { wireNetwork?: string }
+  return rest as unknown as T
 }
 
 /**
@@ -815,7 +939,11 @@ export function buildExactSignatureHeader(input: {
   accepted: X402ExactAcceptEntry
   payload: ExactPaymentPayloadAny
 }): string {
-  return toBase64Json({ x402Version: 2, accepted: input.accepted, payload: input.payload })
+  return toBase64Json({
+    x402Version: 2,
+    accepted: withoutWireNetwork(input.accepted),
+    payload: input.payload,
+  })
 }
 
 /**
@@ -831,7 +959,38 @@ export function buildUptoSignatureHeader(input: {
   accepted: X402UptoAcceptEntry
   payload: Permit2UptoPaymentPayload
 }): string {
-  return toBase64Json({ x402Version: 2, accepted: input.accepted, payload: input.payload })
+  return toBase64Json({
+    x402Version: 2,
+    accepted: withoutWireNetwork(input.accepted),
+    payload: input.payload,
+  })
+}
+
+/**
+ * Build the **v1** `X-PAYMENT` header value — the flat, pre-v2 payload shape
+ * `{ x402Version: 1, scheme, network, payload }`, base64-JSON.
+ *
+ * This is the `encodeXPaymentHeader` utility the version-posture note above has always
+ * described; it had never been written, so the buyer could parse nothing from a v1 server and
+ * could answer nothing either. Needed because v2 moved the header `X-PAYMENT` →
+ * `PAYMENT-SIGNATURE` and reshaped the payload: a v1 server ignores `PAYMENT-SIGNATURE`
+ * entirely (verified live — it just re-challenges) and reads only `X-PAYMENT`.
+ *
+ * `network` MUST be the slug the v1 server itself sent (`X402ExactAcceptEntry.wireNetwork`),
+ * not our canonical CAIP-2: v1 verifiers string-compare it against their own requirement.
+ * There is no `accepted` echo in v1 — the chosen rail is identified by these two flat fields.
+ */
+export function buildV1PaymentHeader(input: {
+  scheme: string
+  network: string
+  payload: unknown
+}): string {
+  return toBase64Json({
+    x402Version: 1,
+    scheme: input.scheme,
+    network: input.network,
+    payload: input.payload,
+  })
 }
 
 /* ----------------------------- parse ----------------------------- */
@@ -847,10 +1006,19 @@ export async function parseChallenge(
   if (headerValue) {
     const parsed = fromBase64Json<unknown>(headerValue)
     if (isValidChallenge(parsed)) return parsed
+    // A v1 server has no PAYMENT-REQUIRED header (v2 introduced it), but a mixed-version
+    // proxy might; lift it the same way. Tried BEFORE the body so header still wins.
+    const v1 = normalizeV1Challenge(parsed)
+    if (v1) return v1
   }
   try {
     const body = (await response.clone().json()) as unknown
     if (isValidChallenge(body)) return body
+    // Postel's law (see the version-posture note): v2 is EMITTED, v1 + v2 are ACCEPTED.
+    // Still-deployed v1 servers (x402-fetch/express/next, and agents pinned to v1) send a
+    // plain v1 body; refusing it fails a payment we can make. `payExactRail` answers such a
+    // challenge on the v1 wire.
+    return normalizeV1Challenge(body)
   } catch {
     /* body wasn't JSON */
   }
@@ -1212,6 +1380,82 @@ function isValidChallenge(value: unknown): value is X402Challenge {
   if (!v.accepts.every((a) => a !== null && typeof a === 'object')) return false
   if (!v.resource || typeof v.resource !== 'object') return false
   return true
+}
+
+/**
+ * Is this an x402 **v1** challenge body? v1 is structurally distinct from v2, not a subset:
+ * `x402Version: 1`, per-accept `maxAmountRequired` (v2 renamed it `amount`), per-accept
+ * `resource` STRING (v2 hoists a `resource` object to the top level), and slug networks
+ * (`'base'`) instead of CAIP-2. {@link normalizeV1Challenge} lifts it into {@link X402Challenge}.
+ */
+function isValidV1Challenge(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false
+  const v = value as Record<string, unknown>
+  if (v.x402Version !== 1) return false
+  if (!Array.isArray(v.accepts) || v.accepts.length === 0) return false
+  if (!v.accepts.every((a) => a !== null && typeof a === 'object')) return false
+  // v1's resource lives on the accept, as a string. Require at least one — it becomes the
+  // top-level `resource.url` every downstream reader (and the receipt) expects.
+  return v.accepts.some((a) => typeof (a as Record<string, unknown>).resource === 'string')
+}
+
+/**
+ * Lift an x402 **v1** challenge body into the internal {@link X402Challenge} shape, so the
+ * whole buyer path downstream of `parseChallenge` stays v2-only and version-blind.
+ *
+ * Four v1→v2 skews are absorbed, and nothing else is touched (unknown keys ride along
+ * verbatim, so a facilitator's extras survive):
+ *  1. `maxAmountRequired` → `amount` (v2's rename). An accept that already has `amount` keeps it.
+ *  2. slug `network` (`'base'`) → CAIP-2 (`'eip155:8453'`) so the gather's `supports()` matches,
+ *     with the ORIGINAL preserved on {@link X402ExactAcceptEntry.wireNetwork} because the v1
+ *     server string-compares the slug it sent when we echo it back.
+ *  3. per-accept `resource` string → a top-level `resource` object (first accept that has one).
+ *  4. `x402Version: 1` is KEPT on the result — it is what tells `payExactRail` to answer on the
+ *     v1 wire (`X-PAYMENT`, flat payload) instead of v2's `PAYMENT-SIGNATURE`.
+ *
+ * Pure: never mutates `body`, never throws (a caller passing a non-v1 value gets `null`).
+ */
+export function normalizeV1Challenge(body: unknown): X402Challenge | null {
+  if (!isValidV1Challenge(body)) return null
+  const v = body as Record<string, unknown>
+  const rawAccepts = v.accepts as Record<string, unknown>[]
+
+  const accepts = rawAccepts.map((a) => {
+    const out: Record<string, unknown> = { ...a }
+    // (1) v2 renamed maxAmountRequired → amount. Keep BOTH so a facilitator that reads the
+    // legacy name off our echo still finds it; `amount` is what the SDK prices on.
+    if (typeof out.amount !== 'string' && typeof a.maxAmountRequired === 'string') {
+      out.amount = a.maxAmountRequired
+    }
+    // (2) canonicalise the network for matching, remembering the wire form for the echo.
+    if (typeof a.network === 'string') {
+      const canonical = normalizeNetwork(a.network)
+      if (canonical !== a.network) {
+        out.network = canonical
+        out.wireNetwork = a.network
+      }
+    }
+    // (3) the per-accept resource string is hoisted below; drop it from the accept so the
+    // echoed rail can't be confused with a v2 `resource` object.
+    delete out.resource
+    return out as unknown as X402AnyAccept
+  })
+
+  const withResource = rawAccepts.find((a) => typeof a.resource === 'string')
+  const resource: X402ResourceObject = {
+    url: String(withResource?.resource ?? ''),
+    ...(typeof withResource?.description === 'string'
+      ? { description: withResource.description }
+      : {}),
+    ...(typeof withResource?.mimeType === 'string' ? { mimeType: withResource.mimeType } : {}),
+  }
+
+  return {
+    x402Version: 1,
+    ...(typeof v.error === 'string' ? { error: v.error } : {}),
+    resource,
+    accepts,
+  }
 }
 
 function isValidReceipt(value: unknown): value is X402Receipt {

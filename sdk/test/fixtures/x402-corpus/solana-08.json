@@ -1,0 +1,32 @@
+{
+  "x402Version": 2,
+  "resource": {
+    "url": "https://laso.finance/get-card",
+    "description": "Get a prepaid card for use inside the United States"
+  },
+  "accepts": [
+    {
+      "amount": "5000000",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "extra": {
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:8453",
+      "payTo": "0x3291e96b3bff7ed56e3ca8364273c5b4654b2b37",
+      "scheme": "exact"
+    },
+    {
+      "amount": "5000000",
+      "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "extra": {
+        "feePayer": "Hc3sdEAsCGQcpgfivywog9uwtk8gUBUZgsxdME1EJy88"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+      "payTo": "3MZVk97x9SeRxbYpc3jhzRfU2fyA3emYutnqfn9kNfYX",
+      "scheme": "exact"
+    }
+  ]
+}

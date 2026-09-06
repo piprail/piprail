@@ -1,0 +1,154 @@
+{
+  "x402Version": 2,
+  "resource": {
+    "url": "https://pulse.theaslangroupllc.com/api/blueprint",
+    "description": "How to make money with AI — one tailored business-in-a-box. Give a goal, budget "
+  },
+  "accepts": [
+    {
+      "amount": "10000",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "extra": {
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:8453",
+      "payTo": "0x50ab2018c06c6E4eAA9BA52057Eb55eD284912fc",
+      "scheme": "exact"
+    },
+    {
+      "amount": "10000",
+      "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "extra": {
+        "feePayer": "Hc3sdEAsCGQcpgfivywog9uwtk8gUBUZgsxdME1EJy88"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+      "payTo": "985iFjbnGQ3dJcwXnfRCMSrH4Jnc3kW1N6msR64B5KX1",
+      "scheme": "exact"
+    },
+    {
+      "amount": "10000",
+      "asset": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+      "extra": {
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:137",
+      "payTo": "0x50ab2018c06c6E4eAA9BA52057Eb55eD284912fc",
+      "scheme": "exact"
+    },
+    {
+      "amount": "10000",
+      "asset": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+      "extra": {
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:42161",
+      "payTo": "0x50ab2018c06c6E4eAA9BA52057Eb55eD284912fc",
+      "scheme": "exact"
+    },
+    {
+      "amount": "10000",
+      "asset": "0x79A02482A880bCe3F13E09da970dC34dB4cD24D1",
+      "extra": {
+        "name": "USDC",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:480",
+      "payTo": "0x50ab2018c06c6E4eAA9BA52057Eb55eD284912fc",
+      "scheme": "exact"
+    },
+    {
+      "amount": "10000",
+      "asset": "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
+      "extra": {
+        "name": "USDC",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:143",
+      "payTo": "0x50ab2018c06c6E4eAA9BA52057Eb55eD284912fc",
+      "scheme": "exact"
+    },
+    {
+      "amount": "10000",
+      "asset": "0x779ded0c9e1022225f8e0630b35a9b54be713736",
+      "extra": {
+        "name": "USD₮0",
+        "version": "1"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:196",
+      "payTo": "0x50ab2018c06c6E4eAA9BA52057Eb55eD284912fc",
+      "scheme": "exact"
+    },
+    {
+      "amount": "10000",
+      "asset": "0xb88339CB7199b77E23DB6E890353E22632Ba630f",
+      "extra": {
+        "name": "USDC",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:999",
+      "payTo": "0x50ab2018c06c6E4eAA9BA52057Eb55eD284912fc",
+      "scheme": "exact"
+    },
+    {
+      "amount": "10000",
+      "asset": "31566704",
+      "extra": {
+        "feePayer": "ZMFK2OI7ZBD2U27ISERZC4S6LKM6WMFJPZQ4MYNJDZ2VNBNMBA67RA22AA"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k",
+      "payTo": "62A253YPATFNJCPRKID3FKD77MYJFNTVRYRP4B4JWG36EGLPY7UXFWGI7I",
+      "scheme": "exact"
+    },
+    {
+      "amount": "10000",
+      "asset": "XRP",
+      "extra": {
+        "invoiceId": "35EAE8F755F04AF78DDCED0AB45B8FC9",
+        "sourceTag": 804681468
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "xrpl:0",
+      "payTo": "rMnHeutYALco8RYFVcmuU4BCgSzBpPEh32",
+      "scheme": "exact"
+    },
+    {
+      "amount": "0.01",
+      "asset": "524C555344000000000000000000000000000000",
+      "extra": {
+        "invoiceId": "DA96F5C9DA4544D9880CF4157813905E",
+        "issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+        "sourceTag": 804681468
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "xrpl:0",
+      "payTo": "rMnHeutYALco8RYFVcmuU4BCgSzBpPEh32",
+      "scheme": "exact"
+    },
+    {
+      "amount": "10000000000000000",
+      "asset": "0x8d0D000Ee44948FC98c9B98A4FA4921476f08B0d",
+      "extra": {
+        "assetTransferMethod": "eip3009",
+        "name": "World Liberty Financial USD",
+        "signerAddress": "0x34F7a661160780Ce1346e6D7B96D2bE244590899",
+        "version": "1"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:56",
+      "payTo": "0x50ab2018c06c6E4eAA9BA52057Eb55eD284912fc",
+      "scheme": "exact"
+    }
+  ]
+}

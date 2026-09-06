@@ -319,7 +319,10 @@ function clientHeaders(extra: Record<string, string> = {}): Record<string, strin
  *  the client's own `net.supports()`; an unrecognised slug is never silently
  *  dropped (see {@link PipRailClient.discover}). */
 const SLUG_TO_CAIP2: Readonly<Record<string, Caip2>> = {
-  // EVM (the common index-reported slugs; others fall through to net.supports)
+  // EVM — every chain we ship a preset for, because an x402 **v1** server names the network by
+  // slug and a slug we can't resolve never matches `net.supports()` (the EVM driver compares
+  // chain ids, so an unresolved 'celo' silently fails to match a Celo client). Chains we don't
+  // preset still fall through to net.supports unchanged.
   ethereum: 'eip155:1',
   base: 'eip155:8453',
   polygon: 'eip155:137',
@@ -328,6 +331,20 @@ const SLUG_TO_CAIP2: Readonly<Record<string, Caip2>> = {
   avalanche: 'eip155:43114',
   bnb: 'eip155:56',
   bsc: 'eip155:56',
+  mantle: 'eip155:5000',
+  sonic: 'eip155:146',
+  linea: 'eip155:59144',
+  scroll: 'eip155:534352',
+  celo: 'eip155:42220',
+  zksync: 'eip155:324',
+  unichain: 'eip155:130',
+  worldchain: 'eip155:480',
+  world: 'eip155:480',
+  sei: 'eip155:1329',
+  injective: 'eip155:1776',
+  hyperevm: 'eip155:999',
+  monad: 'eip155:143',
+  kaia: 'eip155:8217',
   // non-EVM families — values mirror each driver's bound caip2 exactly
   solana: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
   ton: 'tvm:-239',
@@ -340,12 +357,32 @@ const SLUG_TO_CAIP2: Readonly<Record<string, Caip2>> = {
   xrpl: 'xrpl:0',
 }
 
-/** Legacy CAIP-2 ids superseded by a corrected canonical id. PARSE-side only:
- *  we still accept an inbound/foreign challenge that uses the old id, but we
- *  EMIT the canonical one. (TON moved `ton:-239` → `tvm:-239`: the chainagnostic
- *  registry has no `ton` namespace; the foundation TON scheme mandates `tvm`.) */
+/** CAIP-2 ids that name a chain we already bind under a DIFFERENT string — a superseded id, or
+ *  a foreign dialect. PARSE-side only: we accept an inbound challenge that uses either form and
+ *  map it to the id our drivers bind, while still EMITTING our own.
+ *
+ *  - TON moved `ton:-239` → `tvm:-239` (the chainagnostic registry has no `ton` namespace; the
+ *    foundation TON scheme mandates `tvm`).
+ *  - **Algorand is the reverse case — here WE are the odd one out.** `scheme_exact_algo.md`'s
+ *    Network Identifiers table gives mainnet as the base64 genesis hash **truncated to 32 chars**,
+ *    `algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k`, and the deployed web follows it (874 live rails
+ *    vs 589 on our padded form). PipRail binds the full 44-char padded hash. Accepting both costs
+ *    nothing and unblocks every spec-form rail; switching what we EMIT is a breaking change for
+ *    deployed 2.x buyers, so that waits for a major. */
+/**
+ * Algorand mainnet as `scheme_exact_algo.md`'s Network Identifiers table writes it: the base64
+ * genesis hash **truncated to 32 chars**, no `=` padding. THE ONE OWNER of this literal — the
+ * Algorand driver's `supports()` imports it rather than keeping a second copy.
+ *
+ * PipRail binds the full 44-char padded hash ({@link LEGACY_CAIP2_ALIAS}'s target) and keeps
+ * emitting it; we only ACCEPT this form. Chain-agnostic by construction: it is a string, so the
+ * protocol layer carries no Algorand code.
+ */
+export const ALGORAND_SPEC_CAIP2 = 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k'
+
 const LEGACY_CAIP2_ALIAS: Readonly<Record<string, Caip2>> = {
   'ton:-239': 'tvm:-239',
+  [ALGORAND_SPEC_CAIP2]: 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=',
 }
 
 /** Normalize an index's network field to CAIP-2 when we recognise the slug;

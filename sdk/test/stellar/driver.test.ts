@@ -14,17 +14,17 @@ describe('auto-mount — naming "stellar" is enough (no setup call)', () => {
     expect(accept.network).toBe('stellar:pubnet')
     expect(accept.asset).toBe(`USDC:${USDC_ISSUER}`)
     expect(accept.amount).toBe('500000') // 0.05 × 10^7 (Stellar is 7dp)
-    expect(accept.extra.symbol).toBe('USDC')
-    expect(accept.extra.decimals).toBe(7)
-    expect(accept.extra.amountFormatted).toBe('0.05')
+    expect(accept.extra!.symbol).toBe('USDC')
+    expect(accept.extra!.decimals).toBe(7)
+    expect(accept.extra!.amountFormatted).toBe('0.05')
   })
 
   it('builds an EURC challenge', async () => {
     const gate = createPaymentGate({ chain: 'stellar', token: 'EURC', amount: '0.05', payTo: PAY_TO })
     const accept = (await gate.challenge()).challenge.accepts[0]!
     expect(accept.asset).toBe(`EURC:${EURC_ISSUER}`)
-    expect(accept.extra.symbol).toBe('EURC')
-    expect(accept.extra.decimals).toBe(7)
+    expect(accept.extra!.symbol).toBe('EURC')
+    expect(accept.extra!.decimals).toBe(7)
   })
 
   it('builds a native XLM (7-decimal) challenge', async () => {
@@ -32,8 +32,8 @@ describe('auto-mount — naming "stellar" is enough (no setup call)', () => {
     const accept = (await gate.challenge()).challenge.accepts[0]!
     expect(accept.asset).toBe('native')
     expect(accept.amount).toBe('10000000') // 1 × 10^7
-    expect(accept.extra.symbol).toBe('XLM')
-    expect(accept.extra.decimals).toBe(7)
+    expect(accept.extra!.symbol).toBe('XLM')
+    expect(accept.extra!.decimals).toBe(7)
   })
 })
 
@@ -47,8 +47,8 @@ describe('Stellar tokens — USDC/EURC built in, custom by { issuer, code, decim
     })
     const accept = (await gate.challenge()).challenge.accepts[0]!
     expect(accept.asset).toBe(`XYZ:${USDC_ISSUER}`)
-    expect(accept.extra.decimals).toBe(7)
-    expect(accept.extra.symbol).toBe('XYZ')
+    expect(accept.extra!.decimals).toBe(7)
+    expect(accept.extra!.symbol).toBe('XYZ')
   })
 
   it('NORMALISES a custom asset declared with sub-7 decimals to 7 (Stellar is universally 7dp)', async () => {
@@ -62,7 +62,7 @@ describe('Stellar tokens — USDC/EURC built in, custom by { issuer, code, decim
       payTo: PAY_TO,
     })
     const accept = (await gate.challenge()).challenge.accepts[0]!
-    expect(accept.extra.decimals).toBe(7) // not the caller's 2
+    expect(accept.extra!.decimals).toBe(7) // not the caller's 2
     expect(accept.amount).toBe('500000') // 0.05 @ 7dp, consistent with Horizon's 7dp report
   })
 

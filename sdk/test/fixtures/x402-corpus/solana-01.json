@@ -1,0 +1,32 @@
+{
+  "x402Version": 2,
+  "resource": {
+    "url": "https://stableenrich.dev/api/fullenrich/people-search",
+    "description": "FullEnrich People Search — filter by company domain/name/LinkedIn URL, seniority"
+  },
+  "accepts": [
+    {
+      "amount": "150000",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "extra": {
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:8453",
+      "payTo": "0x325bdF6F7efAB24a2210c48c1b64cAb2eAe1d430",
+      "scheme": "exact"
+    },
+    {
+      "amount": "150000",
+      "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "extra": {
+        "feePayer": "CjNFTjvBhbJJd2B5ePPMHRLx1ELZpa8dwQgGL727eKww"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+      "payTo": "8EgACpZ16XWEt7YjJPsh1ZheVRZUGmmwQ8nJdmA1o5w4",
+      "scheme": "exact"
+    }
+  ]
+}

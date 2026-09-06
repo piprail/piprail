@@ -51,7 +51,8 @@ When a client hits a gated resource without payment, the server returns `402` wi
 Only `scheme`, `network`, `asset`, `amount`, `payTo`, and `maxTimeoutSeconds` are top-level on
 an `accepts` entry. The rendering hints — `nonce`, `decimals`, `minConfirmations`,
 `amountFormatted`, `symbol` — live under `extra`. (That's the shape of `X402AcceptEntry`; the
-`exact` rail, `X402ExactAcceptEntry`, mirrors it with an `extra.assetTransferMethod` instead.)
+`exact` rail, `X402ExactAcceptEntry`, mirrors it with an `extra.assetTransferMethod` instead —
+[optional, and absent on most live rails](/making-payments/exact-buyer/#the-transfer-method-is-optional--and-usually-absent).)
 :::
 
 ### 2. The signature / proof (client → server)

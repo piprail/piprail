@@ -16,17 +16,17 @@ describe('auto-mount — naming "xrpl" is enough (no setup call)', () => {
     expect(accept.network).toBe('xrpl:0')
     expect(accept.asset).toBe(`${USDC_HEX}:${USDC_ISSUER}`)
     expect(accept.amount).toBe('50000') // 0.05 × 10^6
-    expect(accept.extra.symbol).toBe('USDC')
-    expect(accept.extra.decimals).toBe(6)
-    expect(accept.extra.amountFormatted).toBe('0.05')
+    expect(accept.extra!.symbol).toBe('USDC')
+    expect(accept.extra!.decimals).toBe(6)
+    expect(accept.extra!.amountFormatted).toBe('0.05')
   })
 
   it('builds an RLUSD challenge', async () => {
     const gate = createPaymentGate({ chain: 'xrpl', token: 'RLUSD', amount: '0.05', payTo: PAY_TO })
     const accept = (await gate.challenge()).challenge.accepts[0]!
     expect(accept.asset).toBe(`${RLUSD_HEX}:${RLUSD_ISSUER}`)
-    expect(accept.extra.symbol).toBe('RLUSD')
-    expect(accept.extra.decimals).toBe(6)
+    expect(accept.extra!.symbol).toBe('RLUSD')
+    expect(accept.extra!.decimals).toBe(6)
   })
 
   it('builds a native XRP (6-decimal drops) challenge', async () => {
@@ -34,8 +34,8 @@ describe('auto-mount — naming "xrpl" is enough (no setup call)', () => {
     const accept = (await gate.challenge()).challenge.accepts[0]!
     expect(accept.asset).toBe('native')
     expect(accept.amount).toBe('1000000') // 1 XRP = 1e6 drops
-    expect(accept.extra.symbol).toBe('XRP')
-    expect(accept.extra.decimals).toBe(6)
+    expect(accept.extra!.symbol).toBe('XRP')
+    expect(accept.extra!.decimals).toBe(6)
   })
 })
 
@@ -49,8 +49,8 @@ describe('XRPL tokens — USDC/RLUSD built in, custom by { issuer, currencyHex, 
     })
     const accept = (await gate.challenge()).challenge.accepts[0]!
     expect(accept.asset).toBe(`4142434400000000000000000000000000000000:${USDC_ISSUER}`)
-    expect(accept.extra.decimals).toBe(6)
-    expect(accept.extra.symbol).toBe('ABCD')
+    expect(accept.extra!.decimals).toBe(6)
+    expect(accept.extra!.symbol).toBe('ABCD')
   })
 
   it('rejects an unknown built-in symbol with a typed UnknownTokenError', async () => {

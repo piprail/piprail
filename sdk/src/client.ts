@@ -26,9 +26,13 @@ import {
 } from './indexes.js'
 import {
   HEADER_SIGNATURE,
+  HEADER_SIGNATURE_V1,
   buildSignatureHeader,
   buildExactSignatureHeader,
   buildUptoSignatureHeader,
+  buildV1PaymentHeader,
+  exactTransferMethod,
+  isSettleableExactMethod,
   parseChallenge,
   parseReceipt,
   parseReceiptExtension,
@@ -266,6 +270,13 @@ export interface PayOption {
   quote: PipRailQuote
   /** Estimated native-coin gas to send it (cost.basis surfaced). */
   cost: CostEstimate
+  /**
+   * For an `exact`/`upto` rail: the transfer method the buyer would actually sign, with
+   * `' (default)'` appended when the rail named none and the exact-EVM scheme's `eip3009`
+   * default applies. Absent on `onchain-proof`. Surfaced because an unnamed method used to be
+   * invisible — and invisibly unpayable; an agent debugging interop should see what we inferred.
+   */
+  method?: string
   /** The verdict for THIS rail. 'unknown' = a read failed, so payability can't be confirmed. */
   state: 'payable' | 'blocked' | 'unknown'
   /** Hard reasons it's blocked (empty when payable). */
@@ -1536,7 +1547,7 @@ export class PipRailClient {
     // Standard `exact` rail: a separate, conservative pay path — the buyer SIGNS an
     // EIP-3009 authorization and the server/facilitator broadcasts it (never payAndConfirm).
     if (accept.scheme === 'exact') {
-      return this.payExactRail(net, wallet, accept, url, init, quote)
+      return this.payExactRail(net, wallet, accept, url, init, quote, challenge.x402Version)
     }
 
     // PipRail's native `onchain-proof` rail — BYTE-IDENTICAL to before. AUDIT B9: ASSERT the
@@ -1676,10 +1687,19 @@ export class PipRailClient {
             // it), so without this guard a malformed 402 advertising a native `exact` rail would be
             // gathered, planned `payable`, even chosen by autoRoute — then throw at pay time.
             a.asset !== 'native' &&
-            // the exact pay path (payExact → driver) reads `extra.assetTransferMethod`; a malformed
-            // 402 offering an exact rail for a RECOGNISED token but omitting `extra` would otherwise
-            // be planned payable then throw a raw TypeError mid-pay. Require it at gather time.
-            typeof a.extra?.assetTransferMethod === 'string' &&
+            /*
+             * The rail's transfer method must be one a driver can sign — but an ABSENT method is
+             * not an unknown one. `scheme_exact_evm.md`: "If no `assetTransferMethod` is specified
+             * in `PaymentRequired.extra`, clients should default to `eip3009`", and the SVM /
+             * Algorand / Aptos / NEAR / Hedera schemes never define the key at all. This predicate
+             * previously REQUIRED the key, which rejected 91% of the deployed x402 web — every
+             * Solana rail, every Arbitrum rail, 85% of Base — while the pay path had always
+             * handled its absence correctly (the EVM driver defaults to eip3009 and re-derives the
+             * EIP-712 domain on-chain). `isSettleableExactMethod` keeps the real guard: a rail that
+             * NAMES a method we don't implement (the spec's `erc7710`) is still skipped, because
+             * signing an EIP-3009 authorization for it would just be rejected by its facilitator.
+             */
+            isSettleableExactMethod(a) &&
             net.describeAsset(a.asset) != null &&
             // a foreign rail's maxTimeoutSeconds must be a usable positive integer, or
             // signing it would build a NaN/garbage validBefore — drop it silently
@@ -1867,6 +1887,18 @@ export class PipRailClient {
       accept,
       quote,
       cost,
+      // Surface the transfer method we INFERRED, not just the one the rail named — an absent
+      // marker means the scheme's default, and saying so is how an agent (or a maintainer) sees
+      // why a domain-only rail is payable and gasless. The default is PER FAMILY: a Solana rail
+      // naming nothing means `svm`, never `eip3009`.
+      ...(accept.scheme === 'exact'
+        ? {
+            method: accept.extra?.assetTransferMethod
+              ? exactTransferMethod(accept)
+              : `${exactTransferMethod(accept, net.family)} (default)`,
+          }
+        : {}),
+      ...(accept.scheme === 'upto' ? { method: 'permit2-upto' } : {}),
       state,
       blockers,
       warnings,
@@ -2377,7 +2409,10 @@ export class PipRailClient {
     accept: X402ExactAcceptEntry,
     url: string,
     init: (RequestInit & { autoRoute?: boolean; schemes?: PaymentScheme[] }) | undefined,
-    quote: PipRailQuote
+    quote: PipRailQuote,
+    /** The challenge's wire version — `1` makes the answer go out on the v1 `X-PAYMENT`
+     *  header instead of v2's `PAYMENT-SIGNATURE`. Everything else is version-blind. */
+    x402Version: 1 | 2 = 2
   ): Promise<Response> {
     if (!net.payExact) {
       // gatherCandidates only yields an exact rail when payExact exists — defensive.
@@ -2392,7 +2427,23 @@ export class PipRailClient {
     // Sign ONCE — a fresh nonce is generated here and reused on every retry below.
     const { payload, accepted, payerFrom, nonce } = await net.payExact(wallet, accept)
     const headers = new Headers(init?.headers)
-    headers.set(HEADER_SIGNATURE, buildExactSignatureHeader({ accepted, payload }))
+    if (x402Version === 1) {
+      // A v1 server ignores PAYMENT-SIGNATURE (verified live: it simply re-challenges) and reads
+      // only the flat `X-PAYMENT`. Echo the network EXACTLY as it sent it — `wireNetwork` holds
+      // the slug that `normalizeV1Challenge` canonicalised away, because a v1 verifier
+      // string-compares it. Only the framing differs; the signed authorization is identical, so
+      // the retry/settle logic below is shared verbatim with v2.
+      headers.set(
+        HEADER_SIGNATURE_V1,
+        buildV1PaymentHeader({
+          scheme: accepted.scheme,
+          network: accept.wireNetwork ?? accepted.network,
+          payload,
+        })
+      )
+    } else {
+      headers.set(HEADER_SIGNATURE, buildExactSignatureHeader({ accepted, payload }))
+    }
 
     // A DEFINITIVE facilitator rejection — an explicit `success:false` (the spec's
     // settlement-failure verdict, carried in the PAYMENT-RESPONSE header on a 402 OR a

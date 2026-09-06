@@ -28,15 +28,15 @@ describe('createPaymentGate — challenge issuance', () => {
     expect(accept.asset).toBe(TOKEN)
     expect(accept.payTo).toBe(PAY_TO)
     expect(accept.amount).toBe(parseUnits('0.05', 18).toString())
-    expect(accept.extra.symbol).toBe('USDC')
-    expect(accept.extra.amountFormatted).toBe('0.05')
+    expect(accept.extra!.symbol).toBe('USDC')
+    expect(accept.extra!.amountFormatted).toBe('0.05')
     expect(challenge.resource.url).toBe('https://api.example.com/report')
   })
 
   it('mints a fresh nonce per challenge', async () => {
     const gate = createPaymentGate(baseOptions())
-    const a = firstProof((await gate.challenge()).challenge).extra.nonce
-    const b = firstProof((await gate.challenge()).challenge).extra.nonce
+    const a = firstProof((await gate.challenge()).challenge).extra!.nonce
+    const b = firstProof((await gate.challenge()).challenge).extra!.nonce
     expect(a).not.toBe(b)
   })
 
@@ -56,7 +56,7 @@ describe('createPaymentGate — challenge issuance', () => {
     const accept = (await gate.challenge()).challenge.accepts[0]!
     expect(accept.network).toBe('eip155:8453')
     expect(accept.asset).toBe('0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913')
-    expect(accept.extra.symbol).toBe('USDC')
+    expect(accept.extra!.symbol).toBe('USDC')
     expect(accept.amount).toBe(parseUnits('0.05', 6).toString())
   })
 
@@ -79,8 +79,8 @@ describe('createPaymentGate — challenge issuance', () => {
     const accept = (await gate.challenge()).challenge.accepts[0]!
     expect(accept.network).toBe('eip155:1313161554')
     expect(accept.asset).toBe('0xB12BFcA5A55806AaF64E99521918A4bf0fC40802')
-    expect(accept.extra.decimals).toBe(6)
-    expect(accept.extra.symbol).toBe('USDC')
+    expect(accept.extra!.decimals).toBe(6)
+    expect(accept.extra!.symbol).toBe('USDC')
     expect(accept.amount).toBe(parseUnits('0.05', 6).toString())
   })
 
@@ -137,7 +137,7 @@ describe('createPaymentGate — verify branches that need no RPC', () => {
     const sigHeader = buildSignatureHeader({
       x402Version: 2,
       accepted,
-      payload: { nonce: accepted.extra.nonce, txHash },
+      payload: { nonce: accepted.extra!.nonce, txHash },
     })
     const res = await gate.verify(sigHeader)
     expect(res).toMatchObject({ kind: 'invalid', error: 'tx_already_used' })

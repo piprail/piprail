@@ -1,0 +1,87 @@
+{
+  "x402Version": 2,
+  "resource": {
+    "url": "https://rpc.nodeflare.app/eth/x402",
+    "description": "Ethereum RPC (chain 1): JSON-RPC over HTTPS on NodeFlare's own bare-metal nodes."
+  },
+  "accepts": [
+    {
+      "amount": "1000",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "extra": {
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 120,
+      "network": "eip155:8453",
+      "payTo": "0x9d86e0e74333b297b1d0b6ba30d2ed1b5f01f296",
+      "scheme": "exact"
+    },
+    {
+      "amount": "1000",
+      "asset": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+      "extra": {
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 120,
+      "network": "eip155:137",
+      "payTo": "0x9d86e0e74333b297b1d0b6ba30d2ed1b5f01f296",
+      "scheme": "exact"
+    },
+    {
+      "amount": "1000",
+      "asset": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+      "extra": {
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 120,
+      "network": "eip155:42161",
+      "payTo": "0x9d86e0e74333b297b1d0b6ba30d2ed1b5f01f296",
+      "scheme": "exact"
+    },
+    {
+      "amount": "100000",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "extra": {
+        "assetTransferMethod": "permit2",
+        "facilitatorAddress": "0x14fDa13953Fc30428938E6BF950d036e77214e52",
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 120,
+      "network": "eip155:8453",
+      "payTo": "0x9d86e0e74333b297b1d0b6ba30d2ed1b5f01f296",
+      "scheme": "upto"
+    },
+    {
+      "amount": "100000",
+      "asset": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+      "extra": {
+        "assetTransferMethod": "permit2",
+        "facilitatorAddress": "0x97AcCe27D5069544480BDe0F04D9F47d7422a016",
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 120,
+      "network": "eip155:137",
+      "payTo": "0x9d86e0e74333b297b1d0b6ba30d2ed1b5f01f296",
+      "scheme": "upto"
+    },
+    {
+      "amount": "100000",
+      "asset": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+      "extra": {
+        "assetTransferMethod": "permit2",
+        "facilitatorAddress": "0x93F6601151cCB08F333AB4B1CCcfb1e188c0bE44",
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 120,
+      "network": "eip155:42161",
+      "payTo": "0x9d86e0e74333b297b1d0b6ba30d2ed1b5f01f296",
+      "scheme": "upto"
+    }
+  ]
+}

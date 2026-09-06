@@ -1,0 +1,32 @@
+{
+  "x402Version": 2,
+  "resource": {
+    "url": "https://crypto.apitoll.cloud/v1/crypto/price",
+    "description": "Latest crypto token prices by ticker symbol, CoinGecko id, or chain:address (BTC"
+  },
+  "accepts": [
+    {
+      "amount": "1000",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "extra": {
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:8453",
+      "payTo": "0x3dA40A9aD36640a2C0F533BAC368490095574664",
+      "scheme": "exact"
+    },
+    {
+      "amount": "1000",
+      "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "extra": {
+        "feePayer": "BENrLoUbndxoNMUS5JXApGMtNykLjFXXixMtpDwDR9SP"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+      "payTo": "5Wxg3V6gcmFmmP6SXmGZQAUZPFYsSwoeN2Qewt5BotWz",
+      "scheme": "exact"
+    }
+  ]
+}

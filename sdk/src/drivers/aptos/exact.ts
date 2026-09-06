@@ -125,7 +125,7 @@ export async function payExactAptos(input: {
       'Aptos exact is Fungible-Asset only (a primary_fungible_store transfer); native APT is not exact-payable. Pay via onchain-proof.'
     )
   }
-  const feePayer = accept.extra.feePayer
+  const feePayer = accept.extra?.feePayer
   if (!feePayer) {
     throw new UnsupportedSchemeError('Aptos exact rail must advertise extra.feePayer (the gas sponsor address).')
   }
@@ -228,7 +228,7 @@ export async function verifyAndSettleExactAptos(input: {
   const { client, feePayerAddr, payload, accept } = input
 
   // --- C0. Config guards (the gate's own faults → throw, never a 402) ---
-  const railFeePayer = accept.extra.feePayer
+  const railFeePayer = accept.extra?.feePayer
   if (!railFeePayer) throw new SettlementError('Aptos exact: rail is missing extra.feePayer.')
   if (railFeePayer !== feePayerAddr) {
     throw new SettlementError('Aptos exact: the gate relayer address does not match the rail extra.feePayer — misconfigured rail.')

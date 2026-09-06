@@ -1,0 +1,20 @@
+{
+  "x402Version": 1,
+  "accepts": [
+    {
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "extra": {
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxAmountRequired": "20000",
+      "maxTimeoutSeconds": 300,
+      "mimeType": "application/json",
+      "network": "base",
+      "payTo": "0x21b077B26bFda6d2b8fdf0130977362D61e18912",
+      "resource": "https://api.stakedbots.com/leaderboard",
+      "scheme": "exact",
+      "description": "Leaderboard / ranking of autonomous AI trading bots, ordered by verifiable alpha"
+    }
+  ]
+}

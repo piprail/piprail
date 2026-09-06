@@ -15,15 +15,15 @@ describe('auto-mount — naming "near" is enough (no setup call)', () => {
     expect(accept.network).toBe('near:mainnet')
     expect(accept.asset).toBe(USDC)
     expect(accept.amount).toBe('50000') // 0.05 × 10^6
-    expect(accept.extra.symbol).toBe('USDC')
-    expect(accept.extra.decimals).toBe(6)
+    expect(accept.extra!.symbol).toBe('USDC')
+    expect(accept.extra!.decimals).toBe(6)
   })
 
   it('builds a USDT challenge (native Tether on NEAR)', async () => {
     const gate = createPaymentGate({ chain: 'near', token: 'USDT', amount: '0.05', payTo: PAY_TO })
     const accept = (await gate.challenge()).challenge.accepts[0]!
     expect(accept.asset).toBe(USDT)
-    expect(accept.extra.symbol).toBe('USDT')
+    expect(accept.extra!.symbol).toBe('USDT')
   })
 })
 
@@ -32,8 +32,8 @@ describe('NEAR tokens — USDC + USDT + native NEAR', () => {
     const gate = createPaymentGate({ chain: 'near', token: 'native', amount: '0.01', payTo: PAY_TO })
     const accept = (await gate.challenge()).challenge.accepts[0]!
     expect(accept.asset).toBe('native')
-    expect(accept.extra.decimals).toBe(24)
-    expect(accept.extra.symbol).toBe('NEAR')
+    expect(accept.extra!.decimals).toBe(24)
+    expect(accept.extra!.symbol).toBe('NEAR')
     expect(accept.amount).toBe('10000000000000000000000') // 0.01 × 10^24 yoctoNEAR
   })
 
@@ -52,8 +52,8 @@ describe('NEAR tokens — USDC + USDT + native NEAR', () => {
     })
     const accept = (await gate.challenge()).challenge.accepts[0]!
     expect(accept.asset).toBe('mytoken.near')
-    expect(accept.extra.decimals).toBe(8)
-    expect(accept.extra.symbol).toBe('MINE')
+    expect(accept.extra!.decimals).toBe(8)
+    expect(accept.extra!.symbol).toBe('MINE')
   })
 })
 

@@ -677,8 +677,8 @@ export async function verifyAndSettleExactEvm(input: {
     try {
       recovered = await recoverTypedDataAddress({
         domain: {
-          name: accept.extra.name,
-          version: accept.extra.version,
+          name: accept.extra?.name,
+          version: accept.extra?.version,
           chainId: chain.id,
           verifyingContract: token,
         },
@@ -768,7 +768,7 @@ export async function verifyAndSettleExactEvm(input: {
   try {
     // Honour the gate's minConfirmations (the server-trusted accept carries it), so the
     // exact rail grants access at the SAME reorg depth as onchain-proof — not always 1.
-    const confirmations = accept.extra.minConfirmations ?? 1
+    const confirmations = accept.extra?.minConfirmations ?? 1
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash, confirmations })
     if (receipt.status !== 'success') {
       // Mined but reverted after a passing simulate — a rare race (e.g. the nonce got

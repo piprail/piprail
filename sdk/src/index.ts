@@ -233,6 +233,18 @@ export {
   buildSignatureHeader,
   buildExactSignatureHeader,
   buildUptoSignatureHeader,
+  // x402 v1 compat (PARSE + ANSWER): still-deployed v1 servers send a plain v1 body and read
+  // only the flat `X-PAYMENT` header. `normalizeV1Challenge` lifts such a body into the v2-shaped
+  // X402Challenge the rest of the SDK speaks; `buildV1PaymentHeader` frames the answer.
+  normalizeV1Challenge,
+  buildV1PaymentHeader,
+  // The `exact` transfer-method contract. `assetTransferMethod` is OPTIONAL on the wire —
+  // absent means `eip3009` (scheme_exact_evm.md). Read it through `exactTransferMethod`, never
+  // bare: requiring it is what made 91% of the deployed x402 web unpayable.
+  exactTransferMethod,
+  isSettleableExactMethod,
+  KNOWN_EXACT_TRANSFER_METHODS,
+  DEFAULT_EXACT_TRANSFER_METHOD,
   buildReceiptHeader,
   buildReceiptExtension,
   EXT_OFFER_RECEIPT,

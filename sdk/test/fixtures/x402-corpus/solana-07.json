@@ -1,0 +1,56 @@
+{
+  "x402Version": 2,
+  "resource": {
+    "url": "https://api.bitrefill.com/x402/gift-cards/search",
+    "description": "Search 10,000+ gift card & voucher brands across 180+ countries by name and coun"
+  },
+  "accepts": [
+    {
+      "amount": "2000",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "extra": {
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:8453",
+      "payTo": "0x480CD46E6faDe651a0437DeaddA53D5c8e7D846A",
+      "scheme": "exact"
+    },
+    {
+      "amount": "2000",
+      "asset": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+      "extra": {
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:42161",
+      "payTo": "0x480CD46E6faDe651a0437DeaddA53D5c8e7D846A",
+      "scheme": "exact"
+    },
+    {
+      "amount": "2000",
+      "asset": "0x3c499c542cef5e3811e1192ce70d8cc03d5c3359",
+      "extra": {
+        "name": "USD Coin",
+        "version": "2"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "eip155:137",
+      "payTo": "0x480CD46E6faDe651a0437DeaddA53D5c8e7D846A",
+      "scheme": "exact"
+    },
+    {
+      "amount": "2000",
+      "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "extra": {
+        "feePayer": "BENrLoUbndxoNMUS5JXApGMtNykLjFXXixMtpDwDR9SP"
+      },
+      "maxTimeoutSeconds": 300,
+      "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+      "payTo": "5yASLjtNssGXDv6bR9e71WXKxRymDiUzbgkGPqkQNgRn",
+      "scheme": "exact"
+    }
+  ]
+}
