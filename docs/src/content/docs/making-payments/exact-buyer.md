@@ -49,7 +49,7 @@ gas-funded key at all — settlement is fully gasless end to end (see
 
 ## What exact can settle
 
-The `exact` rail works on **EVM, Solana, Algorand, Aptos, and NEAR**, via one of six on-chain methods. The
+The `exact` rail works on **EVM, Solana, Algorand, Aptos, NEAR, and the XRP Ledger**, via one of seven on-chain methods. The
 402's rail names which one (`extra.assetTransferMethod`), and the client picks the matching signer
 automatically:
 
@@ -79,13 +79,24 @@ automatically:
   own outer transaction, prepays the gas **and** the yocto, and submits. The buyer holds **zero
   NEAR** — gasless regardless of token. Self-settle only today (no third-party NEAR x402 facilitator
   settles yet — see [Gasless payments](/making-payments/gasless-payments/)).
+- **`sequence`** (XRP Ledger) — **native XRP**. The odd one out twice over. First, the method names
+  the *sequencing* strategy rather than a transfer mechanism, because the ledger has exactly one way
+  to move value; `sequence` is the scheme's default and every live rail omits the field. Second, it
+  is the only rail where **the payer pays the network fee** — the fee is a field inside the signed
+  transaction — so there is no sponsor and the buyer needs XRP for the amount *and* the ~12 drops.
+  The client signs a complete `Payment` and broadcasts nothing; the merchant submits it. The
+  challenge binds through `InvoiceID = SHA-256(extra.invoiceId)`, never a memo (the scheme has
+  settlers reject `Memos`). Issued currencies such as RLUSD stay on `onchain-proof` for now: they
+  state a decimal amount on the wire rather than base units, and the spend policy caps in base
+  units, so paying one would misprice your cap.
 
 | Works on `exact` | Stays on `onchain-proof` |
 | --- | --- |
-| EVM EIP-3009 (USDC / EURC; FDUSD, USD1 & U on BNB) | The other non-EVM families (TON, Tron, Sui, Stellar, XRPL) |
-| EVM Permit2 — any ERC-20 (e.g. Binance-Peg USDC on BNB) | The chain's native coin (incl. SOL, ALGO, APT, NEAR) |
-| Solana SVM — any SPL token (USDC / USDT) | A contract / EIP-1271 / EIP-7702 signer (EVM) |
-| Algorand ASA (USDCa) · Aptos FA (USDC / USD₮) · NEAR NEP-141 (USDC / USDT, via NEP-366 meta-tx) | |
+| EVM EIP-3009 (USDC / EURC; FDUSD, USD1 & U on BNB) | The remaining non-EVM families (TON, Tron, Sui, Stellar) |
+| EVM Permit2 — any ERC-20 (e.g. Binance-Peg USDC on BNB) | Most native coins (SOL, ALGO, APT, NEAR) — **but not XRP**, which IS exact-payable |
+| Solana SVM — any SPL token (USDC / USDT) | XRPL **issued** currencies (RLUSD & co — decimal wire amounts) |
+| Algorand ASA (USDCa) · Aptos FA (USDC / USD₮) · NEAR NEP-141 (USDC / USDT, via NEP-366 meta-tx) | A contract / EIP-1271 / EIP-7702 signer (EVM) |
+| **XRPL native XRP** (the payer pays its own fee) | |
 
 An `exact` rail is selected only when the 402 names a network **your bound chain supports** — the
 client matches each offered rail against its own chain via the driver (matching the network whether

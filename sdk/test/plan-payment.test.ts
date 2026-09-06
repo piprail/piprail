@@ -295,6 +295,32 @@ describe('F9 — native is never gathered as an exact/upto rail (plan-vs-pay con
     expect(plan.best?.accept.asset).toBe(USDC)
   })
 
+  it('F9b: a driver that DECLARES exactPayableAsset overrides the default, in both directions', async () => {
+    /*
+     * XRPL is the first family where the default rule is wrong in BOTH directions: native XRP IS
+     * exact-payable (an `exact` payment there is just a signed `Payment`, and 863 of its 1,732 live
+     * rails are priced in XRP), while its ISSUED currencies are NOT — they state a decimal `value`
+     * on the wire, and the spend policy caps in base units, so pricing one as base units would let
+     * a 12-RLUSD rail slip under any cap.
+     *
+     * So the hook has to be authoritative for ALL of a driver's assets, not just an extra filter on
+     * top of "never native". This proves both halves at once against one stub.
+     */
+    net = {
+      ...baseNet(),
+      payExact: (async () => 'ref'),
+      exactPayableAsset: (asset: string) => asset === 'native', // native yes, the token no
+    } as unknown as ResolvedNetwork
+    const nativeExact = { ...nativeAccept(), scheme: 'exact', extra: { decimals: 7, symbol: 'XLM', amountFormatted: '0.05' } } as unknown as X402AcceptEntry
+    const usdcExact = { ...usdcAccept(), scheme: 'exact', extra: { decimals: 7, symbol: 'USDC', amountFormatted: '0.05', name: 'USD Coin', version: '2' } } as unknown as X402AcceptEntry
+    stub402([nativeExact, usdcExact])
+    const plan = (await client({ schemes: ['exact'] }).planPayment(URL))!
+    // the NATIVE exact rail is now gathered — the opposite of F9's default
+    expect(plan.options.some((o) => o.accept.asset === 'native' && o.accept.scheme === 'exact')).toBe(true)
+    // …and the TOKEN rail the default would have allowed is excluded
+    expect(plan.options.some((o) => o.accept.asset === USDC && o.accept.scheme === 'exact')).toBe(false)
+  })
+
   it('G4: an exact rail for a RECOGNISED token with NO `extra.assetTransferMethod` IS planned payable (spec default eip3009)', async () => {
     // THE REGRESSION THIS FILE EXISTS FOR. This test used to assert the OPPOSITE — that a
     // marker-less rail is dropped — on the theory that the pay path would deref

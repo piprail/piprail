@@ -6,6 +6,48 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added — the XRP Ledger `exact` buyer (stage 04, first family)
+
+- **A PipRail agent can now pay a standard x402 `exact` rail on the XRP Ledger** — 1,732 live rails,
+  and as far as we can tell the only open-source buyer on that chain. `drivers/xrpl/exact.ts`
+  implements `scheme_exact_xrpl.md` in both directions: the buyer signs a complete `Payment` and
+  broadcasts nothing; the gate decodes the blob, re-derives every checked field from its own trusted
+  accept, submits, and waits for a validated `tesSUCCESS`.
+
+  XRPL is the family where **the payer pays the fee** (it is a field inside the signed transaction),
+  so there is no sponsor, no co-signature, and no fee-drain guard. The scheme replaces those with a
+  list of MUST-NOTs the settler enforces — no `Memos`, no `Paths`, no `tfPartialPayment`, no
+  `Delegate`, never `Amount` and `DeliverMax` together — each of which is a way a hostile blob could
+  underdeliver, and each of which has a test.
+
+  The challenge binds through `InvoiceID = SHA-256(extra.invoiceId)`, **not** a memo: the scheme has
+  settlers reject `Memos`, which is exactly what PipRail's `onchain-proof` XRPL path uses for its
+  nonce. The two paths deliberately share no code.
+
+  **`extra.areFeesSponsored` is required by the scheme and absent from 100% of live rails**, so it is
+  read as *false unless present*. Requiring it would have rejected the entire deployed XRPL x402 web
+  — the third instance of that bug class this release cycle, and the reason it now has a test of its
+  own.
+
+  **Native XRP only, deliberately.** The two XRPL asset forms use different wire amount conventions
+  (native is an integer *drops* string, an issued currency is a *decimal* `value` — both verified
+  against live merchant challenges). The SDK prices and spend-caps in base units, so reading an
+  IOU's `"12"` as base units would understate a 12-RLUSD payment by 10^15 and slip it under any
+  policy cap while the buyer signed the real amount. Issued currencies are therefore dropped at
+  gather rather than mispriced; the RLUSD half waits until that decimal path is threaded through
+  quoting and the policy.
+
+- **`ResolvedNetwork.exactPayableAsset?(asset)`** — a new optional driver hook. The buyer's gather
+  used to hard-code "any recognised token is exact-payable, the native coin never is", which was
+  true until XRPL, where it is wrong in *both* directions. A driver that declares the hook is
+  authoritative for all of its assets; every other family omits it and behaves exactly as before.
+
+- Live-proven on mainnet: settle tx
+  `C5C1EE29D5BB6FA52E1870416AC8D1B15B9E51FE89AA94F89556B9F8E714B4A7` — 0.01 XRP through our own
+  gate on the `exact` rail, payer debited 0.010011 XRP (the amount **plus its own 12-drop fee**),
+  merchant credited 0.010000, and a genuine replay of the same signed blob refused with a 402.
+
+
 ### Fixed — the buyer required a field the spec makes optional, and so could not pay 91% of the x402 web
 
 - **`schemes: ['exact']` clients now pay the standard x402 web: 26.3% → 98.8% of the resources

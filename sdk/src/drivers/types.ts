@@ -268,7 +268,10 @@ export interface ReceiptInput {
  * chain-agnostic — it never names a family, it just merges `extra`.
  */
 export interface ExactRailInfo {
-  method: 'eip3009' | 'permit2' | 'svm' | 'algorand' | 'aptos' | 'near'
+  /** The wire `assetTransferMethod` this family advertises. XRPL's `'sequence'` is the odd one
+   *  out: it names how the transaction is SEQUENCED rather than a transfer mechanism, because the
+   *  ledger has only one way to move value. */
+  method: 'eip3009' | 'permit2' | 'svm' | 'algorand' | 'aptos' | 'near' | 'sequence'
   /** Family-specific `extra` keys merged into the exact accept (e.g. `{ name, version }`
    *  for EVM EIP-3009, `{ feePayer, tokenProgram }` for Solana, `{ feePayer }` for
    *  Algorand/Aptos/NEAR). */
@@ -486,6 +489,28 @@ export interface ResolvedNetwork {
    * Permit2 fallback. Omitted (or `false`) ⇒ treat Permit2 as unavailable on this chain.
    */
   exactPermit2Supported?(): boolean
+
+  /**
+   * OPTIONAL — can this family sign an `exact` payment for THIS asset? Omitted ⇒ the default rule
+   * applies: any recognised TOKEN yes, the NATIVE coin no (`exact` is a signed-authorization scheme
+   * a native coin can't carry on EVM/Solana/Algorand/Aptos/NEAR). A driver that declares this hook
+   * REPLACES that rule for itself and is authoritative for all of its assets.
+   *
+   * The buyer's gather calls it so an asset we cannot price safely is dropped *there* rather than
+   * planned `payable` and thrown at signing — the plan-vs-pay contract. Family-level capability is
+   * already covered by whether `payExact` exists at all; this is the per-ASSET refinement.
+   *
+   * XRPL is why it exists, and it inverts the default in both directions: native XRP IS
+   * exact-payable (863 of its 1,732 live rails are priced in XRP, and an `exact` payment there is
+   * just a signed `Payment`), while its issued currencies are NOT. On that ledger the two asset
+   * forms use DIFFERENT amount conventions on the wire — native XRP is an integer drops string (base units, e.g. `"10000"`), while an issued
+   * currency is a decimal `value` (e.g. `"0.01"`), both verified against live merchant challenges.
+   * The SDK prices and spend-caps every rail in base units, so reading an IOU's `"12"` as base
+   * units would understate a 12-RLUSD payment by 10^15 and let it slip under any policy cap while
+   * the buyer signed the real thing. Until that decimal path is threaded through quoting and the
+   * policy, XRPL declares only native XRP exact-payable.
+   */
+  exactPayableAsset?(asset: string): boolean
 
   /**
    * OPTIONAL (EVM EIP-3009/Permit2 + Solana SVM + Algorand + Aptos) — verify a standard x402 `exact`
