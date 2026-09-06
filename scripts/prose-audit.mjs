@@ -34,8 +34,28 @@ const REPO = join(dirname(fileURLToPath(import.meta.url)), '..')
  * code-card captions that render on the page, and the stylesheets carry authored comments. A
  * reader sees this text, so the house voice applies to it.
  */
-const EXTS = new Set(['.md', '.mdx', '.astro', '.ts', '.css'])
-const DEFAULT_ROOTS = ['site/src', 'docs/src']
+const EXTS = new Set(['.md', '.mdx', '.astro', '.ts', '.css', '.mjs'])
+/*
+ * The two Astro configs are in scope even though they are not under `src`, because each one
+ * holds strings that render into EVERY page of its site: the `og:image:alt`, the site
+ * description, the JSON-LD blurb. Missing them is how the docs shipped an em dash on all 93
+ * pages while the gate reported clean. Their CODE COMMENTS are not in scope (see
+ * `stripComments`): the house voice is for text a stranger reads, not for notes to ourselves.
+ */
+const DEFAULT_ROOTS = ['site/src', 'docs/src', 'site/astro.config.mjs', 'docs/astro.config.mjs']
+const COMMENTS_EXEMPT = new Set(['site/astro.config.mjs', 'docs/astro.config.mjs'])
+
+/**
+ * Blank out `//` and block comments, keeping line and column numbers intact so a finding
+ * still points at the right place. Deliberately naive: a `//` inside a string literal would
+ * be blanked too. That direction is safe (it can only hide a finding in a URL-ish string,
+ * never invent one), and the alternative is parsing JS to lint prose.
+ */
+function stripComments(text) {
+  return text
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
+    .replace(/(^|[^:])\/\/[^\n]*/g, (m, p1) => p1 + ' '.repeat(m.length - p1.length))
+}
 const ALLOW_FILE = join(REPO, 'scripts/prose-allow.json')
 
 const C = process.stdout.isTTY && !process.env.NO_COLOR
@@ -150,7 +170,8 @@ function auditFile(file, allow) {
   const rel = relative(REPO, file)
   const mine = allow.filter((a) => a.file === rel || a.file === '*')
   const findings = []
-  const lines = readFileSync(file, 'utf8').split('\n')
+  const raw = readFileSync(file, 'utf8')
+  const lines = (COMMENTS_EXEMPT.has(rel) ? stripComments(raw) : raw).split('\n')
   lines.forEach((line, i) => {
     if (mine.some((a) => line.includes(a.snippet))) return
     for (const tell of TELLS) {
