@@ -1,7 +1,8 @@
 ---
-title: FAQ
+title: "x402 MCP server FAQ: budgets and custody"
 description: 'Short answers to the common questions about running the @piprail/mcp wallet: clients, budgeting, custody, chains, and how it differs from the SDK.'
 sidebar:
+  label: FAQ
   order: 10
 ---
 

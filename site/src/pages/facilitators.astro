@@ -148,6 +148,18 @@ const faqs = [
     a: `${chainCount} chains have at least one known keyless facilitator: ${facilitatorCoverage.map((c) => c.chain).join(', ')}. Base has the most options with ${facilitatorCoverage[0].facilitators.length}.`,
   },
   {
+    // Targets the frozen AEO probe "x402 payments on Algorand or NEAR", which we were absent
+    // from on 2026-08-30. Every non-EVM gasless rail is named, because the query names chains.
+    q: 'Which non-EVM chains have gasless x402 payments?',
+    a: 'Three, and each one settles through a different keyless facilitator. Solana has the most options: PayAI, OpenFacilitator and GoPlausible all sponsor the fee on the SVM exact rail, so the buyer pays 0 SOL. Algorand has GoPlausible, which pools the fee across an atomic group so both the buyer and the merchant pay 0 ALGO. NEAR has Ultravioleta DAO, settling a NEP-141 transfer through a NEP-366 meta-transaction with the buyer paying 0 NEAR. Everywhere else non-EVM, the gasless path is self-settle: you run the relayer and pay the sub-cent fee yourself, and the buyer still pays nothing.',
+  },
+  {
+    // Original data: we ran this settlement, so this is a fact only we can state. Per the
+    // citable-page skill, original measurement is what earns a named-source citation.
+    q: 'Is there a keyless x402 facilitator for NEAR?',
+    a: 'Yes, since 7 September 2026: Ultravioleta DAO. PipRail settled the first keyless x402 facilitator payment on NEAR mainnet that day, a NEP-141 USDC transfer carried by a NEP-366 meta-transaction, with the buyer paying 0 NEAR and the replay rejected (transaction 8pVe4oeykCT2WpCwToNbkxjdgSvwNNtJUrGezDCHKDda, openable on nearblocks). Before that, no facilitator settled NEAR at all and the only gasless route was to run your own relayer.',
+  },
+  {
     q: 'What is EIP-3009, and why does it matter here?',
     a: 'EIP-3009 (transferWithAuthorization) lets a token holder sign a transfer off-chain and let somebody else submit it and pay the gas. It is what makes the x402 "exact" scheme gasless for the buyer: you sign, the facilitator submits. Native USDC implements it on most chains, which is why almost every facilitator below settles eip3009 rails. A chain whose USDC is a bridged wrapper usually cannot do this, which is why coverage is uneven.',
   },

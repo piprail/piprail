@@ -10,7 +10,7 @@ import { mcpConfigCode } from '../data/snippets'
 import { liveIntegrations, comingSoon } from '../data/integrations'
 import { Wallet, ShieldCheck, Terminal, ArrowRight, ChevronDown, Code2, Sparkles, Plug } from 'lucide-astro'
 
-const title = 'MCP server for Claude & Cursor that pays for APIs, budget-capped | PipRail'
+const title = 'x402 MCP server for Claude & Cursor | PipRail'
 const description =
   'Give Claude, Cursor or any MCP client a budget-capped wallet so it can pay for APIs on its own. No backend, no custody, spend caps the model cannot exceed.'
 
@@ -65,7 +65,7 @@ const faqLd = {
       <p class="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-neutral-400 sm:text-lg">
         Hand any MCP client a <span class="text-neutral-200">budget-bound payment wallet</span>. Claude Desktop,
         Cursor, Claude Code, Windsurf, VS Code, and Cline can pay x402-gated URLs on their own, across 29 chains,
-        capped by a spend policy the model <span class="text-neutral-200">cannot exceed</span>. No backend, no custody, no code.
+        capped by a <a href="/blog/give-your-agent-a-wallet/" class="text-neutral-200 underline decoration-white/20 underline-offset-4 hover:decoration-accent">spend policy the model cannot exceed</a>. No backend, no custody, no code. Writing code instead? Use the <a href="/sdk/" class="text-accent underline-offset-4 hover:underline">x402 SDK</a>.
       </p>
       <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
         <div class="flex w-full max-w-xs items-center gap-3 rounded-xl border border-white/10 bg-neutral-900/80 px-5 py-3.5 font-mono text-sm sm:w-auto">
@@ -122,7 +122,7 @@ const faqLd = {
         ))}
       </ul>
       <p class="mt-8 text-sm text-neutral-500">
-        Budget-bound and local-only. The policy is enforced before any send, so the model can’t overspend even if it tries.
+        Budget-bound and local-only. The policy is enforced before any send, so the model can’t overspend even if it tries. On 14 chains the seller can offer a gasless rail, so the agent pays nothing but the price: <a href="/facilitators/" class="text-accent underline-offset-4 hover:underline">which x402 facilitator settles where</a>.
         <a href="https://docs.piprail.com/mcp/tools/" class="ml-1 text-accent underline-offset-4 hover:underline">Full tool reference →</a>
       </p>
     </section>

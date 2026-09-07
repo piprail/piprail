@@ -58,7 +58,7 @@ export const posts: Post[] = [
     slug: 'give-your-agent-a-wallet',
     title: 'Give Your AI Agent a Wallet It Can’t Overspend',
     seoTitle:
-      'Add x402 payments to an AI agent: the PipRail SDK, MCP server, and spend policy',
+      'Add x402 payments to an AI agent, with a hard spend cap',
     description:
       'Give an AI agent a budget-bound wallet that pays x402 URLs by itself, capped per call and for life. The SDK, the MCP server, and the spend policy.',
     excerpt:
@@ -84,7 +84,7 @@ export const posts: Post[] = [
     slug: 'x402-chains',
     title: 'Every Chain PipRail Supports for x402 Payments',
     seoTitle:
-      'x402 supported chains: every network PipRail pays on, 29 chains, one parameter',
+      'x402 supported chains: 29 networks, one parameter',
     description:
       'One chain: parameter, 29 chains. Every major EVM network plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar and XRPL, and the tokens on each.',
     excerpt:

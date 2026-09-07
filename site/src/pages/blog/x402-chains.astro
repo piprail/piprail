@@ -196,7 +196,7 @@ const faqLd = {
       </aside>
 
       <div class="article-prose mt-10">
-        <p>Most payment SDKs answer “which chains do you support?” with a list they maintain: an allowlist, baked into a release, that grows one pull request at a time. PipRail answers it differently: <strong>chain details are data the caller passes, not an allowlist the SDK ships.</strong> The built-in presets are a convenience, each coming with its canonical USDC address already filled in, but they are not a fence. Name a preset, or hand the SDK a chain it has never seen, and it pays either way.</p>
+        <p>Most payment SDKs answer “which chains do you support?” with a list they maintain: an allowlist, baked into a release, that grows one pull request at a time. <a href="/sdk/">PipRail</a> answers it differently: <strong>chain details are data the caller passes, not an allowlist the SDK ships.</strong> The built-in presets are a convenience, each coming with its canonical USDC address already filled in, but they are not a fence. Name a preset, or hand the SDK a chain it has never seen, and it pays either way. The full list, with every token, is on <a href="/chains/">the chains page</a>.</p>
 
         <p>That is the whole idea behind one parameter. The <span class="font-mono text-[0.9em] text-neutral-200">chain:</span> value you pass selects the network, its sensible RPC default, the native coin, and the right stablecoin addresses, all at once. Going from Base to Solana, or from Polygon to the XRP Ledger, is a one-word change in your code and nothing else.</p>
 
@@ -277,7 +277,7 @@ const faqLd = {
 
         <h2>Why breadth is the point</h2>
 
-        <p>An agent does not get to choose what it holds when it meets a paywall. It holds what it holds: maybe USDC on Base, maybe SOL on Solana, maybe XRP because that is where its budget lives. A rail that only speaks one chain forces a bridge, a swap, and a wait before the agent can do the one thing it was asked to do: pay and move on. A rail that speaks twenty-nine lets it pay with what it has.</p>
+        <p>An agent does not get to choose what it holds when it meets a paywall. It holds what it holds: maybe USDC on Base, maybe SOL on Solana, maybe XRP because that is where its budget lives. A rail that only speaks one chain forces a bridge, a swap, and a wait before the agent can do the one thing it was asked to do: pay and move on. A rail that speaks twenty-nine lets it pay with what it has. On 14 of them the seller can sponsor the gas through a <a href="/facilitators/">keyless x402 facilitator</a>, so the agent pays nothing but the price.</p>
 
         <p>That is why PipRail treats chains as data and not as a gate. The list above is what ships today, verified address by verified address, but the design is built so the list is never the limit. Name a chain. If we have a preset, you get USDC for free. If we do not, pass it in. Either way, your agent pays.</p>
       </div>

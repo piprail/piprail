@@ -1,7 +1,8 @@
 ---
-title: quote()
+title: "quote(): the price of a URL before you pay"
 description: 'Learn the price of a gated URL before paying it: the true token decimals and symbol, the policy verdict, and a scam-smell flag, with no funds moved.'
 sidebar:
+  label: quote()
   order: 4
 ---
 

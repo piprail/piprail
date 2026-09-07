@@ -1,5 +1,5 @@
 ---
-title: "Accept USDC payments on Algorand"
+title: "Accept x402 USDC payments on Algorand"
 description: Accept and pay x402 payments on Algorand in native ALGO (zero-setup) plus native Circle USDC, with the one-time ASA opt-in caveat for receiving USDC.
 sidebar:
   label: Algorand

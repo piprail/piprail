@@ -1,5 +1,5 @@
 ---
-title: "Accept USDC payments on Solana"
+title: "Accept x402 USDC payments on Solana"
 description: 'Accept and pay x402 payments on Solana in SOL, USDC, and USDT, with one lazy peer dep, a Keypair wallet, and digest-bound on-chain verification.'
 sidebar:
   label: Solana

@@ -1,5 +1,5 @@
 ---
-title: "Accept USDT payments on Tron"
+title: "Accept x402 USDT payments on Tron"
 description: Pay and get paid in USD₮ (or native TRX) on Tron, the largest stablecoin rail on earth, with digest-bound verification and no built-in USDC.
 sidebar:
   label: Tron
