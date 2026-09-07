@@ -434,6 +434,97 @@ export const facilitatorCoverage: FacilitatorChain[] = [
     ]
   },
   {
+    "caip2": "eip155:43114",
+    "chain": "Avalanche",
+    "slug": "avalanche",
+    "facilitators": [
+      {
+        "name": "PayAI",
+        "nameNote": null,
+        "url": "https://facilitator.payai.network",
+        "host": "facilitator.payai.network",
+        "keyless": true,
+        "schemes": [
+          "exact"
+        ],
+        "settles": [
+          "eip3009"
+        ],
+        "note": "PayAI: keyless, sponsors gas (Avalanche native USDC EIP-3009). LIVE-settled on Avalanche 2026-06-18 (tx 0x6a1307bc48a157de236ea03440ea2cb6ad4f27e22dd9c89a4345b4c3edb270c7).",
+        "settled": true,
+        "date": "2026-06-18",
+        "txs": [
+          {
+            "hash": "0x6a1307bc48a157de236ea03440ea2cb6ad4f27e22dd9c89a4345b4c3edb270c7",
+            "url": "https://snowtrace.io/tx/0x6a1307bc48a157de236ea03440ea2cb6ad4f27e22dd9c89a4345b4c3edb270c7",
+            "full": true
+          }
+        ],
+        "asset": "Avalanche native USDC EIP-3009",
+        "floor": null,
+        "floorNote": null,
+        "gasSponsored": true,
+        "caveat": "PayAI: keyless, sponsors gas (Avalanche native USDC EIP-3009)."
+      },
+      {
+        "name": "Dexter",
+        "nameNote": null,
+        "url": "https://x402.dexter.cash",
+        "host": "x402.dexter.cash",
+        "keyless": true,
+        "schemes": [
+          "exact"
+        ],
+        "settles": [
+          "eip3009"
+        ],
+        "note": "Dexter: keyless, sponsors gas (no floor hit at $0.001 here). LIVE-settled on Avalanche 2026-06-18 (tx 0xb2263e9a4ea3917eee6acabcb454d42a50264fdd69a0781ed8fcaec5590e264b).",
+        "settled": true,
+        "date": "2026-06-18",
+        "txs": [
+          {
+            "hash": "0xb2263e9a4ea3917eee6acabcb454d42a50264fdd69a0781ed8fcaec5590e264b",
+            "url": "https://snowtrace.io/tx/0xb2263e9a4ea3917eee6acabcb454d42a50264fdd69a0781ed8fcaec5590e264b",
+            "full": true
+          }
+        ],
+        "asset": null,
+        "floor": null,
+        "floorNote": null,
+        "gasSponsored": true,
+        "caveat": "Dexter: keyless, sponsors gas (no floor hit at $0.001 here)."
+      },
+      {
+        "name": "Ultravioleta DAO",
+        "nameNote": null,
+        "url": "https://facilitator.ultravioletadao.xyz",
+        "host": "facilitator.ultravioletadao.xyz",
+        "keyless": true,
+        "schemes": [
+          "exact"
+        ],
+        "settles": [
+          "eip3009"
+        ],
+        "note": "Ultravioleta DAO: keyless, 100% gas-sponsored (Avalanche native USDC EIP-3009). LIVE-settled on Avalanche 2026-09-07 (tx 0xe9a88e4fa978a16599b6188444d87ea63d43122e5fad16493568c2a596a79436): the buyer held ZERO AVAX and the payment still landed, replay rejected.",
+        "settled": true,
+        "date": "2026-09-07",
+        "txs": [
+          {
+            "hash": "0xe9a88e4fa978a16599b6188444d87ea63d43122e5fad16493568c2a596a79436",
+            "url": "https://snowtrace.io/tx/0xe9a88e4fa978a16599b6188444d87ea63d43122e5fad16493568c2a596a79436",
+            "full": true
+          }
+        ],
+        "asset": "Avalanche native USDC EIP-3009",
+        "floor": null,
+        "floorNote": null,
+        "gasSponsored": true,
+        "caveat": "Ultravioleta DAO: keyless, 100% gas-sponsored (Avalanche native USDC EIP-3009)."
+      }
+    ]
+  },
+  {
     "caip2": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
     "chain": "Solana",
     "slug": "solana",
@@ -521,69 +612,6 @@ export const facilitatorCoverage: FacilitatorChain[] = [
         "floorNote": null,
         "gasSponsored": true,
         "caveat": "GoPlausible: keyless fee-payer sponsor (Solana SPL SVM)."
-      }
-    ]
-  },
-  {
-    "caip2": "eip155:43114",
-    "chain": "Avalanche",
-    "slug": "avalanche",
-    "facilitators": [
-      {
-        "name": "PayAI",
-        "nameNote": null,
-        "url": "https://facilitator.payai.network",
-        "host": "facilitator.payai.network",
-        "keyless": true,
-        "schemes": [
-          "exact"
-        ],
-        "settles": [
-          "eip3009"
-        ],
-        "note": "PayAI: keyless, sponsors gas (Avalanche native USDC EIP-3009). LIVE-settled on Avalanche 2026-06-18 (tx 0x6a1307bc48a157de236ea03440ea2cb6ad4f27e22dd9c89a4345b4c3edb270c7).",
-        "settled": true,
-        "date": "2026-06-18",
-        "txs": [
-          {
-            "hash": "0x6a1307bc48a157de236ea03440ea2cb6ad4f27e22dd9c89a4345b4c3edb270c7",
-            "url": "https://snowtrace.io/tx/0x6a1307bc48a157de236ea03440ea2cb6ad4f27e22dd9c89a4345b4c3edb270c7",
-            "full": true
-          }
-        ],
-        "asset": "Avalanche native USDC EIP-3009",
-        "floor": null,
-        "floorNote": null,
-        "gasSponsored": true,
-        "caveat": "PayAI: keyless, sponsors gas (Avalanche native USDC EIP-3009)."
-      },
-      {
-        "name": "Dexter",
-        "nameNote": null,
-        "url": "https://x402.dexter.cash",
-        "host": "x402.dexter.cash",
-        "keyless": true,
-        "schemes": [
-          "exact"
-        ],
-        "settles": [
-          "eip3009"
-        ],
-        "note": "Dexter: keyless, sponsors gas (no floor hit at $0.001 here). LIVE-settled on Avalanche 2026-06-18 (tx 0xb2263e9a4ea3917eee6acabcb454d42a50264fdd69a0781ed8fcaec5590e264b).",
-        "settled": true,
-        "date": "2026-06-18",
-        "txs": [
-          {
-            "hash": "0xb2263e9a4ea3917eee6acabcb454d42a50264fdd69a0781ed8fcaec5590e264b",
-            "url": "https://snowtrace.io/tx/0xb2263e9a4ea3917eee6acabcb454d42a50264fdd69a0781ed8fcaec5590e264b",
-            "full": true
-          }
-        ],
-        "asset": null,
-        "floor": null,
-        "floorNote": null,
-        "gasSponsored": true,
-        "caveat": "Dexter: keyless, sponsors gas (no floor hit at $0.001 here)."
       }
     ]
   },
@@ -883,6 +911,41 @@ export const facilitatorCoverage: FacilitatorChain[] = [
         "floorNote": null,
         "gasSponsored": true,
         "caveat": "Ultravioleta DAO: keyless, 100% gas-sponsored (HyperEVM native USDC EIP-3009)."
+      }
+    ]
+  },
+  {
+    "caip2": "near:mainnet",
+    "chain": "NEAR",
+    "slug": "near",
+    "facilitators": [
+      {
+        "name": "Ultravioleta DAO",
+        "nameNote": null,
+        "url": "https://facilitator.ultravioletadao.xyz",
+        "host": "facilitator.ultravioletadao.xyz",
+        "keyless": true,
+        "schemes": [
+          "exact"
+        ],
+        "settles": [
+          "near"
+        ],
+        "note": "Ultravioleta DAO: keyless fee-payer sponsor (NEAR NEP-141 USDC, NEP-366 meta-transaction). LIVE-settled on NEAR mainnet 2026-09-07 (tx 8pVe4oeykCT2WpCwToNbkxjdgSvwNNtJUrGezDCHKDda): buyer paid 0 NEAR, replay rejected. The first keyless x402 facilitator settlement on NEAR.",
+        "settled": true,
+        "date": "2026-09-07",
+        "txs": [
+          {
+            "hash": "8pVe4oeykCT2WpCwToNbkxjdgSvwNNtJUrGezDCHKDda",
+            "url": "https://nearblocks.io/txns/8pVe4oeykCT2WpCwToNbkxjdgSvwNNtJUrGezDCHKDda",
+            "full": true
+          }
+        ],
+        "asset": "NEAR NEP-141 USDC, NEP-366 meta-transaction",
+        "floor": null,
+        "floorNote": null,
+        "gasSponsored": true,
+        "caveat": "Ultravioleta DAO: keyless fee-payer sponsor (NEAR NEP-141 USDC, NEP-366 meta-transaction). The first keyless x402 facilitator settlement on NEAR."
       }
     ]
   },

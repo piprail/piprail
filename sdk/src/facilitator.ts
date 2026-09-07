@@ -161,6 +161,14 @@ export interface SettleViaFacilitatorInput extends FacilitatorConfig {
   receipt: { network: Caip2; asset: AssetId; payTo: AddressId; amount: string }
   /** authorization.from, for the receipt's `payer`. */
   payerHint?: string
+  /**
+   * The gated resource, from the merchant's own trusted config (never the client echo).
+   * x402 v2 facilitators may require it at the request root — Ultravioleta DAO refuses a
+   * v2 body without it (`data did not match any variant of untagged enum VerifyRequestEnvelope`),
+   * which silently blocked every non-EVM rail it settles. Omitted fields fall back to a
+   * neutral placeholder rather than being dropped, because the field is required, not optional.
+   */
+  resource?: { url?: string; description?: string; mimeType?: string }
 }
 
 interface VerifyResponse {
@@ -225,10 +233,24 @@ async function post(
  */
 export async function settleViaFacilitator(input: SettleViaFacilitatorInput): Promise<VerifyResult> {
   const base = input.url.replace(/\/+$/, '')
+  // x402 v1 spells the requirements `paymentRequirements`; v2 spells them `accepted` and adds a
+  // required `resource`. Both are sent on a v2 body: the v1 key is what the older facilitators
+  // read, the v2 keys are what a strict v2 facilitator demands, and neither side minds the extra.
+  const v2 = input.x402Version >= 2
   const body = {
     x402Version: input.x402Version,
     paymentPayload: input.paymentPayload,
     paymentRequirements: input.paymentRequirements,
+    ...(v2
+      ? {
+          accepted: input.paymentRequirements,
+          resource: {
+            url: input.resource?.url || 'https://piprail.com/x402/resource',
+            description: input.resource?.description || 'Paid resource',
+            mimeType: input.resource?.mimeType || 'application/json',
+          },
+        }
+      : {}),
   }
   const auth = input.authHeaders ? await input.authHeaders() : {}
 

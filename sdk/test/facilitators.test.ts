@@ -77,6 +77,7 @@ describe('KNOWN_FACILITATORS (seed data)', () => {
       solana: ['svm'],
       algorand: ['algorand'],
       aptos: ['aptos'],
+      near: ['near'],
     }
     for (const [network, facs] of Object.entries(KNOWN_FACILITATORS)) {
       const namespace = network.split(':')[0]!
@@ -147,6 +148,29 @@ describe('KNOWN_FACILITATORS (seed data)', () => {
   it('does NOT seed Celo/Scroll (UVD advertises them but contract_call_failed → never live-settled)', () => {
     expect(knownFacilitatorsFor('eip155:42220')).toEqual([]) // Celo
     expect(knownFacilitatorsFor('eip155:534352')).toEqual([]) // Scroll
+  })
+
+  // 2026-09-07 sweep of every UVD mainnet PipRail ships. Two settled and are seeded
+  // (Avalanche, NEAR); these two did not, and the reasons differ — so record both, or the
+  // next sweep re-runs them. UVD's /supported advertising a chain is not evidence it settles.
+  it('does NOT seed UVD on Solana (verify isValid:true, but /settle → contract_call_failed)', () => {
+    const sol = knownFacilitatorsFor('solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp')
+    expect(sol.some((f) => f.url.includes('ultravioletadao'))).toBe(false)
+  })
+
+  it('does NOT seed UVD on Algorand (/verify cannot deserialize an Algorand exact payload)', () => {
+    const algo = knownFacilitatorsFor('algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=')
+    expect(algo.some((f) => f.url.includes('ultravioletadao'))).toBe(false)
+    // GoPlausible is the one that does settle Algorand, and must stay.
+    expect(algo.some((f) => f.url.includes('goplausible'))).toBe(true)
+  })
+
+  it('seeds UVD on NEAR — the first keyless facilitator settlement on near:mainnet', () => {
+    const near = knownFacilitatorsFor('near:mainnet')
+    const uvd = near.find((f) => f.url.includes('ultravioletadao'))
+    expect(uvd?.keyless).toBe(true)
+    expect(uvd?.settles).toContain('near')
+    expect(firstKeylessFacilitator('near:mainnet', 'near')?.url).toContain('ultravioletadao')
   })
 })
 

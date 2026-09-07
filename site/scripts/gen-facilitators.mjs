@@ -44,6 +44,7 @@ const CHAIN_META = {
   'eip155:130':    { name: 'Unichain',   slug: 'unichain',  explorer: 'https://uniscan.xyz/tx/' },
   'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp': { name: 'Solana', slug: 'solana', explorer: 'https://solscan.io/tx/' },
   'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=': { name: 'Algorand', slug: 'algorand', explorer: 'https://allo.info/tx/' },
+  'near:mainnet':  { name: 'NEAR',       slug: 'near',      explorer: 'https://nearblocks.io/txns/' },
 }
 
 const EVM_HASH = /0x[0-9a-fA-F]{64}/g
@@ -55,8 +56,17 @@ const ALGO_HASH = /\b[A-Z2-7]{52}\b/g
  */
 const SOL_HASH = /\b[1-9A-HJ-NP-Za-km-z]{86,90}\b/g
 
+/** NEAR tx hashes are base58 too, but 43-44 chars — a Solana *signature* is 86-90. */
+const NEAR_HASH = /\b[1-9A-HJ-NP-Za-km-z]{43,44}\b/g
+
 const hashRe = (caip2) =>
-  caip2.startsWith('algorand') ? ALGO_HASH : caip2.startsWith('solana') ? SOL_HASH : EVM_HASH
+  caip2.startsWith('algorand')
+    ? ALGO_HASH
+    : caip2.startsWith('solana')
+      ? SOL_HASH
+      : caip2.startsWith('near')
+        ? NEAR_HASH
+        : EVM_HASH
 
 /**
  * The facilitator's display name: the note's own leading label, which is how its operators
