@@ -30,7 +30,7 @@ fee-payer rail the gate also **bounds the fee** a buyer can make the sponsor pay
 | Facilitator | Keyless? | PipRail live-tested | Mainnet `exact` networks |
 |---|---|---|---|
 | **[PayAI](https://facilitator.payai.network/)** | ✅ keyless | ✅ **Base, Polygon, Arbitrum, Avalanche, Sei, Solana** | Base, Solana, Avalanche, Polygon, Arbitrum, Sei +24 |
-| **[Ultravioleta DAO](https://facilitator.ultravioletadao.xyz/)** | ✅ keyless | ✅ **Ethereum, Polygon, Arbitrum, Optimism, Unichain, HyperEVM, Base, Monad** | HyperEVM, Base, Monad, Celo, Unichain, Optimism, Scroll, Ethereum, Arbitrum, Polygon, Avalanche, BNB + Solana, Stellar, Sui, Algorand, NEAR, XRPL (18 listed, but Celo/Scroll/Avalanche `contract_call_failed`; non-EVM advertise-only) |
+| **[Ultravioleta DAO](https://facilitator.ultravioletadao.xyz/)** | ✅ keyless | ✅ **Ethereum, Polygon, Arbitrum, Optimism, Unichain, HyperEVM, Base, Monad, Avalanche, NEAR** | HyperEVM, Base, Monad, Celo, Unichain, Optimism, Scroll, Ethereum, Arbitrum, Polygon, Avalanche, BNB + Solana, Stellar, Sui, Algorand, NEAR, XRPL (21 mainnets listed; the 10 in bold are the ones our own live settles have completed on so far) |
 | **[Dexter](https://x402.dexter.cash/)** | ✅ keyless | ✅ **Base, Polygon, Arbitrum, Optimism, Avalanche, BNB** | Base, BNB, Solana, Polygon, Arbitrum, Optimism, Avalanche *(BNB: FDUSD/USD1/U only; ~$0.003 dynamic floor, so sub-floor payments are rejected)* |
 | **[Polygon Labs](https://x402.polygon.technology/)** | ✅ keyless | ✅ **Polygon** | Polygon (the official Polygon facilitator) |
 | **[GoPlausible](https://facilitator.goplausible.xyz/)** | ✅ keyless | ✅ **Algorand + Base + Solana** | **Algorand** (the only keyless Algorand facilitator), Base, Solana |
@@ -134,7 +134,7 @@ settled a real mainnet payment with no key, buyer paid zero gas (see
 - **Algorand** (`algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=`) → **GoPlausible** (`algorand`), *new, live-settled 2026-06-17.* Atomic-group fee pooling: GoPlausible's sponsor pools the whole group fee, so **both the buyer AND the merchant pay 0 ALGO**. The first non-EVM/non-Solana keyless chain.
 - **Solana** (`solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp`) → PayAI + OpenFacilitator + **GoPlausible** (`svm`), *GoPlausible live-settled 2026-09-06 (tx `3DEGg6Lu…`): buyer paid 0 SOL, GoPlausible's sponsor paid the fee.*
 
-So **`exact: true` is zero-config gasless on 13 chains today: Ethereum, Polygon, Arbitrum, Optimism, Avalanche, Sei, Unichain, Base, BNB, HyperEVM, Monad, Solana, and Algorand** (multiple keyless facilitators per chain = automatic failover). **Celo and Scroll are NOT seeded**, because Ultravioleta DAO advertises them but its sponsor contract reverts there (`contract_call_failed`), proving again that a `/supported` listing isn't settlement. **Daydreams** and
+So **`exact: true` is zero-config gasless on 14 chains today: Ethereum, Polygon, Arbitrum, Optimism, Avalanche, Sei, Unichain, Base, BNB, HyperEVM, Monad, Solana, Algorand, and NEAR** (multiple keyless facilitators per chain = automatic failover). **Celo and Scroll are not seeded yet**: our live settles there did not complete (`contract_call_failed`), and an entry is added only after one does. **Daydreams** and
 **Questflow** are deliberately **omitted**, because their `/supported` is public but `/verify` needs an API key.
 `x402.org/facilitator` is **not** seeded either. It's a Base *Sepolia* testnet facilitator, not a
 mainnet rail. **Aptos** has no keyless x402 facilitator on mainnet yet, so use **self-settle** for
