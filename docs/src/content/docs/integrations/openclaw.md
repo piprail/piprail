@@ -1,7 +1,8 @@
 ---
-title: OpenClaw
+title: Give an OpenClaw agent an x402 wallet
 description: 'Give an OpenClaw agent a budget-bound PipRail wallet that pays x402 APIs across every chain, with no facilitator and no fee.'
 sidebar:
+  label: OpenClaw
   order: 1
 ---
 

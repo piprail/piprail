@@ -254,7 +254,7 @@ const howToLd = {
       <!-- the resolution + the proof, woven in -->
       <p class="mx-auto mt-10 max-w-2xl text-center text-base leading-relaxed text-neutral-300 sm:text-lg">
         Name a chain. PipRail handles the token, the signing, the proof.
-        <span class="text-white">One line, every chain, straight to your wallet.</span> No backend, no custody, no fee.
+        <span class="text-white">One line, every chain, straight to your wallet.</span> <a href="/blog/backendless-x402/" class="text-neutral-200 underline decoration-white/20 underline-offset-4 transition hover:text-accent hover:decoration-accent">No backend, no custody, no fee</a>.
       </p>
       <div class="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm text-neutral-500">
         <span><span class="font-semibold text-neutral-200">{total}</span> chains</span>
@@ -360,7 +360,7 @@ const howToLd = {
           <div>
             <div class="mb-4 flex flex-wrap items-center gap-x-2.5 gap-y-1">
               <span class="inline-flex items-center rounded-md border border-accent/30 bg-accent/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-accent">EVM</span>
-              <span class="text-sm text-neutral-400">{evmCount} mainnets, one driver covers them all</span>
+              <span class="text-sm text-neutral-400">{evmCount} mainnets, one driver covers them all · <a href="/facilitators/" class="text-accent transition hover:underline">which x402 facilitator settles on each</a></span>
             </div>
             <div class="flex flex-wrap items-center gap-2.5">
               {evmFeatured.map((c) => (
@@ -460,6 +460,7 @@ const howToLd = {
         An autonomous agent spending your money is only safe if it <span class="text-neutral-200">can't</span> overspend.
         Every cap is enforced <span class="text-neutral-200">before</span> any on-chain send, and the budget lives on the
         client, not in the prompt, so the model can't talk its way past it.
+        <a href="/blog/give-your-agent-a-wallet/" class="text-accent transition hover:underline">How the spend policy works →</a>
       </SectionHeading>
 
       <div class="grid gap-6 lg:grid-cols-2">

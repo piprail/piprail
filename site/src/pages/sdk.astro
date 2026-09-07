@@ -150,8 +150,8 @@ const glossaryLd = {
       </h1>
       <p class="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-neutral-400 sm:text-lg">
         PipRail is an open-source x402 SDK: <span class="text-neutral-200">{total} chains</span>, {familyCount} families,
-        <span class="text-neutral-200">0 protocol fee</span>, no backend. Payments settle straight to your wallet,
-        verified locally against your own RPC. Gate a route to charge for itself, or point an agent at a paid URL and it pays itself.
+        <span class="text-neutral-200">0 protocol fee</span>, <a href="/blog/backendless-x402/" class="text-neutral-200 underline decoration-white/20 underline-offset-4 hover:decoration-accent">no backend</a>. Payments settle straight to your wallet,
+        verified locally against your own RPC. Gate a route to charge for itself, or point an agent at a paid URL and it pays itself. Choosing a rail? Read <a href="/blog/mpp-vs-x402/" class="text-accent underline-offset-4 hover:underline">x402 vs MPP</a>.
       </p>
       <div class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
         <div class="flex w-full max-w-xs items-center gap-3 rounded-xl border border-white/10 bg-neutral-900/80 px-5 py-3.5 font-mono text-sm sm:w-auto">
@@ -174,7 +174,7 @@ const glossaryLd = {
       <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-center">
         <CodeWindow file="route.ts" code={gateCode} class="min-w-0" />
         <p class="text-base leading-relaxed text-neutral-400">
-          Three outcomes, three responses. No backend, no database, verified locally against your own RPC.
+          Three outcomes, three responses. No backend, no database, verified locally against your own RPC. Want gasless too? <a href="/facilitators/" class="text-accent underline-offset-4 hover:underline">See which x402 facilitator settles on your chain</a>, or <a href="/demo/" class="text-accent underline-offset-4 hover:underline">try the live demo</a>.
           <a href="https://docs.piprail.com" class="text-accent underline-offset-4 hover:underline">Read the docs →</a>
         </p>
       </div>

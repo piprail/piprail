@@ -1,7 +1,8 @@
 ---
-title: Chains
+title: Which chains the x402 MCP server runs on
 description: Run the MCP server on any PipRail chain. EVM works out of the box, non-EVM families lazy-load a peer, and several chains means one namespaced server each.
 sidebar:
+  label: Chains
   order: 7
 ---
 

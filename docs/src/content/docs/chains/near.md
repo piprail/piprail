@@ -1,5 +1,5 @@
 ---
-title: "Accept USDC payments on NEAR"
+title: "Accept x402 USDC payments on NEAR"
 description: Accept and pay x402 payments on NEAR in native NEAR (zero-setup) plus native USDC and USDT, with the storage_deposit caveat for tokens.
 sidebar:
   label: NEAR

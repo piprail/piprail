@@ -183,9 +183,9 @@ const faqLd = {
       </aside>
 
       <div class="article-prose mt-10">
-        <p>When people picture an x402 payment, they usually picture three parties: a buyer, a seller, and a <strong>facilitator</strong> in between that settles the transaction. The facilitator is convenient, because it abstracts the chain away, but look closely at what it actually is. It holds the funds in transit, which makes it a custodian. It usually takes a cut, which makes it a toll booth. And every payment depends on it being up and honest, which makes it a single point of failure. Three liabilities, bundled into one box that both sides have to trust.</p>
+        <p>When people picture an x402 payment, they usually picture three parties: a buyer, a seller, and a <strong>facilitator</strong> in between that settles the transaction. The facilitator is convenient, because it abstracts the chain away, but look closely at what it actually is. It holds the funds in transit, which makes it a custodian. It usually takes a cut, which makes it a toll booth. And every payment depends on it being up and honest, which makes it a single point of failure. Three liabilities, bundled into one box that both sides have to trust. (When you do want one, for gasless settlement, <a href="/facilitators/">here is which x402 facilitator settles on which chain</a>, each entry proven by a real payment.)</p>
 
-        <p>PipRail’s central claim is that the box is unnecessary. None of the work a facilitator does actually requires a middleman to do it. The buyer can broadcast their own transfer. The seller can read that transfer and check it. Remove the box, and the custody, the fee, and the dependency all leave with it.</p>
+        <p><a href="/sdk/">PipRail</a>’s central claim is that the box is unnecessary. None of the work a facilitator does actually requires a middleman to do it. The buyer can broadcast their own transfer. The seller can read that transfer and check it. Remove the box, and the custody, the fee, and the dependency all leave with it.</p>
 
         <!-- Figure 1: with a facilitator vs. without -->
         <figure class="article-fig">
@@ -233,7 +233,7 @@ const faqLd = {
 
         <h2>Why this is the whole product</h2>
 
-        <p>It is tempting to add a backend. A backend is where dashboards live, where analytics accrue, where a fee can be inserted. But the moment a payment routes through your server, you are a custodian and a point of failure, and the thing you built stops being a tool the developer owns and starts being a platform they depend on. PipRail’s architecture is a standing refusal to cross that line. No backend, no database, no account, no fee. Not because we couldn’t build them, but because the absence is the point. The rail should be something you own, not a platform you join. Verifying your own payments, against your own node, with nobody in the middle, is what owning it looks like.</p>
+        <p>It is tempting to add a backend. A backend is where dashboards live, where analytics accrue, where a fee can be inserted. But the moment a payment routes through your server, you are a custodian and a point of failure, and the thing you built stops being a tool the developer owns and starts being a platform they depend on. PipRail’s architecture is a standing refusal to cross that line. The rail that makes the opposite choice, deliberately and well, is Stripe’s: <a href="/blog/mpp-vs-x402/">x402 vs MPP</a> sets the two side by side. No backend, no database, no account, no fee. Not because we couldn’t build them, but because the absence is the point. The rail should be something you own, not a platform you join. Verifying your own payments, against your own node, with nobody in the middle, is what owning it looks like.</p>
       </div>
 
       <div class="mt-12 flex flex-wrap items-center gap-3 border-t border-white/10 pt-6">

@@ -1,7 +1,8 @@
 ---
-title: n8n
+title: Pay x402 APIs from an n8n workflow
 description: 'Pay x402 URLs from any n8n workflow with a budget-bound PipRail wallet. A native n8n community node wrapping @piprail/sdk, self-custody, EVM chains.'
 sidebar:
+  label: n8n
   order: 4
 ---
 

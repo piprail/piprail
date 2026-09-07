@@ -1,5 +1,5 @@
 ---
-title: "Accept USDC payments on Sui"
+title: "Accept x402 USDC payments on Sui"
 description: Pay and get paid on Sui, a Move L1 with sub-second finality, native Circle USDC, and digest-bound verification with zero receiver setup.
 sidebar:
   label: Sui

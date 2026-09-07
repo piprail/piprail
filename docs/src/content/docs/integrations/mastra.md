@@ -1,7 +1,8 @@
 ---
-title: Mastra
+title: Give a Mastra agent an x402 wallet
 description: 'Give a Mastra agent a budget-bound x402 payment wallet across every major chain, via the @piprail/mcp MCP server. The first x402 integration for Mastra.'
 sidebar:
+  label: Mastra
   order: 5
 ---
 

@@ -1,7 +1,8 @@
 ---
-title: Hermes
+title: Give a Hermes agent an x402 wallet
 description: 'Give a Hermes agent a budget-bound PipRail wallet that pays x402 APIs across every chain, with no facilitator and no fee. Add @piprail/mcp under mcp_servers.'
 sidebar:
+  label: Hermes
   order: 2
 ---
 

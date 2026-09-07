@@ -1,7 +1,8 @@
 ---
-title: elizaOS
+title: The elizaOS x402 payment plugin
 description: 'Give an elizaOS agent a budget-bound PipRail wallet that pays x402 APIs across every chain, with no facilitator and no fee.'
 sidebar:
+  label: elizaOS
   order: 3
 ---
 

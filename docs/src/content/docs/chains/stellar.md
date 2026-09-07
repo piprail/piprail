@@ -1,5 +1,5 @@
 ---
-title: "Accept USDC payments on Stellar"
+title: "Accept x402 USDC payments on Stellar"
 description: Pay and get paid on Stellar in native XLM, Circle USDC or EURC, with memo-bound proofs and a one-time trustline to receive.
 sidebar:
   label: Stellar

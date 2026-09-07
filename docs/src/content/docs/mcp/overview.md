@@ -1,7 +1,8 @@
 ---
-title: Overview
+title: What the x402 MCP server does
 description: 'What @piprail/mcp is: a Model Context Protocol server that hands any AI agent a budget-bound wallet to pay x402 URLs autonomously.'
 sidebar:
+  label: Overview
   order: 1
 ---
 
