@@ -179,11 +179,11 @@ isn't exact-payable (the scheme is an NEP-141 transfer), so it stays on `onchain
 | 🔵 **Buyer-gasless (self-settle)** | The **merchant** (sub-cent), via their own relayer. The **buyer** still pays zero. | The token supports `exact` but **no keyless facilitator** exists for that chain | `exact: { settle: 'self', relayer }` |
 | ⚪ **Not gasless** | The **buyer** (tiny). | No `exact` rail on the chain at all | the `onchain-proof` default |
 
-**🟢 Both-sides-gasless, 13 chains, zero config** *(every one live-settled on mainnet + re-verified on-chain that a third party, not the buyer or merchant, paid the gas)*:
-**Ethereum · Polygon · Arbitrum · Optimism · Avalanche · Sei · Unichain · Base · BNB · HyperEVM · Monad · Solana · Algorand.** Most carry **multiple** keyless facilitators for automatic failover (Base has 8, Polygon 5, Arbitrum 3). The full live-proven list is in [facilitator coverage](/accepting-payments/facilitator-coverage/).
+**🟢 Both-sides-gasless, 14 chains, zero config** *(every one live-settled on mainnet + re-verified on-chain that a third party, not the buyer or merchant, paid the gas)*:
+**Ethereum · Polygon · Arbitrum · Optimism · Avalanche · Sei · Unichain · Base · BNB · HyperEVM · Monad · Solana · Algorand · NEAR.** Most carry **multiple** keyless facilitators for automatic failover (Base has 8, Polygon 5, Arbitrum 3). The full live-proven list is in [facilitator coverage](/accepting-payments/facilitator-coverage/).
 
 **🔵 Buyer-gasless via self-settle** *(the token is `exact`-payable, but no keyless facilitator settles the chain yet, so you run a relayer that pays the sub-cent gas; the buyer still pays nothing)*:
-**Sonic · Linea · Celo · World Chain · zkSync Era · Injective · Scroll · Mantle** (EVM EIP-3009) · **Aptos** (AIP-39 sponsored tx) · **NEAR** (NEP-366 meta-tx). *Celo + Scroll have an EIP-3009 USDC and Ultravioleta DAO **advertises** them, but its sponsor contract **reverts** there (`contract_call_failed`), so there's no working facilitator; self-settle is the gasless path.*
+**Sonic · Linea · Celo · World Chain · zkSync Era · Injective · Scroll · Mantle** (EVM EIP-3009) · **Aptos** (AIP-39 sponsored tx). *Celo and Scroll have an EIP-3009 USDC, but our live settles through a facilitator there have not completed yet, so self-settle is the gasless path for now.*
 
 **⚪ Not gasless (onchain-proof only).** No `exact` rail exists on these yet: **Tron · XRP Ledger · TON · Stellar · Sui · Kaia** (Kaia also has no EIP-3009 token). The buyer broadcasts and pays the (usually tiny) fee. *Tron and XRPL have keyless **gas-free** facilitators (MERX, t54) but on **non-standard, single-vendor** schemes, not wired here; see [the note below](#tron--xrpl-keyless-but-non-standard).*
 
@@ -370,7 +370,7 @@ requirePayment({
 ```
 
 With a **keyless facilitator** (EVM EIP-3009 on **Ethereum, Polygon, Arbitrum, Optimism, Avalanche,
-Sei, Unichain, Base, BNB, HyperEVM, Monad**, Solana, **or Algorand**, so 13 chains),
+Sei, Unichain, Base, BNB, HyperEVM, Monad**, Solana, **Algorand, or NEAR**, so 14 chains),
 **neither side pays gas**. On Algorand both the buyer *and* the merchant pay 0 ALGO (see the
 [keyless note](#algorand-how-fee-pooled-gasless-works) below). See the full how-tos:
 [the exact rail (buyer)](/making-payments/exact-buyer/) · [the exact rail (seller)](/accepting-payments/exact-rail-seller/).

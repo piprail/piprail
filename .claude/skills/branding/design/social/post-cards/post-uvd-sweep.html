@@ -1,0 +1,152 @@
+<!doctype html><html><head><meta charset="utf-8">
+<meta name="render-size" content="1080x1350">
+<!--
+  post-uvd-sweep - what PipRail settles through Ultravioleta DAO, 2026-09-07.
+
+  🔴 EVERY NUMBER BELOW IS DERIVED, NOT TYPED. Re-read before re-rendering:
+      node .claude/skills/branding/design/social/post-cards/facilitator-facts.mjs
+      node .claude/skills/facilitator-probe/scripts/verify-tx.mjs
+      curl -s https://facilitator.ultravioletadao.xyz/supported   (21 unique mainnets)
+  As of 2026-09-07: 9 facilitators, 14 chains, 31 pairings, 32 receipts, all keyless.
+  verify-tx.mjs: 32 verified / 0 refuted / 0 skipped. UVD seeded on 10 chains.
+
+  🔴 THIS CARD STATES WHAT WORKS, NOT WHAT DOES NOT. The sweep also found chains
+  UVD advertises that do not settle yet; that belongs in the repo record, not on a
+  card aimed at a partner who came to us in good faith. Keep it that way.
+  Full record + tx hashes: .claude/research/uvd-sweep-2026-09-07.md
+
+  🔴 ONE @-MENTION ONLY, in the POST text, not here. Names on the card are plain
+  text (RULES.md §4). Ultravioleta DAO is named because the post is a reply to them.
+
+  Portrait 1080x1350: this card carries the proof list and the chain strip.
+
+  Render: node render.mjs uvd-sweep
+-->
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+* { margin:0; padding:0; box-sizing:border-box; }
+:root { --accent:#2ee6a6; --bg:#0a0b0c; --muted:#8d959e; --amber:#f0b429; --dim:#6b7280; }
+html,body { width:1080px; height:1350px; }
+body { background:var(--bg); color:#fff; font-family:'Inter',sans-serif; position:relative;
+       overflow:hidden; display:flex; flex-direction:column; }
+
+.glow { position:absolute; width:1250px; height:1250px; border-radius:50%; left:26%; top:-42%;
+  background:radial-gradient(circle, rgba(46,230,166,0.15) 0%, rgba(46,230,166,0.04) 44%, rgba(0,0,0,0) 70%); }
+.grid { position:absolute; inset:0;
+  background-image:linear-gradient(rgba(255,255,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.03) 1px,transparent 1px);
+  background-size:60px 60px;
+  -webkit-mask-image:radial-gradient(ellipse at 50% 20%, #000 0%, transparent 72%);
+          mask-image:radial-gradient(ellipse at 50% 20%, #000 0%, transparent 72%); }
+.vig { position:absolute; inset:0; box-shadow:inset 0 0 300px 100px rgba(0,0,0,0.62); }
+
+header { position:relative; z-index:2; padding:46px 68px 0; }
+.top { display:flex; align-items:center; justify-content:space-between; }
+.lock { display:flex; align-items:center; gap:15px; }
+.lock img { width:46px; height:46px; }
+.lock .wm { font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:33px; letter-spacing:-0.02em; }
+.pill { display:inline-flex; align-items:center; gap:10px; padding:10px 19px; border-radius:999px;
+        border:1px solid rgba(46,230,166,0.30); background:rgba(46,230,166,0.10);
+        font-family:'JetBrains Mono',monospace; font-size:18px; color:var(--accent); }
+.pill b { width:9px; height:9px; border-radius:50%; background:var(--accent);
+          box-shadow:0 0 14px 3px rgba(46,230,166,0.6); }
+
+h1 { margin-top:30px; font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:62px;
+     line-height:1.03; letter-spacing:-0.032em; }
+h1 em { font-style:normal; color:var(--accent); }
+.sub { margin-top:13px; color:var(--muted); font-size:24px; line-height:1.36; max-width:880px; }
+
+.nums { position:relative; z-index:2; margin:28px 68px 0; display:grid;
+        grid-template-columns:repeat(3,1fr); gap:16px; }
+.num { border:1px solid rgba(255,255,255,0.10); border-radius:19px; padding:20px 8px 17px;
+       background:rgba(255,255,255,0.030); text-align:center; }
+.num .n { font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:62px; color:var(--accent);
+          line-height:1; letter-spacing:-0.03em; }
+.num .l { margin-top:9px; font-size:19px; color:var(--muted); }
+
+.block { position:relative; z-index:2; margin:22px 68px 0; }
+.lbl { font-family:'JetBrains Mono',monospace; font-size:16px; letter-spacing:0.20em;
+       color:#5f666e; margin-bottom:13px; }
+
+.rows { display:grid; gap:10px; }
+.r { display:flex; align-items:flex-start; gap:16px; padding:14px 22px; border-radius:14px;
+     background:rgba(255,255,255,0.030); border:1px solid rgba(255,255,255,0.075); }
+.r.win { background:rgba(46,230,166,0.075); border-color:rgba(46,230,166,0.30); }
+.t { width:27px; height:27px; border-radius:50%; flex:none; display:flex; align-items:center;
+     justify-content:center; font-size:15px; font-weight:700; margin-top:3px; }
+.t.ok { background:rgba(46,230,166,0.16); border:1px solid rgba(46,230,166,0.45); color:var(--accent); }
+.t.no { background:rgba(240,180,41,0.13); border:1px solid rgba(240,180,41,0.40); color:var(--amber); }
+.t.gap { background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.18); color:#aeb6bd; }
+.x { font-size:23px; color:#e8ecef; letter-spacing:-0.01em; line-height:1.34; }
+.x b { color:#fff; font-weight:600; }
+.x .hash { font-family:'JetBrains Mono',monospace; font-size:18px; color:#9aa2aa; }
+.x .why { color:var(--dim); font-size:20px; }
+
+.strip { display:flex; flex-wrap:wrap; gap:9px; }
+.strip span { font-family:'JetBrains Mono',monospace; font-size:20px; color:#c3cad1;
+              padding:10px 17px; border-radius:11px; background:rgba(255,255,255,0.038);
+              border:1px solid rgba(255,255,255,0.07); }
+.strip span.new { color:#0a0b0c; background:var(--accent); border-color:var(--accent); font-weight:700; }
+
+footer { position:relative; z-index:2; margin-top:auto; padding:20px 68px 40px; }
+.line { color:var(--muted); font-size:22px; line-height:1.38; margin-bottom:16px; }
+.line b { color:#fff; font-weight:500; }
+.row { display:flex; align-items:center; justify-content:space-between; }
+.code { font-family:'JetBrains Mono',monospace; font-size:25px; color:#fff;
+        border:1px solid rgba(255,255,255,0.15); border-radius:13px; padding:14px 22px;
+        background:rgba(255,255,255,0.048); }
+.dom { font-family:'JetBrains Mono',monospace; font-size:25px; color:var(--accent); }
+</style></head>
+<body>
+  <div class="glow"></div><div class="grid"></div><div class="vig"></div>
+
+  <header>
+    <div class="top">
+      <div class="lock"><img src="../../../../../../site/public/logo.png" alt=""><span class="wm">PipRail</span></div>
+      <span class="pill"><b></b>live 7 Sep 2026</span>
+    </div>
+    <h1>Gasless x402 through<br>Ultravioleta DAO, on <em>10 chains</em>.</h1>
+    <div class="sub">Every one paid for real on mainnet, with the buyer's gas bill checked at zero
+      and the proof replayed to be sure it failed. Two of them are new today.</div>
+  </header>
+
+  <div class="nums">
+    <div class="num"><div class="n">10</div><div class="l">chains, live</div></div>
+    <div class="num"><div class="n">2</div><div class="l">new today</div></div>
+    <div class="num"><div class="n">32</div><div class="l">receipts, 0 refuted</div></div>
+  </div>
+
+  <div class="block">
+    <div class="lbl">WHAT EVERY ONE OF THESE PAYMENTS HAD TO PROVE</div>
+    <div class="rows">
+      <div class="r win"><span class="t ok">&#10003;</span><span class="x">A real <b>402 &rarr; pay &rarr; verify &rarr; 200</b> round trip on mainnet</span></div>
+      <div class="r win"><span class="t ok">&#10003;</span><span class="x">The merchant received <b>exactly</b> the amount</span></div>
+      <div class="r win"><span class="t ok">&#10003;</span><span class="x">The buyer paid <b>zero gas</b>. Ultravioleta DAO sponsored every one</span></div>
+      <div class="r win"><span class="t ok">&#10003;</span><span class="x">Replaying the same proof was <b>rejected</b></span></div>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="lbl">PIPRAIL NOW SETTLES GASLESS THROUGH THEM ON 10 CHAINS</div>
+    <div class="strip">
+      <span>Base</span><span>Ethereum</span><span>Polygon</span><span>Arbitrum</span><span>Optimism</span>
+      <span class="new">Avalanche</span><span>Monad</span><span>HyperEVM</span><span>Unichain</span><span class="new">NEAR</span>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="lbl">THE TWO NEW ONES, OPENABLE ON A BLOCK EXPLORER</div>
+    <div class="rows">
+      <div class="r"><span class="t ok">&#8599;</span><span class="x"><b>NEAR</b> &nbsp;<span class="hash">8pVe4oeykCT2WpCwToNbkxjdgSvwNNtJUrGezDCHKDda</span></span></div>
+      <div class="r"><span class="t ok">&#8599;</span><span class="x"><b>Avalanche</b> &nbsp;<span class="hash">0xe9a88e4fa978a16599b6188444d87ea63d43122e5fad1649&hellip;</span></span></div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="line"><b>NEAR is the first keyless x402 facilitator settlement on NEAR mainnet.</b>
+      It took a fix on our side to get there, and the buyer paid nothing to use it.</div>
+    <div class="row">
+      <span class="code">npm i @piprail/sdk</span>
+      <span class="dom">piprail.com/facilitators</span>
+    </div>
+  </footer>
+</body></html>
