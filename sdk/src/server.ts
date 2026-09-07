@@ -1684,6 +1684,12 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
               : { name: accept.extra?.name ?? '', version: accept.extra?.version ?? '' },
           },
           receipt: { network: accept.network, asset: accept.asset, payTo: accept.payTo, amount: accept.amount },
+          // From the merchant's own config, never the client's echo — same rule as `accept`.
+          resource: {
+            ...(receiptResourceUrl ? { url: receiptResourceUrl } : {}),
+            ...(options.description ? { description: options.description } : {}),
+            ...(options.mimeType ? { mimeType: options.mimeType } : {}),
+          },
           // The buyer address, for the receipt's `payer` fallback. EVM carries it in the
           // authorization; SVM doesn't (the facilitator returns the settled payer) → omit it.
           ...(evmAuth ? { payerHint: evmAuth.from } : {}),

@@ -254,6 +254,13 @@ export const KNOWN_FACILITATORS: Readonly<Record<Caip2, ReadonlyArray<KnownFacil
       settles: ['eip3009'],
       note: 'Dexter: keyless, sponsors gas (no floor hit at $0.001 here). LIVE-settled on Avalanche 2026-06-18 (tx 0xb2263e9a4ea3917eee6acabcb454d42a50264fdd69a0781ed8fcaec5590e264b).',
     },
+    {
+      url: 'https://facilitator.ultravioletadao.xyz',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['eip3009'],
+      note: 'Ultravioleta DAO: keyless, 100% gas-sponsored (Avalanche native USDC EIP-3009). LIVE-settled on Avalanche 2026-09-07 (tx 0xe9a88e4fa978a16599b6188444d87ea63d43122e5fad16493568c2a596a79436): the buyer held ZERO AVAX and the payment still landed, replay rejected.',
+    },
   ],
   // Sei (eip155:1329) — PayAI (the only keyless facilitator that lists Sei).
   'eip155:1329': [
@@ -318,17 +325,25 @@ export const KNOWN_FACILITATORS: Readonly<Record<Caip2, ReadonlyArray<KnownFacil
       note: 'GoPlausible: keyless fee-payer sponsor (Solana SPL SVM). LIVE-settled on Solana mainnet 2026-09-06 (tx 3DEGg6Lue8471meBH8hbLxV1bLmZGKvmvmSY3tjg7tQFnxzE9GQXUXokjQnZgTqaEU4SaXuY9F7v3m7JsX5xDgrZ): buyer paid 0 SOL, GoPlausible\'s sponsor 8a8fFNfk… paid the 10,001-lamport fee, replay rejected.',
     },
   ],
-  // NEAR (near:mainnet) — DELIBERATELY UNSEEDED: no x402 facilitator settles NEAR yet.
-  // The NEAR `exact` BUYER payload PipRail builds (drivers/near/exact.ts) is LIVE-PROVEN on mainnet —
-  // a real NEP-366 meta-transaction settles a USDC/USDT ft_transfer gaslessly (buyer 0 NEAR, single-use
-  // via the access-key nonce; relay txs CMnQJzrLvwk… USDT + BCCnVHbSCMY… USDC, 2026-06-18). What's
-  // missing is the FACILITATOR side: the public x402-rs (which Ultravioleta DAO runs) has NO NEAR chain
-  // crate (only eip155/solana/aptos), and UVD's `/verify` 400s on a near:mainnet request even though its
-  // `/supported` ADVERTISES `near:mainnet` + feePayer `uvd-facilitator.near` — i.e. the listing is
-  // aspirational, not settle-capable (verified 2026-06-18). So `exact: true` must NOT auto-pick a NEAR
-  // facilitator. Seed here ONLY after a real keyless settle through a facilitator that actually
-  // implements scheme_exact_near.md (THE RULE). Merchants can still pass an explicit
-  // `exact: { settle: { facilitator } }` for any facilitator they've confirmed settles near:mainnet.
+  // NEAR (near:mainnet) — the first keyless facilitator settlement on NEAR.
+  //
+  // 🔴 A CORRECTION, kept here because the wrong conclusion was recorded for months. This entry
+  // read "DELIBERATELY UNSEEDED — UVD's /verify 400s on near:mainnet, so the listing is aspirational,
+  // not settle-capable (2026-06-18)". That was OUR bug, not theirs. The 400 was
+  // `data did not match any variant of untagged enum VerifyRequestEnvelope`: PipRail sent an x402 v2
+  // body carrying only the v1 `paymentRequirements` key, and a strict v2 facilitator needs `accepted`
+  // and `resource` at the root. We read a deserialization error as a missing chain implementation.
+  // Fixed in facilitator.ts (a v2 body now carries both spellings); NEAR settled first time after.
+  // The lesson: a 400 from a facilitator is a claim about the REQUEST until you have read its body.
+  'near:mainnet': [
+    {
+      url: 'https://facilitator.ultravioletadao.xyz',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['near'],
+      note: 'Ultravioleta DAO: keyless fee-payer sponsor (NEAR NEP-141 USDC, NEP-366 meta-transaction). LIVE-settled on NEAR mainnet 2026-09-07 (tx 8pVe4oeykCT2WpCwToNbkxjdgSvwNNtJUrGezDCHKDda): buyer paid 0 NEAR, replay rejected. The first keyless x402 facilitator settlement on NEAR.',
+    },
+  ],
 }
 
 /** Known facilitators for a network — an empty array when none is seeded. */

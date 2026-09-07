@@ -32,6 +32,52 @@ function stubFetch(responses: Array<{ status?: number; body: unknown }>) {
   return calls
 }
 
+// A strict x402 v2 facilitator (Ultravioleta DAO) refuses a body that carries only the v1
+// `paymentRequirements` key, with `data did not match any variant of untagged enum
+// VerifyRequestEnvelope`. That 400 silently blocked every non-EVM rail UVD settles, and was
+// misread for months as "UVD has no NEAR implementation". Both spellings now go on a v2 body.
+describe('settleViaFacilitator — x402 v2 request envelope', () => {
+  const bodyOf = (calls: Array<{ init: RequestInit }>) => JSON.parse(String(calls[0]!.init.body))
+
+  it('a v2 body carries `accepted` and `resource` at the root, alongside v1 `paymentRequirements`', async () => {
+    const calls = stubFetch([
+      { body: { isValid: true } },
+      { body: { success: true, transaction: '0xS', network: 'eip155:8453' } },
+    ])
+    await settleViaFacilitator(
+      baseInput({ resource: { url: 'https://api.example.com/r', description: 'A report', mimeType: 'text/plain' } })
+    )
+    const body = bodyOf(calls)
+    expect(body.accepted).toEqual(body.paymentRequirements)
+    expect(body.resource).toEqual({ url: 'https://api.example.com/r', description: 'A report', mimeType: 'text/plain' })
+  })
+
+  it('`resource` is always complete — a facilitator requires the field, so gaps fall back, never drop', async () => {
+    const calls = stubFetch([
+      { body: { isValid: true } },
+      { body: { success: true, transaction: '0xS', network: 'eip155:8453' } },
+    ])
+    await settleViaFacilitator(baseInput({ resource: { url: 'https://api.example.com/r' } }))
+    const { resource } = bodyOf(calls)
+    expect(resource.url).toBe('https://api.example.com/r')
+    expect(typeof resource.description).toBe('string')
+    expect(resource.description.length).toBeGreaterThan(0)
+    expect(resource.mimeType).toBe('application/json')
+  })
+
+  it('a v1 body is untouched — no `accepted`, no `resource` (older facilitators read v1 only)', async () => {
+    const calls = stubFetch([
+      { body: { isValid: true } },
+      { body: { success: true, transaction: '0xS', network: 'eip155:8453' } },
+    ])
+    await settleViaFacilitator(baseInput({ x402Version: 1 }))
+    const body = bodyOf(calls)
+    expect(body.paymentRequirements).toBeDefined()
+    expect(body.accepted).toBeUndefined()
+    expect(body.resource).toBeUndefined()
+  })
+})
+
 describe('settleViaFacilitator — happy path', () => {
   it('POSTs /verify then /settle and returns an exact receipt', async () => {
     const calls = stubFetch([

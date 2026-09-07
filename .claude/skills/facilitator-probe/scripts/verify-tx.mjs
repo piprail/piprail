@@ -85,6 +85,19 @@ const NON_EVM = {
       return j.result ? { ok: true, block: j.result.slot } : { ok: false, why: 'not found' }
     },
   },
+  'near:mainnet': {
+    family: 'near',
+    // NEAR tx hashes are base58, 43–44 chars — shorter than a Solana signature (86–88).
+    extract: (n) => (n.match(/\b[1-9A-HJ-NP-Za-km-z]{43,44}\b/g) || []),
+    check: async (hash) => {
+      // EXPERIMENTAL_tx_status needs the signer account; the archival indexer does not.
+      const r = await fetch(`https://api.nearblocks.io/v1/txns/${hash}`)
+      if (!r.ok) return { ok: false, why: `indexer ${r.status}` }
+      const j = await r.json()
+      const t = j?.txns?.[0]
+      return t ? { ok: true, block: t.block?.block_height ?? t.block_height ?? '—' } : { ok: false, why: 'not found' }
+    },
+  },
 }
 
 const EVM_FULL = /0x[0-9a-fA-F]{64}/g

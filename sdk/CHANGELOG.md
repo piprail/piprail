@@ -4,6 +4,41 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- **A strict x402 v2 facilitator refused every PipRail settlement, and we read it as a missing
+  chain.** PipRail sent a v2 body carrying only the v1 `paymentRequirements` key. A facilitator
+  that validates the v2 envelope needs `accepted` and `resource` at the request root, and answered
+  `400 data did not match any variant of untagged enum VerifyRequestEnvelope`. A v2 body now carries
+  both spellings, so the older facilitators keep reading `paymentRequirements` while a strict v2
+  facilitator gets what it requires. `resource` comes from the merchant's own gate config, never the
+  client's echo, and is always sent complete because the field is required rather than optional.
+
+  The cost of the bug was not the 400 itself. It was recorded in `facilitators.ts` for months as
+  "Ultravioleta DAO's NEAR listing is aspirational, not settle-capable" — a conclusion about
+  somebody else's implementation drawn from an error about our own request.
+
+### Added
+
+- **NEAR is live on a keyless facilitator, the first x402 facilitator settlement on `near:mainnet`.**
+  Ultravioleta DAO settles the NEP-141 USDC rail through a NEP-366 meta-transaction with the buyer
+  paying zero NEAR (tx `8pVe4oeykCT2WpCwToNbkxjdgSvwNNtJUrGezDCHKDda`), so `exact: true` is now
+  zero-config gasless on NEAR.
+- **Ultravioleta DAO on Avalanche**, buyer holding zero AVAX
+  (tx `0xe9a88e4fa978a16599b6188444d87ea63d43122e5fad16493568c2a596a79436`).
+- NEAR receipts are now re-verifiable by the facilitator-probe tx checker and link to an explorer on
+  piprail.com. Both tools matched only EVM, Solana and Algorand hash shapes, so a NEAR receipt would
+  have shipped as unlinked, unchecked text.
+
+### Notes
+
+- A sweep of all 21 mainnets Ultravioleta DAO advertises found two more it does **not** settle:
+  Solana (`/verify` returns `isValid: true`, then `/settle` fails `contract_call_failed`) and
+  Algorand (`/verify` cannot deserialize an Algorand `exact` payload). Both are locked by tests so
+  the next sweep does not re-run them. Advertised is not settled — only a receipt is.
+
 ## [2.16.2] — 2026-09-06 — every facilitator now carries a verifiable receipt
 
 ### Changed
