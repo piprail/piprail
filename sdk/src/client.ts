@@ -2284,10 +2284,20 @@ export class PipRailClient {
         shortfall.token = formatUnits(amount - bal.token!, quote.decimals)
       }
     } else if (isNative) {
-      // The native coin is BOTH the payment and the gas — need amount + gas.
-      if (nativeKnown && bal.native! < amount + fee) {
+      /*
+       * The native coin is BOTH the payment and the gas, so this needs amount + gas — but
+       * against the SPENDABLE balance, not the raw one. Some chains require an account to
+       * retain a minimum it can never send (Solana's rent exemption, XRPL's base reserve), and
+       * measuring against the raw balance called such a payment affordable right up until the
+       * chain refused it after signing. A driver reports that difference by returning the
+       * spendable figure as `token` for a native asset; where there is no reserve the two are
+       * the same number and this is unchanged.
+       */
+      const spendable = bal.token ?? bal.native
+      const spendableKnown = spendable != null
+      if (spendableKnown && spendable! < amount + fee) {
         blockers.push('INSUFFICIENT_TOKEN')
-        shortfall.token = formatUnits(amount + fee - bal.native!, quote.decimals)
+        shortfall.token = formatUnits(amount + fee - spendable!, quote.decimals)
       }
     } else {
       if (tokenKnown && bal.token! < amount) {

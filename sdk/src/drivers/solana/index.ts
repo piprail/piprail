@@ -37,6 +37,10 @@ import type {
   WalletHandle,
 } from '../types.js'
 
+/** Rent-exempt minimum for a 0-data account (mainnet). Used only when the RPC read for it
+ *  is unavailable, so a transient failure still reserves something rather than nothing. */
+const RENT_EXEMPT_MIN_LAMPORTS = 890_880n
+
 export const solanaDriver: PaymentDriver = {
   family: 'solana',
   resolve(opts: ResolveOptions): ResolvedNetwork | null {
@@ -197,7 +201,29 @@ function makeSolanaNetwork(preset: SolanaPreset, rpcUrl: string): ResolvedNetwor
         .getBalance(owner)
         .then((n) => BigInt(n))
         .catch(() => null)
-      if (asset === 'native') return { token: native, native }
+      if (asset === 'native') {
+        /*
+         * 🔴 SPENDABLE ≠ BALANCE on Solana.
+         *
+         * An account must retain the rent-exempt minimum or the runtime rejects the transfer.
+         * Reporting the whole balance as spendable made `planPayment` answer `payable: true`
+         * for a payment that then failed simulation with a bare `SendTransactionError` — the
+         * precise failure planPayment exists to prevent, since an agent is told it can afford
+         * something and only finds out otherwise after signing.
+         *
+         * `native` stays the TRUE balance (gas is judged against it); only the spendable
+         * `token` figure is reduced. The minimum is a network parameter, so read it and fall
+         * back to the long-standing mainnet value if the read is unavailable — this path never
+         * throws and must never invent a confident number.
+         */
+        if (native === null) return { token: null, native }
+        const reserve = await connection
+          .getMinimumBalanceForRentExemption(0)
+          .then((n) => BigInt(n))
+          .catch(() => RENT_EXEMPT_MIN_LAMPORTS)
+        const spendable = native > reserve ? native - reserve : 0n
+        return { token: spendable, native }
+      }
       let token: bigint | null
       try {
         // Detect the mint's token program (classic vs Token-2022) before deriving the ATA — a

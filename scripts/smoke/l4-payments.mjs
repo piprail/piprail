@@ -72,7 +72,7 @@ const MERCHANT = {
   tron: (w) => w.merchant.address,
 }
 
-export async function run({ sdk, section, check, serve, wallet, REPO, env, only }) {
+export async function run({ sdk, section, check, warn, serve, wallet, REPO, env, only }) {
   const { createPaymentGate, PipRailClient, buildSignatureHeader, decodeBase64Json } = sdk
 
   for (const spec of MATRIX) {
@@ -117,11 +117,33 @@ export async function run({ sdk, section, check, serve, wallet, REPO, env, only 
     }
 
     try {
-      await check('planPayment says payable BEFORE any spend', async () => {
-        const p = await client.planPayment(srv.url)
-        if (!p) return { fail: 'planPayment returned null' }
-        return p.payable ? `payable (${p.status})` : { fail: `NOT payable: ${p.fundingHint ?? 'no hint'}` }
+      /*
+       * 🔴 UNFUNDED IS NOT BROKEN.
+       *
+       * planPayment is the read-only guardrail that answers "can I settle this?" before a
+       * signature exists. When it says no because the wallet is empty, attempting the payment
+       * anyway proves nothing and burns gas failing. A red L4 is far more often an empty
+       * wallet than a broken chain, and reporting the two identically is how a real outage
+       * gets lost in the noise. So: an empty wallet SKIPS the row, loudly; anything else the
+       * plan objects to is a genuine failure.
+       */
+      let plan = null
+      await check('planPayment answers before any spend', async () => {
+        plan = await client.planPayment(srv.url)
+        if (!plan) return { fail: 'planPayment returned null' }
+        return plan.payable ? `payable (${plan.status})` : `NOT payable: ${plan.fundingHint ?? 'no hint'}`
       })
+
+      if (plan && !plan.payable) {
+        const blockers = (plan.options ?? []).flatMap((o) => o.blockers ?? []).join(', ')
+        const funding = /INSUFFICIENT|top up|fund/i.test(`${blockers} ${plan.fundingHint ?? ''}`)
+        if (funding) {
+          warn(`${label}: SKIPPED, wallet needs funding`, plan.fundingHint ?? blockers)
+          continue
+        }
+        await check(`${label}: not payable for a NON-funding reason`, () => ({ fail: `${blockers} — ${plan.fundingHint ?? ''}` }))
+        continue
+      }
 
       await check('estimateCost returns a gas figure in the native coin', async () => {
         const c = await client.estimateCost(srv.url)

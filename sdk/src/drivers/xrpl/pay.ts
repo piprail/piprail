@@ -84,6 +84,29 @@ export async function payXrpl(params: PayXrplParams): Promise<string> {
       client.currentLedgerIndex(),
     ])
 
+    /*
+     * 🔴 CHECK THE PRE-FLIGHT READS BEFORE THEY REACH THE SERIALIZER.
+     *
+     * `Sequence` and `LastLedgerSequence` are UInt32 fields. A throttled or failed read leaves
+     * one of them `undefined` (and `undefined + 20` is `NaN`), and xrpl.js then rejects it with
+     * `Cannot construct UInt32 from given value` — a message that names no field, no cause and
+     * no remedy, from a library the caller never imported. Seen under a batch of live payments,
+     * where the public cluster throttles.
+     *
+     * Nothing has been signed or sent at this point, so retrying is safe and cannot double-pay.
+     * Say exactly that, because the one thing a payer must never do on an ambiguous error is
+     * pay again.
+     */
+    for (const [field, value] of [['Sequence', sequence], ['LastLedgerSequence', ledgerIndex]] as const) {
+      if (!Number.isSafeInteger(value) || value < 0) {
+        throw new Error(
+          `XRPL: could not read ${field} from the ledger (got ${String(value)}) — the RPC read failed ` +
+            `or was throttled. NOTHING was signed or submitted, so this is safe to retry. ` +
+            `A dedicated rpcUrl avoids the public cluster's rate limits.`
+        )
+      }
+    }
+
     const tx: Record<string, unknown> = {
       TransactionType: 'Payment',
       Account: wallet.classicAddress,

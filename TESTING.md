@@ -28,6 +28,7 @@ npm run smoke                    # L2 + L3 (safe: nothing is spent)
 npm run smoke -- --money         # everything, including real mainnet payments
 npm run smoke -- gate modes      # named sections only
 npm run smoke -- --list          # what exists, and why each section exists
+npm run smoke -- --each          # AUDIT: every section on its own, plus a matrix
 ```
 
 ---
@@ -88,6 +89,7 @@ milliseconds.
 | `gate` | replay (sequential, concurrent, every store shape), forged echoes, 15 malformed proofs, config floors |
 | `invariants` | the **seams**: cross-transport replay, identifier idempotency, rail confusion, recency, budget races |
 | `modes` | the three modes, the sovereignty loop, and every escalation attempt |
+| `bounds` | every numeric knob at min, max, and one step past: amounts, decimals, caps, slippage, windows, identifier length |
 | `selling` | a hostile buyer: underpayment, paying elsewhere, cross-offer replay, concurrency, nonsense pricing |
 | `merchant` | the adapters a seller deploys: paywall, tip jar, fetch handler, worker, middleware |
 | `receipts` | receipt forgery and re-verification: a forged payTo, asset, amount or payer |
@@ -107,6 +109,7 @@ Live, read-only, free. This is the layer that goes red without anybody touching 
 |---|---|
 | `facilitators` | every `KNOWN_FACILITATORS` host over the network: is it up, and does it advertise the network we claim of it? |
 | `swaps` | does every network `canSwapOn()` says is swappable actually return a live quote? |
+| `endpoints` | our own deployed 402 on piprail.com: conformant, self-describing, and quotable by our own client |
 
 ### L4 — money (`scripts/smoke/l4-*.mjs`, needs `--money`)
 

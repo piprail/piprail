@@ -49,7 +49,7 @@ const SECTIONS = [
     name: 'client',
     why: 'the buyer: quote, plan, fetch, retries, receipt verification',
     match: (f) => f.startsWith('client') || f === 'plan-payment' || f === 'routing' || f === 'cost' ||
-      f === 'recipient-ready' || f === 'notify-both-sides',
+      f === 'recipient-ready' || f === 'notify-both-sides' || f === 'native-reserve',
   },
   {
     name: 'policy',

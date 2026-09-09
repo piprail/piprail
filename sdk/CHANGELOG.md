@@ -69,6 +69,28 @@ versions follow [Semantic Versioning](https://semver.org/).
   a plugin, or middleware that wraps objects. All three are now non-writable and non-configurable:
   authority is set once, by whoever provisioned the key.
 
+- 🔴 **`planPayment` called a native payment affordable that the chain then refused.** Some
+  chains require an account to retain a minimum it can never send (Solana's rent exemption,
+  XRPL's base reserve), and affordability was measured against the RAW balance. A live wallet
+  holding 0.0011 SOL was told it could send 0.0005 SOL; the transfer failed simulation with a
+  bare `SendTransactionError` after the agent had already signed, which is the exact outcome the
+  pre-flight check exists to prevent.
+
+  `WalletBalance.token` is now documented as the SPENDABLE figure (the reserve deducted) with
+  `native` staying the true balance for gas, the Solana driver reports its rent-exempt minimum
+  that way (reading it from the RPC, falling back to the mainnet constant), and the client
+  measures a native payment against it. A family with no reserve reports the two as equal and is
+  unchanged. The refusal now names the exact shortfall.
+
+- **XRPL: a throttled ledger read no longer surfaces as a serializer error.** `Sequence` and
+  `LastLedgerSequence` are UInt32 fields, so a failed or rate-limited pre-flight read left one
+  `undefined` (and `undefined + 20` is `NaN`), and xrpl.js rejected the transaction with
+  "Cannot construct UInt32 from given value": no field, no cause and no remedy, from a library
+  the caller never imported. Found under a batch of live mainnet payments, where the public
+  cluster throttles. Both reads are now checked before the transaction is built, and the refusal
+  says the thing that matters most on an ambiguous payment error: nothing was signed or
+  submitted, so retrying cannot double-pay.
+
 ### Added
 
 - **`releaseUsed` — the third replay hook.** Optional, and only meaningful when `isUsed` RESERVES
