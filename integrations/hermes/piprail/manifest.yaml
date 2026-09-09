@@ -24,7 +24,7 @@ transport:
   # `@piprail/mcp` would npx whatever is latest at install time). Bumping the
   # pin is a new reviewed PR, exactly like any transport ref.
   args: ["-y", "@piprail/mcp@0.10.0"]
-  version: "0.9.0"
+  version: "0.10.0"
   # Explicit subprocess env mapping. Hermes writes this into mcp_servers.piprail.env
   # verbatim; the ${PIPRAIL_PRIVATE_KEY} reference is resolved at connect time from
   # ~/.hermes/.env, so the wallet key stays in .env and never lands in config.yaml.
@@ -48,7 +48,9 @@ auth:
       required: false
       secret: true
 
-# All eight tools on by default — a true one-step install. Safety is the spend POLICY
+# All eight tools on by default — a true one-step install. PIPRAIL_MODE=sovereign adds six
+# more (swap + the seller tools + piprail_wallet) for an agent that owns its wallet.
+# Safety is the spend POLICY
 # (PIPRAIL_MAX_AMOUNT / PIPRAIL_MAX_TOTAL default to small caps the model cannot exceed),
 # not tool-hiding. To make it read/plan-only, drop piprail_pay_request from this list.
 tools:
