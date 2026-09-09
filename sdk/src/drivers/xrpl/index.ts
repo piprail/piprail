@@ -114,8 +114,22 @@ function makeXrplNetwork(preset: XrplPreset, rpcUrl: string): ResolvedNetwork {
       return r.drops.open_ledger_fee
     },
     async currentLedgerIndex() {
-      const r = await rpc<{ ledger_current_index: number }>('ledger_current', {})
-      return r.ledger_current_index
+      /*
+       * `ledger_current` is documented to return `ledger_current_index`, and rippled does — but
+       * the public clusters in front of it answer with `ledger_index` instead. Reading only the
+       * documented name yielded `undefined`, `undefined + 20` became `NaN`, and every XRPL
+       * payment died in xrpl.js's serializer. Accept either, because the field a proxy chooses
+       * is not something a payer should have to care about.
+       */
+      const r = await rpc<{ ledger_current_index?: number; ledger_index?: number }>('ledger_current', {})
+      const index = r.ledger_current_index ?? r.ledger_index
+      if (typeof index !== 'number') {
+        throw new Error(
+          `XRPL: ledger_current returned neither ledger_current_index nor ledger_index ` +
+            `(got ${JSON.stringify(Object.keys(r ?? {}))}). Nothing was signed or submitted.`
+        )
+      }
+      return index
     },
     async submit(txBlob) {
       return rpc('submit', { tx_blob: txBlob })

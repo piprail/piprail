@@ -120,6 +120,7 @@ Real mainnet, tiny amounts, from the gitignored test wallets.
 |---|---|
 | `payments` | **18 rows across all 10 families**: `pay → 200 → receipt → replay refused`, plus Template-A nonce binding. Covers native coins and non-USDC tokens (USDT, USD1, USDG) |
 | `sovereign` | an agent handed only a key earns real money end to end, unattended |
+| `gasless` | the standard `exact` rail: buyer signs, a keyless facilitator settles, and a buyer holding ZERO gas still pays |
 
 ---
 
