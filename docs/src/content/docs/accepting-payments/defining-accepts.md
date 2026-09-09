@@ -42,6 +42,15 @@ rejected** with an [`InvalidConfigError`](/errors/error-hierarchy/), never silen
 See [Chains and tokens](/concepts/chains-and-tokens/) for the full token grammar and custom-token
 descriptors per family.
 
+Since **3.1.0** it must also be **greater than zero**. `amount: '0'` used to build a rail whose
+amount check any transfer satisfied, including a transfer of nothing, so the gate opened for free
+while looking correctly configured. It is now an `InvalidConfigError`: a gate that charges nothing
+gates nothing, so omit the gate instead. Rails resolve lazily, so this is raised the first time the
+gate is used rather than by `createPaymentGate()` itself; the first challenge throws instead of
+serving a free rail. An amount finer than the token's decimals (`'0.0000001'` on 6-decimal USDC) is
+a separate and older error from `parseUnits`, which refuses the precision outright rather than
+rounding it down.
+
 ## Multi-rail: `accept[]`
 
 To offer **several rails in one challenge**, pass `accept[]`. The agent pays with whatever it

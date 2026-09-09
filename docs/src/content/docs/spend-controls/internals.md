@@ -104,11 +104,22 @@ coerced to "no denomination" (the record still tallies per-asset). So a poisoned
 timestamp fails **closed**: an unparseable `at` is counted *toward* the rolling window, never silently
 dropped from the cap. (Proven: `ledger-spend-controls` "crash-safe against a POISONED store", `node-spendstore`.)
 
-### 6. Concurrency is best-effort by design (documented, not hidden)
-`maxTotal`, `maxTotalPerDenom`, and the count caps are checked against spend recorded *so far*; many
-payments in flight at once can race past a cap. Agents that need a hard concurrent ceiling should
-serialise (the common case is sequential `await`ed calls). PipRail ships no reservation system; it
-would cost more simplicity than it's worth (STANDARDS §7).
+### 6. A cap holds under CONCURRENCY, within a process
+Since **3.1.0** the ledger reserves budget when a payment is authorized and releases it in a
+`finally`, so `maxTotal`, `maxTotalPerDenom` and the count caps all bind when payments run in
+parallel. A refused payment gives its reservation straight back, and sequential payments still
+spend the full cap, so the reserve never over-holds. (Proven: `budget-concurrency`.)
+
+This replaced a real hole. A cap used to be read when a quote was priced and written when the
+payment settled, with a whole network round trip in between: six simultaneous `fetch()` calls
+against a `maxTotal` of `'2.50'` each priced against the same "spent so far", each passed, and four
+settled. 4.00 spent against a 2.50 leash, with every individual check correct. Earlier versions of
+this page told you to serialise your calls to avoid it; you no longer need to.
+
+**The remaining limit, stated plainly:** the reservation is in-memory and belongs to one
+`SpendLedger` instance. Two **processes** sharing a single persisted [`SpendStore`](/spend-controls/spend-ledger/)
+cannot see each other's in-flight payments, so across processes the cap is still best-effort. If you
+need a hard ceiling there, back it with a store that can reserve atomically.
 
 ## Memory characteristics
 

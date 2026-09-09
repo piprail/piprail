@@ -150,11 +150,19 @@ the generator.
 
 ## 7. Known, intentional limitations (document; don't silently fix with complexity)
 
-- **`policy.maxTotal` under high concurrency is best-effort.** It's checked against spend recorded
-  *so far*; many payments in flight at once could race past it. Agents that need a hard concurrent
-  cap should serialise (the common case is sequential `await`ed calls). We don't add a reservation
-  system — it would cost more simplicity than it's worth. State limits like this; never hide them.
-  The cross-token grand total (`maxTotalPerDenom`) and the payment-count caps share this property.
+- **`policy.maxTotal` is exact within a process, best-effort ACROSS processes.** Until 3.1.0 this
+  entry said the cap was best-effort under any concurrency and that we would not add a reservation
+  system. That was wrong to leave standing: six parallel `fetch()` calls against a `maxTotal` of
+  `'2.50'` each priced against the same "spent so far", each passed, and four settled — 4.00 spent
+  against a 2.50 leash with every individual check correct. A leash that only holds when you
+  remember to `await` sequentially is not a leash. `SpendLedger` now RESERVES at authorize-time and
+  releases in a `finally`, so `maxTotal`, `maxTotalPerDenom` and the count caps all hold under
+  parallel load (`test/budget-concurrency.test.ts`).
+  The reservation is in-memory and per-ledger-instance, so the honest remaining limit is narrower:
+  two PROCESSES sharing one persisted `SpendStore` cannot see each other's in-flight payments, and
+  there the cap is still best-effort. A hard multi-process ceiling needs a shared store with
+  atomic reserve semantics, which is the caller's to provide. State limits like this; never hide
+  them, and correct them when they stop being true.
 - **`policy.maxTotalPerDenom` is a unit-of-account sum, NOT a price oracle.** It adds up only tokens
   the caller grouped as one unit (the static `BUILTIN_DENOMS` labels + `denomFor`), each counted 1:1;
   it never reads a market and never prices a volatile coin (native coins have no denomination and are

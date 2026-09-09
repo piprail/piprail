@@ -4,6 +4,22 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- **Three descriptions of a balance still said HOLDS after 3.1.0 made it SPENDABLE.** 3.1.0
+  changed the drivers to deduct a chain's retained minimum (Solana rent, XRPL/Stellar/Algorand
+  reserves) from the native figure, and documented that precisely on `WalletBalance.token` — but
+  every layer above it kept the old wording. `PipRailClient.balanceOf`'s TSDoc, the interface it
+  implements, and the `piprail_wallet` tool description a MODEL reads all still promised "what you
+  hold". They now say what they mean, and name the gap as locked rather than lost.
+
+  The wording mattered most in the tool description, because an agent comparing its own balance
+  against a block explorer sees a smaller number and has to decide whether it is being lied to. On
+  a live Stellar account holding 1.5398 XLM with three subentries, `balanceOf` reports 0.0398: the
+  1.5 XLM difference is the base reserve. Text only; no behaviour changes.
+
 ## [3.1.1] — 2026-09-09 — XRPL payments work again
 
 ### Fixed

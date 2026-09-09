@@ -1143,12 +1143,15 @@ export function paymentTools(client: PayingClient): AgentTool[] {
     {
       name: 'piprail_wallet',
       description:
-        'What YOU hold, and where you get paid — your balance sheet, which is a different question ' +
-        'from piprail_budget (that is how much of your allowance is left). Returns your own address ' +
-        'per chain plus the amount of each asset you actually hold. Use it before deciding to sell, ' +
-        'swap or ask to be topped up, and give the address to anyone who needs to send you funds. ' +
-        'A null amount means the read was UNAVAILABLE, not zero: do NOT treat it as being broke. ' +
-        'Read-only; moves nothing and needs no approval.',
+        'What YOU can SPEND, and where you get paid — your balance sheet, which is a different ' +
+        'question from piprail_budget (that is how much of your allowance is left). Returns your ' +
+        'own address per chain plus the spendable amount of each asset. Use it before deciding to ' +
+        'sell, swap or ask to be topped up, and give the address to anyone who needs to send you ' +
+        'funds. On some chains a native amount is LOWER than the figure a block explorer shows, ' +
+        'because the chain makes an account retain a minimum it can never send (Solana, XRPL, ' +
+        'Stellar, Algorand). That gap is locked, not lost, and this number is the one you can ' +
+        'actually pay with. A null amount means the read was UNAVAILABLE, not zero: do NOT treat ' +
+        'it as being broke. Read-only; moves nothing and needs no approval.',
       annotations: {
         title: 'Your wallet',
         readOnlyHint: true, // reads addresses and balances; changes nothing
