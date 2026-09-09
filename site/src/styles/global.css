@@ -3,7 +3,7 @@
 @theme {
   --color-bg: oklch(0.145 0.005 260);
   --color-fg: oklch(0.985 0 0);
-  --color-muted: oklch(0.62 0.01 260);
+  --color-muted: oklch(0.68 0.01 260);
   --color-line: oklch(1 0 0 / 0.08);
   --color-accent: oklch(0.78 0.17 162);        /* emerald = "paid" */
   --color-accent-soft: oklch(0.78 0.17 162 / 0.12);
@@ -28,87 +28,48 @@ html {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Contain the decorative, full-bleed background art (the wide .hero-orb glows and
-   drifting particles are absolutely positioned and intentionally over-sized) so it
-   can never push the layout sideways on narrow screens. `clip`, not `hidden`, so
-   it doesn't become a scroll container and break `position: sticky` (the FAQ aside). */
+/* Keep wide diagrams and marquees inside the viewport without breaking sticky UI. */
 html, body {
   overflow-x: clip;
   max-width: 100%;
 }
 
-/* Hero ambience: two slow-drifting emerald/blue glow orbs behind the header give the
-   background gentle life (it's the first thing visitors see). Subtle + slow; the static
-   grid sits in front. Honors reduced-motion (the orbs hold still). */
-.hero-orb {
-  position: absolute; z-index: -2; pointer-events: none;
-  border-radius: 50%; filter: blur(90px); will-change: transform, opacity;
-}
-.hero-orb-1 {
-  left: 24%; top: -150px; width: 640px; height: 460px;
-  background: radial-gradient(closest-side, oklch(0.78 0.17 162 / 0.17), transparent);
-  animation: orb-1 34s ease-in-out infinite;
-}
-.hero-orb-2 {
-  left: 58%; top: -90px; width: 560px; height: 460px;
-  background: radial-gradient(closest-side, oklch(0.70 0.16 250 / 0.13), transparent);
-  animation: orb-2 46s ease-in-out infinite;
-}
-@keyframes orb-1 {
-  0%, 100% { transform: translate(0, 0) scale(1);     opacity: 0.82; }
-  50%      { transform: translate(-48px, 34px) scale(1.12); opacity: 1; }
-}
-@keyframes orb-2 {
-  0%, 100% { transform: translate(0, 0) scale(1);     opacity: 0.68; }
-  50%      { transform: translate(46px, 24px) scale(1.1);  opacity: 0.95; }
-}
-@media (prefers-reduced-motion: reduce) { .hero-orb { animation: none; opacity: 0.9; } }
+h1, h2, h3 { text-wrap: balance; }
+h1, h2 { letter-spacing: -0.035em; }
+p { text-wrap: pretty; }
 
-/* Hero particles: faint emerald specks drifting far in the background, like distant
-   stars. Decorative; tiny + low-opacity so they read as deep background. Each <i> gets
-   its position/size/timing inline; three drift keyframes keep them out of sync. */
-.hero-dots { position: absolute; inset: 0 0 auto 0; height: 760px; z-index: -1; pointer-events: none; overflow: hidden; }
-.hero-dots i {
-  position: absolute; border-radius: 50%;
-  background: oklch(0.86 0.13 162 / 1);
-  box-shadow: 0 0 6px oklch(0.86 0.13 162 / 0.5);
-  opacity: var(--o, 0.3);
-  will-change: transform, opacity;
+:where(a, button, summary, input, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 4px;
 }
-@keyframes float-a { 0%, 100% { transform: translate(0, 0); opacity: var(--o, .3); } 50% { transform: translate(14px, -22px); opacity: calc(var(--o, .3) + .18); } }
-@keyframes float-b { 0%, 100% { transform: translate(0, 0); opacity: var(--o, .25); } 50% { transform: translate(-18px, -14px); opacity: calc(var(--o, .25) + .16); } }
-@keyframes float-c { 0%, 100% { transform: translate(0, 0); opacity: var(--o, .2); } 50% { transform: translate(12px, 16px); opacity: calc(var(--o, .2) + .14); } }
-@media (prefers-reduced-motion: reduce) { .hero-dots i { animation: none !important; } }
 
 ::selection {
   background: var(--color-accent);
   color: var(--color-bg);
 }
 
-/* ── Surfaces: subtle card depth ──────────────────────────────────────────
-   Restrained on purpose: a quiet top-down gradient, a 1px top edge-light, and a
-   soft ambient lift, so panels read as crafted surfaces while the accent
-   sections (demo/MCP) still lead. `card` = a full surface (gradient + border +
-   depth); `lift` = depth only, for the hairline-divider grids whose cells fill
-   the frame. */
+/* Solid surfaces share one edge treatment across product pages. */
 @utility card {
-  background-image: linear-gradient(180deg, oklch(1 0 0 / 0.05), oklch(1 0 0 / 0.015));
+  background-color: oklch(0.185 0.006 260);
   border: 1px solid oklch(1 0 0 / 0.10);
-  box-shadow:
-    inset 0 1px 0 oklch(1 0 0 / 0.06),
-    0 1px 2px oklch(0 0 0 / 0.25),
-    0 16px 36px -20px oklch(0 0 0 / 0.55);
+  box-shadow: 0 2px 4px oklch(0 0 0 / 0.16);
 }
 @utility lift {
-  box-shadow:
-    inset 0 1px 0 oklch(1 0 0 / 0.05),
-    0 1px 2px oklch(0 0 0 / 0.25),
-    0 16px 36px -20px oklch(0 0 0 / 0.55);
+  box-shadow: 0 2px 4px oklch(0 0 0 / 0.16);
 }
 
-/* Soft emerald halo under the primary (accent) CTAs. Premium lift, deepens on hover. */
-.cta-glow { box-shadow: 0 10px 34px -12px oklch(0.78 0.17 162 / 0.55); }
-.cta-glow:hover { box-shadow: 0 12px 40px -10px oklch(0.78 0.17 162 / 0.72); }
+.cta-glow {
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.18), 0 2px 4px oklch(0 0 0 / 0.2);
+}
+.cta-glow:hover { box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.25), 0 4px 12px oklch(0 0 0 / 0.25); }
+
+.feature-panel {
+  background: oklch(0.18 0.006 260);
+  border-color: oklch(1 0 0 / 0.12);
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.025);
+}
+.code-window { background: oklch(0.165 0.006 260); }
+.code-window__bar { background: oklch(0.205 0.006 260); }
 
 /* Thin, quiet scrollbars on the code blocks. */
 pre::-webkit-scrollbar { height: 6px; }

@@ -74,7 +74,7 @@ Every class below is exported from the package root and is caught by
 | `NoCompatibleAcceptError` | `NO_COMPATIBLE_ACCEPT` | The challenge offered no `accepts[]` entry the client can pay on its chain + enabled schemes. |
 | `UnsupportedSchemeError` | `UNSUPPORTED_SCHEME` | Asked to pay a scheme the bound family / asset / signer can't settle, with no fallback rail. |
 | `NonReplayableBodyError` | `NON_REPLAYABLE_BODY` | `init.body` was provided but isn't replayable (e.g. a one-shot `ReadableStream`). |
-| `SettlementError` | `SETTLEMENT_FAILED` | An `exact`-rail payment was valid but settlement failed **server-side**. The gate throws this so the adapter returns 5xx, never 402. |
+| `SettlementError` | `SETTLEMENT_FAILED` | An `exact`-rail payment was valid but settlement failed **server-side**. The gate throws this so the adapter returns 5xx, never 402. Since **3.1.0** this is only for faults the buyer cannot act on: a facilitator's `401`/`403`/`404`/`429`/`5xx`, or a network failure. A facilitator `400`/`422` means the payload itself is bad, so it re-challenges with that reason instead of throwing. |
 | `WalletRequiredError` | `WALLET_REQUIRED` | A wallet-bound op (pay / plan / sign) was called on a **read-only** client built with no `wallet`. The read-only methods (quote / discover / register / budget) still work. |
 
 ## Affordability always converges on `InsufficientFundsError`

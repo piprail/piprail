@@ -163,8 +163,26 @@ const agent = new PipRailClient({
 |---|---|---|
 | `onBeforeSwap` | `(quote: SwapQuote) => boolean \| Promise<boolean>` | Approve or refuse a **swap** before anything is signed. `onBeforePay` genuinely never sees a swap (a swap is not a payment), so without this a supervised sovereign agent could swap its whole balance without one prompt. Same fail-safe contract: `false` or a throw refuses, as `PaymentDeclinedError` with `reasonCode: 'APPROVAL'`. `@piprail/mcp` wires it alongside `onBeforePay` whenever confirmation is on. |
 | `client.address()` | `() => Promise<string>` | Where this wallet gets **paid**. Derived from the key, no RPC read. An agent handed a key it never chose has no other way to learn its own address, and `piprail_sell` defaults `payTo` to it. |
-| `client.balanceOf(assets?)` | `(assets?: readonly string[]) => Promise<WalletAssetBalance[]>` | What the wallet HOLDS, per asset: the balance sheet, distinct from `budget()` (how much allowance is left). Never throws for a read problem: an unavailable read is `null`, **never `0`**, so an agent can tell "I hold nothing" from "I could not find out". On a `MultiChainPayer` it spans every chain. |
-| `WalletAssetBalance` | `{ symbol, asset, decimals, known, amount, amountFormatted }` | One holding. `known: false` means the chain does not ship that symbol, reported rather than guessed at. |
+| `client.balanceOf(assets?)` | `(assets?: readonly string[]) => Promise<WalletAssetBalance[]>` | What the wallet can **spend**, per asset: the balance sheet, distinct from `budget()` (how much allowance is left). Never throws for a read problem: an unavailable read is `null`, **never `0`**, so an agent can tell "I hold nothing" from "I could not find out". On a `MultiChainPayer` it spans every chain. 🔴 For a **native** asset on a chain with a retained minimum this is lower than the figure an explorer shows; see the note below. |
+| `WalletAssetBalance` | `{ symbol, asset, decimals, known, amount, amountFormatted }` | One holding. `amount` is the **spendable** base-unit figure. `known: false` means the chain does not ship that symbol, reported rather than guessed at. |
+
+:::caution[Spendable is not the same as held]
+Solana, the XRP Ledger, Stellar and Algorand each make an account retain a minimum it can never
+send: Solana's rent exemption, XRPL's base plus owner reserve, Stellar's base reserve per
+subentry, Algorand's minimum balance. Since **3.1.0** a native balance reports that reserve
+**deducted**, because measuring affordability against the raw balance calls a payment affordable
+right up until the chain refuses it, which is the one thing `planPayment()` exists to prevent.
+
+Measured live on mainnet:
+
+| Chain | The account holds | `balanceOf` reports | Locked reserve |
+|---|---|---|---|
+| Stellar (3 subentries) | 1.5398 XLM | 0.0398 XLM | 1.5 XLM |
+| XRP Ledger (2 owned objects) | 2.3810 XRP | 0.9810 XRP | 1.4 XRP |
+
+The difference is locked, not lost. Spend against this number; `estimateCost()` judges gas
+against the true balance separately. Where a chain has no such minimum the two are equal.
+:::
 | `client.canAgentSell()` | `() => boolean` | May a model price offers and collect for them? Sovereign only. |
 | `client.chain()` | `() => ChainSelector` | The chain this client is configured for. |
 

@@ -219,12 +219,11 @@ const howToLd = {
 
         <!-- connector → -->
         <div class="hidden h-px sm:mx-1 sm:flex sm:w-14 sm:items-center">
-          <div class="h-px w-full bg-linear-to-r from-white/10 via-accent/50 to-accent/90"></div>
+          <div class="h-px w-full bg-accent/30"></div>
         </div>
 
         <!-- the adapter: PipRail in the middle -->
-        <div class="relative flex-1 overflow-hidden rounded-2xl border border-accent/30 bg-linear-to-b from-accent/10 to-white/2 p-6 text-center shadow-[0_0_56px_-14px_rgba(46,230,166,0.5)]">
-          <div class="pointer-events-none absolute left-1/2 top-1/2 h-44 w-44 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent/15 blur-3xl"></div>
+        <div class="relative flex-1 overflow-hidden rounded-2xl border border-accent/30 feature-panel p-6 text-center">
           <div class="relative">
             <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-accent/30 bg-neutral-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
               <img src="/logo.png" alt="PipRail" width="34" height="34" class="h-8.5 w-8.5" />
@@ -236,7 +235,7 @@ const howToLd = {
 
         <!-- connector → -->
         <div class="hidden h-px sm:mx-1 sm:flex sm:w-14 sm:items-center">
-          <div class="h-px w-full bg-linear-to-r from-accent/90 via-accent/50 to-white/10"></div>
+          <div class="h-px w-full bg-accent/30"></div>
         </div>
 
         <!-- the payoff: any API ⇄ any agent -->
@@ -294,8 +293,7 @@ const howToLd = {
     </section>
 
     <!-- 4 · Live demo teaser -->
-    <section aria-label="Live demo" class="relative overflow-hidden rounded-3xl border border-accent/20 bg-linear-to-br from-accent/8 via-white/2 to-transparent p-8 sm:p-10 lg:p-14">
-      <div class="pointer-events-none absolute -right-24 -top-28 h-80 w-80 rounded-full bg-accent/10 blur-3xl"></div>
+    <section aria-label="Live demo" class="relative overflow-hidden rounded-3xl border border-accent/20 feature-panel p-8 sm:p-10 lg:p-14">
       <div class="relative grid items-center gap-10 lg:grid-cols-[1.05fr_1fr] lg:gap-14">
         <div>
           <span class="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-accent">
@@ -354,7 +352,6 @@ const howToLd = {
 
       <div id="coverage" class="lift relative mb-4 overflow-hidden rounded-2xl border border-white/10 bg-neutral-950/80 p-6 sm:p-8">
         <!-- emerald wash -->
-        <div class="pointer-events-none absolute -right-24 -top-28 h-72 w-72 rounded-full bg-accent/10 blur-3xl"></div>
         <div class="relative space-y-7">
           <!-- EVM: the flagship family, BNB first + highlighted -->
           <div>
@@ -364,7 +361,7 @@ const howToLd = {
             </div>
             <div class="flex flex-wrap items-center gap-2.5">
               {evmFeatured.map((c) => (
-                <span class={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium transition ${c.slug === 'bnb' ? 'border-accent/45 bg-accent/12 text-white shadow-[0_0_26px_-6px_rgba(46,230,166,0.65)]' : 'border-white/10 bg-white/5 text-neutral-300 hover:border-white/20'}`}>
+                <span class={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium transition ${c.slug === 'bnb' ? 'border-accent/45 bg-accent/12 text-white' : 'border-white/10 bg-white/5 text-neutral-300 hover:border-white/20'}`}>
                   <img src={`/chains/${c.slug}.svg`} alt="" width="20" height="20" class="h-5 w-5 rounded-full ring-1 ring-white/10" />
                   {c.name}
                 </span>
@@ -375,7 +372,7 @@ const howToLd = {
             </div>
           </div>
 
-          <div class="h-px bg-linear-to-r from-transparent via-white/12 to-transparent"></div>
+          <div class="h-px bg-white/10"></div>
 
           <!-- the 9 non-EVM families, each its own native, self-custodial driver -->
           <div>
@@ -511,8 +508,7 @@ const howToLd = {
 
     <!-- 7 · MCP teaser -->
     <section id="mcp-teaser" class="scroll-mt-24 border-t border-white/10 py-20 sm:py-24">
-      <div class="relative overflow-hidden rounded-3xl border border-accent/20 bg-linear-to-br from-accent/8 via-white/2 to-transparent p-8 sm:p-10 lg:p-14">
-        <div class="pointer-events-none absolute -left-24 -top-28 h-80 w-80 rounded-full bg-accent/10 blur-3xl"></div>
+      <div class="relative overflow-hidden rounded-3xl border border-accent/20 feature-panel p-8 sm:p-10 lg:p-14">
         <div class="relative">
           <div class="grid items-center gap-10 lg:grid-cols-[1fr_1.05fr] lg:gap-14">
             <div>

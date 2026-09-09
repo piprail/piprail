@@ -237,6 +237,22 @@ relayer or facilitator couldn't broadcast it, the gate throws `SettlementError` 
 and the adapter returns **5xx**, never 402. Your signed EIP-3009 authorization stays valid and its nonce
 unused, so re-present it once the merchant fixes their relayer. Re-paying would be wrong here too.
 
+### A `402` back from an `exact` rail means the opposite
+
+The status code tells you whose problem it is, and since **3.1.0** the split is exact. If the
+facilitator rejects the payload itself, with a `400` or a `422` (a signature that will not recover,
+an authorization outside its validity window, a nonce already spent), that is not an outage and
+retrying the same bytes can never work. The gate re-challenges with the facilitator's own reason
+carried through, so you get something to act on rather than a bare server error. Sign again.
+
+Everything else stays a `5xx`: the facilitator's `401` or `403` (the **merchant's** credentials),
+a `404` (the merchant's URL), a `429`, any `5xx`, or a network failure. A buyer can do nothing
+about any of those, so the honest answer is "not your fault, try later".
+
+Before 3.1.0 every non-`200` from a facilitator became a `SettlementError`, so a forged
+authorization was reported to the buyer as the merchant's outage, and showed up in the merchant's
+metrics as downtime they did not have.
+
 ## When you'd rather not handle any of this
 
 Agents that should never let a payment failure crash the loop should drive PipRail through the

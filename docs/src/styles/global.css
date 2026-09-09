@@ -36,11 +36,16 @@
   --sl-font: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --sl-font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Menlo', monospace;
   --piprail-font-display: 'Space Grotesk', 'Inter', ui-sans-serif, system-ui, sans-serif;
-  --sl-nav-height: 4rem;
+  /* 4rem is Starlight's default and it left a 2.5rem search with 0.75rem of air
+     above and below: the bar read as packed rather than composed. 4.5rem gives
+     the controls room without turning the bar into a band. Every sticky offset
+     in Starlight (sidebar top, TOC top, scroll-padding for anchors) is derived
+     from this variable, so raising it here moves all of them together. */
+  --sl-nav-height: 4.5rem;
 
   /* A more generous reading column (Starlight ships 45rem) so the content FILLS
      the space on wide screens instead of stranding a narrow strip. */
-  --sl-content-width: 54rem;
+  --sl-content-width: 50rem;
 
   /* ── Solid brand surfaces: the whole flat system in one place ──
      Every framed thing (card, code window, table, pagination, search) is one of
@@ -51,7 +56,7 @@
   --pr-code-chrome: oklch(0.205 0.006 260); /* code window header / tab bar */
   --pr-border: oklch(1 0 0 / 0.09); /* the one hairline border, everywhere */
   --pr-border-strong: oklch(1 0 0 / 0.15); /* emphasized edge (hover, dividers) */
-  --pr-border-accent: oklch(0.78 0.17 162 / 0.5); /* emerald edge on interactive hover */
+  --pr-border-accent: oklch(0.78 0.17 162 / 0.3); /* emerald edge on interactive hover */
   /* One tight, neutral hairline-shadow: the only depth the docs use. Never colored. */
   --pr-lift: 0 1px 2px oklch(0 0 0 / 0.25);
 }
@@ -122,10 +127,48 @@ html.pr-js:not(.pr-ready) *::after {
    no shadow, no glow.
    ============================================================================ */
 header.header {
-  background: color-mix(in oklch, var(--sl-color-black) 82%, transparent);
+  background: color-mix(in oklch, var(--sl-color-black) 96%, transparent);
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--pr-border);
+}
+
+/* ── The bar tracks the PAGE's column, not the viewport ──────────────────────
+   Starlight sizes the header's first grid column off the SIDEBAR, so on a page
+   that has one, the wordmark lands over the sidebar and the search lands exactly
+   on the content column. That is the right answer, and it is left alone below.
+
+   On a page with NO sidebar (the splash home page) that math has nothing to
+   measure against: the columns collapse to `auto 1fr auto` across the full
+   viewport while the content below sits in a centred 67.5rem column. At 1440px
+   that put the wordmark 156px to the LEFT of the headline it sits above and the
+   theme control 156px to the RIGHT of the code window. It also opened a 620px
+   hole across the middle of the bar, because the search is capped at 22rem but
+   was left-aligned in a 972px column. Three items pinned to the extremes of a
+   rail nothing else in the page uses: that is the "squashed and floating" look.
+
+   The fix is to hand the bar the same column the page already uses.
+   `:root:not([data-has-sidebar])` is not a guess at which pages are splash
+   pages; it is the exact selector Starlight itself uses to widen
+   `--sl-content-width` to 67.5rem, so the header and the content can never
+   disagree about where the column is. The BAR still spans the viewport (the
+   background, the blur and the hairline are full-bleed, as an app bar should
+   be). Only its contents are inset. */
+@media (min-width: 50rem) {
+  :root:not([data-has-sidebar]) header.header > .header {
+    max-width: var(--sl-content-width);
+    margin-inline: auto;
+    /* Wordmark and controls take what they need; the search owns the middle. */
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  /* Centre the search in that middle zone. Without this it hugs the wordmark and
+     stranding returns, just inside a narrower bar. The middle grid child is
+     Starlight's unnamed `.sl-flex` search wrapper, so it is addressed by
+     position; `site-search` itself is `display: contents`, which is why the
+     centring has to happen on the wrapper and not on the element. */
+  :root:not([data-has-sidebar]) header.header > .header > :nth-child(2) {
+    justify-content: center;
+  }
 }
 
 /* Logo: the transparent mark sits directly on the header, no box. The art is
@@ -149,6 +192,9 @@ site-search button[data-open-modal] {
   border-radius: 0.6rem;
   border-color: var(--pr-border);
   background: var(--pr-surface);
+  /* Starlight ships 2.5rem. In a 4.5rem bar that reads undersized next to the
+     wordmark; 2.75rem sits right without crowding the hairline. */
+  height: 2.75rem;
 }
 site-search button[data-open-modal]:hover {
   border-color: var(--pr-border-accent);
@@ -160,7 +206,7 @@ site-search button[data-open-modal]:hover {
    a solid emerald wash with a flat emerald left bar (no glow).
    ============================================================================ */
 .sidebar-content {
-  padding-top: 0.5rem;
+  padding-top: 1.25rem;
 }
 /* Group labels: the section headers. Uppercase, tracked, muted: a modern
    API-reference section rail that cleanly separates each group from its links.
@@ -187,16 +233,16 @@ nav.sidebar a[aria-current='page'],
 nav.sidebar a[aria-current='page']:hover {
   position: relative;
   color: var(--sl-color-white);
-  background: color-mix(in oklch, var(--sl-color-accent) 13%, transparent);
+  background: color-mix(in oklch, var(--sl-color-accent) 8%, transparent);
   font-weight: 600;
 }
 nav.sidebar a[aria-current='page']::before {
   content: '';
   position: absolute;
-  left: -0.55rem;
+  left: 0;
   top: 0.3rem;
   bottom: 0.3rem;
-  width: 2.5px;
+  width: 2px;
   border-radius: 999px;
   background: var(--sl-color-accent);
 }
@@ -205,7 +251,8 @@ nav.sidebar a[aria-current='page']::before {
    Reading column: the Laravel-clean text rhythm, sharpened.
    ============================================================================ */
 .sl-markdown-content {
-  line-height: 1.72;
+  line-height: 1.8;
+  font-size: 0.975rem;
 }
 
 /* Space Grotesk is the brand's display voice, but reserved for the chrome
@@ -230,13 +277,13 @@ nav.sidebar a[aria-current='page']::before {
 .content-panel h1 {
   font-size: clamp(2.1rem, 1.6rem + 1.8vw, 2.9rem);
   font-weight: 700;
-  line-height: 1.1;
+  line-height: 1.16;
 }
 .sl-markdown-content h2 {
   font-size: 1.5rem;
   font-weight: 600;
   margin-top: 2.9rem;
-  padding-bottom: 0.4rem;
+  padding-bottom: 0.65rem;
   border-bottom: 1px solid var(--pr-border);
 }
 .sl-markdown-content h3 {
@@ -386,7 +433,7 @@ nav.sidebar a[aria-current='page']::before {
 }
 /* The surface: solid fill via EC vars + one crisp hairline + a tight neutral lift. */
 .sl-markdown-content .expressive-code .frame {
-  border-radius: 0.7rem;
+  border-radius: 0.75rem;
   border: 1px solid var(--pr-border);
   box-shadow: var(--pr-lift);
 }
@@ -413,7 +460,7 @@ nav.sidebar a[aria-current='page']::before {
    ============================================================================ */
 .sl-markdown-content .starlight-aside {
   border-radius: 0.6rem;
-  border-inline-start-width: 2.5px;
+  border-inline-start-width: 2px;
   padding: 1rem 1.15rem;
   background: color-mix(in oklch, var(--sl-color-asides-text-accent) 7%, var(--sl-color-gray-6));
 }
@@ -456,7 +503,7 @@ nav.sidebar a[aria-current='page']::before {
   border: 1px solid var(--pr-border);
   /* 0.7rem matches the code-block frame + cards exactly, so every framed surface
      in the docs shares one corner radius. */
-  border-radius: 0.7rem;
+  border-radius: 0.75rem;
   font-size: 0.92rem;
   box-shadow: var(--pr-lift);
   /* Firefox thin scrollbar (WebKit uses ::-webkit-scrollbar below). */
@@ -564,7 +611,7 @@ nav.sidebar a[aria-current='page']::before {
    ============================================================================ */
 .card,
 .sl-link-card {
-  border-radius: 0.7rem;
+  border-radius: 0.75rem;
   border: 1px solid var(--pr-border);
   background: var(--pr-surface);
   box-shadow: var(--pr-lift);
@@ -615,7 +662,7 @@ starlight-toc a[aria-current='true'] {
    Pagination (prev / next): solid panel, emerald edge on hover.
    ============================================================================ */
 .pagination-links a {
-  border-radius: 0.7rem;
+  border-radius: 0.75rem;
   border-color: var(--pr-border);
   background: var(--pr-surface);
   box-shadow: var(--pr-lift);
@@ -646,62 +693,80 @@ starlight-toc a[aria-current='true'] {
    comes from size, color, and a clean fill.
    ============================================================================ */
 .hero {
-  padding-block: clamp(3.5rem, 7vw, 6.5rem) clamp(3rem, 6vw, 5rem);
-  gap: clamp(1.5rem, 4vw, 2.5rem);
+  grid-template-columns: minmax(0, 1fr);
+  padding-block: clamp(2.5rem, 5vw, 4.5rem) clamp(3rem, 5vw, 4.5rem);
+  gap: 2.5rem;
+  text-align: start;
 }
-.hero > div:last-child,
-.hero .sl-flex {
-  gap: clamp(1.25rem, 3vw, 2rem);
+.hero > .stack {
+  min-width: 0;
+  width: 100%;
+  gap: 2rem;
+  align-items: flex-start;
+  /* `text-align: start` on `.hero` above cannot win this: Starlight declares
+     `text-align: center` on `.stack` itself and only flips it to `start` inside
+     its own `min-width: 50rem` block. So below 800px the BOXES were left-aligned
+     (align-items above) while the TEXT inside them stayed centred, which read as
+     a centred headline and tagline sitting over left-aligned buttons. Set it on
+     the same element Starlight sets it on, so the hero reads left-aligned at
+     every width. */
+  text-align: start;
+}
+.hero .copy {
+  gap: 1.5rem;
+  align-items: flex-start;
 }
 .hero h1 {
   font-family: var(--piprail-font-display);
-  font-size: clamp(2.75rem, 6.5vw, 4.6rem);
-  font-weight: 700;
+  font-size: clamp(2.5rem, 4vw, 3.75rem);
+  font-weight: 600;
   letter-spacing: -0.035em;
-  line-height: 1.02;
-  display: flex;
-  align-items: center;
-  gap: 0.3em;
-}
-/* The PipRail mark, inline before the "PipRail" title, same line, scales with
-   the heading. Transparent + theme-adaptive (white-P on dark, black-P on light),
-   no box, no glow: it sits directly on the page like the wordmark beside it. */
-.hero h1::before {
-  content: '';
-  flex: none;
-  width: 1em;
-  height: 1em;
-  background-image: url('/logo-dark.png');
-  background-size: contain;
-  background-position: center;
-  background-repeat: no-repeat;
-}
-:root[data-theme='light'] .hero h1::before {
-  background-image: url('/logo-light.png');
+  line-height: 1.12;
+  max-width: 18ch;
+  text-wrap: balance;
 }
 .hero .tagline {
-  font-size: clamp(1.1rem, 1rem + 0.7vw, 1.4rem);
-  line-height: 1.55;
-  text-wrap: balance;
+  font-size: clamp(1.05rem, 1rem + 0.2vw, 1.2rem);
+  line-height: 1.75;
+  text-wrap: pretty;
   color: var(--sl-color-gray-2);
-  max-width: 46ch;
+  max-width: 48ch;
 }
 .hero .actions {
-  margin-top: clamp(0.5rem, 2vw, 1.25rem);
-  gap: 0.85rem 1rem;
+  margin-top: 0;
+  gap: 0.75rem;
+  justify-content: flex-start;
 }
+.hero .actions .sl-link-button {
+  margin: 0;
+  font-size: 0.9375rem;
+  padding: 0.85rem 1.15rem;
+}
+.hero .actions .sl-link-button.minimal {
+  padding-inline: 0;
+  flex-basis: 100%;
+  justify-content: flex-start;
+}
+@media (max-width: 30rem) {
+  .hero .actions { width: 100%; }
+  .hero .actions .sl-link-button:not(.minimal) {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
 /* Primary CTA: solid emerald fill, no halo. Hover brightens the fill a touch. */
-.hero .actions a.button[data-variant='primary'] {
+.hero .actions a.sl-link-button.primary {
   font-family: var(--piprail-font-display);
   font-weight: 600;
   border-radius: 0.6rem;
   transition: background-color 0.15s ease;
 }
-.hero .actions a.button[data-variant='minimal'] {
+.hero .actions a.sl-link-button.secondary {
   border-radius: 0.6rem;
   border-color: var(--pr-border);
 }
-.hero .actions a.button[data-variant='minimal']:hover {
+.hero .actions a.sl-link-button.secondary:hover {
   border-color: var(--pr-border-accent);
 }
 
@@ -790,13 +855,18 @@ starlight-toc a[aria-current='true'] {
   margin-inline: 0;
 }
 
-/* Rebalance the two columns at desktop. */
-@media (min-width: 50rem) {
+/* Split only when both the headline and the example have room to breathe. */
+@media (min-width: 70rem) {
   .hero {
-    grid-template-columns: 1.02fr 0.98fr;
-    gap: clamp(2rem, 4vw, 3.5rem);
+    grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
+    align-items: center;
+    gap: clamp(2.5rem, 4vw, 4rem);
   }
 }
+@media (min-width: 50rem) and (max-width: 69.999rem) {
+  .hero > .hero-html { max-width: 44rem; }
+}
+
 
 /* The first content section shouldn't butt up against the hero. */
 .sl-markdown-content > :first-child {
@@ -862,13 +932,26 @@ starlight-toc a[aria-current='true'] {
     --pr-gutter: calc((100vw - 111rem) / 2);
   }
   header.header {
-    padding-inline: calc(1rem + var(--pr-gutter));
+    /* Was `calc(1rem + …)`, which made the bar's padding JUMP from 1.5rem to 1rem
+       the moment the cap engaged (the gutter is 0 at exactly 111rem). Deriving it
+       from the same variable the bar uses below the cap makes the transition
+       continuous. */
+    padding-inline: calc(var(--sl-nav-pad-x) + var(--pr-gutter));
   }
   .sidebar-pane {
     inset-inline-start: var(--pr-gutter);
   }
   .main-frame {
-    padding-inline-start: calc(var(--sl-content-inline-start) + var(--pr-gutter));
+    /* 🔴 The fallback is load-bearing. Starlight only defines
+       `--sl-content-inline-start` on pages that HAVE a sidebar, so on the splash
+       page this calc() had an undefined term, went invalid at computed-value
+       time, and silently resolved to 0, while padding-inline-end still applied
+       its 72px. The result was the whole landing page sitting 36px left of centre
+       on any screen past 1776px, with the header (which pads symmetrically)
+       correctly centred and therefore visibly out of register with it. An invalid
+       calc fails quietly, which is why this survived: nothing errors, the page
+       just drifts. */
+    padding-inline-start: calc(var(--sl-content-inline-start, 0rem) + var(--pr-gutter));
     padding-inline-end: var(--pr-gutter);
   }
 }
@@ -878,4 +961,26 @@ starlight-toc a[aria-current='true'] {
   html {
     scroll-behavior: auto;
   }
+}
+
+/* Keep navigation quieter than the document, with clear selection and spacing. */
+nav.sidebar a {
+  padding-block: 0.45rem;
+  padding-inline: 0.8rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+nav.sidebar summary { padding-block: 0.65rem; }
+starlight-toc a { font-size: 0.8125rem; line-height: 1.6; }
+.sl-link-card { padding: 1.35rem; }
+.sl-link-card .title { letter-spacing: -0.015em; }
+.pagination-links a { padding: 1.25rem; }
+.hero-code__bar { padding-block: 0.85rem; }
+.hero-code__body { padding: 1.4rem; }
+
+@media (min-width: 50rem) {
+  .content-panel { padding-block: 2rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; }
 }

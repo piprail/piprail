@@ -695,7 +695,9 @@ export interface PayingClient {
   canAgentSell?(): boolean
   /** The chain this client is configured for — the default an offer is priced on. */
   chain?(): ChainSelector
-  /** What this wallet HOLDS, per asset — the balance sheet, distinct from the budget leash. */
+  /** What this wallet can SPEND, per asset — the balance sheet, distinct from the budget
+   *  leash. On a chain with a retained minimum (Solana rent, XRPL/Stellar/Algorand
+   *  reserves) a native balance reports the reserve DEDUCTED. See {@link WalletBalance}. */
   balanceOf?(assets?: readonly string[]): Promise<WalletAssetBalance[]>
 }
 
@@ -1332,7 +1334,16 @@ export class PipRailClient {
   }
 
   /**
-   * What this wallet actually HOLDS, per asset — the balance sheet, not the leash.
+   * What this wallet can actually SPEND, per asset — the balance sheet, not the leash.
+   *
+   * 🔴 For a NATIVE asset this is not always what the chain says the account holds. Solana
+   * (rent exemption), XRPL (base + owner reserve), Stellar (base reserve per subentry) and
+   * Algorand (minimum balance) all require an account to retain a minimum it can never send,
+   * and since 3.1.0 the drivers report that reserve DEDUCTED, because affordability measured
+   * against the raw balance calls a payment affordable right up until the chain refuses it.
+   * Live example: a Stellar account holding 1.5398 XLM with three subentries reports 0.0398,
+   * the 1.5 XLM difference being the reserve. That is the number to spend against; it is not
+   * missing money. `estimateCost()` judges gas against the TRUE balance separately.
    *
    * `budget()` answers "how much of my allowance is left", a different question and the only
    * one an agent could previously ask. An agent that OWNS a wallet has to answer "what do I
