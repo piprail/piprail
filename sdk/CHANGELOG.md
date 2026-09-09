@@ -8,6 +8,15 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **A facilitator's payload rejection answered 5xx instead of 402.** Every non-200 from a
+  facilitator's `/verify` was treated as a transport failure, so a **400** — a forged or
+  malformed authorization — made the gate return a server error. That tells the buyer "our
+  fault, try again" about a payment that can never succeed, and shows in the merchant's metrics
+  as an outage they do not have. Now only `400`/`422` (the payload is bad, and only the buyer
+  can fix it) reject with the facilitator's own reason; `401`/`403` (our credentials),
+  `404` (our URL), `429` and `5xx` stay `SettlementError`, because a buyer can do nothing about
+  any of them. Found by tampering with a real authorization on Base.
+
 - 🔴 **Every XRPL payment failed.** `ledger_current` is documented to return
   `ledger_current_index`, and rippled does, but the public clusters in front of it answer with
   `ledger_index`. Reading only the documented name returned `undefined`, `undefined + 20` became

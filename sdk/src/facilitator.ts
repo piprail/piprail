@@ -274,6 +274,33 @@ export async function settleViaFacilitator(input: SettleViaFacilitatorInput): Pr
     )
   }
   if (verify.status !== 200) {
+    /*
+     * Whose fault is it? That question decides whether the buyer sees a 402 or a 5xx, and
+     * getting it wrong wastes somebody's time in a way they cannot diagnose.
+     *
+     *   400 / 422  the PAYLOAD is bad — a forged or malformed authorization. The buyer's
+     *              problem, and only the buyer can fix it, so reject with the reason.
+     *   401 / 403  the facilitator refused OUR credentials. The MERCHANT's misconfiguration;
+     *              the buyer can do nothing but retry forever, so this stays a 5xx.
+     *   404        the facilitator URL is wrong. Merchant's problem again.
+     *   429        rate-limited, which really is retry-later.
+     *   5xx / net  the facilitator is down.
+     *
+     * Only the first line is the buyer's. Answering 5xx for it told a buyer "our fault, try
+     * again" about a payment that could never succeed, and showed in a merchant's metrics as
+     * an outage they did not have.
+     */
+    if (verify.status === 400 || verify.status === 422) {
+      const vr4 = (verify.json ?? {}) as VerifyResponse
+      return {
+        ok: false,
+        error: mapReason(vr4.invalidReason),
+        detail:
+          `Facilitator rejected the payment payload (HTTP ${verify.status})` +
+          `${vr4.invalidReason ? `: ${vr4.invalidReason}` : ''}` +
+          `${vr4.invalidMessage ? ` — ${vr4.invalidMessage}` : ''}.`,
+      }
+    }
     throw new SettlementError(
       `exact settle (facilitator ${base}): /verify returned HTTP ${verify.status} (transport/auth error).`
     )
