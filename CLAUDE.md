@@ -5,31 +5,87 @@ For the agent-facing command/rule summary, see also [`AGENTS.md`](AGENTS.md).
 
 ---
 
-## 🗺️ START HERE ON EVERY REQUEST — check the map before you touch anything
+## 🗺️ START HERE ON EVERY REQUEST — the map is the first thing you open
 
-**Before beginning ANY task — a feature, a fix, a docs edit, a version bump, a new chain —
-open the surface map first.** PipRail states the same fact in many places, and the whole point
-of the map is that you find out *up front* what a change will drag along with it, not after.
+**Before beginning ANY task — a feature, a fix, a docs edit, a version bump, a new chain, a
+one-word typo — open the surface map first.** Not after you have written the change. First.
 
 ```bash
-npm run sync -- --touched <the file you are about to change>   # ⬅️ DO THIS FIRST
-npm run sync -- --graph                                        # the whole source → mirror map
+npm run sync -- --touched <the file you are about to change>   # ⬅️ ALWAYS THIS, FIRST
+npm run sync -- --graph                                        # the whole map: source → mirrors → verify
 npm run sync                                                   # is anything out of sync right now?
 ```
 
-`--touched` prints the exact mirrors your change now owes — read from the same rule definitions
-that run the check, so it can never rot the way a written checklist does. **The human map is
-[`.claude/SURFACES.md`](.claude/SURFACES.md).**
+### The map has TWO layers, and `--touched` prints both
 
-**Then finish with `npm run verify-gate`** (typecheck + tests + builds + the lazy-chunk invariant
-+ the sync guard, in one command; `--quick` skips the site/docs builds). **`npm run sync` alone** It is the site's `prebuild`
-and runs in the release CI, so drift fails the build — better to find it now.
+| Layer | Answers | Derived from |
+|---|---|---|
+| **ARCHITECTURE** | what this file **reaches** — what imports it, what it imports, its blast radius, and every docs page that describes it | real `import` statements and exported symbols |
+| **FACTS** | what this file **restates** — who owns each fact, every other file that repeats it | the rule definitions in `scripts/sync/rules.mjs` |
+| **VERIFY** | what to **run** to prove both still hold | each rule's `verify` commands, deduplicated |
 
-Why this is non-negotiable: the SDK, the docs site, the marketing site, the examples and the
-five integrations all restate each other. Change the SDK and the docs, the site, the examples
-**and** the integrations may all need to follow. We have already shipped the failure this
-prevents — the facilitator registry was corrected in the SDK while the docs, the website data
-and a live mainnet example probe kept advertising two dead hosts.
+All three come from the code itself, so none of them can rot the way a written checklist does.
+
+```bash
+npm run sync -- --map <file>   # the full picture for one file, nothing truncated
+npm run map                    # bird's-eye: the modules the most code depends on
+```
+
+Why two layers: the fact map alone was quietly misleading. Ask it about `sdk/src/client.ts` —
+the buyer side of the whole SDK, wrapped by the MCP, exposed to models via `paymentTools()`,
+described across forty-odd docs pages — and it said "rebuild the dist and add a changelog
+entry". True, and nearly useless. Nothing could answer *"what does this change reach?"*
+It now answers: **108 files, across the SDK core, 79 tests, the MCP, the site and the scripts.**
+
+**The human-readable map is [`.claude/SURFACES.md`](.claude/SURFACES.md)** — the two layers
+explained, one section per domain, and the traps that make a surface look right when it is not.
+
+### 🔴 If your change adds or moves a surface, updating the map IS part of the change
+
+Not a follow-up, not a nice-to-have. A new page, a new registry, a new generated file, a new
+mirror of an existing fact: it goes into `scripts/sync/rules.mjs` in the same commit, with its
+`source`, its `mirrors` and its `verify` commands. A surface nobody mapped is worse than an
+unmapped surface, because `--touched` will answer *"no rule references this path"* — which
+reads like "nothing else to do" and is usually wrong.
+
+Guards that hold this line, so it is not a matter of remembering:
+
+- **`map-covers-pages`** — every page in `site/src/pages/` must be named by a rule (or by the
+  contact registry). Add a page without mapping it and the build fails.
+- **`architecture-map-resolves`** — the import graph must stay alive. It resolves specifiers by
+  hand, and the SDK is ESM TypeScript (`./chains.js` on disk is `./chains.ts`), so one wrong line
+  makes every edge vanish — and the failure is not an error, it is `--touched` reporting
+  "imported by: none" for a module fifty files depend on.
+- **`rules-are-well-formed`** — every rule must declare `source`, `mirrors` and `verify`, must
+  have a path that can actually FAIL, and every `verify` command must really exist. A map
+  pointing at a script nobody wrote is not a map.
+- **`sdk-dist-fresh`** — a third of the rules read the BUILT SDK. An unbuilt edit makes the
+  generator write the old value and the rule compare old against old, so both halves are wrong
+  and they agree. Rebuild before you trust a green run.
+- **`surfaces-index`** — every domain is described in SURFACES.md and the totals here are right.
+
+**One owner per fact.** If you find yourself hand-maintaining a second copy, that is the bug.
+Make it generated, derived or guarded, then add a rule so the next one is caught.
+
+### Then finish with the gate
+
+**`npm run verify-gate`** — typecheck + tests + builds + the lazy-chunk invariant + the custody
+invariant + sync + prose, in one command (`--quick` skips the site and docs builds). `npm run
+sync` alone is the site's `prebuild` and runs in the release CI, so drift fails the build
+anyway. Better to find it now.
+
+### Why this is non-negotiable
+
+The SDK, the docs site, the marketing site, the examples and the integrations all restate each
+other. Change the SDK and the docs, the site, the examples **and** the integrations may all
+need to follow. Every part of this has already been shipped broken at least once:
+
+- the facilitator registry was corrected in the SDK while the docs, the website data and a live
+  mainnet example probe kept advertising two dead hosts;
+- `/mcp` and `/demo` advertised **29 chains** after the 30th shipped, because no rule had those
+  pages in scope at all;
+- `RELEASING.md` told people for weeks to "never skip `npm run verify-gate`" while that script
+  did not exist.
 
 ---
 
@@ -174,8 +230,8 @@ piprail/
 - **No marketplace, activity profile, service registry, or fee contract.** Deliberately absent —
   they'd need a backend or compete on territory we don't own.
 - **🔄 Never let a fact drift — see [🗺️ START HERE](#-start-here-on-every-request--check-the-map-before-you-touch-anything) at the top.**
-  `npm run sync` is both the map and the guard: **54 rules across 13 domains** (chains · packages ·
-  mcp · facilitators · discovery · site · docs · api · errors · ci · security · seo · skills). Rules live in
+  `npm run sync` is both the map and the guard: **60 rules across 14 domains** (chains · packages ·
+  mcp · facilitators · swaps · discovery · site · docs · api · errors · ci · security · seo · skills). Rules live in
   `scripts/sync/rules.mjs`, each declaring the fact's OWNER and every file that mirrors it.
   **One owner per fact** — if you are hand-maintaining a second copy, that is the bug: make it
   generated, derived, or guarded, then add a rule so the next one is caught. Playbook: the

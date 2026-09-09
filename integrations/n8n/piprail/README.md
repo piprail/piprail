@@ -38,7 +38,7 @@ Try it against the live demo endpoint: [`https://piprail.com/x402/demo`](https:/
 
 ## Scope (v1)
 
-**EVM chains only.** The PipRail SDK reaches 29 chains, but its non-EVM drivers load extra libraries on demand — which a self-contained, zero-runtime-dependency n8n node can't bundle. v1 therefore ships the EVM path (`viem`) bundled in. Name any EVM chain in the credential; non-EVM chains are out of scope for this node.
+**EVM chains only.** The PipRail SDK reaches every chain family, but its non-EVM drivers load extra libraries on demand — which a self-contained, zero-runtime-dependency n8n node can't bundle. v1 therefore ships the EVM path (`viem`) bundled in. Name any EVM chain in the credential; non-EVM chains are out of scope for this node.
 
 The node carries **no runtime dependencies** — the SDK is bundled into the package, nothing is fetched at install or run time, and the wallet key is read only from the n8n credential.
 

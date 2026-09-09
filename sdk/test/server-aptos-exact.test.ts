@@ -34,6 +34,7 @@ const fakeAptos: PaymentDriver = {
       send: async () => 'txhash',
       confirm: async () => ({ height: '1' }),
       estimateCost: async () => ({ feeSymbol: 'APT', feeDecimals: 8, fee: '0', feeFormatted: '0', basis: 'estimated' as const }),
+      addressOf: async () => 'FAKE_SELF_ADDRESS',
       balanceOf: async () => ({ token: 0n, native: 0n }),
       recipientReady: async () => ({ ready: 'n/a' as const }),
       verify: async () => ({ ok: false, error: 'transfer_not_found', detail: 'unused' }),

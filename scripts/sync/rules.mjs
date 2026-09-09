@@ -13,21 +13,31 @@
  *   what     one line a human reads in the report
  *   source   { file, note } — who OWNS this fact
  *   mirrors  [{ file, note }] — who must agree with it
+ *   verify   [command] — what to RUN to prove it still holds, beyond this checker
  *   check()  → { ok, detail } | { skip, detail } | { ok, detail, warn: true }
+ *
+ * `verify` is what turns the map from "where do I edit?" into "and what do I run?".
+ * `--touched <file>` prints the union of these across every rule that file appears in, so
+ * one query answers both halves of the question. Every command is checked for existence by
+ * the `rules-are-well-formed` rule, because a map that points at a script nobody wrote is
+ * the failure RELEASING.md already shipped once: it said "never skip `npm run verify-gate`"
+ * for weeks before that script existed.
  *
  * A rule that cannot run (SDK not built, optional file absent) must SKIP with a reason,
  * never silently pass. A guard that quietly does nothing is worse than no guard.
  */
 import { createRequire } from 'node:module'
-import { readFileSync } from 'node:fs'
+import { readFileSync, statSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   REPO, read, exists, readJson, walk, sdk, sdkMissing, chainFacts, siteChains, siteTokens,
-  packages, pkgVersion, mcpTools, mcpBannerTools, facilitatorHosts, KNOWN_DEAD_FACILITATORS,
+  packages, pkgVersion, mcpTools, sovereignTools, mcpBannerTools, facilitatorHosts, KNOWN_DEAD_FACILITATORS,
   slugToCaip2, lsDirs, DRIVER_MIRROR_FILES, sdkExportSurface, sdkImportsInSamples, mcpEnvVars,
 } from './sources.mjs'
 
 import { BUSINESS_CONTACT, FRONT_FACING, personalAddressRe } from '../contacts.mjs'
+import { moduleGraph } from './graph.mjs'
+import { documentedIn, describes, ANCHORS } from './links.mjs'
 
 const require = createRequire(import.meta.url)
 
@@ -52,6 +62,10 @@ export const RULES = [
   {
     domain: 'chains',
     id: 'chain-count-prose',
+    verify: [
+      "npm run sync -- --only chain-count-prose",
+      "npm run build",
+    ],
     what: 'The chain + family counts agree everywhere they are written out',
     source: { file: 'sdk/src/drivers/', note: 'one folder per family; EVM presets in evm/chains.ts' },
     mirrors: [
@@ -63,6 +77,7 @@ export const RULES = [
       { file: 'site/src/layouts/Layout.astro', note: 'JSON-LD featureList + meta description' },
       { file: 'site/src/data/posts.ts', note: 'blog post descriptions' },
       { file: 'site/src/pages/index.astro', note: 'stat tile + hero prose + FAQs' },
+      { file: 'site/src/pages/demo.astro', note: 'the live browser demo states the count in its copy and its JSON-LD' },
       { file: 'piprail/.github → profile/README.md', note: '⚠️ SEPARATE REPO — nothing here updates it' },
     ],
     check() {
@@ -89,7 +104,10 @@ export const RULES = [
       const problems = []
       for (const f of COUNT_MIRRORS) {
         const txt = read(f)
-        const chainHits = [...txt.matchAll(/(\d+)\s+(?:chains|blockchains)\b/g)]
+        // `\s+` misses the ADJECTIVE form. "a 29-chain SDK" sat in llms-full.txt for a day
+        // past the Robinhood ship precisely because a hyphen is not a space. The lookbehind
+        // then keeps SLUGS out: `x402-chains` is a URL, not a claim about 402 chains.
+        const chainHits = [...txt.matchAll(/(?<![\w-])(\d+)[\s-](?:chains?|blockchains?)\b/g)]
         const evmHits = [...txt.matchAll(/(\d+)\s+EVM\b/g)]
         if (!chainHits.length) problems.push(`${f}: states no chain count at all`)
         for (const h of chainHits) {
@@ -108,6 +126,35 @@ export const RULES = [
         problems.push(`README.md: badge says ${badge[1]} chains / ${badge[2]} families — want ${total} / ${familyCount}`)
       }
 
+      /*
+       * ── THE STALE-TOTAL SWEEP ────────────────────────────────────────────────────
+       *
+       * The list above is a curated allowlist, and that is its weakness: a bare "N chains"
+       * only means the global total in SOME files, so pages like /mcp, /demo and the blog were
+       * never scanned at all. They went on advertising 29 chains for as long as nobody looked.
+       *
+       * This sweeps EVERY shipped page instead, but only for a NEAR-MISS of the current total.
+       * That is the whole trick: a genuinely different count is never near the total (13
+       * facilitator chains, 14 gasless chains, 10 families), while a stale total is by
+       * definition the previous one. So it catches the drift class with no allowlist to
+       * maintain, and stays quiet about counts that legitimately differ.
+       */
+      const NEAR = [total - 1, total - 2, total - 3].filter((n) => n > 0)
+      const swept = walk('site/src', ['.astro', '.ts'])
+        .concat(walk('site/public', ['.txt']))
+        .concat(walk('docs/src', ['.md', '.mdx']))
+        // integrations/ SHIPS to npm, and sat outside every scan: the n8n README told readers
+        // "the PipRail SDK reaches 29 chains" for as long as nobody happened to grep for it.
+        .concat(walk('integrations', ['.md']))
+      const stale = []
+      for (const f of swept) {
+        for (const m of read(f).matchAll(/(?<![\w-])(\d+)[\s-](?:chains?|blockchains?)\b/g)) {
+          if (NEAR.includes(Number(m[1]))) stale.push(`${f}: "${m[0].trim()}" looks like a stale total (now ${total})`)
+        }
+      }
+      // Cap the report: one file with the old number in ten places is one mistake, not ten.
+      if (stale.length) problems.push(...stale.slice(0, 6), ...(stale.length > 6 ? [`…and ${stale.length - 6} more`] : []))
+
       const occurrences = COUNT_MIRRORS.reduce(
         (n, f) => n + [...read(f).matchAll(/(\d+)\s+(?:chains|blockchains|EVM)\b/g)].length, 0,
       )
@@ -120,6 +167,9 @@ export const RULES = [
   {
     domain: 'chains',
     id: 'driver-mirror',
+    verify: [
+      "npm run test:sdk",
+    ],
     what: 'Every driver family mirrors the same five files (CLAUDE.md: "drivers mirror each other")',
     source: { file: 'sdk/src/drivers/evm/', note: 'the template every family copies' },
     mirrors: [{ file: 'sdk/src/drivers/<family>/', note: 'chains · wallet · pay · verify · index' }],
@@ -138,6 +188,9 @@ export const RULES = [
   {
     domain: 'chains',
     id: 'driver-tests',
+    verify: [
+      "npm run test:sdk",
+    ],
     what: 'Every driver family has a test directory (tests are the canonical contract)',
     source: { file: 'sdk/src/drivers/', note: 'the families that exist' },
     mirrors: [{ file: 'sdk/test/<family>/', note: 'one folder per non-EVM family' }],
@@ -153,11 +206,15 @@ export const RULES = [
   {
     domain: 'chains',
     id: 'site-chain-assets',
+    verify: [
+      "npm run build",
+    ],
     what: 'Every chain and token the site renders has a logo shipped for it',
     source: { file: 'site/src/data/chains.ts', note: 'the public chain grid' },
     mirrors: [
       { file: 'site/public/chains/<slug>.svg', note: 'one per chain' },
       { file: 'site/public/tokens/<symbol>.svg', note: 'one per token badge' },
+      { file: 'site/src/pages/chains.astro', note: 'the public chain directory — renders the catalog and both asset sets' },
     ],
     check() {
       const chains = siteChains()
@@ -175,6 +232,9 @@ export const RULES = [
   {
     domain: 'chains',
     id: 'docs-family-pages',
+    verify: [
+      "npm run build:docs",
+    ],
     what: 'Every non-EVM driver family has a docs page',
     source: { file: 'sdk/src/drivers/', note: 'the families that exist' },
     mirrors: [{ file: 'docs/src/content/docs/chains/', note: 'one page per non-EVM family' }],
@@ -192,7 +252,58 @@ export const RULES = [
   /* ══════════════════════════════ PACKAGES ══════════════════════════════ */
   {
     domain: 'packages',
+    id: 'sdk-dist-fresh',
+    verify: [
+      "npm run build:sdk",
+    ],
+    what: 'The built SDK is not older than its source (a stale build silently weakens every rule below)',
+    source: { file: 'sdk/src/', note: 'the TypeScript the SDK is actually written in' },
+    mirrors: [{ file: 'sdk/dist/index.cjs', note: 'rebuild: npm run build:sdk' }],
+    check() {
+      /*
+       * WHY THIS RULE EXISTS.
+       *
+       * Roughly a third of the rules below read the BUILT SDK (`sdk/dist/index.cjs`) rather
+       * than the source, because facts like the facilitator registry and the swap registry are
+       * only reachable through the build. The site's data generators read the same dist.
+       *
+       * So an unbuilt edit is invisible in a specific and nasty way: the generator writes the
+       * OLD registry into the site data, and the rule then compares old against old and reports
+       * green. Both halves are wrong and they agree, which is the one failure a consistency
+       * checker cannot see. Caught in the act on 2026-09-08 while editing SWAP_PROVIDERS: the
+       * regenerated site data silently kept the previous text.
+       *
+       * The gate always builds first, so this only ever fires on a bare `npm run sync` — which
+       * is exactly when a human is trusting it most.
+       */
+      const dist = 'sdk/dist/index.cjs'
+      if (!exists(dist)) return skip(sdkMissing() ?? 'sdk/dist not built')
+      let builtAt
+      try {
+        builtAt = statSync(join(REPO, dist)).mtimeMs
+      } catch {
+        return skip('could not stat the built SDK')
+      }
+      const newer = walk('sdk/src', ['.ts'])
+        .map((f) => ({ f, at: statSync(join(REPO, f)).mtimeMs }))
+        .filter((x) => x.at > builtAt)
+        .sort((a, b) => b.at - a.at)
+      if (!newer.length) return ok('sdk/dist is newer than every source file')
+      const names = newer.slice(0, 3).map((x) => x.f.replace('sdk/src/', '')).join(', ')
+      return bad(
+        `${newer.length} source file(s) newer than the build (${names}${newer.length > 3 ? ', …' : ''}) — ` +
+          'run `npm run build:sdk`, then regenerate the site data. Rules that read the built SDK are ' +
+          'currently checking the PREVIOUS version.'
+      )
+    },
+  },
+
+  {
+    domain: 'packages',
     id: 'llms-version-headers',
+    verify: [
+      "npm run sync -- --only llms-version-headers",
+    ],
     what: 'The llms.txt version headers match the published packages',
     source: { file: 'sdk/package.json + mcp/package.json', note: 'the versions actually shipped' },
     mirrors: [
@@ -216,6 +327,9 @@ export const RULES = [
   {
     domain: 'packages',
     id: 'mcp-server-json',
+    verify: [
+      "npm run test:mcp",
+    ],
     what: 'mcp/server.json (the MCP registry manifest) matches mcp/package.json',
     source: { file: 'mcp/package.json', note: 'the npm version' },
     mirrors: [{ file: 'mcp/server.json', note: '🔴 the version appears TWICE — top level AND packages[].version' }],
@@ -235,6 +349,9 @@ export const RULES = [
   {
     domain: 'packages',
     id: 'integration-pins',
+    verify: [
+      "npm run sync -- --only integration-pins",
+    ],
     what: 'Integrations that PIN a published version are pinned to the current one',
     source: { file: 'mcp/package.json + sdk/package.json', note: 'the versions actually on npm' },
     mirrors: [
@@ -263,6 +380,9 @@ export const RULES = [
   {
     domain: 'packages',
     id: 'published-packages-documented',
+    verify: [
+      "npm run sync -- --only published-packages-documented",
+    ],
     what: 'Every PUBLISHED package is named in the repo README and the AEO files',
     source: { file: '*/package.json', note: 'anything without `private: true`' },
     mirrors: [
@@ -288,10 +408,15 @@ export const RULES = [
   {
     domain: 'mcp',
     id: 'tool-names',
+    verify: [
+      "npm run test:mcp",
+      "npx vitest run test/agent.test.ts",
+    ],
     what: 'The MCP tool list is identical everywhere it is enumerated',
     source: { file: 'sdk/src/agent.ts → paymentTools()', note: '⭐ the ONE authoritative list' },
     mirrors: [
       { file: 'mcp/src/banner.ts', note: 'TOOL_NAMES — a hand-copy of paymentTools()' },
+      { file: 'site/src/pages/mcp.astro', note: 'the public MCP page — the tool table a reader sees' },
       { file: 'mcp/README.md', note: 'the tools table' },
       { file: 'site/public/llms.txt', note: 'the MCP section' },
       { file: 'site/public/llms-full.txt', note: 'the MCP section' },
@@ -316,6 +441,9 @@ export const RULES = [
   {
     domain: 'facilitators',
     id: 'dead-hosts',
+    verify: [
+      "npx vitest run test/facilitators-surface.test.ts",
+    ],
     what: 'No shipped surface presents a dead facilitator as usable',
     source: { file: 'sdk/src/facilitators.ts', note: '⭐ KNOWN_FACILITATORS — the only source of truth' },
     mirrors: [
@@ -348,11 +476,213 @@ export const RULES = [
   },
 
   {
+    domain: 'swaps',
+    id: 'swap-surfaces',
+    verify: [
+      "npx vitest run test/swap-providers-surface.test.ts",
+      "npm run verify:proofs",
+      "npm run build",
+    ],
+    what: 'The swap registry, the generated site data, the logos and the docs all agree',
+    source: { file: 'sdk/src/swapProviders.ts', note: '⭐ SWAP_PROVIDERS — the only source of truth' },
+    mirrors: [
+      { file: 'site/src/data/swap-providers.ts', note: 'GENERATED: node site/scripts/gen-swap-providers.mjs' },
+      { file: 'site/src/pages/swaps.astro', note: 'the public swap page, every number derived from the generated data' },
+      { file: 'site/src/pages/sdk.astro', note: 'the signpost card, whose counts are derived from the same data' },
+      { file: 'site/public/swaps/', note: 'one logo per provider id' },
+      { file: 'docs/src/content/docs/making-payments/swapping.md', note: 'the guide + the proof table' },
+      { file: 'sdk/src/swap.ts', note: 'the module docstring names every tier-2 route' },
+    ],
+    check() {
+      /*
+       * WHY THIS RULE EXISTS.
+       *
+       * "What can swap where, and what proves it" is now restated in four places. That is the
+       * exact shape that rotted the facilitator data: the registry was corrected and three other
+       * surfaces kept advertising two dead hosts for the rest of the day. Same fact, same guard.
+       *
+       * It also enforces the ADMISSION RULE, which is the part a human is most likely to erode
+       * under pressure: a provider with no live mainnet proof must never ship, because a coverage
+       * table assembled from documentation is marketing, not evidence.
+       */
+      const s = sdk()
+      if (!s?.SWAP_PROVIDERS) return skip(sdkMissing() ?? 'SWAP_PROVIDERS not exported')
+      const reg = s.SWAP_PROVIDERS
+      const problems = []
+
+      // 1. Every entry must carry a real, checkable proof. No proof, no ship.
+      for (const p of reg) {
+        // A route may ship without a proof ONLY if it says plainly why, and that reason is
+        // printed on the site and in the docs. Silence is the thing this forbids.
+        if (!p.proofs?.length && !p.unproven) {
+          problems.push(`${p.id} has NO mainnet proof and no stated reason (never ship an unexplained route)`)
+        }
+        if (p.proofs?.length && p.unproven) {
+          problems.push(`${p.id} carries proofs but is ALSO marked unproven — one or the other`)
+        }
+        if (!p.keyless) problems.push(`${p.id} is not keyless (every shipped route must need no API key)`)
+      }
+
+      // 2. Every provider needs a logo, or the site renders a broken image. The format
+      //    follows what the provider actually publishes: a vector where they ship one,
+      //    WebP where they only ship a raster.
+      for (const p of reg) {
+        const has = ['svg', 'webp', 'png'].some((e) => exists(`site/public/swaps/${p.id}.${e}`))
+        if (!has) problems.push(`no logo at site/public/swaps/${p.id}.{svg,webp,png}`)
+      }
+
+      // 3. The generated site data must match the registry.
+      if (exists('site/src/data/swap-providers.ts')) {
+        const src = read('site/src/data/swap-providers.ts')
+        const gen = JSON.parse(src.slice(src.indexOf('SWAP_PROVIDERS: SwapProviderView[] = ') + 36, src.lastIndexOf(']') + 1))
+        const want = reg.map((p) => p.id).join(',')
+        const got = gen.map((p) => p.id).join(',')
+        if (want !== got) problems.push('site data differs from the registry — re-run: node site/scripts/gen-swap-providers.mjs')
+        const wantProofs = reg.reduce((n, p) => n + p.proofs.length, 0)
+        const gotProofs = gen.reduce((n, p) => n + p.proofs.length, 0)
+        if (wantProofs !== gotProofs) problems.push(`proof count differs (${wantProofs} vs ${gotProofs}) — regenerate`)
+      } else {
+        problems.push('site/src/data/swap-providers.ts missing — run: node site/scripts/gen-swap-providers.mjs')
+      }
+
+      // 4. The docs must name every shipped provider, and must carry its proofs.
+      const doc = exists('docs/src/content/docs/making-payments/swapping.md')
+        ? read('docs/src/content/docs/making-payments/swapping.md')
+        : ''
+      if (doc) {
+        for (const p of reg) {
+          if (!doc.includes(p.name)) problems.push(`docs never mention ${p.name}`)
+          for (const t of p.proofs) {
+            if (!doc.includes(t.tx.slice(0, 8))) problems.push(`docs missing proof ${t.tx.slice(0, 8)}… for ${p.id}`)
+          }
+        }
+        /*
+         * The docs render each proof as `[\`abc123…\`](explorer/abc123fullhash). The two halves
+         * are typed separately, so the visible text can disagree with where the link goes — and
+         * base58 hashes are CASE-SENSITIVE, which is how a Sui proof came to display `Gtykrnlx…`
+         * while linking to `GtykrnLx…`. A reader comparing the page against a block explorer sees
+         * a mismatch and has no way to tell which half is wrong.
+         */
+        for (const m of doc.matchAll(/\[`([0-9A-Za-z]{6,})…`\]\((https?:\/\/[^)]+)\)/g)) {
+          const shown = m[1]
+          const linked = m[2].replace(/\/$/, '').split('/').pop() ?? ''
+          if (!linked.startsWith(shown)) {
+            problems.push(`docs link text \`${shown}…\` does not match its href (${linked.slice(0, 12)}…)`)
+          }
+        }
+      }
+
+      // 5. Both surfaces must exist and both must be driven by the generated data. The
+      // dedicated page carries the detail; the SDK page keeps a signpost whose numbers come
+      // from the same source, so the two can never quote different totals.
+      for (const f of ['site/src/pages/swaps.astro', 'site/src/pages/sdk.astro']) {
+        if (!exists(f)) {
+          problems.push(`${f} is missing (the swap surface must exist)`)
+          continue
+        }
+        if (!read(f).includes("from '../data/swap-providers'")) {
+          problems.push(`${f} does not import the generated swap data (a hand-written copy is the bug)`)
+        }
+      }
+      // The dedicated page must be reachable, or it is a page nobody can find.
+      for (const nav of ['site/src/components/Navigation.astro', 'site/src/components/Footer.astro']) {
+        if (exists(nav) && !read(nav).includes("/swaps/")) {
+          problems.push(`${nav} does not link to /swaps/ (an unreachable page)`)
+        }
+      }
+
+      /*
+       * 7. A SUMMARY surface that names some venues must name them ALL.
+       *
+       * The incomplete list is the quiet failure mode. `AGENTS.md` — the file an AI agent reads
+       * to learn what PipRail does — said "Solana → Jupiter, 8 live-probed EVM chains →
+       * KyberSwap" and then "TON, Tron, NEAR, Aptos, Algorand, Sui have none yet", long after
+       * all six had shipped swaps. Every count in it was right, so no count rule could see it:
+       * the defect was a LIST that had stopped growing. The swap example's README had the same
+       * shape ("Solana, 8 EVM chains").
+       *
+       * Driver modules legitimately name only their own venue, so the check is scoped to the
+       * surfaces that summarise coverage, and needs two names before it calls something a list.
+       */
+      /*
+       * 8. Every per-chain docs page must tell the reader whether that chain can swap.
+       *
+       * All ten said nothing at all: a reader landing on `chains/aptos.md` to learn what Aptos
+       * can do finished the page without discovering Hyperion, exact-output pricing, or that
+       * swapping exists there. Every count and every list elsewhere was correct; the defect was
+       * a whole surface that had never been written. The chain page is where a reader with a
+       * chain in mind actually arrives, so it is the one that must not stay silent.
+       */
+      for (const f of walk('docs/src/content/docs/chains', ['.md'])) {
+        const body = read(f)
+        if (!/^## Swapping on /m.test(body)) {
+          problems.push(`${f} has no "Swapping on …" section — say whether this chain can swap`)
+        } else if (!body.includes('/making-payments/swapping/')) {
+          problems.push(`${f} describes swapping but never links the full guide`)
+        }
+      }
+
+      const SUMMARY_SURFACES = [
+        'AGENTS.md',
+        'examples/basics/swap/README.md',
+        'site/public/llms.txt',
+        'site/public/llms-full.txt',
+        'docs/src/content/docs/making-payments/swapping.md',
+        'sdk/src/swap.ts',
+      ]
+      const venueNames = reg.map((p) => p.name)
+      /*
+       * A surface may legitimately name a FEW venues as illustration (llms.txt calls out the
+       * three exact-output routes, and that is not a coverage claim). The defect is a list that
+       * sets out to be complete and is not, so only treat it as one past a clear majority.
+       */
+      const LIST_THRESHOLD = 0.6
+      for (const f of SUMMARY_SURFACES.filter(exists)) {
+        const body = read(f)
+        const named = venueNames.filter((n) => body.includes(n))
+        if (named.length >= venueNames.length * LIST_THRESHOLD && named.length < venueNames.length) {
+          const missing = venueNames.filter((n) => !named.includes(n))
+          problems.push(`${f} lists ${named.length}/${venueNames.length} venues — missing ${missing.join(', ')}`)
+        }
+      }
+
+      /*
+       * 6. The module docstring in swap.ts is a PROSE copy of this registry — the first thing
+       * an SDK reader sees, and the one surface no generator touches. It was already stale
+       * once: it listed five tier-2 routes and "8 live-probed chains" for a whole day after
+       * the registry held eight routes across nine. Prose rots silently, so guard it.
+       */
+      if (exists('sdk/src/swap.ts')) {
+        const header = read('sdk/src/swap.ts').split('*/')[0] ?? ''
+        for (const p of reg) {
+          if (!header.includes(p.name)) problems.push(`sdk/src/swap.ts docstring never names ${p.name}`)
+        }
+        // The one count it states must match the registry rather than a memory of it.
+        const evmChains = reg.find((p) => p.id === 'kyberswap')?.networks.length ?? 0
+        if (evmChains && !header.includes(`(${evmChains} live-probed chains)`)) {
+          problems.push(`sdk/src/swap.ts docstring EVM chain count is stale (registry says ${evmChains})`)
+        }
+      }
+
+      const proofs = reg.reduce((n, p) => n + p.proofs.length, 0)
+      return problems.length
+        ? bad(problems.join(' · '))
+        : ok(`${reg.length} routes · ${proofs} mainnet proofs · docstring, logos, site data and docs all agree`)
+    },
+  },
+  {
     domain: 'facilitators',
     id: 'site-data-generated',
+    verify: [
+      "node site/scripts/gen-facilitators.mjs",
+      "npm run build",
+    ],
     what: 'The website facilitator data matches the SDK registry (networks AND order)',
     source: { file: 'sdk/src/facilitators.ts', note: 'KNOWN_FACILITATORS' },
-    mirrors: [{ file: 'site/src/data/facilitators.ts', note: 'regenerate: node site/scripts/gen-facilitators.mjs' }],
+    mirrors: [
+      { file: 'site/src/data/facilitators.ts', note: 'regenerate: node site/scripts/gen-facilitators.mjs' },
+      { file: 'site/src/pages/facilitators.astro', note: 'the public page — renders the generated data, never a hand-written copy' },
+    ],
     check() {
       const s = sdk()
       if (!s?.KNOWN_FACILITATORS) return skip(sdkMissing() ?? 'KNOWN_FACILITATORS not exported')
@@ -380,6 +710,9 @@ export const RULES = [
   {
     domain: 'facilitators',
     id: 'dead-list-agrees',
+    verify: [
+      "npx vitest run test/facilitators.test.ts",
+    ],
     what: 'The dead-facilitator list is identical in the checker and the test suite',
     source: { file: 'scripts/sync/sources.mjs', note: 'KNOWN_DEAD_FACILITATORS' },
     mirrors: [{ file: 'sdk/test/facilitators-surface.test.ts', note: 'KNOWN_DEAD' }],
@@ -400,9 +733,15 @@ export const RULES = [
   {
     domain: 'discovery',
     id: 'nonevm-caip2',
+    verify: [
+      "npx vitest run test/x402-network-aliases.test.ts",
+    ],
     what: 'Every non-EVM slug in SLUG_TO_CAIP2 matches its driver’s own CAIP-2 id',
     source: { file: 'sdk/src/drivers/<family>/', note: 'each driver binds its own CAIP-2' },
-    mirrors: [{ file: 'sdk/src/indexes.ts', note: 'SLUG_TO_CAIP2 — exact for non-EVM; the EVM half is now COMPLETE (all 20 presets) and guarded by sdk/test/x402-network-aliases.test.ts' }],
+    mirrors: [
+      { file: 'sdk/src/indexes.ts', note: 'SLUG_TO_CAIP2 — exact for non-EVM; the EVM half is COMPLETE (every preset) and guarded by sdk/test/x402-network-aliases.test.ts' },
+      { file: 'site/src/pages/discovery.astro', note: 'the public page — names each open index the client can read' },
+    ],
     check() {
       const map = slugToCaip2()
       const nonEvm = Object.entries(map).filter(([, v]) => !v.startsWith('eip155:'))
@@ -419,6 +758,9 @@ export const RULES = [
   {
     domain: 'site',
     id: 'code-blocks-highlighted',
+    verify: [
+      "npm run build",
+    ],
     what: 'Every <CodeWindow /> snippet is syntax-highlighted, not plain text',
     source: { file: 'site/src/lib/highlight.ts', note: 'the tokenizer every snippet must go through' },
     mirrors: [
@@ -454,6 +796,9 @@ export const RULES = [
   {
     domain: 'site',
     id: 'structured-data',
+    verify: [
+      "npm run build",
+    ],
     what: 'Every built page carries valid, parseable JSON-LD',
     source: { file: 'site/src/layouts/Layout.astro', note: 'the site-wide entity graph' },
     mirrors: [{ file: 'site/dist/**/index.html', note: 'per-page blocks (Dataset, FAQPage, …)' }],
@@ -475,6 +820,9 @@ export const RULES = [
   {
     domain: 'site',
     id: 'internal-links',
+    verify: [
+      "npm run build",
+    ],
     what: 'Every internal link on the built site resolves to a real page',
     source: { file: 'site/src/pages/', note: 'the pages that exist' },
     mirrors: [{ file: 'site/dist/**/index.html', note: 'every href="/..." across the site' }],
@@ -500,6 +848,9 @@ export const RULES = [
   {
     domain: 'site',
     id: 'sitemap-covers-pages',
+    verify: [
+      "npm run build",
+    ],
     what: 'Every built page appears in the sitemap',
     source: { file: 'site/dist/', note: 'the pages actually built' },
     mirrors: [{ file: 'site/dist/sitemap-*.xml', note: 'generated by @astrojs/sitemap' }],
@@ -521,6 +872,9 @@ export const RULES = [
   {
     domain: 'docs',
     id: 'surfaces-index',
+    verify: [
+      "npm run sync -- --only surfaces-index",
+    ],
     what: 'Every domain in this checker is described in SURFACES.md, and CLAUDE.md states the right totals',
     source: { file: 'scripts/sync/rules.mjs', note: 'the domains and the rule count that exist' },
     mirrors: [
@@ -602,6 +956,9 @@ export const RULES = [
   {
     domain: 'docs',
     id: 'x402-coverage-figure',
+    verify: [
+      "npm run x402:coverage",
+    ],
     what: 'Every quoted x402-coverage figure comes from the audit’s generated coverage.json',
     source: {
       file: 'scripts/x402-corpus/coverage.json',
@@ -660,6 +1017,9 @@ export const RULES = [
   {
     domain: 'docs',
     id: 'changelog-unreleased',
+    verify: [
+      "npm run sync -- --only changelog-unreleased",
+    ],
     what: 'Uncommitted SDK source changes have a CHANGELOG entry',
     source: { file: 'sdk/src/', note: 'the code that changed' },
     mirrors: [{ file: 'sdk/CHANGELOG.md', note: 'an [Unreleased] section' }],
@@ -675,6 +1035,9 @@ export const RULES = [
   {
     domain: 'api',
     id: 'sdk-imports-in-samples',
+    verify: [
+      "npm run typecheck",
+    ],
     what: 'Every `import { … } from "@piprail/sdk"` in the docs, site and examples is real',
     source: { file: 'sdk/dist/index.d.ts + index.cjs', note: '⭐ the actual export surface — values AND types' },
     mirrors: [
@@ -702,6 +1065,9 @@ export const RULES = [
   {
     domain: 'api',
     id: 'scaffolder-api',
+    verify: [
+      "npm run typecheck",
+    ],
     what: 'create-piprail generates code against real SDK exports and real gate methods',
     source: { file: 'sdk/src/', note: 'the exports and the gate contract' },
     mirrors: [{ file: 'create-piprail/src/render.ts', note: 'every merchant app this writes depends on them' }],
@@ -745,6 +1111,10 @@ export const RULES = [
   {
     domain: 'errors',
     id: 'error-codes-documented',
+    verify: [
+      "npx vitest run test/errors.test.ts",
+      "npm run build:docs",
+    ],
     what: 'Every error class and code is exported and documented in both error references',
     source: { file: 'sdk/src/errors.ts', note: '⭐ the class + its stable `.code`' },
     mirrors: [
@@ -779,6 +1149,9 @@ export const RULES = [
   {
     domain: 'mcp',
     id: 'env-vars-documented',
+    verify: [
+      "npm run test:mcp",
+    ],
     what: 'Every env var the MCP server accepts is documented',
     source: { file: 'mcp/src/config.ts', note: '⭐ KNOWN_PIPRAIL_VARS — the STRICT allowlist; anything else refuses to start' },
     mirrors: [{ file: 'docs/src/content/docs/mcp/', note: 'the canonical env reference (READMEs are deliberately compact signposts)' }],
@@ -803,6 +1176,9 @@ export const RULES = [
   {
     domain: 'site',
     id: 'assets-exist',
+    verify: [
+      "npm run build",
+    ],
     what: 'Every image, icon and file referenced by the built HTML actually ships',
     source: { file: 'site/public/', note: 'the apex assets that exist' },
     mirrors: [
@@ -838,6 +1214,10 @@ export const RULES = [
   {
     domain: 'site',
     id: 'cross-host-links',
+    verify: [
+      "npm run build",
+      "npm run build:docs",
+    ],
     what: 'Links between piprail.com and docs.piprail.com resolve on the other host',
     source: { file: 'site/dist/', note: 'the pages the apex actually builds' },
     mirrors: [
@@ -877,6 +1257,9 @@ export const RULES = [
   {
     domain: 'site',
     id: 'jsonld-shared-ids',
+    verify: [
+      "npm run build",
+    ],
     what: 'Apex @ids that the docs reference are actually defined by the apex',
     source: { file: 'site/src/layouts/Layout.astro', note: '⭐ defines piprail.com/#organization and /#sdk' },
     mirrors: [{ file: 'docs/src/components/Head.astro', note: 'references them so BOTH hosts resolve to one entity graph' }],
@@ -908,6 +1291,9 @@ export const RULES = [
   {
     domain: 'docs',
     id: 'docs-internal-links',
+    verify: [
+      "npm run build:docs",
+    ],
     what: 'Every internal link on the built docs site resolves',
     source: { file: 'docs/src/content/docs/', note: 'the pages that exist' },
     mirrors: [{ file: 'docs/dist/**', note: 'every href="/…" across ~107 built pages' }],
@@ -931,6 +1317,9 @@ export const RULES = [
   {
     domain: 'docs',
     id: 'integration-surfaces',
+    verify: [
+      "npm run sync -- --only integration-surfaces",
+    ],
     what: 'Every integration is present on all four of its surfaces',
     source: { file: 'integrations/<framework>/piprail/', note: 'the integrations that exist' },
     mirrors: [
@@ -960,6 +1349,9 @@ export const RULES = [
   {
     domain: 'ci',
     id: 'workflow-paths',
+    verify: [
+      "npm run sync -- --only workflow-paths",
+    ],
     what: 'Every script path a GitHub workflow invokes exists',
     source: { file: 'the repo tree', note: 'the scripts that exist' },
     mirrors: [{ file: '.github/workflows/*.yml', note: 'a renamed script fails only when the workflow next runs' }],
@@ -982,6 +1374,9 @@ export const RULES = [
   {
     domain: 'chains',
     id: 'driver-contract',
+    verify: [
+      "npm run test:sdk",
+    ],
     what: 'Every driver family implements every REQUIRED ResolvedNetwork method',
     source: { file: 'sdk/src/drivers/types.ts', note: '⭐ the ResolvedNetwork interface — 11 required, 10 optional' },
     mirrors: [{ file: 'sdk/src/drivers/<family>/', note: 'a missing required method fails only when that chain is used' }],
@@ -1016,6 +1411,9 @@ export const RULES = [
   {
     domain: 'site',
     id: 'blog-pages',
+    verify: [
+      "npm run build",
+    ],
     what: 'Every blog post in the data has a page, and every page is in the data',
     source: { file: 'site/src/data/posts.ts', note: 'drives the index, the JSON-LD and the sitemap' },
     mirrors: [{ file: 'site/src/pages/blog/<slug>.astro', note: 'the page itself' }],
@@ -1038,6 +1436,9 @@ export const RULES = [
   {
     domain: 'site',
     id: 'linkedin-page-feed',
+    verify: [
+      "npm run sync -- --only linkedin-page-feed",
+    ],
     what: 'Every LinkedIn company-page post in the registry is publishable as-is: unique id, image present, no first person, under the length cap',
     source: { file: 'site/src/data/linkedin-page.ts', note: 'the registry; each entry is one page post' },
     mirrors: [
@@ -1081,6 +1482,9 @@ export const RULES = [
   {
     domain: 'docs',
     id: 'examples-indexed',
+    verify: [
+      "npm run sync -- --only examples-indexed",
+    ],
     what: 'Every example directory is listed in examples/README.md',
     source: { file: 'examples/', note: 'the examples that exist' },
     mirrors: [{ file: 'examples/README.md', note: 'the index someone actually navigates from' }],
@@ -1098,6 +1502,9 @@ export const RULES = [
   {
     domain: 'docs',
     id: 'docs-sidebar-reachable',
+    verify: [
+      "npm run build:docs",
+    ],
     what: 'Every docs page is reachable from the sidebar',
     source: { file: 'docs/src/content/docs/', note: 'the pages that exist' },
     mirrors: [{ file: 'docs/astro.config.mjs', note: 'the Starlight sidebar config' }],
@@ -1128,7 +1535,298 @@ export const RULES = [
   /* ══════════════════════════════ SECURITY ══════════════════════════════ */
   {
     domain: 'security',
+    id: 'mcp-cannot-swap',
+    verify: [
+      "npm run test:mcp",
+      "npm run sync -- --only mcp-cannot-swap",
+    ],
+    what: 'Swapping is never on by default for an agent, and sovereign mode cannot unlock it without a ceiling',
+    source: { file: 'sdk/src/agent.ts → paymentTools()', note: '⭐ the authoritative tool list' },
+    mirrors: [
+      { file: 'mcp/src/server.ts', note: 'must not reach the SDK swap methods' },
+      { file: 'mcp/README.md', note: 'states the refusal and why' },
+    ],
+    check() {
+      /*
+       * WHY THIS RULE EXISTS.
+       *
+       * Every budget cap in `@piprail/mcp` governs PAYING A MERCHANT. A swap is not a payment:
+       * it moves the holder's own funds between denominations, so no `maxPerRequest` or daily
+       * cap constrains it. A model handed a swap tool could therefore drain a wallet through
+       * fees and slippage without exceeding a single limit it was given, and every transaction
+       * would look authorised.
+       *
+       * `mcp/README.md` says all of this and says "there will not be one". Nothing enforced it,
+       * so the reasoning lived only in prose that a later change could contradict without any
+       * signal. The absence is a security property; treat it like one.
+       */
+      const tools = mcpTools()
+      if (!tools) return skip(sdkMissing() ?? 'paymentTools() not exported')
+      const problems = []
+
+      /*
+       * ── THE CONTRACT MOVED, AND IT MOVED DELIBERATELY ──────────────────────────────
+       *
+       * This used to assert that NO agent surface could ever swap. That was the right rule
+       * while capability was gated on TRANSPORT: a model driving the MCP could not swap, a
+       * model driving the SDK could, and the difference was which package got imported.
+       *
+       * `AgentMode` moved the decision onto authority instead. The invariant is now sharper,
+       * not weaker: the DEFAULT still offers no swap tool, so every operator who does not
+       * opt in is exactly where they were, and the forty-odd "8 tools" claims stay true.
+       * Sovereign mode APPENDS, and only after the operator declared it.
+       */
+      const defaultSwapTools = tools.filter((t) => /swap/i.test(t))
+      if (defaultSwapTools.length) {
+        problems.push(
+          `the DEFAULT paymentTools() now offers ${defaultSwapTools.join(', ')} — swapping must stay ` +
+            'opt-in behind mode:"sovereign", never on by default'
+        )
+      }
+      if (tools.length !== 8) {
+        problems.push(`the default tool list is ${tools.length}, not 8 — every "8 tools" claim is now wrong`)
+      }
+
+      /*
+       * The tool list is not the only way in: a handler could call the SDK's swap methods from
+       * inside another tool. Comments are stripped first, so the README-style explanation of
+       * WHY there is no swap tool never trips its own guard.
+       *
+       * 🔴 The MCP is not the only AGENT surface either. The elizaOS plugin exposes actions and
+       * the n8n node exposes operations, and a model driving either is in exactly the position
+       * this rule exists to protect: its spend caps govern paying a merchant, and a swap sits
+       * outside all of them. Guarding only `mcp/` would have left two open doors to the same room.
+       */
+      const AGENT_SURFACES = [
+        'mcp/src/server.ts', 'mcp/src/index.ts', 'mcp/src/start.ts',
+        'integrations/elizaos/piprail/src/actions.ts',
+        'integrations/elizaos/piprail/src/client.ts',
+        'integrations/elizaos/piprail/src/index.ts',
+      ]
+      for (const f of AGENT_SURFACES.filter(exists)) {
+        const code = read(f)
+          .replace(/\/\*[\s\S]*?\*\//g, '')
+          .replace(/^\s*\/\/.*$/gm, '')
+        const call = code.match(/\.(swap|quoteSwap)\s*\(/)
+        if (call) problems.push(`${f} calls ${call[1]}() — no agent surface may be able to swap`)
+      }
+
+      // The reasoning must stay documented, so the next reader learns WHY the default withholds
+      // it and what unlocking it actually costs, not just that a flag exists.
+      if (exists('mcp/README.md') && !/no swap tool/i.test(read('mcp/README.md'))) {
+        problems.push('mcp/README.md no longer explains why the default has no swap tool')
+      }
+      /*
+       * 🔴 Sovereign mode must never be reachable without a ceiling. `PIPRAIL_MAX_PER_SWAP` is
+       * the whole reason unlocking the capability is defensible: the payment caps cannot bound
+       * a swap, so if that refusal is ever removed the feature becomes the unguarded thing it
+       * was designed not to be.
+       */
+      if (exists('mcp/src/config.ts')) {
+        const cfg = read('mcp/src/config.ts')
+        if (!cfg.includes('PIPRAIL_MODE')) problems.push('mcp/src/config.ts no longer reads PIPRAIL_MODE')
+        if (!/sovereign' && parsed\.maxPerSwap === undefined/.test(cfg)) {
+          problems.push('sovereign mode no longer REQUIRES PIPRAIL_MAX_PER_SWAP — the unlock has lost its guard')
+        }
+      }
+
+      return problems.length
+        ? bad(problems.join(' · '))
+        : ok(`${tools.length} default tools, none can swap · sovereign needs an explicit ceiling · documented`)
+    },
+  },
+  {
+    domain: 'security',
+    id: 'agent-modes',
+    verify: [
+      "npm run sync -- --only agent-modes",
+      "npx vitest run test/agent-modes.test.ts test/agent-selling.test.ts test/agentGuide.test.ts",
+      "npm run test:mcp",
+    ],
+    what: 'What each agent MODE grants is stated identically everywhere, and sovereign owns both halves of the wallet',
+    source: {
+      file: 'sdk/src/agent.ts → paymentTools() + sdk/src/client.ts → AGENT_MODES',
+      note: '⭐ the modes and the tools each one unlocks — derived, never typed out',
+    },
+    mirrors: [
+      { file: 'sdk/src/agentGuide.ts', note: 'what the MODEL is told it may do in each mode' },
+      { file: 'sdk/src/client.ts', note: "refuses mode:'supervised' with no onBeforePay to perform it" },
+      { file: 'mcp/src/config.ts', note: 'PIPRAIL_MODE · wires confirm for supervised · the sovereign ceiling refusal' },
+      { file: 'mcp/src/banner.ts', note: 'the tool list an operator SEES at boot' },
+      { file: 'mcp/README.md', note: 'the default 8 and the sovereign 13' },
+      { file: 'docs/src/content/docs/mcp/configuration.md', note: 'the mode contract + the earning half' },
+      { file: 'docs/src/content/docs/mcp/tools.md', note: 'the per-tool reference, including the seller tools' },
+      { file: 'site/src/pages/mcp.astro', note: 'sovereignTools — the public tool table' },
+      { file: 'site/public/llms.txt', note: 'the MCP section an AI crawler reads' },
+      { file: 'site/public/llms-full.txt', note: 'the long-form MCP section' },
+    ],
+    check() {
+      /*
+       * WHY THIS RULE EXISTS.
+       *
+       * `mcp-cannot-swap` guards the DEFAULT: eight tools, none of which can swap. That is the
+       * half a hundred surfaces already quote, so it would be noticed if it moved. Nothing
+       * guarded the OTHER half. Sovereign mode shipped, and within one change the docs were
+       * already lying: `mcp/README.md` and the tools reference both still said the MCP has "no
+       * swap tool, and there will not be one", which had been false since the day modes landed.
+       * No count was wrong, so no count rule could see it.
+       *
+       * That is the failure mode CLAUDE.md names: the missing surface, not the wrong number. So
+       * this rule owns the MODE surface itself. Both tool lists are DERIVED from the SDK, and
+       * every place that describes what a mode grants must agree with them.
+       */
+      const base = mcpTools()
+      const sov = sovereignTools()
+      if (!base || !sov) return skip(sdkMissing() ?? 'paymentTools() not exported')
+      const problems = []
+
+      // 1. The three modes are the three modes.
+      const modes = sdk()?.AGENT_MODES
+      const MODES = ['budgeted', 'sovereign', 'supervised']
+      if (!modes || [...modes].sort().join(',') !== MODES.join(',')) {
+        problems.push(`AGENT_MODES is [${[...(modes ?? [])].join(', ')}], expected ${MODES.join(', ')}`)
+      }
+      if (sdk()?.DEFAULT_AGENT_MODE !== 'budgeted') {
+        problems.push(`DEFAULT_AGENT_MODE is ${sdk()?.DEFAULT_AGENT_MODE}, not 'budgeted' — the default changed`)
+      }
+
+      /*
+       * 2. Sovereign APPENDS. Every "8 tools" claim across the repo is true only while the
+       * default is untouched and the extra tools come after it, in order.
+       */
+      const EXTRA = [
+        'piprail_quote_swap', 'piprail_swap',
+        'piprail_sell', 'piprail_collect', 'piprail_earnings',
+        'piprail_wallet',
+      ]
+      if (sov.slice(0, base.length).join(',') !== base.join(',')) {
+        problems.push('sovereign mode no longer APPENDS to the default list — it reorders or replaces it')
+      }
+      if (sov.slice(base.length).join(',') !== EXTRA.join(',')) {
+        problems.push(`sovereign adds [${sov.slice(base.length).join(', ')}], expected [${EXTRA.join(', ')}]`)
+      }
+
+      /*
+       * 3. Selling is the EARNING half, and it must never leak into the default. A model given
+       * a spend cap and a sell tool can commit to deliveries nobody authorised.
+       */
+      const leaked = base.filter((t) => /sell|collect|earnings|swap/i.test(t))
+      if (leaked.length) problems.push(`the DEFAULT list now contains ${leaked.join(', ')} — earning and swapping are sovereign-only`)
+
+      /*
+       * 4. Nothing may still promise that swapping will never exist. This is the exact claim
+       * that rotted, and prose is where it rots: a count stays right while a sentence goes wrong.
+       */
+      const FOREVER = /(no swap tool|never be a swap|there will not be one|deliberately withheld from models)/i
+      for (const f of ['mcp/README.md', 'docs/src/content/docs/mcp/tools.md'].filter(exists)) {
+        const body = read(f)
+        if (/there will not be one/i.test(body)) {
+          problems.push(`${f} still says swapping "will not" exist — sovereign mode makes that false`)
+        }
+        if (FOREVER.test(body) && !/sovereign/i.test(body)) {
+          problems.push(`${f} explains the swap refusal without ever naming sovereign mode, which lifts it`)
+        }
+      }
+
+      /*
+       * 5. Every mirror that enumerates the agent's surface must name the SELLER tools. An agent
+       * only knows it can earn because something told it so: a missing mention here is not a
+       * cosmetic gap, it removes the capability in practice.
+       */
+      const SELLER = ['piprail_sell', 'piprail_collect', 'piprail_earnings', 'piprail_wallet']
+      const ENUMERATORS = [
+        'sdk/src/agentGuide.ts',
+        'mcp/README.md',
+        'docs/src/content/docs/mcp/tools.md',
+        'docs/src/content/docs/mcp/configuration.md',
+        'site/src/pages/mcp.astro',
+        'site/public/llms.txt',
+        'site/public/llms-full.txt',
+      ]
+      for (const f of ENUMERATORS.filter(exists)) {
+        const missing = SELLER.filter((t) => !read(f).includes(t))
+        if (missing.length) problems.push(`${f} never mentions ${missing.join(', ')}`)
+      }
+
+      /*
+       * 5b. Any WRITTEN sovereign count must equal the real one. `tool-count-claims` scans the
+       * phrase "N tools" and so cannot see "(13 in sovereign)", which is exactly how a stale 13
+       * survived a tool being added. Scan the sovereign phrasings too.
+       */
+      const WORDS = { eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15 }
+      for (const f of ENUMERATORS.filter(exists)) {
+        for (const line of read(f).split('\n')) {
+          // Past-tense narrative ("had thirteen tools") is history, not a claim about today.
+          if (/\b(had|used to|previously|before this|was)\b/i.test(line)) continue
+          // Only a number DIRECTLY describing the sovereign count: "14 in sovereign",
+          // "14 tools in sovereign". Deliberately narrow, so "8 default tools (14 in
+          // sovereign)" reads the 14 and never the 8.
+          for (const m of line.matchAll(
+            /\b(\d{1,2}|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen)\s+(?:tools?\s+)?in\s+sovereign\b/gi
+          )) {
+            const n = WORDS[m[1].toLowerCase()] ?? Number(m[1])
+            if (Number.isFinite(n) && n >= 8 && n !== sov.length) {
+              problems.push(`${f} claims ${m[1]} tools in sovereign; there are ${sov.length}`)
+            }
+          }
+        }
+      }
+
+      // 6. Each mode NAME must be documented where an operator configures it.
+      for (const f of ['docs/src/content/docs/mcp/configuration.md'].filter(exists)) {
+        const missing = MODES.filter((m) => !read(f).includes(m))
+        if (missing.length) problems.push(`${f} does not document the ${missing.join(', ')} mode(s)`)
+      }
+
+      // 7. The banner must be able to report the REAL list, not a hardcoded one.
+      if (exists('mcp/src/start.ts') && !/printBanner\(config,/.test(read('mcp/src/start.ts'))) {
+        problems.push('mcp/src/start.ts no longer passes the real tool list to the banner — it will under-report sovereign')
+      }
+
+      /*
+       * 8. 🔴 EVERY MODE MUST KEEP THE PROMISE ITS NAME MAKES.
+       *
+       * The restrictions were never the weak part: the two non-sovereign modes correctly get
+       * eight tools and no way to swap or sell, which checks 2 and 3 above already pin.
+       * `'supervised'` was the weak part, and it failed in the quietest possible way: the
+       * mode↔confirm inference ran ONE WAY, so `PIPRAIL_CONFIRM=1` meant supervised but naming
+       * the mode wired nothing. An operator asking for a human in the loop got an agent that
+       * spent without asking anyone, with the banner, the docs and the mode name all agreeing
+       * it was supervised. No count was wrong, so nothing could see it.
+       *
+       * Both halves are guarded here: the MCP must WIRE supervision from the mode, and the SDK
+       * must REFUSE to claim supervision it cannot perform.
+       */
+      if (exists('mcp/src/config.ts')) {
+        const cfg = read('mcp/src/config.ts')
+        if (!/parsed\.mode === 'supervised'[\s\S]{0,600}parsed\.confirm = true/.test(cfg)) {
+          problems.push(
+            "mcp/src/config.ts no longer forces confirm for PIPRAIL_MODE=supervised — the mode would " +
+              'be a label again, and nothing would ask a human'
+          )
+        }
+      }
+      if (exists('sdk/src/client.ts') && !/'supervised' && typeof opts\.onBeforePay !== 'function'/.test(read('sdk/src/client.ts'))) {
+        problems.push(
+          "sdk/src/client.ts no longer refuses mode:'supervised' without onBeforePay — a client can " +
+            'again claim supervision that nothing performs'
+        )
+      }
+
+      return problems.length
+        ? bad(problems.join(' · '))
+        : ok(
+            `3 modes, each enforced (supervised wires a human · budgeted is policy-only · sovereign +${EXTRA.length}) · ` +
+              `${base.length} default tools → ${sov.length} · consistent across ${ENUMERATORS.length} mirrors`
+          )
+    },
+  },
+  {
+    domain: 'security',
     id: 'contact-addresses-split',
+    verify: [
+      "npm run sync -- --only contact-addresses-split",
+    ],
     what: 'Front-facing surfaces publish the business address, never the personal one',
     source: { file: 'scripts/contacts.mjs', note: '⭐ BUSINESS_CONTACT + the personal-webmail matcher — the only place the split is defined' },
     mirrors: FRONT_FACING.map((f) => ({ file: f.file, note: f.note })),
@@ -1164,6 +1862,9 @@ export const RULES = [
   {
     domain: 'security',
     id: 'secrets-untracked',
+    verify: [
+      "npm run sync -- --only secrets-untracked",
+    ],
     what: 'No secret file is tracked by git, and the secret paths stay ignored',
     source: { file: '.gitignore', note: '⭐ .env and .secrets/ must be ignored' },
     mirrors: [
@@ -1204,6 +1905,17 @@ export const RULES = [
   {
     domain: 'chains',
     id: 'token-registry',
+    /*
+     * The deeper check is `node .claude/skills/wallet-audit/verify-tokens.mjs`, which reads each
+     * token's on-chain `symbol` and `decimals` and compares them to what the SDK ships. It is
+     * NOT listed here: `.claude/skills/*` is gitignored, so a `verify` naming it would point at
+     * a file a fresh clone does not have, and the clean-clone guard rightly fails that. The map
+     * only ever points at commands anyone holding this repo can actually run.
+     */
+    verify: [
+      "npm run sync -- --only token-registry",
+      "npm run test:sdk",
+    ],
     what: 'Every built-in EVM token is a checksummed address with a matching symbol and sane decimals',
     source: { file: 'sdk/src/drivers/evm/chains.ts', note: '⭐ CHAINS[...].tokens — every address verified on-chain before shipping' },
     mirrors: [{ file: 'site/public/tokens/<sym>.svg', note: 'the badge the site renders (covered by site-chain-assets)' }],
@@ -1244,6 +1956,9 @@ export const RULES = [
   {
     domain: 'seo',
     id: 'indexnow-key',
+    verify: [
+      "npm run sync -- --only indexnow-key",
+    ],
     what: 'The IndexNow key file is named exactly as its own contents (both hosts)',
     source: { file: 'the key itself', note: 'issued once, shared by both hosts' },
     mirrors: [
@@ -1277,6 +1992,9 @@ export const RULES = [
   {
     domain: 'seo',
     id: 'robots-sitemaps',
+    verify: [
+      "npm run build",
+    ],
     what: 'Every Sitemap: line in robots.txt points at a sitemap that is actually built',
     source: { file: 'site/dist', note: 'the sitemaps @astrojs/sitemap emits (both hosts)' },
     mirrors: [
@@ -1309,6 +2027,9 @@ export const RULES = [
   {
     domain: 'api',
     id: 'schemes-documented',
+    verify: [
+      "npx vitest run test/conformance.test.ts",
+    ],
     what: 'Every payment scheme the wire layer knows is documented',
     source: { file: 'sdk/src/x402.ts', note: '⭐ the scheme literals the envelope accepts' },
     mirrors: [{ file: 'docs/src/content/docs/**', note: 'a scheme nobody documents is a scheme nobody uses' }],
@@ -1328,6 +2049,10 @@ export const RULES = [
   {
     domain: 'api',
     id: 'exports-documented',
+    verify: [
+      "npm run typecheck",
+      "npm run build:sdk",
+    ],
     what: 'Every public SDK export is mentioned somewhere in the docs',
     source: { file: 'sdk/dist/index.cjs', note: '⭐ the 152 runtime values a user can import' },
     mirrors: [{ file: 'docs/src/content/docs/**', note: 'ship a new export without documenting it and nobody can find it' }],
@@ -1352,6 +2077,9 @@ export const RULES = [
   {
     domain: 'mcp',
     id: 'tool-count-claims',
+    verify: [
+      "npm run test:mcp",
+    ],
     what: 'Every written "N tools" claim matches the real tool count',
     source: { file: 'sdk/src/agent.ts → paymentTools()', note: '⭐ the count is derived, never typed' },
     mirrors: [
@@ -1376,7 +2104,13 @@ export const RULES = [
       let claims = 0
       for (const f of files) {
         for (const line of read(f).split('\n')) {
-          for (const m of line.matchAll(/\b(\d+|five|six|seven|eight|nine|ten)\s+(?:piprail_\*\s+|PipRail\s+)?tools\b/gi)) {
+          /*
+           * The qualifier is often wrapped in markdown, and backticks are not whitespace: the
+           * literal text is ``8 `piprail_*` tools``. Without allowing them, `integrations/TESTING.md`
+           * claiming "the 7 `piprail_*` tools" walked straight past this rule, in the same file
+           * that says "same 8 tools" four lines earlier.
+           */
+          for (const m of line.matchAll(/\b(\d+|five|six|seven|eight|nine|ten)\s+(?:[`*_]*(?:piprail_\*|PipRail)[`*_]*\s+)?tools\b/gi)) {
             /*
              * SUBSET claims are legitimate and must not be flagged. openclaw's SKILL.md says
              * "Six tools — discover, quote, register, budget, guide, verify_receipt — work with
@@ -1403,6 +2137,9 @@ export const RULES = [
   {
     domain: 'docs',
     id: 'npm-scripts-referenced',
+    verify: [
+      "npm run sync -- --only npm-scripts-referenced",
+    ],
     what: 'Every `npm run X` the docs and skills tell you to run is a real script',
     source: { file: 'package.json', note: '⭐ root scripts — plus every workspace and nested package.json' },
     mirrors: [
@@ -1455,6 +2192,9 @@ export const RULES = [
   {
     domain: 'docs',
     id: 'stubs-stay-stubs',
+    verify: [
+      "npm run sync -- --only stubs-stay-stubs",
+    ],
     what: 'Files deliberately reduced to pointers have not regrown a table that will rot',
     source: { file: 'docs.piprail.com', note: '⭐ the canonical reference these files defer to' },
     mirrors: [
@@ -1487,6 +2227,9 @@ export const RULES = [
   {
     domain: 'docs',
     id: 'standards-gate-real',
+    verify: [
+      "npm run verify-gate",
+    ],
     what: 'Every command in the STANDARDS.md verification gate actually exists',
     source: { file: 'package.json', note: 'the scripts that exist' },
     mirrors: [
@@ -1515,7 +2258,139 @@ export const RULES = [
   /* ══════════════════════ THE CHECKER CHECKS ITSELF ══════════════════════ */
   {
     domain: 'docs',
+    id: 'architecture-map-resolves',
+    verify: [
+      "npm run sync -- --only architecture-map-resolves",
+      "npm run map",
+    ],
+    what: 'The architecture half of the map actually resolves — imports, prose links and the anchors',
+    source: { file: 'scripts/sync/graph.mjs', note: '⭐ the import graph, derived from real source' },
+    mirrors: [
+      { file: 'scripts/sync/links.mjs', note: 'code → prose links, derived from exported symbols' },
+      { file: '.claude/SURFACES.md', note: 'the architecture section describes both' },
+    ],
+    check() {
+      /*
+       * ── A MAP THAT RESOLVES NOTHING LOOKS EXACTLY LIKE A CLEAN CODEBASE ────────────
+       *
+       * The import graph resolves specifiers by hand, and the SDK is ESM TypeScript: `./chains.js`
+       * in the source is `./chains.ts` on disk. Get that wrong and every edge silently vanishes.
+       * The failure is not an error — it is `--touched` cheerfully reporting "imported by: none"
+       * for a module fifty files depend on, which is worse than having no map, because it looks
+       * like an answer.
+       *
+       * So assert the graph is ALIVE: a plausible size, a high resolution rate, and a few links
+       * that must exist by construction. Same reasoning as `rules-are-well-formed`: a guard that
+       * cannot fail is not a guard, and neither is a map that cannot be wrong.
+       */
+      const problems = []
+      let graph
+      try {
+        graph = moduleGraph()
+      } catch (err) {
+        return bad(`the module graph threw: ${err.message}`)
+      }
+      const edges = [...graph.imports.values()].reduce((n, s) => n + s.size, 0)
+      if (graph.files.length < 150) problems.push(`only ${graph.files.length} modules parsed — the walk is not reaching the source`)
+      if (edges < 400) problems.push(`only ${edges} import edges — specifier resolution has degraded`)
+
+      /*
+       * Links that must hold as long as PipRail is PipRail. Each one is a different resolution
+       * path: a `.js`-suffixed relative import, a workspace package name, and a driver reaching
+       * the contract that makes the driver abstraction real.
+       */
+      const MUST = [
+        ['sdk/src/client.ts', 'sdk/src/drivers/types.ts', 'the client depends on the driver contract'],
+        ['sdk/src/drivers/evm/index.ts', 'sdk/src/drivers/types.ts', 'every driver implements the contract'],
+        ['mcp/src/server.ts', 'sdk/src/index.ts', 'the MCP wraps the SDK'],
+      ]
+      for (const [from, to, why] of MUST) {
+        if (!graph.imports.get(from)?.has(to)) {
+          problems.push(`${from} → ${to} is missing from the graph (${why}) — resolution is broken`)
+        }
+      }
+
+      /*
+       * The prose layer is the half that finds code→docs drift, and BOTH directions must work.
+       * Symbol matching dying is silent in the same way resolution dying is: you get an empty
+       * list, which reads as "nothing to check here".
+       */
+      const prose = documentedIn('sdk/src/server.ts')
+      if (prose.length < 3) problems.push(`sdk/src/server.ts resolves to only ${prose.length} prose surfaces — symbol matching has broken`)
+      const about = describes('docs/src/content/docs/spend-controls/payment-policy.md')
+      if (!about.some((a) => a.file === 'sdk/src/policy.ts')) {
+        problems.push('the spend-controls page no longer resolves to sdk/src/policy.ts — the prose→code index has broken')
+      }
+
+      // Every declared anchor must point at a file that exists, or it is a stale note.
+      for (const a of ANCHORS) {
+        if (!exists(a.file)) problems.push(`anchor names a missing file: ${a.file}`)
+        for (const surf of a.surfaces) {
+          if (!exists(surf) && !surf.endsWith('/')) problems.push(`anchor ${a.file} names a missing surface: ${surf}`)
+        }
+      }
+
+      return problems.length
+        ? bad(problems.join(' · '))
+        : ok(`${graph.files.length} modules · ${edges} import edges · ${ANCHORS.length} declared anchors`)
+    },
+  },
+  {
+    domain: 'docs',
+    id: 'map-covers-pages',
+    verify: [
+      "npm run sync -- --only map-covers-pages",
+    ],
+    what: 'Every public page is ON the map — named by a rule or the contact registry, never floating',
+    source: { file: 'site/src/pages/', note: '⭐ the pages a stranger can actually open' },
+    mirrors: [
+      { file: 'scripts/sync/rules.mjs', note: 'each page named as the source or a mirror of the fact it renders' },
+      { file: 'scripts/contacts.mjs', note: 'FRONT_FACING — pages that carry a contact address' },
+    ],
+    check() {
+      /*
+       * ── WHY A PAGE MUST BE ON THE MAP ──────────────────────────────────────────────
+       *
+       * The map's promise is that `--touched <file>` tells you what else must change and what
+       * to run. A page nobody mapped breaks that promise silently: the query answers "no rule
+       * references this path", which reads like "nothing else to do" and is usually wrong.
+       *
+       * It was wrong for six of ten pages. /facilitators renders the facilitator registry and
+       * /mcp restates the tool list, yet neither was linked to the fact it displays, so editing
+       * either told you nothing. /mcp and /demo then advertised 29 chains for as long as nobody
+       * happened to look, because no rule had them in scope.
+       *
+       * A page is "mapped" when a rule names it (as a source or a mirror) or the contact
+       * registry does. That is a low bar on purpose: the point is that somebody consciously
+       * answered "what fact does this page restate?" rather than leaving it floating.
+       */
+      const dir = 'site/src/pages'
+      const pages = exists(dir)
+        ? readdirSync(join(REPO, dir)).filter((f) => f.endsWith('.astro')).filter((f) => exists(`${dir}/${f}`))
+        : []
+      if (!pages.length) return skip('no pages found (clean-clone or a moved directory)')
+
+      const named = new Set([
+        ...RULES.flatMap((r) => [r.source.file, ...r.mirrors.map((m) => m.file)]),
+        ...FRONT_FACING.map((f) => f.file),
+      ])
+      const refs = [...named].join(' | ')
+      const floating = pages.filter((f) => !refs.includes(`${dir}/${f}`))
+
+      return floating.length
+        ? bad(
+            `not on the map: ${floating.map((f) => `${dir}/${f}`).join(', ')} — add each one as a mirror of ` +
+              'the fact it renders in scripts/sync/rules.mjs (or to FRONT_FACING if it carries a contact address)'
+          )
+        : ok(`${pages.length} public pages, every one named by a rule or the contact registry`)
+    },
+  },
+  {
+    domain: 'docs',
     id: 'rules-are-well-formed',
+    verify: [
+      "npm run sync -- --only rules-are-well-formed",
+    ],
     what: 'Every rule can actually fail, has a source and mirrors, and a unique id',
     source: { file: 'scripts/sync/rules.mjs', note: '⭐ the rules themselves' },
     mirrors: [{ file: '.claude/SURFACES.md', note: 'the human map they generate' }],
@@ -1528,6 +2403,7 @@ export const RULES = [
        */
       const src = read('scripts/sync/rules.mjs')
       const WARN_ONLY = ['changelog-unreleased'] // deliberately advisory; uses warn(), never bad()
+      const scripts = new Set(Object.keys(readJson('package.json').scripts ?? {}))
       const problems = []
       const ids = RULES.map((r) => r.id)
 
@@ -1545,13 +2421,49 @@ export const RULES = [
         for (const loc of [r.source?.file, ...(r.mirrors ?? []).map((m) => m.file)]) {
           if (loc?.includes('·')) problems.push(`${r.id}: "${loc}" packs several paths into one entry — split them, or --touched cannot match them`)
         }
+
+        /*
+         * ── EVERY RULE MUST SAY WHAT TO RUN ────────────────────────────────────────
+         *
+         * The map answers "where else does this fact live?". Without `verify` it stops
+         * there, and the person who just edited a mirror is left to guess which test proves
+         * it. So a rule declares its commands, and they must be REAL: a map pointing at a
+         * script nobody wrote is not a map. RELEASING.md told people for weeks to "never
+         * skip `npm run verify-gate`" while that script did not exist, and following the
+         * instruction literally produced `npm error Missing script`.
+         */
+        if (!r.verify?.length) {
+          problems.push(`${r.id}: no verify — say what to RUN to prove this fact still holds`)
+        }
+        for (const cmd of r.verify ?? []) {
+          const script = cmd.match(/^npm run ([\w:-]+)/)?.[1]
+          if (script && !scripts.has(script)) {
+            problems.push(`${r.id}: verify runs "npm run ${script}", which is not in package.json`)
+          }
+          const file = cmd.match(/(?:vitest run|node(?: --test)?) ([\w./-]+)/)?.[1]
+          if (file) {
+            /*
+             * vitest paths are relative to the workspace root that owns the test. `exists()` is
+             * clean-clone aware, so this ALSO rejects a command pointing at a gitignored file:
+             * a verification a fresh clone cannot run is not a verification. (Caught exactly
+             * that on the first pass, where token-registry named a tool under `.claude/skills/`.)
+             */
+            const candidates = [file, `sdk/${file}`, `mcp/${file}`]
+            if (!candidates.some(exists)) {
+              problems.push(`${r.id}: verify runs "${cmd}", but ${file} is not a file this repo ships`)
+            }
+          }
+        }
       }
       const dupes = [...new Set(ids.filter((x, i) => ids.indexOf(x) !== i))]
       problems.push(...dupes.map((d) => `duplicate rule id: ${d}`))
 
       return problems.length
         ? bad(problems.join('; '))
-        : ok(`${RULES.length} rules — all can fail, all declare source + mirrors, ids unique`)
+        : ok(
+            `${RULES.length} rules — all can fail, all declare source + mirrors + verify, ` +
+              `${new Set(RULES.flatMap((r) => r.verify)).size} distinct verify commands all exist, ids unique`
+          )
     },
   },
   /*
@@ -1569,6 +2481,9 @@ export const RULES = [
   {
     domain: 'docs',
     id: 'prose-gate-wired',
+    verify: [
+      "npm run prose",
+    ],
     what: 'The no-slop gate exists, runs in verify-gate, and the house-voice doc points at the real script',
     source: {
       file: 'scripts/prose-audit.mjs',
@@ -1620,6 +2535,9 @@ export const RULES = [
   {
     domain: 'skills',
     id: 'skill-paths-resolve',
+    verify: [
+      "npm run sync -- --only skill-paths-resolve",
+    ],
     what: 'Every repo path a skill imports or cites still exists (skills are gitignored — no refactor updates them)',
     source: { file: 'the repo tree', note: '⭐ the real files — moving one silently orphans its gitignored callers' },
     mirrors: [
@@ -1745,6 +2663,9 @@ export const RULES = [
   {
     domain: 'security',
     id: 'env-example-documents-secrets',
+    verify: [
+      "node --test scripts/load-env.test.mjs",
+    ],
     what: 'Every operational credential is documented in .env.example, with no real value committed',
     source: { file: 'scripts/load-env.mjs', note: '⭐ the one loader — plus what the ops tooling actually reads' },
     mirrors: [
@@ -1812,6 +2733,9 @@ export const RULES = [
   {
     domain: 'site',
     id: 'deck-published-matches-master',
+    verify: [
+      "npm run sync -- --only deck-published-matches-master",
+    ],
     what: 'The pitch deck served from piprail.com is byte-identical to the repo-root master',
     source: { file: 'PipRail-deck.pdf', note: 'the master the branding skill builds and the README links' },
     mirrors: [
@@ -1846,6 +2770,9 @@ export const RULES = [
   {
     domain: 'security',
     id: 'custody-claim-mirrors',
+    verify: [
+      "npm run verify-gate",
+    ],
     what: 'The "nobody holds it / no account, no API key" claim is machine-guarded and stated consistently everywhere',
     source: {
       file: 'sdk/src/server.ts',
@@ -1914,6 +2841,9 @@ export const RULES = [
   {
     domain: 'seo',
     id: 'sameas-mirrors',
+    verify: [
+      "npm run build",
+    ],
     what: 'The Organization.sameAs identity list is identical on both hosts, and every entry is a real profile URL',
     source: {
       file: 'site/src/layouts/Layout.astro',

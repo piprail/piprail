@@ -123,6 +123,7 @@ shipping. The current registry:
 | `'hyperevm'` | HyperEVM (Hyperliquid) | USDC |
 | `'monad'` | Monad | USDC |
 | `'kaia'` | Kaia (ex-Klaytn) | USDT |
+| `'robinhood'` | Robinhood Chain | USDG |
 
 `token: 'native'` works on all of them. For the issuer-native-vs-bridged provenance of each
 USDC/USDT, the EURC EIP-712 caveat, and BNB's 18-decimal peg tokens, see
@@ -220,3 +221,27 @@ All of these are exported from `@piprail/sdk`:
 | `ResolvedChain` | The normalised `{ chain, chainId, rpcUrl, tokens }` returned by `resolveChain`. |
 | `ChainPreset` | One registry entry: `{ chain, defaultRpc?, tokens }`. |
 | `TokenInfo` | A built-in token: `{ address, decimals, symbol }`. |
+
+## Swapping on an EVM chain
+
+Holding the wrong token? `quoteSwap()` prices a same-chain swap read-only and `swap()` is the
+only call that moves anything. It is **opt-in and never automatic**: paying never swaps and
+planning never swaps.
+
+EVM chains have no protocol-level swap, so a named venue routes it:
+**[KyberSwap](https://kyberswap.com)**, keyless, with no integrator fee set by PipRail. It is
+live-probed on **9 of the built-in chains** rather than assumed for all of them: Celo and
+Scroll are deliberately absent because the API answers on both but returns no route even for the
+most liquid pair, and listing them would advertise a swap that cannot execute.
+
+Selling an ERC-20 costs two transactions, an `approve` then the swap; selling the native coin
+costs one. 5 real mainnet swaps back this route across several chains, with the
+transaction hashes published.
+
+```ts
+const quote = await client.quoteSwap({ from: 'native', to: 'USDC', wantAmount: '0.50' })
+if (quote) await client.swap(quote)   // null means no route, never "no funds"
+```
+
+Full guide: [Swapping tokens](/making-payments/swapping/). All 10 routes, indexed by
+chain as well as by venue, are at [piprail.com/swaps](https://piprail.com/swaps).

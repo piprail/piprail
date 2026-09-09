@@ -20,7 +20,7 @@
     "smoke": "node smoke.mjs"
   },
   "dependencies": {
-    "@piprail/sdk": "^2.13.1"
+    "@piprail/sdk": "^3.0.0"
   },
   "peerDependencies": {
     "@elizaos/core": "^1.7.2"

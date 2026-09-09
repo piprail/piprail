@@ -65,6 +65,7 @@ export const personalAddressRe = () =>
  */
 export const FRONT_FACING = [
   { file: 'site/src/pages/partners.astro', requires: true, note: 'the partnership contact CTA' },
+  { file: 'site/src/pages/privacy.astro', requires: true, note: 'the privacy contact a visitor writes to' },
   { file: '.github/SECURITY.md', requires: true, note: 'where a vulnerability report is sent' },
   { file: '.github/CODE_OF_CONDUCT.md', requires: true, note: 'where a conduct report is sent' },
   { file: 'CITATION.cff', requires: true, note: 'citation metadata — read by researchers and Zenodo' },

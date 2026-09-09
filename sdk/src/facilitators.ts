@@ -298,6 +298,27 @@ export const KNOWN_FACILITATORS: Readonly<Record<Caip2, ReadonlyArray<KnownFacil
       note: 'GoPlausible: keyless, 100% gas-sponsored (Algorand USDCa, atomic-group fee pooling; both buyer AND merchant pay 0 ALGO). LIVE-settled on Algorand mainnet 2026-06-17 (tx PDVDVRFGJAG2K6AJ7L26OTSCSRL7AURVKEX4D4KHBAOLNSCYENXA). The only keyless Algorand x402 facilitator.',
     },
   ],
+  // Robinhood Chain (eip155:4663) — the tokenized-equity Arbitrum Orbit L2, mainnet since
+  // 2026-07-01. Both facilitators settle the `exact` rail in USDG (Paxos Global Dollar), the
+  // asset the chain's own markets quote against; the address below matched our on-chain read
+  // and Paxos's published list exactly. USDG is EIP-3009 AND EIP-2612 (verified on-chain
+  // 2026-09-08), so the gasless rail is real rather than inferred from the chain being an L2.
+  'eip155:4663': [
+    {
+      url: 'https://facilitator.ultravioletadao.xyz',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['eip3009'],
+      note: 'Ultravioleta DAO: keyless, 100% gas-sponsored (Robinhood USDG EIP-3009). LIVE-settled on Robinhood mainnet 2026-09-08 (tx 0x35361e5713918e4ca76c8cf9c25fe118d6473b36db19cde3e00ed2f43f990a88): buyer AND merchant both paid 0 ETH, replay rejected.',
+    },
+    {
+      url: 'https://x402.dexter.cash',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['permit2'],
+      note: 'Dexter: keyless, gas-sponsored. Robinhood USDG (EIP-712 domain name "Global Dollar" version "1", which matches the on-chain DOMAIN_SEPARATOR we recomputed). Enforces a ~$0.0066 dynamic floor (minPaymentAmountAtomic 6554), so a sub-cent payment is rejected. LIVE-settled on Robinhood mainnet 2026-09-08 (tx 0x1ba66e3dfd60e1d32fe4e38b68368a064a20b57858d6311feb08b4d0ba988d99): buyer and merchant paid 0 ETH, replay rejected. A 2nd keyless Robinhood facilitator (failover for UVD).',
+    },
+  ],
   // Solana (mainnet-beta). Keyless fee-payer sponsors for the SVM exact rail, each LIVE-settled
   // by us (a real SPL TransferChecked, buyer paid zero SOL) on the dated day — beyond a /supported
   // read. Daydreams + Questflow are intentionally ABSENT: their /supported is public but /verify

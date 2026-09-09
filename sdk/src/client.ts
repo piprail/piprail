@@ -3,10 +3,12 @@ import type {
   ResolvedNetwork,
   WalletHandle,
   ChainSelector,
+  TokenInput,
   CostEstimate,
   RecipientReason,
   WalletBalance,
   DiscoverySigner,
+  ResolvedToken,
 } from './drivers/types.js'
 import {
   searchOpenIndexes,
@@ -57,6 +59,7 @@ import {
   NonReplayableBodyError,
   PaymentDeclinedError,
   PaymentTimeoutError,
+  UnsupportedNetworkError,
   UnsupportedSchemeError,
   WalletRequiredError,
   WrongChainError,
@@ -85,7 +88,18 @@ import {
 } from './policy.js'
 import { SpendLedger, type SpendSummary, type SpendRecord } from './ledger.js'
 import type { SpendStore } from './spendstore.js'
-import { formatUnits, floorUnits, MAX_DECIMALS } from './util/units.js'
+import { formatUnits, floorUnits, parseUnits, MAX_DECIMALS } from './util/units.js'
+// The OPTIONAL swap helper. Pure types + pure maths; the work lives in the drivers.
+import {
+  resolveSlippageBps,
+  type SwapRequest,
+  type SwapQuote,
+  type SwapReceipt,
+  type AgentMode,
+  type SwapPolicy,
+  DEFAULT_AGENT_MODE,
+} from './swap.js'
+import { SWAP_PROVIDERS } from './swapProviders.js'
 import { exactSettleCheckHint } from './util/exactRecovery.js'
 
 /** Observability events. `ref` is the proof — a chain-specific id (EVM tx hash, Solana signature, TON locator, Stellar tx hash). */
@@ -442,12 +456,39 @@ export interface PipRailClientOptions {
    */
   policy?: PaymentPolicy
   /**
+   * Who is answerable for this wallet. Default `'budgeted'`, which is byte-identical to
+   * every release before modes existed. Set `'sovereign'` only when the agent OWNS these
+   * funds: it unlocks the swap tools for a model, governed by {@link swapPolicy}. A model
+   * can never set this for itself. See {@link AgentMode}.
+   */
+  mode?: AgentMode
+  /**
+   * Guardrails for swapping, used in `'sovereign'` mode. A payment cap counts money going
+   * to a merchant and cannot bound a swap, so this bounds it instead. See {@link SwapPolicy}.
+   */
+  swapPolicy?: SwapPolicy
+  /**
    * Final approval hook, called with the {@link PipRailQuote} after the policy
    * passes but before paying. Return `false` (or a rejected promise resolving
    * false) to refuse — the client throws {@link PaymentDeclinedError} and no
    * funds move. Use for human-in-the-loop or custom per-payment logic.
    */
   onBeforePay?: (quote: PipRailQuote) => boolean | Promise<boolean>
+  /**
+   * Approve (or refuse) a SWAP before anything is signed — the swap-side twin of
+   * {@link PipRailClientOptions.onBeforePay}.
+   *
+   * It exists because `onBeforePay` genuinely does not cover swaps: a swap is not a payment,
+   * which is the whole reason `swapPolicy` bounds it instead. But an operator who wired an
+   * approver did not mean "ask me before payments and let value move silently any other way",
+   * and a supervised sovereign agent could swap its whole balance without the human seeing one
+   * prompt. Same fail-safe contract as `onBeforePay`: `false` or a throw refuses, and the
+   * refusal arrives as a {@link PaymentDeclinedError} with `reasonCode: 'APPROVAL'`.
+   *
+   * `@piprail/mcp` wires this alongside `onBeforePay` whenever confirmation is on, so an
+   * operator gets it without asking.
+   */
+  onBeforeSwap?: (quote: SwapQuote) => boolean | Promise<boolean>
   /**
    * After paying, how many times to re-send the request with proof before
    * giving up. Default 3, with a short backoff between attempts — this
@@ -634,6 +675,47 @@ export interface PayingClient {
   /** The CONFIGURED spend policy, read back (so an agent can self-check its whole leash
    *  without hitting a decline). `undefined` when no policy is set. */
   policy(): PaymentPolicy | undefined
+  /*
+   * OPTIONAL, so every existing implementation stays valid and the default behaviour is
+   * untouched. `paymentTools()` consults `canAgentSwap()` to decide whether to append the
+   * swap tools; an implementation that omits these simply never offers them.
+   */
+  /** Who is answerable for this wallet. Absent means the default, `'budgeted'`. */
+  mode?(): AgentMode
+  /** May a MODEL swap on this wallet? True only in `'sovereign'` mode. */
+  canAgentSwap?(): boolean
+  /** Price a same-chain swap, read-only. Never throws for a read problem. */
+  quoteSwap?(req: SwapRequest): Promise<SwapQuote | null>
+  /** Execute a quoted swap. Governed by `swapPolicy`, not by the payment caps. */
+  swap?(quote: SwapQuote): Promise<SwapReceipt>
+  /** This wallet's own address — where it gets paid. `paymentTools()` defaults a
+   *  sold offer's `payTo` to it, so an agent never has to be told its own address. */
+  address?(): Promise<string>
+  /** May a MODEL sell on this wallet — price offers and collect for them? Sovereign only. */
+  canAgentSell?(): boolean
+  /** The chain this client is configured for — the default an offer is priced on. */
+  chain?(): ChainSelector
+  /** What this wallet HOLDS, per asset — the balance sheet, distinct from the budget leash. */
+  balanceOf?(assets?: readonly string[]): Promise<WalletAssetBalance[]>
+}
+
+/**
+ * One asset's holding, as {@link PipRailClient.balanceOf} reports it. A `null` amount means the
+ * read was UNAVAILABLE, never zero: an agent has to tell "I hold nothing" apart from "I could
+ * not find out", because acting on the second as if it were the first looks exactly like having
+ * been drained.
+ */
+export interface WalletAssetBalance {
+  /** The symbol as the chain resolved it, or as asked for when the chain does not ship it. */
+  symbol: string
+  /** The on-chain asset id, or `null` when this chain has no such token. */
+  asset: string | null
+  decimals: number | null
+  /** False when this chain does not ship this symbol. Reported, never guessed at. */
+  known: boolean
+  /** Base units, or `null` when the read was unavailable. */
+  amount: string | null
+  amountFormatted: string | null
 }
 
 /**
@@ -713,6 +795,7 @@ export class PipRailClient {
     this.assertPolicyAmountCaps(opts.policy)
     this.assertPolicyTimeOptions(opts.policy)
     this.assertPolicySpendControls(opts.policy)
+    this.assertModeIsHonest(opts)
   }
 
   /**
@@ -1141,11 +1224,162 @@ export class PipRailClient {
     return this.ledger.summary()
   }
 
+  /**
+   * Each mode must be able to KEEP its promise, checked once at construction.
+   *
+   * `'supervised'` means a human approves each payment, and the only thing that can pause a
+   * payment for a human is `onBeforePay`. Without it the mode was a label: the client happily
+   * paid without asking anyone, while the name, the docs and the operator's mental model all
+   * said otherwise. A safety control that silently does nothing is worse than an absent one,
+   * because the operator has already stopped worrying about it.
+   *
+   * The mirror of the sovereign rule, which refuses to unlock swapping without a ceiling. Both
+   * fail at CONSTRUCTION rather than at the first payment, so the mistake surfaces while
+   * somebody is reading their own config instead of mid-spend.
+   */
+  private assertModeIsHonest(opts: PipRailClientOptions): void {
+    const mode = opts.mode ?? DEFAULT_AGENT_MODE
+    if (mode === 'supervised' && typeof opts.onBeforePay !== 'function') {
+      throw new TypeError(
+        "mode: 'supervised' needs an `onBeforePay` hook — it is the only thing that can pause a " +
+          'payment for a human, so without it this client would pay without asking anyone, which is ' +
+          "exactly what 'supervised' promises not to do. Add onBeforePay, or use 'budgeted' if the " +
+          'policy is meant to be the consent. (@piprail/mcp wires this for you from PIPRAIL_MODE.)'
+      )
+    }
+    /*
+     * The same demand @piprail/mcp already makes of `PIPRAIL_MODE=sovereign`, and it belongs
+     * here too: this is where a model is handed the swap tools, so this is where the ceiling
+     * has to exist. Without it the SDK happily exposed `piprail_swap` with NOTHING bounding it,
+     * which is precisely the unbounded capability the MCP refuses to start with. The two
+     * surfaces disagreeing meant the safer one could be sidestepped by importing the other.
+     */
+    if (mode === 'sovereign' && opts.swapPolicy?.maxPerSwap === undefined) {
+      throw new TypeError(
+        "mode: 'sovereign' needs `swapPolicy.maxPerSwap` — it hands a model the swap tools, and your " +
+          'payment caps do NOT bound a swap (they count payments; a swap is not one), so without a ' +
+          'ceiling nothing limits what one swap may spend. Set a ceiling, e.g. ' +
+          "swapPolicy: { maxPerSwap: '25.00' }. Selling needs no ceiling: it takes money rather than " +
+          'spending it.'
+      )
+    }
+  }
+
   /** The CONFIGURED spend policy, read back unchanged — so an agent can self-check
    *  its WHOLE leash (caps, allowlists, time, denom + count limits) without hitting a
    *  decline. `undefined` when no policy is set. Pure; never throws. */
   policy(): PaymentPolicy | undefined {
     return this.opts.policy
+  }
+
+  /**
+   * Who is answerable for this wallet: `'supervised'`, `'budgeted'` (default) or
+   * `'sovereign'`. READ-ONLY on purpose. A model asks what authority it has; it can
+   * never grant itself more, exactly as an agent cannot widen its own permissions in
+   * its host. Set once at construction by whoever provisioned the key.
+   */
+  mode(): AgentMode {
+    return this.opts.mode ?? DEFAULT_AGENT_MODE
+  }
+
+  /** The configured swap guardrails, read back unchanged. `undefined` when none is set. */
+  swapPolicy(): SwapPolicy | undefined {
+    return this.opts.swapPolicy
+  }
+
+  /**
+   * This wallet's OWN address — where it gets paid.
+   *
+   * The receiving half of a wallet, and the one thing an agent handed a key cannot work
+   * out for itself: the key is set by whoever provisioned it, so without this the agent
+   * can spend but can never tell a buyer where to send anything. `sell` defaults its
+   * `payTo` to exactly this.
+   *
+   * Derived from the key, not the network — no RPC read, nothing moved. Throws
+   * {@link WalletRequiredError} on a read-only client (no wallet, no address).
+   */
+  /** The chain this client is configured for, exactly as it was given. A sold offer
+   *  defaults to it, so an agent prices on the chain it actually holds funds on. */
+  chain(): ChainSelector {
+    return this.opts.chain
+  }
+
+  /**
+   * What this wallet actually HOLDS, per asset — the balance sheet, not the leash.
+   *
+   * `budget()` answers "how much of my allowance is left", a different question and the only
+   * one an agent could previously ask. An agent that OWNS a wallet has to answer "what do I
+   * have?" before it can decide anything: whether to sell, whether to swap, whether it needs
+   * topping up and in which denomination.
+   *
+   * RPC-read-only and never throws for a read problem: an asset whose read was unavailable
+   * comes back `null` (unknown), never `0`, because a rate-limited read that reads as "broke"
+   * would make an agent behave as though it had been drained. A symbol this chain does not ship
+   * is reported as unknown rather than guessed at.
+   */
+  async balanceOf(assets: readonly string[] = ['native']): Promise<WalletAssetBalance[]> {
+    const { net, wallet } = await this.ensure()
+    if (!wallet) {
+      throw new WalletRequiredError('balanceOf needs a wallet — a read-only client holds nothing.')
+    }
+    const out: WalletAssetBalance[] = []
+    for (const symbol of assets) {
+      let asset: string
+      let decimals: number
+      let resolvedSymbol: string | undefined
+      try {
+        const t = net.resolveToken(symbol as TokenInput)
+        asset = t.asset
+        decimals = t.decimals
+        resolvedSymbol = t.symbol
+      } catch {
+        out.push({ symbol, asset: null, decimals: null, known: false, amount: null, amountFormatted: null })
+        continue
+      }
+      const bal = await net.balanceOf(wallet, asset).catch(() => ({ token: null, native: null }))
+      out.push({
+        symbol: resolvedSymbol ?? symbol,
+        asset,
+        decimals,
+        known: true,
+        amount: bal.token === null ? null : bal.token.toString(),
+        amountFormatted: bal.token === null ? null : formatUnits(bal.token, decimals),
+      })
+    }
+    return out
+  }
+
+  async address(): Promise<string> {
+    const { net, wallet } = await this.ensure()
+    if (!wallet) {
+      throw new WalletRequiredError(
+        'address() needs a wallet — a read-only client has no address to be paid at.'
+      )
+    }
+    return net.addressOf(wallet)
+  }
+
+  /**
+   * May a model SELL on this wallet — price its own offers and collect payment for them?
+   * True only in `'sovereign'` mode, the same authority test as {@link canAgentSwap}:
+   * earning is the other half of owning a wallet, and an agent that answers for its own
+   * balance answers for how that balance is filled.
+   *
+   * Taking money is not the risk that gates this. Committing to DELIVER something is, and
+   * so is publishing an address as an open invitation to pay it — neither is a supervised
+   * agent's call to make alone.
+   */
+  canAgentSell(): boolean {
+    return this.mode() === 'sovereign'
+  }
+
+  /**
+   * May a model move this wallet's own funds between denominations? True only in
+   * `'sovereign'` mode. The payment tools consult this, so the answer lives in ONE place
+   * rather than being re-derived by every surface that asks.
+   */
+  canAgentSwap(): boolean {
+    return this.mode() === 'sovereign'
   }
 
   /**
@@ -1310,6 +1544,159 @@ export class PipRailClient {
   async canAfford(url: string, init?: RequestInit): Promise<boolean> {
     const plan = await this.planPayment(url, init)
     return plan == null ? true : plan.payable
+  }
+
+  /* --------------------------- swap (OPTIONAL helper) --------------------------- */
+
+  /**
+   * Price a same-chain swap — "I hold the wrong token". READ-ONLY: no funds move,
+   * nothing is signed, nothing is committed to.
+   *
+   * ⚠️ **This is a convenience, not part of paying.** Nothing calls it for you.
+   * `fetch()` never swaps, `planPayment()` never swaps, and there is deliberately no
+   * `autoSwap` option: converting one asset into another is a priced, irreversible
+   * act, and a payment library should not do that on your behalf because it noticed
+   * you were short. If you would rather bridge or swap somewhere else entirely, or
+   * just top the wallet up by hand, that is a perfectly good answer and this method
+   * costs you nothing by existing.
+   *
+   * 🔴 **The rate is not PipRail's.** Read `quote.source` — it names who produced the
+   * number. Today both implementations are `kind: 'protocol'`, meaning the chain's
+   * own order books priced it and no company is involved.
+   *
+   * Returns `null` — never throws — when this chain has no swap support, the pair
+   * can't be routed, there's no liquidity, or a read failed. `null` means "no quote",
+   * never "no funds".
+   */
+  async quoteSwap(req: SwapRequest): Promise<SwapQuote | null> {
+    /*
+     * Input validation FIRST, before any I/O. A malformed `slippageBps` is a bug in the
+     * caller's code, and it must throw the same way whether or not the wallet, the chain
+     * or the token happens to be usable — it used to sit after those checks, so a bad
+     * tolerance on a read-only client came back as a silent `null` that read as "no route".
+     */
+    const slippageBps = resolveSlippageBps(req.slippageBps)
+    /*
+     * The swap guardrails bind at QUOTE time as well as at swap time, so a refusal costs
+     * a read rather than a signature. A tolerance above the cap is REFUSED, never quietly
+     * clamped: silently tightening a number somebody chose is its own kind of surprise.
+     */
+    const sp = this.opts.swapPolicy
+    if (sp?.maxSlippageBps !== undefined && slippageBps > sp.maxSlippageBps) {
+      throw new PaymentDeclinedError(
+        `slippageBps ${slippageBps} exceeds this agent's swapPolicy.maxSlippageBps of ${sp.maxSlippageBps}.`,
+        { reasonCode: 'POLICY' }
+      )
+    }
+    const { net, wallet } = await this.ensure()
+    if (!net.quoteSwap || !wallet) return null
+    let from: ResolvedToken
+    let to: ResolvedToken
+    let wantAmount: bigint
+    try {
+      from = net.resolveToken(req.from)
+      to = net.resolveToken(req.to)
+      wantAmount = parseUnits(req.wantAmount, to.decimals)
+    } catch {
+      return null // an unknown token is "no quote", not a crash
+    }
+    try {
+      return await net.quoteSwap({ from, to, wantAmount, slippageBps, wallet })
+    } catch {
+      return null // the contract says never-throw; hold the line even if a driver slips
+    }
+  }
+
+  /**
+   * Execute a swap you have already quoted and chosen to accept. Signs from your own
+   * wallet (one transaction, or two where a token must be approved first); on every route
+   * the funds never leave your account, they just change denomination.
+   *
+   * Pass the {@link SwapQuote} from {@link quoteSwap} unmodified — it carries the
+   * route and the on-chain slippage cap. Re-quote rather than reusing an old one: a
+   * stale route is how you get a worse price than you were shown.
+   *
+   * Throws {@link WalletRequiredError} without a wallet, {@link UnsupportedNetworkError}
+   * when the chain has no swap support, and {@link InsufficientFundsError} when the
+   * wallet can't cover it (which includes the market moving past your slippage cap —
+   * nothing is swapped in that case, though chains that charge for a reverted
+   * transaction, such as EVM, Aptos and Tron, still take the gas).
+   */
+  async swap(quote: SwapQuote): Promise<SwapReceipt> {
+    const { net, wallet } = await this.ensure()
+    if (!wallet) {
+      throw new WalletRequiredError(
+        'swap needs a wallet — it signs a transaction. This client is read-only.'
+      )
+    }
+    if (!net.swap) {
+      /*
+       * The venue list is READ from the registry, not typed here. The first version of this
+       * message hand-listed seven venues and silently fell three behind the moment Aptos, TON
+       * and Tron shipped — an error message advertising less than the SDK does.
+       */
+      const venues = SWAP_PROVIDERS.map((p) => p.name).join(', ')
+      throw new UnsupportedNetworkError(
+        `Swapping isn't supported on ${net.network}. PipRail ships swaps only where an OPEN, ` +
+          `KEYLESS route exists (${venues}). On other chains, move funds with a tool you choose.`
+      )
+    }
+    if (quote.network !== net.network) {
+      throw new UnsupportedNetworkError(
+        `This swap quote is for ${quote.network} but the client is bound to ${net.network}.`
+      )
+    }
+    /*
+     * 🔴 Enforced against the quote's ON-CHAIN ceiling (`maxSpend`), never the estimate.
+     * The estimate is what the route expects to cost; the ceiling is what it may actually
+     * take if the market moves. Budgeting against the smaller number is how an agent ends
+     * up spending more than its cap while every check passed.
+     */
+    const sp = this.opts.swapPolicy
+    if (sp?.maxPerSwap !== undefined) {
+      const cap = parseUnits(sp.maxPerSwap, quote.from.decimals)
+      if (BigInt(quote.maxSpend) > cap) {
+        throw new PaymentDeclinedError(
+          `This swap could spend up to ${quote.maxSpendFormatted} ${quote.from.symbol}, over this ` +
+            `agent's swapPolicy.maxPerSwap of ${sp.maxPerSwap}. Nothing was signed.`,
+          { reasonCode: 'POLICY' }
+        )
+      }
+    }
+    if (sp?.allowTo?.length) {
+      const want = quote.to.symbol
+      if (!sp.allowTo.some((t) => t.toUpperCase() === want.toUpperCase())) {
+        throw new PaymentDeclinedError(
+          `This agent may only swap into ${sp.allowTo.join(', ')}, not ${want}. Nothing was signed.`,
+          { reasonCode: 'POLICY' }
+        )
+      }
+    }
+    /*
+     * The approval gate, AFTER the policy so a swap the policy already refuses never reaches a
+     * human, and BEFORE anything is signed. Isolated exactly like the payment hook: a throw is
+     * a refusal, never a crash, and never an accidental approval.
+     */
+    const approve = this.opts.onBeforeSwap
+    if (approve) {
+      let okToSwap: boolean
+      try {
+        okToSwap = await approve(quote)
+      } catch (err) {
+        throw new PaymentDeclinedError(
+          'onBeforeSwap threw — refusing to swap. Nothing was signed.',
+          { reasonCode: 'APPROVAL', cause: err }
+        )
+      }
+      if (okToSwap !== true) {
+        throw new PaymentDeclinedError(
+          `onBeforeSwap declined this swap of up to ${quote.maxSpendFormatted} ${quote.from.symbol} ` +
+            `for ${quote.to.symbol}. Nothing was signed.`,
+          { reasonCode: 'APPROVAL' }
+        )
+      }
+    }
+    return net.swap(wallet, quote)
   }
 
   /* ------------------------- discovery (find + list) ------------------------- */

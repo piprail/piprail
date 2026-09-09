@@ -36,6 +36,7 @@ const fakeNet: ResolvedNetwork = {
   send: async () => 'ref',
   confirm: async () => ({ height: '1' }),
   estimateCost: async () => ({ feeSymbol: 'XLM', feeDecimals: 7, fee: '100', feeFormatted: '0.00001', basis: 'heuristic' }),
+  addressOf: async () => 'FAKE_SELF_ADDRESS',
   balanceOf: async () => ({ token: 100000000n, native: 100000000n }),
   recipientReady: async () => ({ ready: 'n/a' as const }),
   verify: async () => ({ ok: false, error: 'transfer_not_found', detail: 'x' }),

@@ -2,19 +2,19 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.piprail/mcp",
   "title": "PipRail",
-  "description": "Budget-bound x402 payment wallet for AI agents — pays HTTP 402 URLs, capped locally. No backend.",
+  "description": "Budget-bound x402 payment wallet for AI agents \u2014 pays HTTP 402 URLs, capped locally. No backend.",
   "websiteUrl": "https://piprail.com/mcp",
   "repository": {
     "url": "https://github.com/piprail/piprail",
     "source": "github",
     "subfolder": "mcp"
   },
-  "version": "0.9.0",
+  "version": "0.10.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@piprail/mcp",
-      "version": "0.9.0",
+      "version": "0.10.0",
       "transport": {
         "type": "stdio"
       },
@@ -34,7 +34,7 @@
         },
         {
           "name": "PIPRAIL_CHAINS",
-          "description": "Pay across several chains (instead of PIPRAIL_CHAIN): a comma-separated list, e.g. base,polygon,solana. Give each its own PIPRAIL_<CHAIN>_KEY (+ optional PIPRAIL_<CHAIN>_RPC_URL). The agent pays whichever chain a 402 asks for — the first listed that can settle — under one shared budget.",
+          "description": "Pay across several chains (instead of PIPRAIL_CHAIN): a comma-separated list, e.g. base,polygon,solana. Give each its own PIPRAIL_<CHAIN>_KEY (+ optional PIPRAIL_<CHAIN>_RPC_URL). The agent pays whichever chain a 402 asks for \u2014 the first listed that can settle \u2014 under one shared budget.",
           "isRequired": false,
           "format": "string"
         },
@@ -52,7 +52,7 @@
         },
         {
           "name": "PIPRAIL_MAX_TOTAL_DENOM",
-          "description": "Cross-token GRAND TOTAL: one spend cap per denomination across every stablecoin and chain, e.g. USD:20.00,EUR:5.00. Not a price oracle — sums tokens of the same unit, each counted 1:1. Native coins are excluded.",
+          "description": "Cross-token GRAND TOTAL: one spend cap per denomination across every stablecoin and chain, e.g. USD:20.00,EUR:5.00. Not a price oracle \u2014 sums tokens of the same unit, each counted 1:1. Native coins are excluded.",
           "isRequired": false,
           "format": "string"
         },
@@ -76,13 +76,13 @@
         },
         {
           "name": "PIPRAIL_SPEND_LOG",
-          "description": "Path to a local append-only spend log. When set, the budget (lifetime, grand total, counts) SURVIVES a restart — hydrated from this file. No backend; you own the file.",
+          "description": "Path to a local append-only spend log. When set, the budget (lifetime, grand total, counts) SURVIVES a restart \u2014 hydrated from this file. No backend; you own the file.",
           "isRequired": false,
           "format": "string"
         },
         {
           "name": "PIPRAIL_EVENT_LOG",
-          "description": "Mirror payment events (settled / declined / budget-threshold) as one-line JSON to 'stderr' or a file path — the operator's notification stream. Default: off.",
+          "description": "Mirror payment events (settled / declined / budget-threshold) as one-line JSON to 'stderr' or a file path \u2014 the operator's notification stream. Default: off.",
           "isRequired": false,
           "format": "string"
         },

@@ -116,6 +116,8 @@ describe('walletInputFor — per-family mapping', () => {
   const mk = (chain: string, extra: Partial<Config> = {}): Config => ({
     chain,
     walletSecret: 'SECRET',
+    // A parsed Config ALWAYS carries a mode; parseConfig defaults it to 'budgeted'.
+    mode: 'budgeted',
     readOnly: false,
     maxAmount: '0.10',
     maxTotal: '10.00',
@@ -375,5 +377,83 @@ describe('parseConfig — cross-token grand total + count caps + log sinks', () 
   })
   test('an unknown new var is still caught by the typo guard', () => {
     expect(() => parseConfig({ PIPRAIL_PRIVATE_KEY: KEY, PIPRAIL_MAX_USD: '20' })).toThrow(/Unknown/)
+  })
+})
+
+describe('PIPRAIL_MODE — three modes, and each one must actually do its job', () => {
+  /*
+   * There was NO coverage here at all, which is exactly how the bug below shipped.
+   *
+   * `PIPRAIL_MODE` and `PIPRAIL_CONFIRM` describe the same thing from two directions, and the
+   * inference only ever ran one way: confirm implied supervised, but naming the mode wired
+   * nothing. `PIPRAIL_MODE=supervised` therefore produced an agent that spent WITHOUT EVER
+   * ASKING ANYBODY, while the mode name, the banner and the docs all said a human approves each
+   * payment. Nothing failed, nothing warned; the operator had simply stopped worrying.
+   */
+  const base = { PIPRAIL_PRIVATE_KEY: KEY }
+
+  test('defaults to budgeted, with nothing prompting', () => {
+    const cfg = parseConfig(base)
+    expect(cfg.mode).toBe('budgeted')
+    expect(cfg.confirm).toBe(false)
+  })
+
+  test('🔴 supervised ACTUALLY supervises — the mode wires the approval hook', () => {
+    const cfg = parseConfig({ ...base, PIPRAIL_MODE: 'supervised' })
+    expect(cfg.mode).toBe('supervised')
+    // The whole bug in one assertion: this was false, so no human was ever asked.
+    expect(cfg.confirm).toBe(true)
+  })
+
+  test('the old spelling still works, and still means supervised', () => {
+    const cfg = parseConfig({ ...base, PIPRAIL_CONFIRM: '1' })
+    expect(cfg.mode).toBe('supervised')
+    expect(cfg.confirm).toBe(true)
+  })
+
+  test('refuses a config that says two opposite things', () => {
+    // budgeted means the policy IS the consent; confirm asks a human every time.
+    expect(() => parseConfig({ ...base, PIPRAIL_MODE: 'budgeted', PIPRAIL_CONFIRM: '1' })).toThrow(ConfigError)
+    expect(() => parseConfig({ ...base, PIPRAIL_MODE: 'budgeted', PIPRAIL_CONFIRM: '1' })).toThrow(/opposite/i)
+    // …and supervised with approval switched off is the same contradiction, mirrored.
+    expect(() => parseConfig({ ...base, PIPRAIL_MODE: 'supervised', PIPRAIL_CONFIRM: '0' })).toThrow(/opposite/i)
+  })
+
+  test('sovereign + confirm is NOT a contradiction, and stays allowed', () => {
+    /*
+     * "The agent owns this wallet, and I still want to approve each payment" is a coherent
+     * thing to want: the mode is about what it MAY do, confirm is about how each payment is
+     * agreed. Refusing this would have made the fix above overshoot into a real restriction.
+     */
+    const cfg = parseConfig({ ...base, PIPRAIL_MODE: 'sovereign', PIPRAIL_MAX_PER_SWAP: '25', PIPRAIL_CONFIRM: '1' })
+    expect(cfg.mode).toBe('sovereign')
+    expect(cfg.confirm).toBe(true)
+  })
+
+  test('the restricted modes reject a swap ceiling they cannot use', () => {
+    // A cap that governs nothing reads as protection and provides none.
+    for (const mode of ['supervised', 'budgeted']) {
+      expect(() => parseConfig({ ...base, PIPRAIL_MODE: mode, PIPRAIL_MAX_PER_SWAP: '25' })).toThrow(ConfigError)
+      expect(() => parseConfig({ ...base, PIPRAIL_MODE: mode, PIPRAIL_MAX_SLIPPAGE_BPS: '100' })).toThrow(ConfigError)
+    }
+  })
+
+  test('sovereign still refuses to start without a swap ceiling', () => {
+    expect(() => parseConfig({ ...base, PIPRAIL_MODE: 'sovereign' })).toThrow(/PIPRAIL_MAX_PER_SWAP/)
+  })
+
+  test('rejects a mode that does not exist, rather than falling back to one', () => {
+    expect(() => parseConfig({ ...base, PIPRAIL_MODE: 'autonomous' })).toThrow(/supervised, budgeted, sovereign/)
+  })
+
+  test('the supervised client the SDK receives can actually pause a payment', () => {
+    /*
+     * End of the wire: the SDK now REFUSES `mode: 'supervised'` without an `onBeforePay`, so
+     * this asserts the MCP hands over a config that can satisfy it. `confirm` is what makes the
+     * server build that hook, which is why the flag above is the load-bearing one.
+     */
+    const cfg = parseConfig({ ...base, PIPRAIL_MODE: 'supervised' })
+    expect(configToClientOptions(cfg).mode).toBe('supervised')
+    expect(cfg.confirm).toBe(true)
   })
 })

@@ -92,6 +92,25 @@ export interface Config {
   spendLog?: string
   /** Where to mirror payment events (PIPRAIL_EVENT_LOG): `stderr` or a file path. Absent ⇒ no event sink. */
   eventLog?: string
+  /**
+   * Who is answerable for this wallet (PIPRAIL_MODE). Default `'budgeted'`.
+   *
+   * - `'supervised'` — a human approves each payment (equivalent to PIPRAIL_CONFIRM=1).
+   * - `'budgeted'` — the default: the spend policy IS the consent, and swapping is withheld.
+   * - `'sovereign'` — the agent OWNS this wallet, BOTH halves of it. The swap tools are
+   *   exposed (bounded by PIPRAIL_MAX_PER_SWAP / PIPRAIL_MAX_SLIPPAGE_BPS rather than by the
+   *   payment caps, which cannot bound a swap), and so are the SELLER tools: the agent can
+   *   price its own offers, collect payment for them, and read its own earnings. Selling
+   *   needs no ceiling because it takes money rather than spending it, and the receiving
+   *   side holds no key at all.
+   *
+   * 🔴 Read from the environment the OPERATOR controls. A model cannot set it for itself.
+   */
+  mode: 'supervised' | 'budgeted' | 'sovereign'
+  /** Ceiling on what ONE swap may spend, human units (PIPRAIL_MAX_PER_SWAP). Sovereign only. */
+  maxPerSwap?: string
+  /** Worst slippage this agent may accept, in bps (PIPRAIL_MAX_SLIPPAGE_BPS). Sovereign only. */
+  maxSlippageBps?: number
   /** Ask the human to approve each payment via MCP elicitation (PIPRAIL_CONFIRM).
    *  Default false — Mode A (the spend policy IS the consent). True ⇒ Mode B (supervised). */
   confirm: boolean
@@ -141,6 +160,9 @@ const KNOWN_PIPRAIL_VARS = [
   'PIPRAIL_SPEND_LOG',
   'PIPRAIL_EVENT_LOG',
   // Ask-before-pay (Feature B, Mode B) + the agent guide (Feature C).
+  'PIPRAIL_MODE',
+  'PIPRAIL_MAX_PER_SWAP',
+  'PIPRAIL_MAX_SLIPPAGE_BPS',
   'PIPRAIL_CONFIRM',
   'PIPRAIL_CONFIRM_TIMEOUT_MS',
   'PIPRAIL_GUIDE',
@@ -378,6 +400,22 @@ export function parseConfig(env: Env = process.env): Config {
     ttlSeconds: intSeconds('PIPRAIL_TTL').transform(Number).optional(),
     windowTotal: decimal('PIPRAIL_WINDOW_TOTAL').optional(),
     windowSeconds: intSeconds('PIPRAIL_WINDOW_SECONDS').transform(Number).optional(),
+    mode: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .refine((v) => v === 'supervised' || v === 'budgeted' || v === 'sovereign', {
+        message: 'PIPRAIL_MODE must be one of: supervised, budgeted, sovereign',
+      })
+      .optional(),
+    maxPerSwap: decimal('PIPRAIL_MAX_PER_SWAP').optional(),
+    maxSlippageBps: z
+      .string()
+      .trim()
+      .regex(/^\d+$/, { message: 'PIPRAIL_MAX_SLIPPAGE_BPS must be a whole number of basis points' })
+      .transform(Number)
+      .refine((n) => n >= 0 && n <= 1000, { message: 'PIPRAIL_MAX_SLIPPAGE_BPS must be between 0 and 1000' })
+      .optional(),
     confirm: boolKnob(),
     confirmTimeoutMs: intMs('PIPRAIL_CONFIRM_TIMEOUT_MS').transform(Number).optional(),
     guide: boolKnob(),
@@ -400,6 +438,9 @@ export function parseConfig(env: Env = process.env): Config {
       ttlSeconds: pick(env, 'PIPRAIL_TTL').value,
       windowTotal: pick(env, 'PIPRAIL_WINDOW_TOTAL').value,
       windowSeconds: pick(env, 'PIPRAIL_WINDOW_SECONDS').value,
+      mode: pick(env, 'PIPRAIL_MODE').value,
+      maxPerSwap: pick(env, 'PIPRAIL_MAX_PER_SWAP').value,
+      maxSlippageBps: pick(env, 'PIPRAIL_MAX_SLIPPAGE_BPS').value,
       confirm: pick(env, 'PIPRAIL_CONFIRM').value ?? 'false',
       confirmTimeoutMs: pick(env, 'PIPRAIL_CONFIRM_TIMEOUT_MS').value,
       guide: pick(env, 'PIPRAIL_GUIDE').value ?? 'true',
@@ -412,6 +453,63 @@ export function parseConfig(env: Env = process.env): Config {
       )
     }
     throw e
+  }
+
+  /*
+   * 3b) MODE. Default `'budgeted'`, so a config written before modes existed behaves exactly
+   * as it did. `PIPRAIL_CONFIRM=1` IS supervised mode, so honour it rather than making an
+   * operator say the same thing twice; an explicit PIPRAIL_MODE always wins.
+   *
+   * 🔴 The two refusals below are the point of the whole feature: a swap ceiling only means
+   * something in sovereign mode, and sovereign mode without a ceiling is an unbounded
+   * capability. Refusing at BOOT rather than at the first swap means an operator finds out
+   * while reading their own config, not while a model is halfway through spending.
+   */
+  parsed.mode ??= parsed.confirm ? 'supervised' : 'budgeted'
+
+  /*
+   * 🔴 SUPERVISED MUST ACTUALLY SUPERVISE.
+   *
+   * This inference used to run ONE WAY: PIPRAIL_CONFIRM=1 implied supervised, but naming the
+   * mode wired nothing. So `PIPRAIL_MODE=supervised` produced an agent that spent without ever
+   * asking anybody, while the config, the docs and the mode name all said a human approves each
+   * payment. A safety control that silently does nothing is worse than an absent one, because
+   * the operator has already stopped worrying.
+   *
+   * The two directions now agree, and a config that says both things at once is refused rather
+   * than quietly resolved. `sovereign` + confirm is NOT a contradiction and stays allowed: it
+   * says the agent owns the wallet and its operator still wants to approve each payment.
+   */
+  const confirmWasSet = pick(env, 'PIPRAIL_CONFIRM').value !== undefined
+  if (parsed.mode === 'supervised') {
+    if (confirmWasSet && !parsed.confirm) {
+      throw new ConfigError(
+        'PIPRAIL_MODE=supervised with PIPRAIL_CONFIRM off says two opposite things: supervised MEANS a ' +
+          'human approves each payment. Drop PIPRAIL_CONFIRM to keep supervision, or set ' +
+          'PIPRAIL_MODE=budgeted if you meant the policy to be the consent.'
+      )
+    }
+    parsed.confirm = true
+  } else if (parsed.mode === 'budgeted' && parsed.confirm) {
+    throw new ConfigError(
+      'PIPRAIL_MODE=budgeted with PIPRAIL_CONFIRM=1 says two opposite things: budgeted means the policy ' +
+        'IS the consent and nothing prompts, while PIPRAIL_CONFIRM asks a human every time. Asking a human ' +
+        'per payment IS supervised mode — set PIPRAIL_MODE=supervised (or just PIPRAIL_CONFIRM=1 alone).'
+    )
+  }
+  if (parsed.mode !== 'sovereign' && (parsed.maxPerSwap !== undefined || parsed.maxSlippageBps !== undefined)) {
+    throw new ConfigError(
+      'PIPRAIL_MAX_PER_SWAP / PIPRAIL_MAX_SLIPPAGE_BPS only apply to PIPRAIL_MODE=sovereign. ' +
+        'In every other mode the agent has no swap tools for them to bound.'
+    )
+  }
+  if (parsed.mode === 'sovereign' && parsed.maxPerSwap === undefined) {
+    throw new ConfigError(
+      'PIPRAIL_MODE=sovereign needs PIPRAIL_MAX_PER_SWAP — it gives the model the whole wallet ' +
+        '(swapping AND selling), and your payment caps do NOT bound a swap (they count payments; a swap ' +
+        'is not one). Selling needs no ceiling: it takes money rather than spending it. Set a ceiling on ' +
+        'what one swap may spend, e.g. PIPRAIL_MAX_PER_SWAP=25.00.'
+    )
   }
 
   // 4) Chain must be one the SDK recognizes from a string (fail fast on a typo).
@@ -523,6 +621,9 @@ export function parseConfig(env: Env = process.env): Config {
 
   return {
     chain: parsed.chain,
+    mode: parsed.mode,
+    ...(parsed.maxPerSwap ? { maxPerSwap: parsed.maxPerSwap } : {}),
+    ...(parsed.maxSlippageBps !== undefined ? { maxSlippageBps: parsed.maxSlippageBps } : {}),
     ...(accounts ? { chains: accounts } : {}),
     ...(parsed.walletSecret ? { walletSecret: parsed.walletSecret } : {}),
     readOnly,
@@ -602,7 +703,9 @@ function policyFromConfig(config: Config): PaymentPolicy {
 function accountToClientOptions(
   account: { chain: string; walletSecret?: string; rpcUrl?: string; nearAccountId?: string },
   policy: PaymentPolicy,
-  schemes: PaymentScheme[] | undefined
+  schemes: PaymentScheme[] | undefined,
+  mode?: Config['mode'],
+  swapCaps?: { maxPerSwap?: string; maxSlippageBps?: number }
 ): PipRailClientOptions {
   const wallet = walletInputFor(account)
   return {
@@ -614,6 +717,20 @@ function accountToClientOptions(
     // Only set when PIPRAIL_SCHEMES was provided — otherwise omit so the SDK default
     // ('onchain-proof' only) applies and the zero-config MCP posture is unchanged.
     ...(schemes ? { schemes } : {}),
+    /*
+     * Mode reaches the SDK client because that is where `paymentTools()` reads it. Omitted
+     * when it is the default, so a budgeted config produces byte-identical client options
+     * to every release before modes existed.
+     */
+    ...(mode && mode !== 'budgeted' ? { mode } : {}),
+    ...(mode === 'sovereign' && swapCaps
+      ? {
+          swapPolicy: {
+            ...(swapCaps.maxPerSwap ? { maxPerSwap: swapCaps.maxPerSwap } : {}),
+            ...(swapCaps.maxSlippageBps !== undefined ? { maxSlippageBps: swapCaps.maxSlippageBps } : {}),
+          },
+        }
+      : {}),
   }
 }
 
@@ -633,7 +750,9 @@ export function configToClientOptions(config: Config): PipRailClientOptions {
   return accountToClientOptions(
     { chain: config.chain, ...(config.walletSecret ? { walletSecret: config.walletSecret } : {}), ...(config.rpcUrl ? { rpcUrl: config.rpcUrl } : {}), ...(config.nearAccountId ? { nearAccountId: config.nearAccountId } : {}) },
     policyFromConfig(config),
-    config.schemes
+    config.schemes,
+    config.mode,
+    { maxPerSwap: config.maxPerSwap, maxSlippageBps: config.maxSlippageBps }
   )
 }
 
@@ -650,5 +769,10 @@ export function configToClientOptionsList(config: Config): PipRailClientOptions[
       ...(config.nearAccountId ? { nearAccountId: config.nearAccountId } : {}),
     },
   ]
-  return accounts.map((a) => accountToClientOptions(a, policy, config.schemes))
+  return accounts.map((a) =>
+    accountToClientOptions(a, policy, config.schemes, config.mode, {
+      maxPerSwap: config.maxPerSwap,
+      maxSlippageBps: config.maxSlippageBps,
+    })
+  )
 }

@@ -37,7 +37,7 @@ const gate = createPaymentGate({
   amount: PRICE,
   payTo: PAY_TO,
   rpcUrl: process.env.BASE_RPC_URL, // optional Base RPC override (defaults to a public node)
-  description: 'PipRail live x402 demo — pay $0.01 USDC on Base to unlock.',
+  description: 'PipRail live x402 demo: pay $0.01 USDC on Base to unlock.',
   // Opt-in standard rail, settled gaslessly via a facilitator we don't run.
   exact: { settle: { facilitator: 'https://facilitator.payai.network' } },
   // Self-describe for the open indexes — the SDK emits extensions.bazaar in the 402,
@@ -61,7 +61,7 @@ const json = (body, status, extra = {}) =>
 // The "premium" content behind the paywall — a tiny demo payload + the receipt.
 const premium = (receipt) => ({
   paid: true,
-  message: '🎉 Payment verified by PipRail — no backend, no custody, no fee.',
+  message: '🎉 Payment verified by PipRail. No backend, no custody, no fee.',
   note: 'You just paid an HTTP API in stablecoin via x402. Build your own → https://piprail.com',
   receipt: {
     scheme: receipt.scheme, // 'onchain-proof' (backendless) or 'exact' (EIP-3009)
@@ -89,7 +89,7 @@ export default async (req) => {
   // resource's shape (and the tech that built it).
   if (pathname === '/openapi.json') {
     const desc = await gate.describe(RESOURCE)
-    return json(buildOpenApi({ origin: 'https://piprail.com', resources: [desc], title: 'PipRail — live x402 demo' }), 200)
+    return json(buildOpenApi({ origin: 'https://piprail.com', resources: [desc], title: 'PipRail live x402 demo' }), 200)
   }
 
   const sig = req.headers.get(HEADER_SIGNATURE) ?? req.headers.get(HEADER_SIGNATURE_V1)

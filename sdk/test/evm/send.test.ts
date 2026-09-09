@@ -60,3 +60,37 @@ describe('evmDriver.send — affordability always maps to InsufficientFundsError
     expect(err).not.toBeInstanceOf(InsufficientFundsError)
   })
 })
+
+describe('nonce management — an agent must not collide with itself', () => {
+  /*
+   * Found live on Base. The first payment settled; the next two were refused by the node with
+   * "nonce lower than the current nonce of the account", because viem asks the RPC for the nonce
+   * on every send and two payments issued back to back both read the same value before either
+   * was mined.
+   *
+   * It failed SAFELY (nothing broadcast, nothing recorded as spent, `send` called exactly once
+   * with no retry), so it never risked a double payment. But paying several times in quick
+   * succession is the ordinary behaviour of an autonomous agent, not an edge case, so a clean
+   * failure is still the wrong outcome. viem's `nonceManager` assigns nonces locally per
+   * (chain, account) and reconciles with the chain, serialising sequential sends from one key.
+   *
+   * Asserted on the SOURCE because the behaviour only shows against a real node: with the
+   * manager wired, the same three back-to-back Base payments all settled.
+   */
+  it('binds a raw key through viem’s nonceManager', async () => {
+    const { readFileSync } = await import('node:fs')
+    const { join } = await import('node:path')
+    const src = readFileSync(join(import.meta.dirname, '../../src/drivers/evm/wallet.ts'), 'utf8')
+    expect(src).toMatch(/privateKeyToAccount\(key as Hex, \{ nonceManager \}\)/)
+    expect(src).toMatch(/import \{ privateKeyToAccount, nonceManager \} from 'viem\/accounts'/)
+  })
+
+  it('leaves a bring-your-own walletClient alone', async () => {
+    // Somebody who supplies their own client owns their nonce policy; we must not reach into it.
+    const { readFileSync } = await import('node:fs')
+    const { join } = await import('node:path')
+    const src = readFileSync(join(import.meta.dirname, '../../src/drivers/evm/wallet.ts'), 'utf8')
+    const byo = src.slice(src.indexOf('const wc = config.walletClient'))
+    expect(byo).not.toMatch(/nonceManager/)
+  })
+})

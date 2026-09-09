@@ -189,6 +189,31 @@ export function mcpTools() {
   return list.map((x) => (typeof x === 'string' ? x : x.name)).filter(Boolean)
 }
 
+/**
+ * The widest tool list the SDK can hand a model: `'sovereign'` mode.
+ *
+ * Derived the same way as {@link mcpTools}, by handing `paymentTools()` a stub that answers
+ * the capability questions the way a sovereign client does. Deriving it matters more here than
+ * for the default: the default list is quoted in forty-odd places and would be noticed if it
+ * moved, while the sovereign list is quoted in few, so a tool could be added or dropped there
+ * with nothing to catch it.
+ */
+export function sovereignTools() {
+  if (!builtSdk?.paymentTools) return null
+  const stub = {
+    mode: () => 'sovereign',
+    canAgentSwap: () => true,
+    canAgentSell: () => true,
+    quoteSwap: async () => null,
+    swap: async () => ({}),
+    address: async () => 'STUB_ADDRESS',
+    chain: () => 'base',
+  }
+  const t = builtSdk.paymentTools(stub)
+  const list = Array.isArray(t) ? t : Object.values(t)
+  return list.map((x) => (typeof x === 'string' ? x : x.name)).filter(Boolean)
+}
+
 /** The hand-maintained copy inside the MCP server. */
 export function mcpBannerTools() {
   const src = read('mcp/src/banner.ts')

@@ -32,6 +32,14 @@ const guide = agentGuide()
 // → '# Paying with PipRail: the agent contract\n…' (identical to PIPRAIL_AGENT_GUIDE)
 ```
 
+## It also tells the model what it CANNOT do
+
+The guide covers [swapping](/making-payments/swapping/) by telling the model plainly that
+**there is no swap tool and it should not look for one**, and why: the spend policy does not
+govern swaps, so handing a model that capability would put it outside every budget cap it
+has. Without that paragraph a model reasons its way to "I could swap for you" and then hunts
+for a `piprail_swap` that does not exist.
+
 ## The loop it teaches: quote → plan → pay
 
 The guide tells the model to always run three steps in order so it never commits to a payment it

@@ -7,6 +7,22 @@ sidebar:
 
 ## Introduction
 
+:::note[Two different axes, both called "mode"]
+`PIPRAIL_MODE` (**`supervised` · `budgeted` · `sovereign`**) says what the agent may **do**: it
+decides which tools exist. Mode A / Mode B, described on this page, says how each payment is
+**agreed**. Both are in force at once. The short version:
+
+| `PIPRAIL_MODE` | Tools | Consent |
+|---|---|---|
+| `supervised` | 8 | **Mode B**: setting it wires the approval prompt |
+| `budgeted` *(default)* | 8 | **Mode A**: the policy is the consent |
+| `sovereign` | 14 | Mode A, plus swapping and selling |
+
+`sovereign` also puts **swaps** behind the same prompt when confirmation is on, because a swap is
+not a payment and your spend caps do not bound one. Full contract:
+[Configuration](/mcp/configuration/).
+:::
+
 The MCP server runs in one of two modes. **Mode A (headless)** is the default: the
 [spend policy](/spend-controls/payment-policy/) you configure *is* the consent, so the agent
 pays autonomously up to its caps with no per-payment prompt. **Mode B (supervised)** is opt-in:
@@ -140,6 +156,19 @@ can't render. Mode B never weakens the budget; degrading just drops the extra as
 connects. Check your client's MCP support before relying on Mode B for hands-on approval; see
 [Client setup](/mcp/client-setup/) for which hosts can elicit.
 :::
+
+## Which `PIPRAIL_MODE` should I set?
+
+- **Leave it unset** for `budgeted`. The policy is the consent and nothing prompts. This is what
+  every config written before modes existed already does.
+- **`supervised`** when a human should approve each spend. Setting it turns confirmation on;
+  `PIPRAIL_CONFIRM=1` is the same thing said the other way, and setting them to disagree is
+  refused at boot rather than quietly resolved.
+- **`sovereign`** when the agent genuinely owns the wallet: it adds swapping, selling
+  (`piprail_sell` / `piprail_collect` / `piprail_earnings`) and `piprail_wallet`. It requires
+  `PIPRAIL_MAX_PER_SWAP`, because a payment cap counts payments and a swap is not one.
+
+A model can never set its own mode. It is read from the environment the operator controls.
 
 ## Choosing a mode
 

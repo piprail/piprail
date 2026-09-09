@@ -14,7 +14,7 @@ import {
   type Hex,
   type Transport,
 } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
+import { privateKeyToAccount, nonceManager } from 'viem/accounts'
 import { type ResolvedChain } from './chains.js'
 import { WrongChainError, WrongFamilyError } from '../../errors.js'
 import { assertNoLegacyWalletKey } from '../wallet-migrate.js'
@@ -57,7 +57,22 @@ export function createWalletAdapter(
     }
     let account
     try {
-      account = privateKeyToAccount(key as Hex)
+      /*
+       * 🔴 `nonceManager` — an agent that pays twice in a row must not collide with itself.
+       *
+       * Without it viem asks the RPC for the account's nonce on every send. Two payments issued
+       * back to back can both read the same value before either is mined, and the second is
+       * rejected with "nonce lower than the current nonce of the account". That is a clean
+       * failure (nothing broadcasts, nothing is recorded as spent), but it is a failure an
+       * autonomous agent hits constantly, because paying several times in quick succession is
+       * the whole point of this SDK. Found on Base: the first live payment settled and the next
+       * two were refused by the node.
+       *
+       * viem's manager assigns nonces locally per (chain, account) and reconciles with the
+       * chain, so sequential sends from one key are serialised. It only applies to a key WE
+       * bind: a caller who brings their own `walletClient` keeps their own nonce policy.
+       */
+      account = privateKeyToAccount(key as Hex, { nonceManager })
     } catch (err) {
       throw new WrongFamilyError(
         'chain is EVM; the wallet { key } is not a valid 0x… 32-byte hex private key: ' +

@@ -23,6 +23,7 @@ import {
   type SuiPreset,
 } from './chains.js'
 import { paySui, type SuiPayClient } from './pay.js'
+import { quoteSuiSwap, swapSui } from './swap.js'
 import { verifySui, type SuiReader, type SuiBalanceChange } from './verify.js'
 import { assertSuiWallet, resolveSuiKeypair, type SuiWalletConfig } from './wallet.js'
 import {
@@ -168,6 +169,12 @@ function makeSuiNetwork(preset: SuiPreset, rpcUrl: string): ResolvedNetwork {
       })
     },
 
+    /** The bound wallet's own address — where THIS wallet gets paid. Derived from the key
+     *  material only: no RPC, nothing moved. See {@link ResolvedNetwork.addressOf}. */
+    async addressOf(wallet: WalletHandle): Promise<string> {
+      return resolveSuiKeypair(wallet._native as SuiWalletConfig).toSuiAddress()
+    },
+
     async balanceOf(wallet: WalletHandle, asset: string): Promise<WalletBalance> {
       let owner: string
       try {
@@ -191,6 +198,17 @@ function makeSuiNetwork(preset: SuiPreset, rpcUrl: string): ResolvedNetwork {
     // No receive prerequisite — any Sui address receives SUI/coins immediately.
     async recipientReady() {
       return { ready: 'n/a' as const }
+    },
+
+    /* ---- swap (OPTIONAL, opt-in): via Aftermath, keyless + no added fee. See ./swap.ts ---- */
+
+    async quoteSwap({ from, to, wantAmount, slippageBps }) {
+      return quoteSuiSwap({ network, from, to, wantAmount, slippageBps })
+    },
+
+    async swap(wallet, quote) {
+      const keypair = resolveSuiKeypair(wallet._native as SuiWalletConfig)
+      return swapSui({ client: client as never, keypair, quote })
     },
 
     async verify(ref, accept) {

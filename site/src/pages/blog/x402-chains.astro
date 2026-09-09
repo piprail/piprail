@@ -4,6 +4,7 @@ import Navigation from '../../components/Navigation.astro'
 import Footer from '../../components/Footer.astro'
 import Breadcrumbs from '../../components/Breadcrumbs.astro'
 import { getPost, relatedPosts, formatDate } from '../../data/posts'
+import { chains } from '../../data/chains'
 import { Code } from 'astro:components'
 import {
   ArrowLeft, Clock, CalendarDays, Plus, Globe, Coins, Layers,
@@ -50,16 +51,18 @@ const articleLd = {
 
 const takeaways = [
   'One <span class="font-mono text-neutral-200">chain:</span> parameter picks the network, its RPC defaults, and the canonical USDC address. Switching from Base to Solana is a one-word change.',
-  'PipRail pays across <strong>29 chains in ten families</strong>: 20 EVM mainnets plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger.',
+  'PipRail pays across <strong>30 chains in ten families</strong>: 21 EVM mainnets plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger.',
   'USDC is available on almost every chain, the native coin on every chain, and any other token by address. Chains are <em>data you pass</em>, not an allowlist the SDK ships.',
 ]
 
 // Built-in EVM presets: the 20 chains you can name without passing a custom Chain.
-const evm = [
-  'Ethereum', 'Base', 'Arbitrum', 'Optimism', 'Polygon', 'BNB Chain', 'Avalanche',
-  'HyperEVM', 'Monad', 'Mantle', 'Sonic', 'Linea', 'Scroll', 'Celo', 'zkSync',
-  'Unichain', 'World Chain', 'Sei', 'Injective', 'Kaia',
-]
+/*
+ * DERIVED, not typed out. This was a hand-written array of twenty names, and it silently
+ * fell a chain behind the moment Robinhood Chain shipped: the post promised "every chain"
+ * and quietly listed one fewer, under a heading counting them. The catalog already mirrors
+ * the SDK registry, so read it and let the number take care of itself.
+ */
+const evm = chains.filter((c) => c.family === 'EVM').map((c) => c.name)
 
 // The nine non-EVM families: networks, the stablecoins/native each ships, and the scheme.
 const families: { name: string; tokens: string; scheme: string }[] = [
@@ -156,7 +159,7 @@ const faqLd = {
         </h1>
         <p class="mt-5 text-lg leading-relaxed text-neutral-400 sm:text-xl">
           An AI agent should be able to pay with whatever it already holds, on whatever chain that lives on.
-          PipRail covers <em class="not-italic text-neutral-200">29 chains from a single parameter</em>. Here is every
+          PipRail covers <em class="not-italic text-neutral-200">30 chains from a single parameter</em>. Here is every
           one, the tokens on each, and the design choice that lets it reach chains it has never heard of.
         </p>
 
@@ -202,7 +205,7 @@ const faqLd = {
 
         <div class="cb"><Code code={codePreset} lang="ts" theme={CODE_THEME} /></div>
 
-        <h2>The 20 EVM mainnets</h2>
+        <h2>The {evm.length} EVM mainnets</h2>
 
         <p>Every major EVM chain is a built-in preset, with its Circle-native USDC pre-filled. If a chain you want is not in this list, you do not wait for us to add it. You pass it as a viem <span class="font-mono text-[0.9em] text-neutral-200">Chain</span> or a bare <span class="font-mono text-[0.9em] text-neutral-200">{'{ id, rpcUrl }'}</span>, and it just works.</p>
 
@@ -215,7 +218,7 @@ const faqLd = {
               ))}
             </div>
           </div>
-          <figcaption class="fig-cap">Twenty EVM mainnets, each with canonical USDC ready to go. Any other EVM chain works by being passed in.</figcaption>
+          <figcaption class="fig-cap">Every built-in EVM mainnet, each with its canonical stablecoin ready to go. Any other EVM chain works by being passed in.</figcaption>
         </figure>
 
         <h2>The nine non-EVM families</h2>
@@ -312,7 +315,7 @@ const faqLd = {
           <div class="text-sm font-semibold text-neutral-100">{post.author.name}</div>
           <div class="text-xs text-neutral-500">{post.author.role}</div>
           <p class="mt-2.5 text-sm leading-relaxed text-neutral-400">
-            Building PipRail, the open, neutral, no-fee x402 payment rail for AI agents, across 29 chains.
+            Building PipRail, the open, neutral, no-fee x402 payment rail for AI agents, across 30 chains.
             Writing about how agents pay, and the trust layer the agent economy still has to build.
           </p>
           <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs">

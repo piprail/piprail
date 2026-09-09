@@ -31,6 +31,7 @@ import { payNear, payNearNative, type NearSendClient } from './pay.js'
 import { payExactNear, verifyAndSettleExactNear, type NearRelayClient } from './exact.js'
 import { verifyNear, type NearReader, type NearReceiptView } from './verify.js'
 import { assertNearWallet, resolveNearWallet, type NearWalletConfig } from './wallet.js'
+import { quoteNearSwap, swapNear, type NearViewClient } from './swap.js'
 import {
   ConfirmationTimeoutError,
   SettlementError,
@@ -239,6 +240,12 @@ function makeNearNetwork(preset: NearPreset, rpcUrl: string): ResolvedNetwork {
       })
     },
 
+    /** The bound wallet's own address — where THIS wallet gets paid. Derived from the key
+     *  material only: no RPC, nothing moved. See {@link ResolvedNetwork.addressOf}. */
+    async addressOf(wallet: WalletHandle): Promise<string> {
+      return resolveNearWallet(wallet._native as NearWalletConfig).accountId
+    },
+
     async balanceOf(wallet: WalletHandle, asset: string): Promise<WalletBalance> {
       let accountId: string
       try {
@@ -296,6 +303,42 @@ function makeNearNetwork(preset: NearPreset, rpcUrl: string): ResolvedNetwork {
       } catch {
         return { ready: 'unknown' as const }
       }
+    },
+
+    /* ---- swap (OPTIONAL, opt-in): via Ref Finance, keyless over the chain's own RPC.
+           Chosen over NEAR Intents because Intents re-adds a facilitator. See ./swap.ts ---- */
+
+    async quoteSwap({ from, to, wantAmount, slippageBps }) {
+      const viewClient: NearViewClient = {
+        async view(contractId, method, args) {
+          const r = (await provider.query({
+            request_type: 'call_function',
+            finality: 'final',
+            account_id: contractId,
+            method_name: method,
+            args_base64: Buffer.from(JSON.stringify(args)).toString('base64'),
+          })) as unknown as { result?: number[] }
+          return r.result ? JSON.parse(Buffer.from(r.result).toString()) : null
+        },
+      }
+      return quoteNearSwap({ client: viewClient, network, from, to, wantAmount, slippageBps })
+    },
+
+    async swap(wallet, quote) {
+      const { accountId, signer } = resolveNearWallet(wallet._native as NearWalletConfig)
+      const account = new Account(accountId, provider, signer)
+      return swapNear({
+        quote,
+        async call({ contractId, method, args, gas, deposit }) {
+          const outcome = await account.signAndSendTransaction({
+            receiverId: contractId,
+            actions: [actions.functionCall(method, args, gas, deposit)],
+          })
+          const hash = (outcome as { transaction?: { hash?: string } }).transaction?.hash
+          if (!hash) throw new Error('NEAR: signAndSendTransaction returned no tx hash.')
+          return hash
+        },
+      })
     },
 
     async verify(ref, accept) {

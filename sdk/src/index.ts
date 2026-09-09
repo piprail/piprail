@@ -116,6 +116,41 @@ export type { PaywallOptions, TipJarOptions } from './merchant.js'
 export { toFetchHandler, toWorker, proxyTo } from './adapters.js'
 export type { Serve } from './adapters.js'
 
+/* ------------------------------ swap (OPTIONAL) ------------------------------ */
+
+// "I hold the wrong token." A convenience helper, NOT part of paying: nothing here
+// runs unless you call it, `fetch()` never swaps, and there is deliberately no
+// autoSwap flag. Implemented only where the CHAIN ITSELF provides a swap as a
+// protocol primitive (Stellar path payments, the XRPL DEX/AMM) — so no third party,
+// no API key, no extra dependency and no integrator fee is involved.
+// 🔴 Every SwapQuote carries `source`, naming who produced the rate: PipRail relays
+// a price and never asserts one (STANDARDS §7 — no price oracle).
+export {
+  DEFAULT_SLIPPAGE_BPS,
+  MAX_SLIPPAGE_BPS,
+  resolveSlippageBps,
+  applySlippage,
+  summarizeSwap,
+  // AGENT MODE: whether a MODEL may swap is a question of authority, not of transport.
+  // Default 'budgeted' — omit it and nothing about the SDK changes (STANDARDS §0).
+  DEFAULT_AGENT_MODE,
+  AGENT_MODES,
+} from './swap.js'
+export type {
+  SwapRequest,
+  SwapQuote,
+  SwapReceipt,
+  SwapSide,
+  SwapQuoteSource,
+  AgentMode,
+  SwapPolicy,
+} from './swap.js'
+// The swap COVERAGE map: what can swap where, who routes it, and the real mainnet
+// transaction that proves it. Same shape and same admission rule as KNOWN_FACILITATORS —
+// an entry earns its place only after a live settle, never from a documentation page.
+export { SWAP_PROVIDERS, swapProvidersFor, canSwapOn, swappableNetworks } from './swapProviders.js'
+export type { SwapProviderEntry, SwapProof } from './swapProviders.js'
+
 /* --------------- standard `exact` rail: Mode-B facilitator (server side) --------------- */
 
 // Delegate a standard `exact` payment's verify+settle to a THIRD-PARTY facilitator

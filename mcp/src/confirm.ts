@@ -16,7 +16,7 @@ import type {
   ElicitRequestFormParams,
   ElicitResult,
 } from '@modelcontextprotocol/sdk/types.js' // TYPE-only, from the public Zod-inferred barrel
-import type { PipRailQuote } from '@piprail/sdk'
+import type { PipRailQuote, SwapQuote } from '@piprail/sdk'
 
 /**
  * Default elicitation round-trip timeout. MUST stay BELOW the MCP client's CallTool
@@ -65,6 +65,68 @@ export function buildConfirmRequest(quote: PipRailQuote): ElicitRequestFormParam
       },
       required: ['approve'],
     },
+  }
+}
+
+/**
+ * The elicitation prompt for a SWAP.
+ *
+ * Deliberately worded around what the operator is actually risking. A swap has no merchant and
+ * no host, so the payment prompt's "to <host>" reads as nonsense here; what matters is the
+ * CEILING (`maxSpend`, not the estimate, because the ceiling is what the market may actually
+ * take) and the venue that priced it, since PipRail prices nothing itself.
+ */
+export function buildSwapConfirmRequest(quote: SwapQuote): ElicitRequestFormParams {
+  const venue = quote.source?.name ?? 'an on-chain venue'
+  const message =
+    `Approve swapping up to ${quote.maxSpendFormatted} ${quote.from.symbol} for about ` +
+    `${quote.to.amountFormatted} ${quote.to.symbol} on ${quote.network}? Priced by ${venue}. ` +
+    'This moves your own funds between tokens; your payment caps do not limit it.'
+  return {
+    mode: 'form',
+    message,
+    requestedSchema: {
+      type: 'object',
+      properties: {
+        approve: {
+          type: 'boolean',
+          title: 'Approve this swap',
+          description:
+            'Check to swap now; leave unchecked / decline to refuse. Nothing is signed unless you approve.',
+        },
+      },
+      required: ['approve'],
+    },
+  }
+}
+
+/**
+ * The `onBeforeSwap` implementation, MCP-side — the twin of {@link buildConfirmHook}.
+ *
+ * Without it, an operator who asked to approve every payment would still have watched a
+ * sovereign agent swap its whole balance without one prompt, because a swap is not a payment
+ * and `onBeforePay` genuinely never sees one. Same lazy capability-detect and the same
+ * fail-safe: a non-decision (timeout, dropped transport) is a refusal.
+ */
+export function buildSwapConfirmHook(
+  getServer: () => Server,
+  timeoutMs: number = CONFIRM_TIMEOUT_MS
+): (quote: SwapQuote) => Promise<boolean> {
+  return async (quote: SwapQuote): Promise<boolean> => {
+    const server = getServer()
+    const caps = server.getClientCapabilities()
+    if (!caps?.elicitation?.form) return true
+    let res: ElicitResult
+    try {
+      res = await server.elicitInput(buildSwapConfirmRequest(quote), { timeout: timeoutMs })
+    } catch (err) {
+      console.error(
+        `[piprail] swap confirmation failed (treating as decline): ` +
+          `${err instanceof Error ? err.message : String(err)}`
+      )
+      return false
+    }
+    return res.action === 'accept' && res.content?.approve === true
   }
 }
 

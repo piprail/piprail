@@ -116,7 +116,7 @@ describe('resolveChain — built-in mainnets', () => {
     expect(keys).toEqual([
       'ethereum', 'base', 'arbitrum', 'optimism', 'polygon', 'bnb', 'avalanche',
       'mantle', 'sonic', 'linea', 'scroll', 'celo', 'zksync', 'unichain', 'worldchain',
-      'sei', 'injective', 'hyperevm', 'monad', 'kaia',
+      'sei', 'injective', 'hyperevm', 'monad', 'kaia', 'robinhood',
     ])
     expect(keys.some((k) => /test|sepolia|devnet/i.test(k))).toBe(false)
   })

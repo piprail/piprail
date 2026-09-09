@@ -142,3 +142,23 @@ Stellar's library doesn't ship a clean browser-ESM build yet, so use this family
 server-side: the identical one line, on Node, Bun, Deno, or Workers. The lazy import means a pure-EVM
 browser page never downloads it.
 :::
+
+## Swapping on Stellar
+
+Holding the wrong token? `quoteSwap()` prices a same-chain swap read-only and `swap()` is the
+only call that moves anything. It is **opt-in and never automatic**: paying never swaps and
+planning never swaps.
+
+The ledger itself swaps, through the **Stellar SDEX**, so there is no third party involved at
+all: no router to approve, no API key, and no integrator fee that could even be expressed.
+
+3 real mainnet swaps back this route, and the transaction hashes are published so you can read
+them back off the chain yourself.
+
+```ts
+const quote = await client.quoteSwap({ from: 'native', to: 'USDC', wantAmount: '0.50' })
+if (quote) await client.swap(quote)   // null means no route, never "no funds"
+```
+
+Full guide: [Swapping tokens](/making-payments/swapping/). Every route, indexed by chain as
+well as by venue, is at [piprail.com/swaps](https://piprail.com/swaps).

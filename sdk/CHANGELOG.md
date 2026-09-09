@@ -4,9 +4,316 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [3.0.0] — 2026-09-09 — agent modes: a wallet an agent can EARN with, not only spend from
+
+### BREAKING
+
+- **`ResolvedNetwork` gains a required `addressOf(wallet)`.** Only affects code that implements
+  a CUSTOM driver via `registerDriver`; every built-in family already has it. The migration is one
+  method: return the bound wallet's own address, derived from the key, with no RPC read. Nothing
+  else in the public API changed, and no existing call site needs touching.
+
+### Added
+
+- **Agent modes: capability follows AUTHORITY, and `sovereign` gives an agent BOTH halves of a
+  wallet.** A new `mode` option on `PipRailClient` (`'supervised' | 'budgeted' | 'sovereign'`,
+  default `'budgeted'`) and `PIPRAIL_MODE` on the MCP server. **The default is unchanged**: omit
+  it and `paymentTools()` returns exactly the same eight tools, in the same order, so nothing
+  moves for anyone who does not opt in.
+
+  Before this, whether a model could swap depended on which PACKAGE it imported: a model driving
+  `@piprail/mcp` never could, while the same wallet driven through the SDK always could. That is
+  the wrong axis. `mode` moves the decision onto the only question that matters, which is who is
+  answerable for the wallet, and it is set by whoever provisions the key. A model can never set
+  it: `mode()` reads, nothing writes, and no tool takes a `mode` argument.
+
+  ⭐ **`'sovereign'` is the whole wallet, not a bigger allowance.** A budget only ever lets an
+  agent SPEND, however large the cap. Sovereign appends five tools: `piprail_quote_swap` and
+  `piprail_swap`, plus the seller tools **`piprail_sell`**, **`piprail_collect`** and
+  **`piprail_earnings`**, so an agent can be PAID as well as pay. `piprail_sell` prices something
+  and returns an x402 challenge; because a challenge is only data, the agent hands it to a buyer
+  over any channel it already has, with **no web server and no open port anywhere**.
+  `piprail_collect` verifies the returned proof against the chain, and only `paid: true` clears
+  delivery. Each proof is single-use, so a replay is never a second sale.
+
+  **Two properties make selling safe to grant a model where spending is not.** The receiving side
+  holds **no private key at all** (`payTo` is a public address), so the earning half cannot spend
+  and cannot be drained even if the host is taken. And `payTo` defaults to the agent's **own**
+  address, which it otherwise has no way to learn, so it is never told to trust one a buyer sent.
+
+  Swapping is bounded by a separate instrument, because the payment caps cannot bound it: a swap
+  moves the holder's own funds between denominations, so `maxAmount`, `maxTotal`, the count caps
+  and the session TTL all pass over it untouched. `swapPolicy` adds a ceiling per swap, a slippage
+  ceiling and an optional destination allowlist, and the ceiling binds on the quote's on-chain
+  `maxSpend`, never the estimate. The MCP server **refuses to boot** on
+  `PIPRAIL_MODE=sovereign` without `PIPRAIL_MAX_PER_SWAP`, so an operator finds out while reading
+  their own config rather than mid-spend. Selling needs no ceiling, because it takes money rather
+  than spending it.
+
+- **`client.balanceOf(assets)` + the `piprail_wallet` tool: an agent can finally see its own
+  balance sheet.** A sovereign agent had thirteen tools and could not answer *"what do I have?"* —
+  `budget()` reports how much of an allowance is left, which is a different question, and
+  `planPayment()` answers it only for one URL at a time. Owning finances starts with seeing them.
+  An unavailable read reports `null`, **never `0`**: an agent told it holds nothing when the RPC
+  merely failed would fire-sale to recover from a loss that never happened. On a `MultiChainPayer`
+  the holdings span every chain, because reporting only the primary would call an agent broke
+  while it held funds one client along.
+
+- **`ResolvedNetwork.addressOf(wallet)` and `client.address()`: a wallet can finally report where
+  it gets PAID.** Every driver already derived this internally for `balanceOf`; nothing exposed
+  it. Without it an agent handed a key it never chose has no way to learn its own address, so it
+  could pay for anything and be paid for nothing. Implemented across all ten families. Pure:
+  derived from the key, no RPC read, nothing moved. Also `client.chain()`, and `canAgentSell()`
+  alongside the existing `canAgentSwap()`. `MultiChainPayer` delegates all of them to the primary
+  client, without which sovereign mode would be unreachable through the MCP, which always wraps
+  its accounts in one.
 
 ### Fixed
+
+- **An agent paying twice in a row collided with itself on EVM.** Found live on Base: the first
+  payment settled and the next two were refused by the node with "nonce lower than the current
+  nonce of the account", because viem asks the RPC for the nonce on every send and two payments
+  issued back to back both read the same value before either was mined. It failed SAFELY (nothing
+  broadcast, nothing recorded as spent, `send` called exactly once with no retry), so it never
+  risked a double payment, but paying several times in quick succession is the ordinary behaviour
+  of an autonomous agent rather than an edge case. A raw `{ key }` is now bound through viem's
+  `nonceManager`, which assigns nonces locally per (chain, account) and reconciles with the chain.
+  A caller who brings their own `walletClient` keeps their own nonce policy, untouched. The same
+  three back-to-back Base payments now all settle.
+
+- **TON reported a BOUNCEABLE address as "where I get paid".** `addressOf` was added to all ten
+  families at once, and checking each against the address recorded in its funded test wallet came
+  back 9/10: TON derived `EQ…` where the wallet file (and every TON wallet UI) says `UQ…`, the
+  same account in the other encoding. A bounceable address returns funds to the sender when the
+  destination contract is not yet initialised, and a wallet contract stays uninitialised until it
+  has sent its first transaction, so a freshly generated agent advertising `EQ…` would have
+  bounced the first payment it was ever sent. Verification was never affected (both forms parse to
+  one account); what was wrong is the address an agent hands out. Now 10/10 against ground truth.
+
+- **🔴 One payment could collect TWO offers.** Found by attacking the seller tools. Each offer
+  owns its own gate, and a gate's replay set is scoped to itself, which is right for
+  `requirePayment` (one gate, one resource) and wrong for a store of offers: two offers priced the
+  same to the same address are indistinguishable to any driver, because a driver can only ask "did
+  this settlement move at least X to this address?". A buyer could pay for a haiku and collect the
+  expensive listing with the same money. Two bindings now close it, both mutation-proven and
+  re-verified on mainnet: `collect` refuses a proof minted for a different offer
+  (`code: 'wrong_offer'`) before the chain is consulted, and the used-proof set belongs to the
+  SELLER rather than to each gate, so one settlement is dead everywhere once redeemed.
+
+- **`mode: 'supervised'` supervised nothing, and `PIPRAIL_MODE=supervised` wired nothing.** The
+  mode↔confirm inference ran ONE WAY: `PIPRAIL_CONFIRM=1` meant supervised, but naming the mode
+  did not turn confirmation on. An operator who asked for a human in the loop got an agent that
+  paid without asking anybody, with the banner, the docs and the mode name all agreeing it was
+  supervised. Both directions now agree; a config that says both things at once is refused rather
+  than quietly resolved; and the SDK refuses `mode: 'supervised'` with no `onBeforePay` to perform
+  it. `sovereign` + confirmation is not a contradiction and stays allowed.
+
+- **A SWAP was invisible to the approver.** `onBeforePay` never sees a swap, because a swap is not
+  a payment, which is the whole reason `swapPolicy` bounds it instead. But an operator who wired
+  an approver did not mean "ask me before payments and let value move silently any other way", so
+  a supervised sovereign agent could swap its whole balance without one prompt. New
+  **`onBeforeSwap`**, same fail-safe contract, wired automatically by `@piprail/mcp` whenever
+  confirmation is on. Proven against the bug: a refusing approver was never called and the swap
+  executed.
+
+- **The SDK let `'sovereign'` hand a model the swap tools with NO ceiling.** `@piprail/mcp`
+  already refused to boot in that state, so the safer surface could be sidestepped by importing
+  the other one. Proven before the fix: a 99,999-unit swap executed with nothing refusing it.
+  `mode: 'sovereign'` now requires `swapPolicy.maxPerSwap` in the SDK too.
+
+- **The MCP banner under-reported what the agent could do.** It printed a hardcoded eight tools
+  even in sovereign mode, where the model actually holds thirteen. It is now handed the real list
+  at startup, so an operator can see the capability they granted.
+
+- **Docs claimed the MCP has no swap tool "and there will not be one".** True when written and
+  false since modes shipped, in `mcp/README.md` and the tools reference. Both now describe the
+  mode-dependent contract, and a sync rule pins it so the claim cannot rot again.
+
+- **Swapping reaches every family: Aptos, TON and Tron close the last three gaps.** Seven routes
+  became **ten, across 18 chains, with 21 mainnet proofs**. Nothing about the existing routes
+  changed, and swapping stays opt-in.
+
+  **Aptos via Hyperion** and **Tron via SunSwap V2** need **no API at all**: the quote is an
+  on-chain read and the swap is a contract call the user's own key signs. There is no host to go
+  down, no key to rotate and no vendor in the middle. That was deliberate on Tron, whose own front
+  end talks to an undocumented, obfuscated hostname a payments SDK should not depend on. **TON via
+  STON.fi** uses a keyless REST simulation and one message the wallet signs.
+
+  ⭐ **Three of them are exact-output natively**, which no earlier route was. Hyperion's
+  `exact_output_swap_entry`, SunSwap's `swapTokensForExactTokens` and STON.fi's `reverse_swap`
+  all take the invoice amount and cap the input **on-chain**, so an x402 invoice is priced from
+  its output rather than sized from a probe. Proven to the unit on Aptos: four swaps delivered
+  exactly 0.05 USDT, 0.04 USDC, 0.03 USDC and 0.02 APT. On TON the guarantee is a floor rather
+  than a point: STON.fi's `reverse_swap` fixes the ask side, and PipRail pads the request so the
+  router's on-chain `min_ask_units` is at or above the invoice. Slightly more can arrive; less is
+  refused by the router.
+
+  **Live-proven on mainnet**: four Aptos swaps (both stable directions plus native APT in and out)
+  and two TON swaps (native in, jetton in, which the simulation routed through two *different*
+  router versions). **Tron ships WITHOUT a proof and says so on the site and in the docs**: the
+  quote is verified live and the swap executes cleanly in simulation, but Tron charges about
+  230,629 ENERGY per swap, which without staked energy is roughly 23 TRX (~$7.79) *regardless of
+  trade size*, and the test wallets hold 8.1 TRX. A new `unproven` field carries that reason, and
+  a guard test fails if a route ever ships with neither a proof nor a stated reason.
+
+  Adds two OPTIONAL peer dependencies for TON only (`@ston-fi/sdk`, `@ston-fi/api`, both MIT and
+  lazily imported); the lazy-chunk invariant still holds, so a pure-EVM install downloads neither.
+  Aptos and Tron needed no new dependency at all.
+
+  **Four more bugs found the same way as always, by spending real money.** Aptos aborted with
+  `ESQRT_PRICE_LIMIT_UNAVAILABLE` because a concentrated-liquidity swap needs a directional price
+  bound and `0` is not one; the bounds are now read off the chain rather than copied from another
+  DEX. The entry function's two amount slots are "what leaves, what arrives", **not** "the exact
+  one, the limit", and having them backwards aborts with `EINSUFFICIENT_BALANCE`, which reads like
+  a funding problem and is not one. A pool's `token0` field comes back as all-zeros for native-APT
+  pools, so the direction is now derived by comparing addresses. And pricing every fee tier blindly
+  burned the public node's anonymous compute quota (40k units per 300s), after which good routes
+  came back as "no route" — the quote now cheap-filters empty pools before paying to price them.
+
+- **Robinhood Chain (`chain: 'robinhood'`, eip155:4663) — the 30th chain, and the first with a
+  Paxos-issued stablecoin.** The tokenized-equity Arbitrum Orbit L2, mainnet since 2026-07-01,
+  running 100ms blocks and settling to Ethereum. viem ships no preset and it is absent from
+  chainid.network, so the chain is defined inline from the values Robinhood publishes.
+
+  **One stablecoin on purpose: USDG**, the Paxos Global Dollar, which is what the chain's own
+  markets quote against. Its address was agreed by four independent sources before shipping —
+  Paxos's published list, our own on-chain read (`Global Dollar`, 6dp), and both facilitators'
+  `/supported`. **Circle issues no native USDC here** (checked against Circle's own contract
+  list), so no USDC or USDT preset ships: a bridged one would break the issuer-native token rule.
+  Native ETH is a payment asset as on every EVM chain.
+
+  **Gasless from day one, proven twice.** USDG is EIP-3009 **and** EIP-2612, verified by calling
+  the contract rather than by scanning bytecode — a bytecode scan said neither was present, and
+  was wrong. Its EIP-712 domain is `name: "Global Dollar", version: "1"`, which we confirmed by
+  recomputing the on-chain `DOMAIN_SEPARATOR`. Two keyless facilitators already settle there and
+  **both were live-settled by us**, with buyer *and* merchant paying zero ETH:
+  Ultravioleta DAO (tx `0x35361e57…`) and Dexter (tx `0x1ba66e3d…`, permit2, ~$0.0066 floor).
+  A self-settled EIP-3009 round trip also passed end to end (tx `0xe6d35460…`): 402 → sign →
+  settle → 200, replay rejected as `tx_already_used`, payer ETH delta exactly zero.
+
+  **Swapping works there too**, through the existing KyberSwap route — native ETH → 0.360518 USDG,
+  tx `0x424299e6…`. Worth knowing: at 100ms blocks a route goes stale fast, and the default
+  0.5% slippage reverted before 3% cleared. Reaching the chain at all is a bridge; Relay moved
+  ETH from Base in about three seconds for roughly $0.04, and Across and LI.FI both list it.
+
+- **`quoteSwap()` / `swap()`: an optional helper for when you hold the wrong token.** A 402 names a
+  token, a wallet holds what it holds, and when those disagree `planPayment()` reported
+  `INSUFFICIENT_TOKEN` and stopped. This turns that dead end into an option the caller may take or
+  ignore.
+
+  **It is opt-in and it stays that way.** Paying never swaps, planning never swaps, and there is
+  deliberately no `autoSwap` flag: converting one asset into another is a priced, irreversible act,
+  and a payment library should not do it on your behalf because it noticed you were short. A test
+  asserts the byte-identical default (STANDARDS §0), so "not using it costs you nothing" is machine
+  checked rather than promised in prose.
+
+  Ships in **two tiers, kept apart by the type system**. Tier 1 (`source.kind: 'protocol'`) is
+  Stellar (`PathPaymentStrictReceive` to your own account) and the XRP Ledger (a cross-currency
+  `Payment` to your own address, auto-bridged through XRP): the ledger itself swaps, so there is
+  **no third party, no API key, no extra dependency and no integrator fee**. Tier 2
+  (`source.kind: 'provider'`) is **Solana via Jupiter**, **9 live-probed EVM chains via KyberSwap**,
+  **Sui via Aftermath**, **NEAR via Ref Finance**, **Algorand via Vestige**, **Aptos via
+  Hyperion**, **TON via STON.fi** and **Tron via SunSwap V2**, because those chains have no
+  protocol-level swap. **Ten routes across 18 of the 30 chains.** On a chain with no route,
+  `quoteSwap()` answers `null` and `swap()` throws `UnsupportedNetworkError` naming every venue
+  that does exist, read from the registry rather than typed into the message.
+
+  NEAR uses **Ref Finance rather than NEAR Intents**, deliberately: Intents puts a solver in
+  possession of the funds mid-flight, which is the intermediary this project exists to remove. Ref
+  is one `ft_transfer_call` receipt chain inside a single transaction the user signs.
+
+  The **swap coverage map is data** (`SWAP_PROVIDERS`), shaped like `KNOWN_FACILITATORS` and
+  carrying the same admission rule. The website table is generated from it, a sync rule and a guard
+  test hold the logos, site data and docs to it, and a new `swaps` domain documents the update order.
+
+  **Providers had to earn their place.** Each was probed live from a plain keyless server request:
+  KyberSwap 200 ✅, Jupiter 200 with `platformFee: null` ✅, while 0x (401), 1inch (401), Odos (530),
+  OpenOcean (403), Squid (400), Rango (401) and thirdweb Bridge (401) all failed and were rejected.
+  PipRail never sets a platform or integrator fee field on any provider.
+
+  **Proven with 21 real mainnet swaps across 9 chains**, both tiers, both directions on every
+  chain that has two, each verified by reading the transaction back from a public node, and
+  re-verifiable any time with `npm run verify:proofs`. The full table with hashes is in the docs. One known failure is recorded rather than hidden: FDUSD→USDC
+  on BNB reverts with `TRANSFER_FROM_FAILED` despite confirmed balance and allowance, and is
+  documented as unexplained.
+
+  **Live testing found nine real bugs, all fixed**, every one of which passed a typechecker and a
+  unit suite first: some tokens revert on a non-zero to non-zero ERC-20 `approve` (the allowance is
+  now zeroed first); XRPL path steps carry fields xrpl.js cannot always encode (now stripped);
+  XRPL public path finding is intermittent, returning a route then nothing with no error (now
+  retried); XRPL float precision silently discarded valid routes, making a whole direction look
+  unsupported (now parsed with a ceiling); and a malformed Stellar issuer threw out of a
+  never-throw method while one unparseable Horizon candidate could poison a valid quote. Four more
+  came from the new families, and **four of the nine made an entire chain look unsupported when it
+  was not**: setting `accept-encoding` by hand defeated fetch's gzip handling and broke NEAR
+  outright; NEAR pool ids are strings in the indexer and numbers on the contract; Vestige returns
+  `amount_out: 0` for a dust probe rather than an error, so a fixed probe size reported no route on
+  a pair that routes fine; and Sui's public JSON-RPC is being deprecated.
+
+  **The no-fee claim is self-verifying.** Rather than hardcoding it, every quote inspects the
+  provider's own fee fields and the note SAYS SO if one ever appears, instead of repeating a claim
+  that has quietly become false.
+
+  🔴 **PipRail still runs no price oracle** (STANDARDS §7). A swap rate is a price, so every
+  `SwapQuote` carries a `source` naming who produced it: `kind: 'protocol'` when the ledger's own
+  order books priced it (Stellar, XRPL), `kind: 'provider'` when a named venue did. The distinction
+  lives in the type system, not in prose.
+
+  Slippage rides **on-chain** (`sendMax` / `SendMax`, `amountInMax`, `amount_in_max`, TON's
+  `min_ask_units` floor), so a market that moves past your tolerance fails the transaction rather
+  than overspending. Nothing is swapped in that case; chains that charge for a reverted
+  transaction (EVM, Aptos, Tron) still take the gas. Default 0.5%, ceiling 10%, integer maths
+  that rounds in the user's favour, and a malformed `slippageBps` throws `RangeError` before any
+  read happens rather than coming back as a silent `null`.
+
+  New exports: `SwapRequest`, `SwapQuote`, `SwapReceipt`, `SwapSide`, `SwapQuoteSource`,
+  `summarizeSwap`, `resolveSlippageBps`, `applySlippage`, `DEFAULT_SLIPPAGE_BPS`,
+  `MAX_SLIPPAGE_BPS`. Docs: [Swapping tokens](https://docs.piprail.com/making-payments/swapping/).
+
+  Surveyed and deliberately **not** bundled: thirdweb Bridge, LI.FI, Squid, Relay, deBridge,
+  Across, Rango. thirdweb Bridge as the worked example requires an API key at the type level,
+  charges a 0.30% protocol fee an integrator cannot disable, and is EVM-only for cross-chain
+  routing, so nine of PipRail's ten families cannot even be expressed in its API.
+
+### Fixed
+
+- **Tron could not have sold a token at all.** SunSwap V2's router moves the input with
+  `transferFrom` and the driver had no approve step, so native-TRX-in worked while every TRC-20
+  direction would have failed on allowance after the energy was burned. Nothing caught it
+  because the route ships without a mainnet proof. Adding the approve then exposed a second bug:
+  a fresh allowance slot measures **99,764 energy ≈ 9.98 TRX**, and the approve ceiling had been
+  set to 10 TRX because "an approve is cheap". Both paths are simulated against Tether's real
+  Tron contract and pinned by tests; a token-in swap now budgets roughly 33 TRX.
+
+- **Both shipped TON proofs pointed at the gas refund, not the swap.** STON.fi returns unused
+  forward gas to the same wallet a second after the swap, and the driver reported whichever
+  wallet transaction was newest, so the recorded reference was an *incoming* `excesses` message
+  with no outgoing message at all. The swaps were real; the evidence pointed at the wrong leg. The
+  driver now reports the newest transaction the wallet itself signed (`external-in`), the registry
+  carries the corrected hashes, and `verify:proofs` rejects a TON reference of the wrong shape.
+
+- **STON.fi's "reverse" simulation was not exact-output.** Asked for 50000 at 1% tolerance it
+  returns an on-chain floor of 49500, which the router will deliver, short-paying an invoice. The
+  request is now padded so the floor is at or above the invoice, the quote is refused when it is
+  not, and every number the swap later parses is validated in the never-throw quote.
+
+- **Aptos paid the account that quoted, not the one that signed.** The recipient was captured at
+  quote time and reused at swap time; every other family derives it from the signing wallet.
+
+- **`quoteSwap()` swallowed a malformed `slippageBps` into `null` on a read-only client** because
+  validation ran after the wallet check. It now runs first, so a caller's bug throws `RangeError`
+  regardless of what else is wrong.
+
+- **A mined transaction is not a successful swap — `swap()` could report success for a swap that
+  failed.** On EVM, `waitForTransactionReceipt` resolves for a **reverted** transaction exactly as
+  it does for a mined one; the driver returned unconditionally, so a reverted swap handed back a
+  `SwapReceipt` carrying a real transaction hash while nothing had moved. On Solana the same class
+  of hole existed one step earlier: `sendRawTransaction` returns once the RPC accepts the bytes, so
+  a transaction that then failed on-chain was also reported as a completed swap. Both now check and
+  throw `InsufficientFundsError`. This is the worst failure shape available to a payments SDK — an
+  agent believes it holds the token and goes on to pay an invoice it cannot cover — and it affected
+  **every EVM chain and Solana**, not one chain. Found on Robinhood Chain, whose 100ms blocks stale
+  a route often enough to surface it; Sui and NEAR already checked their status correctly.
 
 - **A strict x402 v2 facilitator refused every PipRail settlement, and we read it as a missing
   chain.** PipRail sent a v2 body carrying only the v1 `paymentRequirements` key. A facilitator
@@ -2231,6 +2538,7 @@ straight into your wallet. The API is small and self-contained.
 [1.5.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.4.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.3.1]: https://www.npmjs.com/package/@piprail/sdk
+[3.0.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.3.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.2.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.1.1]: https://www.npmjs.com/package/@piprail/sdk

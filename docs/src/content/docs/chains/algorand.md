@@ -214,3 +214,24 @@ payer broadcasts, the merchant verifies locally, no facilitator) **and** the gas
 (above), which you can **self-settle** with your own relayer, still with no third party. See [Chains and
 tokens](/concepts/chains-and-tokens/).
 :::
+
+## Swapping on Algorand
+
+Holding the wrong token? `quoteSwap()` prices a same-chain swap read-only and `swap()` is the
+only call that moves anything. It is **opt-in and never automatic**: paying never swaps and
+planning never swaps.
+
+Algorand has no protocol-level swap, so a named venue routes it:
+**[Vestige](https://vestige.fi)**. It is keyless, and PipRail sets no integrator or platform
+fee on it.
+
+1 real mainnet swap backs this route, and the transaction hash is published so you can read it
+back off the chain yourself.
+
+```ts
+const quote = await client.quoteSwap({ from: 'native', to: 'USDC', wantAmount: '0.50' })
+if (quote) await client.swap(quote)   // null means no route, never "no funds"
+```
+
+Full guide: [Swapping tokens](/making-payments/swapping/). Every route, indexed by chain as
+well as by venue, is at [piprail.com/swaps](https://piprail.com/swaps).

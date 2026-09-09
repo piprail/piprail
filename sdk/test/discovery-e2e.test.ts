@@ -49,6 +49,7 @@ function makeFake(family: ResolvedNetwork['family'], caip2: string): ResolvedNet
     send: async () => 'ref',
     confirm: async () => ({ height: '1' }),
     estimateCost: async () => ({ feeSymbol: 'X', feeDecimals: 6, fee: '0', feeFormatted: '0', basis: 'heuristic' }),
+    addressOf: async () => 'FAKE_SELF_ADDRESS',
     balanceOf: async () => ({ token: 0n, native: 0n }),
     recipientReady: async () => ({ ready: 'n/a' as const }),
     verify: async () => ({ ok: false, error: 'transfer_not_found', detail: '' }),

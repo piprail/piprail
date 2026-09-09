@@ -177,3 +177,31 @@ rather than relying on a facilitator.
 Tron's `tronweb` library doesn't ship a clean browser ESM build, so run the Tron path
 **server-side**: the identical one line, on Node/Bun/Deno/Workers. The public TronGrid RPC
 (`https://api.trongrid.io`) is rate-limited; pass your own `rpcUrl` in production.
+
+## Swapping on Tron
+
+Holding the wrong token? `quoteSwap()` prices a same-chain swap read-only and `swap()` is the
+only call that moves anything. It is **opt-in and never automatic**: paying never swaps and
+planning never swaps.
+
+Tron has no protocol-level swap, so a named venue routes it: **[SunSwap
+V2](https://sunswap.com)**. It is keyless, and PipRail sets no integrator or platform fee on
+it.
+
+⭐ This is one of the routes that is **exact-output**: the invoice amount goes in as the output
+and the input is capped on chain, rather than being sized from a probe.
+
+This route ships **without a mainnet proof, and says so**. The route is real, and every part
+of it that can be checked without spending has been: both directions quote live through the
+SDK, and the approve and the router call both execute cleanly in constant-call simulations
+against the real contracts. It has NOT been broadcast because Tron charges about 230,629
+ENERGY per swap, which without staked energy is roughly 23 TRX (about $7.79) regardless of
+trade size, plus about 10 TRX more the first time a TRC-20 is approved.
+
+```ts
+const quote = await client.quoteSwap({ from: 'native', to: 'USDT', wantAmount: '0.50' })
+if (quote) await client.swap(quote)   // null means no route, never "no funds"
+```
+
+Full guide: [Swapping tokens](/making-payments/swapping/). Every route, indexed by chain as
+well as by venue, is at [piprail.com/swaps](https://piprail.com/swaps).

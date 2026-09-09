@@ -56,6 +56,7 @@ function makeNet(opts: { withExact?: boolean } = {}): ResolvedNetwork {
       accept.scheme === 'exact'
         ? { feeSymbol: 'ETH', feeDecimals: 18, fee: '0', feeFormatted: '0', basis: 'estimated' as const }
         : { feeSymbol: 'ETH', feeDecimals: 18, fee: '21000000000000', feeFormatted: '0.000021', basis: 'estimated' as const },
+    addressOf: async () => 'FAKE_SELF_ADDRESS',
     balanceOf: async () => ({ token: 1_000_000n, native: 1_000_000_000_000_000_000n }),
     recipientReady: async () => ({ ready: 'n/a' as const }),
     verify: async () => ({ ok: false, error: 'transfer_not_found', detail: 'unused client-side' }),

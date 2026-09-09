@@ -264,3 +264,24 @@ keyless auto-pick (`exact: true`) deliberately **excludes** NEAR, because it wou
 facilitator that 400s. Until a real one lands, **`settle: 'self'` is the supported gasless-for-buyer
 configuration.**
 :::
+
+## Swapping on NEAR
+
+Holding the wrong token? `quoteSwap()` prices a same-chain swap read-only and `swap()` is the
+only call that moves anything. It is **opt-in and never automatic**: paying never swaps and
+planning never swaps.
+
+NEAR has no protocol-level swap, so a named venue routes it: **[Ref
+Finance](https://app.ref.finance)**. It is keyless, and PipRail sets no integrator or platform
+fee on it.
+
+1 real mainnet swap backs this route, and the transaction hash is published so you can read it
+back off the chain yourself.
+
+```ts
+const quote = await client.quoteSwap({ from: 'native', to: 'USDC', wantAmount: '0.50' })
+if (quote) await client.swap(quote)   // null means no route, never "no funds"
+```
+
+Full guide: [Swapping tokens](/making-payments/swapping/). Every route, indexed by chain as
+well as by venue, is at [piprail.com/swaps](https://piprail.com/swaps).

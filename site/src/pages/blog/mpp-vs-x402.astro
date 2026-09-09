@@ -82,7 +82,7 @@ const faqs = [
   },
   {
     q: 'Does PipRail use MPP or x402?',
-    a: 'PipRail is an open, self-custody implementation of x402. It is a TypeScript SDK (and an MCP server for AI agents) that lets a developer accept x402 payments in one line, or hand an agent a budget-bound wallet to pay x402 URLs across roughly 29 chains. There is no backend, no account, and no fee. Payments go straight to the developer’s wallet, verified locally against their own RPC.',
+    a: 'PipRail is an open, self-custody implementation of x402. It is a TypeScript SDK (and an MCP server for AI agents) that lets a developer accept x402 payments in one line, or hand an agent a budget-bound wallet to pay x402 URLs across roughly 30 chains. There is no backend, no account, and no fee. Payments go straight to the developer’s wallet, verified locally against their own RPC.',
   },
   {
     q: 'Can an agent support both protocols?',
@@ -106,7 +106,7 @@ const faqLd = {
 const rows: { k: string; mpp: string; x402: string }[] = [
   { k: 'The handshake', mpp: 'HTTP 402 “Payment Required”', x402: 'HTTP 402 “Payment Required”' },
   { k: 'Who holds the money in transit', mpp: 'Stripe / Bridge, custodial', x402: 'Nobody: wallet-to-wallet' },
-  { k: 'Where it settles', mpp: 'Tempo, one permissioned L1', x402: 'Any of ~29 chains, 10 families' },
+  { k: 'Where it settles', mpp: 'Tempo, one permissioned L1', x402: 'Any of ~30 chains, 10 families' },
   { k: 'Parties in the path', mpp: 'Stripe + card network + Tempo validators + your bank', x402: 'None (optional gas-relayer that cannot custody)' },
   { k: 'Protocol fee', mpp: '1.5% stablecoin · 2.9% + $0.30 card · ~1% FX', x402: '0%, chain gas only' },
   { k: 'Time to spendable funds', mpp: '~T+2 days (default card payout); USDC→wallet faster', x402: 'One on-chain transaction, seconds' },
@@ -251,7 +251,7 @@ const rows: { k: string; mpp: string; x402: string }[] = [
 
         <p>The honest cost of that openness is the mirror image of MPP’s. You hold your own keys, which means you carry the risk that comes with them: lose them and there is no support line. Settlement is final: a wallet-to-wallet transfer on a public chain has no chargeback, which protects the payee and exposes a defrauded payer. Compliance is yours to handle, not a processor’s. And unless you off-ramp the funds yourself, you end the journey holding stablecoins or crypto, not dollars in a bank. The open rail asks more of you precisely because it removes the party that would otherwise do those things, and take a cut for it.</p>
 
-        <p>This is the side I build on. <a href="/">PipRail</a> is an open, self-custody implementation of x402: a TypeScript SDK and an MCP server that let a developer accept payments in one line, or hand an agent a budget-bound wallet (a hard spend cap, per call and lifetime, that the agent cannot exceed) to pay across roughly 29 chains. That is the broadest reach of any x402 SDK, and the only one that puts the payer’s own wallet on chains like NEAR, Aptos, and the XRP Ledger. No backend, no account, no fee; payments go straight to the developer’s wallet, verified locally against their own node. So I have a side, and I am telling you which one. But the comparison below is the one I would want to read if I were choosing.</p>
+        <p>This is the side I build on. <a href="/">PipRail</a> is an open, self-custody implementation of x402: a TypeScript SDK and an MCP server that let a developer accept payments in one line, or hand an agent a budget-bound wallet (a hard spend cap, per call and lifetime, that the agent cannot exceed) to pay across roughly 30 chains. That is the broadest reach of any x402 SDK, and the only one that puts the payer’s own wallet on chains like NEAR, Aptos, and the XRP Ledger. No backend, no account, no fee; payments go straight to the developer’s wallet, verified locally against their own node. So I have a side, and I am telling you which one. But the comparison below is the one I would want to read if I were choosing.</p>
 
         <!-- Figure 2: the full lifecycle, side by side (the flow graphic) -->
         <figure class="article-fig">
@@ -368,7 +368,7 @@ const rows: { k: string; mpp: string; x402: string }[] = [
           <div class="text-sm font-semibold text-neutral-100">{post.author.name}</div>
           <div class="text-xs text-neutral-500">{post.author.role}</div>
           <p class="mt-2.5 text-sm leading-relaxed text-neutral-400">
-            Building PipRail, the open, neutral, no-fee x402 payment rail for AI agents, across 29 chains.
+            Building PipRail, the open, neutral, no-fee x402 payment rail for AI agents, across 30 chains.
             Writing about how agents pay, and the trust layer the agent economy still has to build.
           </p>
           <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs">
@@ -401,7 +401,7 @@ const rows: { k: string; mpp: string; x402: string }[] = [
       <h2 class="text-2xl font-semibold tracking-tight text-white sm:text-3xl">Build on the open rail.</h2>
       <p class="mx-auto mt-3 max-w-xl text-neutral-300">
         PipRail is the open, self-custody x402 rail: no backend, no middleman, no fee. Accept payments in one line,
-        or hand your agent a budget-bound wallet across 29 chains.
+        or hand your agent a budget-bound wallet across 30 chains.
       </p>
       <div class="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
         <a

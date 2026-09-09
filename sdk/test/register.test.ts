@@ -387,6 +387,7 @@ describe('client.register() — honest refusals (no silent failure)', () => {
       send: async () => 'ref',
       confirm: async () => ({ height: '1' }),
       estimateCost: async () => ({ feeSymbol: 'XLM', feeDecimals: 7, fee: '0', feeFormatted: '0', basis: 'heuristic' }),
+      addressOf: async () => 'FAKE_SELF_ADDRESS',
       balanceOf: async () => ({ token: 0n, native: 0n }),
       recipientReady: async () => ({ ready: 'n/a' as const }),
       verify: async () => ({ ok: false, error: 'transfer_not_found', detail: '' }),

@@ -26,6 +26,7 @@ import {
   type XrplPreset,
 } from './chains.js'
 import { payXrpl, type XrplPayClient } from './pay.js'
+import { quoteXrplSwap, swapXrpl, type XrplSwapClient } from './swap.js'
 import {
   payExactXrpl,
   verifyAndSettleExactXrpl,
@@ -85,8 +86,15 @@ function makeXrplNetwork(preset: XrplPreset, rpcUrl: string): ResolvedNetwork {
     return result as T
   }
 
-  // The JSON-RPC reads/writes the pay side needs.
-  const payClient: XrplPayClient = {
+  // The JSON-RPC reads/writes the pay side needs, plus the one extra read the
+  // OPTIONAL swap helper uses (ripple_path_find). Widened to XrplSwapClient so the
+  // swap module can share the same transport; pay.ts still only sees XrplPayClient.
+  const payClient: XrplSwapClient = {
+    async pathFind(params) {
+      // 🔴 ledger_index:'current' is MANDATORY — public Clio servers serve only
+      // validated data and reject a path find without it.
+      return rpc('ripple_path_find', { ...params, ledger_index: 'current' })
+    },
     async accountSequence(account) {
       const r = await rpc<{ account_data: { Sequence: number } }>('account_info', {
         account,
@@ -321,6 +329,12 @@ function makeXrplNetwork(preset: XrplPreset, rpcUrl: string): ResolvedNetwork {
       }
     },
 
+    /** The bound wallet's own address — where THIS wallet gets paid. Derived from the key
+     *  material only: no RPC, nothing moved. See {@link ResolvedNetwork.addressOf}. */
+    async addressOf(wallet: WalletHandle): Promise<string> {
+      return resolveXrplWallet(wallet._native as XrplWalletConfig).classicAddress
+    },
+
     async balanceOf(wallet: WalletHandle, asset: string): Promise<WalletBalance> {
       let owner: string
       try {
@@ -389,6 +403,23 @@ function makeXrplNetwork(preset: XrplPreset, rpcUrl: string): ResolvedNetwork {
       } catch {
         return { ready: 'unknown' as const }
       }
+    },
+
+    /* ---- swap (OPTIONAL, opt-in): a cross-currency payment to yourself. See ./swap.ts ---- */
+
+    async quoteSwap({ from, to, wantAmount, slippageBps, wallet }) {
+      let owner: string
+      try {
+        owner = resolveXrplWallet(wallet._native as XrplWalletConfig).classicAddress
+      } catch {
+        return null // never-throw read contract
+      }
+      return quoteXrplSwap({ client: payClient, network, owner, from, to, wantAmount, slippageBps })
+    },
+
+    async swap(wallet, quote) {
+      const w: Wallet = resolveXrplWallet(wallet._native as XrplWalletConfig)
+      return swapXrpl({ client: payClient, wallet: w, quote })
     },
 
     async verify(_ref, accept) {

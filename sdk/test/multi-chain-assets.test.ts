@@ -43,6 +43,7 @@ function mkNet(
     send: async () => `ref-${network}`,
     confirm: async () => ({ height: '1' }),
     estimateCost: async () => ({ feeSymbol: nativeSymbol, feeDecimals: nativeDecimals, fee, feeFormatted: '0.0001', basis: 'estimated' }),
+    addressOf: async () => 'FAKE_SELF_ADDRESS',
     balanceOf: async (_w, asset) => balances(asset),
     recipientReady: async () => ({ ready: 'n/a' as const }),
     verify: async () => ({ ok: true, receipt: { scheme: 'onchain-proof', success: true, network, transaction: `ref-${network}`, asset: 'native', amount: '1', payer: 'P', payTo: 'M', verifiedAt: '2026-01-01T00:00:00.000Z' } }),

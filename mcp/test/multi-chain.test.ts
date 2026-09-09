@@ -220,6 +220,7 @@ function mkNet(family: ResolvedNetwork['family'], network: Caip2, symbol: string
     send: async () => `ref-${network}`,
     confirm: async () => ({ height: '1' }),
     estimateCost: async () => ({ feeSymbol: symbol, feeDecimals: 6, fee, feeFormatted: '0.0001', basis: 'estimated' }),
+    addressOf: async () => 'FAKE_SELF_ADDRESS',
     balanceOf: async () => ({ token: 1_000_000_000n, native: 1_000_000_000n }),
     recipientReady: async () => ({ ready: 'n/a' as const }),
     verify: async () => ({ ok: false, error: 'transfer_not_found', detail: 'x' }),

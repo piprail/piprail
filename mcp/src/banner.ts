@@ -9,7 +9,14 @@
 import { VERSION } from './version.js'
 import type { Config } from './config.js'
 
-/** The tool names this server exposes (from the SDK's paymentTools). */
+/**
+ * The tool names this server exposes BY DEFAULT (from the SDK's paymentTools).
+ *
+ * The DEFAULT set, not the only set: `PIPRAIL_MODE=sovereign` also exposes the swap and
+ * seller tools. The banner is handed the real list at startup precisely so it cannot claim
+ * eight while the model holds thirteen — an operator reading a banner that under-reports
+ * what their agent can do is worse than no banner.
+ */
 export const TOOL_NAMES = [
   'piprail_discover',
   'piprail_quote_payment',
@@ -51,7 +58,7 @@ export function chainWarnings(config: Config): string[] {
 }
 
 /** Build the human-readable banner string. NEVER includes the wallet secret. */
-export function formatBanner(config: Config): string {
+export function formatBanner(config: Config, toolNames: readonly string[] = TOOL_NAMES): string {
   const lines = [
     `PipRail MCP server v${VERSION} — ready on stdio${config.readOnly ? ' (READ-ONLY — no wallet key)' : ''}`,
     ``,
@@ -121,7 +128,7 @@ export function formatBanner(config: Config): string {
         : row('wallet key', `set via ${config.keySource}`)
     )
   }
-  lines.push(row('tools', TOOL_NAMES.join(', ')))
+  lines.push(row('tools', toolNames.join(', ')))
   const notes = chainWarnings(config)
   if (notes.length) {
     lines.push(``, `  ⚠ notes:`)
@@ -136,6 +143,6 @@ export function formatBanner(config: Config): string {
 }
 
 /** Print the banner to STDERR (never stdout — that's the protocol channel). */
-export function printBanner(config: Config): void {
-  console.error(formatBanner(config))
+export function printBanner(config: Config, toolNames?: readonly string[]): void {
+  console.error(formatBanner(config, toolNames))
 }

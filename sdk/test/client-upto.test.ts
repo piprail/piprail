@@ -41,6 +41,7 @@ function makeNet(opts: { withUpto?: boolean } = {}): ResolvedNetwork {
     send: async () => '0xONCHAINPROOFTX',
     confirm: async () => ({ height: '100' }),
     estimateCost: async () => ({ feeSymbol: 'ETH', feeDecimals: 18, fee: '0', feeFormatted: '0', basis: 'estimated' as const }),
+    addressOf: async () => 'FAKE_SELF_ADDRESS',
     balanceOf: async () => ({ token: 100_000_000n, native: 1_000_000_000_000_000_000n }),
     recipientReady: async () => ({ ready: 'n/a' as const }),
     verify: async () => ({ ok: false, error: 'transfer_not_found', detail: 'unused client-side' }),

@@ -19,6 +19,7 @@
 import { TronWeb } from 'tronweb'
 import { TRON_MAINNET, TRX_DECIMALS, type TronPreset } from './chains.js'
 import { payTron, payTronNative, type TronPayClient } from './pay.js'
+import { quoteTronSwap, swapTron, type TronSwapClient } from './swap.js'
 import {
   verifyTron,
   verifyTronNative,
@@ -239,6 +240,14 @@ function makeTronNetwork(preset: TronPreset, rpcUrl: string): ResolvedNetwork {
       })
     },
 
+    /** The bound wallet's own address — where THIS wallet gets paid. Derived from the key
+     *  material only: no RPC, nothing moved. See {@link ResolvedNetwork.addressOf}. */
+    async addressOf(wallet: WalletHandle): Promise<string> {
+      const addr = tronWeb.address.fromPrivateKey(resolveTronPrivateKey(wallet._native as TronWalletConfig))
+      if (!addr) throw new WrongFamilyError(`chain ${network}: the Tron wallet key is not a valid private key.`)
+      return addr
+    },
+
     async balanceOf(wallet: WalletHandle, asset: string): Promise<WalletBalance> {
       const owner = tronWeb.address.fromPrivateKey(
         resolveTronPrivateKey(wallet._native as TronWalletConfig)
@@ -268,6 +277,29 @@ function makeTronNetwork(preset: TronPreset, rpcUrl: string): ResolvedNetwork {
     },
 
     // No receive prerequisite — any Tron account receives TRX/TRC-20 immediately.
+    /* ---- swap (OPTIONAL, opt-in): via SunSwap V2, no API, no key, no added fee. See ./swap.ts ---- */
+
+    async quoteSwap({ from, to, wantAmount, slippageBps, wallet }) {
+      const owner = tronWeb.address.fromPrivateKey(resolveTronPrivateKey(wallet._native as TronWalletConfig))
+      if (!owner) return null
+      return quoteTronSwap({
+        client: tronWeb as unknown as TronSwapClient,
+        network,
+        from,
+        to,
+        wantAmount,
+        slippageBps,
+        owner,
+      })
+    },
+
+    async swap(wallet, quote) {
+      const privateKey = resolveTronPrivateKey(wallet._native as TronWalletConfig)
+      const owner = tronWeb.address.fromPrivateKey(privateKey)
+      if (!owner) throw new Error('Tron: could not derive the payer address from the wallet key.')
+      return swapTron({ client: tronWeb as unknown as TronSwapClient, owner, privateKey, quote })
+    },
+
     async recipientReady() {
       return { ready: 'n/a' as const }
     },
