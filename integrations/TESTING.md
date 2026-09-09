@@ -32,7 +32,7 @@ PIPRAIL_MCP_BIN=../../../mcp/dist/bin.js node verify.mjs --live   # test the loc
 
 What `--live` proves (no funds move — throwaway key, and it asserts a *refusal*):
 
-1. **Protocol** — the server handshakes and serves the 7 `piprail_*` tools with valid JSON schemas.
+1. **Protocol** — the server handshakes and serves the 8 `piprail_*` tools with valid JSON schemas.
 2. **Live quote** — `piprail_quote_payment("https://piprail.com/x402/demo")` reads a **real 402** and
    returns the real price (0.01 USDC on Base).
 3. **Budget enforcement** — with a cap *below* the price, `piprail_pay_request` is **refused by policy**
@@ -63,7 +63,7 @@ wiring, the budget. The other half is Layer 2.
    (or `openclaw mcp set` / `clawhub install piprail`). Use a wallet with a **tiny** USDC +
    gas balance on Base for a real payment.
 3. **Restart OpenClaw** and confirm the tools loaded — `openclaw mcp list` should show `piprail`, and
-   the agent's tool list should include the seven `piprail_*` tools.
+   the agent's tool list should include the eight `piprail_*` tools.
 4. **Drive the agent** (the real test):
    - *"What's the price of `https://piprail.com/x402/demo`?"* → it calls `piprail_quote_payment` and
      reports **0.01 USDC on Base**.

@@ -18,8 +18,35 @@ npm run sync -- --domain chains               # one domain
 npm run sync -- --only tool-names             # one rule
 ```
 
-`--touched` is the one to reach for mid-task. It reads the same rule definitions that just ran, so
-unlike a prose checklist it cannot rot.
+`--touched` is the one to reach for mid-task, and it is the **first** thing to run on any change,
+before you write it. It reads the same rule definitions that just ran, so unlike a prose checklist
+it cannot rot.
+
+### Every rule declares three things
+
+| field | answers |
+|---|---|
+| `source` | who **owns** this fact |
+| `mirrors` | every file that **restates** it, and must follow |
+| `verify` | what to **run** to prove it still holds |
+
+`verify` is what makes the map actionable rather than merely informative. Knowing that
+`/facilitators` mirrors the registry does not tell you which test proves it; `--touched` prints
+the deduplicated union of `verify` commands across every rule the file appears in, so one query
+answers both halves. `rules-are-well-formed` requires all three on every rule, and checks that
+each `verify` command actually **exists** — a map pointing at a script nobody wrote is not a map,
+which is the failure `RELEASING.md` shipped when it told people to run `npm run verify-gate` for
+weeks before that script was written.
+
+### 🔴 Adding a surface means adding it to the map, in the same change
+
+A new page, a new registry, a new generated file, a new mirror of a fact that already exists: it
+goes into `scripts/sync/rules.mjs` alongside the change, not afterwards. An unmapped surface makes
+`--touched` answer *"no rule references this path"*, which reads like "nothing else to do" and is
+usually wrong. Six of ten public pages were in that state: `/facilitators` renders the facilitator
+registry and `/mcp` restates the tool list, yet neither was linked to the fact it displayed, so
+`/mcp` and `/demo` went on advertising **29 chains** after the 30th shipped. `map-covers-pages`
+now fails the build if a page is not named by a rule or the contact registry.
 
 ---
 
@@ -38,6 +65,81 @@ Three ways a mirror stays honest, best first:
 | 3 | **Guarded** — prose, held to the source by a check | the chain count in `llms.txt`, the MCP tool list |
 
 Prefer wording that cannot rot ("every chain", not "29 chains") over anything needing a guard.
+
+---
+
+## The map has TWO layers, and you need both
+
+| Layer | Answers | Lives in | Derived from |
+|---|---|---|---|
+| **Facts** | "this number is stated in nine files — here they all are" | `scripts/sync/rules.mjs` | declared `source` + `mirrors` |
+| **Architecture** | "what does this file reach, and what prose describes it?" | `scripts/sync/graph.mjs` + `links.mjs` | **real `import` statements and exported symbols** |
+
+The fact layer came first and was, on its own, quietly misleading. Ask it about
+`sdk/src/client.ts` — the buyer side of the entire SDK, wrapped by the MCP server, exposed to
+models through `paymentTools()`, documented across forty-odd pages — and it answered "rebuild the
+dist and add a changelog entry". True, and nearly useless. **Nothing in the repo could answer
+"what does this change reach?"**
+
+```bash
+npm run sync -- --touched <file>   # BOTH layers: what it reaches, what states the same facts, what to run
+npm run sync -- --map <file>       # the full picture for one file, nothing truncated
+npm run map                        # the bird's-eye view: the modules the most code depends on
+```
+
+### The architecture layer is derived, never drawn
+
+🔴 **A hand-drawn architecture diagram is exactly what this system exists to prevent.** It is a
+second copy of a fact, and it starts rotting the day it is committed. So:
+
+- **Code → code** comes from parsing the actual `import` statements across `sdk/`, `mcp/`,
+  `site/`, `create-piprail/` and `scripts/`. Delete a dependency and it leaves the map by itself.
+- **Code → prose** comes from the SYMBOL. `sdk/src/policy.ts` exports `evaluatePolicy`, the
+  spend-controls docs write `evaluatePolicy(...)`, so those pages document that module. Rename
+  the export and the link moves with it. (Two symbols minimum, so one passing mention of a common
+  type does not link every page to everything.)
+- **Prose → code** is the same index inverted, and it is the direction you are in when the risk
+  is highest. Editing `payment-policy.md`, `--touched` tells you it describes `sdk/src/policy.ts`,
+  so you can check the page against the code rather than against your memory of it. Barrels are
+  excluded: `sdk/src/index.ts` re-exports the whole public surface and would otherwise rank first
+  for every page, which is true and useless.
+- **Only what no derivation can find is declared**, in `links.mjs` `ANCHORS`, and every entry
+  says WHY. `/facilitators` renders generated data and imports nothing from the SDK, so no symbol
+  connects the page to the registry it displays; a person has to say so. **Keep that list short
+  and suspicious.** A growing `ANCHORS` means something derivable is being typed by hand.
+
+### What links to what, in one paragraph each
+
+- **The protocol layer** (`x402.ts`, `server.ts`, `client.ts`, `policy.ts`, `ledger.ts`,
+  `agent.ts`) depends **only** on `drivers/types.ts` — no chain library, ever. That is what makes
+  the driver abstraction real rather than aspirational, and `verify-gate` fails if any of those
+  modules so much as imports `viem`.
+- **Each driver family** implements that one contract and is otherwise self-contained.
+  `drivers/index.ts` is the loader map; `registry.ts` is the only place families meet. This is why
+  a new chain family touches almost nothing: it is 224 files *downstream* of `drivers/types.ts`,
+  and zero files upstream of it.
+- **The MCP** (`mcp/src/server.ts`) imports the built SDK and wraps `PipRailClient`. It adds a
+  spend policy and exposes eight tools — and deliberately **no swap tool**, guarded by
+  `mcp-cannot-swap`. `mcp/src/banner.ts` hand-copies the tool names as strings, which is why that
+  copy needs a rule rather than an import.
+- **The site** imports almost nothing from the SDK. It reads **generated data** files
+  (`site/src/data/*.ts`), which is why the site surfaces need fact rules and generator steps
+  rather than showing up in the import graph.
+- **The docs** import nothing at all. They are linked to the code purely through symbol names,
+  which is exactly why renaming an export is the single most under-tested change in this repo.
+
+### Where the risk concentrates
+
+`npm run map` ranks modules by how much code depends on them. The top of that list is stable and
+worth knowing by heart: **`errors.ts`** and **`x402.ts`** are each reachable from well over two
+hundred files, and **`drivers/types.ts`** from 224. A careless change to any of the three is the
+most expensive mistake available in this codebase.
+
+🔴 **`architecture-map-resolves` guards the guard.** The graph resolves specifiers by hand, and
+the SDK is ESM TypeScript, so `./chains.js` in the source means `./chains.ts` on disk. Get that
+wrong and every edge silently vanishes — and the failure is not an error, it is `--touched`
+cheerfully reporting "imported by: none" for a module fifty files depend on. Breaking that one
+line on purpose drops the graph from 896 edges to 131, and the rule fails.
 
 ---
 
@@ -99,12 +201,25 @@ Playbook: **`add-chain-integration`** skill.
 🔴 **`create-piprail` was invisible.** A published package that appeared in no README and neither
 AEO file — found by this checker on 2026-08-28, now fixed and guarded.
 
+🔴 **`sdk-dist-fresh` — the trap that makes every other rule lie.** About a third of the rules
+below, and both site data generators, read the **built** `sdk/dist/index.cjs` rather than the
+source, because facts like the facilitator and swap registries are only reachable through the
+build. So an unbuilt edit is invisible in the nastiest possible way: the generator writes the
+OLD registry into the site data, and the rule then compares old against old and reports green.
+Both halves are wrong and they agree, which is the one failure a consistency checker cannot see.
+Caught in the act while editing `SWAP_PROVIDERS`. Rebuild before you trust a green run.
+
 Playbook: **`release`** skill · `RELEASING.md`.
 
 ---
 
 ### `mcp` — the tool set
 **Source of truth: `sdk/src/agent.ts` → `paymentTools()`.** Everything else is a copy.
+
+🔴 **There are TWO lists, and the difference is the agent's MODE.** `paymentTools()` returns
+**8** by default and **13** in `'sovereign'`, appending the swap and seller tools. Almost every
+mirror below quotes the DEFAULT eight, which is why the default must never move. The sovereign
+list has its own owner: see **`agent-modes`** under `security`.
 
 | Mirror | What it holds |
 |---|---|
@@ -137,6 +252,50 @@ domain that does not resolve.
 Playbook: **`facilitator-probe`** skill.
 
 ---
+
+### `swaps` — what can swap where, and what proves it
+
+**Source: `sdk/src/swapProviders.ts` (`SWAP_PROVIDERS`).** The same shape and the same
+admission rule as the facilitator registry, for the same reason: an OPTIONAL third-party
+route the user opts into, restated on four surfaces.
+
+| # | Location | Holds | Kept honest by |
+|---|---|---|---|
+| **1** | **`sdk/src/swapProviders.ts`** | ⭐ **THE SOURCE.** id · name · kind · networks · keyless · fee · mechanism · dated mainnet proofs | you, by hand, after a live swap |
+| 2 | `sdk/test/swap-providers-surface.test.ts` | the admission rule + every mirror below | `npm run test:sdk` |
+| 3 | `site/src/data/swap-providers.ts` | **GENERATED** — never hand-edit | `node site/scripts/gen-swap-providers.mjs` |
+| 4 | `site/src/pages/swaps.astro` | the dedicated page: routes, by-chain index, every hash | rule + test 2 |
+| 5 | `site/src/pages/sdk.astro` | the signpost card; counts derived from 3, so the two cannot disagree | rule + test 2 |
+| 6 | `site/public/swaps/<id>.{svg,webp}` | one logo per route | rule + test 2 |
+| 7 | `docs/…/making-payments/swapping.md` | the guide and the proof table | rule + test 2 |
+| 8 | `sdk/src/swap.ts` | the module docstring — prose naming every tier-2 route | rule (it went stale once) |
+| 9 | the chain itself | **whether the 21 proofs are still true** | **`npm run verify:proofs`** |
+
+**🔴 THE ADMISSION RULE.** A route ships only after a REAL mainnet swap settled through it
+and the transaction was read back from a public node. Never seed from a documentation page
+or a coverage table: **a quote proves routing, only a transaction proves settlement.** This
+is the rule the facilitator registry learned the hard way, and it is asserted in test 2.
+
+A route with no proof may ship **only** with an `unproven` string saying why, which the site
+prints in an amber box and the docs repeat. Carrying both a proof and an `unproven` reason fails
+the rule. Tron is the one entry using it today: the swap works, but the chain charges ~23 TRX of
+energy per swap regardless of size (~33 TRX when a TRC-20 approval is needed) and the test
+wallets hold 8.1 TRX. **Do not "fix" that by deleting the marker or inventing a proof.**
+
+**Getting in is not the whole job — staying true is.** The admission rule stops bad entries
+entering; `npm run verify:proofs` stops good entries rotting. It re-reads all 21 transactions
+off the CHAIN (never an explorer: solscan, bscscan and allo.info all answer a server-side
+request with 403, so a link check tests Cloudflare rather than the claim) and asserts each one
+succeeded. It found two TON proofs pointing at the router's gas refund instead of the swap.
+
+**Update order** (skipping step 3 is how the site keeps the old numbers):
+
+1. Live-swap it, and verify the hash on a public node.
+2. Edit `sdk/src/swapProviders.ts`, adding the dated proof.
+3. `npm run build:sdk && node site/scripts/gen-swap-providers.mjs`
+4. Add the logo at `site/public/swaps/<id>.svg` (transparent, no opaque background rect).
+5. Update the docs guide + proof table, and the docstring at the top of `sdk/src/swap.ts`.
+6. `npm run test:sdk && npm run verify:proofs && npm run sync`
 
 ### `discovery` — the open indexes
 **Source of truth: `sdk/src/discovery.ts` + `sdk/src/indexes.ts`.**
@@ -215,6 +374,64 @@ fails only when that workflow next runs, which may be at release time.
 ---
 
 ### `security` — credentials live in exactly one place
+
+🔴 **`mcp-cannot-swap` — an absence guarded like a feature.** Every budget cap in `@piprail/mcp`
+governs *paying a merchant*. A swap moves the holder's own funds between denominations, so no
+cap constrains it, and a model handed a swap tool could drain a wallet through fees and slippage
+without exceeding a single limit it was given. The reasoning lived only in prose a later change
+could contradict silently. The rule checks the DEFAULT tool list, checks that no agent surface
+(the MCP, the elizaOS plugin, the n8n node) calls `swap()`/`quoteSwap()`, and checks that
+sovereign mode still cannot start without `PIPRAIL_MAX_PER_SWAP`.
+
+🔴 **`agent-modes` — what each MODE grants, and the half nothing was guarding.** `mcp-cannot-swap`
+owns the default. This owns the modes themselves, and the sovereign surface that nothing else
+watched.
+
+| Mode | Consent | Tools | REQUIRES, or it will not start |
+|---|---|---|---|
+| `supervised` | a human approves each payment | **8** | `onBeforePay` (SDK) · wires `confirm` (MCP) |
+| `budgeted` **(default)** | the policy *is* the consent | **8** | nothing |
+| `sovereign` | the agent owns the wallet | **14** | `swapPolicy.maxPerSwap` |
+
+🔴 **The restrictions were never the weak part. `supervised` was.** The two non-sovereign modes
+always got the right eight tools and no way to swap or sell. But the mode↔confirm inference ran
+**one way**: `PIPRAIL_CONFIRM=1` implied supervised, while naming the mode wired *nothing*. So
+`PIPRAIL_MODE=supervised` produced an agent that spent **without ever asking anybody**, with the
+banner, the docs and the mode name all agreeing it was supervised. A safety control that silently
+does nothing is worse than an absent one, because the operator has already stopped worrying.
+Both directions now agree, a config that says both things at once is refused rather than quietly
+resolved, and the SDK refuses `mode: 'supervised'` with no `onBeforePay` to perform it. Guarded
+by checks 8 of the rule, both mutation-proven. `sovereign` + confirm is NOT a contradiction and
+stays allowed: own the wallet, still approve each payment.
+
+Sovereign appends `piprail_quote_swap` · `piprail_swap` · `piprail_sell` · `piprail_collect` ·
+`piprail_earnings` · `piprail_wallet`. It **appends**, never replaces, which is the only reason
+the forty-odd "8 tools" claims stay true. Both lists are DERIVED (`mcpTools()` / `sovereignTools()` in
+`sources.mjs`), so neither can be typed out wrong.
+
+**Why the rule exists.** Within one change of modes shipping, `mcp/README.md` and the tools
+reference both still said the MCP has *"no swap tool, and there will not be one"* — false since
+the day the feature landed. **No count was wrong, so no count rule could see it.** That is the
+failure CLAUDE.md names: the missing surface, not the wrong number. The rule therefore checks
+prose as well as structure. It fails if any file still promises swapping "will not" exist, if a
+mirror never mentions the seller tools, if a mode name is undocumented, if sovereign stops
+appending, if selling leaks into the default, or if the banner stops being handed the real list.
+All six paths are mutation-proven.
+
+**`piprail_wallet` is the balance sheet.** A sovereign agent had thirteen tools and still could
+not answer *"what do I have?"*: `piprail_budget` reports how much of an ALLOWANCE is left, a
+different question, and `piprail_plan_payment` answers it only for one URL at a time. Owning
+finances starts with seeing them. Its one sharp edge is that an unreadable balance reports `null`,
+never `0` — an agent told it holds nothing when the RPC merely failed would fire-sale to recover
+from a loss that never happened.
+
+**The seller tools are the earning half.** A budget only ever lets an agent SPEND, so a wallet
+with a cap and no way to be paid is an allowance. `piprail_sell` prices something and returns an
+x402 challenge; a challenge is only data, so it travels over any channel and needs **no web
+server and no open port**. `piprail_collect` verifies the returned proof against the chain and is
+the *only* thing that proves payment (single-use, so a replay is never a second sale). Selling
+needs no ceiling because it takes money rather than spending it, and the receiving side holds
+**no key at all** — which is exactly why it is safe to grant a model where spending is not.
 - **`secrets-untracked`** — no `.env`, nothing under `.secrets/`, and no wallet/key JSON is
   tracked by git, and both paths stay in `.gitignore`. The `.env.example` templates are
   *supposed* to be tracked and are excluded.
@@ -312,6 +529,13 @@ fails only when that workflow next runs, which may be at release time.
 ---
 
 ### `docs` — the meta layer
+
+🔴 **`map-covers-pages` — the map has to cover the thing you are about to change.** Every page in
+`site/src/pages/` must be named by a rule (as the source or a mirror of the fact it renders) or by
+the contact registry. Six of ten were floating: `/facilitators` renders the facilitator registry
+and `/mcp` restates the tool list, yet `--touched` on either answered "no rule references this
+path". That reads like "nothing else to do", and it was wrong — `/mcp` and `/demo` advertised
+**29 chains** for as long as nobody happened to look.
 - **`docs-internal-links`** — every `href="/…"` across ~107 built docs pages resolves.
 - **`examples-indexed`** — every directory under `examples/` is listed in `examples/README.md`.
   Two substantial A2A proofs were unlisted, so nobody navigating the index would ever find them.

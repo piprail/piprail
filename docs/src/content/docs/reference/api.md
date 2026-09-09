@@ -98,6 +98,97 @@ watching `onEvent` alone now learns of **every** failure type, not just server r
 [Events](/making-payments/events/).
 :::
 
+## Swapping tokens (optional)
+
+Read [Swapping tokens](/making-payments/swapping/) before using these. Nothing swaps
+automatically, and the spend policy does **not** govern swaps.
+
+| Export | Signature | Notes |
+|---|---|---|
+| `client.quoteSwap` | `(req: SwapRequest) => Promise<SwapQuote \| null>` | Read-only. Never throws for a **read** problem: `null` means no quote, never no funds. A malformed `slippageBps` throws `RangeError` before any read. |
+| `client.swap` | `(quote: SwapQuote) => Promise<SwapReceipt>` | Signs from your own wallet: one transaction, or two where a TRC-20/ERC-20 must be approved first. Asserts the chain's own outcome before returning. |
+| `summarizeSwap` | `(q: SwapQuote) => string` | One human sentence, always naming the rate's source. |
+| `resolveSlippageBps` | `(bps?: number) => number` | Validates and defaults. Throws `RangeError` on nonsense. |
+| `applySlippage` | `(amount: bigint, bps: number) => bigint` | Pure, rounds up, integer only. |
+| `DEFAULT_SLIPPAGE_BPS` | `50` | 0.5%. |
+| `MAX_SLIPPAGE_BPS` | `1000` | 10% ceiling. |
+
+Types: `SwapRequest`, `SwapQuote`, `SwapReceipt`, `SwapSide`, `SwapQuoteSource`.
+
+### Agent mode: who may swap
+
+Whether a **model** may swap is a question of authority, not of which package it imported.
+
+| Export | Type | What it is |
+| --- | --- | --- |
+| `AgentMode` | `'supervised' \| 'budgeted' \| 'sovereign'` | Who is answerable for the wallet. Set once at construction; `client.mode()` reads it back and nothing writes it, so a model can never escalate itself. |
+| `DEFAULT_AGENT_MODE` | `'budgeted'` | The default. Omit `mode` and the SDK behaves exactly as it did before modes existed, with the same eight tools. |
+| `AGENT_MODES` | `readonly AgentMode[]` | Every valid mode, for validation and for surfaces that enumerate them. |
+| `SwapPolicy` | `{ maxPerSwap?, maxSlippageBps?, allowTo? }` | The guardrail a payment cap cannot be. `maxPerSwap` is compared against the quote's **on-chain** `maxSpend`, never the estimate. |
+
+`paymentTools(client)` returns the same eight tools in `'supervised'` and `'budgeted'`.
+`'sovereign'` **appends** six: `piprail_quote_swap`, `piprail_swap`, the seller tools
+`piprail_sell`, `piprail_collect` and `piprail_earnings`, and `piprail_wallet`. It appends rather than replaces, so the
+default is untouched for anyone who does not opt in. `client.canAgentSwap()` and
+`client.canAgentSell()` are the one place each answer lives.
+
+**Every mode must be able to keep the promise its name makes, and the SDK checks this at
+construction.**
+
+| Mode | What it grants | What it requires |
+|---|---|---|
+| `supervised` | the 8 tools | **`onBeforePay`.** It is the only thing that can pause a payment for a human, so without it the mode would be a label on a client that pays without asking anyone. |
+| `budgeted` *(default)* | the 8 tools | nothing. The policy **is** the consent. |
+| `sovereign` | 14 tools | **`swapPolicy.maxPerSwap`**, in the SDK and the MCP alike. A payment cap counts payments, and a swap is not one, so sovereign is bounded by a different instrument. Selling needs no ceiling: it takes money rather than spending it. |
+
+```ts
+// Supervised: a human is genuinely in the loop, or construction fails.
+const supervised = new PipRailClient({
+  chain: 'base',
+  wallet: { key: process.env.KEY },
+  mode: 'supervised',
+  onBeforePay: async (quote) => askTheHuman(quote),   // required, and it is the supervision
+})
+
+// Sovereign: the agent owns its wallet, both halves of it.
+const agent = new PipRailClient({
+  chain: 'base',
+  wallet: { key: process.env.KEY },
+  mode: 'sovereign',
+  swapPolicy: { maxPerSwap: '25.00', maxSlippageBps: 100 },
+})
+```
+
+| Export | Signature | Notes |
+|---|---|---|
+| `onBeforeSwap` | `(quote: SwapQuote) => boolean \| Promise<boolean>` | Approve or refuse a **swap** before anything is signed. `onBeforePay` genuinely never sees a swap (a swap is not a payment), so without this a supervised sovereign agent could swap its whole balance without one prompt. Same fail-safe contract: `false` or a throw refuses, as `PaymentDeclinedError` with `reasonCode: 'APPROVAL'`. `@piprail/mcp` wires it alongside `onBeforePay` whenever confirmation is on. |
+| `client.address()` | `() => Promise<string>` | Where this wallet gets **paid**. Derived from the key, no RPC read. An agent handed a key it never chose has no other way to learn its own address, and `piprail_sell` defaults `payTo` to it. |
+| `client.balanceOf(assets?)` | `(assets?: readonly string[]) => Promise<WalletAssetBalance[]>` | What the wallet HOLDS, per asset: the balance sheet, distinct from `budget()` (how much allowance is left). Never throws for a read problem: an unavailable read is `null`, **never `0`**, so an agent can tell "I hold nothing" from "I could not find out". On a `MultiChainPayer` it spans every chain. |
+| `WalletAssetBalance` | `{ symbol, asset, decimals, known, amount, amountFormatted }` | One holding. `known: false` means the chain does not ship that symbol, reported rather than guessed at. |
+| `client.canAgentSell()` | `() => boolean` | May a model price offers and collect for them? Sovereign only. |
+| `client.chain()` | `() => ChainSelector` | The chain this client is configured for. |
+
+### The coverage map
+
+Plain data, no network calls. Same shape and same admission rule as
+[`KNOWN_FACILITATORS`](/accepting-payments/facilitator-coverage/): an entry earns its place
+only after a real mainnet swap settled through it.
+
+| Export | Signature | Notes |
+|---|---|---|
+| `SWAP_PROVIDERS` | `readonly SwapProviderEntry[]` | The registry. Every entry carries dated, verifiable transaction hashes. |
+| `swapProvidersFor` | `(network: Caip2) => readonly SwapProviderEntry[]` | Routes on one network; empty array when none. |
+| `canSwapOn` | `(network: Caip2) => boolean` | The boolean form. |
+| `swappableNetworks` | `() => readonly Caip2[]` | Every network with a proven route, deduped and sorted. |
+
+Types: `SwapProviderEntry`, `SwapProof`.
+
+The website's swap table is **generated** from this map
+(`node site/scripts/gen-swap-providers.mjs`), so the page can never drift from the SDK.
+
+`SwapQuoteSource.kind` is `'protocol'` (the ledger itself swapped, no third party) or
+`'provider'` (a named keyless router). **Always read it before trusting a rate.**
+
 ## Spend controls
 
 The policy + ledger primitives. `evaluatePolicy` is the pure decision function the client and

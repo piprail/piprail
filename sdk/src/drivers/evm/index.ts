@@ -13,6 +13,7 @@ import {
   type WalletConfig,
 } from './wallet.js'
 import { payEvm } from './pay.js'
+import { quoteEvmSwap, swapEvm } from './swap.js'
 import { verifyEvm } from './verify.js'
 import { readExactDomain, verifyAndSettleExactEvm, payExactEvm, resolveExactRailEvm } from './exact.js'
 import { payPermit2Evm, verifyAndSettlePermit2Evm, isPermit2ProxyChain } from './permit2.js'
@@ -248,6 +249,12 @@ function makeEvmNetwork(resolved: ResolvedChain): ResolvedNetwork {
       }
     },
 
+    /** The bound wallet's own address — where THIS wallet gets paid. Derived from the key
+     *  material only: no RPC, nothing moved. See {@link ResolvedNetwork.addressOf}. */
+    async addressOf(wallet: WalletHandle): Promise<string> {
+      return (wallet._native as WalletAdapter).account.address
+    },
+
     async balanceOf(wallet: WalletHandle, asset: string): Promise<WalletBalance> {
       const owner = (wallet._native as WalletAdapter).account.address
       const native = await publicClient.getBalance({ address: owner }).catch(() => null)
@@ -289,6 +296,34 @@ function makeEvmNetwork(resolved: ResolvedChain): ResolvedNetwork {
     // chainId is hardcoded 1); viem lives in ./receipt.ts (a lazy chunk).
     signReceipt(wallet: WalletHandle, input) {
       return signReceiptEvm(wallet, input)
+    },
+
+    /* ---- swap (OPTIONAL, opt-in): via KyberSwap, keyless + no integrator fee. See ./swap.ts ---- */
+
+    async quoteSwap({ from, to, wantAmount, slippageBps, wallet }) {
+      const a = wallet._native as WalletAdapter
+      return quoteEvmSwap({
+        publicClient,
+        chainId: resolved.chainId,
+        network,
+        nativeSymbol: resolved.chain.nativeCurrency?.symbol ?? 'ETH',
+        owner: a.account.address,
+        from,
+        to,
+        wantAmount,
+        slippageBps,
+      })
+    },
+
+    async swap(wallet, quote) {
+      const a = wallet._native as WalletAdapter
+      return swapEvm({
+        publicClient,
+        walletClient: a.walletClient,
+        account: a.account,
+        chain: resolved.chain,
+        quote,
+      })
     },
 
     async verify(ref, accept) {

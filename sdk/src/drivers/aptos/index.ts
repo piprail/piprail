@@ -29,6 +29,7 @@ import {
   type AptosExactSettleClient,
 } from './exact.js'
 import { verifyAptos, type AptosReader, type AptosDeposit } from './verify.js'
+import { quoteAptosSwap, swapAptos, type AptosSwapClient } from './swap.js'
 import { assertAptosWallet, resolveAptosAccount, type AptosWalletConfig } from './wallet.js'
 import {
   ConfirmationTimeoutError,
@@ -103,6 +104,26 @@ function makeAptosNetwork(preset: AptosPreset, rpcUrl: string): ResolvedNetwork 
       })
       return norm(String(addr))
     },
+  }
+
+  const swapClient: AptosSwapClient = {
+    view: (input) => aptos.view(input as never) as never,
+    build: (input) =>
+      aptos.transaction.build.simple({
+        sender: input.sender,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        data: input.data as any,
+        ...(input.options ? { options: input.options } : {}),
+      }),
+    signSubmit: (input) =>
+      aptos.signAndSubmitTransaction({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        signer: input.signer as any,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        transaction: input.transaction as any,
+      }),
+    waitFor: async ({ hash }) =>
+      (await aptos.waitForTransaction({ transactionHash: hash })) as { success?: boolean; vm_status?: string },
   }
 
   const payClient: AptosPayClient = {
@@ -231,6 +252,12 @@ function makeAptosNetwork(preset: AptosPreset, rpcUrl: string): ResolvedNetwork 
       })
     },
 
+    /** The bound wallet's own address — where THIS wallet gets paid. Derived from the key
+     *  material only: no RPC, nothing moved. See {@link ResolvedNetwork.addressOf}. */
+    async addressOf(wallet: WalletHandle): Promise<string> {
+      return resolveAptosAccount(wallet._native as AptosWalletConfig).accountAddress.toString()
+    },
+
     async balanceOf(wallet: WalletHandle, asset: string): Promise<WalletBalance> {
       let owner: string
       try {
@@ -263,6 +290,23 @@ function makeAptosNetwork(preset: AptosPreset, rpcUrl: string): ResolvedNetwork 
     // No receive prerequisite — the recipient's primary FA store auto-creates on receipt.
     async recipientReady() {
       return { ready: 'n/a' as const }
+    },
+
+    /* ---- swap (OPTIONAL, opt-in): via Hyperion, no API, no key, no added fee. See ./swap.ts ---- */
+
+    async quoteSwap({ from, to, wantAmount, slippageBps, wallet }) {
+      const owner = resolveAptosAccount(wallet._native as AptosWalletConfig).accountAddress.toString()
+      return quoteAptosSwap({ client: swapClient, network, from, to, wantAmount, slippageBps, owner })
+    },
+
+    async swap(wallet, quote) {
+      const account = resolveAptosAccount(wallet._native as AptosWalletConfig)
+      return swapAptos({
+        client: swapClient,
+        signer: account,
+        sender: account.accountAddress.toString(),
+        quote,
+      })
     },
 
     async verify(ref, accept) {

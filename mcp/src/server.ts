@@ -30,7 +30,7 @@ import {
 import { PipRailClient, MultiChainPayer, SpendLedger, paymentTools, PIPRAIL_AGENT_GUIDE } from '@piprail/sdk'
 import type { PipRailClientOptions, SpendStore, PipRailEvent } from '@piprail/sdk'
 import { VERSION } from './version.js'
-import { buildConfirmHook } from './confirm.js'
+import { buildConfirmHook, buildSwapConfirmHook } from './confirm.js'
 
 /** Options layered onto the base client wiring — all opt-in. */
 export interface McpServerOptions {
@@ -85,7 +85,13 @@ export function createMcpServer(
     ...o,
     // Mode B: an embedder-supplied hook wins; otherwise our elicitation hook.
     ...(opts?.confirm
-      ? { onBeforePay: o.onBeforePay ?? buildConfirmHook(() => server, opts.confirmTimeoutMs) }
+      ? {
+          onBeforePay: o.onBeforePay ?? buildConfirmHook(() => server, opts.confirmTimeoutMs),
+          // A swap is not a payment, so onBeforePay never sees one. An operator who asked to
+          // approve every payment did not mean "and let value move silently any other way",
+          // so confirmation covers both seams or it is not confirmation.
+          onBeforeSwap: o.onBeforeSwap ?? buildSwapConfirmHook(() => server, opts.confirmTimeoutMs),
+        }
       : {}),
     ...(opts?.onEvent ? { onEvent: opts.onEvent } : {}),
     ...(sharedLedger

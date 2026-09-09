@@ -33,6 +33,7 @@ import {
   type AlgorandPreset,
 } from './chains.js'
 import { payAlgorand, type AlgorandPayClient } from './pay.js'
+import { quoteAlgorandSwap, swapAlgorand } from './swap.js'
 import {
   payExactAlgorand,
   verifyAndSettleExactAlgorand,
@@ -253,6 +254,12 @@ function makeAlgorandNetwork(preset: AlgorandPreset, algodUrl: string): Resolved
       })
     },
 
+    /** The bound wallet's own address — where THIS wallet gets paid. Derived from the key
+     *  material only: no RPC, nothing moved. See {@link ResolvedNetwork.addressOf}. */
+    async addressOf(wallet: WalletHandle): Promise<string> {
+      return String(resolveAlgorandWallet(wallet._native as AlgorandWalletConfig).addr)
+    },
+
     async balanceOf(wallet: WalletHandle, asset: string): Promise<WalletBalance> {
       let owner: string
       try {
@@ -293,6 +300,17 @@ function makeAlgorandNetwork(preset: AlgorandPreset, algodUrl: string): Resolved
         }
         return { ready: 'unknown' as const }
       }
+    },
+
+    /* ---- swap (OPTIONAL, opt-in): via Vestige, keyless + no integrator fee. See ./swap.ts ---- */
+
+    async quoteSwap({ from, to, wantAmount, slippageBps }) {
+      return quoteAlgorandSwap({ network, from, to, wantAmount, slippageBps })
+    },
+
+    async swap(wallet, quote) {
+      const signer = resolveAlgorandWallet(wallet._native as AlgorandWalletConfig)
+      return swapAlgorand({ algosdk, algod: algod as never, signer, quote })
     },
 
     async verify(_ref, accept) {

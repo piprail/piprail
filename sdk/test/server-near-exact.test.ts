@@ -34,6 +34,7 @@ const fakeNear: PaymentDriver = {
       send: async () => 'alice.near:HASH',
       confirm: async () => ({ height: '0' }),
       estimateCost: async () => ({ feeSymbol: 'NEAR', feeDecimals: 24, fee: '0', feeFormatted: '0', basis: 'heuristic' as const }),
+      addressOf: async () => 'FAKE_SELF_ADDRESS',
       balanceOf: async () => ({ token: 0n, native: 0n }),
       recipientReady: async () => ({ ready: 'n/a' as const }),
       verify: async () => ({ ok: false, error: 'transfer_not_found', detail: 'unused' }),

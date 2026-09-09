@@ -345,6 +345,7 @@ const SLUG_TO_CAIP2: Readonly<Record<string, Caip2>> = {
   hyperevm: 'eip155:999',
   monad: 'eip155:143',
   kaia: 'eip155:8217',
+  robinhood: 'eip155:4663',
   // non-EVM families — values mirror each driver's bound caip2 exactly
   solana: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
   ton: 'tvm:-239',

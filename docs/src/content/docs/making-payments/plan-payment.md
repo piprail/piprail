@@ -97,6 +97,13 @@ account** doesn't exist yet (the buyer can't create it on that rail). Such a pay
 safe fallback.
 :::
 
+:::tip[Blocked on `INSUFFICIENT_TOKEN`?]
+Holding the wrong token is the one blocker with an extra option: on some chains you can
+[swap what you hold for what the invoice wants](/making-payments/swapping/). It is optional,
+never automatic, and not available everywhere. Topping up or paying from another chain are
+equally good answers.
+:::
+
 ## Warnings: soft flags
 
 `SYMBOL_MISMATCH`, `BALANCE_UNREADABLE`, `RECIPIENT_READINESS_UNKNOWN`, `GAS_HEURISTIC`,

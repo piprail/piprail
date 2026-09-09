@@ -810,6 +810,69 @@ export const facilitatorCoverage: FacilitatorChain[] = [
     ]
   },
   {
+    "caip2": "eip155:4663",
+    "chain": "Robinhood",
+    "slug": "robinhood",
+    "facilitators": [
+      {
+        "name": "Ultravioleta DAO",
+        "nameNote": null,
+        "url": "https://facilitator.ultravioletadao.xyz",
+        "host": "facilitator.ultravioletadao.xyz",
+        "keyless": true,
+        "schemes": [
+          "exact"
+        ],
+        "settles": [
+          "eip3009"
+        ],
+        "note": "Ultravioleta DAO: keyless, 100% gas-sponsored (Robinhood USDG EIP-3009). LIVE-settled on Robinhood mainnet 2026-09-08 (tx 0x35361e5713918e4ca76c8cf9c25fe118d6473b36db19cde3e00ed2f43f990a88): buyer AND merchant both paid 0 ETH, replay rejected.",
+        "settled": true,
+        "date": "2026-09-08",
+        "txs": [
+          {
+            "hash": "0x35361e5713918e4ca76c8cf9c25fe118d6473b36db19cde3e00ed2f43f990a88",
+            "url": "https://robinhoodchain.blockscout.com/tx/0x35361e5713918e4ca76c8cf9c25fe118d6473b36db19cde3e00ed2f43f990a88",
+            "full": true
+          }
+        ],
+        "asset": "Robinhood USDG EIP-3009",
+        "floor": null,
+        "floorNote": null,
+        "gasSponsored": true,
+        "caveat": "Ultravioleta DAO: keyless, 100% gas-sponsored (Robinhood USDG EIP-3009)."
+      },
+      {
+        "name": "Dexter",
+        "nameNote": null,
+        "url": "https://x402.dexter.cash",
+        "host": "x402.dexter.cash",
+        "keyless": true,
+        "schemes": [
+          "exact"
+        ],
+        "settles": [
+          "permit2"
+        ],
+        "note": "Dexter: keyless, gas-sponsored. Robinhood USDG (EIP-712 domain name \"Global Dollar\" version \"1\", which matches the on-chain DOMAIN_SEPARATOR we recomputed). Enforces a ~$0.0066 dynamic floor (minPaymentAmountAtomic 6554), so a sub-cent payment is rejected. LIVE-settled on Robinhood mainnet 2026-09-08 (tx 0x1ba66e3dfd60e1d32fe4e38b68368a064a20b57858d6311feb08b4d0ba988d99): buyer and merchant paid 0 ETH, replay rejected. A 2nd keyless Robinhood facilitator (failover for UVD).",
+        "settled": true,
+        "date": "2026-09-08",
+        "txs": [
+          {
+            "hash": "0x1ba66e3dfd60e1d32fe4e38b68368a064a20b57858d6311feb08b4d0ba988d99",
+            "url": "https://robinhoodchain.blockscout.com/tx/0x1ba66e3dfd60e1d32fe4e38b68368a064a20b57858d6311feb08b4d0ba988d99",
+            "full": true
+          }
+        ],
+        "asset": null,
+        "floor": "$0.0066 min",
+        "floorNote": "minPaymentAmountAtomic 6554",
+        "gasSponsored": true,
+        "caveat": "Dexter: keyless, gas-sponsored. Robinhood USDG (EIP-712 domain name \"Global Dollar\" version \"1\", which matches the on-chain DOMAIN_SEPARATOR we recomputed). A 2nd keyless Robinhood facilitator (failover for UVD)."
+      }
+    ]
+  },
+  {
     "caip2": "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=",
     "chain": "Algorand",
     "slug": "algorand",

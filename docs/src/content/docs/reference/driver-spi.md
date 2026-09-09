@@ -226,6 +226,8 @@ family ships them only when its chain supports them. The `exact`-rail methods ar
 | `signReceipt(wallet, input)` | Server side (**EVM**). Sign the official x402 offer-receipt §5.2 EIP-712 message (`ReceiptInput` → `SignedReceipt`) with the bound wallet, so a buyer can prove the resource was *served*, verified by `PipRailClient.verifyAttestation`. Never part of the payment path. |
 | `exactDomain(asset)` | Server side (**EVM**). Read an EIP-3009 token's on-chain EIP-712 domain (`name`/`version`); `null` when the asset isn't EIP-3009. |
 | `exactPermit2Supported()` | Server side (**EVM**). Whether the x402 Permit2 proxy is deployed on this chain (gates the Permit2 fallback). |
+| `quoteSwap(params)` | **Read-only.** Price an exact-output swap on this chain and return a `SwapQuote`, or `null`. See the contract below: it must never throw. |
+| `swap(wallet, quote)` | Execute a quoted swap, signed by the bound wallet, with the input ceiling enforced on-chain. Must assert the chain's own outcome before returning a receipt. |
 | `discoverySigner(wallet)` | A signer for **discovery only** (ownership proofs / SIWX index registration), never the payment path. |
 
 The `exact` methods are covered for buyers under [paying an exact
@@ -233,6 +235,47 @@ rail](/making-payments/exact-buyer/), for sellers under [selling an exact
 rail](/accepting-payments/exact-rail-seller/), and at the wire level on the
 [low-level exact](/reference/exact-lowlevel/) page. `resolveExactRail` lets a new family add `exact`
 support without touching the chain-agnostic protocol layer.
+
+### The swap pair, and why one of them never throws
+
+All ten families implement `quoteSwap` / `swap` today, but they stay optional: a new family is
+complete without them, and nothing about payments changes if they are absent. See
+[swapping](/making-payments/swapping/) for the user-facing side.
+
+**`quoteSwap` must never throw.** No pool, no route, a truncated response, an HTML error page
+from a load balancer, a rate limit, a dead node: every one of them returns `null`. It sits in the
+same never-throw group as `estimateCost`, `balanceOf` and `recipientReady`, and for the same
+reason. Callers ask "could I swap?" speculatively, often about a pair that has no pool at all. If
+one family threw where the others returned `null`, every caller would have to wrap it, and a
+missing pool would become indistinguishable from an outage. A cross-family test drives all ten
+against a deliberately broken network and fails if any one of them throws.
+
+**`swap` throws, and must prove the swap happened.** Map affordability to
+`InsufficientFundsError` and rethrow everything else unchanged, exactly like `send`. Then assert
+the chain's own outcome before returning a `SwapReceipt`:
+
+```ts
+// 🔴 A submitted transaction is not a completed swap.
+const receipt = await publicClient.waitForTransactionReceipt({ hash })
+if (receipt.status === 'reverted') throw new InsufficientFundsError(/* … */)
+```
+
+This is not hypothetical. Two drivers shipped returning a receipt on submission alone: a reverted
+EVM swap still produces a receipt, and a submitted Solana signature is not a confirmed one. Both
+reported success for a swap that moved nothing and burned gas. Each family has its own signal:
+EVM `receipt.status`, Solana `confirmTransaction`'s `err`, Aptos `success`, Tron the broadcast
+`code`, TON a balance delta, because it settles asynchronously.
+
+**Price the OUTPUT, and cap the input on-chain.** An x402 invoice fixes what must arrive, so
+`wantAmount` is the output and slippage pads the input ceiling. Pass that ceiling as a contract
+argument (`amountInMax`, `amount_in_max`, `callValue`) so the chain enforces it rather than the
+caller trusting the quote. Where the venue only prices exact-input, probe and scale, then check
+the result still clears the invoice.
+
+**Name whoever set the price.** PipRail runs no oracle (STANDARDS §7) and a swap rate is a price,
+so every `SwapQuote` carries `source: { kind, name, note }`. `kind: 'protocol'` means the ledger
+itself swapped and no third party exists; `'provider'` names the venue. Never return an anonymous
+number, and state the real costs in `note`, including any second transaction the direction needs.
 
 ### The discovery signer
 

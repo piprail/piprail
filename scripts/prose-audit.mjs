@@ -42,8 +42,17 @@ const EXTS = new Set(['.md', '.mdx', '.astro', '.ts', '.css', '.mjs'])
  * pages while the gate reported clean. Their CODE COMMENTS are not in scope (see
  * `stripComments`): the house voice is for text a stranger reads, not for notes to ourselves.
  */
-const DEFAULT_ROOTS = ['site/src', 'docs/src', 'site/astro.config.mjs', 'docs/astro.config.mjs']
-const COMMENTS_EXEMPT = new Set(['site/astro.config.mjs', 'docs/astro.config.mjs'])
+/*
+ * `site/netlify/functions` is in scope for the same reason: the live x402 demo endpoint
+ * returns strings a payer reads (the 402 challenge `description`, the OpenAPI `title`, the
+ * paid `message`). On 2026-09-07 all three carried an em dash while the gate reported clean,
+ * and the paid message then appeared on screen in the recorded grant demo. Comments exempt,
+ * as for the configs.
+ */
+const DEFAULT_ROOTS = ['site/src', 'docs/src', 'site/astro.config.mjs', 'docs/astro.config.mjs', 'site/netlify/functions']
+const COMMENTS_EXEMPT = new Set(['site/astro.config.mjs', 'docs/astro.config.mjs', 'site/netlify/functions'])
+/** A file is comment-exempt if it is listed, or sits under a listed directory. */
+const commentsExempt = (rel) => [...COMMENTS_EXEMPT].some((e) => rel === e || rel.startsWith(e + '/'))
 
 /**
  * Blank out `//` and block comments, keeping line and column numbers intact so a finding
@@ -171,7 +180,7 @@ function auditFile(file, allow) {
   const mine = allow.filter((a) => a.file === rel || a.file === '*')
   const findings = []
   const raw = readFileSync(file, 'utf8')
-  const lines = (COMMENTS_EXEMPT.has(rel) ? stripComments(raw) : raw).split('\n')
+  const lines = (commentsExempt(rel) ? stripComments(raw) : raw).split('\n')
   lines.forEach((line, i) => {
     if (mine.some((a) => line.includes(a.snippet))) return
     for (const tell of TELLS) {

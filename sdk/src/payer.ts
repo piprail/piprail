@@ -35,7 +35,10 @@ import type {
   RegisterOptions,
 } from './client.js'
 import type { ChainSelector } from './drivers/types.js'
+import type { WalletAssetBalance } from './client.js'
 import type { PaymentPolicy } from './policy.js'
+import type { AgentMode, SwapQuote, SwapReceipt, SwapRequest } from './swap.js'
+import { WrongChainError } from './errors.js'
 import { SpendLedger, type SpendSummary } from './ledger.js'
 import type { SpendStore } from './spendstore.js'
 import type { DiscoveredResource, RegisterOutcome } from './indexes.js'
@@ -309,6 +312,89 @@ export class MultiChainPayer implements PayingClient {
    *  the first client's for the explicit constructor). `undefined` when none is set. */
   policy(): PaymentPolicy | undefined {
     return this._clients[0]!.policy()
+  }
+
+  /*
+   * ── SWAP, ACROSS A MULTI-CHAIN PAYER ────────────────────────────────────────────
+   *
+   * A swap is SAME-CHAIN by definition, so there is nothing to route: it delegates to the
+   * PRIMARY client, which is the first one given, and the constructor already documents
+   * that order as your chain preference. Without this the MCP could never expose swapping
+   * at all, because it always wraps its accounts in a MultiChainPayer even for one chain.
+   */
+  mode(): AgentMode {
+    return this._clients[0]!.mode()
+  }
+
+  canAgentSwap(): boolean {
+    return this._clients[0]!.canAgentSwap()
+  }
+
+  /*
+   * ── SELLING, ACROSS A MULTI-CHAIN PAYER ─────────────────────────────────────────
+   *
+   * Same reasoning as the swap block above, and the same necessity: the MCP always wraps
+   * its accounts in a MultiChainPayer, so without these the seller tools would be
+   * unreachable through the MCP no matter what mode the operator set.
+   *
+   * The address is the PRIMARY chain's — a wallet has one address per family, not one
+   * overall, so "where do I get paid?" is only answerable per chain. An offer priced on
+   * another chain names its own payTo; this is the default, not the only option.
+   */
+  canAgentSell(): boolean {
+    return this._clients[0]!.canAgentSell()
+  }
+
+  async address(): Promise<string> {
+    return this._clients[0]!.address()
+  }
+
+  chain(): ChainSelector {
+    return this._clients[0]!.chain()
+  }
+
+  /**
+   * Holdings across EVERY chain this payer owns, not just the primary. A multi-chain agent's
+   * balance sheet is the union: reporting only the first chain would tell it it was broke while
+   * it held funds one client along, which is exactly the wrong answer to "what do I have?".
+   */
+  async balanceOf(assets: readonly string[] = ['native']): Promise<WalletAssetBalance[]> {
+    const out: WalletAssetBalance[] = []
+    for (const c of this._clients) {
+      const rows = await c.balanceOf(assets).catch(() => [])
+      for (const r of rows) out.push({ ...r, chain: String(c.chain()) } as WalletAssetBalance)
+    }
+    return out
+  }
+
+  async quoteSwap(req: SwapRequest): Promise<SwapQuote | null> {
+    return this._clients[0]!.quoteSwap(req)
+  }
+
+  async swap(quote: SwapQuote): Promise<SwapReceipt> {
+    /*
+     * Execute on the client whose chain the QUOTE names. A multi-chain agent can hold a
+     * quote for its second chain, and running that against the primary would throw a
+     * confusing network mismatch instead of simply working.
+     *
+     * `PipRailClient.swap` already refuses a quote from another network, so this tries each
+     * client and keeps the FIRST that accepts it. If none does, the primary's own refusal
+     * is the one that surfaces, because it names both networks and is the clearest error
+     * to hand back.
+     */
+    let firstRefusal: unknown
+    for (const c of this._clients) {
+      try {
+        return await c.swap(quote)
+      } catch (err) {
+        if (err instanceof WrongChainError || (err as Error)?.name === 'UnsupportedNetworkError') {
+          firstRefusal ??= err
+          continue // wrong client for this quote; try the next chain
+        }
+        throw err // a real failure (funds, policy, the chain itself) must not be retried
+      }
+    }
+    throw firstRefusal ?? new Error('MultiChainPayer: no client could execute this swap quote.')
   }
 }
 

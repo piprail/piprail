@@ -61,7 +61,7 @@ itself. This skill is the checklist of "where does this live."
 Code of record: `sdk/src/drivers/` + `sdk/src/drivers/evm/chains.ts`. Mirrors:
 
 - `docs/src/content/docs/chains/*.md` — **the source** for the chain table + per-chain setup & caveats (`chains/overview.md` = the EVM table + token-coverage rule; one page per non-EVM family). docs.piprail.com is canonical now.
-- `sdk/README.md` — now a signpost (NO chain table); only the rot-proof family one-liner. The **count** ("29 chains") still lives in `sdk/package.json`'s `description` — grep it there.
+- `sdk/README.md` — now a signpost (NO chain table); only the rot-proof family one-liner. The **count** still lives in `sdk/package.json`'s `description` — read it there, never quote a number from memory.
 - `sdk/CHAINS.md` — now a **stub** that points at docs/chains; nothing to update here but the family list in its one-liner.
 - `site/src/data/chains.ts` — the grid + per-chain token badges (a badge needs `site/public/tokens/<sym>.svg`).
 - `site/src/pages/index.astro` — the `stats` count tile (grep `chains built in`), the `#chains` grid heading + the `EVM ×N` / "Nineteen EVM mainnets" prose (the EVM subcount rots separately from the grand total), and the `faqs`. The grand-total number also recurs in the hero/section copy — grep the bare number too.

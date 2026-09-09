@@ -15,6 +15,7 @@ import {
 } from '@solana/spl-token'
 import { SOLANA_MAINNET, SOL_DECIMALS, type SolanaPreset } from './chains.js'
 import { paySolana } from './pay.js'
+import { quoteSolanaSwap, swapSolana } from './swap.js'
 import { verifySolana } from './verify.js'
 import { payExactSolana, verifyAndSettleExactSolana } from './exact.js'
 import { toKeypair } from './wallet.js'
@@ -184,6 +185,12 @@ function makeSolanaNetwork(preset: SolanaPreset, rpcUrl: string): ResolvedNetwor
       })
     },
 
+    /** The bound wallet's own address — where THIS wallet gets paid. Derived from the key
+     *  material only: no RPC, nothing moved. See {@link ResolvedNetwork.addressOf}. */
+    async addressOf(wallet: WalletHandle): Promise<string> {
+      return (wallet._native as Keypair).publicKey.toBase58()
+    },
+
     async balanceOf(wallet: WalletHandle, asset: string): Promise<WalletBalance> {
       const owner = (wallet._native as Keypair).publicKey
       const native = await connection
@@ -221,6 +228,16 @@ function makeSolanaNetwork(preset: SolanaPreset, rpcUrl: string): ResolvedNetwor
     // and is deferred as disproportionate to this opt-in edge.
     async recipientReady() {
       return { ready: 'n/a' as const }
+    },
+
+    /* ---- swap (OPTIONAL, opt-in): via Jupiter, keyless + no platform fee. See ./swap.ts ---- */
+
+    async quoteSwap({ from, to, wantAmount, slippageBps }) {
+      return quoteSolanaSwap({ network, from, to, wantAmount, slippageBps })
+    },
+
+    async swap(wallet, quote) {
+      return swapSolana({ connection, keypair: wallet._native as Keypair, quote })
     },
 
     async verify(ref, accept) {

@@ -23,6 +23,7 @@ import type {
   SignedReceipt,
 } from '../x402.js'
 import type { ChainInput } from './evm/chains.js'
+import type { SwapQuote, SwapReceipt } from '../swap.js'
 
 /** The chain families the SDK knows about. */
 export type ChainFamily =
@@ -332,6 +333,20 @@ export interface ResolvedNetwork {
   /* -------- agent side -------- */
   /** Validate + wrap the user's wallet config for this family. */
   bindWallet(wallet: unknown): WalletHandle
+  /**
+   * The bound wallet's OWN address, in this family's canonical form — the answer to
+   * "where do I get paid?".
+   *
+   * Every driver already derives this internally for {@link ResolvedNetwork.balanceOf};
+   * exposing it is what lets a wallet holder RECEIVE rather than only spend. An agent
+   * handed a key it never chose has no other way to learn its own address, so without
+   * this it can pay for things but can never be paid for anything.
+   *
+   * Async only because TON must build the wallet contract before it has an address;
+   * every other family derives it synchronously from the key. Pure — derives from the
+   * key material, reads no RPC, moves nothing.
+   */
+  addressOf(wallet: WalletHandle): Promise<string>
   /** Broadcast payment for `accept`; return the proof ref (tx hash / signature). */
   send(wallet: WalletHandle, accept: X402AcceptEntry): Promise<string>
   /** Wait until `ref` reaches minConfirmations (or finality). */
@@ -583,6 +598,46 @@ export interface ResolvedNetwork {
     accept: X402UptoAcceptEntry
     settleAmount: bigint
   }): Promise<VerifyResult>
+
+  /* ------------------------------ swap (optional) ------------------------------ */
+
+  /**
+   * Price a same-chain swap — "I hold the wrong token". READ-ONLY: no funds move,
+   * nothing is signed.
+   *
+   * OPTIONAL, like every method above it: a family that can't swap omits both this
+   * and {@link ResolvedNetwork.swap}, and the client reports that honestly instead
+   * of pretending. Implemented today where swapping is a PROTOCOL PRIMITIVE —
+   * Stellar path payments and the XRPL DEX/AMM — so no third party, no API key and
+   * no extra dependency is involved.
+   *
+   * NEVER THROWS for a read problem (same posture as `estimateCost`/`balanceOf`):
+   * returns `null` when this pair can't be routed, the market has no liquidity, or
+   * the RPC read failed. `null` means "no quote", never "no funds".
+   *
+   * 🔴 The returned rate is NOT PipRail's opinion — `quote.source` names who
+   * produced it (STANDARDS §7: no price oracle, ever).
+   */
+  quoteSwap?(input: {
+    from: ResolvedToken
+    to: ResolvedToken
+    /** Exact output wanted, base units. */
+    wantAmount: bigint
+    slippageBps: number
+    /** The wallet that would swap — the driver derives its own address from it. */
+    wallet: WalletHandle
+  }): Promise<SwapQuote | null>
+
+  /**
+   * Execute a swap the caller has already seen and accepted. Signs and broadcasts
+   * one transaction from the user's OWN wallet; the funds never leave their account
+   * (both rails today are a self-transfer that changes denomination).
+   *
+   * Throws {@link InsufficientFundsError} when the wallet can't cover `maxSpend`,
+   * per ERRORS.md §5. The slippage cap rides ON-CHAIN inside the transaction, so a
+   * market that moves past it fails the transaction rather than overspending.
+   */
+  swap?(wallet: WalletHandle, quote: SwapQuote): Promise<SwapReceipt>
 }
 
 export interface ResolveOptions {

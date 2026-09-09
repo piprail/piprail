@@ -38,6 +38,7 @@ const fakeAlgorand: PaymentDriver = {
       send: async () => 'txid',
       confirm: async () => ({ height: '1' }),
       estimateCost: async () => ({ feeSymbol: 'ALGO', feeDecimals: 6, fee: '0', feeFormatted: '0', basis: 'estimated' as const }),
+      addressOf: async () => 'FAKE_SELF_ADDRESS',
       balanceOf: async () => ({ token: 0n, native: 0n }),
       recipientReady: async () => ({ ready: 'n/a' as const }),
       verify: async () => { verifySpy(); return { ok: false as const, error: 'transfer_not_found' as const, detail: 'unused' } },

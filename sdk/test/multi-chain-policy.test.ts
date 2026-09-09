@@ -70,6 +70,7 @@ function mkNet(
       basis: 'estimated',
     }),
     // Big balances so affordability is never the blocker — policy / onBeforePay are.
+    addressOf: async () => 'FAKE_SELF_ADDRESS',
     balanceOf: async () => ({ token: 10n ** 12n, native: 10n ** 18n }),
     recipientReady: async () => ({ ready: 'n/a' as const }),
     verify: async () => ({

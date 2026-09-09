@@ -1,0 +1,555 @@
+---
+import Layout from '../layouts/Layout.astro'
+import Navigation from '../components/Navigation.astro'
+import Footer from '../components/Footer.astro'
+import Breadcrumbs from '../components/Breadcrumbs.astro'
+import SectionHeading from '../components/SectionHeading.astro'
+import CodeWindow from '../components/CodeWindow.astro'
+import { highlight } from '../lib/highlight'
+import { chains } from '../data/chains'
+import {
+  SWAP_PROVIDERS,
+  PROTOCOL_COUNT,
+  PROVIDER_COUNT,
+  SWAP_CHAIN_COUNT,
+  SWAP_PROOF_COUNT,
+} from '../data/swap-providers'
+import {
+  ArrowRight, ExternalLink, ShieldCheck, Repeat, KeyRound, Target, Ban,
+  CircleDollarSign, Layers, ShieldOff,
+} from 'lucide-astro'
+
+/*
+ * /swaps: the answer to "I hold the wrong token, so can PipRail fix that, and what does it cost
+ * me to let it?"
+ *
+ * Everything rendered here is DERIVED from src/data/swap-providers.ts, which is generated from
+ * the SDK's own SWAP_PROVIDERS by site/scripts/gen-swap-providers.mjs. No count, no chain, no
+ * route and no transaction hash is typed by hand, so this page cannot drift from the code that
+ * ships. Every proof was re-read from a public node before being listed; the four Aptos ones
+ * were re-verified on-chain (`success: true`, deposit amounts matching the exact outputs) on
+ * 2026-09-08.
+ */
+
+// ── Counts, all derived ──────────────────────────────────────────────────────────────
+const routeCount = SWAP_PROVIDERS.length
+const unprovenRoutes = SWAP_PROVIDERS.filter((p) => p.unproven)
+const familyCount = [...new Set(chains.map((c) => c.family))].length
+
+/*
+ * The families with NO swap route, DERIVED rather than typed out. A hand-written list is
+ * exactly the kind of sentence that rots: this page once said three families had no support
+ * while their proofs sat inches above it. `chains.family` is title-case ('NEAR'); the swap
+ * data carries lower-case slugs, and EVM is a family of many slugs, so both are normalised.
+ */
+const swapSlugs = new Set(SWAP_PROVIDERS.flatMap((p) => p.chains.map((c) => c.slug.toLowerCase())))
+const evmCovered = chains.some((c) => c.family === 'EVM' && swapSlugs.has(c.slug.toLowerCase()))
+const noSwapFamilies = [...new Set(chains.map((c) => c.family))].filter((f) =>
+  f === 'EVM' ? !evmCovered : !swapSlugs.has(f.toLowerCase())
+)
+
+/*
+ * The inverse index: one row per CHAIN, with every route that can swap there. Same data, the
+ * other way round, because a reader arrives either knowing their chain or knowing a venue.
+ */
+const byChain = [...new Map(SWAP_PROVIDERS.flatMap((p) => p.chains.map((c) => [c.slug, c]))).values()]
+  .map((chain) => ({
+    ...chain,
+    routes: SWAP_PROVIDERS.filter((p) => p.chains.some((c) => c.slug === chain.slug)),
+    proofs: SWAP_PROVIDERS.flatMap((p) => p.proofs).filter((t) => t.slug === chain.slug),
+  }))
+  .sort((a, b) => b.proofs.length - a.proofs.length || a.name.localeCompare(b.name))
+
+/*
+ * Routes that take the invoice amount directly instead of sizing an input from a probe. This
+ * is the sharpest technical distinction on the page, so it is DETECTED from the mechanism text
+ * the SDK ships rather than listed by hand.
+ */
+const exactOutRoutes = SWAP_PROVIDERS.filter((p) => /exact/i.test(p.mechanism) && /output|out\b|ask side/i.test(p.mechanism))
+
+/*
+ * The SDK writes identifiers in backticks (`exact_output_swap_entry`). Rendered raw they
+ * showed as literal grave accents, which looks like a typo. Split on the ticks and style the
+ * odd segments as code; the text itself is never re-authored here.
+ */
+function ticked(text: string): { code: boolean; text: string }[] {
+  return text.split('`').map((part, i) => ({ code: i % 2 === 1, text: part })).filter((p) => p.text)
+}
+
+const title = `Token swaps on ${SWAP_CHAIN_COUNT} chains: open, keyless, zero fee | PipRail`
+const description = `Hold the wrong token? PipRail can swap it, on ${SWAP_CHAIN_COUNT} chains through ${routeCount} open keyless routes. Opt-in, never automatic, and PipRail takes nothing on top. ${SWAP_PROOF_COUNT} mainnet transactions you can check.`
+
+const quoteSnippet = highlight(
+  `import { PipRailClient, summarizeSwap } from '@piprail/sdk'
+
+const client = new PipRailClient({ chain: 'aptos', wallet: { key: KEY } })
+
+// 1. Read. Nothing is signed, nothing is spent, nothing is committed to.
+const quote = await client.quoteSwap({ from: 'USDC', to: 'USDT', wantAmount: '0.05' })
+
+// null is never "you are broke": it means no route, no liquidity, or a failed read.
+if (!quote) return
+
+console.log(summarizeSwap(quote))
+// Swap ~0.050002 USDC → 0.05 USDT (at most 0.050503 USDC, 1% slippage). Rate from Hyperion.
+
+// 2. The ONLY call that moves anything.
+const receipt = await client.swap(quote)`
+)
+
+// ── Structured data ──────────────────────────────────────────────────────────────────
+const site = 'https://piprail.com'
+const datasetLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Dataset',
+  name: 'PipRail swap route coverage',
+  description: `Which open, keyless swap routes PipRail ships on which chains, with ${SWAP_PROOF_COUNT} mainnet transaction hashes.`,
+  url: `${site}/swaps/`,
+  creator: { '@type': 'Organization', name: 'PipRail', url: site },
+  license: 'https://github.com/piprail/piprail/blob/main/LICENSE',
+  isAccessibleForFree: true,
+  keywords: ['x402', 'token swap', 'DEX aggregator', 'exact output', 'keyless', 'self-custody'],
+}
+const itemListLd = {
+  '@context': 'https://schema.org',
+  '@type': 'ItemList',
+  name: 'Swap routes PipRail ships',
+  numberOfItems: routeCount,
+  itemListElement: SWAP_PROVIDERS.map((p, i) => ({
+    '@type': 'ListItem',
+    position: i + 1,
+    name: p.name,
+    url: p.url,
+    description: `${p.kind === 'protocol' ? 'The ledger itself swaps' : 'Named third-party router'} on ${p.chains.map((c) => c.name).join(', ')}.`,
+  })),
+}
+const faqs = [
+  {
+    q: 'Does PipRail swap my tokens automatically?',
+    a: 'No, and there is no setting that makes it. Paying never swaps and planning never swaps. quoteSwap() reads and prices; swap() is the only call that moves anything, and you have to write it yourself. A test asserts the default behaviour is byte-identical whether or not the feature exists, so ignoring it costs you nothing.',
+  },
+  {
+    q: 'What does PipRail charge for a swap?',
+    a: 'Nothing. PipRail never sets an integrator, platform, referrer or partner fee field on any route, and several of the routes have no such parameter to set. You pay the pool fee, which each quote reads from the venue and reports back to you, plus the chain gas.',
+  },
+  {
+    q: 'Who holds my funds during a swap?',
+    a: 'You do. Every route is a transaction your own key signs, sending funds to your own address. No route takes custody, and none of them signs on your behalf. Two of them do not even call an API: on Aptos and Tron the quote is an on-chain read and the swap is a contract call.',
+  },
+  {
+    q: 'Why is there no swap tool for AI agents?',
+    a: 'Because your spend policy governs paying a merchant, not moving your own money between denominations. A swap sits outside every budget cap you have, so an agent able to swap could drain a wallet through fees and slippage without tripping a single check. The MCP server therefore exposes no swap tool at all. The missing tool is the safety property.',
+  },
+  {
+    q: 'How do I know these routes actually work?',
+    a: `Every listed route settled a real mainnet transaction that we then read back from a public node, never from a documentation page. There are ${SWAP_PROOF_COUNT} of them on this page and you can open every one. Where a route ships without a proof, it says so in plain language and explains why, rather than showing an empty table.`,
+  },
+]
+const faqLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: faqs.map((f) => ({
+    '@type': 'Question',
+    name: f.q,
+    acceptedAnswer: { '@type': 'Answer', text: f.a },
+  })),
+}
+---
+
+<Layout title={title} description={description}>
+  <Navigation />
+
+  <main class="mx-auto w-full max-w-6xl px-5 sm:px-6 lg:px-8">
+    <div class="pt-6"><Breadcrumbs items={[{ name: 'Swaps' }]} /></div>
+
+    <!-- ── Hero ───────────────────────────────────────────────────────────── -->
+    <section class="fade-up py-12 text-center sm:py-16 md:py-20">
+      <span class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wider text-neutral-400">
+        <Repeat size={13} class="text-accent" aria-hidden="true" />
+        Optional, and off by default
+      </span>
+      <h1 class="mx-auto mt-6 max-w-4xl font-display text-4xl font-semibold leading-[1.08] tracking-tight sm:text-5xl md:text-6xl">
+        Hold the wrong token?
+        <span class="text-accent"> Swap it, if you want to.</span>
+      </h1>
+      <p class="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-neutral-400 sm:text-lg">
+        A 402 names a token. Your wallet holds what it holds. When those disagree, PipRail can
+        convert the difference through <strong class="text-neutral-200">{routeCount} open, keyless
+        routes</strong> across <strong class="text-neutral-200">{SWAP_CHAIN_COUNT} chains</strong>.
+        Nothing swaps by itself, and PipRail takes nothing on top.
+      </p>
+
+      <dl class="mx-auto mt-12 grid max-w-3xl grid-cols-2 gap-3 sm:grid-cols-4">
+        {[
+          { n: routeCount, l: 'routes' },
+          { n: SWAP_CHAIN_COUNT, l: 'chains' },
+          { n: SWAP_PROOF_COUNT, l: 'mainnet proofs' },
+          { n: '0%', l: 'taken by PipRail' },
+        ].map((s) => (
+          <div class="rounded-xl border border-white/10 bg-neutral-950 px-4 py-5 text-center">
+            <dt class="font-display text-3xl font-semibold text-accent">{s.n}</dt>
+            <dd class="mt-1 text-[11px] uppercase tracking-wider text-muted">{s.l}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+
+    <!-- ── The three rules ────────────────────────────────────────────────── -->
+    <section class="pb-14">
+      <div class="grid gap-4 md:grid-cols-3">
+        {[
+          {
+            icon: Ban,
+            title: 'Never automatic',
+            body: 'Paying never swaps. Planning never swaps. There is no autoSwap flag, because converting one asset into another is a priced, irreversible act a payment library should not do on your behalf. A test asserts the default is byte-identical.',
+          },
+          {
+            icon: KeyRound,
+            title: 'Open and keyless',
+            body: 'Every route had to answer a plain server request with no API key to qualify. Several need no API at all: the quote is an on-chain read and the swap is a contract call your own key signs.',
+          },
+          {
+            icon: CircleDollarSign,
+            title: 'PipRail takes 0%',
+            body: 'We never set an integrator, platform or referrer fee on any route. You pay the pool fee, which each quote reads from the venue and reports back, and the chain gas. Nothing else.',
+          },
+        ].map((c) => (
+          <div class="card rounded-2xl p-6">
+            <h2 class="flex items-center gap-2 font-display text-base font-semibold text-neutral-100">
+              <c.icon size={16} class="text-accent" aria-hidden="true" />
+              {c.title}
+            </h2>
+            <p class="mt-3 text-sm leading-relaxed text-neutral-400">{c.body}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <!-- ── Exact output ───────────────────────────────────────────────────── -->
+    {exactOutRoutes.length > 0 && (
+      <section id="exact-output" class="scroll-mt-24 border-t border-white/10 py-16 sm:py-20">
+        <SectionHeading title="An invoice names an exact amount. Some routes honour that exactly." class="max-w-3xl">
+          Most routers are exact-<em>input</em>: you say what you will spend and find out what
+          arrives. An x402 invoice is the other way round.
+        </SectionHeading>
+        <div class="grid gap-4 md:grid-cols-2">
+          <div class="card rounded-2xl p-6">
+            <h3 class="flex items-center gap-2 font-display text-sm font-semibold text-neutral-100">
+              <Target size={15} class="text-accent" aria-hidden="true" />
+              {exactOutRoutes.length} routes take the invoice amount directly
+            </h3>
+            <p class="mt-3 text-sm leading-relaxed text-neutral-400">
+              They ask for the amount the invoice names and cap the input <strong class="text-neutral-200">on-chain</strong>,
+              so the trade fails rather than overspends. On TON the router enforces a floor at or
+              above the invoice instead, so a little more can arrive and less never does. Proven to
+              the unit: one Aptos swap was asked for 0.05 USDT and the chain's own deposit event
+              recorded exactly 50000 base units.
+            </p>
+            <ul class="mt-4 flex flex-wrap gap-1.5">
+              {exactOutRoutes.map((p) => (
+                <li class="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 py-1 pl-1 pr-2.5 text-[11px] text-accent">
+                  <img src={`/swaps/${p.logo}`} alt="" width="16" height="16" loading="lazy" class="h-4 w-4 rounded-full" />
+                  {p.name}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div class="card rounded-2xl p-6">
+            <h3 class="flex items-center gap-2 font-display text-sm font-semibold text-neutral-100">
+              <Layers size={15} class="text-accent" aria-hidden="true" />
+              The rest are sized from a probe, then checked
+            </h3>
+            <p class="mt-3 text-sm leading-relaxed text-neutral-400">
+              Where a venue only offers exact-input, PipRail prices a nominal trade, scales the
+              input to the amount you need, then <strong class="text-neutral-200">re-quotes and
+              verifies the real route clears the invoice</strong>. A route that would land short
+              returns <code class="text-neutral-300">null</code> rather than a swap that leaves you
+              still unable to pay.
+            </p>
+          </div>
+        </div>
+      </section>
+    )}
+
+    <!-- ── Routes ─────────────────────────────────────────────────────────── -->
+    <section id="routes" aria-labelledby="routes-h" class="scroll-mt-24 border-t border-white/10 py-16 sm:py-20">
+      <SectionHeading title="Every route, and what it costs you">
+        {PROTOCOL_COUNT} where the ledger itself swaps and there is no third party at all,
+        {' '}{PROVIDER_COUNT} through a named venue. Each earned its place by settling a real
+        mainnet transaction we then read back from a public node.
+      </SectionHeading>
+      <span id="routes-h" class="sr-only">Swap routes</span>
+
+      <div class="grid items-start gap-5 md:grid-cols-2">
+        {SWAP_PROVIDERS.map((p) => (
+          <article class="card flex flex-col rounded-2xl p-6 transition hover:border-accent/30">
+            <div class="flex items-start gap-4">
+              <img src={`/swaps/${p.logo}`} alt="" width="40" height="40" loading="lazy" class="h-10 w-10 shrink-0 rounded-full" />
+              <div class="min-w-0 flex-1">
+                <h3 class="font-display text-lg font-semibold leading-tight text-neutral-100">{p.name}</h3>
+                <a
+                  href={p.url}
+                  rel="noopener noreferrer nofollow"
+                  target="_blank"
+                  class="mt-0.5 inline-flex items-center gap-1 text-xs text-neutral-500 transition hover:text-neutral-300"
+                >
+                  {p.host}
+                  <ExternalLink size={11} aria-hidden="true" />
+                </a>
+              </div>
+              <span
+                class={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider ${
+                  p.kind === 'protocol'
+                    ? 'border-accent/40 bg-accent/10 text-accent'
+                    : 'border-white/15 bg-white/5 text-neutral-400'
+                }`}
+              >
+                {p.kind === 'protocol' ? 'the ledger' : 'router'}
+              </span>
+            </div>
+
+            <p class="mt-4 text-sm leading-relaxed text-neutral-400">
+              {ticked(p.mechanism).map((t) => (t.code
+                ? <code class="rounded bg-white/5 px-1 py-0.5 font-mono text-[12px] text-neutral-200">{t.text}</code>
+                : <span>{t.text}</span>))}
+            </p>
+
+            <p class="mt-4 text-xs font-medium uppercase tracking-wider text-muted">
+              {p.chains.length === 1 ? 'On' : `On ${p.chains.length} chains`}
+            </p>
+            <ul class="mt-2 flex flex-wrap gap-1.5">
+              {p.chains.map((c) => (
+                <li class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 py-1 pl-1 pr-2.5 text-[11px] text-neutral-300">
+                  <img src={`/chains/${c.slug}.svg`} alt="" width="16" height="16" loading="lazy" class="h-4 w-4 rounded-full" />
+                  {c.name}
+                </li>
+              ))}
+            </ul>
+
+            <p class="mt-4 text-xs leading-relaxed text-neutral-500">
+              {ticked(p.fee).map((t) => (t.code
+                ? <code class="rounded bg-white/5 px-1 py-0.5 font-mono text-[11px] text-neutral-300">{t.text}</code>
+                : <span>{t.text}</span>))}
+            </p>
+
+            <div class="mt-auto pt-5">
+              <p class="text-xs font-medium uppercase tracking-wider text-muted">
+                {p.unproven ? 'Not yet proven on mainnet' : `Proven on mainnet · ${p.proofs.length}`}
+              </p>
+              {p.unproven && (
+                <p class="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[11px] leading-relaxed text-amber-200/80">
+                  {ticked(p.unproven).map((t) => (t.code
+                    ? <code class="rounded bg-amber-500/10 px-1 py-0.5 font-mono text-amber-100">{t.text}</code>
+                    : <span>{t.text}</span>))}
+                </p>
+              )}
+              <ul class="mt-2 space-y-1.5">
+                {p.proofs.map((t) => (
+                  <li class="text-[11px] leading-relaxed">
+                    <a
+                      href={t.url}
+                      rel="noopener noreferrer nofollow"
+                      target="_blank"
+                      class="inline-flex items-center gap-1 font-mono text-accent/80 transition hover:text-accent"
+                    >
+                      {t.short}
+                      <ExternalLink size={10} aria-hidden="true" />
+                    </a>
+                    <span class="text-neutral-500"> {t.summary}</span>
+                    {t.covers && <span class="text-neutral-600"> ({t.covers})</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+
+    <!-- ── By chain ───────────────────────────────────────────────────────── -->
+    <section id="by-chain" class="scroll-mt-24 border-t border-white/10 py-16 sm:py-20">
+      <SectionHeading title="The other way round: by chain">
+        Same data, indexed by the thing you probably already know. Sorted by how much of it we
+        have proven.
+      </SectionHeading>
+
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[36rem] border-separate border-spacing-y-1.5 text-left">
+          <thead>
+            <tr class="text-[11px] uppercase tracking-wider text-muted">
+              <th scope="col" class="px-4 pb-1 font-medium">Chain</th>
+              <th scope="col" class="px-4 pb-1 font-medium">Routes</th>
+              <th scope="col" class="px-4 pb-1 font-medium">Proofs</th>
+            </tr>
+          </thead>
+          <tbody>
+            {byChain.map((c) => (
+              <tr class="card transition hover:border-accent/30">
+                <th scope="row" class="rounded-l-xl px-4 py-3 text-left font-normal">
+                  <span class="inline-flex items-center gap-2 text-sm text-neutral-200">
+                    <img src={`/chains/${c.slug}.svg`} alt="" width="20" height="20" loading="lazy" class="h-5 w-5 rounded-full" />
+                    {c.name}
+                  </span>
+                </th>
+                <td class="px-4 py-3">
+                  <span class="flex flex-wrap gap-1.5">
+                    {c.routes.map((r) => (
+                      <span class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 py-1 pl-1 pr-2.5 text-[11px] text-neutral-300">
+                        <img src={`/swaps/${r.logo}`} alt="" width="14" height="14" loading="lazy" class="h-3.5 w-3.5 rounded-full" />
+                        {r.name}
+                      </span>
+                    ))}
+                  </span>
+                </td>
+                <td class="rounded-r-xl px-4 py-3 text-sm tabular-nums text-neutral-400">
+                  {c.proofs.length > 0 ? c.proofs.length : <span class="text-amber-200/70">not yet</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <p class="mt-6 text-sm text-neutral-500">
+        {noSwapFamilies.length > 0 ? (
+          <>
+            {noSwapFamilies.join(', ')}{' '}{noSwapFamilies.length === 1 ? 'has' : 'have'} no swap route yet.
+          </>
+        ) : (
+          <>Every one of the {familyCount} families PipRail supports can swap.</>
+        )}
+      </p>
+    </section>
+
+    <!-- ── In code ────────────────────────────────────────────────────────── -->
+    <section class="border-t border-white/10 py-16 sm:py-20">
+      <SectionHeading title="Look first, then commit">
+        The shape of the API is the point: one call reads and prices, a second one moves money.
+        You never get the second by accident.
+      </SectionHeading>
+      <CodeWindow code={quoteSnippet} file="swap.ts" />
+      <p class="mt-6 max-w-3xl text-sm leading-relaxed text-neutral-400">
+        <code class="text-neutral-300">quoteSwap()</code> never throws for a read problem, and
+        <code class="text-neutral-300"> null</code> never means "you are broke": it means no route,
+        no liquidity, a read that failed, or a chain with no swap support. Slippage rides
+        <strong class="text-neutral-200"> on-chain</strong> wherever the venue allows it, so a
+        market that moves past your tolerance fails the transaction instead of overspending.
+        Nothing is swapped when that happens, though chains that charge for a reverted
+        transaction still take the gas.
+      </p>
+    </section>
+
+    <!-- ── Safety + rejections ────────────────────────────────────────────── -->
+    <section id="safety" class="scroll-mt-24 border-t border-white/10 py-16 sm:py-20">
+      <SectionHeading title="Two things we deliberately did not do">
+        Both are absences, and both are the point.
+      </SectionHeading>
+      <div class="grid gap-4 md:grid-cols-2">
+        <div class="card rounded-2xl p-6">
+          <h3 class="flex items-center gap-2 font-display text-sm font-semibold text-neutral-100">
+            <ShieldCheck size={15} class="text-accent" aria-hidden="true" />
+            There is no swap tool for agents
+          </h3>
+          <p class="mt-3 text-sm leading-relaxed text-neutral-400">
+            Your spend policy governs <em>paying a merchant</em>. A swap moves your own funds
+            between denominations, so it sits outside every cap you have. An agent able to swap
+            could drain a wallet through fees and slippage without tripping a single budget check.
+            So <code class="text-neutral-300">quoteSwap</code> and
+            <code class="text-neutral-300">swap</code> are for a developer writing code, and the
+            <a href="/mcp/" class="text-accent underline underline-offset-2 transition hover:text-accent/80"> MCP server</a>
+            {' '}exposes neither. The missing tool is the safety property.
+          </p>
+        </div>
+        <div class="card rounded-2xl p-6">
+          <h3 class="flex items-center gap-2 font-display text-sm font-semibold text-neutral-100">
+            <ShieldOff size={15} class="text-accent" aria-hidden="true" />
+            What we turned down
+          </h3>
+          <p class="mt-3 text-sm leading-relaxed text-neutral-400">
+            Every candidate was probed from a plain server request with no key. 0x and 1inch
+            answered 401, Squid and Rango wanted an integrator header, thirdweb Bridge required a
+            key and takes an unavoidable 0.30%, and Odos and OpenOcean bot-blocked the request
+            entirely. None of them ship here. An endpoint that blocks a server is not a headless
+            integration, however good its documentation is.
+          </p>
+        </div>
+      </div>
+
+      {unprovenRoutes.length > 0 && (
+        <div class="mt-4 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-6">
+          <h3 class="font-display text-sm font-semibold text-amber-100">
+            And one route ships without a proof, which we would rather say than hide
+          </h3>
+          {unprovenRoutes.map((p) => (
+            <p class="mt-3 text-sm leading-relaxed text-amber-100/70">
+              <strong class="text-amber-100">{p.name}:</strong>{' '}
+              {ticked(p.unproven!).map((t) => (t.code
+                ? <code class="rounded bg-amber-500/10 px-1 py-0.5 font-mono text-[13px] text-amber-100">{t.text}</code>
+                : <span>{t.text}</span>))}
+            </p>
+          ))}
+        </div>
+      )}
+    </section>
+
+    <!-- ── FAQ ────────────────────────────────────────────────────────────── -->
+    <section id="faq" class="scroll-mt-24 border-t border-white/10 py-16 sm:py-20">
+      <SectionHeading title="Common questions" />
+      <div class="space-y-3">
+        {faqs.map((f) => (
+          <details class="card group rounded-2xl p-5 transition hover:border-accent/30">
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-4 text-[15px] font-medium text-neutral-100">
+              {f.q}
+              <ArrowRight size={15} class="shrink-0 text-muted transition group-open:rotate-90" aria-hidden="true" />
+            </summary>
+            <p class="mt-3 text-sm leading-relaxed text-neutral-400">{f.a}</p>
+          </details>
+        ))}
+      </div>
+    </section>
+
+    <!-- ── Keep exploring ─────────────────────────────────────────────────── -->
+    <section class="border-t border-white/10 py-16 sm:py-20">
+      <SectionHeading title="Keep exploring">
+        Where swapping fits in the rest of PipRail.
+      </SectionHeading>
+      <ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {[
+          { href: '/sdk/', title: 'The SDK', body: 'Accept x402 in a few lines, or point an agent at a paid URL. Swapping is one optional helper inside it.' },
+          { href: '/facilitators/', title: 'Facilitators', body: 'Which keyless facilitator settles a gasless payment on your chain, and why you may need none at all.' },
+          { href: '/chains/', title: 'Every supported chain', body: 'The full chain and token matrix, so you can see what you would be swapping between.' },
+          { href: '/mcp/', title: 'The MCP server', body: 'A budget-bound wallet for an AI agent. It exposes no swap tool, deliberately.' },
+          { href: '/demo/', title: 'A live x402 endpoint', body: 'A real payable URL you can hit right now: dual-rail, on mainnet.' },
+          { href: 'https://docs.piprail.com/making-payments/swapping/', title: 'Swapping docs', body: 'The full guide: every proof table, the per-chain caveats, and the API reference.' },
+        ].map((l) => (
+          <li>
+            <a href={l.href} class="card group flex h-full flex-col rounded-2xl p-5 transition hover:border-accent/30">
+              <h3 class="flex items-center gap-1.5 text-[15px] font-medium text-neutral-100 transition group-hover:text-accent">
+                {l.title}
+                <ArrowRight size={14} class="opacity-0 transition group-hover:translate-x-0.5 group-hover:opacity-70" aria-hidden="true" />
+              </h3>
+              <p class="mt-2 text-sm leading-relaxed text-neutral-400">{l.body}</p>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <!-- ── CTA ────────────────────────────────────────────────────────────── -->
+    <section class="pb-20 text-center">
+      <h2 class="text-2xl font-semibold tracking-tight sm:text-3xl">Or never think about it again.</h2>
+      <p class="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-neutral-400">
+        Swapping is opt-in. Install the SDK, name a chain, add a wallet, and get paid without
+        touching any of this.
+      </p>
+      <a href="/sdk/" class="cta-glow mt-7 inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110">
+        Start with the SDK <ArrowRight size={16} aria-hidden="true" />
+      </a>
+    </section>
+  </main>
+
+  <Footer />
+  <script is:inline type="application/ld+json" set:html={JSON.stringify(datasetLd)} />
+  <script is:inline type="application/ld+json" set:html={JSON.stringify(itemListLd)} />
+  <script is:inline type="application/ld+json" set:html={JSON.stringify(faqLd)} />
+</Layout>

@@ -20,7 +20,7 @@ parameter:
 
 | Family | `chain` values |
 | --- | --- |
-| **EVM** | `ethereum`, `base`, `arbitrum`, `optimism`, `polygon`, `bnb`, `avalanche`, `mantle`, `sonic`, `linea`, `scroll`, `celo`, `zksync`, `unichain`, `worldchain`, `sei`, `injective`, `hyperevm`, `monad`, `kaia`, **plus any other EVM chain** by viem `Chain` or `{ id, rpcUrl }` |
+| **EVM** | `ethereum`, `base`, `arbitrum`, `optimism`, `polygon`, `bnb`, `avalanche`, `mantle`, `sonic`, `linea`, `scroll`, `celo`, `zksync`, `unichain`, `worldchain`, `sei`, `injective`, `hyperevm`, `monad`, `kaia`, `robinhood`, **plus any other EVM chain** by viem `Chain` or `{ id, rpcUrl }` |
 | **Solana** | `solana` |
 | **TON** | `ton` |
 | **Tron** | `tron` |

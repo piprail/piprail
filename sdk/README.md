@@ -78,6 +78,7 @@ The same app can **take** payments and **make** them. → [Making payments](http
 | **[Getting started](https://docs.piprail.com/getting-started/introduction/)** | Install · quickstart · how it works |
 | **[Accepting payments](https://docs.piprail.com/accepting-payments/require-payment-and-gate/)** | `requirePayment` · `createPaymentGate` · [presets](https://docs.piprail.com/accepting-payments/merchant-presets/) (`createPaywall` / `createTipJar`) · [framework adapters](https://docs.piprail.com/accepting-payments/framework-adapters/) · the `exact` rail · the `upto` metered rail |
 | **[Making payments](https://docs.piprail.com/making-payments/piprail-client/)** | `PipRailClient` · `quote` · `estimateCost` · `planPayment` · auto-route · `MultiChainPayer` |
+| **[Swapping tokens](https://docs.piprail.com/making-payments/swapping/)** | `quoteSwap` · `swap` — OPTIONAL, opt-in, never automatic. Keyless routes only, no fee, no API key |
 | **[Verifiable receipts](https://docs.piprail.com/accepting-payments/verifiable-receipts/)** | Chain-grounded, anyone-verifiable receipts (no key) · optional EIP-712 attestation |
 | **[Spend controls](https://docs.piprail.com/spend-controls/payment-policy/)** | Per-token + cross-token grand total · payment-count caps · time envelope · durable budget · the spend ledger |
 | **[Agent toolkit](https://docs.piprail.com/agent-toolkit/payment-tools/)** | `paymentTools` · the agent guide · NL renderers |

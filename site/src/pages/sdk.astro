@@ -7,11 +7,32 @@ import CodeWindow from '../components/CodeWindow.astro'
 import SectionHeading from '../components/SectionHeading.astro'
 import FeatureGrid from '../components/FeatureGrid.astro'
 import { chains } from '../data/chains'
+import {
+  SWAP_PROVIDERS,
+  PROTOCOL_COUNT,
+  SWAP_CHAIN_COUNT,
+  SWAP_PROOF_COUNT,
+} from '../data/swap-providers'
 import { glossary } from '../data/glossary'
 import { gateCode, payCode } from '../data/snippets'
 import { Zap, Coins, ShieldCheck, PackageCheck, ArrowRight, ChevronDown, Check, Code2 } from 'lucide-astro'
 
 const total = chains.length
+
+/*
+ * The families with NO swap route yet, DERIVED rather than typed out. A hand-written
+ * list here went stale the moment three families shipped, and claimed NEAR, Algorand
+ * and Sui were unsupported while their proofs sat six inches above it on the same page.
+ *
+ * `chains.family` is title-case ('NEAR', 'Sui'); the swap data carries lower-case chain
+ * slugs ('near', 'sui'), and EVM chains carry their own slug rather than a family name.
+ * So compare case-insensitively and treat any EVM chain having a route as EVM covered.
+ */
+const swapSlugs = new Set(SWAP_PROVIDERS.flatMap((p) => p.chains.map((c) => c.slug.toLowerCase())))
+const evmCovered = chains.some((c) => c.family === 'EVM' && swapSlugs.has(c.slug.toLowerCase()))
+const noSwapFamilies = [...new Set(chains.map((c) => c.family))].filter((f) =>
+  f === 'EVM' ? !evmCovered : !swapSlugs.has(f.toLowerCase())
+)
 const familyCount = [...new Set(chains.map((c) => c.family))].length
 
 const title = 'x402 SDK: accept & make crypto payments in one line | PipRail'
@@ -84,6 +105,10 @@ const faqs = [
   {
     q: `How does an agent know if it can actually pay before paying?`,
     a: `Call client.planPayment(url). It's a read-only call that surveys the 402 across every rail it offers on your chain and checks each against your own wallet: token balance, native-coin gas, and whether the recipient can even receive (trustline / associated token account / storage_deposit / ASA opt-in / account activation). It returns payable plus the best rail to use, per-rail blockers (INSUFFICIENT_TOKEN, INSUFFICIENT_GAS, RECIPIENT_NOT_READY, OUTSIDE_POLICY), and a one-sentence fundingHint telling you exactly what to top up. It never throws for a transient RPC failure (that rail comes back as state: 'unknown'), and returns null when the URL isn't payment-gated. Turn on autoRoute and client.fetch pays the cheapest settleable rail automatically; planAcross(clients, url) plans across several chains at once.`,
+  },
+  {
+    q: `What if the wallet holds the wrong token?`,
+    a: `You have options, and swapping is only one of them: top the wallet up, pay from another chain you already hold funds on (MultiChainPayer does that for you), or skip the resource. If you do want to swap, client.quoteSwap() prices it read-only and client.swap() executes it, but nothing swaps by itself. Paying never swaps, planning never swaps, and there is no autoSwap setting, because converting one asset into another is a priced, irreversible act that a payment library should not do on your behalf. A test asserts the default is byte-identical, so ignoring the feature entirely costs you nothing. It ships only where an open, keyless route exists: ${SWAP_PROVIDERS.length} routes across ${SWAP_CHAIN_COUNT} chains, ${PROTOCOL_COUNT} of them cases where the ledger itself swaps so there is no third party at all. Every venue with an API had to answer a plain keyless server request with HTTP 200 to qualify: 0x, 1inch, Odos, OpenOcean, Squid, Rango and thirdweb Bridge all failed that bar and were rejected. On Aptos and Tron there is no API in the middle at all, so there was nothing to ask: the quote is an on-chain read and the swap is a contract call your own key signs. PipRail takes no fee on any of it, and ${SWAP_PROOF_COUNT} real mainnet transactions are published so you can check. And because PipRail runs no price oracle, every quote names who priced it. The full breakdown is at /swaps/.`,
   },
   {
     q: `How do agents discover my x402 endpoint, and how do I get listed?`,
@@ -348,6 +373,55 @@ const glossaryLd = {
     </section>
 
     <!-- FAQ -->
+    <!-- Swapping now has its OWN page (/swaps/). This is the signpost, and every number in
+         it is still derived from the generated data so the two cannot disagree. -->
+    <section class="border-t border-white/10 py-16 sm:py-20">
+      <SectionHeading title="Hold the wrong token? Swap it, if you want to." class="max-w-2xl">
+        An optional helper, off by default. Nothing swaps by itself: paying never swaps,
+        planning never swaps, and there is no autoSwap flag. Ignoring it costs you nothing,
+        and a test proves that.
+      </SectionHeading>
+
+      <a href="/swaps/" class="card group block rounded-2xl p-6 transition hover:border-accent/30 sm:p-8">
+        <dl class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[
+            { n: SWAP_PROVIDERS.length, l: 'routes' },
+            { n: SWAP_CHAIN_COUNT, l: 'chains' },
+            { n: SWAP_PROOF_COUNT, l: 'mainnet proofs' },
+            { n: '0%', l: 'taken by PipRail' },
+          ].map((s) => (
+            <div class="rounded-xl border border-white/10 bg-neutral-950 px-4 py-4 text-center">
+              <dt class="font-display text-2xl font-semibold text-accent">{s.n}</dt>
+              <dd class="mt-0.5 text-[11px] uppercase tracking-wider text-muted">{s.l}</dd>
+            </div>
+          ))}
+        </dl>
+
+        <ul class="mt-6 flex flex-wrap gap-1.5">
+          {SWAP_PROVIDERS.map((p) => (
+            <li class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 py-1 pl-1 pr-2.5 text-[11px] text-neutral-300">
+              <img src={`/swaps/${p.logo}`} alt="" width="16" height="16" loading="lazy" class="h-4 w-4 rounded-full" />
+              {p.name}
+            </li>
+          ))}
+        </ul>
+
+        <p class="mt-6 max-w-3xl text-sm leading-relaxed text-neutral-400">
+          Every route is <strong class="text-neutral-200">open and keyless</strong>, and
+          <strong class="text-neutral-200"> PipRail takes nothing on top</strong>. Each earned its
+          place by settling a real mainnet transaction we then read back from a public node.
+          {' '}{noSwapFamilies.length > 0
+            ? `${noSwapFamilies.join(', ')} ${noSwapFamilies.length === 1 ? 'has' : 'have'} no swap route yet.`
+            : `Every one of the ${familyCount} families PipRail supports can swap.`}
+        </p>
+
+        <span class="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-accent transition group-hover:gap-2.5">
+          See every route, chain and transaction
+          <ArrowRight size={15} aria-hidden="true" />
+        </span>
+      </a>
+    </section>
+
     <section class="border-t border-white/10 py-16 sm:py-20">
       <div class="grid gap-8 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:gap-16">
         <div class="lg:sticky lg:top-24 lg:self-start">
@@ -369,6 +443,33 @@ const glossaryLd = {
           ))}
         </div>
       </div>
+    </section>
+
+    <!-- ── Keep exploring: the map. Every major surface, one hop away. ───── -->
+    <section class="border-t border-white/10 py-16 sm:py-20">
+      <SectionHeading title="Keep exploring">
+        The rest of PipRail, and where each piece fits.
+      </SectionHeading>
+      <ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {[
+          { href: '/chains/', title: 'Every supported chain', body: 'The full chain and token matrix: what you can charge in, and where.' },
+          { href: '/facilitators/', title: 'Facilitators', body: 'Which keyless facilitator settles a gasless payment on your chain, and why you may need none.' },
+          { href: '/swaps/', title: 'Token swaps', body: 'Holding the wrong token? Open, keyless routes on every family, and PipRail takes nothing.' },
+          { href: '/mcp/', title: 'The MCP server', body: 'Give an AI agent a budget-bound wallet that can pay x402 URLs on its own.' },
+          { href: '/discovery/', title: 'Discovery & the Bazaar', body: 'How a PipRail 402 describes itself so agents and indexes can find it.' },
+          { href: '/demo/', title: 'A live x402 endpoint', body: 'A real payable URL you can hit right now: dual-rail, on mainnet.' },
+        ].map((l) => (
+          <li>
+            <a href={l.href} class="card group flex h-full flex-col rounded-2xl p-5 transition hover:border-accent/30">
+              <h3 class="flex items-center gap-1.5 text-[15px] font-medium text-neutral-100 transition group-hover:text-accent">
+                {l.title}
+                <ArrowRight size={14} class="opacity-0 transition group-hover:translate-x-0.5 group-hover:opacity-70" aria-hidden="true" />
+              </h3>
+              <p class="mt-2 text-sm leading-relaxed text-neutral-400">{l.body}</p>
+            </a>
+          </li>
+        ))}
+      </ul>
     </section>
 
     <!-- CTA -->

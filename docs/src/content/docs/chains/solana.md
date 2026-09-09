@@ -228,3 +228,23 @@ Solana runs in the browser as well as on the server: the libraries load from a C
 [import map](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script/type/importmap)
 that pins them to a browser-ESM build. The lazy import means a pure-EVM page never downloads
 them. For server-only the same one line runs unchanged on Node, Bun, Deno, or Workers.
+
+## Swapping on Solana
+
+Holding the wrong token? `quoteSwap()` prices a same-chain swap read-only and `swap()` is the
+only call that moves anything. It is **opt-in and never automatic**: paying never swaps and
+planning never swaps.
+
+Solana has no protocol-level swap, so a named venue routes it: **[Jupiter](https://jup.ag)**.
+It is keyless, and PipRail sets no integrator or platform fee on it.
+
+2 real mainnet swaps back this route, and the transaction hashes are published so you can read
+them back off the chain yourself.
+
+```ts
+const quote = await client.quoteSwap({ from: 'native', to: 'USDC', wantAmount: '0.50' })
+if (quote) await client.swap(quote)   // null means no route, never "no funds"
+```
+
+Full guide: [Swapping tokens](/making-payments/swapping/). Every route, indexed by chain as
+well as by venue, is at [piprail.com/swaps](https://piprail.com/swaps).

@@ -40,7 +40,7 @@
   },
   "devDependencies": {
     "@n8n/node-cli": "^0.35.1",
-    "@piprail/sdk": "^2.13.1",
+    "@piprail/sdk": "^3.0.0",
     "viem": "^2.21.0",
     "n8n-workflow": "*",
     "tsup": "^8",

@@ -23,6 +23,7 @@ import {
 } from './chains.js'
 import { parseUnits } from '../../util/units.js'
 import { payStellar } from './pay.js'
+import { quoteStellarSwap, swapStellar } from './swap.js'
 import {
   verifyStellar,
   type StellarReader,
@@ -226,6 +227,12 @@ function makeStellarNetwork(preset: StellarPreset, rpcUrl: string): ResolvedNetw
       })
     },
 
+    /** The bound wallet's own address — where THIS wallet gets paid. Derived from the key
+     *  material only: no RPC, nothing moved. See {@link ResolvedNetwork.addressOf}. */
+    async addressOf(wallet: WalletHandle): Promise<string> {
+      return resolveStellarWallet(wallet._native as StellarWalletConfig).publicKey()
+    },
+
     async balanceOf(wallet: WalletHandle, asset: string): Promise<WalletBalance> {
       let owner: string
       try {
@@ -282,6 +289,17 @@ function makeStellarNetwork(preset: StellarPreset, rpcUrl: string): ResolvedNetw
           b.asset_issuer === parts.issuer
       )
       return hasTrustline ? { ready: true as const } : { ready: false as const, reason: 'NO_TRUSTLINE' as const }
+    },
+
+    /* ---- swap (OPTIONAL, opt-in): a path payment to yourself. See ./swap.ts ---- */
+
+    async quoteSwap({ from, to, wantAmount, slippageBps }) {
+      return quoteStellarSwap({ server, network, from, to, wantAmount, slippageBps })
+    },
+
+    async swap(wallet, quote) {
+      const keypair = resolveStellarWallet(wallet._native as StellarWalletConfig)
+      return swapStellar({ server, keypair, quote })
     },
 
     async verify(_ref, accept) {

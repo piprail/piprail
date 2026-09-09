@@ -222,6 +222,33 @@ export const CHAINS = {
       USDT: { address: '0xd077A400968890Eacc75cdc901F0356c943e4fDb', decimals: 6, symbol: 'USDT' },
     },
   },
+  /**
+   * Robinhood Chain — Arbitrum Orbit L2 for tokenized equities, mainnet since 2026-07-01.
+   * viem ships no preset for it (it is not in chainid.network either), so the chain is
+   * defined inline from the values Robinhood publishes.
+   *
+   * ONE stablecoin on purpose: USDG, the Paxos-issued Global Dollar, which is the asset the
+   * chain's own markets quote against. Circle does NOT issue native USDC here (verified
+   * against Circle's contract list 2026-09-08), so no USDC/USDT preset ships — a bridged
+   * one would break the "issuer-native only" token rule.
+   */
+  robinhood: {
+    chain: defineChain({
+      id: 4663,
+      name: 'Robinhood Chain',
+      nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+      rpcUrls: { default: { http: ['https://rpc.mainnet.chain.robinhood.com'] } },
+      blockExplorers: {
+        default: { name: 'Blockscout', url: 'https://robinhoodchain.blockscout.com' },
+      },
+    }),
+    tokens: {
+      // Paxos Global Dollar. EIP-3009 AND EIP-2612 verified on-chain 2026-09-08 (exact-payable);
+      // the EIP-712 domain name is "Global Dollar" (NOT "USDG") — the buyer re-derives it from
+      // the contract, so the symbol below is display-only, same as Ethereum's EURC.
+      USDG: { address: '0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168', decimals: 6, symbol: 'USDG' },
+    },
+  },
 } satisfies Record<string, ChainPreset>
 
 /** A built-in EVM chain name. */

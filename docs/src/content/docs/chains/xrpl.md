@@ -164,3 +164,23 @@ const client = new PipRailClient({
   rpcUrl: 'https://your-xrpl-node/',
 })
 ```
+
+## Swapping on the XRP Ledger
+
+Holding the wrong token? `quoteSwap()` prices a same-chain swap read-only and `swap()` is the
+only call that moves anything. It is **opt-in and never automatic**: paying never swaps and
+planning never swaps.
+
+The ledger itself swaps, through the **XRPL DEX + AMM**, so there is no third party involved
+at all: no router to approve, no API key, and no integrator fee that could even be expressed.
+
+2 real mainnet swaps back this route, and the transaction hashes are published so you can read
+them back off the chain yourself.
+
+```ts
+const quote = await client.quoteSwap({ from: 'native', to: 'USDC', wantAmount: '0.50' })
+if (quote) await client.swap(quote)   // null means no route, never "no funds"
+```
+
+Full guide: [Swapping tokens](/making-payments/swapping/). Every route, indexed by chain as
+well as by venue, is at [piprail.com/swaps](https://piprail.com/swaps).

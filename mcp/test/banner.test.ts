@@ -5,6 +5,8 @@ import type { Config } from '../src/config.js'
 const cfg = (over: Partial<Config> = {}): Config => ({
   chain: 'base',
   walletSecret: 'SECRET',
+  // A parsed Config ALWAYS carries a mode; parseConfig defaults it to 'budgeted'.
+  mode: 'budgeted',
   readOnly: false,
   maxAmount: '0.10',
   maxTotal: '10.00',

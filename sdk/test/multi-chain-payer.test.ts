@@ -49,6 +49,7 @@ function mkNet(
       feeFormatted: '0.0001',
       basis: 'estimated',
     }),
+    addressOf: async () => 'FAKE_SELF_ADDRESS',
     balanceOf: async () => ({ token: 100_000_000n, native: 100_000_000n }),
     recipientReady: async () => ({ ready: 'n/a' as const }),
     verify: async () => ({

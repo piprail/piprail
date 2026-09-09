@@ -45,6 +45,10 @@ const CHAIN_META = {
   'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp': { name: 'Solana', slug: 'solana', explorer: 'https://solscan.io/tx/' },
   'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=': { name: 'Algorand', slug: 'algorand', explorer: 'https://allo.info/tx/' },
   'near:mainnet':  { name: 'NEAR',       slug: 'near',      explorer: 'https://nearblocks.io/txns/' },
+  'eip155:4663':   { name: 'Robinhood',  slug: 'robinhood', explorer: 'https://robinhoodchain.blockscout.com/tx/' },
+  'aptos:1': { name: 'Aptos', slug: 'aptos', explorer: 'https://explorer.aptoslabs.com/txn/' },
+  'tvm:-239': { name: 'TON', slug: 'ton', explorer: 'https://tonviewer.com/transaction/' },
+  'tron:mainnet': { name: 'Tron', slug: 'tron', explorer: 'https://tronscan.org/#/transaction/' },
 }
 
 const EVM_HASH = /0x[0-9a-fA-F]{64}/g

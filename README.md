@@ -10,7 +10,7 @@
 [![types](https://img.shields.io/npm/types/@piprail/sdk.svg?logo=typescript&logoColor=white&color=3178c6)](https://www.npmjs.com/package/@piprail/sdk)
 [![license](https://img.shields.io/github/license/piprail/piprail.svg?color=2ee6a6)](LICENSE)
 [![x402 v2](https://img.shields.io/badge/x402-v2-6e56cf.svg)](https://x402.org)
-[![chains](https://img.shields.io/badge/chains-29%20across%2010%20families-2ee6a6.svg)](https://docs.piprail.com/chains/overview/)
+[![chains](https://img.shields.io/badge/chains-30%20across%2010%20families-2ee6a6.svg)](https://docs.piprail.com/chains/overview/)
 [![GitHub stars](https://img.shields.io/github/stars/piprail/piprail?style=flat&logo=github&label=Star&color=2ee6a6)](https://github.com/piprail/piprail)
 [![Follow @piprailhq](https://img.shields.io/badge/Follow-%40piprailhq-1d9bf0?logo=x&logoColor=white)](https://x.com/piprailhq)
 
@@ -75,7 +75,7 @@ The whole thesis in one read: **why** agent payments are happening now, **why** 
 
 | | |
 |---|---|
-| **[`@piprail/sdk`](https://www.npmjs.com/package/@piprail/sdk)** | The TypeScript SDK — accept & make x402 payments. The product. |
+| **[`@piprail/sdk`](https://www.npmjs.com/package/@piprail/sdk)** | The TypeScript SDK — accept & make x402 payments. The product. Optionally [swaps tokens](https://docs.piprail.com/making-payments/swapping/) where an open, keyless route exists (no fee, no API key, never automatic). |
 | **[`@piprail/mcp`](https://www.npmjs.com/package/@piprail/mcp)** | An MCP server giving any AI agent a budget-bound wallet ([`io.github.piprail/mcp`](https://registry.modelcontextprotocol.io)). |
 | **[`@piprail/create`](https://www.npmjs.com/package/@piprail/create)** | `npm create @piprail` — scaffolds a runnable, mainnet-by-default x402 merchant in one command. Paste a public address; no key, no backend. |
 | **[`integrations/`](integrations)** | First-party agent-framework integrations — **OpenClaw**, **Hermes**, **elizaOS** (`@piprail/elizaos-plugin`), **n8n** (`@piprail/n8n-nodes-piprail`) & **Mastra**. Each wraps `@piprail/sdk` or `@piprail/mcp`; nothing new to build. |

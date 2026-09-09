@@ -52,6 +52,7 @@ const fakeEvm: PaymentDriver = {
       send: async () => `0x${'1'.repeat(64)}`,
       confirm: async () => ({ height: '1' }),
       estimateCost: async () => ({ feeSymbol: 'ETH', feeDecimals: 18, fee: '0', feeFormatted: '0', basis: 'heuristic' as const }),
+      addressOf: async () => 'FAKE_SELF_ADDRESS',
       balanceOf: async () => ({ token: 0n, native: 0n }),
       recipientReady: async () => ({ ready: 'n/a' as const }),
       // Deterministic onchain-proof verify (the receipt is identical for both gates).

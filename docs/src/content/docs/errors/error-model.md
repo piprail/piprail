@@ -198,6 +198,17 @@ an unsettleable rail carries typed `blockers`, and a missing field comes back `n
 [`fetch(url, { autoRoute: true })`](/making-payments/fetch-and-autoroute/), the one place a plan
 turns into a thrown `PaymentDeclinedError` when nothing is settleable.
 
+[Swapping](/making-payments/swapping/) follows the same split. `quoteSwap()` is a read and
+**never throws for a read problem**: no route, no liquidity, a dead node or a hostile response all
+return `null`, and on a read-only client it returns `null` rather than demanding a wallet. The one
+thing it throws is a malformed `slippageBps`, as a plain `RangeError` before any read, because that
+is a bug in your code and hiding it behind `null` would read as "no route". `swap()` is the write:
+`WalletRequiredError` on a read-only client, `UnsupportedNetworkError` on a chain with no route (the
+message names every venue that does exist) or for a quote from another network, and
+`InsufficientFundsError` when the wallet cannot cover it or the chain rejects the swap, which
+includes the market moving past the slippage cap. Nothing is swapped in that case; chains that
+charge for a reverted transaction (EVM, Aptos, Tron) still take the gas.
+
 [Discovery](/discovery/discover-and-register/) is read-style too: `client.discover()` reports `[]`
 for a dead index rather than throwing, and `client.register()` returns one `{ ok, detail }` outcome
 per target, surfaced and never swallowed.

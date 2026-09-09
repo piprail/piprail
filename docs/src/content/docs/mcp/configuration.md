@@ -40,6 +40,9 @@ Each variable also accepts the shorter **alias** shown under its name.
 | `PIPRAIL_PRIVATE_KEY`<br/><small>aka `PIPRAIL_WALLET_KEY` · `AGENT_KEY`</small> | only to **pay** | none | Wallet key/seed/mnemonic in the chain's native format (see below). **Omit it** to run read-only (discover/quote/register/budget/guide work; pay/plan need it). |
 | `PIPRAIL_CHAIN`<br/><small>aka `CHAIN`</small> | no | `base` | EVM preset name or non-EVM family. One wallet on one chain. (Single-chain mode.) |
 | `PIPRAIL_CHAINS` | no | none | **Multi-chain mode.** Comma-separated chains (e.g. `base,polygon,solana`). Each takes its own `PIPRAIL_<CHAIN>_KEY` (+ optional `PIPRAIL_<CHAIN>_RPC_URL`); the server pays whichever chain a 402 asks for. Mutually exclusive with `PIPRAIL_CHAIN`/`PIPRAIL_PRIVATE_KEY`/`PIPRAIL_RPC_URL`. See [below](#pay-on-several-chains-from-one-server). |
+| `PIPRAIL_MODE` | no | `budgeted` | Who is answerable for this wallet: `supervised` (a human approves each payment), `budgeted` (the policy is the consent), or `sovereign` (the agent owns the wallet and gets the swap, seller and wallet tools). See [Modes](/mcp/modes/). |
+| `PIPRAIL_MAX_PER_SWAP` | **yes, if `sovereign`** | none | Ceiling on what **one swap** may spend, human units. Required in sovereign mode, because your payment caps do not bound a swap. |
+| `PIPRAIL_MAX_SLIPPAGE_BPS` | no | none | Worst slippage the agent may accept, in basis points (0 to 1000). Sovereign mode only. |
 | `PIPRAIL_MAX_AMOUNT`<br/><small>aka `MAX_AMOUNT`</small> | no | `0.10` | Ceiling **per payment**, human units. |
 | `PIPRAIL_MAX_TOTAL`<br/><small>aka `MAX_TOTAL`</small> | no | `10.00` | Lifetime ceiling **per distinct token**, human units. |
 | `PIPRAIL_MAX_TOTAL_DENOM` | no | (none) | Cross-token **grand total** per denomination, e.g. `USD:20.00,EUR:5.00`. Sums every token of that unit, across every chain. See [Total budget](/spend-controls/total-budget/). |
@@ -56,7 +59,7 @@ Each variable also accepts the shorter **alias** shown under its name.
 | `PIPRAIL_WARN_AT_FRACTION` | no | (none) | Emit a `budget-threshold` event the first time spend crosses this fraction `(0,1]` of any cap. |
 | `PIPRAIL_SPEND_LOG` | no | (none) | Path to a JSONL [spend store](/spend-controls/persistence/), so the budget survives a restart. |
 | `PIPRAIL_EVENT_LOG` | no | (none) | `stderr` or a file path. One-line-JSON sink for payment + budget events. |
-| `PIPRAIL_CONFIRM` | no | `false` | Mode B: ask the human to approve each payment via elicitation. |
+| `PIPRAIL_CONFIRM` | no | `false` | Mode B: ask the human to approve each payment **and each swap** via elicitation. Implied by `PIPRAIL_MODE=supervised`. |
 | `PIPRAIL_CONFIRM_TIMEOUT_MS` | no | `55000` | Approval window in ms; keep below your client's request timeout (≈60000). |
 | `PIPRAIL_GUIDE` | no | `true` | Expose the agent-guide prompt + the guide/budget resources. |
 | `PIPRAIL_NEAR_ACCOUNT_ID`<br/><small>aka `NEAR_ACCOUNT_ID`</small> | only on NEAR | none | Your NEAR account id (e.g. `you.near`). |
@@ -241,22 +244,88 @@ debited against the MAX, so a payable plan means the ceiling fits your leash.
 Valid values are `onchain-proof`, `exact`, and `upto`; an empty or unrecognized list is rejected. See
 the [exact buyer rail](/making-payments/exact-buyer/) for what the standard scheme settles.
 
-## Two modes: autonomous vs supervised
+## Three modes: who is answerable for this wallet
 
-The wallet behaves the same in both; only the source of consent differs. See
-[Modes](/mcp/modes/) for the full contract.
+`PIPRAIL_MODE` answers one question: who stands behind the money. It decides where consent
+comes from, and whether the agent may move its own funds between denominations, and whether it
+can be paid at all. [Modes](/mcp/modes/) explains how it sits alongside the Mode A / Mode B
+consent axis.
 
-- **Mode A, headless (default).** The agent spends freely *inside* the budget and time
-  envelope. The policy **is** the consent, so there is no per-payment prompt.
-- **Mode B, supervised (`PIPRAIL_CONFIRM=1`).** On a client that can elicit, the human is
-  asked to approve each spend at the moment it happens. Decline, cancel, timeout, or a dropped
-  transport all fail-safe to **not** paying. On a client that can't elicit, it silently
-  degrades to Mode A.
+- **`supervised`** (or `PIPRAIL_CONFIRM=1`, which is the same thing said the other way). Setting
+  the mode **wires the approval hook**: on a client that can elicit, the human approves each
+  spend at the moment it happens. Decline, cancel, timeout, or a dropped transport all fail-safe
+  to **not** paying. On a client that cannot elicit, it degrades to `budgeted`. Setting the mode
+  and `PIPRAIL_CONFIRM=0` together is a contradiction and the server refuses to start.
+- **`budgeted`** (the default). The agent spends freely *inside* the budget and time envelope.
+  The policy **is** the consent, so there is no per-payment prompt. No swap tools and no seller
+  tools. Pairing it with `PIPRAIL_CONFIRM=1` is a contradiction (that combination *is* supervised
+  mode) and is refused rather than silently resolved.
+- **`sovereign`**. The agent owns this wallet and answers for it, so it gets **both halves**
+  of it: the swap tools, and the seller tools (`piprail_sell`, `piprail_collect`,
+  `piprail_earnings`) that let it price its own offers and be paid for them. It needs
+  `PIPRAIL_MAX_PER_SWAP`, and the server refuses to boot without it.
 
 ```jsonc
 "env": {
-  "PIPRAIL_CONFIRM": "1",                  // ask before every payment
+  "PIPRAIL_MODE": "supervised",            // ask before every payment
   "PIPRAIL_CONFIRM_TIMEOUT_MS": "45000"    // approval window
+}
+```
+
+```jsonc
+"env": {
+  "PIPRAIL_MODE": "sovereign",             // the agent owns this wallet
+  "PIPRAIL_MAX_PER_SWAP": "25.00",         // required: your payment caps do NOT bound a swap
+  "PIPRAIL_MAX_SLIPPAGE_BPS": "100"        // optional: refuse a tolerance above 1%
+}
+```
+
+:::caution[Sovereign is not "unguarded", it is guarded differently]
+Every payment cap you set counts **payments**. A swap is not one: it moves your own funds
+between denominations and passes `PIPRAIL_MAX_AMOUNT`, `PIPRAIL_MAX_TOTAL` and the count caps
+without touching them. That is precisely why the other modes withhold the capability, and why
+sovereign mode demands its own ceiling before it will start.
+:::
+
+### The earning half: an agent that can be paid
+
+Sovereign mode is the difference between a wallet and an allowance. A budget, however large,
+only ever lets an agent spend. Sovereign adds the other side of the ledger:
+
+| Buying | Selling |
+|---|---|
+| `piprail_quote_payment` (what will this cost?) | `piprail_sell` (what am I charging?) |
+| `piprail_pay_request` (pay it) | `piprail_collect` (verify I was paid) |
+| `piprail_budget` (what have I spent?) | `piprail_earnings` (what have I earned?) |
+
+Plus **`piprail_wallet`**: what the agent actually holds, and the address it gets paid at. That is
+a different question from `piprail_budget`, which reports how much of its allowance is left. An
+agent that owns a wallet has to be able to answer "what do I have?" before it can decide whether
+to sell, to swap, or to ask to be topped up.
+
+`piprail_sell` prices something and returns an x402 challenge. That challenge is data, so the
+agent hands it to a buyer over whatever channel it already has, with no web server and no open
+port anywhere. When the buyer returns a payment proof, `piprail_collect` verifies it against
+the chain, and only a `paid: true` result clears the agent to deliver. Each proof can be
+collected once, so a replay never reads as a second sale.
+
+Two properties make this safe to grant where spending is not:
+
+- **The receiving side holds no key.** `payTo` is a public address, so the earning half cannot
+  spend and cannot be drained even if the machine running it is taken.
+- **The agent is paid at its own address by default.** It never has to be told where it gets
+  paid, and it never uses an address a buyer supplied.
+
+Selling needs no ceiling of its own, because it takes money rather than spending it. The one
+thing to watch is reach: an offer that resolves to `onchain-proof` only can be paid by a
+PipRail buyer and by a human, but not by the ordinary x402 agent-buyer, which speaks `exact`.
+`piprail_sell` asks for the `exact` rail first and reports it in `warnings` when it could not
+get one.
+
+```jsonc
+"env": {
+  "PIPRAIL_MODE": "sovereign",             // the whole wallet: buy, swap AND sell
+  "PIPRAIL_MAX_PER_SWAP": "25.00"          // still required: a swap needs its own ceiling
 }
 ```
 

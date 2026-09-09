@@ -7,7 +7,7 @@
 import { appendFileSync } from 'node:fs'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { fileSpendStore } from '@piprail/sdk/node'
-import type { PipRailEvent } from '@piprail/sdk'
+import { paymentTools, type PipRailEvent } from '@piprail/sdk'
 import {
   parseConfig,
   configToClientOptions,
@@ -52,10 +52,13 @@ export async function startServer(
   }
   // Multi-chain (PIPRAIL_CHAINS) ⇒ one client per chain behind a MultiChainPayer (sharing
   // one ledger so the grand total spans chains); single-chain ⇒ the one client.
-  const { server } = config.chains
+  const { server, client } = config.chains
     ? createMcpServer(configToClientOptionsList(config), serverOpts)
     : createMcpServer(configToClientOptions(config), serverOpts)
-  printBanner(config)
+  // Report the tools the model ACTUALLY holds, not the default eight: sovereign mode adds
+  // the swap and seller tools, and a banner that under-reports them hides exactly the
+  // capability an operator most needs to see they granted.
+  printBanner(config, paymentTools(client).map((t) => t.name))
   const transport = new StdioServerTransport()
   await server.connect(transport)
 }

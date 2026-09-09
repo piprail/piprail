@@ -2,11 +2,11 @@
 """Original, copyright-free hype track for the PipRail promo.
 120 BPM EDM build -> drop, synthesized from scratch (pure stdlib). Structure is
 timed to the video: ambient intro (0-4s), groove (4-12s), RISER -> DROP at 12s to
-hit the chain-storm, full body (12-30s), final build + big outro hit (30-36s)."""
+hit the payment landing, full body (12-30s), final build + big outro hit (30-38s)."""
 import math, struct, wave, random, array
 
 SR = 44100
-DUR = 36.0
+DUR = 38.0
 N = int(SR * DUR)
 random.seed(20260607)
 
@@ -255,6 +255,8 @@ for i in range(N):
     pumped = (b_bass[i] + b_chord[i] + b_lead[i] + b_pad[i]) * duck[i]
     s = b_kick[i] + b_perc[i] + b_fx[i] + pumped
     s *= 1.05
+    s *= 0.0 if 11.0 <= i / SR < 12.0 else 1.0
+    s *= min(1.0, max(0.0, (DUR - i / SR) / 0.5))
     mix[i] = math.tanh(s * 1.15)             # soft clip / glue
 
 # normalize to -1.2 dBFS

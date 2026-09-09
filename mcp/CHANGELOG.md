@@ -1,5 +1,28 @@
 # @piprail/mcp changelog
 
+## [0.10.0] — 2026-09-09 — on `@piprail/sdk` 3.0.0 — `PIPRAIL_MODE`: three modes, and a wallet the agent can EARN with
+
+**The default is unchanged.** Omit `PIPRAIL_MODE` and you get the same **8 tools**, in the same order,
+behaving exactly as before. Everything below is opt-in.
+
+- **`PIPRAIL_MODE`** — `supervised` · `budgeted` (default) · `sovereign`. Who is answerable for this
+  wallet, set by the operator in the environment. A model can never set it for itself: no tool takes a
+  `mode` argument and nothing writes it.
+- **`sovereign` gives the agent both halves of its wallet — 14 tools.** It appends
+  `piprail_quote_swap`, `piprail_swap`, the seller tools **`piprail_sell` · `piprail_collect` ·
+  `piprail_earnings`**, and **`piprail_wallet`** (what it holds, and the address it gets paid at).
+  Selling needs **no key at all** (`payTo` is a public address), so the earning side cannot spend and
+  cannot be drained even if the host is taken. It requires `PIPRAIL_MAX_PER_SWAP`, and the server
+  refuses to boot without it: your payment caps count payments, and a swap is not one.
+- **🔴 `supervised` now actually supervises.** The mode↔confirm inference ran one way, so
+  `PIPRAIL_CONFIRM=1` meant supervised but *naming the mode wired nothing* — an operator who asked for
+  a human in the loop got an agent that paid without ever asking anybody. Both directions now agree,
+  and a config that says both things at once (`budgeted` + `PIPRAIL_CONFIRM=1`) is refused at boot
+  rather than quietly resolved.
+- **Confirmation now covers SWAPS too.** `onBeforePay` never sees a swap, because a swap is not a
+  payment, so a supervised sovereign agent could have swapped its whole balance without one prompt.
+- **The startup banner reports the tools the model actually holds**, instead of a hardcoded eight.
+
 ## [0.9.0] — 2026-06-20 — on `@piprail/sdk` 2.10.0 — an 8th tool: `piprail_verify_receipt`
 
 Surfaces the SDK 2.10.0 verifiable-receipts capability. **Now 8 `piprail_*` tools** (was 7) — existing

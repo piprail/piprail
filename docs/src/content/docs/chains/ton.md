@@ -200,3 +200,26 @@ TON's libraries don't ship a clean browser ESM build yet, so run the TON path **
 the identical one line, on Node, Bun, Deno, or Workers. The lazy import means a pure-EVM page
 never downloads them. See [Chains & tokens](/concepts/chains-and-tokens/) for the full
 cross-chain caveat list.
+
+## Swapping on TON
+
+Holding the wrong token? `quoteSwap()` prices a same-chain swap read-only and `swap()` is the
+only call that moves anything. It is **opt-in and never automatic**: paying never swaps and
+planning never swaps.
+
+TON has no protocol-level swap, so a named venue routes it: **[STON.fi](https://ston.fi)**. It
+is keyless, and PipRail sets no integrator or platform fee on it.
+
+⭐ This is one of the routes that is **exact-output**: the invoice amount goes in as the output
+and the input is capped on chain, rather than being sized from a probe.
+
+2 real mainnet swaps back this route, and the transaction hashes are published so you can read
+them back off the chain yourself.
+
+```ts
+const quote = await client.quoteSwap({ from: 'native', to: 'USDT', wantAmount: '0.50' })
+if (quote) await client.swap(quote)   // null means no route, never "no funds"
+```
+
+Full guide: [Swapping tokens](/making-payments/swapping/). Every route, indexed by chain as
+well as by venue, is at [piprail.com/swaps](https://piprail.com/swaps).

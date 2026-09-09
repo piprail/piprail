@@ -73,6 +73,10 @@ mcp/*.local.mjs
 # Local-only secret store (wallet mnemonic + private key). NEVER commit.
 .secrets/
 
+# Third-party mail dumped by the spacemail reader (inbox.mjs --dump). Other
+# people's email, headers included. NEVER commit.
+.cloud/
+
 # Root build/scratch outputs (Foundry leftovers, packed tarballs, etc.)
 /out/
 /cache/

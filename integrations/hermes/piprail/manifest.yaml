@@ -23,7 +23,7 @@ transport:
   # Pinned, reviewed release — the catalog never floats a package (a bare
   # `@piprail/mcp` would npx whatever is latest at install time). Bumping the
   # pin is a new reviewed PR, exactly like any transport ref.
-  args: ["-y", "@piprail/mcp@0.9.0"]
+  args: ["-y", "@piprail/mcp@0.10.0"]
   version: "0.9.0"
   # Explicit subprocess env mapping. Hermes writes this into mcp_servers.piprail.env
   # verbatim; the ${PIPRAIL_PRIVATE_KEY} reference is resolved at connect time from

@@ -1,0 +1,15 @@
+{
+  "name": "@piprail/example-swap",
+  "private": true,
+  "type": "module",
+  "version": "0.0.1",
+  "description": "PipRail optional swap helper — quote a same-chain swap read-only, then execute it deliberately.",
+  "scripts": {
+    "quote": "node swap.mjs",
+    "swap": "node swap.mjs --execute"
+  },
+  "dependencies": {
+    "@piprail/sdk": "^2.16.0"
+  },
+  "comment": "Add the peer lib for your chain: @solana/web3.js @solana/spl-token bs58 (Solana), @stellar/stellar-sdk (Stellar), xrpl (XRP Ledger), viem (EVM, already a hard peer)."
+}

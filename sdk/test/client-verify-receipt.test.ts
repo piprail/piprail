@@ -57,6 +57,7 @@ function makeFake(family: PaymentDriver['family'], network: string, accepts: (ch
         send: async () => 'tx',
         confirm: async () => ({ height: '1' }),
         estimateCost: async () => ({ feeSymbol: 'X', feeDecimals: 6, fee: '0', feeFormatted: '0', basis: 'heuristic' as const }),
+        addressOf: async () => 'FAKE_SELF_ADDRESS',
         balanceOf: async () => ({ token: 0n, native: 0n }),
         recipientReady: async () => ({ ready: 'n/a' as const }),
         verify: async (ref: string, accept) => {

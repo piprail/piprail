@@ -7,7 +7,7 @@ sidebar:
 
 ## Introduction
 
-The PipRail MCP server advertises **eight tools**, built by the SDK's
+The PipRail MCP server advertises **eight tools** by default, built by the SDK's
 [`paymentTools(client)`](/agent-toolkit/payment-tools/) and dropped straight onto the wire. The
 SDK descriptors carry draft-07 JSON Schema, so the server forwards them untouched. Only
 `piprail_pay_request` moves funds; `piprail_register` writes a listing to an external index
@@ -25,6 +25,35 @@ output still reads the text.
 Each tool carries advisory [MCP annotations](/agent-toolkit/the-agent-tools/) (`readOnlyHint`,
 `destructiveHint`, `openWorldHint`, …). They are hints only; the real boundary is the
 [spend policy](/spend-controls/payment-policy/), enforced before any send.
+
+### Six more in sovereign mode
+
+`PIPRAIL_MODE=sovereign` appends six tools, for **fourteen** in total. It appends rather than
+replaces, so everything above is unchanged for everyone who never opts in.
+
+```jsonc
+// PIPRAIL_MODE=sovereign, after the eight above
+"piprail_quote_swap" · "piprail_swap" ·
+"piprail_sell" · "piprail_collect" · "piprail_earnings" · "piprail_wallet"
+```
+
+:::caution[Why swapping is withheld by default]
+**The spend policy does not govern swaps.** Every budget cap governs paying a merchant, while a
+swap moves your own funds between denominations, so `PIPRAIL_MAX_AMOUNT`, `PIPRAIL_MAX_TOTAL`
+and the count caps all pass over it untouched. An agent able to swap could drain a wallet
+through fees and slippage without tripping a single check.
+
+Sovereign mode does not remove that problem, it bounds it with a different instrument:
+`PIPRAIL_MAX_PER_SWAP` is **required**, and the server refuses to start without it. A model can
+never grant itself the mode; the operator sets it in the environment.
+:::
+
+:::tip[Selling needs no ceiling, and no key]
+The seller tools take money rather than spending it, so no cap applies. The receiving side
+holds **no private key at all** (`payTo` is a public address), which is why earning is safe to
+grant a model where spending is not. See [the earning half](/mcp/configuration/) for the full
+contract.
+:::
 
 ## piprail_discover
 
@@ -290,6 +319,75 @@ so the same check is available wallet-free in code; see
   "onChain": { "payTo": "0xMerchant", "asset": "0x…", "amount": "100000", "payer": "0xBuyer" },
   "matchesClaims": true, "ageSeconds": 42 }
 ```
+
+## piprail_sell
+
+**Sovereign mode only.** Price something and get the x402 challenge to hand a buyer. The
+challenge is data, so it travels over any channel the agent already has: no web server, no open
+port. Creates an in-session offer; moves no funds.
+
+| Argument | Type | Meaning |
+| --- | --- | --- |
+| `description` | string | **Required.** What the buyer is paying for, and what the agent owes them. |
+| `price` | string | **Required.** Human-readable, e.g. `'2.50'`. |
+| `token` | string | What to be paid in. Defaults to `USDC`; `native` for the chain's coin. |
+| `chain` | string | Defaults to the chain the wallet is on. |
+| `payTo` | string | Where the money goes. **Defaults to the agent's own address.** |
+| `resource` | string | Identifier or URL for the thing being sold. One is minted if omitted. |
+
+Returns `{ offerId, payTo, paidToYou, price, token, chain, schemes, challenge, next, warnings? }`.
+`schemes` is what a buyer may actually use: an offer that resolves to `onchain-proof` only cannot
+be paid by an ordinary x402 agent-buyer, and that is reported in `warnings` rather than left
+silent. Offers live in memory for the session and are cleared by a restart.
+
+## piprail_collect
+
+**Sovereign mode only.** Verify, against the chain, a payment a buyer claims to have made.
+**This is the only thing that proves payment.** A buyer's word, a well-formed tx hash and a
+settled payment are three different things, and only this call tells them apart.
+
+| Argument | Type | Meaning |
+| --- | --- | --- |
+| `offerId` | string | **Required.** The offer from `piprail_sell`. |
+| `payment` | string | **Required.** What the buyer returned: the `payment-signature` header value, or the payload as JSON. Either form is accepted. |
+
+Returns `{ paid, earned, receipt, next }` on success, or `{ paid: false, reason, retryChallenge }`.
+Nothing should be delivered until `paid` is `true`.
+
+Two bindings make one payment buy exactly one thing:
+
+- **A proof belongs to the offer it was minted for.** A settlement presented against a different
+  offer is refused with `code: 'wrong_offer'`, checked before the chain is consulted. Without it,
+  two offers at the same price to the same address are indistinguishable to any driver (both ask
+  only "did this move at least X to this address?"), so a buyer could pay for the cheap one and
+  collect the expensive one.
+- **A settlement is spent once, across every offer in the session.** The used-proof set belongs to
+  the seller, not to each offer, so redeeming a payment on one offer kills it on all of them.
+
+## piprail_earnings
+
+**Sovereign mode only.** What the agent has sold and what it has actually been paid, the
+earning-side mirror of `piprail_budget`. Counts only payments proven by `piprail_collect`,
+never what a buyer claimed. Read-only, in-memory for the session.
+
+Returns `{ offers, totals, collected, report }`.
+
+## piprail_wallet
+
+**Sovereign mode only.** What the agent HOLDS, and the address it gets paid at: the balance
+sheet, which is a different question from `piprail_budget` (how much of the allowance is left).
+Read-only.
+
+| Argument | Type | Meaning |
+| --- | --- | --- |
+| `assets` | string[] | Symbols to report, e.g. `['native','USDC','USDT']`. Defaults to the chain's coin and USDC. |
+
+Returns `{ address, chain, holdings, report, next }`. Each holding carries `known` (false when
+the chain does not ship that symbol) and an `amount` that is **`null` when the read was
+unavailable, never `0`**. An agent must be able to tell "I hold nothing" apart from "I could not
+find out", because acting on the second as if it were the first looks exactly like having been
+drained. On a multi-chain server the holdings span **every** chain the agent owns, not just the
+primary.
 
 ## The guide prompt and resources
 

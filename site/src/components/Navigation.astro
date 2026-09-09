@@ -1,11 +1,11 @@
 ---
 // Shared top navigation: sticky, translucent, used on every page for consistency.
-// `path` highlights the active link (e.g. the Demo pill on /demo). At tablet and
-// below (< lg) the secondary links collapse into a hamburger that opens a
+// `path` highlights the active link (e.g. the Demo pill on /demo). Below `xl`
+// (1280px) the secondary links collapse into a hamburger that opens a
 // full-height slide-in overlay (backdrop + right panel). CSS does the slide
 // (keyed on data-open); a tiny progressive script toggles it + locks scroll +
 // closes on backdrop / link / Escape.
-import { ArrowRight, Play, Menu, X, BookText, Package, Plug, Link2, Compass, Handshake, Github, Newspaper, Route } from 'lucide-astro'
+import { ArrowRight, Play, Menu, X, BookText, Package, Plug, Link2, Compass, Handshake, Github, Newspaper, Route, Repeat } from 'lucide-astro'
 
 interface Props {
   path?: string
@@ -18,8 +18,8 @@ const norm = (p: string) => (p.endsWith('/') ? p.slice(0, -1) : p) || '/'
 const isActive = (p: string) => norm(path) === norm(p)
 const linkCls = (p: string) =>
   isActive(p)
-    ? 'hidden items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-neutral-100 lg:inline-flex'
-    : 'hidden items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-muted transition hover:bg-white/5 hover:text-neutral-100 lg:inline-flex'
+    ? 'hidden items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-neutral-100 xl:inline-flex'
+    : 'hidden items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-muted transition hover:bg-white/5 hover:text-neutral-100 xl:inline-flex'
 
 // Every secondary link, in one list, rendered in the desktop bar and/or the
 // mobile overlay, so the two can never drift. `mobileOnly` keeps the desktop bar
@@ -27,19 +27,26 @@ const linkCls = (p: string) =>
 // Facilitators is a full desktop link, not `mobileOnly`: it is the page people arrive at from
 // search, and it must be reachable from the header wherever the header shows links at all.
 //
-// 🔴 IT CANNOT BE `mobileOnly` OR xl-ONLY. The hamburger is `lg:hidden`, so between 1024px and
-// 1279px there is no overlay AND no burger, so an overlay-only link is simply unreachable from
-// the header in that whole range. Measured at 1024px: the bar with Facilitators is 877px
-// against a 916px budget, so it fits with room to spare; adding the burger back as an overflow
-// affordance does NOT fit (921px), which is why the link goes in the bar rather than the burger
-// staying on. (Discovery and Partners are still overlay-only and so share that 1024 to 1279 gap,
-// but they remain reachable from the footer on every page.)
+// 🔴 THE INLINE BAR AND THE BURGER SWAP AT `xl` (1280px), AND THEY MUST SWAP TOGETHER.
+// Measured in a real browser: the bar needs 1028px (logo + Demo + 7 links + Get started). The
+// container is `max-w-6xl` minus `px-6`, so it offers viewport-48 up to a 1104px ceiling. At the
+// old `lg` (1024px) that is 976px, so the bar overflowed by 52px at exactly the width it was
+// supposed to appear at, which is what squashed it. At `xl` the bar needs 1056px against 1104px,
+// so it has 48px of slack and nothing wraps (both numbers measured in a browser, not estimated).
+//
+// Moving BOTH the links and the burger to `xl` also closes the dead zone the old note described:
+// while the burger was `xl:hidden` and the links `xl:inline-flex`, nothing between 1024 and
+// 1279px could reach an overlay-only link from the header at all. Every width below 1280px now
+// has the burger, so Discovery and Partners are reachable everywhere.
+//
+// Re-measure before adding a link: `needed` is the number that matters, not the count.
 const navLinks = [
   { href: 'https://docs.piprail.com', label: 'Docs', icon: BookText },
   { href: '/sdk/', label: 'SDK', icon: Package },
   { href: '/mcp/', label: 'MCP', icon: Plug },
   { href: '/chains/', label: 'Chains', icon: Link2 },
   { href: '/facilitators/', label: 'Facilitators', icon: Route },
+  { href: '/swaps/', label: 'Swaps', icon: Repeat },
   { href: '/blog/', label: 'Blog', icon: Newspaper },
   { href: '/discovery/', label: 'Discovery', mobileOnly: true, icon: Compass },
   { href: '/partners/', label: 'Partners', mobileOnly: true, icon: Handshake },
@@ -66,7 +73,7 @@ const mobileLinkCls = (href: string) =>
         href="/demo/"
         aria-current={onDemo ? 'page' : undefined}
         class:list={[
-          'hidden shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm font-medium transition lg:inline-flex',
+          'hidden shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm font-medium transition xl:inline-flex',
           onDemo
             ? 'border-accent/40 bg-accent/15 text-accent'
             : 'border-accent/20 bg-accent/8 text-accent hover:border-accent/40 hover:bg-accent/15',
@@ -90,7 +97,7 @@ const mobileLinkCls = (href: string) =>
         aria-label="Open menu"
         aria-controls="mobile-nav"
         aria-expanded="false"
-        class="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 text-neutral-300 transition hover:text-neutral-100 lg:hidden"
+        class="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 text-neutral-300 transition hover:text-neutral-100 xl:hidden"
       >
         <Menu size={18} aria-hidden="true" />
       </button>
@@ -106,14 +113,14 @@ const mobileLinkCls = (href: string) =>
   </div>
 </header>
 
-<!-- Tablet/mobile slide-in overlay (< md). Backdrop fades, panel slides from the
+<!-- Tablet/mobile slide-in overlay (< xl). Backdrop fades, panel slides from the
      right; CSS keys off data-open, the script below toggles it. -->
 <div
   id="mobile-nav"
   data-open="false"
   aria-hidden="true"
   inert
-  class="group/nav fixed inset-0 z-60 opacity-0 pointer-events-none transition-opacity duration-200 data-[open=true]:opacity-100 data-[open=true]:pointer-events-auto lg:hidden"
+  class="group/nav fixed inset-0 z-60 opacity-0 pointer-events-none transition-opacity duration-200 data-[open=true]:opacity-100 data-[open=true]:pointer-events-auto xl:hidden"
 >
   <!-- backdrop (click to close) -->
   <div data-close class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
@@ -195,8 +202,10 @@ const mobileLinkCls = (href: string) =>
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && overlay.dataset.open === 'true') close()
     })
-    // Crossing to desktop (lg) hides the overlay via CSS, so clear the lock + state too.
-    window.matchMedia('(min-width: 1024px)').addEventListener('change', (e) => {
+    // Crossing to desktop (xl) hides the overlay via CSS, so clear the lock + state too.
+    // This width MUST track the `xl:hidden` above: if the two drift, a resize past the
+    // breakpoint leaves the scroll lock on with no visible panel to close, stranding the page.
+    window.matchMedia('(min-width: 1280px)').addEventListener('change', (e) => {
       if (e.matches) set(false)
     })
     // A bfcache restore can return with a stale lock, so reset on show.

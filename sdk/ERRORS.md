@@ -52,10 +52,10 @@ Base class [`PipRailError`](src/errors.ts) (abstract; `.name` = the subclass nam
 |---|---|---|---|
 | `WRONG_FAMILY` | `WrongFamilyError` | wallet / `payTo` / token given in another family's shape (or a malformed same-family shape) | every driver (`bindWallet`, `assertValidPayTo`, `resolveToken`) |
 | `UNKNOWN_TOKEN` | `UnknownTokenError` | a built-in token symbol the chain doesn't ship (e.g. `token: 'DOGE'`) | every driver (`resolveToken`) |
-| `INSUFFICIENT_FUNDS` | `InsufficientFundsError` | the **payer** can't cover the transfer (+ fees / reserve / its own trustline) | every driver (`send`) — see §6 |
+| `INSUFFICIENT_FUNDS` | `InsufficientFundsError` | the **payer** can't cover the transfer (+ fees / reserve / its own trustline); or a `swap()` failed on-chain, which includes the market moving past the slippage cap (nothing swapped; EVM/Aptos/Tron still take the gas) | every driver (`send`, `swap`) — see §5, §6 |
 | `RECIPIENT_NOT_READY` | `RecipientNotReadyError` | the **recipient** (`payTo`) isn't set up to receive on this chain — XRPL not activated (needs ≥1 XRP base reserve); Stellar account missing / no trustline; NEAR not `storage_deposit`-registered | Stellar / XRPL / NEAR drivers (`send`) — see §6.1 |
 | `WRONG_CHAIN` | `WrongChainError` | a bring-your-own `walletClient` is on a different chain than configured | EVM wallet adapter; client pre-send guard |
-| `WALLET_REQUIRED` | `WalletRequiredError` | a wallet-bound op (`fetch`/pay, `planPayment`, `discoverySigner`) was called on a **read-only** client built with no `wallet` | client |
+| `WALLET_REQUIRED` | `WalletRequiredError` | a wallet-bound op (`fetch`/pay, `planPayment`, `swap`, `discoverySigner`) was called on a **read-only** client built with no `wallet` (`quoteSwap` on a read-only client returns `null` instead: it is a read) | client |
 | `CONFIRMATION_TIMEOUT` | `ConfirmationTimeoutError` | broadcast OK but the tx didn't confirm within the driver's window (re-check the ref) | every driver (`confirm`) |
 | `PAYMENT_TIMEOUT` | `PaymentTimeoutError` | the **server** didn't respond within `retryTimeoutMs` *after* broadcast — **carries `.ref`** | client |
 | `MAX_RETRIES_EXCEEDED` | `MaxRetriesExceededError` | server kept returning 402 after broadcast — **message embeds the last server `error — detail`, and carries `.ref`** | client |
@@ -66,8 +66,14 @@ Base class [`PipRailError`](src/errors.ts) (abstract; `.name` = the subclass nam
 | `UNSUPPORTED_SCHEME` | `UnsupportedSchemeError` | asked to pay a scheme the bound family/asset/signer can't settle, with no fallback: `exact` on a family without a `payExact` driver (i.e. not EVM or Solana), a non-EIP-3009 token (native/plain ERC-20) on a proxy-less chain, or a contract / EIP-1271 / EIP-7702 signer | client / EVM + Solana `exact` (`payExact`) |
 | `NON_REPLAYABLE_BODY` | `NonReplayableBodyError` | `init.body` isn't replayable (e.g. a one-shot stream) | client |
 | `MISSING_DRIVER` | `MissingDriverError` | a family's **optional peer deps aren't installed** (the lazy `import()` failed) — message names the exact `npm install` and sets `{ cause }` | registry loaders |
-| `UNSUPPORTED_NETWORK` | `UnsupportedNetworkError` | no driver for the family, or the driver's `resolve()` returned `null` (unrecognised `chain`) | registry |
+| `UNSUPPORTED_NETWORK` | `UnsupportedNetworkError` | no driver for the family, or the driver's `resolve()` returned `null` (unrecognised `chain`); or `swap()` on a chain with no swap route (the message names every venue that exists, read from `SWAP_PROVIDERS`), or a `SwapQuote` from a different network than the client is bound to | registry · client (`swap`) |
 | `SETTLEMENT_FAILED` | `SettlementError` | the standard `exact` rail: a payment was VALID (sig recovered, simulated) but **settlement failed server-side** — the merchant's relayer couldn't broadcast, or a Mode-B facilitator returned a transport/auth error. NOT the payer's fault (their authorization stays valid + unused), so the adapter returns **5xx**, never 402 | gate (`exact` rail) |
+
+One thrown error on the swap path is deliberately **not** a `PipRailError`: a malformed
+`slippageBps` (negative, fractional, or above `MAX_SLIPPAGE_BPS`) throws a plain `RangeError` from
+`resolveSlippageBps`, before any I/O, from `quoteSwap()` and `swap()` alike. It is a bug in the
+caller's code rather than a payment condition, so it gets the language's own error and is never
+softened into a `null` that would read as "no route".
 
 `MISSING_DRIVER` vs `UNSUPPORTED_NETWORK` is a deliberate split: *deps not installed* vs
 *chain not supported*. Don't reuse one for the other.
@@ -190,6 +196,8 @@ Every `PaymentDriver` / `ResolvedNetwork` method has a fixed error behaviour:
 | `settleExactSelf?(input)` *(optional, EVM)* | **return** a `VerifyResult` for a CLIENT-fixable fault (`signature_invalid`/`wrong_recipient`/`amount_too_low`/`payment_expired`/`tx_already_used`/`tx_reverted` → 402); **throw `SettlementError`** when a valid+simulated payment fails to BROADCAST (relayer/RPC → 5xx). Re-derive every checked field from the trusted `accept`, never the client echo. |
 | `settleUptoSelf?(input)` *(optional, EVM-Permit2)* | the metered sibling of `settleExactSelf` — **return** a `VerifyResult` for a CLIENT-fixable fault (same set, plus `upto_settle_exceeds_max` when the metered `settleAmount` exceeds the signed MAX); **throw `SettlementError`** on a broadcast failure of a valid auth (→ 5xx). Re-verifies the signature against `permitted.amount` (the signed MAX), NEVER the metered actual; `settleAmount === 0n` returns a synthetic zero-charge receipt (`transaction:""`) with NO broadcast. Re-derive every checked field from the trusted `accept`. |
 | `confirm(ref, n)` | broadcast-but-not-confirmed / timeout → `ConfirmationTimeoutError`. |
+| `quoteSwap?(params)` *(optional)* | **never throw** — RPC/HTTP-read-only, exactly like `estimateCost`. No pool, no route, a hostile or truncated response, or a failed read all return **`null`**. A caller asking "could I swap?" must never have to wrap it in a try/catch, and a thrown quote would turn a missing pool into an outage. |
+| `swap?(wallet, quote)` *(optional)* | wrap the broadcast; map affordability → `InsufficientFundsError` and **rethrow everything else unchanged**. 🔴 **A submitted transaction is not a completed swap** — assert the chain's own outcome before returning a `SwapReceipt` (EVM `receipt.status`, Solana `confirmTransaction`'s `err`, Aptos `success`, Tron's broadcast `code`). Returning on submission alone reports a swap that moved nothing, which is how this was caught on two families at once. |
 | `estimateCost(accept, opts?)` | **never throw** — guard the RPC read and fall back to a `'heuristic'` constant; always return a valid `CostEstimate`. |
 | `balanceOf(wallet, asset)` | **never throw** — RPC-read-only. A field whose read was unavailable (transient/rate-limit) returns `null`, NOT `0` (a false 0 reads as "broke"). For `asset==='native'`, `token === native`. |
 | `recipientReady(payTo, asset)` | **never throw** — report the receive prerequisite: `{ ready:'n/a' }` (no prerequisite on this family/native), `{ ready:true }`, `{ ready:false, reason }` (a `RecipientReason`), or `{ ready:'unknown' }` on a transient read. `'n/a'` must be TRUTHFUL — never a stand-in for "didn't check". |
