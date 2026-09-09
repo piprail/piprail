@@ -4,6 +4,49 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- 🔴 **A custom `isUsed`/`markUsed` replay store could redeem ONE proof N times, concurrently.**
+  The gate's built-in set has always reserved a ref synchronously, which is what stops two
+  simultaneous requests carrying the same proof from both settling. The CUSTOM-store branch did
+  not: it `await`ed `isUsed(ref)` before verification and wrote only after it, so every concurrent
+  request read "unused" and every one settled. Five simultaneous requests redeemed one payment
+  five times. The gate now takes the same synchronous in-process reservation BEFORE consulting a
+  custom store, so a single instance is safe whichever store is configured. Across several
+  processes that set cannot help, so an atomic check-and-reserve (Redis `SET NX`) is still what
+  protects a multi-instance deployment, and the documented example now uses one: it previously
+  showed `exists()` then `set()`, which is the exact non-atomic pattern the surrounding text
+  warned against. Found by a concurrency sweep; the suite had no concurrent replay test at all.
+
+- 🔴 **A sovereign agent could deliver N goods for ONE payment.** `piprail_sell` gives every offer
+  its own gate, and a gate's replay set is scoped to itself, so cross-offer replay was guarded by
+  a store-level `isUsed`/`markUsed` pair sharing the race above. Sequentially it refused correctly;
+  five concurrent `piprail_collect` calls against five offers all collected the same settlement,
+  which is the normal shape of a shop with more than one buyer. `collect` now reserves the proof
+  ref synchronously before any await, and releases it if the payment does not settle.
+
+- **A chain id that is not a chain id is refused at config time.** `{ id: NaN }` (and negative,
+  fractional or unsafe-integer ids) resolved happily, and the gate went on to publish
+  `network: "eip155:NaN"` in a live 402 — an unparseable CAIP-2 that a standard x402 client cannot
+  read. It failed closed later, but surfaced as `tx_not_found` at payment time rather than as the
+  configuration error it is.
+
+- **A gate must charge more than zero.** `amount: '0'` built a rail whose amount check any transfer
+  satisfies, so a paywall could read as configured and gate nothing. A metered `upto` SETTLE of
+  zero stays legitimate, because that is the settled amount and not the advertised one.
+  `piprail_sell` inherits the same floor, so a zero price can no longer mint an offer.
+
+### Added
+
+- **`releaseUsed` — the third replay hook.** Optional, and only meaningful when `isUsed` RESERVES
+  (the `SET NX` shape). Without it, making a custom store atomic traded a double-spend for a worse
+  failure: a transient RPC error left the reservation standing, so a buyer whose funds had already
+  moved could never redeem the proof. The built-in store has always released on failure; this is
+  how a custom store does the same. Supplying it without `isUsed`/`markUsed` throws, because it
+  would never fire.
+
 ## [3.0.0] — 2026-09-09 — agent modes: a wallet an agent can EARN with, not only spend from
 
 ### BREAKING

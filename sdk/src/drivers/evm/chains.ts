@@ -3,6 +3,7 @@ import {
   arbitrum, avalanche, base, bsc, celo, hyperEvm, injective, kaia, linea, mainnet, mantle, monad,
   optimism, polygon, scroll, sei, sonic, unichain, worldchain, zksync,
 } from 'viem/chains'
+import { InvalidConfigError } from '../../errors.js'
 
 /**
  * ── EVM SECTION: chains ──
@@ -327,6 +328,18 @@ export function resolveChain(
   }
 
   // A bare { id, rpcUrl } — any EVM chain.
+  /*
+   * An EIP-155 chain id is a POSITIVE INTEGER. Without this, `{ id: NaN }` resolved happily and
+   * the gate went on to publish `network: "eip155:NaN"` in a live 402 — an unparseable CAIP-2
+   * that every standard x402 client would choke on. It failed closed later (the RPC read finds
+   * nothing), but the failure surfaced as `tx_not_found` at payment time rather than as the
+   * config error it actually is. Amounts are validated this strictly; chain ids must be too.
+   */
+  if (!Number.isSafeInteger(input.id) || input.id <= 0) {
+    throw new InvalidConfigError(
+      `resolveChain: chain id must be a positive safe integer (EIP-155), got ${String(input.id)}.`
+    )
+  }
   const rpcUrl = rpcUrlOverride ?? input.rpcUrl
   if (!rpcUrl) {
     throw new Error(`resolveChain: chain ${input.id} needs an rpcUrl.`)

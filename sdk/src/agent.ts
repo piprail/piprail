@@ -138,6 +138,16 @@ function nonceIn(payload: unknown): string | undefined {
   return fromPayload ?? fromAccept
 }
 
+/** The proof ref (tx hash / digest / locator) a buyer presented, from either wire shape.
+ *  The cross-offer replay guard reserves on THIS value, so it must read the same field the
+ *  gate ultimately verifies (`payload.txHash`). */
+function refIn(payload: unknown): string | undefined {
+  if (typeof payload !== 'object' || payload === null) return undefined
+  const inner = (payload as Record<string, unknown>).payload as Record<string, unknown> | undefined
+  const ref = inner && typeof inner.txHash === 'string' ? inner.txHash.trim() : undefined
+  return ref ? ref.toLowerCase() : undefined
+}
+
 function toToolError(err: unknown): Record<string, unknown> {
   if (!(err instanceof PipRailError)) throw err
   const out: Record<string, unknown> = {
@@ -847,11 +857,16 @@ export function paymentTools(client: PayingClient): AgentTool[] {
           const railSchemes = (t: { rails?: ReadonlyArray<{ schemes?: readonly string[] }> }): string[] => [
             ...new Set((t.rails ?? []).flatMap((r) => [...(r.schemes ?? [])])),
           ]
-          const shared = {
-            isUsed: (ref: string) => spentProofs.has(ref),
-            markUsed: (ref: string) => void spentProofs.add(ref),
-          }
-          let gate = createPaymentGate({ ...base, ...shared, exact: true })
+          /*
+           * Each offer's gate keeps its OWN built-in replay set — that set reserves
+           * synchronously, so it already stops a SAME-offer double-collect under concurrency.
+           * CROSS-offer replay is owned by `collect` instead (see `spentProofs` above): it
+           * reserves the ref synchronously before any await, which a per-gate set cannot do
+           * for its siblings, and which an injected isUsed/markUsed pair cannot do at all
+           * (the gate reads it before `verify()` and writes it after, so N concurrent
+           * collects on N gates would every one observe "unused").
+           */
+          let gate = createPaymentGate({ ...base, exact: true })
           let check = await gate.selfTest()
           const warnings: string[] = []
           /*
@@ -862,7 +877,7 @@ export function paymentTools(client: PayingClient): AgentTool[] {
            */
           if (!check.ok || !railSchemes(check).includes('exact')) {
             const why = check.error ?? 'it did not resolve on this RPC'
-            gate = createPaymentGate({ ...base, ...shared })
+            gate = createPaymentGate({ ...base })
             check = await gate.selfTest()
             warnings.push(
               'This offer carries onchain-proof ONLY, so a standard x402 agent-buyer cannot pay it. ' +
@@ -994,7 +1009,44 @@ export function paymentTools(client: PayingClient): AgentTool[] {
             }
           }
 
-          const result = asObject !== undefined ? await offer.gate.verifyObject(asObject) : await offer.gate.verify(raw)
+          /*
+           * 🔴 CROSS-OFFER REPLAY, INCLUDING UNDER CONCURRENCY.
+           *
+           * The nonce check above refuses a proof minted for another offer. This refuses the
+           * same SETTLEMENT being collected twice across different offers — and it must happen
+           * synchronously, before any await, or five concurrent collects each read "unspent"
+           * and each deliver. `reservedHere` is a per-invocation local, so only the call that
+           * actually won the reservation can release it; a genuine replay (someone else holds
+           * the reservation) leaves it untouched.
+           */
+          const proofRef = refIn(asObject ?? decodeBase64Json(raw))
+          let reservedHere: string | undefined
+          if (proofRef) {
+            if (spentProofs.has(proofRef)) {
+              return {
+                ok: true,
+                paid: false,
+                offerId: offer.id,
+                reason: 'this settlement was already collected — one payment settles exactly one offer.',
+                code: 'tx_already_used',
+                next: 'Do NOT deliver. Ask the buyer to pay THIS offer\'s challenge.',
+              }
+            }
+            spentProofs.add(proofRef)
+            reservedHere = proofRef
+          }
+
+          let result
+          try {
+            result = asObject !== undefined ? await offer.gate.verifyObject(asObject) : await offer.gate.verify(raw)
+          } catch (err) {
+            // A thrown verify (transient RPC) must not burn a still-valid payment.
+            if (reservedHere) spentProofs.delete(reservedHere)
+            throw err
+          }
+          // Keep the reservation ONLY for a settled payment; anything else releases it so the
+          // buyer can retry, mirroring the gate's own claim/release.
+          if (result.kind !== 'paid' && reservedHere) spentProofs.delete(reservedHere)
 
           if (result.kind === 'paid') {
             const r = result.receipt as unknown as Record<string, unknown>
