@@ -110,6 +110,7 @@ Live, read-only, free. This is the layer that goes red without anybody touching 
 | `facilitators` | every `KNOWN_FACILITATORS` host over the network: is it up, and does it advertise the network we claim of it? |
 | `swaps` | does every network `canSwapOn()` says is swappable actually return a live quote? |
 | `endpoints` | our own deployed 402 on piprail.com: conformant, self-describing, and quotable by our own client |
+| `reserves` | spendable vs held on every family, and the retained minimum on the four chains that have one |
 
 ### L4 — money (`scripts/smoke/l4-*.mjs`, needs `--money`)
 

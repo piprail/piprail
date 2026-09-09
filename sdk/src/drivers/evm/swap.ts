@@ -227,8 +227,45 @@ export async function quoteEvmSwap(p: QuoteEvmSwapParams): Promise<SwapQuote | n
     return null
   }
 
-  const real = await route(needIn)
-  const summary = real?.data?.routeSummary
+  /*
+   * REFINE, don't give up.
+   *
+   * The estimate above extrapolates a real trade's price from a deliberately tiny probe
+   * (0.01 of the input token). Price impact between those two sizes is not the caller's
+   * slippage tolerance, so when the real quote lands short there is usually a perfectly good
+   * route a fraction further in. Returning null there tells an agent "this chain cannot swap",
+   * which is false and unrecoverable: measured on Optimism, a probe rate of 402.0 wei per
+   * USDC-base became 398.1 at 2.5 USDC, a 0.49% drift that a 50 bps pad could not absorb, and
+   * the swap was refused while Base — same code, luckier drift — went through.
+   *
+   * So re-solve from the rate observed AT SIZE, which is the number that actually matters, and
+   * try again a bounded number of times. The invoice guard below is unchanged and absolute: a
+   * swap that still cannot clear is still refused. Spending more is not silent either — the
+   * input IS `maxSpend`, and `swapPolicy.maxPerSwap` is enforced against it afterwards.
+   */
+  const MAX_REFINEMENTS = 3
+  let real = await route(needIn)
+  let summary = real?.data?.routeSummary
+
+  for (let attempt = 0; attempt < MAX_REFINEMENTS; attempt++) {
+    if (!summary?.amountOut) break
+    let out: bigint
+    try {
+      out = BigInt(summary.amountOut)
+    } catch {
+      return null
+    }
+    if (out >= p.wantAmount) break // clears the invoice
+    if (out <= 0n) return null
+    // Re-solve at the observed rate, then re-apply the caller's pad. Ceil-divide so a rounding
+    // remainder can never leave us one unit short of the invoice again.
+    const next = applySlippage((needIn * p.wantAmount + out - 1n) / out, p.slippageBps)
+    if (next <= needIn) break // not converging — refuse rather than loop on a flat rate
+    needIn = next
+    real = await route(needIn)
+    summary = real?.data?.routeSummary
+  }
+
   if (!summary?.amountOut || !real?.data?.routerAddress) return null
 
   // 🔴 Verify we actually clear the invoice. Never ship a short swap.

@@ -58,6 +58,13 @@ function isXrplActNotFound(e: unknown): boolean {
   return /actNotFound/i.test(String((e as Error)?.message ?? e))
 }
 
+/** XRPL's account reserve, in drops: a base amount every account must hold, plus an increment
+ *  for each owned object (a trustline is one). Network parameters, lowered by amendment in
+ *  2024; they are read as constants because the alternative is a second RPC on a read that
+ *  must never throw. */
+const XRPL_BASE_RESERVE_DROPS = 1_000_000n
+const XRPL_OWNER_RESERVE_DROPS = 200_000n
+
 export const xrplDriver: PaymentDriver = {
   family: 'xrpl',
   resolve(opts: ResolveOptions): ResolvedNetwork | null {
@@ -343,16 +350,30 @@ function makeXrplNetwork(preset: XrplPreset, rpcUrl: string): ResolvedNetwork {
         return { token: null, native: null }
       }
       let native: bigint | null = null
+      let ownerCount = 0n
       try {
-        const r = await rpc<{ account_data: { Balance: string } }>('account_info', {
+        const r = await rpc<{ account_data: { Balance: string; OwnerCount?: number } }>('account_info', {
           account: owner,
           ledger_index: 'validated',
         })
         native = BigInt(r.account_data.Balance) // drops = 6dp base units
+        ownerCount = BigInt(r.account_data.OwnerCount ?? 0)
       } catch (e) {
         native = isXrplActNotFound(e) ? 0n : null
       }
-      if (isXrpNative(asset)) return { token: native, native }
+      if (isXrpNative(asset)) {
+        /*
+         * SPENDABLE, not held. An XRPL account must keep its reserve — a base amount plus an
+         * increment for every object it owns, and a trustline is such an object — or the
+         * transaction fails with `tecUNFUNDED`. Reporting the raw balance makes `planPayment`
+         * promise a payment the ledger then refuses, after the agent has signed. The
+         * `InsufficientFundsError` message on the pay path already named this reserve; the
+         * affordability check now accounts for it too.
+         */
+        if (native === null) return { token: null, native }
+        const reserve = XRPL_BASE_RESERVE_DROPS + XRPL_OWNER_RESERVE_DROPS * ownerCount
+        return { token: native > reserve ? native - reserve : 0n, native }
+      }
       let token: bigint | null = null
       try {
         const [currencyHex, issuer] = asset.split(':')

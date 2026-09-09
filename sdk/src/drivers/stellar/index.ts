@@ -66,6 +66,10 @@ function isStellarNotFound(e: unknown): boolean {
   return x?.response?.status === 404 || x?.name === 'NotFoundError'
 }
 
+/** Stellar's base reserve in stroops (0.5 XLM). An account's minimum balance is
+ *  `(2 + subentries) x this`, and a trustline is a subentry. */
+const STELLAR_BASE_RESERVE = 5_000_000n
+
 export const stellarDriver: PaymentDriver = {
   family: 'stellar',
   resolve(opts: ResolveOptions): ResolvedNetwork | null {
@@ -241,9 +245,11 @@ function makeStellarNetwork(preset: StellarPreset, rpcUrl: string): ResolvedNetw
         return { token: null, native: null }
       }
       let lines: StellarBalanceLine[]
+      let subentryCount: number | undefined
       try {
         const account = await server.loadAccount(owner)
         lines = account.balances as unknown as StellarBalanceLine[]
+        subentryCount = (account as unknown as { subentry_count?: number }).subentry_count
       } catch (e) {
         // 404 = the account doesn't exist yet → genuine zeroes; other error → unknown.
         return isStellarNotFound(e) ? { token: 0n, native: 0n } : { token: null, native: null }
@@ -256,7 +262,18 @@ function makeStellarNetwork(preset: StellarPreset, rpcUrl: string): ResolvedNetw
         }
       }
       const native = toBase(lines.find((b) => b.asset_type === 'native')?.balance)
-      if (asset === 'native') return { token: native, native }
+      if (asset === 'native') {
+        /*
+         * SPENDABLE, not held. A Stellar account must keep a minimum balance of
+         * (2 + subentries) × the 0.5 XLM base reserve — every trustline is a subentry — or the
+         * network rejects the payment. Reporting the raw balance makes `planPayment` promise
+         * something the chain then refuses, after the agent has signed.
+         */
+        if (native === null) return { token: null, native }
+        const subentries = BigInt(subentryCount ?? 0)
+        const min = (2n + subentries) * STELLAR_BASE_RESERVE
+        return { token: native > min ? native - min : 0n, native }
+      }
       const parts = parseStellarAssetId(asset)
       const line = parts
         ? lines.find(
