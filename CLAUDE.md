@@ -67,6 +67,23 @@ Guards that hold this line, so it is not a matter of remembering:
 **One owner per fact.** If you find yourself hand-maintaining a second copy, that is the bug.
 Make it generated, derived or guarded, then add a rule so the next one is caught.
 
+### Working on ONE subsystem? Sweep it, don't run everything
+
+**`npm run sweep`** runs the SDK suite in **12 named sections** (wire · gate · client · policy ·
+agent · swaps · facilitators · chains · drivers · discovery · transports · adversarial), one
+vitest process each, so a red run names the SUBSYSTEM rather than the SDK:
+
+```bash
+npm run sweep                  # every section, one line each
+npm run sweep -- swaps gate    # just these — a two-second answer about one surface
+npm run sweep -- --list        # the sections and what each one is for
+npm run sweep -- --files       # which suites each section claims
+```
+
+Every suite must belong to **exactly one** section: one in none is never swept, one in two is
+counted twice, and the runner fails on either. The **`sweep-covers-tests`** rule puts that in the
+map too, so adding `sdk/test/whatever.test.ts` without giving it a section fails `npm run sync`.
+
 ### Then finish with the gate
 
 **`npm run verify-gate`** — typecheck + tests + builds + the lazy-chunk invariant + the custody
