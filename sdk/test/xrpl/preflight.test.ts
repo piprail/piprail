@@ -39,6 +39,62 @@ const client = (over: Record<string, unknown> = {}) =>
     ...over,
   }) as never
 
+describe("ledger_current: the field name a proxy chooses is not the payer's problem", () => {
+  /*
+   * `ledger_current` is documented to return `ledger_current_index`, and rippled does — but the
+   * public clusters in front of it answer with `ledger_index`. Reading only the documented name
+   * returned undefined, `undefined + 20` became NaN, and EVERY XRPL payment died in the
+   * serializer. Caught in a post-release live sweep against the published package.
+   *
+   * Driven through the driver's own send() so the real read path runs, with the network stubbed
+   * at fetch. The payment is expected to fail LATER (the stub is not a ledger); what matters is
+   * that it gets past the ledger read rather than dying on it.
+   */
+  const drive = async (ledgerBody: Record<string, unknown>) => {
+    const { Wallet } = await import('xrpl')
+    const { xrplDriver } = await import('../../src/drivers/xrpl/index.js')
+    const seed = Wallet.generate().seed!
+    const realFetch = globalThis.fetch
+    globalThis.fetch = (async (_u: unknown, init: { body?: string } = {}) => {
+      const method = JSON.parse(init.body ?? '{}').method
+      const result =
+        method === 'ledger_current' ? ledgerBody
+        : method === 'account_info' ? { account_data: { Balance: '100000000', Sequence: 7, OwnerCount: 0 } }
+        : method === 'fee' ? { drops: { open_ledger_fee: '10', minimum_fee: '10' } }
+        : method === 'submit' ? { engine_result: 'tesSUCCESS', tx_json: { hash: 'A'.repeat(64) } }
+        : {}
+      return new Response(JSON.stringify({ result: { ...result, status: 'success' } }))
+    }) as typeof fetch
+    try {
+      const net = xrplDriver.resolve({ chain: 'xrpl' } as never)!
+      const wallet = net.bindWallet({ key: seed })
+      return await net
+        .send(wallet, {
+          scheme: 'onchain-proof', network: 'xrpl:0', asset: 'native', amount: '100000',
+          payTo: 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe', maxTimeoutSeconds: 600,
+          extra: { nonce: 'n', decimals: 6 },
+        } as never)
+        .then((hash) => ({ ok: true as const, hash }), (err) => ({ ok: false as const, err }))
+    } finally { globalThis.fetch = realFetch }
+  }
+
+  it('accepts the DOCUMENTED field name (ledger_current_index)', async () => {
+    const r = await drive({ ledger_current_index: 106_000_000 })
+    expect(String((r as { err?: Error }).err?.message ?? '')).not.toMatch(/ledger|UInt32/i)
+  })
+
+  it('accepts the name the public clusters actually return (ledger_index)', async () => {
+    const r = await drive({ ledger_index: 106_000_000 })
+    expect(String((r as { err?: Error }).err?.message ?? '')).not.toMatch(/ledger|UInt32/i)
+  })
+
+  it('refuses clearly when NEITHER field is present', async () => {
+    const r = await drive({ nothing_useful: true })
+    expect(r.ok).toBe(false)
+    expect(String((r as { err: Error }).err.message)).toMatch(/neither ledger_current_index nor ledger_index/)
+  })
+})
+
 describe('XRPL pre-flight reads are validated before the transaction is built', () => {
   it('a healthy read pays as usual', async () => {
     const hash = await payXrpl({ client: client(), wallet, accept: ACCEPT })

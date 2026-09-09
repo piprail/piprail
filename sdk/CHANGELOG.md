@@ -4,6 +4,21 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [3.1.1] — 2026-09-09 — XRPL payments work again
+
+### Fixed
+
+- 🔴 **Every XRPL payment failed.** `ledger_current` is documented to return
+  `ledger_current_index`, and rippled does, but the public clusters in front of it answer with
+  `ledger_index`. Reading only the documented name returned `undefined`, `undefined + 20` became
+  `NaN`, and the transaction died in xrpl.js's serializer. Both names are now accepted, and a
+  response carrying neither is refused with a message that says nothing was signed.
+
+  Latent since XRPL shipped and intermittent by nature: it depends on which backend the cluster
+  routes to, which is why the same wallet settled all morning and then could not settle at all.
+  Caught by a post-release live sweep against the published package — the pre-flight guard added
+  in 3.1.0 is what turned an unreadable serializer error into a sentence naming the field.
+
 ## [3.1.0] — 2026-09-09 — spendable is not held, and a swap refused for no reason
 
 ### Fixed
@@ -2642,6 +2657,7 @@ straight into your wallet. The API is small and self-contained.
 [1.5.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.4.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.3.1]: https://www.npmjs.com/package/@piprail/sdk
+[3.1.1]: https://www.npmjs.com/package/@piprail/sdk
 [3.1.0]: https://www.npmjs.com/package/@piprail/sdk
 [3.0.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.3.0]: https://www.npmjs.com/package/@piprail/sdk
