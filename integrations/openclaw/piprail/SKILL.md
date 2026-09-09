@@ -68,6 +68,13 @@ and/or takes a cut. PipRail is different:
 Only `piprail_pay_request` moves funds. **Six tools — `discover`, `quote`, `register`, `budget`,
 `guide`, `verify_receipt` — work with no key at all**; `pay` and `plan` (it reads *your* balance) need your wallet.
 
+**Six more if you hand the agent its own wallet.** Set `PIPRAIL_MODE=sovereign` (plus a required
+`PIPRAIL_MAX_PER_SWAP`) and it also gets `piprail_quote_swap`, `piprail_swap`, and the earning
+side: `piprail_sell`, `piprail_collect`, `piprail_earnings` and `piprail_wallet`. It appends to
+the table above rather than replacing it, so nothing changes unless you opt in. Receiving needs
+no key at all, which is why the agent can be paid on a machine that cannot spend.
+[How the modes work](https://docs.piprail.com/mcp/configuration/).
+
 ## Install
 
 Discover + install on ClawHub (either command works):
