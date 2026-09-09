@@ -38,6 +38,23 @@ versions follow [Semantic Versioning](https://semver.org/).
   zero stays legitimate, because that is the settled amount and not the advertised one.
   `piprail_sell` inherits the same floor, so a zero price can no longer mint an offer.
 
+- **A facilitator's cold start no longer costs the buyer gas.** The lazy `/supported` probe that
+  discovers a facilitator's fee payer timed out at 8s. These are serverless hosts: measured
+  2026-09-09, `x402.dexter.cash` answered in **8497ms cold** and ~310ms warm, so a cold facilitator
+  read as absent, the gasless `exact` rail was dropped, and the buyer paid gas instead. The probe
+  now allows 15s. It only runs for a family that cannot resolve `exact` without a fee payer
+  (Solana; EVM never reaches it), at most once per gate, and it still fails safe with the same
+  `skipReason` when the host really is down. Live re-probe after the change: **9/9 registry hosts
+  answering, 0 contradicted claims**.
+
+- **Authority is sealed on the client instance.** `paymentTools()` picks a model's tool set from
+  `canAgentSell()` / `canAgentSwap()`, which read `mode()`. Those were plain prototype methods, so
+  any code holding the client could reassign one and turn a budgeted client's eight tools into
+  sovereign's fourteen. A MODEL could never do that — it sends JSON tool arguments and does not
+  hold the object — so this is defence in depth for a client passing through an agent framework,
+  a plugin, or middleware that wraps objects. All three are now non-writable and non-configurable:
+  authority is set once, by whoever provisioned the key.
+
 ### Added
 
 - **`releaseUsed` — the third replay hook.** Optional, and only meaningful when `isUsed` RESERVES

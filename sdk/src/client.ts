@@ -796,6 +796,33 @@ export class PipRailClient {
     this.assertPolicyTimeOptions(opts.policy)
     this.assertPolicySpendControls(opts.policy)
     this.assertModeIsHonest(opts)
+    this.sealAuthority()
+  }
+
+  /**
+   * Pin the three authority accessors to THIS instance, non-writable and non-configurable.
+   *
+   * `paymentTools()` decides which tools a model is handed by calling `canAgentSell()` /
+   * `canAgentSwap()`, which read `mode()`. Those were plain prototype methods, so any code
+   * holding the client could reassign one — `client.mode = () => 'sovereign'` turned a
+   * budgeted client's eight tools into sovereign's fourteen.
+   *
+   * A MODEL could never do that (it sends JSON tool arguments; it does not hold the object),
+   * so this is not a path a model can walk. It is defence in depth for the case where a
+   * client passes through code that is not the operator's own: an agent framework, a plugin,
+   * some middleware that wraps or proxies objects. Authority is set once, by whoever
+   * provisioned the key, and nothing downstream gets to revise it.
+   */
+  private sealAuthority(): void {
+    const mode = this.opts.mode ?? DEFAULT_AGENT_MODE
+    const sovereign = mode === 'sovereign'
+    for (const [name, fn] of [
+      ['mode', () => mode],
+      ['canAgentSell', () => sovereign],
+      ['canAgentSwap', () => sovereign],
+    ] as const) {
+      Object.defineProperty(this, name, { value: fn, writable: false, configurable: false, enumerable: false })
+    }
   }
 
   /**
