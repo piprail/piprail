@@ -8,6 +8,20 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- 🔴 **A spend cap could be breached by CONCURRENT payments.** A cap is read when a quote is
+  priced and written when the payment settles, and a whole network round trip sits between the
+  two. Six simultaneous `fetch()` calls against a `maxTotal` of `'2.50'` each priced against the
+  same "spent so far", each passed, and four settled: 4.00 spent against a 2.50 leash while every
+  individual check was correct. `maxPayments` and `maxTotalPerDenom` leaked the same way. It is
+  the same read-await-write shape as the replay race, on the buyer's side of the wire, and the
+  leash is the entire safety story for the default `budgeted` mode.
+
+  `authorize()` now RESERVES the budget synchronously before anything is signed or sent, so an
+  in-flight payment is visible to the next one's check. `recordSpend()` commits the reservation
+  as the real record lands, and every failure path releases it, so a refused or failed payment
+  never permanently consumes the leash. Sequential behaviour is unchanged: a 3.00 cap still
+  spends exactly 3.00, no more and no fewer.
+
 - 🔴 **A custom `isUsed`/`markUsed` replay store could redeem ONE proof N times, concurrently.**
   The gate's built-in set has always reserved a ref synchronously, which is what stops two
   simultaneous requests carrying the same proof from both settling. The CUSTOM-store branch did

@@ -54,7 +54,7 @@ const SECTIONS = [
   {
     name: 'policy',
     why: 'the spend leash: caps, allowlists, windows, the ledger arithmetic',
-    match: (f) => f.startsWith('policy') || f.startsWith('ledger') || f === 'node-spendstore',
+    match: (f) => f.startsWith('policy') || f.startsWith('ledger') || f.startsWith('budget') || f === 'node-spendstore',
   },
   {
     name: 'agent',

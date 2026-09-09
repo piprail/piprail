@@ -1414,6 +1414,53 @@ export const RULES = [
     },
   },
 
+  {
+    domain: 'ci',
+    id: 'smoke-sections-declared',
+    verify: [
+      "npm run smoke -- --list",
+    ],
+    what: 'Every smoke section declares its layer + purpose, and the protocol documents them all',
+    source: { file: 'scripts/smoke/', note: 'the adversarial + live sections that exist on disk' },
+    mirrors: [
+      { file: 'TESTING.md', note: 'the ordered protocol — every section named in its layer table' },
+    ],
+    check() {
+      /*
+       * WHY THIS RULE EXISTS.
+       *
+       * `npm run sweep` covers the UNIT layer and guards its own coverage. The layers that find
+       * the real bugs — a hostile caller (L2), a third-party host that went dark (L3), a payment
+       * that must actually settle (L4) — live in scripts/smoke/, and a section nobody documented
+       * is a section nobody runs. Two things must stay true: every section declares what layer it
+       * belongs to and why it exists, and the protocol doc names it.
+       */
+      const dir = 'scripts/smoke'
+      if (!exists(dir)) return bad('scripts/smoke/ is missing — the adversarial + live layers')
+      const files = readdirSync(join(REPO, dir)).filter((f) => /^l\d-.*\.mjs$/.test(f))
+      if (!files.length) return bad('no l<N>-*.mjs sections in scripts/smoke/')
+      const doc = 'TESTING.md'
+      if (!exists(doc)) return bad(`${doc} is missing — the protocol IS the map of these layers`)
+      const prose = read(doc)
+      const problems = []
+      const ids = []
+      for (const f of files) {
+        const src = read(`${dir}/${f}`)
+        const id = src.match(/id:\s*'([^']+)'/)?.[1]
+        const layer = src.match(/layer:\s*'(L\d)'/)?.[1]
+        const why = src.match(/why:\s*'/)
+        if (!id) { problems.push(`${f}: no meta.id`); continue }
+        ids.push(id)
+        if (!layer) problems.push(`${f}: no meta.layer`)
+        if (!why) problems.push(`${f}: no meta.why (say what breaks in the real world)`)
+        if (!prose.includes(`\`${id}\``)) problems.push(`${id}: not named in ${doc}`)
+      }
+      return problems.length
+        ? bad(problems.join('; '))
+        : ok(`${ids.length} sections declared + documented: ${ids.sort().join(', ')}`)
+    },
+  },
+
   /* ══════════════════════ DRIVER CONTRACT ══════════════════════ */
   {
     domain: 'chains',

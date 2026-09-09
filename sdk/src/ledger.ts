@@ -221,8 +221,45 @@ export class SpendLedger {
   }
 
   /** Running total (base units) already spent on this (network, asset). */
+  /*
+   * ── IN-FLIGHT RESERVATIONS ─────────────────────────────────────────────────────────
+   *
+   * A cap is read when a quote is priced and written when the payment settles, and a whole
+   * network round trip sits between the two. Without a reservation, N concurrent payments all
+   * price against the same "spent so far", all pass, and all settle: an agent with a 2.50 cap
+   * spends 4.00 and every individual check was correct. It is the same read-await-write shape
+   * that let one proof be redeemed N times, on the other side of the wire.
+   *
+   * A reservation is taken SYNCHRONOUSLY by the client before it pays, counts toward every
+   * total below while it is outstanding, and is released the moment the payment either settles
+   * (the real record replaces it) or fails (so a refused payment never consumes the leash).
+   */
+  private readonly pending = new Map<string, { network: string; asset: string; amountBase: bigint; denom?: string; scaled: bigint; at: number }>()
+  private pendingSeq = 0
+
+  /** Reserve budget for a payment about to be attempted. Returns the token to settle it with. */
+  reserve(network: string, asset: string, amountBase: bigint, decimals: number, denom?: string): string {
+    const token = `r${++this.pendingSeq}`
+    // `null` means the decimals were out of range to scale. `ingest` skips the denom bucket in
+    // exactly that case, so the reservation must too, or the two would disagree about weight.
+    const scaled = denom ? (scaleToDenom(amountBase, decimals) ?? 0n) : 0n
+    this.pending.set(token, { network, asset, amountBase, denom: denom?.toUpperCase(), scaled, at: Date.now() })
+    return token
+  }
+
+  /** Drop a reservation: the payment settled (its real record now counts) or it failed. */
+  release(token: string | undefined): void {
+    if (token) this.pending.delete(token)
+  }
+
+  private pendingFor(network: string, asset: string): bigint {
+    let sum = 0n
+    for (const p of this.pending.values()) if (p.network === network && p.asset === asset) sum += p.amountBase
+    return sum
+  }
+
   totalFor(network: string, asset: string): bigint {
-    return this.buckets.get(keyFor(network, asset))?.total ?? 0n
+    return (this.buckets.get(keyFor(network, asset))?.total ?? 0n) + this.pendingFor(network, asset)
   }
 
   /**
@@ -232,12 +269,15 @@ export class SpendLedger {
    * `0n` for a denomination never spent on. Case-insensitive.
    */
   totalForDenom(denom: string): bigint {
-    return this.denomTotals.get(denom.toUpperCase()) ?? 0n
+    const key = denom.toUpperCase()
+    let pending = 0n
+    for (const p of this.pending.values()) if (p.denom === key) pending += p.scaled
+    return (this.denomTotals.get(key) ?? 0n) + pending
   }
 
   /** Total number of settled payments (across every chain + token). Powers `maxPayments`. */
   count(): number {
-    return this.records.length
+    return this.records.length + this.pending.size
   }
 
   /** Mark a `warnAtFraction` threshold key as fired; returns `true` the FIRST time (so the
@@ -256,7 +296,9 @@ export class SpendLedger {
    * negligible at agent-session cardinality and only when a window count cap is set.
    */
   countSince(sinceMs: number): number {
+    // An in-flight payment is inside every window that is still open.
     let n = 0
+    for (const p of this.pending.values()) if (p.at >= sinceMs) n += 1
     for (const r of this.records) {
       // FAIL CLOSED on an unparseable `at` (corrupt store): count it toward the window
       // rather than let `NaN >= sinceMs` (always false) silently drop it from the cap.
@@ -275,6 +317,9 @@ export class SpendLedger {
    */
   totalSince(network: string, asset: string, sinceMs: number): bigint {
     let sum = 0n
+    for (const p of this.pending.values()) {
+      if (p.network === network && p.asset === asset && p.at >= sinceMs) sum += p.amountBase
+    }
     for (const r of this.records) {
       if (r.network !== network || r.asset !== asset) continue
       // FAIL CLOSED on an unparseable `at` (count it toward the window) — see countSince.

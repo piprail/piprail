@@ -84,6 +84,19 @@ Every suite must belong to **exactly one** section: one in none is never swept, 
 counted twice, and the runner fails on either. The **`sweep-covers-tests`** rule puts that in the
 map too, so adding `sdk/test/whatever.test.ts` without giving it a section fails `npm run sync`.
 
+### Beyond the unit suite: the smoke layers
+
+`npm run sweep` is the UNIT layer. It cannot see a hostile caller, a third-party host that went
+dark, or whether a payment actually settles. **`npm run smoke`** runs those, cheapest first:
+**L2** adversarial (offline, fake drivers) → **L3** reality (live, read-only) → **L4** money
+(real mainnet, opt-in with `--money`). It stops at the first failing layer, because a later
+layer cannot be trusted over a broken earlier one.
+
+**The order, the rules and every section are written down in [`TESTING.md`](TESTING.md).**
+Read it before a release or after touching the money path. Every bug of consequence found so
+far lived in the gap between L1 and L2: the code did what its unit tests said, and an attacker
+still got something.
+
 ### Then finish with the gate
 
 **`npm run verify-gate`** — typecheck + tests + builds + the lazy-chunk invariant + the custody
@@ -247,7 +260,7 @@ piprail/
 - **No marketplace, activity profile, service registry, or fee contract.** Deliberately absent —
   they'd need a backend or compete on territory we don't own.
 - **🔄 Never let a fact drift — see [🗺️ START HERE](#-start-here-on-every-request--check-the-map-before-you-touch-anything) at the top.**
-  `npm run sync` is both the map and the guard: **61 rules across 14 domains** (chains · packages ·
+  `npm run sync` is both the map and the guard: **62 rules across 14 domains** (chains · packages ·
   mcp · facilitators · swaps · discovery · site · docs · api · errors · ci · security · seo · skills). Rules live in
   `scripts/sync/rules.mjs`, each declaring the fact's OWNER and every file that mirrors it.
   **One owner per fact** — if you are hand-maintaining a second copy, that is the bug: make it

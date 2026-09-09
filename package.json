@@ -37,7 +37,8 @@
     "x402:coverage": "node scripts/x402-corpus/audit.mjs",
     "verify:proofs": "node scripts/verify-swap-proofs.mjs",
     "map": "node scripts/sync/check.mjs --map",
-    "sweep": "node scripts/sweep.mjs"
+    "sweep": "node scripts/sweep.mjs",
+    "smoke": "node scripts/smoke.mjs"
   },
   "engines": {
     "node": ">=20"
