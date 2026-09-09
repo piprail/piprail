@@ -4,6 +4,110 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [3.1.0] — 2026-09-09 — spendable is not held, and a swap refused for no reason
+
+### Fixed
+
+- 🔴 **A spend cap could be breached by CONCURRENT payments.** A cap is read when a quote is
+  priced and written when the payment settles, and a whole network round trip sits between the
+  two. Six simultaneous `fetch()` calls against a `maxTotal` of `'2.50'` each priced against the
+  same "spent so far", each passed, and four settled: 4.00 spent against a 2.50 leash while every
+  individual check was correct. `maxPayments` and `maxTotalPerDenom` leaked the same way. It is
+  the same read-await-write shape as the replay race, on the buyer's side of the wire, and the
+  leash is the entire safety story for the default `budgeted` mode.
+
+  `authorize()` now RESERVES the budget synchronously before anything is signed or sent, so an
+  in-flight payment is visible to the next one's check. `recordSpend()` commits the reservation
+  as the real record lands, and every failure path releases it, so a refused or failed payment
+  never permanently consumes the leash. Sequential behaviour is unchanged: a 3.00 cap still
+  spends exactly 3.00, no more and no fewer.
+
+- 🔴 **A custom `isUsed`/`markUsed` replay store could redeem ONE proof N times, concurrently.**
+  The gate's built-in set has always reserved a ref synchronously, which is what stops two
+  simultaneous requests carrying the same proof from both settling. The CUSTOM-store branch did
+  not: it `await`ed `isUsed(ref)` before verification and wrote only after it, so every concurrent
+  request read "unused" and every one settled. Five simultaneous requests redeemed one payment
+  five times. The gate now takes the same synchronous in-process reservation BEFORE consulting a
+  custom store, so a single instance is safe whichever store is configured. Across several
+  processes that set cannot help, so an atomic check-and-reserve (Redis `SET NX`) is still what
+  protects a multi-instance deployment, and the documented example now uses one: it previously
+  showed `exists()` then `set()`, which is the exact non-atomic pattern the surrounding text
+  warned against. Found by a concurrency sweep; the suite had no concurrent replay test at all.
+
+- 🔴 **A sovereign agent could deliver N goods for ONE payment.** `piprail_sell` gives every offer
+  its own gate, and a gate's replay set is scoped to itself, so cross-offer replay was guarded by
+  a store-level `isUsed`/`markUsed` pair sharing the race above. Sequentially it refused correctly;
+  five concurrent `piprail_collect` calls against five offers all collected the same settlement,
+  which is the normal shape of a shop with more than one buyer. `collect` now reserves the proof
+  ref synchronously before any await, and releases it if the payment does not settle.
+
+- **A chain id that is not a chain id is refused at config time.** `{ id: NaN }` (and negative,
+  fractional or unsafe-integer ids) resolved happily, and the gate went on to publish
+  `network: "eip155:NaN"` in a live 402 — an unparseable CAIP-2 that a standard x402 client cannot
+  read. It failed closed later, but surfaced as `tx_not_found` at payment time rather than as the
+  configuration error it is.
+
+- **A gate must charge more than zero.** `amount: '0'` built a rail whose amount check any transfer
+  satisfies, so a paywall could read as configured and gate nothing. A metered `upto` SETTLE of
+  zero stays legitimate, because that is the settled amount and not the advertised one.
+  `piprail_sell` inherits the same floor, so a zero price can no longer mint an offer.
+
+- **A facilitator's cold start no longer costs the buyer gas.** The lazy `/supported` probe that
+  discovers a facilitator's fee payer timed out at 8s. These are serverless hosts: measured
+  2026-09-09, `x402.dexter.cash` answered in **8497ms cold** and ~310ms warm, so a cold facilitator
+  read as absent, the gasless `exact` rail was dropped, and the buyer paid gas instead. The probe
+  now allows 15s. It only runs for a family that cannot resolve `exact` without a fee payer
+  (Solana; EVM never reaches it), at most once per gate, and it still fails safe with the same
+  `skipReason` when the host really is down. Live re-probe after the change: **9/9 registry hosts
+  answering, 0 contradicted claims**.
+
+- **Authority is sealed on the client instance.** `paymentTools()` picks a model's tool set from
+  `canAgentSell()` / `canAgentSwap()`, which read `mode()`. Those were plain prototype methods, so
+  any code holding the client could reassign one and turn a budgeted client's eight tools into
+  sovereign's fourteen. A MODEL could never do that — it sends JSON tool arguments and does not
+  hold the object — so this is defence in depth for a client passing through an agent framework,
+  a plugin, or middleware that wraps objects. All three are now non-writable and non-configurable:
+  authority is set once, by whoever provisioned the key.
+
+- 🔴 **`planPayment` called a native payment affordable that the chain then refused, on FOUR
+  families.** Some chains require an account to retain a minimum it can never send, and
+  affordability was measured against the raw balance on every one of them:
+
+  | | retained minimum |
+  |---|---|
+  | Solana | the account's rent-exempt minimum |
+  | XRPL | a base reserve, plus an increment for each owned object (a trustline is one) |
+  | Stellar | `(2 + subentries) x` the base reserve, and a trustline is a subentry |
+  | Algorand | 0.1 ALGO, plus 0.1 for every ASA opted into |
+
+  A live wallet holding 0.0011 SOL was told it could send 0.0005 SOL; the transfer failed
+  simulation with a bare `SendTransactionError` after the agent had already signed, which is the
+  exact outcome the pre-flight check exists to prevent.
+
+  `WalletBalance.token` is now documented as the SPENDABLE figure (the reserve deducted) with
+  `native` staying the true balance for gas, all four drivers report it that way (reading the
+  chain's own figure where it offers one), and the client measures a native payment against it.
+  A family with no reserve reports the two as equal and is unchanged. The refusal names the
+  exact shortfall, and a payment comfortably inside the spendable balance still goes through.
+
+- **XRPL: a throttled ledger read no longer surfaces as a serializer error.** `Sequence` and
+  `LastLedgerSequence` are UInt32 fields, so a failed or rate-limited pre-flight read left one
+  `undefined` (and `undefined + 20` is `NaN`), and xrpl.js rejected the transaction with
+  "Cannot construct UInt32 from given value": no field, no cause and no remedy, from a library
+  the caller never imported. Found under a batch of live mainnet payments, where the public
+  cluster throttles. Both reads are now checked before the transaction is built, and the refusal
+  says the thing that matters most on an ambiguous payment error: nothing was signed or
+  submitted, so retrying cannot double-pay.
+
+### Added
+
+- **`releaseUsed` — the third replay hook.** Optional, and only meaningful when `isUsed` RESERVES
+  (the `SET NX` shape). Without it, making a custom store atomic traded a double-spend for a worse
+  failure: a transient RPC error left the reservation standing, so a buyer whose funds had already
+  moved could never redeem the proof. The built-in store has always released on failure; this is
+  how a custom store does the same. Supplying it without `isUsed`/`markUsed` throws, because it
+  would never fire.
+
 ## [3.0.0] — 2026-09-09 — agent modes: a wallet an agent can EARN with, not only spend from
 
 ### BREAKING
@@ -2538,6 +2642,7 @@ straight into your wallet. The API is small and self-contained.
 [1.5.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.4.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.3.1]: https://www.npmjs.com/package/@piprail/sdk
+[3.1.0]: https://www.npmjs.com/package/@piprail/sdk
 [3.0.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.3.0]: https://www.npmjs.com/package/@piprail/sdk
 [1.2.0]: https://www.npmjs.com/package/@piprail/sdk

@@ -278,3 +278,63 @@ describe('a hostile PRICE cannot corrupt an offer', () => {
     expect(JSON.stringify(offer.challenge)).not.toContain(`"payTo":"${ATTACKER}"`)
   })
 })
+
+describe('ONE settlement cannot be collected by TWO offers, even concurrently', () => {
+  it('sequential: a proof spent on one offer is refused by another', async () => {
+    const T = kit()
+    const a = await sell(T, { description: 'A', price: '1.00' })
+    const b = await sell(T, { description: 'B', price: '1.00' })
+    const tx = pays(`0x${'c1'.repeat(32)}`, a.payTo as string, '1000000')
+
+    const first = (await T.piprail_collect!.invoke({
+      offerId: a.offerId, payment: proofFor(a.challenge as X402Challenge, (x) => x, tx),
+    })) as Res
+    expect(first.paid).toBe(true)
+
+    const second = (await T.piprail_collect!.invoke({
+      offerId: b.offerId, payment: proofFor(b.challenge as X402Challenge, (x) => x, tx),
+    })) as Res
+    expect(second.paid).toBe(false)
+  })
+
+  it('CONCURRENT: five offers, one settlement, at most one delivery', async () => {
+    /*
+     * The regression this pins: each offer owns its own gate, and a per-gate replay set
+     * cannot see its siblings. The store-level guard used to be an injected
+     * isUsed/markUsed pair, which the gate READ before an awaited verify and WROTE after,
+     * so five simultaneous collects each read "unspent" and all five delivered. The
+     * reservation is now taken synchronously in `collect`, before any await.
+     */
+    const T = kit()
+    const offers: Res[] = []
+    for (let i = 0; i < 5; i++) offers.push(await sell(T, { description: `o${i}`, price: '1.00' }))
+    const tx = pays(`0x${'c2'.repeat(32)}`, offers[0]!.payTo as string, '1000000')
+
+    const results = (await Promise.all(
+      offers.map((o) =>
+        T.piprail_collect!.invoke({
+          offerId: o.offerId, payment: proofFor(o.challenge as X402Challenge, (x) => x, tx),
+        })
+      )
+    )) as Res[]
+
+    expect(results.filter((r) => r.paid === true)).toHaveLength(1)
+  })
+
+  it('a collect that does NOT settle releases the reservation, so the buyer can retry', async () => {
+    const T = kit()
+    const offer = await sell(T, { description: 'A', price: '1.00' })
+    // A tx the chain never saw: verification fails, and must not burn the ref for later.
+    const ghost = `0x${'c3'.repeat(32)}`
+    const missed = (await T.piprail_collect!.invoke({
+      offerId: offer.offerId, payment: proofFor(offer.challenge as X402Challenge, (x) => x, ghost),
+    })) as Res
+    expect(missed.paid).toBe(false)
+
+    pays(ghost, offer.payTo as string, '1000000') // the settlement lands late
+    const retry = (await T.piprail_collect!.invoke({
+      offerId: offer.offerId, payment: proofFor(offer.challenge as X402Challenge, (x) => x, ghost),
+    })) as Res
+    expect(retry.paid).toBe(true)
+  })
+})

@@ -45,7 +45,15 @@ export interface FacilitatorPaymentRequirements {
 export async function fetchFacilitatorFeePayer(
   url: string,
   network: string,
-  timeoutMs = 8000
+  /*
+   * Sized for a COLD facilitator, not a warm one. These are serverless hosts: measured
+   * 2026-09-09, x402.dexter.cash answered `/supported` in 8497ms cold and ~310ms warm. At the
+   * previous 8000ms the cold read aborted, the fee payer came back undefined, and the gate
+   * dropped its gasless `exact` rail — so the buyer paid gas because a facilitator was asleep.
+   * The wait is bounded and paid at most once per gate, on a lazy probe that only runs when the
+   * family cannot resolve `exact` without a fee payer (Solana; EVM never reaches it).
+   */
+  timeoutMs = 15_000
 ): Promise<string | undefined> {
   const base = url.replace(/\/+$/, '')
   const ctrl = new AbortController()
@@ -127,7 +135,8 @@ export function parseFacilitatorSupported(body: unknown): FacilitatorSupportedKi
  */
 export async function facilitatorCoverage(
   url: string,
-  timeoutMs = 8000
+  /** Cold-start sized, for the same reason as {@link fetchFacilitatorFeePayer}. */
+  timeoutMs = 15_000
 ): Promise<FacilitatorSupportedKind[]> {
   const base = url.replace(/\/+$/, '')
   const ctrl = new AbortController()

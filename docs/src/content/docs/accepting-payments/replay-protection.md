@@ -203,15 +203,24 @@ await redis.connect()
 
 const gate = createPaymentGate({
   chain: 'base', token: 'USDC', amount: '0.10', payTo: '0xYourWallet',
-  isUsed:   (ref) => redis.exists(`piprail:proof:${ref}`).then(Boolean),
-  markUsed: (ref) => { redis.set(`piprail:proof:${ref}`, '1', { EX: 900 }) },
+  // SET NX is the check AND the reserve in one atomic step: it returns null when the key
+  // already exists. Two concurrent requests carrying one proof cannot both get `null` back,
+  // so exactly one of them proceeds. `exists()` followed by a separate `set()` would let both
+  // through, because the gap between the two calls spans an await.
+  isUsed: async (ref) =>
+    (await redis.set(`piprail:proof:${ref}`, '1', { NX: true, EX: 900 })) === null,
+  markUsed: () => {}, // the reserve above already recorded it
+  // Because `isUsed` RESERVES, a rejected or transiently-failed verification has to give the
+  // reservation back, or a buyer whose payment hit an RPC blip could never redeem it.
+  releaseUsed: (ref) => redis.del(`piprail:proof:${ref}`),
 })
 ```
 
 | Hook | Signature | Called |
 | --- | --- | --- |
-| `isUsed` | `(ref: string) => boolean \| Promise<boolean>` | Runs before verifying. Return `true` if this proof was already redeemed. |
+| `isUsed` | `(ref: string) => boolean \| Promise<boolean>` | Runs before verifying. Return `true` if this proof was already redeemed. Make it an atomic check-and-reserve for multi-process safety. |
 | `markUsed` | `(ref: string) => void \| Promise<void>` | Runs after a payment verifies successfully. Record the redeemed proof. |
+| `releaseUsed` | `(ref: string) => void \| Promise<void>` | Optional. Runs when a claimed proof did **not** settle. Give the reservation back so a valid payment stays redeemable. Needed only when `isUsed` reserves. |
 
 Provide **both** `isUsed` and `markUsed` together to switch the gate off its built-in set
 entirely. They're validated as a pair at gate construction, and building a gate
@@ -221,11 +230,13 @@ silently disables replay protection). `markUsed` fires only on success, so a cus
 records a proof that failed verification.
 
 :::caution
-The built-in set reserves a ref **synchronously**, so two concurrent requests carrying the same
-proof can't both be redeemed. A custom store can't make that guarantee on its own, so make the
-check-and-reserve atomic (Redis `SET NX`) if you need the same protection against a concurrent
-double-redeem. Your `isUsed` / `markUsed` receive the **raw** ref (the default set lowercases
-EVM tx hashes for you; a custom store does not).
+The gate reserves a ref in-process **synchronously** before it consults your store, so two
+concurrent requests carrying the same proof can't both be redeemed **within one process**, and
+that holds for a custom store too. Across **several processes** that set is no help, so make
+your own check-and-reserve atomic (Redis `SET NX`, exactly as above) or two instances can still
+both redeem one proof. `exists()` then `set()` is NOT atomic: the gap between them spans an
+await, which is the whole race. Your `isUsed` / `markUsed` receive the **raw** ref (the default
+set lowercases EVM tx hashes for you; a custom store does not).
 :::
 
 Running more than one gate instance is the headline production concern, and it's the first item on the

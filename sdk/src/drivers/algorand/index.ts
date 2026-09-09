@@ -65,6 +65,11 @@ import type {
   WalletHandle,
 } from '../types.js'
 
+/** Algorand's account minimum balance, used only if algod omits `minBalance`: 0.1 ALGO for the
+ *  account itself, plus 0.1 for every ASA it holds. Base units (microAlgos). */
+const ALGO_MIN_BALANCE = 100_000n
+const ALGO_MIN_BALANCE_PER_ASSET = 100_000n
+
 export const algorandDriver: PaymentDriver = {
   family: 'algorand',
   resolve(opts: ResolveOptions): ResolvedNetwork | null {
@@ -267,14 +272,32 @@ function makeAlgorandNetwork(preset: AlgorandPreset, algodUrl: string): Resolved
       } catch {
         return { token: null, native: null }
       }
-      let info: { amount?: bigint | number; assets?: { assetId: bigint | number; amount: bigint | number }[] }
+      let info: {
+        amount?: bigint | number
+        minBalance?: bigint | number
+        assets?: { assetId: bigint | number; amount: bigint | number }[]
+      }
       try {
         info = (await algod.accountInformation(owner).do()) as typeof info
       } catch {
         return { token: null, native: null }
       }
       const native = info.amount != null ? BigInt(info.amount) : null
-      if (asset === 'native') return { token: native, native }
+      if (asset === 'native') {
+        /*
+         * SPENDABLE, not held. An Algorand account must retain a minimum balance (0.1 ALGO,
+         * plus 0.1 for every ASA it has opted into) or the node rejects the transfer. Reporting
+         * the raw balance as spendable makes `planPayment` promise a payment the chain then
+         * refuses — after the agent has signed. algod returns the figure, so use it and fall
+         * back to the documented formula only when it is absent.
+         */
+        if (native === null) return { token: null, native }
+        const min =
+          info.minBalance != null
+            ? BigInt(info.minBalance)
+            : ALGO_MIN_BALANCE + ALGO_MIN_BALANCE_PER_ASSET * BigInt((info.assets ?? []).length)
+        return { token: native > min ? native - min : 0n, native }
+      }
       const assetId = parseAlgorandAssetId(asset)
       const holding = (info.assets ?? []).find((a) => Number(a.assetId) === assetId)
       // Not opted in → a genuine 0 (the payer can't hold the ASA without opting in).

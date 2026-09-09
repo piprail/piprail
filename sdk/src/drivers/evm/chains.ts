@@ -327,6 +327,21 @@ export function resolveChain(
   }
 
   // A bare { id, rpcUrl } — any EVM chain.
+  /*
+   * An EIP-155 chain id is a POSITIVE INTEGER. Without this, `{ id: NaN }` resolved happily and
+   * the gate went on to publish `network: "eip155:NaN"` in a live 402 — an unparseable CAIP-2
+   * that every standard x402 client would choke on. It failed closed later (the RPC read finds
+   * nothing), but the failure surfaced as `tx_not_found` at payment time rather than as the
+   * config error it actually is. Amounts are validated this strictly; chain ids must be too.
+   */
+  /* A plain Error, like every other refusal in this function. `wallet-audit` imports these
+   * driver presets as RAW TypeScript, where a `../../errors.js` specifier does not resolve, so
+   * a typed import here silently breaks that tool while the bundled SDK stays fine. */
+  if (!Number.isSafeInteger(input.id) || input.id <= 0) {
+    throw new Error(
+      `resolveChain: chain id must be a positive safe integer (EIP-155), got ${String(input.id)}.`
+    )
+  }
   const rpcUrl = rpcUrlOverride ?? input.rpcUrl
   if (!rpcUrl) {
     throw new Error(`resolveChain: chain ${input.id} needs an rpcUrl.`)

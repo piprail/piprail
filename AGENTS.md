@@ -7,7 +7,11 @@ Guidance for AI coding agents (and humans) working in this repo. PipRail is an *
 ```bash
 npm install              # install workspaces (sdk, site)
 npm run build:sdk        # build the SDK
-npm run test:sdk         # SDK test suite (Vitest)
+npm run test:sdk         # SDK test suite (Vitest) — one number over every suite
+npm run sweep            # the SAME suite in 12 named sections, one line each
+npm run sweep -- swaps   # just one section (also: --list, --files, --bail)
+npm run smoke            # adversarial (L2) + live read-only (L3) — see TESTING.md
+npm run smoke -- --money # adds L4: real mainnet payments. Spends money.
 npm run typecheck        # typecheck the SDK
 npm run dev              # run the site locally → http://localhost:4321
 npm run build            # build the static site

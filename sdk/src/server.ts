@@ -244,10 +244,28 @@ export interface RequirePaymentOptions {
   maxTimeoutSeconds?: number
   /** Nonce generator. Default `crypto.randomUUID()`. */
   generateNonce?: () => string
-  /** Replay hook — return true if this proof was already redeemed. */
+  /**
+   * Replay hook — return true if this proof was already redeemed.
+   *
+   * For a MULTI-PROCESS deployment make this an atomic **check-and-reserve** (Redis
+   * `SET NX`, which returns null when the key already exists) rather than a plain read:
+   * the gate consults this before an `await`ed verification and records after it, so a
+   * separate `exists()` then `set()` lets two instances redeem one proof. A reserving
+   * `isUsed` should be paired with {@link RequirePaymentOptions.releaseUsed}, or a
+   * transient verify failure will permanently burn an otherwise-valid payment.
+   */
   isUsed?: (ref: string) => boolean | Promise<boolean>
-  /** Replay hook — record a redeemed proof. */
+  /** Replay hook — record a redeemed proof. Fires only on a SETTLED payment. */
   markUsed?: (ref: string) => void | Promise<void>
+  /**
+   * Replay hook — release a reservation this gate made but could not settle (a transient
+   * RPC failure, a rejected proof). Optional, and only meaningful when `isUsed` RESERVES
+   * (the `SET NX` shape above): without it that reservation outlives the failed attempt and
+   * the buyer's still-valid proof can never be redeemed — they paid and get nothing. The
+   * built-in store has always released on failure; this is how a custom store does the same.
+   * Never throws into the request: a failure here is swallowed (a stale key expires on its own).
+   */
+  releaseUsed?: (ref: string) => void | Promise<void>
   /**
    * Fired when a payment verifies successfully, with the enriched {@link PaidReceipt}.
    * May be **sync or async** — a throw OR a rejected promise is isolated (routed to
@@ -713,6 +731,19 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
           net.assertValidPayTo(payTo)
           const { asset, decimals, symbol } = net.resolveToken(a.token)
           const amountBase = parseUnits(a.amount, decimals)
+          /*
+           * A gate CHARGES; zero is not a price. `parseUnits` allows "0" because a metered
+           * `upto` SETTLE of 0 is legitimate (a zero-charge receipt), but that is the settled
+           * amount, not the advertised one. Advertising 0 published a rail whose amount check
+           * any transfer satisfies — a paywall that reads as configured and gates nothing.
+           * Fail here, where it is a one-line typo, not in production.
+           */
+          if (amountBase <= 0n) {
+            throw new InvalidConfigError(
+              `requirePayment: amount must be greater than zero, got "${a.amount}" on ${net.network}. ` +
+                `A gate that charges nothing gates nothing; omit the gate instead.`
+            )
+          }
           const spec: ResolvedSpec = { net, asset, decimals, symbol, amountBase, amountFormatted: a.amount, payTo }
           if (exactOption) {
             const outcome = await resolveExactRail(net, asset)
@@ -986,6 +1017,15 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
         ' silently disables replay protection (double-spend). Provide both, or neither (the built-in in-memory store).'
     )
   }
+  // `releaseUsed` only means anything alongside a custom store — on its own it would never be
+  // called, so a caller who supplied it believing failures were being released would be wrong.
+  if (typeof options.releaseUsed === 'function' && !(hasIsUsed && hasMarkUsed)) {
+    throw new Error(
+      'requirePayment/createPaymentGate: `releaseUsed` needs `isUsed` + `markUsed` too — it releases a ' +
+        'reservation a CUSTOM store made, so without one it would never fire. Provide all three, or none ' +
+        '(the built-in store already releases on failure).'
+    )
+  }
   const hasCustomStore = hasIsUsed && hasMarkUsed
   const localUsed = new Map<string, number>() // ref(lowercased) → expiry epoch-ms
   const replayWindowMs = maxTimeoutSeconds * 1000
@@ -999,33 +1039,64 @@ export function createPaymentGate(options: RequirePaymentOptions): PaymentGate {
     }
   }
 
+  /* EVM tx hashes are case-insensitive hex → normalize for the in-process set. The `pid:`
+   * namespace is the deliberately case-SENSITIVE payment-identifier key (its ids match
+   * /[A-Za-z0-9_-]/ with no `i` flag), so it's exempt from lowercasing — else two distinct
+   * case-only-differing ids would collide and wrongly reject a legitimate second payment.
+   * Real proof refs never start `pid:`. A custom isUsed/markUsed still receives the RAW ref. */
+  const localKey = (ref: string): string => (ref.startsWith('pid:') ? ref : ref.toLowerCase())
+
   /** Reserve a proof ref. Returns true if it was ALREADY taken (→ reject). */
   async function claimTx(ref: string): Promise<boolean> {
-    if (hasCustomStore) {
-      return options.isUsed ? Boolean(await options.isUsed(ref)) : false
-    }
-    // EVM tx hashes are case-insensitive hex → normalize for the default store
-    // (custom isUsed/markUsed above receive the RAW ref). The `pid:` namespace is the
-    // deliberately case-SENSITIVE payment-identifier key (its ids match /[A-Za-z0-9_-]/ with no
-    // `i` flag), so it's exempt from lowercasing — else two distinct case-only-differing ids would
-    // collide and wrongly reject a legitimate second payment. Real proof refs never start `pid:`.
-    // The reserve below is synchronous (prune + has + set, no await), closing the concurrent
-    // double-redeem race.
-    const key = ref.startsWith('pid:') ? ref : ref.toLowerCase()
+    /*
+     * 🔴 The in-process reserve runs FIRST, and for a CUSTOM store too.
+     *
+     * It is synchronous (prune + has + set, no await), which is the only thing that closes the
+     * concurrent double-redeem race: a custom store is consulted with `await options.isUsed(ref)`
+     * and written only after `verify()` resolves, so N requests carrying one proof would all
+     * observe "unused" and all settle. Reserving locally before that await makes the loser of
+     * the race lose it here, whichever store is in play. It does NOT replace an atomic
+     * check-and-reserve in the custom store — that is still what protects a MULTI-PROCESS
+     * deployment (Redis `SET NX`), because this set is per-process — it removes the race
+     * inside one process, which is where a single instance and the agent store live.
+     */
+    const key = localKey(ref)
     const now = Date.now()
     pruneUsed(now)
     if (localUsed.has(key)) return true
     localUsed.set(key, now + replayWindowMs)
+
+    if (hasCustomStore) {
+      try {
+        if (options.isUsed && (await options.isUsed(ref))) return true
+      } catch (err) {
+        // A store READ that blew up must not leave a phantom reservation behind, or a transient
+        // Redis blip would permanently burn an otherwise-valid proof.
+        localUsed.delete(key)
+        throw err
+      }
+    }
     return false
   }
 
   /** Finalise a claim: keep it on success, release it on failure. */
   async function settleTx(ref: string, ok: boolean): Promise<void> {
-    if (hasCustomStore) {
-      if (ok && options.markUsed) await options.markUsed(ref)
+    if (!ok) {
+      // Release the in-process reservation for BOTH stores, so a transient verify failure
+      // leaves the buyer's still-valid proof spendable (ERRORS.md §4.1).
+      localUsed.delete(localKey(ref))
+      if (hasCustomStore && options.releaseUsed) {
+        // A store that RESERVES in `isUsed` needs telling too, or the buyer's valid proof is
+        // burned. Best-effort: a failure here must never mask the real rejection.
+        try {
+          await options.releaseUsed(ref)
+        } catch {
+          /* a stale reservation expires on its own; never break the response over it */
+        }
+      }
       return
     }
-    if (!ok) localUsed.delete(ref.startsWith('pid:') ? ref : ref.toLowerCase())
+    if (hasCustomStore && options.markUsed) await options.markUsed(ref)
   }
 
   function buildAccept(s: ResolvedSpec, nonce: string): X402AcceptEntry {

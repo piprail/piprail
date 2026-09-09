@@ -342,3 +342,41 @@ describe('MultiChainPayer carries the mode, or the MCP could never expose it', (
     expect(names(budgeted)).toHaveLength(8)
   })
 })
+
+describe('authority is SEALED on the instance', () => {
+  /*
+   * paymentTools() decides a model's tool set from canAgentSell()/canAgentSwap(), which read
+   * mode(). As plain prototype methods those could be reassigned by any code holding the
+   * client, turning eight tools into fourteen. A model cannot do that (it sends JSON tool
+   * arguments, it does not hold the object), so this is defence in depth for a client that
+   * passes through a framework, a plugin, or middleware that wraps objects.
+   */
+  it('mode() cannot be reassigned', () => {
+    const c = inMode('budgeted')
+    expect(() => {
+      ;(c as unknown as Record<string, unknown>).mode = () => 'sovereign'
+    }).toThrow()
+    expect(c.mode()).toBe('budgeted')
+    expect(names(c)).toHaveLength(8)
+  })
+
+  it('canAgentSell()/canAgentSwap() cannot be reassigned either', () => {
+    // Sealing mode() alone would not be enough: canSell() calls canAgentSell() directly.
+    const c = inMode('budgeted')
+    for (const key of ['canAgentSell', 'canAgentSwap']) {
+      expect(() => {
+        ;(c as unknown as Record<string, unknown>)[key] = () => true
+      }).toThrow()
+    }
+    expect(c.canAgentSell()).toBe(false)
+    expect(c.canAgentSwap()).toBe(false)
+    expect(names(c)).toHaveLength(8)
+  })
+
+  it('a sovereign client keeps its fourteen tools (sealing does not over-restrict)', () => {
+    const sov = inMode('sovereign')
+    expect(sov.mode()).toBe('sovereign')
+    expect(sov.canAgentSell()).toBe(true)
+    expect(names(sov)).toHaveLength(14)
+  })
+})

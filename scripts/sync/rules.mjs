@@ -27,6 +27,7 @@
  * never silently pass. A guard that quietly does nothing is worse than no guard.
  */
 import { createRequire } from 'node:module'
+import { execFileSync } from 'node:child_process'
 import { readFileSync, statSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import {
@@ -1367,6 +1368,96 @@ export const RULES = [
         }
       }
       return problems.length ? bad(`missing: ${problems.join(', ')}`) : ok(`${refs} script paths across ${wf.length} workflows`)
+    },
+  },
+
+  {
+    domain: 'ci',
+    id: 'sweep-covers-tests',
+    verify: [
+      "npm run sweep -- --list",
+    ],
+    what: 'Every SDK test suite belongs to exactly one sweep section (no unswept surface)',
+    source: { file: 'sdk/test/', note: 'the suites that exist on disk' },
+    mirrors: [
+      { file: 'scripts/sweep.mjs', note: 'SECTIONS — the section each suite is swept under' },
+    ],
+    check() {
+      /*
+       * WHY THIS RULE EXISTS.
+       *
+       * `npm run sweep` runs the suite in named sections so a red run names the SUBSYSTEM, not
+       * just the SDK. That only holds while every suite is claimed by a section: a file matched
+       * by no section is never swept, and one matched by two is counted twice and reported twice.
+       *
+       * The sweep already fails on either, but only when somebody runs it. This puts the same
+       * invariant in the map, so adding `sdk/test/whatever.test.ts` without giving it a section
+       * fails the ordinary `npm run sync` the CLAUDE.md workflow starts with.
+       */
+      const script = 'scripts/sweep.mjs'
+      if (!exists(script)) return bad('scripts/sweep.mjs is missing — the sweep is the map of the suite')
+      let out
+      try {
+        out = execFileSync('node', [join(REPO, script), '--list'], { cwd: REPO, encoding: 'utf8' })
+      } catch (e) {
+        const said = String(e.stdout ?? '') + String(e.stderr ?? '')
+        const names = [...said.matchAll(/· sdk\/test\/(\S+)/g)].map((m) => m[1])
+        return bad(
+          names.length
+            ? `${names.length} suite(s) outside every sweep section: ${names.slice(0, 4).join(', ')}` +
+                `${names.length > 4 ? ', …' : ''} — give them a section in scripts/sweep.mjs`
+            : `npm run sweep -- --list failed: ${said.trim().split('\n').slice(-2).join(' ')}`
+        )
+      }
+      const m = out.match(/(\d+) suites across (\d+) sections/)
+      return m ? ok(`${m[1]} suites across ${m[2]} sections, all claimed`) : ok('sweep sections resolve')
+    },
+  },
+
+  {
+    domain: 'ci',
+    id: 'smoke-sections-declared',
+    verify: [
+      "npm run smoke -- --list",
+    ],
+    what: 'Every smoke section declares its layer + purpose, and the protocol documents them all',
+    source: { file: 'scripts/smoke/', note: 'the adversarial + live sections that exist on disk' },
+    mirrors: [
+      { file: 'TESTING.md', note: 'the ordered protocol — every section named in its layer table' },
+    ],
+    check() {
+      /*
+       * WHY THIS RULE EXISTS.
+       *
+       * `npm run sweep` covers the UNIT layer and guards its own coverage. The layers that find
+       * the real bugs — a hostile caller (L2), a third-party host that went dark (L3), a payment
+       * that must actually settle (L4) — live in scripts/smoke/, and a section nobody documented
+       * is a section nobody runs. Two things must stay true: every section declares what layer it
+       * belongs to and why it exists, and the protocol doc names it.
+       */
+      const dir = 'scripts/smoke'
+      if (!exists(dir)) return bad('scripts/smoke/ is missing — the adversarial + live layers')
+      const files = readdirSync(join(REPO, dir)).filter((f) => /^l\d-.*\.mjs$/.test(f))
+      if (!files.length) return bad('no l<N>-*.mjs sections in scripts/smoke/')
+      const doc = 'TESTING.md'
+      if (!exists(doc)) return bad(`${doc} is missing — the protocol IS the map of these layers`)
+      const prose = read(doc)
+      const problems = []
+      const ids = []
+      for (const f of files) {
+        const src = read(`${dir}/${f}`)
+        const id = src.match(/id:\s*'([^']+)'/)?.[1]
+        const layer = src.match(/layer:\s*'(L\d)'/)?.[1]
+        const why = src.match(/why:\s*'/)
+        if (!id) { problems.push(`${f}: no meta.id`); continue }
+        ids.push(id)
+        if (!layer) problems.push(`${f}: no meta.layer`)
+        if (!why) problems.push(`${f}: no meta.why (say what breaks in the real world)`)
+        if (!prose.includes(`\`${id}\``)) problems.push(`${id}: not named in ${doc}`)
+      }
+      return problems.length
+        ? bad(problems.join('; '))
+        : ok(`${ids.length} sections declared + documented: ${ids.sort().join(', ')}`)
     },
   },
 

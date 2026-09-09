@@ -206,10 +206,21 @@ export type RecipientReason =
 /** What {@link ResolvedNetwork.balanceOf} returns — base-unit balances, or null per
  *  field when that read was unavailable (transient/RPC), never a false 0. */
 export interface WalletBalance {
-  /** The payment token's balance in base units, or null if the read was unavailable. */
+  /**
+   * The payment token's SPENDABLE balance in base units, or null if the read was unavailable.
+   *
+   * For `asset === 'native'` this is what the holder may actually send, which is not always
+   * what it holds: a chain may require an account to retain a minimum it can never spend
+   * (Solana's rent exemption, XRPL's base reserve). Report the reserve DEDUCTED here, and the
+   * true balance in {@link WalletBalance.native}. `planPayment` measures affordability against
+   * this field, so a driver that reports the raw balance instead will call a payment affordable
+   * that the chain then refuses after signing — the one thing the pre-flight check exists to
+   * prevent. Where a family has no such reserve the two fields are simply equal.
+   */
   token: bigint | null
-  /** The native gas coin's balance in base units, or null if unavailable. For
-   *  `asset === 'native'`, this equals `token`. */
+  /** The native gas coin's TRUE balance in base units, or null if unavailable — what gas is
+   *  judged against. For `asset === 'native'` this is the raw balance, which may exceed
+   *  {@link WalletBalance.token} by the chain's retained reserve. */
   native: bigint | null
 }
 

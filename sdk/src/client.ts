@@ -796,6 +796,33 @@ export class PipRailClient {
     this.assertPolicyTimeOptions(opts.policy)
     this.assertPolicySpendControls(opts.policy)
     this.assertModeIsHonest(opts)
+    this.sealAuthority()
+  }
+
+  /**
+   * Pin the three authority accessors to THIS instance, non-writable and non-configurable.
+   *
+   * `paymentTools()` decides which tools a model is handed by calling `canAgentSell()` /
+   * `canAgentSwap()`, which read `mode()`. Those were plain prototype methods, so any code
+   * holding the client could reassign one — `client.mode = () => 'sovereign'` turned a
+   * budgeted client's eight tools into sovereign's fourteen.
+   *
+   * A MODEL could never do that (it sends JSON tool arguments; it does not hold the object),
+   * so this is not a path a model can walk. It is defence in depth for the case where a
+   * client passes through code that is not the operator's own: an agent framework, a plugin,
+   * some middleware that wraps or proxies objects. Authority is set once, by whoever
+   * provisioned the key, and nothing downstream gets to revise it.
+   */
+  private sealAuthority(): void {
+    const mode = this.opts.mode ?? DEFAULT_AGENT_MODE
+    const sovereign = mode === 'sovereign'
+    for (const [name, fn] of [
+      ['mode', () => mode],
+      ['canAgentSell', () => sovereign],
+      ['canAgentSwap', () => sovereign],
+    ] as const) {
+      Object.defineProperty(this, name, { value: fn, writable: false, configurable: false, enumerable: false })
+    }
   }
 
   /**
@@ -1922,34 +1949,46 @@ export class PipRailClient {
 
     this.safeEmit({ kind: 'payment-required', challenge, accept })
 
-    // Budget + approval gate — both refuse BEFORE any on-chain send OR any signature.
-    await this.authorize(quote)
+    // Budget + approval gate — both refuse BEFORE any on-chain send OR any signature. The
+    // returned token is this payment's budget reservation; every path below must give it back.
+    const reservation = await this.authorize(quote)
 
     // Standard `upto` (metered) rail: route BEFORE exact (AUDIT B9 — the compiler can't catch an
     // unhandled upto case in if/else form, so an unrouted upto accept would otherwise reach the
     // onchain-proof fall-through below and be mis-paid). The buyer SIGNS a Permit2 authorization
     // for the MAX; the server settles the ACTUAL after serving.
     if (accept.scheme === 'upto') {
-      return this.payUptoRail(net, wallet, accept, url, init, quote)
+      // finally, not catch: a rail that threw never settled, so the leash must not keep
+      // counting it. Release is idempotent — recordSpend already dropped it when it settled.
+      try { return await this.payUptoRail(net, wallet, accept, url, init, quote, reservation) }
+      finally { this.ledger.release(reservation) }
     }
 
     // Standard `exact` rail: a separate, conservative pay path — the buyer SIGNS an
     // EIP-3009 authorization and the server/facilitator broadcasts it (never payAndConfirm).
     if (accept.scheme === 'exact') {
-      return this.payExactRail(net, wallet, accept, url, init, quote, challenge.x402Version)
+      try { return await this.payExactRail(net, wallet, accept, url, init, quote, challenge.x402Version, reservation) }
+      finally { this.ledger.release(reservation) }
     }
 
     // PipRail's native `onchain-proof` rail — BYTE-IDENTICAL to before. AUDIT B9: ASSERT the
     // fall-through is genuinely onchain-proof so a stray scheme can't be paid as onchain-proof.
     if (accept.scheme !== 'onchain-proof') {
+      this.ledger.release(reservation)
       throw new UnsupportedSchemeError(
         `internal: unrouted accept scheme '${(accept as { scheme: string }).scheme}' reached the onchain-proof pay path.`
       )
     }
-    const { ref, confirmed } = await this.payAndConfirm(net, wallet, accept)
-    const response = await this.retryWithProof(url, init, accept, ref, confirmed)
-    this.recordSpend(quote, ref)
-    return response
+    try {
+      const { ref, confirmed } = await this.payAndConfirm(net, wallet, accept)
+      const response = await this.retryWithProof(url, init, accept, ref, confirmed)
+      this.recordSpend(quote, ref, undefined, reservation)
+      return response
+    } finally {
+      // A payment that threw anywhere above never settled, so it must not keep eating the
+      // leash. Release is idempotent: recordSpend has already dropped it on the happy path.
+      this.ledger.release(reservation)
+    }
   }
 
   /* ------------------------- internals ------------------------- */
@@ -2245,10 +2284,20 @@ export class PipRailClient {
         shortfall.token = formatUnits(amount - bal.token!, quote.decimals)
       }
     } else if (isNative) {
-      // The native coin is BOTH the payment and the gas — need amount + gas.
-      if (nativeKnown && bal.native! < amount + fee) {
+      /*
+       * The native coin is BOTH the payment and the gas, so this needs amount + gas — but
+       * against the SPENDABLE balance, not the raw one. Some chains require an account to
+       * retain a minimum it can never send (Solana's rent exemption, XRPL's base reserve), and
+       * measuring against the raw balance called such a payment affordable right up until the
+       * chain refused it after signing. A driver reports that difference by returning the
+       * spendable figure as `token` for a native asset; where there is no reserve the two are
+       * the same number and this is unchanged.
+       */
+      const spendable = bal.token ?? bal.native
+      const spendableKnown = spendable != null
+      if (spendableKnown && spendable! < amount + fee) {
         blockers.push('INSUFFICIENT_TOKEN')
-        shortfall.token = formatUnits(amount + fee - bal.native!, quote.decimals)
+        shortfall.token = formatUnits(amount + fee - spendable!, quote.decimals)
       }
     } else {
       if (tokenKnown && bal.token! < amount) {
@@ -2453,7 +2502,7 @@ export class PipRailClient {
    *  throwing PaymentDeclinedError, before any funds move. Every refusal carries
    *  a typed `reasonCode` so an agent can branch on the cause (and spot a
    *  TERMINAL expiry/approval decline it must not retry) without parsing prose. */
-  private async authorize(quote: PipRailQuote): Promise<void> {
+  private async authorize(quote: PipRailQuote): Promise<string | undefined> {
     if (!quote.withinPolicy) {
       const reason = `Payment refused by policy: ${quote.policyReason ?? 'not allowed'}`
       this.refuse(reason, {
@@ -2462,21 +2511,38 @@ export class PipRailClient {
         quote,
       })
     }
+    /*
+     * 🔴 RESERVE the budget synchronously, before anything is signed or sent.
+     *
+     * The policy above was evaluated against SETTLED spend, and settlement is a network round
+     * trip away. Without this, N concurrent payments each price against the same total, each
+     * pass, and each settle: an agent with a 2.50 cap spends 4.00 while every check said yes.
+     * Holding the reservation makes an in-flight payment visible to the next one's check.
+     * It is released by `recordSpend` on success, and by the caller's `finally` on any failure.
+     */
+    const reservation = this.ledger.reserve(
+      quote.network, quote.asset, BigInt(quote.amount), quote.decimals,
+      denomOf(quote.symbol, quote.asset, this.opts.policy)
+    )
+
     const hook = this.opts.onBeforePay
-    if (!hook) return
+    if (!hook) return reservation
     let approved: boolean
     try {
       approved = await hook(quote)
     } catch (err) {
       // A throwing decision hook means "do not pay" — fail safe, never pay.
+      this.ledger.release(reservation)
       this.refuse('onBeforePay threw — refusing to pay.', { reasonCode: 'APPROVAL', quote, cause: err })
     }
     if (!approved) {
+      this.ledger.release(reservation)
       const reason =
         `onBeforePay declined ${quote.amountFormatted} ${quote.symbol ?? ''}`.trimEnd() +
         ` on ${quote.network}.`
       this.refuse(reason, { reasonCode: 'APPROVAL', quote })
     }
+    return reservation
   }
 
   /**
@@ -2525,7 +2591,7 @@ export class PipRailClient {
    *  spend (POL-1). So the cap-bearing `amountBase` is the MAX; the clamped actual is surfaced
    *  separately on `settledBase`/`settledFormatted` for transparency (it equals the receipt's
    *  amount). When absent (onchain-proof/exact) this is byte-identical to before. */
-  private recordSpend(quote: PipRailQuote, ref: string, settledAmountBase?: string): void {
+  private recordSpend(quote: PipRailQuote, ref: string, settledAmountBase?: string, reservation?: string): void {
     const denom = denomOf(quote.symbol, quote.asset, this.opts.policy)
     // The budget always debits the authorized MAX (quote.amount) — for upto that keeps the
     // cumulative caps merchant-proof; for onchain-proof/exact the MAX *is* the paid amount.
@@ -2561,6 +2627,9 @@ export class PipRailClient {
       at: new Date().toISOString(),
     }
     this.ledger.record(record, quote.decimals, denom)
+    // The real record now carries this payment's weight, so the reservation can go. Both calls
+    // are synchronous, so the running total is never briefly doubled nor briefly zero.
+    this.ledger.release(reservation)
     const budget = this.budget()
     if (this.opts.onSpend) {
       try {
@@ -2812,7 +2881,9 @@ export class PipRailClient {
     quote: PipRailQuote,
     /** The challenge's wire version — `1` makes the answer go out on the v1 `X-PAYMENT`
      *  header instead of v2's `PAYMENT-SIGNATURE`. Everything else is version-blind. */
-    x402Version: 1 | 2 = 2
+    x402Version: 1 | 2 = 2,
+    /** This payment's budget reservation, released here on every exit path. */
+    reservation?: string
   ): Promise<Response> {
     if (!net.payExact) {
       // gatherCandidates only yields an exact rail when payExact exists — defensive.
@@ -2926,7 +2997,7 @@ export class PipRailClient {
         // facilitator's on-chain settle tx; fall back to the nonce when it echoes none (`||`,
         // so a misbehaving `transaction:''` doesn't become the audit ref).
         const ref = settle?.transaction || receipt?.transaction || `${net.family === 'evm' ? 'eip3009' : net.family}-nonce:${nonce}`
-        this.recordSpend(quote, ref)
+        this.recordSpend(quote, ref, undefined, reservation)
         return response
       }
 
@@ -2975,7 +3046,9 @@ export class PipRailClient {
     accept: X402UptoAcceptEntry,
     url: string,
     init: (RequestInit & { autoRoute?: boolean; schemes?: PaymentScheme[] }) | undefined,
-    quote: PipRailQuote
+    quote: PipRailQuote,
+    /** This payment's budget reservation, released here on every exit path. */
+    reservation?: string
   ): Promise<Response> {
     if (!net.payUpto) {
       // gatherCandidates only yields an upto rail when payUpto exists — defensive.
@@ -3053,7 +3126,7 @@ export class PipRailClient {
         // ≤ the MAX — on the record's informational settledBase/settledFormatted.
         const ref = settle?.transaction || receipt?.transaction || `upto-nonce:${nonce}`
         const settledAmount = settle?.amount ?? receipt?.amount
-        this.recordSpend(quote, ref, settledAmount)
+        this.recordSpend(quote, ref, settledAmount, reservation)
         return response
       }
 
