@@ -14,7 +14,6 @@
 import { describe, it, expect } from 'vitest'
 import { createPaymentGate } from '../src/server.js'
 import { resolveChain } from '../src/drivers/evm/chains.js'
-import { InvalidConfigError } from '../src/errors.js'
 
 const PAY_TO = '0x3333333333333333333333333333333333333333'
 const RPC = 'https://fake.example/rpc'
@@ -29,7 +28,7 @@ describe('resolveChain — a chain id must be an EIP-155 chain id', () => {
     ['Infinity', Infinity],
   ] as const) {
     it(`rejects ${label}`, () => {
-      expect(() => resolveChain({ id: id as number, rpcUrl: RPC })).toThrow(InvalidConfigError)
+      expect(() => resolveChain({ id: id as number, rpcUrl: RPC })).toThrow(/positive safe integer/)
     })
   }
 

@@ -21,12 +21,30 @@ export const meta = {
 
 // family, chain, token, amount, proof template. Keep amounts at the dust level.
 export const MATRIX = [
+  // ── Template A (memo/nonce-bound): the nonce is committed INSIDE the signed tx ──────
   { fam: 'algorand', chain: 'algorand', token: 'USDC', amount: '0.01', template: 'A' },
+  { fam: 'algorand', chain: 'algorand', token: 'native', amount: '0.01', template: 'A' },
   { fam: 'near', chain: 'near', token: 'USDC', amount: '0.01', template: 'A' },
+  { fam: 'near', chain: 'near', token: 'USDT', amount: '0.01', template: 'A' },
   { fam: 'stellar', chain: 'stellar', token: 'native', amount: '0.1', template: 'A' },
+  { fam: 'xrpl', chain: 'xrpl', token: 'native', amount: '0.1', template: 'A' },
+  { fam: 'ton', chain: 'ton', token: 'native', amount: '0.01', template: 'A' },
+
+  // ── Template B (digest-bound): the proof IS the tx hash ─────────────────────────────
   { fam: 'solana', chain: 'solana', token: 'USDC', amount: '0.01', template: 'B' },
+  { fam: 'solana', chain: 'solana', token: 'native', amount: '0.0005', template: 'B' },
   { fam: 'sui', chain: 'sui', token: 'USDC', amount: '0.01', template: 'B' },
+  { fam: 'aptos', chain: 'aptos', token: 'USDC', amount: '0.01', template: 'B' },
+  { fam: 'aptos', chain: 'aptos', token: 'USDT', amount: '0.01', template: 'B' },
+  { fam: 'tron', chain: 'tron', token: 'native', amount: '0.5', template: 'B' },
+
+  // ── EVM, across several chains and a token that is NOT USDC ─────────────────────────
   { fam: 'evm', chain: 'bnb', token: 'USDC', amount: '0.01', template: 'B' },
+  { fam: 'evm', chain: 'bnb', token: 'USD1', amount: '0.01', template: 'B' },
+  { fam: 'evm', chain: 'monad', token: 'USDC', amount: '0.01', template: 'B' },
+  { fam: 'evm', chain: 'hyperevm', token: 'USDC', amount: '0.01', template: 'B' },
+  // Robinhood ships USDG and no native USDC at all — the chain that catches a hardcoded 'USDC'.
+  { fam: 'evm', chain: 'robinhood', token: 'USDG', amount: '0.01', template: 'B' },
 ]
 
 const PAYER = {
@@ -59,6 +77,7 @@ export async function run({ sdk, section, check, serve, wallet, REPO, env, only 
 
   for (const spec of MATRIX) {
     if (only.length && !only.includes(spec.fam) && !only.includes(spec.chain)) continue
+    // Several rows share a family now, so label by chain AND token.
     const label = `${spec.chain}/${spec.token}`
     section(`payments · ${label}`, `Template ${spec.template} · real mainnet payment of ${spec.amount}`)
 

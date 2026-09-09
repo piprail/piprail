@@ -3,7 +3,6 @@ import {
   arbitrum, avalanche, base, bsc, celo, hyperEvm, injective, kaia, linea, mainnet, mantle, monad,
   optimism, polygon, scroll, sei, sonic, unichain, worldchain, zksync,
 } from 'viem/chains'
-import { InvalidConfigError } from '../../errors.js'
 
 /**
  * ── EVM SECTION: chains ──
@@ -335,8 +334,11 @@ export function resolveChain(
    * nothing), but the failure surfaced as `tx_not_found` at payment time rather than as the
    * config error it actually is. Amounts are validated this strictly; chain ids must be too.
    */
+  /* A plain Error, like every other refusal in this function. `wallet-audit` imports these
+   * driver presets as RAW TypeScript, where a `../../errors.js` specifier does not resolve, so
+   * a typed import here silently breaks that tool while the bundled SDK stays fine. */
   if (!Number.isSafeInteger(input.id) || input.id <= 0) {
-    throw new InvalidConfigError(
+    throw new Error(
       `resolveChain: chain id must be a positive safe integer (EIP-155), got ${String(input.id)}.`
     )
   }

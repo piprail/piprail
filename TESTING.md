@@ -89,6 +89,15 @@ milliseconds.
 | `invariants` | the **seams**: cross-transport replay, identifier idempotency, rail confusion, recency, budget races |
 | `modes` | the three modes, the sovereignty loop, and every escalation attempt |
 | `selling` | a hostile buyer: underpayment, paying elsewhere, cross-offer replay, concurrency, nonsense pricing |
+| `merchant` | the adapters a seller deploys: paywall, tip jar, fetch handler, worker, middleware |
+| `receipts` | receipt forgery and re-verification: a forged payTo, asset, amount or payer |
+| `mcp` | the surface a MODEL drives: `PIPRAIL_MODE`, confirm wiring, contradictory knobs, read-only boot |
+
+**A fake driver must be FAITHFUL, not permissive.** These sections stand a fake chain in for the
+real one. A fake that accepts every token, every address and every asset reports a gate
+configured with `token: 'NOTATOKEN'` as perfectly healthy, so a real regression in that check
+sails straight through. Twice now a "finding" was really a lenient fake. Refuse exactly what the
+real driver refuses.
 
 ### L3 — reality (`scripts/smoke/l3-*.mjs`)
 
@@ -105,7 +114,7 @@ Real mainnet, tiny amounts, from the gitignored test wallets.
 
 | Section | Proves |
 |---|---|
-| `payments` | per family: `pay → 200 → receipt → replay refused`, plus Template-A nonce binding |
+| `payments` | **18 rows across all 10 families**: `pay → 200 → receipt → replay refused`, plus Template-A nonce binding. Covers native coins and non-USDC tokens (USDT, USD1, USDG) |
 | `sovereign` | an agent handed only a key earns real money end to end, unattended |
 
 ---
