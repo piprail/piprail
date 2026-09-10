@@ -1,6 +1,6 @@
 ---
 title: The open indexes
-description: The three open x402 directories PipRail reads from and writes to, their auth, chains, and lifecycle facts, and the low-level functions that talk to them.
+description: The four open x402 directories PipRail reads from and writes to, their auth, chains, page ceilings, and lifecycle facts, and the low-level functions that talk to them.
 sidebar:
   order: 2
 ---
@@ -8,21 +8,48 @@ sidebar:
 ## Introduction
 
 PipRail hosts no directory of its own. To be found, and to find others, it reads from and writes
-to the **open x402 directories that already exist**. There are three, and they behave
-differently: different auth, different chains, different timing before a listing is searchable.
+to the **open x402 directories that already exist**. There are four, and they behave
+differently: different auth, different chains, different page sizes, different timing before a
+listing is searchable.
 
 This page is the per-index reference. The high-level
 [`client.discover()` / `client.register()`](/discovery/discover-and-register/) wrap these
 functions; reach for the low-level ones when you want to read a single index, register without a
 client, or branch on an index's behaviour before you call it.
 
-The three sources, named by the exported `DiscoverySource` union (`'bazaar' | '402index' | 'x402scan'`):
+The four sources, named by the exported `DiscoverySource` union
+(`'bazaar' | '402index' | 'x402scan' | 'circle'`):
 
-| Source | Reads | Writes |
-| --- | --- | --- |
-| `bazaar` | CDP Bazaar, a free, keyless read of the facilitator catalog | none (settle-coupled; see below) |
-| `402index` | 402 Index, a free read | no-auth POST (the primary register target) |
-| `x402scan` | not read by `discover()` | one wallet signature (SIWX), Base/Solana only |
+| Source | Reads | Writes | Rows per request |
+| --- | --- | --- | --- |
+| `bazaar` | CDP Bazaar, a free, keyless read of the facilitator catalog, plus its keyless **semantic** search | none (settle-coupled; see below) | 1000 (search: 20) |
+| `402index` | 402 Index, a free read | no-auth POST (the primary register target) | 200 |
+| `circle` | Circle's Agent Marketplace catalog, a free, keyless read | none (no public register endpoint) | 200 |
+| `x402scan` | not read by `discover()` | one wallet signature (SIWX), Base/Solana only | n/a |
+
+`discover()` reads **`bazaar`, `402index` and `circle`** by default. All three are free and
+need no key. `x402scan` is never read by default, because its reads are paid.
+
+### Why Circle is read as well as Bazaar
+
+They look like the same catalog and are not. Measured on 2026-09-10, Circle listed 1,246
+resources and CDP Bazaar 14,627, and they overlapped on **102**. Of Circle's catalog, **1,122
+resources appear in neither Bazaar nor 402 Index**: roughly a thousand payable endpoints that
+were invisible to any agent reading only the other two.
+
+The two serve the same envelope (`{ items, pagination: { limit, offset, total } }`) and the same
+per-item shape, so PipRail reads them through one adapter. Circle nests its human-readable
+fields one level deeper, under `metadata.provider`, which the mapper handles.
+
+Circle also answers queries and filters at the index (`query`, `category`, `asset`,
+`maxUsdPrice`, `network`, `scheme`, `type`), so PipRail pushes those rather than pulling pages
+and filtering them locally. Note the spelling: Circle wants `maxUsdPrice`, where 402 Index wants
+`max_price_usd`.
+
+One difference matters operationally: **Circle rejects an over-sized page with HTTP 400, where
+Bazaar silently caps it.** Since index reads never throw, asking Circle for 1,000 rows makes it
+contribute nothing at all, with no error surfaced anywhere. That is why its 200-row ceiling is
+pinned in a test rather than left as a comment.
 
 ## The lifecycle facts: `DIRECTORY_INFO`
 

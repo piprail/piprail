@@ -10,7 +10,7 @@
 [![types](https://img.shields.io/npm/types/@piprail/sdk.svg?logo=typescript&logoColor=white&color=3178c6)](https://www.npmjs.com/package/@piprail/sdk)
 [![license](https://img.shields.io/github/license/piprail/piprail.svg?color=2ee6a6)](LICENSE)
 [![x402 v2](https://img.shields.io/badge/x402-v2-6e56cf.svg)](https://x402.org)
-[![chains](https://img.shields.io/badge/chains-30%20across%2010%20families-2ee6a6.svg)](https://docs.piprail.com/chains/overview/)
+[![chains](https://img.shields.io/badge/chains-37%20across%2010%20families-2ee6a6.svg)](https://docs.piprail.com/chains/overview/)
 [![GitHub stars](https://img.shields.io/github/stars/piprail/piprail?style=flat&logo=github&label=Star&color=2ee6a6)](https://github.com/piprail/piprail)
 [![Follow @piprailhq](https://img.shields.io/badge/Follow-%40piprailhq-1d9bf0?logo=x&logoColor=white)](https://x.com/piprailhq)
 

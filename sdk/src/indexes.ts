@@ -5,6 +5,7 @@
  *
  *   - CDP Bazaar  — free, no-key READ of the facilitator catalog.
  *   - 402 Index   — free READ + no-auth WRITE (the primary register target).
+ *   - Circle      — free, no-key READ of the Circle Agent Marketplace catalog.
  *   - x402scan    — SIWX WRITE (one wallet signature; Base/Solana only).
  *
  * Protocol layer (STANDARDS §1): imports only `x402.ts` types + the global
@@ -17,7 +18,7 @@ import type { Caip2 } from './x402.js'
 import type { DiscoverySigner } from './drivers/types.js'
 
 /** The open directories PipRail can read from / write to. */
-export type DiscoverySource = 'bazaar' | '402index' | 'x402scan'
+export type DiscoverySource = 'bazaar' | '402index' | 'x402scan' | 'circle'
 
 /** One payment option as an index reports it — looser than a live `accepts[]`
  *  entry (indexes are cross-scheme: `exact` is the norm, `onchain-proof` is ours). */
@@ -57,6 +58,17 @@ export interface DiscoveredResource {
   /** Relevance score for the active query (set by {@link rankResources}); higher ranks
    *  first. Absent when no query was given (results keep first-seen / sort order). */
   score?: number
+  /**
+   * True when the INDEX selected this result for the query, rather than the SDK matching it
+   * locally: CDP Bazaar's semantic search, or Circle's server-side `query`.
+   *
+   * It exists because the local ranker is token-based and drops anything scoring zero, which
+   * would throw away exactly the results worth having. "What is the price of ethereum" can
+   * match an endpoint described as "live ETH to USD feed" that shares not one token with the
+   * query: the index understood the question, and a substring filter would then delete the
+   * answer. An index-matched result is always kept, and still ranked.
+   */
+  indexMatched?: boolean
   /** The payment options the index advertises (best-effort, cross-scheme). */
   rails: DiscoveredRail[]
 }
@@ -104,10 +116,24 @@ export interface SearchOpenIndexesOptions {
    * and the merged set is ranked by relevance ({@link rankResources}).
    */
   query?: string
-  /** Which indexes to read. Default `['bazaar', '402index']` (both free). */
+  /** Which indexes to read. Default {@link DEFAULT_SOURCES} — Bazaar, 402 Index and Circle,
+   *  all free and key-less. `x402scan` is never read by default (its reads are paid). */
   sources?: DiscoverySource[]
-  /** Max results to FETCH per index request. Default 20. */
+  /** Max results to return PER INDEX. Default 20.
+   *
+   *  Paged transparently: the SDK requests `min(limit, index ceiling)` per HTTP call and
+   *  walks `offset` until the limit is met or the catalog runs out, so a `limit` of 5,000
+   *  really does read 5,000 rows. A `limit` at or below the ceiling costs exactly one
+   *  request (unchanged wire behaviour), and {@link SearchOpenIndexesOptions.maxRequests}
+   *  bounds how deep a large limit is allowed to dig. */
   limit?: number
+  /** Read the WHOLE catalog of each source, bounded only by {@link maxRequests}. Overrides
+   *  {@link limit}. The indexes are large (Bazaar ~14.6k resources, 402 Index ~106k), so
+   *  budget for it: this is the "show me everything" switch, not a default. */
+  exhaustive?: boolean
+  /** Hard ceiling on HTTP requests issued per source for this call. Default 12 — enough to
+   *  read ~12,000 Bazaar rows or ~2,400 402 Index rows. Raise it deliberately. */
+  maxRequests?: number
   /** Keep ONLY this category (prefix match, case-insensitive) — strict: a resource the
    *  index didn't categorize is dropped (pushed to 402 Index server-side too). */
   category?: string
@@ -255,6 +281,19 @@ export const DIRECTORY_INFO: Readonly<Record<DiscoverySource, DirectoryInfo>> = 
       "x402scan.com immediately on success — but discover() does NOT read x402scan, so the listing " +
       "won't appear in discover() results.",
   },
+  circle: {
+    source: 'circle',
+    review: 'settle-coupled',
+    auth: 'none',
+    chains: null,
+    onSuccess: 'not-listable',
+    readByDiscover: true,
+    caveat:
+      'Circle\u2019s Agent Marketplace catalog is a free, no-key READ with no public register endpoint ' +
+      '\u2014 a resource appears there through Circle\u2019s own onboarding, not by self-submission, so a ' +
+      'PipRail resource cannot be listed here. Worth reading anyway: it is largely DISJOINT from CDP ' +
+      'Bazaar (measured 2026-09-10, 1,122 of its 1,246 resources appear in no other index PipRail reads).',
+  },
   bazaar: {
     source: 'bazaar',
     review: 'settle-coupled',
@@ -290,6 +329,28 @@ export function decorateOutcome(o: RegisterOutcome): RegisterOutcome {
 /* ----------------------------- endpoints ----------------------------- */
 
 const BAZAAR_URL = 'https://api.cdp.coinbase.com/platform/v2/x402/discovery/resources'
+const CIRCLE_URL = 'https://api.circle.com/v2/x402/discovery/resources'
+/**
+ * CDP Bazaar's SEMANTIC search. Keyless, and it genuinely matches meaning rather than tokens:
+ * `"forecast temperature"` finds an endpoint named `/forecast`, and `"what is the price of
+ * ethereum"` finds an eth-price feed, neither of which a substring filter would surface. It
+ * reports `searchMethod: 'hybrid'`.
+ *
+ * Two limits shape how it is used: it caps at ~20 results (`limit=50` answers HTTP 400) and it
+ * does NOT paginate (`offset`, `page` and `cursor` are all ignored). So it is a precision pass
+ * UNIONED with the paged list, never a replacement for it.
+ *
+ * Note the parameter name. `?q=` is accepted and silently IGNORED, returning the same rows for
+ * every query including nonsense; only `?query=` filters. A `q=`-shaped integration looks like
+ * it works, ranks fine, and is answering a different question than the caller asked.
+ */
+const BAZAAR_SEARCH_URL = 'https://api.cdp.coinbase.com/platform/v2/x402/discovery/search'
+/** What Bazaar's search will serve before it answers 400. */
+const BAZAAR_SEARCH_CEILING = 20
+
+/** The score an index-matched result keeps when local token scoring finds nothing: low
+ *  enough to sit under every literal match, high enough never to be filtered away. */
+const INDEX_MATCH_FLOOR = 0.5
 const INDEX402_SEARCH = 'https://402index.io/api/v1/services'
 const INDEX402_REGISTER = 'https://402index.io/api/v1/register'
 const INDEX402_CLAIM = 'https://402index.io/api/v1/claim'
@@ -302,6 +363,48 @@ const X402SCAN_REGISTER = 'https://www.x402scan.com/api/x402/registry/register'
  * affect an index's body validation (no risk of breaking a register), and the browser keeps
  * its own UA where it must — always safe to send. A polite, honest "this came from PipRail."
  */
+/**
+ * The largest page each open index will actually serve, measured live (2026-09-10) —
+ * ask for more and the index silently caps you, which is exactly how `discover()` came
+ * to read 50 rows out of a 106,398-row catalog and look like it had read the market.
+ * A page request is `min(wanted, ceiling)`, so a small `limit` still costs ONE request
+ * and the wire stays byte-identical to the pre-pagination SDK.
+ */
+const PAGE_CEILING: Readonly<Record<DiscoverySource, number>> = {
+  bazaar: 1000,
+  '402index': 200,
+  // Circle REJECTS an over-limit request with HTTP 400 rather than capping it quietly, so
+  // this number is load-bearing in a way the others are not: too high and every page 400s
+  // and the source contributes nothing at all, silently, because reads never throw.
+  circle: 200,
+  x402scan: 100,
+}
+
+/** Per-source request budget when a `limit` needs more than one page. Caps the blast
+ *  radius of a deep search: at most this many HTTP requests per index, per call. */
+const DEFAULT_MAX_REQUESTS = 12
+
+/**
+ * How many page requests may be in flight against ONE index at a time.
+ *
+ * A deep read of 402 Index is 500+ pages at its 200-row ceiling. Firing those as a single
+ * `Promise.all` is how a well-meaning agent turns into a denial-of-service against a free,
+ * unauthenticated directory that is doing us a favour by existing — and how PipRail's
+ * User-Agent gets rate-limited or blocked for everyone. Pages go out in bounded waves.
+ */
+const PAGE_CONCURRENCY = 6
+
+/**
+ * Which indexes `discover()` reads when the caller names none. All free, all key-less,
+ * all read-only.
+ *
+ * Circle joined on 2026-09-10 because it is largely DISJOINT rather than redundant: of its
+ * 1,246 resources, 1,122 appear in neither CDP Bazaar nor 402 Index. Reading two catalogs
+ * and calling it "the x402 web" was leaving roughly a thousand payable endpoints invisible
+ * to every agent using this SDK. The cost is one extra HTTP request per default search.
+ */
+const DEFAULT_SOURCES: readonly DiscoverySource[] = ['bazaar', '402index', 'circle']
+
 const USER_AGENT = '@piprail/sdk (+https://piprail.com)'
 
 /** Headers for every outbound index request — always carries the PipRail User-Agent. */
@@ -346,6 +449,13 @@ const SLUG_TO_CAIP2: Readonly<Record<string, Caip2>> = {
   monad: 'eip155:143',
   kaia: 'eip155:8217',
   robinhood: 'eip155:4663',
+  xlayer: 'eip155:196',
+  megaeth: 'eip155:4326',
+  peaq: 'eip155:3338',
+  skalebase: 'eip155:1187947933',
+  xdc: 'eip155:50',
+  etherlink: 'eip155:42793',
+  xrplevm: 'eip155:1440000',
   // non-EVM families — values mirror each driver's bound caip2 exactly
   solana: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
   ton: 'tvm:-239',
@@ -414,8 +524,13 @@ export function normalizeNetwork(network: string): string {
 export async function searchOpenIndexes(
   opts: SearchOpenIndexesOptions = {}
 ): Promise<DiscoveredResource[]> {
-  const sources = opts.sources ?? ['bazaar', '402index']
-  const limit = opts.limit ?? 20
+  const sources = opts.sources ?? DEFAULT_SOURCES
+  const maxRequests = Math.max(1, opts.maxRequests ?? DEFAULT_MAX_REQUESTS)
+  // `exhaustive` means "as deep as the budget allows" — the per-source ceiling times the
+  // budget is the most any index could return, so it needs no magic sentinel value.
+  const limit = opts.exhaustive
+    ? Math.max(...sources.map((sc) => PAGE_CEILING[sc] ?? 100)) * maxRequests
+    : (opts.limit ?? 20)
   const filters: Index402Filters = {
     ...optionalRaw('category', opts.category),
     ...optionalRaw('asset', opts.asset),
@@ -427,8 +542,31 @@ export async function searchOpenIndexes(
   }
   const results = await Promise.all(
     sources.map((source) => {
-      if (source === 'bazaar') return safeSearch(() => searchBazaar(opts.query, limit, opts.signal))
-      if (source === '402index') return safeSearch(() => search402Index(opts.query, limit, filters, opts.signal))
+      if (source === 'bazaar')
+        return safeSearch(async () => {
+          // The paged LIST is the recall pass; the semantic endpoint is the precision pass.
+          // Both, unioned, because each finds resources the other misses: the list matches
+          // substrings the semantic index ranks away, and the semantic index matches meaning
+          // no substring filter can reach ("forecast temperature" finds `/forecast`).
+          const [listed, semantic] = await Promise.all([
+            safeSearch(() =>
+              searchItemsCatalog('bazaar', BAZAAR_URL, opts.query, limit, maxRequests, filters, opts.signal)
+            ),
+            opts.query
+              ? safeSearch(() => searchBazaarSemantic(opts.query as string, limit, opts.signal))
+              : Promise.resolve<DiscoveredResource[]>([]),
+          ])
+          // Semantic hits FIRST: they are the ranked, meaning-matched ones, and dedupe keeps
+          // first-seen, so a resource in both keeps the richer semantic record (it carries
+          // serviceName / description / tags the list endpoint omits).
+          return dedupeByResource([...semantic, ...listed])
+        })
+      if (source === 'circle')
+        return safeSearch(() =>
+          searchItemsCatalog('circle', CIRCLE_URL, opts.query, limit, maxRequests, filters, opts.signal)
+        )
+      if (source === '402index')
+        return safeSearch(() => search402Index(opts.query, limit, maxRequests, filters, opts.signal))
       return Promise.resolve<DiscoveredResource[]>([]) // x402scan reads are paid — off by default here
     })
   )
@@ -554,7 +692,13 @@ export function rankResources(items: DiscoveredResource[], query: string | undef
   const qTokens = tokenize(query)
   if (qTokens.length === 0) return items
   return items
-    .map((r, i) => ({ r, i, s: scoreResource(r, qTokens) }))
+    .map((r, i) => {
+      const s = scoreResource(r, qTokens)
+      // An index-matched result never scores zero away. It was selected by a search that
+      // understands meaning, so a local token score of 0 says the ranker cannot see why,
+      // not that the result is irrelevant. Floor it below any literal match and keep it.
+      return { r, i, s: s > 0 ? s : r.indexMatched ? INDEX_MATCH_FLOOR : 0 }
+    })
     .filter((x) => x.s > 0)
     .sort((a, b) => b.s - a.s || a.i - b.i)
     .map((x) => ({ ...x.r, score: x.s }))
@@ -590,6 +734,11 @@ function sortResources(items: DiscoveredResource[], sort: DiscoverySort, order: 
 async function safeSearch(
   run: () => Promise<DiscoveredResource[]>
 ): Promise<DiscoveredResource[]> {
+  return safeList(run)
+}
+
+/** {@link safeSearch} for any row type — a failed page yields `[]`, never a throw. */
+async function safeList<T>(run: () => Promise<T[]>): Promise<T[]> {
   try {
     return await run()
   } catch {
@@ -610,38 +759,183 @@ function dedupeByResource(items: DiscoveredResource[]): DiscoveredResource[] {
   return out
 }
 
-async function searchBazaar(
+/**
+ * Walk one offset-paginated index until `want` results are in hand, the catalog is
+ * exhausted, or the request budget runs out — whichever comes first.
+ *
+ * Page 1 is fetched alone because it reports the catalog `total`; the remaining pages are
+ * then issued in PARALLEL, since their offsets are known without reading page 1's items.
+ * That keeps a deep read one round-trip deeper than a shallow one instead of N.
+ *
+ * Never throws: a page that errors or changes shape contributes `[]`, and the pages that
+ * did land are still returned. A partial answer beats an exception for a read-only method.
+ */
+async function fetchPaged<T>(
+  page: (offset: number, size: number) => Promise<PageResult<T>>,
+  opts: { want: number; ceiling: number; maxRequests: number }
+): Promise<T[]> {
+  const size = Math.max(1, Math.min(opts.want, opts.ceiling))
+  const first = await page(0, size)
+  const out = [...first.items]
+
+  // Termination reads `raw` — how many ROWS the index served — never `items.length`.
+  // 402 Index is protocol-mixed, so a full 200-row page can yield far fewer x402 items;
+  // measuring the filtered array made a well-stocked catalog look exhausted at page 1
+  // and capped a 106,398-row index at ~193 results.
+  const rawFirst = first.raw ?? first.items.length
+  if (out.length >= opts.want || rawFirst < size) return out.slice(0, opts.want)
+
+  // How many rows remain to be READ (not kept): pace by the index's own total when it
+  // reports one, else assume the catalog continues and let the budget bound the walk.
+  const rowsReachable = first.total !== undefined ? first.total : Number.POSITIVE_INFINITY
+  const rowsRemaining = rowsReachable - rawFirst
+  if (rowsRemaining <= 0) return out.slice(0, opts.want)
+
+  // Enough pages for the rows we still WANT, but never more than the catalog can serve.
+  const yieldRate = rawFirst > 0 ? out.length / rawFirst : 1
+  const rowsNeeded = yieldRate > 0 ? (opts.want - out.length) / yieldRate : opts.want
+  const pagesNeeded = Math.min(
+    Math.ceil(Math.min(rowsNeeded, rowsRemaining) / size),
+    Math.max(0, opts.maxRequests - 1)
+  )
+  if (pagesNeeded <= 0) return out.slice(0, opts.want)
+
+  const offsets = Array.from({ length: pagesNeeded }, (_, i) => size * (i + 1))
+  for (let i = 0; i < offsets.length; i += PAGE_CONCURRENCY) {
+    const wave = await Promise.all(
+      offsets
+        .slice(i, i + PAGE_CONCURRENCY)
+        .map((offset) => safeList(() => page(offset, size).then((r) => r.items)))
+    )
+    for (const chunk of wave) out.push(...chunk)
+    // Stop early once the caller has what it asked for: a wave that overshoots the limit
+    // means every later wave is wasted work against someone else's server.
+    if (out.length >= opts.want) break
+  }
+  return out.slice(0, opts.want)
+}
+
+/** One page as an index served it. `raw` is the ROW count before any client-side
+ *  protocol filtering — the only honest end-of-catalog signal (see {@link fetchPaged}). */
+interface PageResult<T> {
+  items: T[]
+  raw?: number
+  total?: number
+}
+
+/**
+ * Read one `{ items, pagination: { total } }` catalog. CDP Bazaar and Circle serve the same
+ * envelope and the same `resource` / `accepts[]` / `metadata` item shape (Circle's is the
+ * x402 discovery response documented at `agents.circle.com/.well-known/openapi.json`), so
+ * they share a reader — one place to fix when that shape moves, and no chance of the two
+ * drifting into subtly different mappers.
+ */
+async function searchItemsCatalog(
+  source: 'bazaar' | 'circle',
+  url: string,
   query: string | undefined,
+  limit: number,
+  maxRequests: number,
+  filters: Index402Filters,
+  signal?: AbortSignal
+): Promise<DiscoveredResource[]> {
+  // Circle filters and searches SERVER-side (its OpenAPI declares query/category/network/
+  // asset/scheme/maxUsdPrice/limit/offset), so push what it understands and let it rank.
+  // Bazaar's LIST endpoint takes none of that, so its query is applied client-side below.
+  const serverSide = source === 'circle'
+  const raw = await fetchPaged<unknown>(
+    async (offset, size) => {
+      const qs = new URLSearchParams({ limit: String(size) })
+      // Only paginate the URL once we actually page — offset=0 keeps the legacy wire shape.
+      if (offset > 0) qs.set('offset', String(offset))
+      if (serverSide) {
+        if (query) qs.set('query', query)
+        if (filters.category) qs.set('category', filters.category)
+        if (filters.asset) qs.set('asset', filters.asset)
+        if (filters.maxPrice !== undefined) qs.set('maxUsdPrice', String(filters.maxPrice))
+      }
+      const res = await fetch(`${url}?${qs.toString()}`, {
+        headers: clientHeaders({ accept: 'application/json' }),
+        ...(signal ? { signal } : {}),
+      })
+      if (!res.ok) return { items: [] }
+      const body = (await res.json()) as { items?: unknown; pagination?: { total?: unknown } }
+      const items = Array.isArray(body.items) ? body.items : []
+      const total = pickNumber((body.pagination ?? {}) as Record<string, unknown>, 'total')
+      return { items, raw: items.length, ...(total !== undefined ? { total } : {}) }
+    },
+    { want: limit, ceiling: PAGE_CEILING[source], maxRequests }
+  )
+  const mapped = raw
+    .map((it) => mapItemsCatalogEntry(it, source))
+    .filter((r): r is DiscoveredResource => r !== null)
+  // Circle already applied the query at the index; Bazaar's LIST cannot, so filter it locally
+  // with a loose any-token pre-filter for recall. The merged-set ranker handles ordering, and
+  // for Bazaar the semantic pass in `searchBazaarSemantic` supplies the precision.
+  if (!query) return mapped
+  if (serverSide) return mapped.map((r) => ({ ...r, indexMatched: true }))
+  return mapped.filter((r) => matchesQuery(r, query))
+}
+
+/**
+ * One precision pass over CDP Bazaar's semantic search. Union this with the paged list rather
+ * than replacing it: the endpoint caps at ~20 rows and does not paginate, so on its own it
+ * would make a deep query-shaped search shallower, not better.
+ *
+ * Returns `[]` on any failure, like every other read here.
+ */
+async function searchBazaarSemantic(
+  query: string,
   limit: number,
   signal?: AbortSignal
 ): Promise<DiscoveredResource[]> {
-  const res = await fetch(`${BAZAAR_URL}?limit=${encodeURIComponent(String(limit))}`, {
+  const qs = new URLSearchParams({
+    query,
+    limit: String(Math.max(1, Math.min(limit, BAZAAR_SEARCH_CEILING))),
+  })
+  const res = await fetch(`${BAZAAR_SEARCH_URL}?${qs.toString()}`, {
     headers: clientHeaders({ accept: 'application/json' }),
     ...(signal ? { signal } : {}),
   })
   if (!res.ok) return []
-  const body = (await res.json()) as { items?: unknown }
-  const items = Array.isArray(body.items) ? body.items : []
-  const mapped = items.map(mapBazaarItem).filter((r): r is DiscoveredResource => r !== null)
-  // Bazaar's server-side search is unusable without a CDP key (its /search endpoint
-  // answers 200 but returns nothing), so we filter its LIST locally: a loose any-token
-  // pre-filter for recall, then the merged-set ranker handles precision + ordering.
-  return query ? mapped.filter((r) => matchesQuery(r, query)) : mapped
+  const body = (await res.json()) as Record<string, unknown>
+  return firstArray(body, 'resources', 'items', 'results')
+    .map((it) => mapItemsCatalogEntry(it, 'bazaar'))
+    .filter((r): r is DiscoveredResource => r !== null)
+    .map((r) => ({ ...r, indexMatched: true }))
 }
 
-function mapBazaarItem(raw: unknown): DiscoveredResource | null {
+/**
+ * One row of an `{ items }` catalog in the SDK's shape. Three shapes reach this, and the
+ * human-readable fields sit in a different place in each:
+ *   - Bazaar's LIST     — `metadata.name` / `metadata.description`
+ *   - Bazaar's SEARCH   — `serviceName` / `description`, at the TOP level
+ *   - Circle            — `metadata.provider.name` / `.description`
+ * All are read, so a resource keeps its name whichever door it came through. Missing this is
+ * quiet: the resource still resolves and still pays, it just arrives anonymous, and an agent
+ * choosing between endpoints by name sees a bare URL.
+ */
+function mapItemsCatalogEntry(raw: unknown, source: 'bazaar' | 'circle'): DiscoveredResource | null {
   if (!raw || typeof raw !== 'object') return null
   const o = raw as Record<string, unknown>
   const resource = pickString(o, 'resource', 'url', 'endpoint')
   if (!resource) return null
   const meta = (o.metadata && typeof o.metadata === 'object' ? o.metadata : {}) as Record<string, unknown>
+  const provider = (meta.provider && typeof meta.provider === 'object' ? meta.provider : {}) as Record<string, unknown>
   return {
     resource,
-    source: 'bazaar',
+    source,
     rails: mapRails(o.accepts),
-    ...optionalString('name', pickString(meta, 'name', 'title')),
-    ...optionalString('description', pickString(meta, 'description') ?? pickString(o, 'description')),
+    ...optionalString(
+      'name',
+      pickString(meta, 'name', 'title') ?? pickString(o, 'serviceName') ?? pickString(provider, 'name')
+    ),
+    ...optionalString(
+      'description',
+      pickString(meta, 'description') ?? pickString(o, 'description') ?? pickString(provider, 'description')
+    ),
     ...optionalString('category', pickString(meta, 'category')),
+    ...(Array.isArray(o.tags) ? { tags: o.tags.filter((t): t is string => typeof t === 'string') } : {}),
   }
 }
 
@@ -658,6 +952,7 @@ function mapBazaarItem(raw: unknown): DiscoveredResource | null {
 async function search402Index(
   query: string | undefined,
   limit: number,
+  maxRequests: number,
   filters: Index402Filters,
   signal?: AbortSignal
 ): Promise<DiscoveredResource[]> {
@@ -666,18 +961,42 @@ async function search402Index(
   const tokens = tokenize(query)
   const queries: Array<string | undefined> =
     query && tokens.length > 1 ? [...new Set([query, ...tokens])].slice(0, 5) : [query]
-  const pages = await Promise.all(queries.map((q) => safeSearch(() => fetch402Page(q, limit, filters, signal))))
+  // The request budget is shared across the fan-out: N query variants each get 1/N of it,
+  // so a multi-word deep search costs the same as a single-word one instead of N times more.
+  const perQuery = Math.max(1, Math.floor(maxRequests / queries.length))
+  const pages = await Promise.all(
+    queries.map((q) => safeSearch(() => fetch402Paged(q, limit, perQuery, filters, signal)))
+  )
   return dedupeByResource(pages.flat())
+}
+
+/** Page ONE 402 Index query to `limit` results, walking `offset`. */
+async function fetch402Paged(
+  query: string | undefined,
+  limit: number,
+  maxRequests: number,
+  filters: Index402Filters,
+  signal?: AbortSignal
+): Promise<DiscoveredResource[]> {
+  return fetchPaged<DiscoveredResource>(
+    async (offset, size) => {
+      const { items, raw, total } = await fetch402Page(query, size, offset, filters, signal)
+      return { items, raw, ...(total !== undefined ? { total } : {}) }
+    },
+    { want: limit, ceiling: PAGE_CEILING['402index'], maxRequests }
+  )
 }
 
 /** Fetch + map ONE 402 Index page for a single query string (or none) + filters. */
 async function fetch402Page(
   query: string | undefined,
   limit: number,
+  offset: number,
   filters: Index402Filters,
   signal?: AbortSignal
-): Promise<DiscoveredResource[]> {
+): Promise<PageResult<DiscoveredResource>> {
   const qs = new URLSearchParams({ limit: String(limit) })
+  if (offset > 0) qs.set('offset', String(offset))
   if (query) qs.set('q', query)
   if (filters.category) qs.set('category', filters.category)
   if (filters.asset) qs.set('payment_asset', filters.asset)
@@ -692,14 +1011,18 @@ async function fetch402Page(
     headers: clientHeaders({ accept: 'application/json' }),
     ...(signal ? { signal } : {}),
   })
-  if (!res.ok) return []
+  if (!res.ok) return { items: [], raw: 0 }
   const body = (await res.json()) as Record<string, unknown>
   const list = firstArray(body, 'services', 'results', 'items', 'data')
-  return list
+  const items = list
     .map(map402IndexItem)
     .filter((r): r is DiscoveredResource => r !== null)
     // 402 Index is protocol-mixed (L402 / MPP / x402) — keep only x402.
     .filter((r) => r.rails.length > 0)
+  const total = pickNumber(body, 'total')
+  // `total` and `raw` both count the index's PRE-filter rows; the x402-only filter above
+  // drops some, so they bound how far paging can WALK, not how much it will keep.
+  return { items, raw: list.length, ...(total !== undefined ? { total } : {}) }
 }
 
 function map402IndexItem(raw: unknown): DiscoveredResource | null {

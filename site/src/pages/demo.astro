@@ -2,370 +2,720 @@
 import Layout from '../layouts/Layout.astro'
 import Navigation from '../components/Navigation.astro'
 import Footer from '../components/Footer.astro'
-import Breadcrumbs from '../components/Breadcrumbs.astro'
-import { ArrowRight, Server, Globe, ShieldCheck, Boxes, Zap } from 'lucide-astro'
+import { chains } from '../data/chains'
+import { SWAP_PROVIDERS } from '../data/swap-providers'
+import { ArrowRight, ShieldCheck } from 'lucide-astro'
 
-const title = 'Live demo: try x402 crypto payments in your browser | PipRail'
-const description =
-  'Interactive x402 demo. Build a real "402 Payment Required" challenge and watch an agent price it, live in your browser. No install, no backend.'
+const total = chains.length
+const familyCount = new Set(chains.map((chain) => chain.family)).size
+const routeCount = SWAP_PROVIDERS.length
 
-// Page-specific structured data: a usable web demo + the 402 loop as a HowTo,
-// so search + AI engines surface "try x402 / x402 demo" intent to this page.
+const title = 'PipRail SDK lab: run the x402 stack in your browser'
+const description = `A working bench for @piprail/sdk. Mint a real 402 challenge, quote and plan a live mainnet payment, test the spend policy, read the agent tools, search the open indexes, and inspect all ${total} chains. No key, no signup, nothing leaves the tab.`
+
+const stats = [
+  { value: total, label: 'mainnet chains' },
+  { value: familyCount, label: 'driver families' },
+  { value: routeCount, label: 'swap routes' },
+  { value: '0%', label: 'PipRail fee' },
+]
+
+/**
+ * The bench. Each entry runs REAL SDK code in the visitor's browser and DRAWS what came
+ * back, so the page cannot drift from the package the way a screenshot would.
+ *
+ * `kind` is a promise to the reader, not decoration:
+ *   'pure': no network at all, deterministic, works offline
+ *   'live': touches a public RPC, this site's own 402, or an open index
+ *
+ * `stage` groups the bench by WHO is acting, because the SDK has two sides and a lab that
+ * mixes them reads as a pile of unrelated buttons.
+ */
+const tests = [
+  { id: 'chains', stage: 'Setup', name: 'Chain registry', note: 'Every mainnet the SDK ships, with its own gas coin.', kind: 'pure' },
+  { id: 'gate', stage: 'Merchant', name: 'Mint a 402', note: 'Build a gate and read the challenge it serves.', kind: 'pure' },
+  { id: 'wire', stage: 'Merchant', name: 'The bytes on the wire', note: 'The header a non-PipRail client actually parses.', kind: 'pure' },
+  { id: 'selftest', stage: 'Merchant', name: 'Gate self-test', note: 'Check the config before a buyer ever sees it.', kind: 'pure' },
+  { id: 'describe', stage: 'Merchant', name: 'Be discoverable', note: 'The manifest and OpenAPI that get you indexed.', kind: 'pure' },
+  { id: 'quote', stage: 'Buyer', name: 'Quote a live 402', note: 'The real price of piprail.com/x402/demo.', kind: 'live' },
+  { id: 'cost', stage: 'Buyer', name: 'Estimate gas', note: 'The network fee, in the chain’s own gas coin.', kind: 'live' },
+  { id: 'plan', stage: 'Buyer', name: 'Plan the payment', note: 'Affordability and blockers, from a burner wallet.', kind: 'live' },
+  { id: 'policy', stage: 'Buyer', name: 'The spend leash', note: 'Watch the policy engine allow one and refuse one.', kind: 'pure' },
+  { id: 'discover', stage: 'Agent', name: 'Search the market', note: 'Read the open x402 indexes for something to buy.', kind: 'live' },
+  { id: 'tools', stage: 'Agent', name: 'Agent tools', note: 'The tool descriptors a model is handed.', kind: 'pure' },
+  { id: 'swaps', stage: 'Agent', name: 'Swap routes', note: 'Where an agent can move its own funds.', kind: 'pure' },
+] as const
+
+const stageOrder = ['Setup', 'Merchant', 'Buyer', 'Agent'] as const
+
+const demoChains = chains.map((chain) => ({
+  name: chain.name,
+  slug: chain.slug,
+  family: chain.family,
+  tokens: [...chain.tokens.map((token) => token.toUpperCase()), 'native'],
+}))
+
 const demoLd = {
   '@context': 'https://schema.org',
   '@type': 'WebApplication',
   '@id': 'https://piprail.com/demo#webapp',
-  name: 'PipRail live x402 demo',
+  name: 'PipRail x402 SDK lab',
   applicationCategory: 'DeveloperApplication',
-  operatingSystem: 'Any (browser)',
+  operatingSystem: 'Any browser',
   url: 'https://piprail.com/demo',
   publisher: { '@id': 'https://piprail.com/#organization' },
   isAccessibleForFree: true,
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
   description,
   featureList: [
-    'Builds a real x402 402 Payment Required challenge in the browser from a wallet address',
-    'Prices the payment with PipRailClient.quote(): chain, token, amount, recipient, budget verdict',
-    'Runs entirely client-side from a CDN, with no install and no backend',
-    'Switch across 30 chains by changing one parameter',
+    'Mint a real x402 Payment Required challenge in the browser',
+    'Quote and plan a live mainnet payment with no wallet key',
+    'Run the spend policy engine and read its verdict',
+    'Inspect the agent tool descriptors and the discovery manifest',
+    `Explore ${total} mainnet chains across ${familyCount} driver families`,
   ],
-  softwareHelp: { '@type': 'CreativeWork', url: 'https://github.com/piprail/piprail/blob/main/sdk/README.md' },
+  softwareHelp: { '@type': 'CreativeWork', url: 'https://docs.piprail.com' },
 }
-
-const howToLd = {
-  '@context': 'https://schema.org',
-  '@type': 'HowTo',
-  name: 'How an x402 payment works with PipRail',
-  description: 'The four-step 402 loop: request, 402 challenge, pay on-chain, verify and serve.',
-  step: [
-    { '@type': 'HowToStep', name: 'Request', text: 'An agent calls a gated URL and receives a 402 with a machine-readable challenge (price, token, chain, payTo).' },
-    { '@type': 'HowToStep', name: 'Pay', text: 'The agent pays on-chain, straight to the merchant wallet. PipRail never touches the funds.' },
-    { '@type': 'HowToStep', name: 'Verify', text: 'The merchant verifies the transaction locally against its own RPC: succeeded, recent, right amount and recipient.' },
-    { '@type': 'HowToStep', name: 'Serve', text: 'The server returns 200 and the gated data; the same proof can never be redeemed twice.' },
-  ],
-}
-
-const matrix = [
-  { cap: 'Take payments', sub: 'requirePayment / createPaymentGate: address only, no key', server: 'works', browser: 'works' },
-  { cap: 'Make payments', sub: 'PipRailClient: quote, estimate, pay', server: 'works', browser: 'works' },
-  { cap: 'Settle a real on-chain payment', sub: 'sign → broadcast → confirm → verify', server: 'works', browser: 'works' },
-]
 ---
 
-<Layout title={title} description={description}>
-  {/* Import map pins each chain lib to a browser-loadable CDN build, so the SDK's
-      lazy imports resolve the same way every time. Must precede the module script. */}
-  <script
-    is:inline
-    type="importmap"
-    set:html={JSON.stringify({
-      imports: {
-        viem: 'https://esm.sh/viem@2',
-        'viem/': 'https://esm.sh/viem@2/',
-        '@solana/web3.js': 'https://esm.sh/@solana/web3.js@1',
-        '@solana/spl-token': 'https://esm.sh/@solana/spl-token@0.4',
-        bs58: 'https://esm.sh/bs58@5',
-        '@mysten/sui/': 'https://esm.sh/@mysten/sui@2/',
-        'near-api-js': 'https://cdn.jsdelivr.net/npm/near-api-js@7/+esm',
-      },
-    })}
-  />
+<Layout title={title} description={description} socialRail={false}>
+  <script is:inline type="importmap" set:html={JSON.stringify({ imports: {
+    viem: 'https://esm.sh/viem@2', 'viem/': 'https://esm.sh/viem@2/',
+    '@solana/web3.js': 'https://esm.sh/@solana/web3.js@1', '@solana/spl-token': 'https://esm.sh/@solana/spl-token@0.4',
+    bs58: 'https://esm.sh/bs58@5', '@mysten/sui': 'https://esm.sh/@mysten/sui@2', '@mysten/sui/': 'https://esm.sh/@mysten/sui@2/',
+    'near-api-js': 'https://esm.sh/near-api-js@7', '@aptos-labs/ts-sdk': 'https://esm.sh/@aptos-labs/ts-sdk@7',
+    '@stellar/stellar-sdk': 'https://esm.sh/@stellar/stellar-sdk@15', '@ton/core': 'https://esm.sh/@ton/core@0.63',
+    '@ton/ton': 'https://esm.sh/@ton/ton@16', '@ton/crypto': 'https://esm.sh/@ton/crypto@3',
+    '@ston-fi/api': 'https://esm.sh/@ston-fi/api@0.32', '@ston-fi/sdk': 'https://esm.sh/@ston-fi/sdk@2',
+    tronweb: 'https://esm.sh/tronweb@6', xrpl: 'https://esm.sh/xrpl@4', algosdk: 'https://esm.sh/algosdk@3', borsh: 'https://esm.sh/borsh@2',
+  } })} />
   <Navigation path="/demo" />
 
-  <main class="mx-auto max-w-6xl px-4 sm:px-6">
-    <div class="pt-6"><Breadcrumbs items={[{ name: 'Demo' }]} /></div>
-
-    <!-- hero -->
-    <section class="pt-10 pb-8 text-center sm:pt-16">
-      <span class="inline-flex items-center gap-2 rounded-full border border-accent/25 bg-accent/10 px-3.5 py-1.5 text-xs font-medium text-accent">
-        <span class="relative flex h-2 w-2">
-          <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75"></span>
-          <span class="relative inline-flex h-2 w-2 rounded-full bg-accent"></span>
-        </span>
-        Live · running in your browser right now
-      </span>
-      <h1 class="mx-auto mt-6 max-w-3xl text-[2.5rem] font-semibold leading-[1.05] tracking-tight sm:text-6xl md:text-7xl">
-        See it work.<br /><span class="text-accent">No install required.</span>
-      </h1>
-      <p class="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-neutral-400 sm:text-lg md:text-xl">
-        This page loaded <code class="rounded bg-white/5 px-1.5 py-0.5 font-mono text-[0.85em] text-neutral-200">@piprail/sdk</code> from a CDN. Nothing installed.
-        Build a real <span class="font-mono text-neutral-200">402 Payment&nbsp;Required</span> challenge below and watch an agent price it.
-        The same one line runs on any server.
-      </p>
-      <p id="sdk-status" class="mt-6 font-mono text-[13px] text-neutral-400">⏳ loading <span class="text-accent">@piprail/sdk</span> from jsDelivr…</p>
-    </section>
-
-    <!-- THE LIVE DEMO -->
-    <section id="try" class="scroll-mt-6">
-      <div class="rounded-2xl border border-white/10 bg-white/2.5 p-5 sm:p-7">
-        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <label class="block">
-            <span class="mb-1.5 block text-[11px] uppercase tracking-wider text-neutral-400">Chain</span>
-            <select id="d-chain" class="w-full rounded-lg border border-white/10 bg-neutral-950 px-3 py-2.5 font-mono text-sm text-neutral-100 focus:border-accent/60 focus:outline-none">
-              <optgroup label="EVM">
-                <option value="base">Base</option>
-                <option value="bnb">BNB Chain</option>
-                <option value="arbitrum">Arbitrum</option>
-                <option value="optimism">Optimism</option>
-                <option value="polygon">Polygon</option>
-                <option value="ethereum">Ethereum</option>
-                <option value="hyperevm">HyperEVM</option>
-                <option value="monad">Monad</option>
-              </optgroup>
-              <optgroup label="More chains">
-                <option value="solana">Solana</option>
-                <option value="sui">Sui</option>
-                <option value="near">NEAR</option>
-              </optgroup>
-            </select>
-          </label>
-          <label class="block">
-            <span class="mb-1.5 block text-[11px] uppercase tracking-wider text-neutral-400">Token</span>
-            <select id="d-token" class="w-full rounded-lg border border-white/10 bg-neutral-950 px-3 py-2.5 font-mono text-sm text-neutral-100 focus:border-accent/60 focus:outline-none">
-              <option>USDC</option><option>USDT</option><option value="native">native coin</option>
-            </select>
-          </label>
-          <label class="block">
-            <span class="mb-1.5 block text-[11px] uppercase tracking-wider text-neutral-400">Amount</span>
-            <input id="d-amount" value="0.05" class="w-full rounded-lg border border-white/10 bg-neutral-950 px-3 py-2.5 font-mono text-sm text-neutral-100 focus:border-accent/60 focus:outline-none" />
-          </label>
-          <label class="block">
-            <span class="mb-1.5 block text-[11px] uppercase tracking-wider text-neutral-400">Pay to: your wallet</span>
-            <input id="d-payto" value="0x1111111111111111111111111111111111111111" class="w-full rounded-lg border border-white/10 bg-neutral-950 px-3 py-2.5 font-mono text-sm text-neutral-100 focus:border-accent/60 focus:outline-none" />
-          </label>
+  <main>
+    <header class="mx-auto max-w-400 px-4 pb-5 pt-8 sm:px-6">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 class="text-3xl font-semibold tracking-tight sm:text-4xl">The <span class="lab-grad">SDK lab</span></h1>
+          <p class="mt-2 max-w-xl text-sm leading-relaxed text-neutral-400">
+            Real <code class="text-neutral-300">@piprail/sdk</code>, loaded from a CDN and run in this tab. No key, and it cannot move funds.
+          </p>
         </div>
+        <dl class="flex shrink-0 gap-5 sm:gap-7">
+          {stats.map((stat) => <div><dt class="font-display text-xl font-semibold text-neutral-100 sm:text-2xl">{stat.value}</dt><dd class="mt-0.5 text-[9px] uppercase tracking-[0.14em] text-neutral-600">{stat.label}</dd></div>)}
+        </dl>
+      </div>
+    </header>
 
-        <div class="mt-5 grid gap-4 lg:grid-cols-2">
-          <div class="overflow-hidden rounded-xl border border-white/10 bg-neutral-900/70">
-            <div class="flex items-center gap-2 border-b border-white/5 px-4 py-2.5 text-[11px] uppercase tracking-wider text-neutral-400">
-              <span class="rounded bg-rose-500/15 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-rose-300">402</span>
-              what the merchant serves <span class="text-neutral-400">(built in-browser)</span>
+    <div class="mx-auto max-w-400 px-4 sm:px-6">
+      <section id="lab" class="pb-14 sm:pb-16">
+        <div class="overflow-hidden rounded-2xl border border-white/10 bg-neutral-900/70 shadow-2xl shadow-black/30">
+
+          <div class="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-neutral-900 px-4 py-3 sm:px-5">
+            <div class="flex items-center gap-2">
+              <span class="h-2.5 w-2.5 rounded-full bg-rose-400/60"></span>
+              <span class="h-2.5 w-2.5 rounded-full bg-amber-300/60"></span>
+              <span class="h-2.5 w-2.5 rounded-full bg-accent/70"></span>
+              <span class="ml-2 font-mono text-[11px] text-neutral-500">piprail / sdk-lab</span>
             </div>
-            <pre id="d-challenge" class="overflow-x-auto p-4 font-mono text-[11.5px] leading-[1.6] text-neutral-300">click “Run the 402 loop” →</pre>
+            <p id="sdk-status" role="status" class="font-mono text-[11px] text-neutral-500">loading @piprail/sdk from the CDN…</p>
           </div>
-          <div class="overflow-hidden rounded-xl border border-white/10 bg-neutral-900/70">
-            <div class="flex items-center gap-2 border-b border-white/5 px-4 py-2.5 text-[11px] uppercase tracking-wider text-neutral-400">
-              🤖 what the paying agent sees <span class="text-neutral-400">(read from the 402)</span>
-            </div>
-            <div id="d-quote" class="p-4 text-sm text-neutral-400">…then the agent prices it here.</div>
+
+          <div class="grid gap-px bg-white/8 sm:grid-cols-2 lg:grid-cols-4">
+            <label class="block bg-neutral-950/70 p-3.5"><span class="lab-label">Chain</span><select id="d-chain" class="lab-control">{demoChains.map((chain) => <option value={chain.slug}>{chain.name} · {chain.family}</option>)}</select></label>
+            <label class="block bg-neutral-950/70 p-3.5"><span class="lab-label">Token</span><select id="d-token" class="lab-control"><option>USDC</option></select></label>
+            <label class="block bg-neutral-950/70 p-3.5"><span class="lab-label">Price</span><input id="d-amount" inputmode="decimal" value="0.05" class="lab-control" /></label>
+            <label class="block bg-neutral-950/70 p-3.5"><span class="lab-label">Receiving address</span><input id="d-payto" class="lab-control font-mono text-xs" /></label>
           </div>
-        </div>
 
-        <div class="mt-5 flex flex-wrap items-center gap-4">
-          <button id="d-run" disabled class="inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-3 text-sm font-semibold text-neutral-950 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40">
-            ▶ Run the 402 loop
-          </button>
-          <span id="d-note" class="font-mono text-[12px] text-neutral-400"></span>
-        </div>
-      </div>
-      <p class="mt-3 text-center text-[13px] text-neutral-400">
-        No keys, no server, no network calls. The gate builds the challenge from your address and the client prices it, both in your browser.
-        EVM, Solana, Sui &amp; NEAR run live here; the full 30 chains run the same one line on a server.
-      </p>
-    </section>
-
-    <!-- LIVE endpoint. The box above is a simulation; this is a real, payable URL -->
-    <section class="pt-2 pb-4">
-      <div class="rounded-2xl border border-accent/20 bg-accent/5 p-5 sm:p-7">
-        <div class="flex flex-wrap items-center gap-3">
-          <span class="inline-flex items-center gap-2 rounded-full border border-accent/25 bg-accent/10 px-3 py-1 text-xs font-medium text-accent">
-            <span class="relative flex h-2 w-2">
-              <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75"></span>
-              <span class="relative inline-flex h-2 w-2 rounded-full bg-accent"></span>
-            </span>
-            Live on Base mainnet
-          </span>
-          <h2 class="text-xl font-semibold tracking-tight sm:text-2xl">That was a simulation. Here's a real one.</h2>
-        </div>
-        <p class="mt-3 max-w-2xl text-sm leading-relaxed text-neutral-400">
-          <code class="rounded bg-white/5 px-1.5 py-0.5 font-mono text-[0.85em] text-neutral-200">piprail.com/x402/demo</code> is a real
-          <span class="font-mono text-neutral-200">402&nbsp;Payment&nbsp;Required</span> endpoint. Pay <span class="text-neutral-200">$0.01 USDC</span> on Base to unlock it.
-          It speaks <span class="text-neutral-200">both</span> rails, so any x402 client can pay: PipRail's backendless
-          <span class="font-mono text-neutral-200">onchain-proof</span>, or the standard <span class="font-mono text-neutral-200">exact</span> scheme
-          (settled gaslessly via a facilitator we don't run). Listed on <span class="text-neutral-200">x402scan</span> and <span class="text-neutral-200">402&nbsp;Index</span>.
-        </p>
-        <div class="mt-4 overflow-hidden rounded-xl border border-white/10 bg-neutral-900/70">
-          <div class="flex items-center gap-2 border-b border-white/5 px-4 py-2.5 text-[11px] uppercase tracking-wider text-neutral-400">
-            <span class="rounded bg-rose-500/15 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-rose-300">402</span>
-            see the live challenge
-          </div>
-          <pre class="overflow-x-auto p-4 font-mono text-[11.5px] leading-[1.6] text-neutral-300">curl -i https://piprail.com/x402/demo</pre>
-        </div>
-      </div>
-    </section>
-
-    <!-- MCP cross-link -->
-    <a href="/mcp/" class="mt-6 flex items-center justify-between gap-4 rounded-2xl border border-accent/20 bg-accent/5 px-5 py-4 text-sm transition hover:border-accent/40 hover:bg-accent/10">
-      <span class="text-neutral-300">
-        Using <span class="text-neutral-100">Claude Desktop, Cursor, or Windsurf</span>? The same payment logic
-        runs via <span class="font-mono text-accent">@piprail/mcp</span>, with no code, just an env block.
-      </span>
-      <span class="inline-flex shrink-0 items-center gap-1 font-medium text-accent">Set it up →</span>
-    </a>
-
-    <!-- runs everywhere -->
-    <section class="py-20">
-      <h2 class="text-2xl font-semibold tracking-tight sm:text-3xl">One SDK. Everywhere it runs.</h2>
-      <p class="mt-2 max-w-2xl text-neutral-400">
-        The merchant side needs only a wallet <span class="text-neutral-200">address</span>, never a key, so it gates a route anywhere.
-        The payer side signs with a wallet. The same one line runs on a server and in the browser.
-      </p>
-      {/* Desktop: a clean 3-column table */}
-      <div class="mt-7 hidden overflow-hidden rounded-2xl border border-white/10 sm:block">
-        <div class="grid grid-cols-3 gap-px bg-white/10 text-sm">
-          <div class="bg-neutral-950 px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">Capability</div>
-          <div class="bg-neutral-950 px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-neutral-400"><span class="inline-flex items-center gap-1.5"><Server size={13} aria-hidden="true" /> Server</span></div>
-          <div class="bg-neutral-950 px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-neutral-400"><span class="inline-flex items-center gap-1.5"><Globe size={13} aria-hidden="true" /> Browser</span></div>
-          {matrix.map((m) => (
-            <>
-              <div class="bg-neutral-950 px-4 py-4"><p class="font-medium text-neutral-100">{m.cap}</p><p class="mt-0.5 text-[12.5px] text-neutral-400">{m.sub}</p></div>
-              <div class="bg-neutral-950 px-4 py-4 font-medium text-accent">✓ {m.server}</div>
-              <div class="bg-neutral-950 px-4 py-4 font-medium text-accent">✓ {m.browser}</div>
-            </>
-          ))}
-        </div>
-      </div>
-      {/* Mobile: stacked cards so nothing is cramped or truncated */}
-      <div class="mt-7 space-y-3 sm:hidden">
-        {matrix.map((m) => (
-          <div class="rounded-xl border border-white/10 bg-neutral-950 p-4">
-            <p class="font-medium text-neutral-100">{m.cap}</p>
-            <p class="mt-1 text-[13px] leading-relaxed text-neutral-400">{m.sub}</p>
-            <div class="mt-3 space-y-2">
-              <div class="flex items-center justify-between gap-3 rounded-lg bg-white/5 px-3 py-2">
-                <span class="inline-flex items-center gap-1.5 text-[12px] text-neutral-300"><Server size={13} aria-hidden="true" /> Server</span>
-                <span class="text-[13px] font-medium text-accent">✓ {m.server}</span>
+          <div class="grid lg:grid-cols-[minmax(0,330px)_minmax(0,1fr)]">
+            <div class="min-w-0 border-b border-white/10 bg-neutral-950/50 lg:border-b-0 lg:border-r">
+              <div class="flex items-center justify-between border-b border-white/10 px-4 py-2.5">
+                <h2 class="font-display text-[13px] font-semibold text-neutral-200">The bench</h2>
+                <button id="run-all" type="button" disabled class="rounded-lg bg-accent px-3 py-1.5 text-[11px] font-semibold text-neutral-950 transition hover:brightness-110 disabled:cursor-wait disabled:opacity-40">Run all 12</button>
               </div>
-              <div class="flex items-center justify-between gap-3 rounded-lg bg-white/5 px-3 py-2">
-                <span class="inline-flex items-center gap-1.5 text-[12px] text-neutral-300"><Globe size={13} aria-hidden="true" /> Browser</span>
-                <span class="text-[13px] font-medium text-accent">✓ {m.browser}</span>
+              {stageOrder.map((stage) => (
+                <div>
+                  <p class="border-b border-white/6 bg-white/2 px-4 py-1.5 font-mono text-[9px] uppercase tracking-[0.16em] text-neutral-600">{stage}</p>
+                  <ul>
+                    {tests.filter((t) => t.stage === stage).map((test) => (
+                      <li>
+                        <button type="button" data-test={test.id} disabled class="lab-test group flex w-full items-start gap-2.5 border-b border-white/6 px-4 py-3 text-left transition hover:bg-white/4 disabled:opacity-40">
+                          <span data-dot class="lab-dot mt-1.5"></span>
+                          <span class="min-w-0 flex-1">
+                            <span class="flex items-center gap-1.5">
+                              <span class="truncate text-[13px] font-medium text-neutral-200">{test.name}</span>
+                              {test.kind === 'live' && <span class="shrink-0 rounded-full border border-accent/25 bg-accent/8 px-1.5 py-px font-mono text-[8px] uppercase tracking-wider text-accent">live</span>}
+                            </span>
+                            <span class="mt-0.5 block text-[11px] leading-snug text-neutral-500">{test.note}</span>
+                          </span>
+                          <span data-ms class="mt-1 shrink-0 font-mono text-[9px] text-neutral-600"></span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+              <p class="px-4 py-3.5 text-[11px] leading-relaxed text-neutral-600">
+                Unbadged tests run offline and are deterministic. <span class="font-mono uppercase tracking-wider text-accent">live</span> reads a public RPC, this site’s own 402, or an open index.
+              </p>
+            </div>
+
+            <div class="relative min-w-0 bg-[#0e1010]">
+              <div class="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-2 sm:px-5">
+                <p id="out-title" class="min-w-0 truncate font-mono text-[11px] text-neutral-500">output</p>
+                <div class="flex shrink-0 items-center gap-1">
+                  <button id="tab-view" type="button" class="lab-tab is-active">visual</button>
+                  <button id="tab-json" type="button" class="lab-tab">json</button>
+                  <button id="out-copy" type="button" class="ml-1 rounded-md border border-white/10 px-2 py-1 font-mono text-[9px] uppercase tracking-wider text-neutral-500 transition hover:border-white/20 hover:text-neutral-300">copy</button>
+                </div>
               </div>
+              <div id="out-empty" class="flex min-h-125 flex-col items-center justify-center px-6 py-16 text-center">
+                <div class="lab-hero-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+                <p class="mt-5 font-display text-lg font-semibold text-neutral-200">Pick a test, or run all twelve</p>
+                <p class="mt-2 max-w-md text-sm leading-relaxed text-neutral-500">Each one calls the SDK for real and draws what came back. Switch to <span class="font-mono text-neutral-400">json</span> for the raw object at any time.</p>
+              </div>
+              <div id="out-view" class="hidden max-h-[70vh] min-h-125 overflow-auto p-4 sm:p-5"></div>
+              <pre id="out-json" class="hidden max-h-[70vh] min-h-125 overflow-auto p-4 font-mono text-[11px] leading-[1.65] text-neutral-300 sm:p-5"></pre>
             </div>
           </div>
-        ))}
-      </div>
-    </section>
+        </div>
+      </section>
 
-    <!-- the sell -->
-    <section class="border-t border-white/10 py-20">
-      <h2 class="max-w-3xl text-2xl font-semibold tracking-tight sm:text-3xl">
-        The easiest universal payment rail for the agent economy.
-      </h2>
-      <p class="mt-2 max-w-2xl text-neutral-400">Ten chain families, one line, no backend, no fee. Drop it into a server, an edge function, or a plain HTML page.</p>
-      <div class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div class="rounded-xl border border-white/10 bg-white/2.5 p-5">
-          <Boxes size={20} class="mb-3 text-accent" aria-hidden="true" />
-          <h3 class="text-base font-semibold">30 chains, one word</h3>
-          <p class="mt-1 text-sm text-neutral-400">EVM ×20 + Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, XRPL. Native coin or stablecoin, everywhere.</p>
-        </div>
-        <div class="rounded-xl border border-white/10 bg-white/2.5 p-5">
-          <ShieldCheck size={20} class="mb-3 text-accent" aria-hidden="true" />
-          <h3 class="text-base font-semibold">No backend, no fee</h3>
-          <p class="mt-1 text-sm text-neutral-400">Self-custodial. Payments settle straight to your wallet, verified against your own RPC. We never touch the funds.</p>
-        </div>
-        <div class="rounded-xl border border-white/10 bg-white/2.5 p-5">
-          <Globe size={20} class="mb-3 text-accent" aria-hidden="true" />
-          <h3 class="text-base font-semibold">Server or browser</h3>
-          <p class="mt-1 text-sm text-neutral-400">Runs headless or client-side from a CDN. A single HTML page can take or make payments.</p>
-        </div>
-        <div class="rounded-xl border border-white/10 bg-white/2.5 p-5">
-          <Zap size={20} class="mb-3 text-accent" aria-hidden="true" />
-          <h3 class="text-base font-semibold">Built for agents</h3>
-          <p class="mt-1 text-sm text-neutral-400">Spend budgets, an approval hook, and LLM tools. Point an agent at a paid URL and it pays itself, within budget.</p>
-        </div>
-      </div>
+      <section id="live-mainnet" class="pb-16 sm:pb-20">
+        <div class="lab-live relative overflow-hidden rounded-2xl border border-accent/25 bg-accent/7 p-6 sm:p-8 lg:p-10">
+          <div class="relative grid items-center gap-8 lg:grid-cols-[1fr_0.9fr]">
+            <div>
+              <p class="inline-flex items-center gap-2 rounded-full border border-accent/25 bg-accent/10 px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-accent"><span class="h-2 w-2 animate-pulse rounded-full bg-accent"></span> Base mainnet · live</p>
+              <h2 class="mt-5 max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl">The bench reads this endpoint. You can pay it.</h2>
+              <p class="mt-4 max-w-xl text-sm leading-relaxed text-neutral-300 sm:text-base">
+                <code class="text-accent">piprail.com/x402/demo</code> charges 0.01 USDC on Base. It accepts PipRail’s direct on-chain proof and the standard exact rail. The lab quotes it without spending anything.
+              </p>
+              <div class="mt-7 flex flex-col gap-3 sm:flex-row">
+                <a href="https://piprail.com/x402/demo" class="cta-glow inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-5 py-3 text-sm font-semibold text-neutral-950">Open the 402 <ArrowRight size={14} aria-hidden="true" /></a>
+                <a href="https://docs.piprail.com/getting-started/quickstart/" class="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-neutral-950/50 px-5 py-3 text-sm font-semibold text-neutral-200">Build your own</a>
+              </div>
+              <p class="mt-6 inline-flex items-center gap-2 text-xs text-accent"><ShieldCheck size={14} aria-hidden="true" /> Verified against the merchant’s own RPC. No facilitator, no custody.</p>
+            </div>
+            <div class="overflow-hidden rounded-2xl border border-white/10 bg-neutral-950/80 shadow-2xl shadow-black/20">
+              <div class="flex items-center justify-between border-b border-white/10 px-4 py-3">
+                <span class="font-mono text-[10px] text-neutral-500">terminal</span>
+                <span class="rounded bg-rose-400/10 px-2 py-1 font-mono text-[9px] text-rose-300">HTTP 402</span>
+              </div>
+              <pre class="overflow-x-auto p-5 font-mono text-[11px] leading-[1.8] text-neutral-300"><span class="text-neutral-600">$</span> curl -i https://piprail.com/x402/demo
 
-      <div class="mt-8 flex flex-wrap gap-3">
-        <a href="https://github.com/piprail/piprail/blob/main/sdk/README.md" class="inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-3 text-sm font-semibold text-neutral-950 transition hover:brightness-110">Read the docs <ArrowRight size={16} aria-hidden="true" /></a>
-        <a href="https://github.com/piprail/piprail/tree/main/examples/basics/browser" class="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/3 px-5 py-3 text-sm font-semibold text-neutral-100 transition hover:border-accent/50">Copy the HTML example</a>
-        <a href="/partners/" class="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/3 px-5 py-3 text-sm font-semibold text-neutral-100 transition hover:border-accent/50">Partner or fund a chain</a>
-      </div>
-    </section>
-
+<span class="text-rose-300">HTTP/2 402</span>
+<span class="text-neutral-500">payment-required:</span> eyJ4NDAyVmVyc2lvbiI6Mi...</pre>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
   </main>
 
   <Footer />
 
   <script is:inline type="application/ld+json" set:html={JSON.stringify(demoLd)} />
-  <script is:inline type="application/ld+json" set:html={JSON.stringify(howToLd)} />
+  <script is:inline id="demo-chain-data" type="application/json" set:html={JSON.stringify(demoChains)} />
 
   <script is:inline type="module">
     const $ = (id) => document.getElementById(id)
-    // Per-chain demo config: a valid sample payTo (each family's address shape) + the
-    // tokens that chain actually ships. The SDK fills in the real contract + decimals.
-    const CHAINS = {
-      base:     { payTo: '0x1111111111111111111111111111111111111111', tokens: ['USDC', 'EURC', 'native'] },
-      bnb:      { payTo: '0x1111111111111111111111111111111111111111', tokens: ['USDC', 'USDT', 'FDUSD', 'USD1', 'U', 'native'] },
-      arbitrum: { payTo: '0x1111111111111111111111111111111111111111', tokens: ['USDC', 'USDT', 'native'] },
-      optimism: { payTo: '0x1111111111111111111111111111111111111111', tokens: ['USDC', 'USDT', 'native'] },
-      polygon:  { payTo: '0x1111111111111111111111111111111111111111', tokens: ['USDC', 'USDT', 'native'] },
-      ethereum: { payTo: '0x1111111111111111111111111111111111111111', tokens: ['USDC', 'USDT', 'native'] },
-      hyperevm: { payTo: '0x1111111111111111111111111111111111111111', tokens: ['USDC', 'native'] },
-      monad:    { payTo: '0x1111111111111111111111111111111111111111', tokens: ['USDC', 'native'] },
-      solana:   { payTo: '11111111111111111111111111111111', tokens: ['USDC', 'USDT', 'native'] },
-      sui:      { payTo: '0x0000000000000000000000000000000000000000000000000000000000000002', tokens: ['USDC', 'native'] },
-      near:     { payTo: 'example.near', tokens: ['USDC', 'USDT', 'native'] },
-    }
-    const LABEL = { native: 'native coin' }
-    const short = (s) => (s && s.length > 18 ? s.slice(0, 10) + '…' + s.slice(-6) : s)
+    const chainData = JSON.parse($('demo-chain-data').textContent)
+    const chainBySlug = Object.fromEntries(chainData.map((c) => [c.slug, c]))
+    /** Slugs with a logo shipped under /chains, so the renderer never draws a broken image. */
+    const LOGO = new Set(chainData.map((c) => c.slug))
 
-    function syncControls(run) {
-      const cfg = CHAINS[$('d-chain').value]
-      $('d-token').innerHTML = cfg.tokens.map((t) => '<option value="' + t + '">' + (LABEL[t] || t) + '</option>').join('')
-      $('d-payto').value = cfg.payTo
-      if (run) runLoop()
+    const familyAddress = {
+      EVM: '0x1111111111111111111111111111111111111111',
+      Solana: '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM',
+      TON: 'EQDtFpEwcFAEcRe5mLVh2N6C0x-_hJEM7W61_JLnSF74p4q2',
+      Tron: 'TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE',
+      NEAR: 'example.near',
+      Sui: '0x0000000000000000000000000000000000000000000000000000000000000abc',
+      Aptos: '0x1',
+      Algorand: '7777777777777777777777777777777777777777777777777774MSJUVU',
+      Stellar: 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN',
+      XRPL: 'rPVMhWBsfF9iMXYj3aAzJVkPDTFNSyWdKy',
     }
 
-    let sdk
-    try {
-      sdk = await import('https://esm.sh/@piprail/sdk@2?external=viem,@solana/web3.js,@solana/spl-token,bs58,@mysten/sui,near-api-js')
-      $('sdk-status').innerHTML = '✅ <span class="text-accent">@piprail/sdk</span> loaded from a CDN, live, in your browser. <span class="text-neutral-400">Pick any chain below.</span>'
-      $('d-run').disabled = false
-    } catch (e) {
-      $('sdk-status').innerHTML = '⚠ could not load the SDK from the CDN: ' + String((e && e.message) || e)
-    }
+    const LIVE_402 = 'https://piprail.com/x402/demo'
+    let sdk = null
+    let currentView = ''
+    let currentJson = ''
+    let tab = 'view'
 
-    async function runLoop() {
-      if (!sdk) return
-      $('d-note').textContent = 'building…'
-      const chain = $('d-chain').value
+    /* ------------------------------ tiny view kit ------------------------------ */
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+    const dump = (v) => JSON.stringify(v, (_, x) => (typeof x === 'bigint' ? x.toString() : x), 2)
+    const short = (s, n = 10) => (String(s ?? '').length > n * 2 ? `${String(s).slice(0, n)}…${String(s).slice(-4)}` : String(s ?? ''))
+
+    const card = (title, body, tone = '') => `<div class="lab-card ${tone}"><p class="lab-card-t">${esc(title)}</p>${body}</div>`
+    const kv = (rows) => `<dl class="lab-kv">${rows.filter(Boolean).map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${v}</dd></div>`).join('')}</dl>`
+    const big = (value, unit, label) => `<div class="lab-big"><span class="lab-big-v">${esc(value)}<em>${esc(unit ?? '')}</em></span><span class="lab-big-l">${esc(label)}</span></div>`
+    const pill = (text, tone = 'n') => `<span class="lab-pill lab-${tone}">${esc(text)}</span>`
+    const bar = (pct, tone = 'ok') => `<div class="lab-bar"><i class="lab-${tone}" style="width:${Math.max(0, Math.min(100, pct))}%"></i></div>`
+    const chainLogo = (slug, name) =>
+      LOGO.has(slug)
+        ? `<img src="/chains/${esc(slug)}.svg" alt="" width="18" height="18" loading="lazy" class="lab-chain-i" />`
+        : `<span class="lab-chip-fallback">${esc((name || slug || '?').slice(0, 2))}</span>`
+    const note = (text) => `<p class="lab-note">${esc(text)}</p>`
+
+    /* --------------------------------- config --------------------------------- */
+    function config() {
+      const chain = chainBySlug[$('d-chain').value]
       const token = $('d-token').value
-      const amount = ($('d-amount').value || '0.05').trim()
-      const payTo = $('d-payto').value.trim()
-      try {
-        const gate = sdk.createPaymentGate({ chain, token, amount, payTo, description: 'A premium report' })
-        const { challenge, requiredHeader } = await gate.challenge('https://api.example.com/report')
-        const a = challenge.accepts[0]
-        const x = a.extra || {}
-        $('d-challenge').textContent =
-          'HTTP/1.1 402 Payment Required\n' +
-          'payment-required: ' + requiredHeader.slice(0, 42) + '…\n\n' +
-          JSON.stringify(challenge, null, 2)
-
-        // The agent's view, read straight from the challenge the gate just built.
-        const sym = x.symbol || token
-        const fmt = x.amountFormatted || amount
-        const within = parseFloat(fmt) <= 1
-        const row = (k, v, cls) => '<div class="flex items-center justify-between gap-3 border-b border-dashed border-white/10 pb-2"><span class="text-neutral-400">' + k + '</span><span class="font-mono ' + (cls || 'text-neutral-200') + '">' + v + '</span></div>'
-        $('d-quote').innerHTML =
-          '<div class="space-y-2.5">' +
-          row('pay', '<span class="text-xl font-bold text-accent">' + fmt + ' ' + sym + '</span>') +
-          row('chain', chain + ' <span class="text-neutral-400">(' + a.network + ')</span>') +
-          row('to', short(a.payTo)) +
-          row('SDK recognised token', x.symbol ? 'yes ✓' : 'custom') +
-          row('within agent budget', within ? 'yes, would pay ✓' : 'no, refused', within ? 'text-accent' : 'text-rose-300') +
-          '<p class="pt-1 text-[12.5px] text-neutral-400">→ then <span class="text-neutral-300">client.fetch()</span> pays on-chain and the gated data unlocks.</p>' +
-          '</div>'
-        $('d-note').textContent = 'built in-browser ✓'
-      } catch (e) {
-        $('d-note').textContent = ''
-        $('d-quote').innerHTML = '<span class="text-amber-300">' + String((e && e.message) || e) + '</span>'
+      return {
+        chain: chain.slug, chainName: chain.name, family: chain.family,
+        token: token === 'native' ? 'native' : token,
+        amount: $('d-amount').value || '0.05',
+        payTo: $('d-payto').value || familyAddress[chain.family],
       }
     }
-    $('d-run').addEventListener('click', runLoop)
-    $('d-chain').addEventListener('change', () => syncControls(true))
-    ;['d-token', 'd-amount', 'd-payto'].forEach((id) =>
-      $(id).addEventListener('change', () => { if ($('d-challenge').textContent.indexOf('click') < 0) runLoop() }))
-    syncControls(false)
+    const gateFor = (c) => sdk.createPaymentGate({
+      chain: c.chain, token: c.token, amount: c.amount, payTo: c.payTo,
+      description: 'Real-time market intelligence', mimeType: 'application/json',
+    })
+    /**
+     * A throwaway key, generated here and never stored or sent anywhere. It exists only so
+     * `planPayment` has an address to measure: it holds nothing, so the plan comes back with
+     * real blockers and a funding hint, which is exactly what an unfunded agent sees.
+     */
+    function burnerKey() {
+      const b = new Uint8Array(32)
+      crypto.getRandomValues(b)
+      return '0x' + [...b].map((x) => x.toString(16).padStart(2, '0')).join('')
+    }
+
+    /* --------------------------------- runners --------------------------------- */
+    /** Each returns { data, view }: the raw object for the json tab, and drawn HTML. */
+    const RUNNERS = {
+      chains: () => {
+        const rows = Object.entries(sdk.CHAINS).map(([slug, p]) => ({
+          slug, chainId: p.chain.id, name: p.chain.name,
+          gasCoin: p.chain.nativeCurrency.symbol, presetTokens: Object.keys(p.tokens),
+        }))
+        const grid = rows.map((r) => `
+          <div class="lab-chain">
+            ${chainLogo(r.slug, r.name)}
+            <span class="lab-chain-n">${esc(r.name)}</span>
+            <span class="lab-chain-g">${esc(r.gasCoin)}</span>
+          </div>`).join('')
+        const noTokens = rows.filter((r) => r.presetTokens.length === 0).length
+        return {
+          data: { evmPresets: rows.length, chains: rows },
+          view: `<div class="lab-row">${big(String(rows.length), '', 'EVM presets')}${big('9', '', 'non-EVM families')}${big(String(noTokens), '', 'native-coin only')}</div>` +
+            card('every preset, with its gas coin', `<div class="lab-chain-grid">${grid}</div>`) +
+            note('The gas coin is the point of a preset: bind an unpreseted chain as { id, rpcUrl } and it reports ETH, which denominates every gas estimate in the wrong unit. Chains showing no token ship no stablecoin preset on purpose, because the ones deployed there are bridged rather than issuer-native.'),
+        }
+      },
+
+      gate: async () => {
+        const c = config()
+        const { challenge } = await gateFor(c).challenge()
+        const rails = (challenge.accepts || []).map((a) => card(a.scheme, kv([
+          ['network', `<code>${esc(a.network)}</code>`],
+          ['amount', `<code>${esc(a.amount)}</code> base units`],
+          ['asset', `<code>${esc(short(a.asset, 14))}</code>`],
+          ['payTo', `<code>${esc(short(a.payTo, 12))}</code>`],
+          ['expires in', `${esc(a.maxTimeoutSeconds)}s`],
+        ]), 'lab-accent')).join('')
+        return {
+          data: challenge,
+          view: `<div class="lab-row">${big(c.amount, c.token === 'native' ? '' : ` ${c.token}`, `priced on ${c.chainName}`)}${big(String((challenge.accepts || []).length), '', 'rails offered')}${big('v' + challenge.x402Version, '', 'x402 envelope')}</div>` +
+            `<div class="lab-grid2">${rails}</div>` +
+            note('A real challenge object, built offline. A buyer reads accepts[], picks a rail it can pay, and retries with proof. Change the chain above and watch the asset and address change with it.'),
+        }
+      },
+
+      wire: async () => {
+        const { challenge } = await gateFor(config()).challenge()
+        const header = sdk.buildChallengeHeader(challenge)
+        return {
+          data: { header, bytes: header.length, decoded: JSON.parse(atob(header)) },
+          view: `<div class="lab-row">${big(String(header.length), 'B', 'header size')}${big('base64', '', 'encoding')}${big('1', '', 'round trip')}</div>` +
+            card('payment-required', `<pre class="lab-pre lab-wrap">${esc(header)}</pre>`) +
+            note('One header carries the whole challenge, so any HTTP client can read it without a PipRail dependency. The wire is the contract, which is why it is pinned by tests rather than described in prose.'),
+        }
+      },
+
+      selftest: async () => {
+        const r = await gateFor(config()).selfTest()
+        const rails = (r.rails || []).map((rail) => card(`${rail.symbol || 'asset'} on ${rail.network}`, kv([
+          ['amount', `<code>${esc(rail.amount)}</code>`],
+          ['decimals', String(rail.decimals)],
+          ['asset', `<code>${esc(short(rail.asset, 14))}</code>`],
+          ['schemes', (rail.schemes || []).map((s) => pill(s, 'ok')).join('')],
+        ]))).join('')
+        const warnings = r.warnings || []
+        const warnCard = warnings.length ? card('warnings', warnings.map((w) => `<p class="lab-warn-t">${esc(w)}</p>`).join(''), 'lab-amber') : ''
+        return {
+          data: r,
+          view: `<div class="lab-verdict ${r.ok ? 'is-ok' : 'is-bad'}"><span class="lab-verdict-i">${r.ok ? '✓' : '✕'}</span><div><p class="lab-verdict-t">${r.ok ? 'This gate is payable' : 'This gate would refuse buyers'}</p><p class="lab-verdict-s">${warnings.length ? esc(`${warnings.length} warning(s) to read below.`) : 'No warnings. Every rail it advertises resolves.'}</p></div></div>` +
+            `<div class="lab-grid2">${rails}</div>${warnCard}` +
+            note('Run this in CI. It catches a wrong address, an unpriceable token or a dead RPC before a buyer ever sees a 402.'),
+        }
+      },
+
+      describe: () => {
+        const c = config()
+        const input = {
+          origin: 'https://piprail.com',
+          resources: [{
+            url: LIVE_402, method: 'GET', description: 'Real-time market intelligence', mimeType: 'application/json',
+            accepts: [{ scheme: 'onchain-proof', network: 'eip155:8453', asset: 'USDC', amount: c.amount, payTo: c.payTo }],
+          }],
+        }
+        const wellKnown = sdk.buildWellKnownX402(input)
+        const openApi = sdk.buildOpenApi(input)
+        return {
+          data: { wellKnown, openApi },
+          view: `<div class="lab-grid2">
+              ${card('/.well-known/x402', `<pre class="lab-pre">${esc(dump(wellKnown))}</pre>`)}
+              ${card('/openapi.json', `<pre class="lab-pre">${esc(dump(openApi).slice(0, 800))}…</pre>`)}
+            </div>` +
+            note('Serve these two files and the open indexes can find you. PipRail hosts no directory of its own: it reads and writes the ones that already exist, so being discoverable costs you nothing and locks you into nobody.'),
+        }
+      },
+
+      quote: async () => {
+        const q = await new sdk.PipRailClient({ chain: 'base' }).quote(LIVE_402)
+        return {
+          data: q,
+          view: `<div class="lab-row">${big(q.amountFormatted, ` ${q.symbol}`, 'price')}${big(String(q.decimals), 'dp', 'decimals')}${big(q.recognized ? 'known' : 'unknown', '', 'token')}</div>` +
+            card('what the merchant asked for', kv([
+              ['resource', `<code>${esc(q.url)}</code>`],
+              ['network', `<code>${esc(q.network)}</code>`],
+              ['asset', `<code>${esc(short(q.asset, 14))}</code>`],
+              ['payTo', `<code>${esc(short(q.payTo, 12))}</code>`],
+              ['base units', `<code>${esc(q.amount)}</code>`],
+              ['within policy', q.withinPolicy ? pill('yes', 'ok') : pill('no', 'bad')],
+              ['symbol mismatch', q.symbolMismatch ? pill('yes', 'bad') : pill('no', 'ok')],
+            ]), 'lab-accent') +
+            note('A live read of this site’s own 402, over the network, from your browser. The SDK re-derives decimals and symbol from its own registry rather than trusting what the server claimed, which is what makes a spend cap mean anything.'),
+        }
+      },
+
+      cost: async () => {
+        const r = await new sdk.PipRailClient({ chain: 'base' }).estimateCost(LIVE_402)
+        const c = r.cost
+        return {
+          data: r,
+          view: `<div class="lab-row">${big(r.quote.amountFormatted, ` ${r.quote.symbol}`, 'you pay')}${big(c.feeFormatted, ` ${c.feeSymbol}`, 'gas costs')}${big(c.basis, '', 'basis')}</div>` +
+            card('gas is a different token from the payment', kv([
+              ['fee coin', pill(c.feeSymbol, 'ok')],
+              ['fee decimals', String(c.feeDecimals)],
+              ['base units', `<code>${esc(c.fee)}</code>`],
+              ['detail', esc(c.detail || 'n/a')],
+            ])) +
+            note('You pay in USDC but burn ETH for gas. An agent budgeting only the price runs out of gas mid-task, so this never throws: when RPC is unavailable it degrades to a typical-cost constant and says so in `basis`.'),
+        }
+      },
+
+      plan: async () => {
+        const client = new sdk.PipRailClient({ chain: 'base', wallet: { key: burnerKey() } })
+        const plan = await client.planPayment(LIVE_402)
+        const options = plan.options || []
+        const ok = plan.payable
+
+        // One card per rail the 402 offered, showing the three questions a payment has to
+        // answer before it is signed: enough token, enough gas, and can the recipient receive.
+        const cards = options.map((o) => {
+          const q = o.quote || {}
+          const c = o.cost || {}
+          const blockers = o.blockers || []
+          const has = (code) => blockers.includes(code)
+          const row = (label, body, blocked) => `
+            <div class="lab-need ${blocked ? 'is-bad' : 'is-ok'}">
+              <span class="lab-need-l">${esc(label)}</span>
+              <span class="lab-need-v">${body}</span>
+              ${blocked ? pill('short', 'bad') : pill('ok', 'ok')}
+            </div>`
+          const held = (h, n, sym) => `<b>${esc(h)}</b> held of <b>${esc(n)}</b> needed<em> ${esc(sym)}</em>`
+          const ready = o.recipient && o.recipient.ready
+          return card(
+            `${q.symbol || 'rail'} · ${o.accept ? o.accept.scheme : 'rail'}`,
+            row('token', held((o.balance && o.balance.token) ?? '0', (o.need && o.need.token) ?? q.amountFormatted, q.symbol || ''), has('INSUFFICIENT_TOKEN')) +
+            row('gas', held((o.balance && o.balance.native) ?? '0', (o.need && o.need.native) ?? c.feeFormatted, c.feeSymbol || ''), has('INSUFFICIENT_GAS')) +
+            row('recipient', ready === 'n/a' ? 'this chain needs no receive setup' : `<b>${esc(String(ready ?? '?'))}</b>`, has('RECIPIENT_NOT_READY')) +
+            `<div class="lab-blockers">${blockers.length ? blockers.map((b) => pill(b, 'bad')).join('') : pill('no blockers', 'ok')}${(o.warnings || []).map((w) => pill(w, 'warn')).join('')}</div>`,
+            o.state === 'payable' ? 'lab-accent' : 'lab-rose')
+        }).join('')
+
+        return {
+          data: plan,
+          view: `<div class="lab-verdict ${ok ? 'is-ok' : 'is-bad'}"><span class="lab-verdict-i">${ok ? '✓' : '✕'}</span><div><p class="lab-verdict-t">${ok ? 'This wallet can pay' : 'This wallet cannot pay yet'}</p><p class="lab-verdict-s">${esc(plan.fundingHint || 'No funding needed.')}</p></div></div>` +
+            `<div class="lab-row">${big(plan.status, '', 'status')}${big(String(options.length), '', 'rails offered')}${big(String(options.filter((o) => o.state === 'payable').length), '', 'rails payable')}</div>` +
+            `<div class="lab-grid2">${cards}</div>` +
+            note('Planned from a wallet generated in this tab a moment ago, holding nothing. Every shortfall above is real, and it is exactly what a freshly created agent sees before anyone funds it. Nothing was signed and nothing was broadcast: this is the read-only pre-flight that stops an agent paying into a wall.'),
+        }
+      },
+
+      policy: () => {
+        const policy = { maxAmount: '0.10', maxTotal: '1.00' }
+        const now = Date.now()
+        const ctx = { now, sessionStart: now, spentInWindowBase: 0n, paymentCount: 0 }
+        const intent = (usd) => ({
+          host: 'piprail.com', chain: 'base', network: 'eip155:8453',
+          asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+          amountBase: BigInt(Math.round(usd * 1e6)), decimals: 6, symbol: 'USDC', recognized: true,
+        })
+        const attempts = [0.05, 0.5].map((usd) => ({ usd, verdict: sdk.evaluatePolicy(intent(usd), policy, 0n, ctx) }))
+        const cap = Number(policy.maxAmount)
+        const cards = attempts.map(({ usd, verdict }) => card(
+          `attempt ${usd.toFixed(2)} USDC`,
+          `${bar((usd / cap) * 100, verdict.allowed ? 'ok' : 'bad')}
+           <p class="lab-cap">${usd.toFixed(2)} against a ${cap.toFixed(2)} cap</p>
+           ${verdict.allowed ? pill('allowed', 'ok') : `${pill(verdict.code || 'refused', 'bad')}<p class="lab-warn-t">${esc(verdict.reason || '')}</p>`}`,
+          verdict.allowed ? 'lab-accent' : 'lab-rose')).join('')
+        return {
+          data: { policy, attempts },
+          view: `<div class="lab-row">${big(policy.maxAmount, ' USDC', 'per payment')}${big(policy.maxTotal, ' USDC', 'session total')}${big('0', ' USDC', 'spent so far')}</div>` +
+            `<div class="lab-grid2">${cards}</div>` +
+            note('The engine is pure: it takes the intent, the policy, what has already been spent, and an injected clock. A refusal happens before anything is signed, so an agent cannot exceed its leash even if it tries.'),
+        }
+      },
+
+      discover: async () => {
+        const client = new sdk.PipRailClient({ chain: 'base' })
+        const found = await client.discover({ query: 'weather', network: 'any', limit: 12 })
+        if (found.length > 0) {
+          const bySource = found.reduce((m, r) => ((m[r.source] = (m[r.source] || 0) + 1), m), {})
+          const rows = found.slice(0, 10).map((r) => card(r.name || r.resource, kv([
+            ['resource', `<code>${esc(short(r.resource, 34))}</code>`],
+            r.priceUsd != null ? ['price', `$${esc(r.priceUsd)}`] : null,
+            ['source', pill(r.source, 'ok')],
+            r.indexMatched ? ['matched by', pill('index search', 'accent')] : null,
+            ['rails', (r.rails || []).slice(0, 3).map((x) => pill(x.network, 'n')).join('')],
+          ]))).join('')
+          return {
+            data: { found: found.length, bySource, results: found },
+            view: `<div class="lab-row">${Object.entries(bySource).map(([s, n]) => big(String(n), '', s)).join('')}</div><div class="lab-grid2">${rows}</div>` +
+              note('Real, payable endpoints other people run. PipRail hosts no index: it reads the open ones, pages through them so a search sees the whole catalogue, and can register your endpoint on them.'),
+          }
+        }
+        const reach = async (label, url) => {
+          try { const res = await fetch(url); return { index: label, readable: res.ok, status: res.status } }
+          catch (err) { return { index: label, readable: false, reason: String((err && err.message) || err) } }
+        }
+        const reachability = await Promise.all([
+          reach('CDP Bazaar', 'https://api.cdp.coinbase.com/platform/v2/x402/discovery/resources?limit=1'),
+          reach('402 Index', 'https://402index.io/api/v1/services?limit=1'),
+          reach('Circle', 'https://api.circle.com/v2/x402/discovery/resources?limit=1'),
+        ])
+        const why = {
+          'CDP Bazaar': 'sends no Access-Control-Allow-Origin header',
+          '402 Index': 'sends no Access-Control-Allow-Origin header',
+          Circle: "sends Access-Control-Allow-Origin twice ('*, *'), which browsers reject",
+        }
+        return {
+          data: { found: 0, reachability, why },
+          view: `<div class="lab-verdict is-warn"><span class="lab-verdict-i">!</span><div><p class="lab-verdict-t">The indexes cannot be read from a web page</p><p class="lab-verdict-s">A CORS limit on their side, not a limit of the SDK. The same call returns thousands of results from Node, a server, or the MCP.</p></div></div>` +
+            `<div class="lab-grid2">${reachability.map((r) => card(r.index, kv([
+              ['readable here', r.readable ? pill('yes', 'ok') : pill('no', 'bad')],
+              ['reason', esc(why[r.index] || r.reason || '')],
+            ]), 'lab-rose')).join('')}</div>` +
+            card('run it where it works', `<pre class="lab-pre lab-wrap">import { PipRailClient } from '@piprail/sdk'
+
+const client = new PipRailClient({ chain: 'base' })
+// Reads CDP Bazaar, 402 Index and Circle, paged, then ranks the merged set.
+console.log(await client.discover({ query: 'weather', limit: 2000 }))</pre>`) +
+            note('Worth knowing either way: discovery reads never throw. A dead or unreadable index contributes nothing and the others still answer, so a search degrades instead of failing.'),
+        }
+      },
+
+      tools: () => {
+        const tools = sdk.paymentTools(new sdk.PipRailClient({ chain: 'base' }))
+        const label = (n) => (/pay|swap|sell/.test(n) ? 'money' : /register|collect/.test(n) ? 'write' : 'read')
+        const tone = (n) => ({ money: 'bad', write: 'warn', read: 'ok' })[label(n)]
+        const rows = tools.map((t) => `
+          <div class="lab-tool">
+            <code>${esc(t.name)}</code>
+            <span class="lab-tool-d">${esc((t.description || '').split('.')[0])}</span>
+            ${pill(label(t.name), tone(t.name))}
+          </div>`).join('')
+        return {
+          data: { count: tools.length, tools: tools.map((t) => ({ name: t.name, description: t.description })) },
+          view: `<div class="lab-row">${big(String(tools.length), '', 'tools in this mode')}${big(String(tools.filter((t) => label(t.name) === 'read').length), '', 'read only')}${big(String(tools.filter((t) => label(t.name) === 'money').length), '', 'can move money')}</div>` +
+            card('what the model is handed', `<div class="lab-tools">${rows}</div>`) +
+            note('This is the budgeted set. Sovereign mode adds swap and seller tools behind a separate policy, so the authority a model holds is a deliberate choice rather than a default.'),
+        }
+      },
+
+      swaps: () => {
+        const nets = sdk.swappableNetworks()
+        return {
+          data: { swappableNetworks: nets },
+          view: `<div class="lab-row">${big(String(nets.length), '', 'networks with a route')}</div>` +
+            card('where an agent can swap its own funds', `<div class="lab-chips">${nets.map((n) => pill(n, 'n')).join('')}</div>`) +
+            note('A swap moves the agent’s OWN funds between denominations on one chain: it never touches a counterparty. It is off unless a separate swap policy turns it on, and the MCP cannot swap at all by default.'),
+        }
+      },
+    }
+
+    /* --------------------------------- plumbing --------------------------------- */
+    function syncChain() {
+      const chain = chainBySlug[$('d-chain').value]
+      $('d-token').innerHTML = chain.tokens.map((t) => `<option value="${t}">${t === 'native' ? 'native coin' : t}</option>`).join('')
+      $('d-payto').value = familyAddress[chain.family]
+    }
+    function paint() {
+      $('out-empty').classList.add('hidden')
+      $('out-view').classList.toggle('hidden', tab !== 'view')
+      $('out-json').classList.toggle('hidden', tab !== 'json')
+      $('tab-view').classList.toggle('is-active', tab === 'view')
+      $('tab-json').classList.toggle('is-active', tab === 'json')
+      $('out-view').innerHTML = currentView
+      $('out-json').textContent = currentJson
+    }
+
+    async function run(id, button) {
+      const dot = button.querySelector('[data-dot]')
+      const ms = button.querySelector('[data-ms]')
+      dot.className = 'lab-dot mt-1.5 is-busy'
+      ms.textContent = '…'
+      $('out-title').textContent = `output · ${id}`
+      const started = performance.now()
+      try {
+        const { data, view } = await RUNNERS[id]()
+        currentView = view
+        currentJson = dump(data)
+        dot.className = 'lab-dot mt-1.5 is-ok'
+      } catch (err) {
+        // An error IS a result: the typed name and message are what a caller handles.
+        const name = (err && err.constructor && err.constructor.name) || 'Error'
+        currentJson = dump({ error: name, code: err && err.code, message: String(err && err.message) })
+        currentView = `<div class="lab-verdict is-bad"><span class="lab-verdict-i">✕</span><div><p class="lab-verdict-t">${esc(name)}</p><p class="lab-verdict-s">${esc(String(err && err.message))}</p></div></div>` +
+          note('The SDK throws typed errors with a stable .code, so a caller branches on the cause instead of matching on prose.')
+        dot.className = 'lab-dot mt-1.5 is-bad'
+      }
+      paint()
+      ms.textContent = `${Math.round(performance.now() - started)}ms`
+    }
+
+    $('d-chain').addEventListener('change', syncChain)
+    syncChain()
+    $('tab-view').addEventListener('click', () => { tab = 'view'; paint() })
+    $('tab-json').addEventListener('click', () => { tab = 'json'; paint() })
+    $('out-copy').addEventListener('click', async () => {
+      if (!currentJson) return
+      try { await navigator.clipboard.writeText(currentJson); $('out-copy').textContent = 'copied' }
+      catch { $('out-copy').textContent = 'blocked' }
+      setTimeout(() => ($('out-copy').textContent = 'copy'), 1200)
+    })
+
+    ;(async () => {
+      try {
+        sdk = await import('https://esm.sh/@piprail/sdk@3?external=viem,@solana/web3.js,@solana/spl-token,bs58,@mysten/sui,near-api-js,@aptos-labs/ts-sdk,@stellar/stellar-sdk,@ton/core,@ton/ton,@ton/crypto,@ston-fi/api,@ston-fi/sdk,tronweb,xrpl,algosdk,borsh')
+        $('sdk-status').textContent = '@piprail/sdk loaded · browser runtime · no key'
+        $('sdk-status').className = 'font-mono text-[11px] text-accent'
+        document.querySelectorAll('.lab-test').forEach((b) => {
+          b.disabled = false
+          b.addEventListener('click', () => run(b.dataset.test, b))
+        })
+        $('run-all').disabled = false
+        $('run-all').addEventListener('click', async () => {
+          $('run-all').disabled = true
+          for (const b of document.querySelectorAll('.lab-test')) await run(b.dataset.test, b)
+          $('run-all').disabled = false
+        })
+      } catch {
+        $('sdk-status').textContent = 'could not load the SDK from the CDN'
+        $('sdk-status').className = 'font-mono text-[11px] text-rose-300'
+      }
+    })()
   </script>
+
+  <style is:global>
+    .lab-grad { color: transparent; background: linear-gradient(100deg, var(--color-accent), oklch(.8 .11 220)); background-clip: text; -webkit-background-clip: text; }
+    .lab-label { display: block; margin-bottom: .35rem; font-family: var(--font-mono); font-size: 9px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: rgb(115 115 115); }
+    .lab-control { width: 100%; border: 1px solid rgba(255,255,255,.10); border-radius: .6rem; background: rgb(10 10 10); padding: .6rem .7rem; color: rgb(229 229 229); font-size: .8rem; outline: none; transition: border-color .2s, box-shadow .2s; }
+    .lab-control:focus { border-color: color-mix(in oklab, var(--color-accent) 60%, transparent); box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-accent) 10%, transparent); }
+    .lab-dot { height: .375rem; width: .375rem; flex-shrink: 0; border-radius: 999px; background: rgb(64 64 64); transition: background .2s, box-shadow .2s; }
+    .lab-dot.is-busy { background: rgb(252 211 77); }
+    .lab-dot.is-ok { background: var(--color-accent); box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-accent) 14%, transparent); }
+    .lab-dot.is-bad { background: rgb(251 113 133); box-shadow: 0 0 0 3px rgba(251,113,133,.14); }
+    .lab-tab { border-radius: .4rem; padding: .25rem .55rem; font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: .1em; color: rgb(115 115 115); transition: color .2s, background .2s; }
+    .lab-tab:hover { color: rgb(212 212 212); }
+    .lab-tab.is-active { background: rgba(255,255,255,.07); color: var(--color-accent); }
+
+    .lab-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 1px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.08); border-radius: .75rem; overflow: hidden; margin-bottom: .85rem; }
+    .lab-big { background: rgb(13 15 15); padding: .85rem .95rem; min-width: 0; }
+    .lab-big-v { display: block; font-size: 1.4rem; font-weight: 600; color: rgb(245 245 245); line-height: 1.15; overflow-wrap: anywhere; }
+    .lab-big-v em { font-style: normal; font-size: .8rem; color: rgb(115 115 115); }
+    .lab-big-l { display: block; margin-top: .2rem; font-size: 9px; text-transform: uppercase; letter-spacing: .14em; color: rgb(115 115 115); }
+
+    .lab-card { border: 1px solid rgba(255,255,255,.08); border-radius: .75rem; background: rgb(13 15 15); padding: .85rem .95rem; margin-bottom: .7rem; min-width: 0; }
+    .lab-card.lab-accent { border-color: color-mix(in oklab, var(--color-accent) 22%, transparent); background: color-mix(in oklab, var(--color-accent) 4%, rgb(13 15 15)); }
+    .lab-card.lab-rose { border-color: rgba(251,113,133,.22); background: rgba(251,113,133,.04); }
+    .lab-card.lab-amber { border-color: rgba(252,211,77,.22); background: rgba(252,211,77,.04); }
+    .lab-card-t { font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: .14em; color: rgb(115 115 115); margin-bottom: .5rem; overflow-wrap: anywhere; }
+    .lab-grid2 { display: grid; gap: .7rem; }
+    @media (min-width: 900px) { .lab-grid2 { grid-template-columns: 1fr 1fr; } .lab-grid2 .lab-card { margin-bottom: 0; } }
+
+    .lab-kv > div { display: grid; grid-template-columns: 6.5rem minmax(0,1fr); gap: .5rem; padding: .2rem 0; align-items: baseline; }
+    .lab-kv dt { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: rgb(96 96 96); }
+    .lab-kv dd { font-size: 12px; color: rgb(212 212 212); min-width: 0; overflow-wrap: anywhere; }
+    .lab-kv code, .lab-pre { font-family: var(--font-mono); font-size: 11px; color: rgb(190 190 190); }
+
+    .lab-pill { display: inline-block; margin: 0 .25rem .25rem 0; border-radius: 999px; border: 1px solid; padding: .1rem .45rem; font-family: var(--font-mono); font-size: 9px; }
+    .lab-ok { border-color: color-mix(in oklab, var(--color-accent) 28%, transparent); background: color-mix(in oklab, var(--color-accent) 9%, transparent); color: var(--color-accent); }
+    .lab-bad { border-color: rgba(251,113,133,.3); background: rgba(251,113,133,.09); color: rgb(253 164 175); }
+    .lab-warn { border-color: rgba(252,211,77,.3); background: rgba(252,211,77,.09); color: rgb(253 224 71); }
+    .lab-accent { border-color: rgba(125,211,252,.3); background: rgba(125,211,252,.09); color: rgb(125 211 252); }
+    .lab-n { border-color: rgba(255,255,255,.12); background: rgba(255,255,255,.04); color: rgb(163 163 163); }
+    .lab-warn-t { margin-top: .4rem; font-size: 11px; line-height: 1.55; color: rgb(180 180 180); }
+
+    .lab-need { display: flex; align-items: center; gap: .5rem; border-radius: .5rem; border: 1px solid rgba(255,255,255,.07); padding: .35rem .5rem; margin-bottom: .35rem; }
+    .lab-need.is-bad { border-color: rgba(251,113,133,.22); background: rgba(251,113,133,.05); }
+    .lab-need.is-ok { border-color: color-mix(in oklab, var(--color-accent) 20%, transparent); background: color-mix(in oklab, var(--color-accent) 4%, transparent); }
+    .lab-need-l { font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: .1em; color: rgb(115 115 115); width: 4.25rem; flex-shrink: 0; }
+    .lab-need-v { flex: 1; min-width: 0; font-size: 11px; color: rgb(163 163 163); overflow-wrap: anywhere; }
+    .lab-need-v b { color: rgb(229 229 229); font-weight: 600; }
+    .lab-need-v em { font-style: normal; color: rgb(115 115 115); }
+    .lab-blockers { margin-top: .5rem; }
+
+    .lab-bar { height: .4rem; border-radius: 999px; background: rgba(255,255,255,.07); overflow: hidden; }
+    .lab-bar i { display: block; height: 100%; border-radius: 999px; }
+    .lab-bar i.lab-ok { background: var(--color-accent); }
+    .lab-bar i.lab-bad { background: rgb(251 113 133); }
+    .lab-cap { margin: .35rem 0 .5rem; font-family: var(--font-mono); font-size: 10px; color: rgb(115 115 115); }
+
+    .lab-verdict { display: flex; align-items: flex-start; gap: .75rem; border: 1px solid; border-radius: .75rem; padding: .85rem .95rem; margin-bottom: .85rem; }
+    .lab-verdict.is-ok { border-color: color-mix(in oklab, var(--color-accent) 25%, transparent); background: color-mix(in oklab, var(--color-accent) 6%, transparent); }
+    .lab-verdict.is-bad { border-color: rgba(251,113,133,.25); background: rgba(251,113,133,.06); }
+    .lab-verdict.is-warn { border-color: rgba(252,211,77,.25); background: rgba(252,211,77,.06); }
+    .lab-verdict-i { display: flex; height: 1.75rem; width: 1.75rem; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 999px; font-size: .8rem; font-weight: 700; }
+    .is-ok .lab-verdict-i { background: var(--color-accent); color: rgb(10 10 10); }
+    .is-bad .lab-verdict-i { background: rgb(251 113 133); color: rgb(10 10 10); }
+    .is-warn .lab-verdict-i { background: rgb(252 211 77); color: rgb(10 10 10); }
+    .lab-verdict-t { font-size: .85rem; font-weight: 600; color: rgb(229 229 229); }
+    .lab-verdict-s { margin-top: .15rem; font-size: 11px; line-height: 1.55; color: rgb(140 140 140); }
+
+    .lab-note { margin-top: .85rem; border-left: 2px solid color-mix(in oklab, var(--color-accent) 35%, transparent); padding: .1rem 0 .1rem .7rem; font-size: 11.5px; line-height: 1.65; color: rgb(140 140 140); }
+    .lab-pre { white-space: pre; overflow-x: auto; }
+    .lab-pre.lab-wrap { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+    .lab-chain-grid { display: grid; gap: 1px; background: rgba(255,255,255,.06); grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); border-radius: .5rem; overflow: hidden; }
+    .lab-chain { display: flex; align-items: center; gap: .5rem; background: rgb(13 15 15); padding: .5rem .6rem; min-width: 0; }
+    .lab-chain-i { height: 1.125rem; width: 1.125rem; border-radius: 999px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.1); }
+    .lab-chain-n { font-size: 12px; color: rgb(212 212 212); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lab-chain-g { font-family: var(--font-mono); font-size: 9px; color: rgb(115 115 115); margin-left: auto; }
+    .lab-chip-fallback { display: flex; height: 1.125rem; width: 1.125rem; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 999px; background: rgba(255,255,255,.07); font-size: 8px; text-transform: uppercase; color: rgb(163 163 163); }
+    .lab-chips { display: flex; flex-wrap: wrap; }
+
+    .lab-tools { display: grid; gap: 1px; background: rgba(255,255,255,.06); border-radius: .5rem; overflow: hidden; }
+    .lab-tool { display: grid; grid-template-columns: minmax(0,auto) minmax(0,1fr) auto; align-items: center; gap: .6rem; background: rgb(13 15 15); padding: .45rem .6rem; }
+    .lab-tool code { font-family: var(--font-mono); font-size: 11px; color: rgb(212 212 212); }
+    .lab-tool-d { font-size: 11px; color: rgb(115 115 115); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    @media (max-width: 640px) { .lab-tool { grid-template-columns: minmax(0,1fr) auto; } .lab-tool-d { display: none; } }
+
+    .lab-hero-mark { display: flex; gap: .35rem; align-items: flex-end; height: 2.5rem; }
+    .lab-hero-mark span { width: .55rem; border-radius: .2rem; background: color-mix(in oklab, var(--color-accent) 55%, transparent); animation: labPulse 1.6s ease-in-out infinite; }
+    .lab-hero-mark span:nth-child(1) { height: 1.1rem; animation-delay: 0s; }
+    .lab-hero-mark span:nth-child(2) { height: 2.2rem; animation-delay: .2s; }
+    .lab-hero-mark span:nth-child(3) { height: 1.6rem; animation-delay: .4s; }
+    @keyframes labPulse { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+    @media (prefers-reduced-motion: reduce) { .lab-hero-mark span { animation: none; opacity: .7; } }
+
+    .lab-live::before { content: ''; position: absolute; width: 30rem; height: 30rem; right: -10rem; top: -14rem; border-radius: 999px; background: var(--color-accent); opacity: .12; filter: blur(100px); }
+  </style>
 </Layout>

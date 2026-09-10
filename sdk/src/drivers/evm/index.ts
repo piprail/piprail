@@ -141,6 +141,43 @@ function makeEvmNetwork(resolved: ResolvedChain): ResolvedNetwork {
       return null
     },
 
+    /**
+     * Ask the token contract what it is, when the registry has never heard of it.
+     *
+     * Deliberately narrow: `symbol()` + `decimals()` and nothing else. A contract that
+     * answers neither is not an ERC-20 we can price, and a non-contract address answers
+     * nothing at all — which is exactly how a typo'd or fabricated asset stays refused
+     * rather than becoming payable. Resolves `null` on every failure path; the caller
+     * treats `null` as "still unrecognised" and the rail is skipped, so a dead RPC costs
+     * reach and never correctness.
+     */
+    async readAssetOnchain(asset: string) {
+      if (asset === 'native') return null
+      let address: `0x${string}`
+      try {
+        address = getAddress(asset)
+      } catch {
+        return null // unparseable id — never an asset on this chain
+      }
+      try {
+        const [decimals, symbol] = await Promise.all([
+          publicClient.readContract({ address, abi: erc20Abi, functionName: 'decimals' }),
+          publicClient
+            .readContract({ address, abi: erc20Abi, functionName: 'symbol' })
+            .catch(() => undefined),
+        ])
+        // `decimals` drives the spend cap, so it must be a sane uint8 — a contract
+        // reporting something absurd is refused rather than trusted into a policy bypass.
+        const d = Number(decimals)
+        if (!Number.isInteger(d) || d < 0 || d > 36) return null
+        return typeof symbol === 'string' && symbol.length > 0
+          ? { symbol, decimals: d }
+          : { decimals: d }
+      } catch {
+        return null // not a contract, no ERC-20 metadata, or the RPC is unreachable
+      }
+    },
+
     assertValidPayTo(payTo: string) {
       if (!isAddress(payTo)) {
         throw new WrongFamilyError(

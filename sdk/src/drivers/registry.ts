@@ -25,16 +25,21 @@ export function isRegistered(family: ChainFamily): boolean {
 /** Which family does this `chain` value belong to? Pure + synchronous. */
 export function familyForChain(chain: unknown): ChainFamily {
   if (typeof chain === 'string') {
-    if (chain.startsWith('solana')) return 'solana'
-    if (chain.startsWith('ton')) return 'ton'
-    if (chain.startsWith('stellar')) return 'stellar'
-    if (chain.startsWith('xrpl')) return 'xrpl'
-    if (chain.startsWith('tron')) return 'tron'
-    if (chain.startsWith('sui')) return 'sui'
-    if (chain.startsWith('near')) return 'near'
-    if (chain.startsWith('aptos')) return 'aptos'
-    if (chain.startsWith('algorand')) return 'algorand'
-    return 'evm'
+    /*
+     * Match the family name EXACTLY, or as the namespace of a CAIP-2 id ('solana:5eykt…').
+     *
+     * This was a bare `startsWith`, which is a trap that springs the moment an EVM preset's
+     * name begins with a family name. It did: `chain: 'xrplevm'` (the XRPL EVM Sidechain, an
+     * ordinary EVM chain) routed to the XRP LEDGER driver, which then failed to recognise its
+     * own input. The failure surfaced as "the xrpl driver didn't recognise this chain input",
+     * which points at the driver rather than at the routing that misdelivered it.
+     */
+    const ns = chain.includes(':') ? chain.slice(0, chain.indexOf(':')) : chain
+    const NON_EVM: readonly ChainFamily[] = [
+      'solana', 'ton', 'stellar', 'xrpl', 'tron', 'sui', 'near', 'aptos', 'algorand',
+    ]
+    const hit = NON_EVM.find((f) => ns === f)
+    return hit ?? 'evm'
   }
   return 'evm' // viem Chain, { id, rpcUrl }, or an EVM preset name
 }

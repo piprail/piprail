@@ -249,6 +249,124 @@ export const CHAINS = {
       USDG: { address: '0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168', decimals: 6, symbol: 'USDG' },
     },
   },
+  /**
+   * X Layer — OKX's zkEVM. Added for REACH: 973 x402 rails across 85 distinct hosts
+   * advertise this chain (measured on the CDP Bazaar catalog, 2026-09-10), the largest
+   * single chain PipRail had no preset for.
+   *
+   * NO stablecoin preset ships, deliberately. All three stablecoins in use here fail the
+   * issuer-native token rule, each verified on-chain 2026-09-10 against `rpc.xlayer.tech`:
+   *   - `0x779Ded…` is **USD₮0** (name/symbol `USD₮0`), the LayerZero-bridged Tether, not
+   *     Tether-native — the exact case the USDT rule already omits elsewhere. It carries
+   *     891 of the 973 rails, so this preset intentionally does not pre-fill the majority
+   *     asset rather than ship a bridged one.
+   *   - `0x74b7f163…` reports `name: 'USD Coin'`, `symbol: 'USDC'`, 6 decimals, EIP-3009
+   *     `version: 2` — the Circle shape — but X Layer is NOT on Circle's native-issuance
+   *     list, so it is a bridged deployment wearing the canonical metadata. A bytecode
+   *     check would have passed it; only the issuer list catches this one.
+   *   - `0x4ae46a50…` is Paxos **USDG**, likewise not natively issued here.
+   *
+   * The chain still pays: the native coin is a valid payment asset on every family, and any
+   * token works by address. What the preset buys is the correct native coin — binding X
+   * Layer as `{ id: 196, rpcUrl }` reports its gas token as ETH, which is wrong and makes
+   * every gas estimate on this chain read in the wrong unit.
+   */
+  xlayer: {
+    chain: defineChain({
+      id: 196,
+      name: 'X Layer',
+      nativeCurrency: { name: 'OKB', symbol: 'OKB', decimals: 18 },
+      rpcUrls: { default: { http: ['https://rpc.xlayer.tech'] } },
+      blockExplorers: {
+        default: { name: 'OKLink', url: 'https://www.oklink.com/xlayer' },
+      },
+    }),
+    tokens: {},
+  },
+  /**
+   * MegaETH. 26 x402 rails. Its stablecoin is **MegaUSD** (`symbol: USDm`, 18 decimals,
+   * EIP-2612 but NOT EIP-3009) — not an issuer-native USDC/USDT, so no token preset ships;
+   * verified on-chain 2026-09-10.
+   */
+  megaeth: {
+    chain: defineChain({
+      id: 4326,
+      name: 'MegaETH',
+      nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+      rpcUrls: { default: { http: ['https://mainnet.megaeth.com/rpc'] } },
+    }),
+    tokens: {},
+  },
+  /**
+   * peaq. 13 x402 rails. Its `0xbbA60d…` reports `name: 'USDC'`, 6 decimals and EIP-3009
+   * `version: 2`, but peaq is not on Circle's native-issuance list, so it is a bridged
+   * deployment and ships no preset. Payable by address with `assetDiscovery: 'onchain'`.
+   */
+  peaq: {
+    chain: defineChain({
+      id: 3338,
+      name: 'peaq',
+      nativeCurrency: { name: 'peaq', symbol: 'PEAQ', decimals: 18 },
+      rpcUrls: { default: { http: ['https://quicknode1.peaq.xyz'] } },
+    }),
+    tokens: {},
+  },
+  /**
+   * SKALE Base. 7 x402 rails. Its stablecoin names itself `Bridged USDC (SKALE Bridge)`
+   * with `symbol: USDC.e` — bridged on the label, so no preset. Gas is the chain's own
+   * CREDIT token.
+   */
+  skalebase: {
+    chain: defineChain({
+      id: 1187947933,
+      name: 'SKALE Base',
+      nativeCurrency: { name: 'CREDIT', symbol: 'CREDIT', decimals: 18 },
+      rpcUrls: { default: { http: ['https://skale-base.skalenodes.com/v1/base'] } },
+    }),
+    tokens: {},
+  },
+  /**
+   * XDC Network. 3 x402 rails. `rpc.xinfin.network` answers 403 to a plain JSON-RPC POST,
+   * so the default is `rpc.xdcrpc.com`, which was reachable on 2026-09-10 — the kind of
+   * default that goes dark quietly, so probe a balance rather than any method when checking.
+   */
+  xdc: {
+    chain: defineChain({
+      id: 50,
+      name: 'XDC Network',
+      nativeCurrency: { name: 'XDC', symbol: 'XDC', decimals: 18 },
+      rpcUrls: { default: { http: ['https://rpc.xdcrpc.com'] } },
+    }),
+    tokens: {},
+  },
+  /**
+   * Etherlink, the Tezos EVM L2. 2 x402 rails. Its `0x796Ea1…` calls itself `USD Coin` but
+   * answers neither EIP-3009 nor EIP-2612, and Etherlink is not on Circle's native list —
+   * bridged, and not gaslessly exact-payable either. Native gas is XTZ.
+   */
+  etherlink: {
+    chain: defineChain({
+      id: 42793,
+      name: 'Etherlink',
+      nativeCurrency: { name: 'Tez', symbol: 'XTZ', decimals: 18 },
+      rpcUrls: { default: { http: ['https://node.mainnet.etherlink.com'] } },
+    }),
+    tokens: {},
+  },
+  /**
+   * XRPL EVM Sidechain. 6 x402 rails, every one priced in native **XRP** — this is the one
+   * chain in the batch whose rails need no token preset at all, because the native coin IS
+   * the asset. Distinct from the `xrpl` family driver, which speaks the XRP Ledger itself.
+   */
+  xrplevm: {
+    chain: defineChain({
+      id: 1440000,
+      name: 'XRPL EVM',
+      nativeCurrency: { name: 'XRP', symbol: 'XRP', decimals: 18 },
+      rpcUrls: { default: { http: ['https://rpc.xrplevm.org'] } },
+    }),
+    tokens: {},
+  },
 } satisfies Record<string, ChainPreset>
 
 /** A built-in EVM chain name. */

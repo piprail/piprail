@@ -23,16 +23,31 @@ afterEach(() => {
 })
 
 /** Route a stubbed fetch by host. Each handler returns a Response (or throws). */
-function route(handlers: { bazaar?: (u: string) => Response; index402?: (u: string) => Response }) {
+function route(handlers: {
+  bazaar?: (u: string) => Response
+  /** CDP Bazaar's SEMANTIC search endpoint, a different route on the same host. Defaults to
+   *  empty so a test about the LIST measures the list, not the union of both passes. */
+  bazaarSearch?: (u: string) => Response
+  index402?: (u: string) => Response
+  circle?: (u: string) => Response
+}) {
   globalThis.fetch = (async (url: unknown) => {
     const u = String(url)
     if (u.includes('api.cdp.coinbase.com')) {
+      if (u.includes('/discovery/search')) {
+        if (handlers.bazaarSearch) return handlers.bazaarSearch(u)
+        return new Response(JSON.stringify({ resources: [] }), { status: 200 })
+      }
       if (handlers.bazaar) return handlers.bazaar(u)
       return new Response(JSON.stringify({ items: [] }), { status: 200 })
     }
     if (u.includes('402index.io')) {
       if (handlers.index402) return handlers.index402(u)
       return new Response(JSON.stringify({ services: [] }), { status: 200 })
+    }
+    if (u.includes('api.circle.com')) {
+      if (handlers.circle) return handlers.circle(u)
+      return new Response(JSON.stringify({ items: [] }), { status: 200 })
     }
     throw new Error(`unexpected fetch ${u}`)
   }) as typeof fetch

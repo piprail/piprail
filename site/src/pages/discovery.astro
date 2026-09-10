@@ -14,7 +14,7 @@ const title = 'Discovery: make your x402 endpoint findable | PipRail'
 const description =
   'How a PipRail merchant becomes discoverable and how an agent finds payable x402 resources, built on the open indexes. No backend, no registry, no fee.'
 
-// The three open indexes PipRail builds on (it hosts none of them).
+// The four open indexes PipRail builds on (it hosts none of them).
 const indexes = [
   {
     name: '402 Index',
@@ -25,6 +25,11 @@ const indexes = [
     name: 'CDP Bazaar',
     role: 'Free read source',
     note: 'Coinbase’s catalog. Read it free to find others’ endpoints; listing there is facilitator-settle only, so backendless PipRail merchants get found via 402 Index instead.',
+  },
+  {
+    name: 'Circle',
+    role: 'Free read source',
+    note: 'Circle\u2019s Agent Marketplace catalog. Read free, no key. Mostly disjoint from the CDP Bazaar rather than a copy of it, so PipRail reads both by default; it has no public register endpoint.',
   },
   {
     name: 'x402scan',
@@ -103,7 +108,7 @@ const requirements = [
 const faqs = [
   {
     q: 'How does an AI agent discover my x402 endpoint?',
-    a: 'Discovery is built into the SDK and backendless. PipRail builds on the open x402 indexes that already exist (402 Index, the CDP Bazaar read API, x402scan) and hosts none of its own. To be found, call client.register(url): one POST to 402 Index, no auth and no signature. It is probed on submit, then searchable once it passes automated checks (or instantly, if you verify your domain). To find resources to pay, an agent calls client.discover({ query }), which reads those open indexes for free and returns candidates it then quotes and pays. No registry, no database, no fee.',
+    a: 'Discovery is built into the SDK and backendless. PipRail builds on the open x402 indexes that already exist (402 Index, the CDP Bazaar read API, Circle’s Agent Marketplace catalog, x402scan) and hosts none of its own. To be found, call client.register(url): one POST to 402 Index, no auth and no signature. It is probed on submit, then searchable once it passes automated checks (or instantly, if you verify your domain). To find resources to pay, an agent calls client.discover({ query }), which reads those open indexes for free, pages through them so a search sees the whole catalog rather than the first page, and returns candidates it then quotes and pays. No registry, no database, no fee.',
   },
   {
     q: 'Does PipRail run a registry or database for discovery?',

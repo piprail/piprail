@@ -48,8 +48,8 @@ const faqs = [
   { q: 'How do I give Claude Desktop a spending-capped crypto wallet?', a: 'Add @piprail/mcp to your MCP config with a wallet key, a chain, and your caps: PIPRAIL_MAX_AMOUNT for the per-payment ceiling and PIPRAIL_MAX_TOTAL for lifetime spend. Claude Desktop then has a wallet it can spend from autonomously and cannot exceed, because the policy is enforced by the SDK before any on-chain send, not by asking the model to behave. Nothing is hosted: the server runs locally, the key stays on your machine, and payments go wallet-to-wallet with no custodian and no PipRail account. The same block works in Cursor, Claude Code, Windsurf, VS Code and Cline.' },
   { q: 'How do I set a budget limit on an AI agent that spends money?', a: 'PipRail enforces the limit in code, below the model, so a looping or jailbroken agent cannot talk its way past it. You get a per-payment cap (PIPRAIL_MAX_AMOUNT), a lifetime cap per token (PIPRAIL_MAX_TOTAL), a cross-token grand total by denomination (PIPRAIL_MAX_TOTAL_DENOM, e.g. USD:20.00), rolling-window caps on both spend and payment count (PIPRAIL_WINDOW_SECONDS with PIPRAIL_WINDOW_TOTAL and PIPRAIL_MAX_PAYMENTS_PER_WINDOW), plus token, chain and host allowlists. Set PIPRAIL_CONFIRM to require a human to approve each payment where the client supports elicitation, PIPRAIL_WARN_AT_FRACTION to be warned as a cap approaches, and PIPRAIL_SPEND_LOG to keep the budget durable across restarts. An over-budget request returns { declined: true, reason } and nothing moves.' },
   { q: 'Does the MCP take custody of my funds or run a backend?', a: 'No. The server runs locally on your machine with your key, your RPC, and your limits. Payments settle wallet-to-wallet straight to the recipient. PipRail runs no service and holds nothing. There’s no PipRail backend to compromise and no facilitator in the path. The server code is MIT and open; you can audit or run it yourself.' },
-  { q: 'Which AI clients and chains does the MCP support?', a: 'Clients: Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, and Cline, or any MCP client. Chains: all 30 PipRail supports, meaning 21 EVM mainnets plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger. EVM works out of the box (the server ships with viem); non-EVM chains pull their SDK peer library on demand. Each server instance is one wallet on one chain, so register it once per chain to give an agent several rails.' },
-  { q: 'What’s the difference between @piprail/sdk and @piprail/mcp?', a: 'The SDK is for developers who write code: you call requirePayment / createPaymentGate to charge, or PipRailClient to pay, in TypeScript. The MCP flips that: you write no code, you add an env block, and agents in your MCP client pay x402 URLs autonomously, capped by a spend policy. Same engine, same 30 chains, same backendless self-custody. The MCP is the zero-integration path for AI/agent operators.' },
+  { q: 'Which AI clients and chains does the MCP support?', a: 'Clients: Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, and Cline, or any MCP client. Chains: all 30 PipRail supports, meaning 28 EVM mainnets plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger. EVM works out of the box (the server ships with viem); non-EVM chains pull their SDK peer library on demand. Each server instance is one wallet on one chain, so register it once per chain to give an agent several rails.' },
+  { q: 'What’s the difference between @piprail/sdk and @piprail/mcp?', a: 'The SDK is for developers who write code: you call requirePayment / createPaymentGate to charge, or PipRailClient to pay, in TypeScript. The MCP flips that: you write no code, you add an env block, and agents in your MCP client pay x402 URLs autonomously, capped by a spend policy. Same engine, same 37 chains, same backendless self-custody. The MCP is the zero-integration path for AI/agent operators.' },
 ]
 
 const faqLd = {
@@ -69,14 +69,14 @@ const faqLd = {
     <!-- Hero -->
     <section class="fade-up py-16 text-center sm:py-20 md:py-24">
       <p class="mb-7 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/8 px-3.5 py-1.5 text-xs font-medium text-accent">
-        <Sparkles size={13} aria-hidden="true" /> MCP server · agent payments · 30 chains · local-only
+        <Sparkles size={13} aria-hidden="true" /> MCP server · agent payments · 37 chains · local-only
       </p>
       <h1 class="mx-auto max-w-4xl text-[2.5rem] font-semibold leading-[1.05] tracking-tight sm:text-6xl">
         An MCP server that lets Claude <span class="text-accent">pay for things</span>.
       </h1>
       <p class="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-neutral-400 sm:text-lg">
         Hand any MCP client a <span class="text-neutral-200">budget-bound payment wallet</span>. Claude Desktop,
-        Cursor, Claude Code, Windsurf, VS Code, and Cline can pay x402-gated URLs on their own, across 30 chains,
+        Cursor, Claude Code, Windsurf, VS Code, and Cline can pay x402-gated URLs on their own, across 37 chains,
         capped by a <a href="/blog/give-your-agent-a-wallet/" class="text-neutral-200 underline decoration-white/20 underline-offset-4 hover:decoration-accent">spend policy the model cannot exceed</a>. No backend, no custody, no code. Writing code instead? Use the <a href="/sdk/" class="text-accent underline-offset-4 hover:underline">x402 SDK</a>.
       </p>
       <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -209,7 +209,7 @@ const faqLd = {
         </div>
       </div>
       <p class="mt-6 text-sm leading-relaxed text-neutral-500">
-        Pay across all 30 chains: 21 EVM mainnets plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and
+        Pay across all 37 chains: 28 EVM mainnets plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and
         the XRP Ledger. <a href="/chains/" class="text-accent underline-offset-4 hover:underline">See every chain →</a>
       </p>
     </section>

@@ -4,7 +4,7 @@
 // `tokens` drives the stablecoin badges on each chain card.
 // `family` groups the catalog (every EVM chain shares one driver); `setup` is the
 // one-time recipient caveat where a chain has one (omitted = zero-setup).
-// Mirrors the SDK's built-in registry (21 EVM mainnets + Solana + TON + Tron +
+// Mirrors the SDK's built-in registry (28 EVM mainnets + Solana + TON + Tron +
 // NEAR + Sui + Aptos + Algorand + Stellar + XRPL).
 export interface ChainEntry {
   name: string
@@ -34,6 +34,13 @@ export const chains: ChainEntry[] = [
   { name: 'Avalanche', slug: 'avalanche', tokens: ['usdc', 'usdt', 'eurc'], family: 'EVM' },
   { name: 'Kaia', slug: 'kaia', tokens: ['usdt'], family: 'EVM', setup: 'Ships Tether-native USD₮ (or native KAIA); there is no Circle-native USDC on Kaia.' },
   { name: 'Robinhood', slug: 'robinhood', tokens: ['usdg'], family: 'EVM', setup: 'Ships Paxos-issued USDG, the Global Dollar (or native ETH); Circle issues no native USDC on Robinhood Chain.' },
+  { name: 'X Layer', slug: 'xlayer', tokens: [], family: 'EVM', setup: 'Pays in native OKB, or any token by address. No stablecoin preset ships: X Layer\u2019s USDC, USD\u20ae0 and USDG are all bridged, not issuer-native.' },
+  { name: 'MegaETH', slug: 'megaeth', tokens: [], family: 'EVM', setup: 'Pays in native ETH, or any token by address. Its MegaUSD (USDm, 18dp) is not an issuer-native stablecoin, so no preset ships.' },
+  { name: 'peaq', slug: 'peaq', tokens: [], family: 'EVM', setup: 'Pays in native PEAQ, or any token by address. Its USDC is a bridged deployment, not Circle-native, so no preset ships.' },
+  { name: 'SKALE Base', slug: 'skalebase', tokens: [], family: 'EVM', setup: 'Pays in native CREDIT, or any token by address. Its stablecoin is labelled Bridged USDC (SKALE Bridge), so no preset ships.' },
+  { name: 'XDC', slug: 'xdc', tokens: [], family: 'EVM', setup: 'Pays in native XDC, or any token by address. No issuer-native stablecoin ships here.' },
+  { name: 'Etherlink', slug: 'etherlink', tokens: [], family: 'EVM', setup: 'Pays in native XTZ, or any token by address. Its USD Coin is bridged and answers no EIP-3009, so no preset ships.' },
+  { name: 'XRPL EVM', slug: 'xrplevm', tokens: [], family: 'EVM', setup: 'Pays in native XRP \u2014 every x402 rail listed here is priced in it. Distinct from the XRP Ledger itself.' },
   { name: 'HyperEVM', slug: 'hyperevm', tokens: ['usdc'], family: 'EVM' },
   { name: 'Monad', slug: 'monad', tokens: ['usdc'], family: 'EVM' },
   { name: 'Mantle', slug: 'mantle', tokens: ['usdc', 'usdt'], family: 'EVM' },
