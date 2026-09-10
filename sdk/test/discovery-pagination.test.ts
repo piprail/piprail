@@ -12,7 +12,8 @@
  * is precisely why this needs a test and not a comment.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { searchOpenIndexes } from '../src/indexes.js'
+import { searchOpenIndexes, INDEX_PROXY_PATH, __resetIndexProxyProbe } from '../src/indexes.js'
+import { indexProxyHandler, INDEX_PROXY_ALLOWED_HOSTS } from '../src/indexProxy.js'
 
 const REAL_FETCH = globalThis.fetch
 
@@ -628,5 +629,328 @@ describe('Circle filters and searches at the index, not locally', () => {
     await searchOpenIndexes({ sources: ['circle'], query: 'image', limit: 600 })
     expect(calls.length).toBeGreaterThan(1)
     expect(calls.every((c) => c.url.searchParams.get('query') === 'image')).toBe(true)
+  })
+})
+
+describe('fetchImpl — making discovery work where the global fetch cannot', () => {
+  /**
+   * The open indexes send no usable CORS header: 402 Index and CDP Bazaar send none, and
+   * Circle sends Access-Control-Allow-Origin twice, which browsers reject. CORS is enforced
+   * by the browser, so no option can talk its way past it. `fetchImpl` sidesteps the problem
+   * instead: the caller supplies a transport it already has, and the SDK keeps hosting
+   * nothing. These tests pin that EVERY read honours it, because one adapter that quietly
+   * calls the global fetch would fail in a browser and nowhere else.
+   */
+  const catalog = (rows: unknown[], total = rows.length) =>
+    new Response(JSON.stringify({ items: rows, pagination: { total } }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    })
+
+  it('routes EVERY source through the supplied fetch, and never the global one', async () => {
+    const seen: string[] = []
+    globalThis.fetch = (async () => {
+      throw new Error('the global fetch must not be used when fetchImpl is given')
+    }) as typeof fetch
+
+    const fetchImpl = (async (input: RequestInfo | URL) => {
+      const url = String(input)
+      seen.push(new URL(url).hostname)
+      if (url.includes('402index.io')) {
+        return new Response(JSON.stringify({ services: [], total: 0 }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      }
+      return catalog([bazaarRow(1)])
+    }) as typeof fetch
+
+    const out = await searchOpenIndexes({ query: 'bazaar', limit: 10, fetchImpl })
+    expect(out.length).toBeGreaterThan(0)
+    // All four read paths: both item catalogues, 402 Index, and Bazaar's semantic search.
+    expect(new Set(seen)).toEqual(new Set(['api.cdp.coinbase.com', '402index.io', 'api.circle.com']))
+    expect(seen.some((h) => h === 'api.cdp.coinbase.com')).toBe(true)
+  })
+
+  it('the semantic search honours it too', async () => {
+    const paths: string[] = []
+    globalThis.fetch = (async () => {
+      throw new Error('global fetch must not be used')
+    }) as typeof fetch
+    const fetchImpl = (async (input: RequestInfo | URL) => {
+      paths.push(new URL(String(input)).pathname)
+      return new Response(JSON.stringify({ resources: [], items: [], services: [] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    }) as typeof fetch
+    await searchOpenIndexes({ sources: ['bazaar'], query: 'weather', limit: 10, fetchImpl })
+    expect(paths.some((p) => p.endsWith('/discovery/search'))).toBe(true)
+  })
+
+  it('every PAGE of a deep read goes through it, not just the first', async () => {
+    let calls = 0
+    globalThis.fetch = (async () => {
+      throw new Error('global fetch must not be used')
+    }) as typeof fetch
+    const fetchImpl = (async (input: RequestInfo | URL) => {
+      calls += 1
+      const url = new URL(String(input))
+      const size = Number(url.searchParams.get('limit') ?? '0')
+      const offset = Number(url.searchParams.get('offset') ?? '0')
+      return catalog(Array.from({ length: size }, (_, k) => bazaarRow(offset + k)), 100_000)
+    }) as typeof fetch
+
+    const out = await searchOpenIndexes({ sources: ['bazaar'], limit: 4000, fetchImpl })
+    expect(out).toHaveLength(4000)
+    expect(calls).toBeGreaterThan(1)
+  })
+
+  it('a URL the caller rewrites still carries the SDK’s own query string', async () => {
+    // A forwarder receives the real index URL and posts it elsewhere. Whatever it does with
+    // it, the SDK's paging and filter params have to survive the trip or paging breaks.
+    const forwarded: string[] = []
+    globalThis.fetch = (async () => {
+      throw new Error('global fetch must not be used')
+    }) as typeof fetch
+    const fetchImpl = (async (input: RequestInfo | URL) => {
+      forwarded.push(String(input))
+      return catalog([], 0)
+    }) as typeof fetch
+
+    await searchOpenIndexes({ sources: ['circle'], query: 'image', maxPrice: 0.05, limit: 10, fetchImpl })
+    const url = new URL(forwarded[0]!)
+    expect(url.searchParams.get('query')).toBe('image')
+    expect(url.searchParams.get('maxUsdPrice')).toBe('0.05')
+    expect(url.searchParams.get('limit')).toBe('10')
+  })
+
+  it('falls back to the global fetch when none is supplied', async () => {
+    const calls = mockIndexes({ bazaarTotal: 30 })
+    const out = await searchOpenIndexes({ sources: ['bazaar'], limit: 10 })
+    expect(out.length).toBeGreaterThan(0)
+    expect(calls.length).toBeGreaterThan(0)
+  })
+
+  it('a throwing fetchImpl degrades to [] rather than exploding the search', async () => {
+    const fetchImpl = (async () => {
+      throw new Error('proxy is down')
+    }) as typeof fetch
+    const out = await searchOpenIndexes({ limit: 10, fetchImpl })
+    expect(out).toEqual([])
+  })
+})
+
+describe('the browser forwarder — zero-config discovery in a page', () => {
+  /**
+   * The open indexes send no usable CORS header, and CORS is enforced by the BROWSER, so a
+   * page cannot read them however the request is shaped. Rather than making every caller wire
+   * a transport, the SDK looks for its own handler at a conventional same-origin path.
+   *
+   * Two things must hold, and the second matters more: it has to WORK in a page, and it must
+   * never change what a Node caller does. A stray probe from a server would be a new outbound
+   * request nobody asked for.
+   */
+  const stubBrowser = (present: boolean) => {
+    const calls: string[] = []
+    ;(globalThis as { document?: unknown }).document = {}
+    ;(globalThis as { location?: unknown }).location = { origin: 'https://app.test' }
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input)
+      calls.push(url)
+      if (url.startsWith(INDEX_PROXY_PATH)) {
+        if (!present) return new Response('not found', { status: 404 })
+        const target = new URL(`https://app.test${url}`).searchParams.get('url')
+        if (!target) return new Response(JSON.stringify({ error: 'missing_url' }), { status: 400 })
+        return new Response(JSON.stringify({ items: [bazaarRow(1)], pagination: { total: 1 } }), {
+          status: 200, headers: { 'content-type': 'application/json' },
+        })
+      }
+      // A direct read from a page is what CORS blocks in reality.
+      throw new TypeError('Failed to fetch')
+    }) as typeof fetch
+    return calls
+  }
+  const unstubBrowser = () => {
+    delete (globalThis as { document?: unknown }).document
+    delete (globalThis as { location?: unknown }).location
+  }
+
+  beforeEach(() => __resetIndexProxyProbe())
+  afterEach(() => {
+    unstubBrowser()
+    __resetIndexProxyProbe()
+  })
+
+  it('finds a mounted forwarder and reads through it, with NO client configuration', async () => {
+    const calls = stubBrowser(true)
+    const out = await searchOpenIndexes({ sources: ['bazaar'], limit: 5 })
+    expect(out.length).toBeGreaterThan(0)
+    expect(calls.some((u) => u.startsWith(INDEX_PROXY_PATH))).toBe(true)
+  })
+
+  it('probes ONCE, however many searches follow', async () => {
+    const calls = stubBrowser(true)
+    await searchOpenIndexes({ sources: ['bazaar'], limit: 5 })
+    await searchOpenIndexes({ sources: ['bazaar'], limit: 5 })
+    await searchOpenIndexes({ sources: ['bazaar'], limit: 5 })
+    const probes = calls.filter((u) => u === INDEX_PROXY_PATH)
+    expect(probes).toHaveLength(1)
+  })
+
+  it('falls back to DIRECT reads when nothing is mounted, and never throws', async () => {
+    const calls = stubBrowser(false)
+    const out = await searchOpenIndexes({ sources: ['bazaar'], limit: 5 })
+    expect(out).toEqual([]) // the direct read is CORS-blocked, so empty rather than an error
+
+    // The assertion that matters: after a 404 probe it must stop using the path. Only
+    // checking the empty result cannot tell the difference, because a 404 forwarder and a
+    // blocked direct read both contribute nothing.
+    const afterProbe = calls.filter((u) => u !== INDEX_PROXY_PATH)
+    expect(afterProbe.length).toBeGreaterThan(0)
+    expect(afterProbe.every((u) => u.startsWith('https://api.cdp.coinbase.com'))).toBe(true)
+    expect(afterProbe.some((u) => u.startsWith(INDEX_PROXY_PATH))).toBe(false)
+  })
+
+  it('an explicit fetchImpl still wins over the forwarder', async () => {
+    const calls = stubBrowser(true)
+    let used = false
+    const fetchImpl = (async () => {
+      used = true
+      return new Response(JSON.stringify({ items: [bazaarRow(2)], pagination: { total: 1 } }), {
+        status: 200, headers: { 'content-type': 'application/json' },
+      })
+    }) as typeof fetch
+    await searchOpenIndexes({ sources: ['bazaar'], limit: 5, fetchImpl })
+    expect(used).toBe(true)
+    expect(calls.filter((u) => u.startsWith(INDEX_PROXY_PATH))).toEqual([])
+  })
+
+  it('NEVER probes outside a browser — a server issues no extra request', async () => {
+    // No document/location: the Node case, which must be byte-identical to before. Record
+    // EVERY specifier fetch is handed, including one that would throw on a relative URL,
+    // because a probe that fails is still an outbound request nobody asked for.
+    const seen: string[] = []
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const spec = String(input)
+      seen.push(spec)
+      if (!spec.startsWith('http')) throw new TypeError('Failed to parse URL')
+      return new Response(JSON.stringify({ items: [bazaarRow(1)], pagination: { total: 1 } }), {
+        status: 200, headers: { 'content-type': 'application/json' },
+      })
+    }) as typeof fetch
+
+    const out = await searchOpenIndexes({ sources: ['bazaar'], limit: 5 })
+    expect(out.length).toBeGreaterThan(0)
+    expect(seen.some((u) => u.startsWith(INDEX_PROXY_PATH))).toBe(false)
+    expect(seen.every((u) => u.startsWith('https://'))).toBe(true)
+  })
+})
+
+describe('indexProxyHandler — the forwarder itself', () => {
+  const handler = indexProxyHandler()
+  const call = (url: string, method = 'GET') => handler(new Request(url, { method }))
+  const proxied = (target: string) => `https://app.test/api/x402-index?url=${encodeURIComponent(target)}`
+
+  it('forwards an allowlisted index and passes the upstream status through', async () => {
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ items: [] }), { status: 200, headers: { 'content-type': 'application/json' } })) as typeof fetch
+    const res = await call(proxied('https://402index.io/api/v1/services?limit=1'))
+    expect(res.status).toBe(200)
+    expect(res.headers.get('access-control-allow-origin')).toBe('*')
+  })
+
+  it('a dead index stays dead rather than becoming an empty success', async () => {
+    // Flattening upstream errors to 200 would read as "nothing matched", which is a lie.
+    globalThis.fetch = (async () => new Response('gone', { status: 503 })) as typeof fetch
+    const res = await call(proxied('https://402index.io/api/v1/services'))
+    expect(res.status).toBe(503)
+  })
+
+  it('answers 400 with no url, which is how the SDK detects it exists', async () => {
+    const res = await call('https://app.test/api/x402-index')
+    expect(res.status).toBe(400)
+    // 404 would mean "no handler here"; 400 means "here, but you asked wrong".
+    expect(res.status).not.toBe(404)
+  })
+
+  it('refuses any host outside the allowlist', async () => {
+    for (const bad of ['https://example.com/', 'https://evil.test/steal']) {
+      const res = await call(proxied(bad))
+      expect(res.status).toBe(403)
+    }
+  })
+
+  it('refuses a look-alike host rather than matching on a prefix', async () => {
+    const res = await call(proxied('https://api.circle.com.evil.test/x'))
+    expect(res.status).toBe(403)
+  })
+
+  it('refuses plain http and internal addresses', async () => {
+    // An open forwarder that reaches link-local addresses is an SSRF hole.
+    for (const bad of ['http://api.circle.com/', 'http://169.254.169.254/latest/meta-data/', 'http://localhost:8080/']) {
+      const res = await call(proxied(bad))
+      expect([400, 403]).toContain(res.status)
+    }
+  })
+
+  it('is GET only', async () => {
+    const res = await call(proxied('https://402index.io/api/v1/services'), 'POST')
+    expect(res.status).toBe(405)
+  })
+
+  it('answers a CORS preflight', async () => {
+    const res = await call('https://app.test/api/x402-index', 'OPTIONS')
+    expect(res.status).toBe(204)
+    expect(res.headers.get('access-control-allow-methods')).toContain('GET')
+  })
+
+  it('reports an unreachable upstream as 502 rather than throwing', async () => {
+    globalThis.fetch = (async () => {
+      throw new Error('socket hang up')
+    }) as typeof fetch
+    const res = await call(proxied('https://402index.io/api/v1/services'))
+    expect(res.status).toBe(502)
+  })
+
+  it('allowHosts extends the allowlist without replacing it', async () => {
+    globalThis.fetch = (async () => new Response('{}', { status: 200 })) as typeof fetch
+    const wide = indexProxyHandler({ allowHosts: ['extra.test'] })
+    expect((await wide(new Request(proxied('https://extra.test/x')))).status).toBe(200)
+    expect((await wide(new Request(proxied('https://402index.io/api/v1/services')))).status).toBe(200)
+    expect((await wide(new Request(proxied('https://nope.test/x')))).status).toBe(403)
+  })
+
+  it('the allowlist covers exactly the indexes the SDK reads', async () => {
+    expect(INDEX_PROXY_ALLOWED_HOSTS).toContain('api.cdp.coinbase.com')
+    expect(INDEX_PROXY_ALLOWED_HOSTS).toContain('api.circle.com')
+    expect(INDEX_PROXY_ALLOWED_HOSTS).toContain('402index.io')
+  })
+})
+
+describe('the deployed forwarder mounts on the path the SDK probes', () => {
+  /**
+   * Netlify parses `export const config` STATICALLY at deploy time, so the function cannot
+   * import INDEX_PROXY_PATH: it has to repeat the literal. That is a drift risk with a silent
+   * failure mode. If the two ever disagree the route 404s, the SDK concludes no forwarder
+   * exists, and discovery degrades to empty with nothing anywhere explaining why. It shipped
+   * exactly once, and the deploy preview was the only place it showed.
+   */
+  it('the site function declares the same path the client probes', async () => {
+    const { readFileSync } = await import('node:fs')
+    const { fileURLToPath } = await import('node:url')
+    const fn = fileURLToPath(new URL('../../site/netlify/functions/x402-index.mjs', import.meta.url))
+    const src = readFileSync(fn, 'utf8')
+    const match = src.match(/export const config = \{\s*path:\s*'([^']+)'/)
+    expect(match, 'x402-index.mjs must declare a LITERAL config.path').not.toBeNull()
+    expect(match![1]).toBe(INDEX_PROXY_PATH)
+  })
+
+  it('the function does not import the path, which Netlify cannot resolve', async () => {
+    const { readFileSync } = await import('node:fs')
+    const { fileURLToPath } = await import('node:url')
+    const fn = fileURLToPath(new URL('../../site/netlify/functions/x402-index.mjs', import.meta.url))
+    const src = readFileSync(fn, 'utf8')
+    expect(src).not.toMatch(/config\s*=\s*\{\s*path:\s*INDEX_PROXY_PATH/)
   })
 })

@@ -387,6 +387,17 @@ export { buildOpenApi, buildWellKnownX402, buildWellKnownX402Manifest, buildX402
 // Self-describing HTTP surfaces (discoverability plan Phase 2): the Link/x-powered-by header
 // bag + the human HTML landing page. Pure — the merchant serves them; the SDK serves nothing.
 export { discoveryHeaders, POWERED_BY } from './discovery.js'
+
+// The one-line forwarder that makes discover() work in a BROWSER. The open indexes send no
+// usable CORS header, and CORS is enforced by the browser, so a page cannot read them
+// directly. Mount this on any route and the client finds it by itself. PipRail hosts none of
+// it; server-side callers need none of it.
+export {
+  indexProxyHandler,
+  INDEX_PROXY_ALLOWED_HOSTS,
+  type IndexProxyOptions,
+} from './indexProxy.js'
+export { INDEX_PROXY_PATH } from './indexes.js'
 export { renderLandingPage } from './landing.js'
 export type {
   PaymentRail,

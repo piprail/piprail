@@ -224,6 +224,62 @@ One consequence worth knowing: because reads never throw, a source misconfigured
 to fail every page simply vanishes from your results in silence. That is the specific failure
 Circle's 400-on-over-limit could cause, and why its ceiling is pinned by a test.
 
+## Discovery in a browser
+
+Server-side, discovery needs no setup at all. Node, an MCP server, a worker, an agent
+framework: `discover()` reads the indexes directly and always has.
+
+In a browser it cannot, and the reason is worth stating precisely because it is not something
+the SDK can fix. **None of the open indexes sends a usable `Access-Control-Allow-Origin`
+header.** 402 Index and CDP Bazaar send none at all; Circle sends one twice (`'*, *'`), which
+browsers reject. CORS is enforced by the browser, so no library, option, header or request
+mode reads those catalogues from a page.
+
+What the SDK does instead is carry its own forwarder and find it by itself.
+
+### One line
+
+Mount `indexProxyHandler()` on any route your app already serves:
+
+```ts
+// Any Request → Response runtime: Netlify, Cloudflare, Deno, Bun, Hono, a Next route handler…
+import { indexProxyHandler, INDEX_PROXY_PATH } from '@piprail/sdk'
+
+export default indexProxyHandler()
+export const config = { path: INDEX_PROXY_PATH }   // '/api/x402-index'
+```
+
+There is no client-side configuration. In a browser the SDK probes that conventional path
+once, uses it when something answers, and reads the indexes directly when nothing does. A
+missing route costs one request, remembered for the life of the process.
+
+The handler is deliberately boring: `GET` only, a fixed allowlist of index hosts
+(`INDEX_PROXY_ALLOWED_HOSTS`), `https` only, no credentials, no request body, and the upstream
+status passed through unchanged so a dead index still reads as dead rather than as "nothing
+matched". `IndexProxyOptions` takes `allowHosts`, `timeoutMs` and `cacheControl`.
+
+### Or bring your own transport
+
+Serving it elsewhere, or routing through something you already run? Pass `fetchImpl` and the
+SDK uses it for every index read, including each page of a deep search and the semantic pass:
+
+```ts
+const client = new PipRailClient({
+  chain: 'base',
+  fetchImpl: (url, init) => fetch(`/my/route?url=${encodeURIComponent(String(url))}`, init),
+})
+```
+
+Reads only. `register()` never goes through it, because a write should be deliberate about
+where it is sent.
+
+### Why PipRail does not just host one
+
+It would be less work for everyone if the SDK defaulted to a proxy we ran, and that is exactly
+the shape this project exists to avoid. It would put us in the path of every user's searches,
+and make a rail that works without us depend on us. You run the forwarder, or you run
+server-side and need none.
+
 ## Register: list a resource you run
 
 `register()` lists a resource on the open registries so agents can find it. The default target is

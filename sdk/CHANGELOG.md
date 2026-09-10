@@ -4,6 +4,50 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [3.3.0] — 2026-09-10 — discovery works in a browser, with nothing to configure
+
+### Added
+
+- **`discover()` now works in a page.** The open indexes send no usable CORS header (402 Index
+  and CDP Bazaar send none; Circle sends `Access-Control-Allow-Origin` twice, which browsers
+  reject), and CORS is enforced by the BROWSER, so no library can read them from a page
+  directly. The SDK now carries its own forwarder and finds it by itself.
+
+  Mount it on any route and there is nothing to set on the client:
+
+  ```ts
+  import { indexProxyHandler, INDEX_PROXY_PATH } from '@piprail/sdk'
+  export default indexProxyHandler()
+  export const config = { path: INDEX_PROXY_PATH }   // '/api/x402-index'
+  ```
+
+  In a browser the SDK probes that conventional path once, uses it when something answers, and
+  reads the indexes directly when nothing does. **Outside a browser it never probes at all**, so
+  a server issues no request it did not before. Measured in a real page: 33 results across all
+  three indexes with zero client configuration, and a clean 1s degrade when no forwarder exists.
+
+  The handler is deliberately boring: GET only, a fixed host allowlist, https only, no
+  credentials, no body, and the upstream status passed through so a dead index still reads as
+  dead rather than as "nothing matched".
+
+- **`fetchImpl`** on the client and on `searchOpenIndexes`, for routing index reads through a
+  transport you already have. Every read honours it: each page of a deep walk, the multi-query
+  fan-out, and Bazaar's semantic pass. Reads only; `register()` never uses it, because a write
+  should be deliberate about where it is sent.
+
+  **PipRail hosts none of this and the SDK never calls a PipRail server.** Defaulting to a proxy
+  we ran would have been less work for everyone, and would put us in the path of every user's
+  searches while making a rail that works without us depend on us.
+
+### Fixed
+
+- The demo lab rendered a MINIFIED class name (`oe`) as the error title in CDN builds. It now
+  leads with the stable `.code`, which is the identifier callers actually branch on.
+- Two optional peer packages could not load in a browser from the pinned CDN specifier
+  (`@ton/ton@16`, `tronweb@6`). Both now resolve. `@mysten/sui` and `xrpl` publish no build a
+  page can import at all, so the lab explains that rather than showing an error a reader cannot
+  act on.
+
 ## [3.2.0] — 2026-09-10 — see the whole market, and pay more of it
 
 ### Fixed

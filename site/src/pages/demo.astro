@@ -5,6 +5,15 @@ import Footer from '../components/Footer.astro'
 import { chains } from '../data/chains'
 import { SWAP_PROVIDERS } from '../data/swap-providers'
 import { ArrowRight, ShieldCheck } from 'lucide-astro'
+import sdkPkg from '../../../sdk/package.json'
+
+/**
+ * The lab loads the PUBLISHED package, so what you see here is what `npm install` gives you.
+ * Pinned to an exact version and read from the SDK's own package.json, because `@3` resolves
+ * to whatever the CDN last cached: that is how this page ended up demonstrating features on a
+ * build that predated them, with no sign anything was wrong.
+ */
+const sdkVersion: string = sdkPkg.version
 
 const total = chains.length
 const familyCount = new Set(chains.map((chain) => chain.family)).size
@@ -85,9 +94,9 @@ const demoLd = {
     bs58: 'https://esm.sh/bs58@5', '@mysten/sui': 'https://esm.sh/@mysten/sui@2', '@mysten/sui/': 'https://esm.sh/@mysten/sui@2/',
     'near-api-js': 'https://esm.sh/near-api-js@7', '@aptos-labs/ts-sdk': 'https://esm.sh/@aptos-labs/ts-sdk@7',
     '@stellar/stellar-sdk': 'https://esm.sh/@stellar/stellar-sdk@15', '@ton/core': 'https://esm.sh/@ton/core@0.63',
-    '@ton/ton': 'https://esm.sh/@ton/ton@16', '@ton/crypto': 'https://esm.sh/@ton/crypto@3',
+    '@ton/ton': 'https://esm.sh/@ton/ton@15', '@ton/crypto': 'https://esm.sh/@ton/crypto@3',
     '@ston-fi/api': 'https://esm.sh/@ston-fi/api@0.32', '@ston-fi/sdk': 'https://esm.sh/@ston-fi/sdk@2',
-    tronweb: 'https://esm.sh/tronweb@6', xrpl: 'https://esm.sh/xrpl@4', algosdk: 'https://esm.sh/algosdk@3', borsh: 'https://esm.sh/borsh@2',
+    tronweb: 'https://esm.sh/tronweb@6?bundle', xrpl: 'https://esm.sh/xrpl@4', algosdk: 'https://esm.sh/algosdk@3', borsh: 'https://esm.sh/borsh@2',
   } })} />
   <Navigation path="/demo" />
 
@@ -216,9 +225,11 @@ const demoLd = {
 
   <script is:inline type="application/ld+json" set:html={JSON.stringify(demoLd)} />
   <script is:inline id="demo-chain-data" type="application/json" set:html={JSON.stringify(demoChains)} />
+  <script is:inline define:vars={{ sdkVersion }}>window.__PIPRAIL_SDK_VERSION = sdkVersion</script>
 
   <script is:inline type="module">
     const $ = (id) => document.getElementById(id)
+    const SDK_VERSION = window.__PIPRAIL_SDK_VERSION
     const chainData = JSON.parse($('demo-chain-data').textContent)
     const chainBySlug = Object.fromEntries(chainData.map((c) => [c.slug, c]))
     /** Slugs with a logo shipped under /chains, so the renderer never draws a broken image. */
@@ -475,6 +486,9 @@ const demoLd = {
       },
 
       discover: async () => {
+        // No transport wiring here on purpose. The open indexes send no usable CORS header,
+        // so the SDK looks for its own forwarder at a conventional same-origin path and uses
+        // it when one is mounted. This site mounts it in one line; a Node caller needs none.
         const client = new sdk.PipRailClient({ chain: 'base' })
         const found = await client.discover({ query: 'weather', network: 'any', limit: 12 })
         if (found.length > 0) {
@@ -488,12 +502,17 @@ const demoLd = {
           ]))).join('')
           return {
             data: { found: found.length, bySource, results: found },
-            view: `<div class="lab-row">${Object.entries(bySource).map(([s, n]) => big(String(n), '', s)).join('')}</div><div class="lab-grid2">${rows}</div>` +
-              note('Real, payable endpoints other people run. PipRail hosts no index: it reads the open ones, pages through them so a search sees the whole catalogue, and can register your endpoint on them.'),
+            view: `<div class="lab-row">${big(String(found.length), '', 'results')}${Object.entries(bySource).map(([s, n]) => big(String(n), '', s)).join('')}</div>` +
+              `<div class="lab-grid2">${rows}</div>` +
+              note('Real, payable endpoints other people run, read live from three open indexes and ranked as one set. PipRail hosts no directory: it reads the ones that already exist, pages through them so a search sees the whole catalogue, and can register your endpoint on them too.') +
+              note('No transport was configured to make this work. Browsers cannot read those indexes directly, because none of them sends a usable CORS header, so the SDK looks for its own forwarder on this origin and uses it. Mounting that forwarder is one line, and a Node caller needs none of it.'),
           }
         }
         const reach = async (label, url) => {
-          try { const res = await fetch(url); return { index: label, readable: res.ok, status: res.status } }
+          try {
+            const res = await fetch(`/api/x402-index?url=${encodeURIComponent(url)}`)
+            return { index: label, readable: res.ok, status: res.status }
+          }
           catch (err) { return { index: label, readable: false, reason: String((err && err.message) || err) } }
         }
         const reachability = await Promise.all([
@@ -508,11 +527,12 @@ const demoLd = {
         }
         return {
           data: { found: 0, reachability, why },
-          view: `<div class="lab-verdict is-warn"><span class="lab-verdict-i">!</span><div><p class="lab-verdict-t">The indexes cannot be read from a web page</p><p class="lab-verdict-s">A CORS limit on their side, not a limit of the SDK. The same call returns thousands of results from Node, a server, or the MCP.</p></div></div>` +
+          view: `<div class="lab-verdict is-warn"><span class="lab-verdict-i">!</span><div><p class="lab-verdict-t">No results came back just now</p><p class="lab-verdict-s">Nothing matched, or an index is having a moment. Discovery reads never throw, so the search degrades to empty rather than failing. Per-index reachability is below.</p></div></div>` +
             `<div class="lab-grid2">${reachability.map((r) => card(r.index, kv([
-              ['readable here', r.readable ? pill('yes', 'ok') : pill('no', 'bad')],
-              ['reason', esc(why[r.index] || r.reason || '')],
-            ]), 'lab-rose')).join('')}</div>` +
+              ['reachable', r.readable ? pill('yes', 'ok') : pill('no', 'bad')],
+              r.status ? ['status', String(r.status)] : null,
+              !r.readable ? ['note', esc(why[r.index] || r.reason || '')] : null,
+            ]), r.readable ? 'lab-accent' : 'lab-rose')).join('')}</div>` +
             card('run it where it works', `<pre class="lab-pre lab-wrap">import { PipRailClient } from '@piprail/sdk'
 
 const client = new PipRailClient({ chain: 'base' })
@@ -581,11 +601,29 @@ console.log(await client.discover({ query: 'weather', limit: 2000 }))</pre>`) +
         dot.className = 'lab-dot mt-1.5 is-ok'
       } catch (err) {
         // An error IS a result: the typed name and message are what a caller handles.
-        const name = (err && err.constructor && err.constructor.name) || 'Error'
-        currentJson = dump({ error: name, code: err && err.code, message: String(err && err.message) })
-        currentView = `<div class="lab-verdict is-bad"><span class="lab-verdict-i">✕</span><div><p class="lab-verdict-t">${esc(name)}</p><p class="lab-verdict-s">${esc(String(err && err.message))}</p></div></div>` +
-          note('The SDK throws typed errors with a stable .code, so a caller branches on the cause instead of matching on prose.')
-        dot.className = 'lab-dot mt-1.5 is-bad'
+        // `constructor.name` is MINIFIED in a CDN build, so it renders as noise like "oe".
+        // `.code` is the stable, documented identifier and is what a caller branches on, so
+        // show that and keep the class name only when it still looks like a class name.
+        const cls = (err && err.constructor && err.constructor.name) || ''
+        const readable = /^[A-Z][A-Za-z]{3,}$/.test(cls) ? cls : ''
+        const code = (err && err.code) || readable || 'Error'
+        const message = String((err && err.message) || err)
+        currentJson = dump({ code: err && err.code, error: readable || undefined, message })
+
+        // A family whose optional package will not load in a BROWSER is not a failure of the
+        // SDK or of the config: @mysten/sui and xrpl ship no build a page can import from a
+        // CDN. Say that plainly instead of showing a red error the reader cannot act on.
+        const peerMissing = /isn't installed|aren't installed|MISSING_DRIVER/i.test(message) || (err && err.code === 'MISSING_DRIVER')
+        if (peerMissing) {
+          currentView = `<div class="lab-verdict is-warn"><span class="lab-verdict-i">!</span><div><p class="lab-verdict-t">This family cannot run in a browser</p><p class="lab-verdict-s">Its optional package publishes no build a web page can load. Nothing is wrong with your config, and the same call works in Node, where the SDK installs that package as an optional peer.</p></div></div>` +
+            card('what the SDK reported', `<pre class="lab-pre lab-wrap">${esc(message)}</pre>`) +
+            note('This is why non-EVM families are optional peers and lazy-loaded: a pure EVM install never downloads them, and a browser never pays for a family it cannot use. Pick an EVM chain above to see this same test pass.')
+          dot.className = 'lab-dot mt-1.5 is-warn'
+        } else {
+          currentView = `<div class="lab-verdict is-bad"><span class="lab-verdict-i">✕</span><div><p class="lab-verdict-t">${esc(code)}</p><p class="lab-verdict-s">${esc(message)}</p></div></div>` +
+            note('Errors are part of the contract here. Every one carries a stable .code, so a caller branches on the cause rather than matching on the wording, which is why this panel leads with the code.')
+          dot.className = 'lab-dot mt-1.5 is-bad'
+        }
       }
       paint()
       ms.textContent = `${Math.round(performance.now() - started)}ms`
@@ -604,8 +642,17 @@ console.log(await client.discover({ query: 'weather', limit: 2000 }))</pre>`) +
 
     ;(async () => {
       try {
-        sdk = await import('https://esm.sh/@piprail/sdk@3?external=viem,@solana/web3.js,@solana/spl-token,bs58,@mysten/sui,near-api-js,@aptos-labs/ts-sdk,@stellar/stellar-sdk,@ton/core,@ton/ton,@ton/crypto,@ston-fi/api,@ston-fi/sdk,tronweb,xrpl,algosdk,borsh')
-        $('sdk-status').textContent = '@piprail/sdk loaded · browser runtime · no key'
+        // `?sdk=local` loads the workspace build from /_localsdk, for verifying a change
+        // BEFORE it is published. Without it the lab can only ever exercise the last
+        // published build, so a fix and the page that demonstrates it wait on each other.
+        const wantLocal = new URLSearchParams(location.search).get('sdk') === 'local'
+        const src = wantLocal
+          ? '/_localsdk/index.js'
+          : `https://esm.sh/@piprail/sdk@${SDK_VERSION}?external=viem,@solana/web3.js,@solana/spl-token,bs58,@mysten/sui,near-api-js,@aptos-labs/ts-sdk,@stellar/stellar-sdk,@ton/core,@ton/ton,@ton/crypto,@ston-fi/api,@ston-fi/sdk,tronweb,xrpl,algosdk,borsh`
+        sdk = await import(src)
+        $('sdk-status').textContent = wantLocal
+          ? '@piprail/sdk loaded from the local build · browser runtime · no key'
+          : `@piprail/sdk ${SDK_VERSION} loaded · browser runtime · no key`
         $('sdk-status').className = 'font-mono text-[11px] text-accent'
         document.querySelectorAll('.lab-test').forEach((b) => {
           b.disabled = false
@@ -633,6 +680,7 @@ console.log(await client.discover({ query: 'weather', limit: 2000 }))</pre>`) +
     .lab-dot.is-busy { background: rgb(252 211 77); }
     .lab-dot.is-ok { background: var(--color-accent); box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-accent) 14%, transparent); }
     .lab-dot.is-bad { background: rgb(251 113 133); box-shadow: 0 0 0 3px rgba(251,113,133,.14); }
+    .lab-dot.is-warn { background: rgb(252 211 77); box-shadow: 0 0 0 3px rgba(252,211,77,.14); }
     .lab-tab { border-radius: .4rem; padding: .25rem .55rem; font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: .1em; color: rgb(115 115 115); transition: color .2s, background .2s; }
     .lab-tab:hover { color: rgb(212 212 212); }
     .lab-tab.is-active { background: rgba(255,255,255,.07); color: var(--color-accent); }
