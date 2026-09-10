@@ -101,6 +101,10 @@ It never throws: an index that is down simply contributes nothing, so an empty l
 "nothing found", never "something broke". These are third-party directories, not a PipRail
 registry — treat a listing as a claim, and let quote/plan tell you what is really true.
 
+The default search is deliberately shallow (about 20 per index, one request each). The
+catalogues are far larger than that, so if the first look turns up nothing useful, ask for
+more with a bigger limit rather than concluding the market is empty.
+
 ## Proving a payment settled — piprail_verify_receipt
 A receipt is a claim until it is checked. piprail_verify_receipt re-reads the transaction from
 the chain and tells you whether the funds provably moved, to the right recipient, for the right
