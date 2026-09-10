@@ -158,6 +158,32 @@ export interface SearchOpenIndexesOptions {
   /** Sort direction for a non-relevance {@link sort}. Default `'desc'`. */
   order?: 'asc' | 'desc'
   signal?: AbortSignal
+  /**
+   * Route every index READ through your own fetch instead of the global one.
+   *
+   * This exists for the browser. The open indexes send no usable CORS header (402 Index and
+   * CDP Bazaar send none at all; Circle sends `Access-Control-Allow-Origin` twice, which
+   * browsers reject), so a page cannot read them directly however the request is shaped.
+   * That is their limit, not the SDK's, and it is not something a client can talk its way
+   * past: CORS is enforced by the browser.
+   *
+   * The fix is a transport you already have. Point this at any same-origin endpoint that
+   * forwards the request, and discovery works in a page exactly as it does in Node. PipRail
+   * still hosts nothing and requires nothing: the SDK stays backendless, and WHICH transport
+   * to use stays the caller's choice.
+   *
+   * ```ts
+   * // A page routing index reads through its own tiny forwarder.
+   * const client = new PipRailClient({
+   *   chain: 'base',
+   *   fetchImpl: (url, init) => fetch(`/api/index?url=${encodeURIComponent(String(url))}`, init),
+   * })
+   * ```
+   *
+   * Reads only. Registering a resource never goes through it, because a write should be
+   * deliberate about where it is sent.
+   */
+  fetchImpl?: typeof fetch
 }
 
 /** Server-side filters 402 Index understands (a subset of {@link SearchOpenIndexesOptions}). */
@@ -550,10 +576,10 @@ export async function searchOpenIndexes(
           // no substring filter can reach ("forecast temperature" finds `/forecast`).
           const [listed, semantic] = await Promise.all([
             safeSearch(() =>
-              searchItemsCatalog('bazaar', BAZAAR_URL, opts.query, limit, maxRequests, filters, opts.signal)
+              searchItemsCatalog('bazaar', BAZAAR_URL, opts.query, limit, maxRequests, filters, opts.signal, opts.fetchImpl)
             ),
             opts.query
-              ? safeSearch(() => searchBazaarSemantic(opts.query as string, limit, opts.signal))
+              ? safeSearch(() => searchBazaarSemantic(opts.query as string, limit, opts.signal, opts.fetchImpl))
               : Promise.resolve<DiscoveredResource[]>([]),
           ])
           // Semantic hits FIRST: they are the ranked, meaning-matched ones, and dedupe keeps
@@ -563,10 +589,10 @@ export async function searchOpenIndexes(
         })
       if (source === 'circle')
         return safeSearch(() =>
-          searchItemsCatalog('circle', CIRCLE_URL, opts.query, limit, maxRequests, filters, opts.signal)
+          searchItemsCatalog('circle', CIRCLE_URL, opts.query, limit, maxRequests, filters, opts.signal, opts.fetchImpl)
         )
       if (source === '402index')
-        return safeSearch(() => search402Index(opts.query, limit, maxRequests, filters, opts.signal))
+        return safeSearch(() => search402Index(opts.query, limit, maxRequests, filters, opts.signal, opts.fetchImpl))
       return Promise.resolve<DiscoveredResource[]>([]) // x402scan reads are paid — off by default here
     })
   )
@@ -737,6 +763,74 @@ async function safeSearch(
   return safeList(run)
 }
 
+/**
+ * Where a browser looks for a same-origin forwarder, when the caller configured none.
+ *
+ * Mount {@link indexProxyHandler} at this path and discovery works in a page with no client
+ * configuration at all. Nothing is hosted by PipRail and nothing is required: if the route
+ * is not there, the SDK notices once and goes back to reading the indexes directly.
+ */
+export const INDEX_PROXY_PATH = '/api/x402-index'
+
+/**
+ * Has a same-origin forwarder answered? `undefined` until probed, then remembered for the
+ * life of the process so a missing route costs ONE extra request, not one per page.
+ */
+let proxyAvailable: boolean | undefined
+
+/** Reset the remembered forwarder probe. Tests only. */
+export function __resetIndexProxyProbe(): void {
+  proxyAvailable = undefined
+}
+
+const inBrowser = (): boolean =>
+  typeof globalThis === 'object' &&
+  typeof (globalThis as { document?: unknown }).document === 'object' &&
+  typeof (globalThis as { location?: { origin?: string } }).location?.origin === 'string'
+
+/** Route one read through the same-origin forwarder. */
+const throughProxy: typeof fetch = (input, init) =>
+  globalThis.fetch(`${INDEX_PROXY_PATH}?url=${encodeURIComponent(String(input))}`, {
+    ...init,
+    method: 'GET',
+    headers: { accept: 'application/json' },
+  })
+
+/**
+ * Is a forwarder mounted on this origin? Probed once, with a HEAD-ish GET against a URL the
+ * handler will happily reject, because a 400 still proves something is listening. Any network
+ * error or a 404 means no forwarder, and the SDK reads the indexes directly from then on.
+ */
+async function detectProxy(): Promise<boolean> {
+  if (proxyAvailable !== undefined) return proxyAvailable
+  try {
+    const res = await globalThis.fetch(INDEX_PROXY_PATH, { method: 'GET' })
+    // 400 (no url param) is the handler saying "I am here". 404 is a static host saying nothing is.
+    proxyAvailable = res.status !== 404 && res.status < 500
+  } catch {
+    proxyAvailable = false
+  }
+  return proxyAvailable
+}
+
+/**
+ * The fetch a READ should use.
+ *
+ * Order: the caller's `fetchImpl`, then a same-origin forwarder when one is mounted, then the
+ * global fetch. Kept in one place so a new index adapter cannot accidentally bypass it.
+ *
+ * The middle step is what makes discovery work in a browser without configuration. The open
+ * indexes send no usable CORS header, and CORS is enforced by the BROWSER, so no library can
+ * read them from a page directly. Rather than making every caller wire that up, the SDK looks
+ * for its own handler at a conventional path and uses it if it is there. Outside a browser
+ * this never runs: Node reads the indexes directly and always has.
+ */
+async function resolveReadFetch(fetchImpl?: typeof fetch): Promise<typeof fetch> {
+  if (fetchImpl) return fetchImpl
+  if (inBrowser() && (await detectProxy())) return throughProxy
+  return (input: RequestInfo | URL, init?: RequestInit) => globalThis.fetch(input, init)
+}
+
 /** {@link safeSearch} for any row type — a failed page yields `[]`, never a throw. */
 async function safeList<T>(run: () => Promise<T[]>): Promise<T[]> {
   try {
@@ -837,7 +931,8 @@ async function searchItemsCatalog(
   limit: number,
   maxRequests: number,
   filters: Index402Filters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  fetchImpl?: typeof fetch
 ): Promise<DiscoveredResource[]> {
   // Circle filters and searches SERVER-side (its OpenAPI declares query/category/network/
   // asset/scheme/maxUsdPrice/limit/offset), so push what it understands and let it rank.
@@ -854,7 +949,7 @@ async function searchItemsCatalog(
         if (filters.asset) qs.set('asset', filters.asset)
         if (filters.maxPrice !== undefined) qs.set('maxUsdPrice', String(filters.maxPrice))
       }
-      const res = await fetch(`${url}?${qs.toString()}`, {
+      const res = await (await resolveReadFetch(fetchImpl))(`${url}?${qs.toString()}`, {
         headers: clientHeaders({ accept: 'application/json' }),
         ...(signal ? { signal } : {}),
       })
@@ -887,13 +982,14 @@ async function searchItemsCatalog(
 async function searchBazaarSemantic(
   query: string,
   limit: number,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  fetchImpl?: typeof fetch
 ): Promise<DiscoveredResource[]> {
   const qs = new URLSearchParams({
     query,
     limit: String(Math.max(1, Math.min(limit, BAZAAR_SEARCH_CEILING))),
   })
-  const res = await fetch(`${BAZAAR_SEARCH_URL}?${qs.toString()}`, {
+  const res = await (await resolveReadFetch(fetchImpl))(`${BAZAAR_SEARCH_URL}?${qs.toString()}`, {
     headers: clientHeaders({ accept: 'application/json' }),
     ...(signal ? { signal } : {}),
   })
@@ -954,7 +1050,8 @@ async function search402Index(
   limit: number,
   maxRequests: number,
   filters: Index402Filters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  fetchImpl?: typeof fetch
 ): Promise<DiscoveredResource[]> {
   // Query strings to fan out over: the full phrase first (most precise AND-match), then
   // each distinct token. Capped at 5 requests so a long query can't storm the index.
@@ -965,7 +1062,7 @@ async function search402Index(
   // so a multi-word deep search costs the same as a single-word one instead of N times more.
   const perQuery = Math.max(1, Math.floor(maxRequests / queries.length))
   const pages = await Promise.all(
-    queries.map((q) => safeSearch(() => fetch402Paged(q, limit, perQuery, filters, signal)))
+    queries.map((q) => safeSearch(() => fetch402Paged(q, limit, perQuery, filters, signal, fetchImpl)))
   )
   return dedupeByResource(pages.flat())
 }
@@ -976,11 +1073,12 @@ async function fetch402Paged(
   limit: number,
   maxRequests: number,
   filters: Index402Filters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  fetchImpl?: typeof fetch
 ): Promise<DiscoveredResource[]> {
   return fetchPaged<DiscoveredResource>(
     async (offset, size) => {
-      const { items, raw, total } = await fetch402Page(query, size, offset, filters, signal)
+      const { items, raw, total } = await fetch402Page(query, size, offset, filters, signal, fetchImpl)
       return { items, raw, ...(total !== undefined ? { total } : {}) }
     },
     { want: limit, ceiling: PAGE_CEILING['402index'], maxRequests }
@@ -993,7 +1091,8 @@ async function fetch402Page(
   limit: number,
   offset: number,
   filters: Index402Filters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  fetchImpl?: typeof fetch
 ): Promise<PageResult<DiscoveredResource>> {
   const qs = new URLSearchParams({ limit: String(limit) })
   if (offset > 0) qs.set('offset', String(offset))
@@ -1007,7 +1106,7 @@ async function fetch402Page(
     qs.set('sort', filters.sort)
     qs.set('order', filters.order ?? 'desc')
   }
-  const res = await fetch(`${INDEX402_SEARCH}?${qs.toString()}`, {
+  const res = await (await resolveReadFetch(fetchImpl))(`${INDEX402_SEARCH}?${qs.toString()}`, {
     headers: clientHeaders({ accept: 'application/json' }),
     ...(signal ? { signal } : {}),
   })

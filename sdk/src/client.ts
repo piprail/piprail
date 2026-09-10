@@ -571,6 +571,29 @@ export interface PipRailClientOptions {
    * losing, and prefer `'registry'` where the token set is known ahead of time.
    */
   assetDiscovery?: 'registry' | 'onchain'
+  /**
+   * Route every discovery READ through your own fetch instead of the global one.
+   *
+   * This is what makes `discover()` work in a browser. The open x402 indexes send no usable
+   * CORS header (402 Index and CDP Bazaar send none; Circle sends `Access-Control-Allow-Origin`
+   * twice, which browsers reject), so a page cannot read them directly however the request is
+   * shaped. CORS is enforced by the browser, so no client-side option can talk its way past it.
+   *
+   * Point this at any same-origin endpoint that forwards the request and discovery behaves in
+   * a page exactly as it does in Node. PipRail still hosts nothing and requires nothing: the
+   * SDK stays backendless, and WHICH transport to use stays yours to choose.
+   *
+   * ```ts
+   * const client = new PipRailClient({
+   *   chain: 'base',
+   *   fetchImpl: (url, init) => fetch(`/api/index?url=${encodeURIComponent(String(url))}`, init),
+   * })
+   * ```
+   *
+   * Discovery reads only. It never touches the payment path, and `register()` never uses it,
+   * because a write should be deliberate about where it is sent.
+   */
+  fetchImpl?: typeof fetch
   /** Logger hook. Default no-op. */
   onEvent?: (event: PipRailEvent) => void
   /**
@@ -654,6 +677,10 @@ export interface DiscoverOptions {
   exhaustive?: boolean
   /** Hard ceiling on HTTP requests per source for this call. Default 12. */
   maxRequests?: number
+  /** Route index READS through your own fetch. Set it here for one call, or on the client
+   *  for all of them. The browser needs it: the open indexes send no usable CORS header,
+   *  so a page cannot read them directly. See {@link PipRailClientOptions.fetchImpl}. */
+  fetchImpl?: typeof fetch
 }
 
 /** Options for {@link PipRailClient.register}. */
@@ -1814,6 +1841,7 @@ export class PipRailClient {
       ...(opts.limit !== undefined ? { limit: opts.limit } : {}),
       ...(opts.exhaustive !== undefined ? { exhaustive: opts.exhaustive } : {}),
       ...(opts.maxRequests !== undefined ? { maxRequests: opts.maxRequests } : {}),
+      ...(opts.fetchImpl ?? this.opts.fetchImpl ? { fetchImpl: opts.fetchImpl ?? this.opts.fetchImpl } : {}),
       ...(opts.maxPrice !== undefined ? { maxPrice: opts.maxPrice } : {}),
       ...(opts.category ? { category: opts.category } : {}),
       ...(opts.asset ? { asset: opts.asset } : {}),
