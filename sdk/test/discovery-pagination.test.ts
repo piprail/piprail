@@ -927,3 +927,30 @@ describe('indexProxyHandler — the forwarder itself', () => {
     expect(INDEX_PROXY_ALLOWED_HOSTS).toContain('402index.io')
   })
 })
+
+describe('the deployed forwarder mounts on the path the SDK probes', () => {
+  /**
+   * Netlify parses `export const config` STATICALLY at deploy time, so the function cannot
+   * import INDEX_PROXY_PATH: it has to repeat the literal. That is a drift risk with a silent
+   * failure mode. If the two ever disagree the route 404s, the SDK concludes no forwarder
+   * exists, and discovery degrades to empty with nothing anywhere explaining why. It shipped
+   * exactly once, and the deploy preview was the only place it showed.
+   */
+  it('the site function declares the same path the client probes', async () => {
+    const { readFileSync } = await import('node:fs')
+    const { fileURLToPath } = await import('node:url')
+    const fn = fileURLToPath(new URL('../../site/netlify/functions/x402-index.mjs', import.meta.url))
+    const src = readFileSync(fn, 'utf8')
+    const match = src.match(/export const config = \{\s*path:\s*'([^']+)'/)
+    expect(match, 'x402-index.mjs must declare a LITERAL config.path').not.toBeNull()
+    expect(match![1]).toBe(INDEX_PROXY_PATH)
+  })
+
+  it('the function does not import the path, which Netlify cannot resolve', async () => {
+    const { readFileSync } = await import('node:fs')
+    const { fileURLToPath } = await import('node:url')
+    const fn = fileURLToPath(new URL('../../site/netlify/functions/x402-index.mjs', import.meta.url))
+    const src = readFileSync(fn, 'utf8')
+    expect(src).not.toMatch(/config\s*=\s*\{\s*path:\s*INDEX_PROXY_PATH/)
+  })
+})
