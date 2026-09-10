@@ -34,7 +34,7 @@ const REPO = join(dirname(fileURLToPath(import.meta.url)), '..')
  * code-card captions that render on the page, and the stylesheets carry authored comments. A
  * reader sees this text, so the house voice applies to it.
  */
-const EXTS = new Set(['.md', '.mdx', '.astro', '.ts', '.css', '.mjs'])
+const EXTS = new Set(['.md', '.mdx', '.astro', '.ts', '.css', '.mjs', '.js'])
 /*
  * The two Astro configs are in scope even though they are not under `src`, because each one
  * holds strings that render into EVERY page of its site: the `og:image:alt`, the site
@@ -49,7 +49,11 @@ const EXTS = new Set(['.md', '.mdx', '.astro', '.ts', '.css', '.mjs'])
  * and the paid message then appeared on screen in the recorded grant demo. Comments exempt,
  * as for the configs.
  */
-const DEFAULT_ROOTS = ['site/src', 'docs/src', 'site/astro.config.mjs', 'docs/astro.config.mjs', 'site/netlify/functions']
+// `site/public/lab` is prose, not an asset: runners.js writes most of the sentences a
+// visitor reads on /demo. It sits in public/ only because the lab loads it at runtime
+// without a build step, and a page's copy should not escape the voice gate over a detail
+// of where it is served from.
+const DEFAULT_ROOTS = ['site/src', 'docs/src', 'site/astro.config.mjs', 'docs/astro.config.mjs', 'site/netlify/functions', 'site/public/lab']
 const COMMENTS_EXEMPT = new Set(['site/astro.config.mjs', 'docs/astro.config.mjs', 'site/netlify/functions'])
 /** A file is comment-exempt if it is listed, or sits under a listed directory. */
 const commentsExempt = (rel) => [...COMMENTS_EXEMPT].some((e) => rel === e || rel.startsWith(e + '/'))

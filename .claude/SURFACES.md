@@ -322,6 +322,17 @@ first and SKIP (loudly) without it.
   `site/public/linkedin/` (the images). Fails on a duplicate id, a missing image, first person
   singular, a dash, or >3,000 chars, because a merged entry is on LinkedIn within ~15 minutes and
   a fired post cannot be un-fired. Runbook: `.claude/skills/linkedin-page/ZAPIER.md`.
+- **`lab-covers-sdk`** — 🔴 **/demo claims to be a lab for the whole SDK, so the claim is computed.**
+  `scripts/lab-coverage.mjs` reads the PUBLIC SURFACE out of the BUILT SDK (every runtime export
+  plus the public members of `PipRailClient`, `PaymentGate`, `SpendLedger` and `MultiChainPayer`)
+  and the `uses` declarations out of `site/src/lib/lab/manifest.ts`, and fails when a symbol is
+  exercised by neither a test nor an `OFF_THE_BENCH` entry carrying a reason. It also checks the
+  manifest ids and the runner keys in `site/public/lab/runners.js` BOTH ways, because those two
+  are joined by a string at runtime: an id with no runner is a button that throws when a visitor
+  clicks it, and a runner with no id is code nobody can reach. Neither shows up in a type check.
+  **Add a public export and this rule fails until the lab exercises it or names why it cannot.**
+  Reads the built dist on purpose: `sdk/src` would measure a surface the published page cannot
+  reach, and would go green while /demo was broken.
 - **`assets-exist`** — every image/icon/file referenced by built HTML on **both** hosts ships.
   Checks the *artifact*, not the source: an earlier draft scanned `site/src` and flagged
   `/og-sdk.png`, which appears only inside a JSDoc example of what you *could* pass.

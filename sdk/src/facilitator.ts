@@ -132,6 +132,11 @@ export function parseFacilitatorSupported(body: unknown): FacilitatorSupportedKi
  * `AbortController` timeout): NEVER throws — returns `[]` on any failure (same posture as
  * {@link fetchFacilitatorFeePayer}). Lets an operator/agent ask "does this facilitator
  * cover my network?" before wiring a gate. Pure `fetch`, no chain libraries (STANDARDS §1).
+ *
+ * 🌐 **Server-side in practice.** It reads `<url>/supported` cross-origin, and most
+ * facilitators send no CORS header, so from a browser this returns `[]` rather than the real
+ * capability list. An empty array is indistinguishable from "supports nothing", so branch on
+ * it carefully in a page: the registry in `KNOWN_FACILITATORS` is static data and always works.
  */
 export async function facilitatorCoverage(
   url: string,

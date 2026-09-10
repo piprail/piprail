@@ -1375,6 +1375,11 @@ export interface DomainVerification {
  * `verificationHash` to serve as the entire body of `verificationUrl`
  * (`https://<domain>/.well-known/402index-verify.txt`). Then call {@link verify402IndexDomain}.
  * No funds move. Never throws.
+ *
+ * 🌐 **Server-side only, in practice.** Like {@link verify402IndexDomain}, this is a
+ * cross-origin POST that a browser preflights and 402 Index does not answer. It returns
+ * `{ ok: false }` from a page rather than throwing. Claiming also commits you to serving a
+ * verification hash at a URL on the domain, so it belongs in a deploy step, not a page.
  */
 export async function claim402IndexDomain(
   domainOrUrl: string,
@@ -1427,6 +1432,11 @@ async function sha256Hex(input: string): Promise<string> {
  * the `verificationHash` at `verificationUrl`, tell 402 Index to re-fetch + approve. On
  * success, the domain's pending listings become searchable (`status:'verified'`,
  * `servicesCount` approved). No funds move. Never throws.
+ *
+ * 🌐 **Server-side only, in practice.** This is a cross-origin POST with a JSON content-type,
+ * so a browser preflights it and 402 Index answers no preflight. From a page it comes back
+ * `{ ok: false, detail: 'Failed to fetch' }` rather than throwing, which is the contract, but
+ * it will never succeed there. Call it from Node, a worker, or your own backend route.
  */
 export async function verify402IndexDomain(domainOrUrl: string): Promise<DomainVerification> {
   const domain = hostOf(domainOrUrl)

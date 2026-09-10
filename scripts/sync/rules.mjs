@@ -2427,6 +2427,35 @@ export const RULES = [
     },
   },
   {
+    domain: 'site',
+    id: 'lab-covers-sdk',
+    verify: [
+      "npm run lab:coverage",
+    ],
+    what: 'The /demo lab exercises every public SDK symbol, or names the reason it cannot',
+    source: { file: 'sdk/dist/index.js', note: '⭐ the BUILT package the lab actually loads' },
+    mirrors: [
+      { file: 'site/src/lib/lab/manifest.ts', note: 'each test declares the symbols it calls, plus the deliberate gaps' },
+      { file: 'site/public/lab/runners.js', note: 'one runner per test id, both directions' },
+    ],
+    check() {
+      if (sdkMissing()) return skip('SDK not built — run `npm run build:sdk`')
+      try {
+        const out = execFileSync('node', [join(REPO, 'scripts/lab-coverage.mjs')], { cwd: REPO, encoding: 'utf8' })
+        const m = /lab coverage: (\d+)\/(\d+) \(([\d.]+)%\)/.exec(out)
+        const tests = /(\d+) tests/.exec(out)?.[1] ?? '?'
+        return m
+          ? ok(`${m[1]}/${m[2]} public symbols on the bench (${m[3]}%) across ${tests} tests`)
+          : ok(out.trim().split('\n')[0])
+      } catch (e) {
+        const said = (String(e.stdout ?? '') + String(e.stderr ?? '')).trim()
+        const first = said.split('\n').find((l) => l.includes('✗'))?.replace(/^\s*✗\s*/, '')
+        return bad(first ?? `npm run lab:coverage failed: ${said.split('\n').slice(-2).join(' ')}`)
+      }
+    },
+  },
+
+  {
     domain: 'docs',
     id: 'map-covers-pages',
     verify: [
