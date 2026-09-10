@@ -1,7 +1,6 @@
 import { defineConfig } from 'astro/config'
 import tailwindcss from '@tailwindcss/vite'
 import sitemap from '@astrojs/sitemap'
-import { indexProxyHandler, INDEX_PROXY_PATH } from '@piprail/sdk'
 
 /**
  * Serve the x402 index forwarder during `astro dev`.
@@ -16,15 +15,35 @@ import { indexProxyHandler, INDEX_PROXY_PATH } from '@piprail/sdk'
  * cannot drift. Dev only: `apply: 'serve'` keeps it out of every build.
  */
 function x402IndexDevRoute() {
-  const handle = indexProxyHandler()
+  // Imported LAZILY, inside configureServer, and never at config load time. The handler lives
+  // in the SDK's BUILT dist, and the site build does not build the SDK first: a top-level
+  // import here fails CI with "Unable to load your Astro config" on a clean checkout, while
+  // passing locally for the only reason that a dist happens to be lying around.
+  let handlePromise
+  const getHandler = () => {
+    handlePromise ??= import('@piprail/sdk')
+      .then((m) => ({ handle: m.indexProxyHandler(), path: m.INDEX_PROXY_PATH }))
+      .catch(() => null)
+    return handlePromise
+  }
   return {
     name: 'piprail:x402-index-dev',
     apply: 'serve',
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
-        if (!req.url || !req.url.startsWith(INDEX_PROXY_PATH)) return next()
+        if (!req.url || !req.url.startsWith('/api/x402-index')) return next()
+        const mod = await getHandler()
+        if (!mod) {
+          res.statusCode = 503
+          res.setHeader('content-type', 'application/json')
+          res.end(JSON.stringify({
+            error: 'sdk_not_built',
+            detail: 'Run `npm run build:sdk` so the dev server can serve the x402 index forwarder.',
+          }))
+          return
+        }
         try {
-          const response = await handle(
+          const response = await mod.handle(
             new Request(`http://localhost${req.url}`, { method: req.method ?? 'GET' })
           )
           res.statusCode = response.status
