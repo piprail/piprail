@@ -5,6 +5,15 @@ import Footer from '../components/Footer.astro'
 import { chains } from '../data/chains'
 import { SWAP_PROVIDERS } from '../data/swap-providers'
 import { ArrowRight, ShieldCheck } from 'lucide-astro'
+import sdkPkg from '../../../sdk/package.json'
+
+/**
+ * The lab loads the PUBLISHED package, so what you see here is what `npm install` gives you.
+ * Pinned to an exact version and read from the SDK's own package.json, because `@3` resolves
+ * to whatever the CDN last cached: that is how this page ended up demonstrating features on a
+ * build that predated them, with no sign anything was wrong.
+ */
+const sdkVersion: string = sdkPkg.version
 
 const total = chains.length
 const familyCount = new Set(chains.map((chain) => chain.family)).size
@@ -216,9 +225,11 @@ const demoLd = {
 
   <script is:inline type="application/ld+json" set:html={JSON.stringify(demoLd)} />
   <script is:inline id="demo-chain-data" type="application/json" set:html={JSON.stringify(demoChains)} />
+  <script is:inline define:vars={{ sdkVersion }}>window.__PIPRAIL_SDK_VERSION = sdkVersion</script>
 
   <script is:inline type="module">
     const $ = (id) => document.getElementById(id)
+    const SDK_VERSION = window.__PIPRAIL_SDK_VERSION
     const chainData = JSON.parse($('demo-chain-data').textContent)
     const chainBySlug = Object.fromEntries(chainData.map((c) => [c.slug, c]))
     /** Slugs with a logo shipped under /chains, so the renderer never draws a broken image. */
@@ -631,8 +642,17 @@ console.log(await client.discover({ query: 'weather', limit: 2000 }))</pre>`) +
 
     ;(async () => {
       try {
-        sdk = await import('https://esm.sh/@piprail/sdk@3?external=viem,@solana/web3.js,@solana/spl-token,bs58,@mysten/sui,near-api-js,@aptos-labs/ts-sdk,@stellar/stellar-sdk,@ton/core,@ton/ton,@ton/crypto,@ston-fi/api,@ston-fi/sdk,tronweb,xrpl,algosdk,borsh')
-        $('sdk-status').textContent = '@piprail/sdk loaded · browser runtime · no key'
+        // `?sdk=local` loads the workspace build from /_localsdk, for verifying a change
+        // BEFORE it is published. Without it the lab can only ever exercise the last
+        // published build, so a fix and the page that demonstrates it wait on each other.
+        const wantLocal = new URLSearchParams(location.search).get('sdk') === 'local'
+        const src = wantLocal
+          ? '/_localsdk/index.js'
+          : `https://esm.sh/@piprail/sdk@${SDK_VERSION}?external=viem,@solana/web3.js,@solana/spl-token,bs58,@mysten/sui,near-api-js,@aptos-labs/ts-sdk,@stellar/stellar-sdk,@ton/core,@ton/ton,@ton/crypto,@ston-fi/api,@ston-fi/sdk,tronweb,xrpl,algosdk,borsh`
+        sdk = await import(src)
+        $('sdk-status').textContent = wantLocal
+          ? '@piprail/sdk loaded from the local build · browser runtime · no key'
+          : `@piprail/sdk ${SDK_VERSION} loaded · browser runtime · no key`
         $('sdk-status').className = 'font-mono text-[11px] text-accent'
         document.querySelectorAll('.lab-test').forEach((b) => {
           b.disabled = false

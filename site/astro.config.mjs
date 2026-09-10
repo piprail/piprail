@@ -1,6 +1,44 @@
 import { defineConfig } from 'astro/config'
 import tailwindcss from '@tailwindcss/vite'
 import sitemap from '@astrojs/sitemap'
+import { indexProxyHandler, INDEX_PROXY_PATH } from '@piprail/sdk'
+
+/**
+ * Serve the x402 index forwarder during `astro dev`.
+ *
+ * In production this route is a Netlify Function (site/netlify/functions/x402-index.mjs),
+ * and the dev server does not run those. Without this, `npm run dev` answers 404 on
+ * INDEX_PROXY_PATH, the SDK on /demo concludes no forwarder exists, and the lab's discovery
+ * test degrades to empty. Everything looks broken while being deployed correctly, which is
+ * the worst kind of difference between dev and prod.
+ *
+ * The handler is the SAME one the function mounts, imported from the SDK, so dev and prod
+ * cannot drift. Dev only: `apply: 'serve'` keeps it out of every build.
+ */
+function x402IndexDevRoute() {
+  const handle = indexProxyHandler()
+  return {
+    name: 'piprail:x402-index-dev',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url || !req.url.startsWith(INDEX_PROXY_PATH)) return next()
+        try {
+          const response = await handle(
+            new Request(`http://localhost${req.url}`, { method: req.method ?? 'GET' })
+          )
+          res.statusCode = response.status
+          response.headers.forEach((value, key) => res.setHeader(key, value))
+          res.end(Buffer.from(await response.arrayBuffer()))
+        } catch (err) {
+          res.statusCode = 500
+          res.setHeader('content-type', 'application/json')
+          res.end(JSON.stringify({ error: 'dev_proxy_failed', detail: String(err?.message ?? err) }))
+        }
+      })
+    },
+  }
+}
 
 // https://astro.build/config
 export default defineConfig({
@@ -31,6 +69,6 @@ export default defineConfig({
     }),
   ],
   vite: {
-    plugins: [tailwindcss()],
+    plugins: [tailwindcss(), x402IndexDevRoute()],
   },
 })
