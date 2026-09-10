@@ -105,6 +105,21 @@ import { exactSettleCheckHint } from './util/exactRecovery.js'
 /** Observability events. `ref` is the proof — a chain-specific id (EVM tx hash, Solana signature, TON locator, Stellar tx hash). */
 export type PipRailEvent =
   | { kind: 'payment-required'; challenge: X402Challenge; accept: X402AnyAccept }
+  /**
+   * An asset the token registry didn't recognise was looked up ON-CHAIN, because the client
+   * opted into `assetDiscovery: 'onchain'`. `decimals` is what the CONTRACT reported and what
+   * the spend cap will be denominated in; `unresolved: true` means the address answered no
+   * ERC-20 metadata and the rail stays unpayable. Emitted once per asset per client — worth
+   * logging, since it is the moment a policy cap starts trusting a server-chosen contract.
+   */
+  | {
+      kind: 'asset-resolved'
+      network: string
+      asset: string
+      symbol?: string
+      decimals?: number
+      unresolved?: true
+    }
   | { kind: 'payment-broadcast'; ref: string }
   | { kind: 'payment-confirmed'; ref: string; blockNumber: bigint }
   /**
@@ -534,6 +549,28 @@ export interface PipRailClientOptions {
    * Override per call with `fetch(url, { schemes })`.
    */
   schemes?: PaymentScheme[]
+  /**
+   * How to price a rail's token. Default `'registry'` — the SDK's built-in, human-verified
+   * token presets, and a rail quoting anything else is refused.
+   *
+   * `'onchain'` adds a fallback: when the registry doesn't recognise a rail's asset, ask the
+   * token contract for its own `symbol()` / `decimals()` and price it from that. Measured
+   * against the live CDP Bazaar catalogue (2026-09-10), that is the difference between
+   * refusing and paying **1,008 `exact` rails on chains PipRail already supports** — nearly
+   * all of them X Layer's USD₮0, a token whose contract answers EIP-3009 perfectly well.
+   *
+   * **Read this before enabling it.** The registry is an allowlist as much as a decimals
+   * table: a preset means a person checked the token is what it claims. On `'onchain'` the
+   * SERVER chooses the contract you read, and your spend cap is denominated in that token's
+   * units, so a hostile token reporting `decimals: 0` makes a cap read a million times
+   * larger than you meant. The SDK narrows that: it reads only `symbol()`/`decimals()`,
+   * refuses anything outside 0–36 decimals, refuses a non-contract or unparseable address
+   * (which is how two typo'd USDC addresses in the live corpus stay unpayable), and still
+   * caps against what the CONTRACT said rather than `extra.decimals` from the wire. It
+   * cannot tell you the token is worth a dollar. Keep a `maxAmount` you would accept
+   * losing, and prefer `'registry'` where the token set is known ahead of time.
+   */
+  assetDiscovery?: 'registry' | 'onchain'
   /** Logger hook. Default no-op. */
   onEvent?: (event: PipRailEvent) => void
   /**
@@ -604,10 +641,19 @@ export interface DiscoverOptions {
   sort?: DiscoverySort
   /** Direction for a non-relevance `sort`. Default `'desc'`. */
   order?: 'asc' | 'desc'
-  /** Which open indexes to read. Default `['bazaar', '402index']` (both free). */
+  /** Which open indexes to read. Default: Bazaar, 402 Index and Circle — all free and
+   *  key-less. Circle's catalogue is ~90% disjoint from Bazaar's, so dropping it narrows
+   *  reach sharply; name sources explicitly only when you mean to. */
   sources?: DiscoverySource[]
-  /** Max results to fetch per index request. Default 20. */
+  /** Max results to return PER INDEX. Default 20. Paged transparently across the index's
+   *  own page ceiling (Bazaar 1000/page, 402 Index 200/page), so a `limit` of 5,000 really
+   *  reads 5,000 rows; a limit at or below the ceiling still costs one request. */
   limit?: number
+  /** Read the whole catalog of each source, bounded only by {@link maxRequests}. Overrides
+   *  {@link limit}. Bazaar holds ~14.6k resources and 402 Index ~106k, so use it knowingly. */
+  exhaustive?: boolean
+  /** Hard ceiling on HTTP requests per source for this call. Default 12. */
+  maxRequests?: number
 }
 
 /** Options for {@link PipRailClient.register}. */
@@ -1766,6 +1812,8 @@ export class PipRailClient {
       ...(opts.query !== undefined ? { query: opts.query } : {}),
       ...(opts.sources ? { sources: opts.sources } : {}),
       ...(opts.limit !== undefined ? { limit: opts.limit } : {}),
+      ...(opts.exhaustive !== undefined ? { exhaustive: opts.exhaustive } : {}),
+      ...(opts.maxRequests !== undefined ? { maxRequests: opts.maxRequests } : {}),
       ...(opts.maxPrice !== undefined ? { maxPrice: opts.maxPrice } : {}),
       ...(opts.category ? { category: opts.category } : {}),
       ...(opts.asset ? { asset: opts.asset } : {}),
@@ -2029,6 +2077,9 @@ export class PipRailClient {
 
     const { net, wallet } = await this.ensure()
 
+    // Resolve any asset the registry doesn't know, off the chain, before gathering —
+    // opt-in, and a no-op otherwise (see `assetDiscovery`).
+    await this.hydrateAssets(net, challenge)
     // Every accept this client could pay (enabled schemes, on the bound network). A
     // multi-chain challenge may offer several — including the same network more than
     // once (e.g. USDC and native, or an onchain-proof + exact dual-rail) — so gather
@@ -2050,7 +2101,7 @@ export class PipRailClient {
       // 402 it COULD pay — point it straight at the one-line remedy instead of a dead end.
       if (!schemes.includes('exact') && exactOnNet && typeof net.payExact === 'function') {
         const payable = challenge.accepts.some(
-          (a) => a.scheme === 'exact' && this.supportsNetwork(net, a.network) && net.describeAsset(a.asset) != null
+          (a) => a.scheme === 'exact' && this.supportsNetwork(net, a.network) && this.describeAssetCached(net, a.asset) != null
         )
         if (payable) {
           throw new NoCompatibleAcceptError(
@@ -2075,6 +2126,71 @@ export class PipRailClient {
     }))
     const chosen = priced.find((p) => p.quote.withinPolicy) ?? priced[0]!
     return { net, wallet, accept: chosen.accept, challenge, quote: chosen.quote }
+  }
+
+  /**
+   * Assets resolved from a token contract because the registry had never heard of them.
+   * Keyed `network|lowercased-asset`, so two chains that share an address never collide.
+   * A `null` entry is a REMEMBERED refusal — a non-contract or metadata-less address is
+   * not re-read on every 402 from the same host.
+   */
+  private readonly onchainAssets = new Map<string, { symbol?: string; decimals: number } | null>()
+
+  /** The registry first, then anything {@link hydrateAssets} has already resolved. Pure and
+   *  synchronous, so `gatherCandidates` keeps its shape and its ordering guarantees. */
+  private describeAssetCached(
+    net: ResolvedNetwork,
+    asset: string
+  ): { symbol?: string; decimals: number } | null {
+    const known = net.describeAsset(asset)
+    if (known) return known
+    return this.onchainAssets.get(`${net.network}|${asset.toLowerCase()}`) ?? null
+  }
+
+  /**
+   * Resolve every asset in this challenge the registry doesn't recognise, off the chain,
+   * BEFORE candidates are gathered. Off unless the client opted into `assetDiscovery:
+   * 'onchain'`, and a no-op for any driver that doesn't implement the optional SPI.
+   *
+   * Runs once per challenge and caches per client, so paying the same host repeatedly costs
+   * one read. Never throws and never rejects: a driver that fails to answer leaves the asset
+   * unrecognised, which is precisely the pre-existing behaviour, so a dead RPC costs reach
+   * and never correctness.
+   */
+  private async hydrateAssets(net: ResolvedNetwork, challenge: X402Challenge): Promise<void> {
+    if ((this.opts.assetDiscovery ?? 'registry') !== 'onchain') return
+    if (typeof net.readAssetOnchain !== 'function') return
+
+    const wanted = new Set<string>()
+    for (const a of challenge.accepts) {
+      const asset = (a as { asset?: unknown }).asset
+      if (typeof asset !== 'string' || asset === 'native') continue
+      if (!this.supportsNetwork(net, a.network)) continue
+      if (net.describeAsset(asset)) continue
+      if (this.onchainAssets.has(`${net.network}|${asset.toLowerCase()}`)) continue
+      wanted.add(asset)
+    }
+    if (wanted.size === 0) return
+
+    await Promise.all(
+      [...wanted].map(async (asset) => {
+        let info: { symbol?: string; decimals: number } | null = null
+        try {
+          info = (await net.readAssetOnchain?.(asset)) ?? null
+        } catch {
+          info = null // the SPI promises never to throw; defend anyway
+        }
+        this.onchainAssets.set(`${net.network}|${asset.toLowerCase()}`, info)
+        this.opts.onEvent?.({
+          kind: 'asset-resolved',
+          network: net.network,
+          asset,
+          ...(info
+            ? { ...(info.symbol !== undefined ? { symbol: info.symbol } : {}), decimals: info.decimals }
+            : { unresolved: true as const }),
+        })
+      })
+    )
   }
 
   /** Match a foreign-supplied network string against the bound driver, tolerating a
@@ -2150,7 +2266,7 @@ export class PipRailClient {
              * signing an EIP-3009 authorization for it would just be rejected by its facilitator.
              */
             isSettleableExactMethod(a) &&
-            net.describeAsset(a.asset) != null &&
+            this.describeAssetCached(net, a.asset) != null &&
             // a foreign rail's maxTimeoutSeconds must be a usable positive integer, or
             // signing it would build a NaN/garbage validBefore — drop it silently
             // (symmetric with an unrecognised token) rather than leak a raw SyntaxError.
@@ -2171,7 +2287,7 @@ export class PipRailClient {
             this.supportsNetwork(net, a.network) &&
             typeof net.payUpto === 'function' &&
             a.asset !== 'native' && // native is not upto-payable either (same reason as exact)
-            net.describeAsset(a.asset) != null &&
+            this.describeAssetCached(net, a.asset) != null &&
             typeof a.extra?.facilitatorAddress === 'string' &&
             a.extra.facilitatorAddress.length > 0 &&
             Number.isInteger(a.maxTimeoutSeconds) &&
@@ -2193,6 +2309,8 @@ export class PipRailClient {
   ): Promise<PaymentPlan> {
     const chainLabel = typeof this.opts.chain === 'string' ? this.opts.chain : net.network
     const session = this.sessionView()
+    // planPayment must see exactly what fetch() would pay, so it hydrates identically.
+    await this.hydrateAssets(net, challenge)
     const candidates = this.gatherCandidates(net, challenge, schemes)
     if (candidates.length === 0) {
       const offered = [...new Set(challenge.accepts.map((a) => a.network))].join(', ') || 'none'
@@ -2397,7 +2515,7 @@ export class PipRailClient {
       )
     }
     const amountBase = BigInt(accept.amount)
-    const described = net.describeAsset(accept.asset)
+    const described = this.describeAssetCached(net, accept.asset)
     // onchain-proof always carries extra.decimals; an exact rail's is optional but is
     // only ever gathered when describeAsset recognises the token (so `described` is
     // non-null there). A hostile/buggy 402 may omit `extra` entirely — optional-chain

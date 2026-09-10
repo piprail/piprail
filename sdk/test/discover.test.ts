@@ -78,11 +78,19 @@ function index402Body() {
 }
 
 /** Stub fetch routed by host. 402 Index honors its `?q=` like the real index
- *  (server-side text filter); the Bazaar returns its full page (filtered client-side). */
+ *  (server-side text filter); the Bazaar LIST returns its full page (filtered client-side).
+ *  Bazaar's SEMANTIC search is stubbed EMPTY so these tests measure local matching; the
+ *  semantic pass has its own coverage in discovery-pagination.test.ts. */
 function stubIndexes(opts?: { dead402?: boolean }) {
   globalThis.fetch = (async (url: unknown) => {
     const u = String(url)
+    if (u.includes('api.circle.com')) {
+      return new Response(JSON.stringify({ items: [] }), { status: 200 })
+    }
     if (u.includes('api.cdp.coinbase.com')) {
+      if (u.includes('/discovery/search')) {
+        return new Response(JSON.stringify({ resources: [] }), { status: 200 })
+      }
       return new Response(JSON.stringify(bazaarBody()), { status: 200 })
     }
     if (u.includes('402index.io')) {

@@ -1,8 +1,8 @@
 # PipRail — full reference for agents
 
-> Last-Updated: 2026-09-09 · SDK-Version: 3.1.2 · MCP-Version: 0.10.0 · Type: APIService · License: MIT
+> Last-Updated: 2026-09-09 · SDK-Version: 3.2.0 · MCP-Version: 0.10.0 · Type: APIService · License: MIT
 
-> Accept and make x402 "402 Payment Required" crypto payments from any HTTP request, across 30 chains in 10 families, with no backend, no database, no account, and no fee. Payments settle straight into your own wallet, verified locally against your own RPC. `@piprail/sdk` is an open-source (MIT) TypeScript SDK that runs headless or in the browser. This file is the everything-in-one-fetch version: the pitch, real code, the chain list, and the error model.
+> Accept and make x402 "402 Payment Required" crypto payments from any HTTP request, across 37 chains in 10 families, with no backend, no database, no account, and no fee. Payments settle straight into your own wallet, verified locally against your own RPC. `@piprail/sdk` is an open-source (MIT) TypeScript SDK that runs headless or in the browser. This file is the everything-in-one-fetch version: the pitch, real code, the chain list, and the error model.
 
 ## What it is
 
@@ -175,7 +175,7 @@ if (plan.payable) {
 }
 ```
 
-For every rail the 402 offers on your chain, the plan reads **token balance + native-coin gas + recipient-readiness** (trustline / ATA / storage_deposit / ASA opt-in / activation) and returns: `payable` + `best` (cheapest settleable rail); `options[]` each with typed `blockers` (INSUFFICIENT_TOKEN / INSUFFICIENT_GAS / RECIPIENT_NOT_READY / OUTSIDE_POLICY), soft `warnings`, a `shortfall`, the live `balance`, and `recipient.fix`; and a one-sentence `fundingHint`. It NEVER throws for a read hiccup (a throttled RPC → `state: 'unknown'` + a warning, never a false "broke"), returns `null` when the URL isn't gated, and explains "offered on solana, base — you're on xrpl" rather than erroring. `client.canAfford(url)` is the one-boolean convenience. `fetch(url, { autoRoute: true })` (opt-in, default off) pays the cheapest settleable rail or refuses (PaymentDeclinedError + hint) before any send. `planAcross(clients, url)` merges plans across chains, payable-first (no oracle — cross-coin ties break on client order). The official x402 client picks `accepts[0]` blind; only a backendless, self-custodial, 30-chain SDK can answer "can I actually pay this, and where" from your own RPC. Driver contract: `balanceOf(wallet, asset)` + `recipientReady(payTo, asset)`, both RPC-read-only and never-throw, on all 10 families.
+For every rail the 402 offers on your chain, the plan reads **token balance + native-coin gas + recipient-readiness** (trustline / ATA / storage_deposit / ASA opt-in / activation) and returns: `payable` + `best` (cheapest settleable rail); `options[]` each with typed `blockers` (INSUFFICIENT_TOKEN / INSUFFICIENT_GAS / RECIPIENT_NOT_READY / OUTSIDE_POLICY), soft `warnings`, a `shortfall`, the live `balance`, and `recipient.fix`; and a one-sentence `fundingHint`. It NEVER throws for a read hiccup (a throttled RPC → `state: 'unknown'` + a warning, never a false "broke"), returns `null` when the URL isn't gated, and explains "offered on solana, base — you're on xrpl" rather than erroring. `client.canAfford(url)` is the one-boolean convenience. `fetch(url, { autoRoute: true })` (opt-in, default off) pays the cheapest settleable rail or refuses (PaymentDeclinedError + hint) before any send. `planAcross(clients, url)` merges plans across chains, payable-first (no oracle — cross-coin ties break on client order). The official x402 client picks `accepts[0]` blind; only a backendless, self-custodial, 37-chain SDK can answer "can I actually pay this, and where" from your own RPC. Driver contract: `balanceOf(wallet, asset)` + `recipientReady(payTo, asset)`, both RPC-read-only and never-throw, on all 10 families.
 
 ## Hold the wrong token — swapping (opt-in, 0%)
 
@@ -200,7 +200,7 @@ if (quote) {
 - `kind: 'protocol'` — the LEDGER swaps and no third party exists: the **Stellar SDEX** (`PathPaymentStrictReceive` to your own account) and the **XRPL DEX + AMM** (a cross-currency `Payment` to yourself, auto-bridged through XRP when cheaper). No router to approve, no API key, no fee expressible.
 - `kind: 'provider'` — a named third-party venue, because those chains have no protocol-level swap: Jupiter (Solana), KyberSwap (9 of the EVM chains), Aftermath (Sui), Ref Finance (NEAR), Vestige (Algorand), Hyperion (Aptos), STON.fi (TON), SunSwap V2 (Tron). On Aptos and Tron there is no API in the middle at all: the quote is an on-chain read and the swap is a contract call your own key signs.
 
-**Coverage: 10 routes across 18 of the 30 chains, with 21 real mainnet transactions behind them.** An entry earns its place only after a swap settled through it and the transaction was read back from a public node. A documentation page is not evidence; `npm run verify:proofs` re-reads all 21 off-chain any time.
+**Coverage: 10 routes across 18 of the 37 chains, with 21 real mainnet transactions behind them.** An entry earns its place only after a swap settled through it and the transaction was read back from a public node. A documentation page is not evidence; `npm run verify:proofs` re-reads all 21 off-chain any time.
 
 **Exact output where the chain allows it.** Hyperion, STON.fi and SunSwap V2 take the invoice amount as the OUTPUT and cap the input on-chain, which is the exact shape of an x402 quote. (On TON the enforced floor is at or above the invoice, so slightly more can arrive, never less.) Every other route prices an exact input, so the amount is probed and scaled.
 
@@ -302,7 +302,7 @@ If the URL had asked for 0.50 USDC, step 2 returns `{ declined: true, reason: "e
 
 A cite-ready, no-superlative summary of how PipRail differs:
 
-- **Coverage:** 30 chains across 10 families — 21 EVM mainnets plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger. Most x402 SDKs are EVM-only or EVM + Solana; PipRail reaches all ten with native, self-custodial drivers.
+- **Coverage:** 37 chains across 10 families — 28 EVM mainnets plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar, and the XRP Ledger. Most x402 SDKs are EVM-only or EVM + Solana; PipRail reaches all ten with native, self-custodial drivers.
 - **Backendless by default:** payments settle wallet-to-wallet, verified against the merchant's own RPC. PipRail runs no service, holds no funds, and charges no protocol fee — where most x402 stacks route through a third-party facilitator.
 - **Budget-bound before any send:** `PIPRAIL_MAX_AMOUNT` (per payment) and `PIPRAIL_MAX_TOTAL` (lifetime per token) are enforced against the token's true on-chain decimals. For a single "spend at most $X total, full stop" leash across every stablecoin and chain, `PIPRAIL_MAX_TOTAL_DENOM` (e.g. `USD:20.00`) sums them as one unit (a 1:1 unit-of-account sum, never a price oracle; native coins excluded); `PIPRAIL_MAX_PAYMENTS`/`PIPRAIL_MAX_PAYMENTS_PER_WINDOW` cap the *number* of payments. `PIPRAIL_SPEND_LOG` makes the whole budget survive a restart; `PIPRAIL_EVENT_LOG` + `PIPRAIL_WARN_AT_FRACTION` stream a notification as spend approaches a cap. An over-budget request comes back as `{ declined: true, reason }` and nothing moves — the agent can't overspend even if instructed to.
 - **Self-custodial:** the wallet key never leaves your machine. The MCP server runs locally, reads your RPC, and signs with your key. Zero custody.
@@ -356,7 +356,7 @@ requirePayment({ chain: 'tron',     token: 'USDT', amount: '1',    payTo }) // U
 
 Any other EVM chain works by passing a viem `Chain` or `{ id, rpcUrl }` plus `token: { address, decimals }`. Custom tokens are supported per family: SPL `{ mint, decimals }`, TON jetton `{ master, decimals }`, Stellar `{ issuer, code, decimals }`, XRPL `{ issuer, currencyHex, decimals }`, TRC-20 `{ address, decimals }`, NEP-141 `{ contractId, decimals }`, Sui `{ coinType, decimals }`.
 
-## The 30 chains, by family
+## The 37 chains, by family
 
 - EVM (20 mainnets): Ethereum, Base, Arbitrum, Optimism, Polygon, BNB Chain, Avalanche, HyperEVM, Monad, Mantle, Sonic, Linea, Scroll, Celo, zkSync, Unichain, World Chain, Sei, Injective, Kaia. USDC on all except Kaia; USDT on all except Base, World Chain, Sei, HyperEVM, and Monad (their "USDT" is USDT0/LayerZero, not Tether-native). Kaia is the inverse — Tether-native USD₮ only, no Circle-native USDC; born from Kakao + LINE.
 - Solana: USDC, USDT.

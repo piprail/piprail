@@ -9,6 +9,7 @@ import {
   familyForChain,
 } from '../src/drivers/registry.js'
 import { UnsupportedNetworkError } from '../src/errors.js'
+import { CHAINS } from '../src/drivers/evm/chains.js'
 import type { ResolvedNetwork } from '../src/drivers/types.js'
 
 function fakeNet(network: string): ResolvedNetwork {
@@ -61,5 +62,52 @@ describe('registry — routing + the no-driver / unrecognised branches', () => {
     expect(isRegistered('solana')).toBe(false)
     registerDriver({ family: 'solana', resolve: () => fakeNet('solana:x') })
     expect(isRegistered('solana')).toBe(true)
+  })
+})
+
+/**
+ * Routing used a bare `startsWith`, so any EVM preset whose NAME begins with a non-EVM
+ * family name was delivered to the wrong driver. `chain: 'xrplevm'` (the XRPL EVM Sidechain,
+ * an ordinary EVM chain, id 1440000) went to the XRP Ledger driver, which then reported that
+ * it "didn't recognise this chain input" — an error pointing at the driver rather than at the
+ * routing that misdelivered it. Every current preset is checked here, so the next name that
+ * collides fails at build time instead of at a customer's first payment.
+ */
+describe('familyForChain — a preset name is not a family prefix', () => {
+  it('routes xrplevm to EVM, not to the XRP Ledger', () => {
+    expect(familyForChain('xrplevm')).toBe('evm')
+    expect(familyForChain('xrpl')).toBe('xrpl')
+  })
+
+  it('routes EVERY built-in EVM preset to the evm family', () => {
+    for (const slug of Object.keys(CHAINS)) {
+      expect(`${slug} → ${familyForChain(slug)}`).toBe(`${slug} → evm`)
+    }
+  })
+
+  it('still routes each non-EVM family name and its CAIP-2 namespace', () => {
+    const CASES: Array<[string, string]> = [
+      ['solana', 'solana'],
+      ['solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', 'solana'],
+      ['stellar', 'stellar'],
+      ['stellar:pubnet', 'stellar'],
+      ['xrpl', 'xrpl'],
+      ['xrpl:0', 'xrpl'],
+      ['tron', 'tron'],
+      ['sui', 'sui'],
+      ['near', 'near'],
+      ['aptos', 'aptos'],
+      ['algorand', 'algorand'],
+      ['ton', 'ton'],
+    ]
+    for (const [input, want] of CASES) {
+      expect(`${input} → ${familyForChain(input)}`).toBe(`${input} → ${want}`)
+    }
+  })
+
+  it('an unknown name falls through to evm, as an unlisted EVM chain', () => {
+    expect(familyForChain('some-new-l2')).toBe('evm')
+    expect(familyForChain('suithing')).toBe('evm')
+    expect(familyForChain('nearly')).toBe('evm')
   })
 })

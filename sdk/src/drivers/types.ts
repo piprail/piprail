@@ -338,6 +338,33 @@ export interface ResolvedNetwork {
    */
   describeAsset(asset: string): { symbol?: string; decimals: number } | null
 
+  /**
+   * OPTIONAL, opt-in: read an unrecognised asset's own `symbol()` / `decimals()` OFF THE
+   * CHAIN, so a token the SDK ships no preset for can still be priced and paid.
+   *
+   * Why this exists. {@link describeAsset} is a registry lookup, and a rail whose token is
+   * not in the registry is refused outright — which is correct for safety and wrong for
+   * reach. Measured against the live CDP Bazaar catalogue (2026-09-10), 1,008 `exact` rails
+   * sit on chains PipRail already presets but quote a token it does not, so the SDK declined
+   * money it was otherwise fully able to move. The token contract is the same authority the
+   * registry was verified against, so asking it directly is not a weaker check — it is the
+   * SAME check, performed at call time instead of at build time.
+   *
+   * Why it stays OFF by default. The registry is a curated allowlist as well as a decimals
+   * table: shipping a preset means somebody verified the token is what it claims. Reading
+   * `decimals()` from an arbitrary address trusts a contract chosen by the SERVER, and the
+   * spend policy caps in that token's units — so a hostile token reporting `decimals: 0`
+   * would make a cap read 10^6 times larger than intended. Callers opt in per client, and
+   * the client re-derives the cap from what the CONTRACT said, never from `extra.decimals`
+   * on the wire.
+   *
+   * MUST resolve `null` (never throw) for anything that is not a real token contract on this
+   * chain: an unparseable id, a non-contract address, or a contract with no ERC-20 metadata.
+   * That is what keeps a typo'd or fabricated asset unpayable — two of the live rails in the
+   * corpus quote near-miss Arbitrum and Polygon USDC addresses that answer nothing at all.
+   */
+  readAssetOnchain?(asset: string): Promise<{ symbol?: string; decimals: number } | null>
+
   /** Throw if `payTo` isn't a valid address for this family. */
   assertValidPayTo(payTo: string): void
 

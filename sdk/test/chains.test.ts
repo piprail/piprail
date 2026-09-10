@@ -116,7 +116,8 @@ describe('resolveChain — built-in mainnets', () => {
     expect(keys).toEqual([
       'ethereum', 'base', 'arbitrum', 'optimism', 'polygon', 'bnb', 'avalanche',
       'mantle', 'sonic', 'linea', 'scroll', 'celo', 'zksync', 'unichain', 'worldchain',
-      'sei', 'injective', 'hyperevm', 'monad', 'kaia', 'robinhood',
+      'sei', 'injective', 'hyperevm', 'monad', 'kaia', 'robinhood', 'xlayer',
+      'megaeth', 'peaq', 'skalebase', 'xdc', 'etherlink', 'xrplevm',
     ])
     expect(keys.some((k) => /test|sepolia|devnet/i.test(k))).toBe(false)
   })
@@ -153,5 +154,68 @@ describe('resolveChain — viem Chain + exotic custom', () => {
   it('throws when a minimal config has no rpcUrl', () => {
     // @ts-expect-error — exercising the runtime guard
     expect(() => resolveChain({ id: 5000 })).toThrow(/needs an rpcUrl/)
+  })
+})
+
+describe('X Layer preset — reach without breaking the token rule', () => {
+  it('binds by slug and reports OKB, not ETH, as the gas token', () => {
+    // Binding X Layer as `{ id: 196, rpcUrl }` (no preset) reports ETH, which silently
+    // denominates every gas estimate on this chain in the wrong unit. The preset exists
+    // mainly to fix that.
+    expect(CHAINS.xlayer.chain.id).toBe(196)
+    expect(CHAINS.xlayer.chain.nativeCurrency.symbol).toBe('OKB')
+    expect(CHAINS.xlayer.chain.nativeCurrency.decimals).toBe(18)
+  })
+
+  it('ships NO stablecoin preset — all three on-chain candidates are bridged', () => {
+    // 891 of X Layer's 973 rails quote USD₮0 (LayerZero-bridged Tether), and its
+    // "USD Coin" carries Circle's exact metadata while not being natively issued there.
+    // Pre-filling either would break the issuer-native rule, so the preset stays empty
+    // and callers pass those tokens by address, knowingly.
+    expect(CHAINS.xlayer.tokens).toEqual({})
+  })
+})
+
+/**
+ * The 2026-09-10 reach batch: seven chains added because the live x402 catalogue advertises
+ * them, every one shipping ZERO stablecoin presets. That is the unusual part, so it is the
+ * part pinned here — each of their stablecoins failed the issuer-native rule on-chain, and a
+ * future contributor "fixing" the empty token maps would quietly reintroduce bridged assets.
+ */
+describe('reach batch — chains that ship no stablecoin preset, deliberately', () => {
+  const BATCH = {
+    xlayer: { id: 196, native: 'OKB' },
+    megaeth: { id: 4326, native: 'ETH' },
+    peaq: { id: 3338, native: 'PEAQ' },
+    skalebase: { id: 1187947933, native: 'CREDIT' },
+    xdc: { id: 50, native: 'XDC' },
+    etherlink: { id: 42793, native: 'XTZ' },
+    xrplevm: { id: 1440000, native: 'XRP' },
+  } as const
+
+  for (const [slug, want] of Object.entries(BATCH)) {
+    it(`${slug}: chain id ${want.id}, native ${want.native}, no token presets`, () => {
+      const p = CHAINS[slug as keyof typeof CHAINS]
+      expect(p.chain.id).toBe(want.id)
+      // The gas token is the whole reason several of these exist: bound as `{ id, rpcUrl }`
+      // an unpreseted chain reports ETH, denominating every estimate in the wrong unit.
+      expect(p.chain.nativeCurrency.symbol).toBe(want.native)
+      expect(p.tokens).toEqual({})
+    })
+  }
+
+  it('every one of them is a MAINNET — the batch added no testnets', () => {
+    const TESTNET_IDS = new Set([84532, 80002, 5042002, 11155111])
+    for (const slug of Object.keys(BATCH)) {
+      expect(TESTNET_IDS.has(CHAINS[slug as keyof typeof CHAINS].chain.id)).toBe(false)
+    }
+  })
+
+  it('each ships a default RPC, since several have no usable viem default', () => {
+    for (const slug of Object.keys(BATCH)) {
+      const urls = CHAINS[slug as keyof typeof CHAINS].chain.rpcUrls.default.http
+      expect(urls.length).toBeGreaterThan(0)
+      expect(urls[0]).toMatch(/^https:\/\//)
+    }
   })
 })

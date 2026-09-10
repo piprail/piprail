@@ -96,8 +96,10 @@ to actually pay it.
 | `paymentValid` | none | Restrict to listings 402 Index confirmed are payable x402 (its `payment_valid` flag). |
 | `sort` | `'relevance'`\* | `'relevance'` \| `'reliability'` \| `'price'` \| `'uptime'` \| `'name'` (type `DiscoverySort`). \*Defaults to `'relevance'` when a `query` is given, else first-seen order. |
 | `order` | `'desc'` | Direction for a **non-relevance** `sort`. |
-| `sources` | `['bazaar', '402index']` | Which open indexes to read. |
-| `limit` | `20` | Max results to fetch per index request (default 20). A multi-word query fans out into several, so the merged total before dedupe can exceed it. |
+| `sources` | `['bazaar', '402index', 'circle']` | Which open indexes to read. All three are free and keyless. |
+| `limit` | `20` | Max results **returned per index**, paged transparently (see below). A multi-word query fans out into several requests, so the merged total before dedupe can exceed it. |
+| `exhaustive` | `false` | Read each source's whole catalog, bounded only by `maxRequests`. Overrides `limit`. |
+| `maxRequests` | `12` | Hard ceiling on HTTP requests per source, per call. |
 
 `network: 'self'` is the useful default: it returns only what this wallet can actually pay,
 matched via the bound driver's own `supports()` so it works on every family, including custom
@@ -142,6 +144,85 @@ rail, opt in with `schemes: ['onchain-proof', 'exact', 'upto']`, or call `quote(
 scheme a resource needs. The advertised `priceUsd` is a coarse pre-filter; always re-confirm with
 `quote()` before paying.
 :::
+
+## How deep does a search go?
+
+`limit` is the number of results you get back, not the size of one HTTP request. The SDK asks
+each index for `min(limit, that index's page ceiling)` rows and walks `offset` until your limit
+is met, the catalog runs out, or the request budget is spent.
+
+This matters more than it sounds. Every index caps page size, and **they cap silently**. You
+ask for 1,000 rows, you are handed 50, and nothing in the response says so. Before pagination
+existed, a default `discover()` returned 97 results against catalogs holding 14,627 (Bazaar),
+1,246 (Circle) and 106,398 (402 Index). An agent choosing what to buy was choosing from well
+under one percent of what was on offer, and had no way to tell.
+
+```ts
+await client.discover({ query: 'weather' })                       // ~20/source, 1 request each
+await client.discover({ query: 'weather', limit: 2000 })          // pages until it has 2000
+await client.discover({ network: 'any', exhaustive: true })       // the whole catalog
+await client.discover({ network: 'any', exhaustive: true, maxRequests: 40 })  // deeper still
+```
+
+### Queries are answered by the indexes, not just filtered locally
+
+A `query` is pushed to each index that can answer one, and only filtered locally where an index
+cannot:
+
+| Index | How a query is answered |
+| --- | --- |
+| CDP Bazaar | Its **semantic** search endpoint (`searchMethod: 'hybrid'`), unioned with a local token filter over the paged list. |
+| Circle | Server-side `query`, plus `category`, `asset` and `maxUsdPrice` at the index. |
+| 402 Index | Server-side, with a per-token fan-out for multi-word queries. |
+
+Bazaar's search matches meaning rather than substrings. `"forecast temperature"` finds an
+endpoint named `/forecast`, and `"what is the price of ethereum"` finds an ETH price feed, in
+neither case because a word matched.
+
+It is used as a **precision pass on top of** the paged list, never instead of it: the endpoint
+caps at about 20 rows and does not paginate, so on its own it would make a deep query-shaped
+search shallower. The two are unioned and deduped, with the semantic record preferred where a
+resource appears in both, because it carries a name and description the list endpoint omits.
+
+Results the index selected are marked `indexMatched: true`. That flag is load-bearing rather
+than informational: the local ranker scores by token overlap and drops anything scoring zero,
+which would throw away exactly the results worth having. A feed described as "live ETH to USD"
+shares no word with "what is the price of ethereum". The index understood the question, so the
+result is kept and ranked, never filtered away for lack of a matching substring.
+
+### The page ceilings
+
+| Index | Rows per request | Over-limit behaviour | Catalog size (2026-09-10) |
+| --- | --- | --- | --- |
+| CDP Bazaar | 1000 | silently capped | 14,627 resources |
+| 402 Index | 200 | silently capped | 106,398 services |
+| Circle | 200 | **HTTP 400** | 1,246 resources |
+
+### What it costs
+
+Page one is fetched alone, because it carries the catalog's `total`. The remaining offsets are
+then known without reading it, so they go out in parallel. A deep read is one round-trip deeper
+than a shallow one, not N.
+
+Those parallel pages are issued in **bounded waves of 6 per index**. A full read of 402 Index is
+500+ requests, and firing those at once would turn a well-meaning agent into a denial-of-service
+against a free, unauthenticated directory, and get PipRail's User-Agent blocked for everyone.
+The walk also stops the moment your limit is satisfied, rather than finishing a wave it no
+longer needs.
+
+`maxRequests` (default 12) is the hard stop: at most 12 requests per source per call, which is
+roughly 12,000 Bazaar rows or 2,400 from 402 Index. Raise it deliberately.
+
+### Partial beats empty
+
+Discovery reads never throw. A page that errors, times out, or changes shape contributes `[]`,
+and **the pages that did land are still returned**, because a half-read catalog is more useful
+to an agent than an exception. The same rule applies per source: if Bazaar is down, Circle and 402
+Index still answer.
+
+One consequence worth knowing: because reads never throw, a source misconfigured badly enough
+to fail every page simply vanishes from your results in silence. That is the specific failure
+Circle's 400-on-over-limit could cause, and why its ceiling is pinned by a test.
 
 ## Register: list a resource you run
 

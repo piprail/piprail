@@ -4,6 +4,136 @@ All notable changes to `@piprail/sdk` are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [3.2.0] — 2026-09-10 — see the whole market, and pay more of it
+
+### Fixed
+
+- **`discover()` read 50 rows of a 106,398-row catalog and reported them as the market.** The
+  open-index readers issued exactly ONE request per source and kept whatever came back, with no
+  `offset` walk anywhere. Both indexes cap page size silently rather than erroring, so the SDK
+  asked for more, was quietly given less, and had no way to tell the difference. A default
+  search returned 97 resources against catalogs holding 15,686 (Bazaar, the pinned corpus
+  figure) and 106,398 (402 Index, read live 2026-09-10); an agent choosing what to buy was
+  choosing from well under 1% of what was on offer, with nothing in the result to say so.
+
+  `limit` now means results RETURNED per index, paged transparently: the SDK requests
+  `min(limit, ceiling)` and walks `offset` until the limit is met, the catalog ends, or the
+  request budget runs out. Page one is fetched alone because it carries the catalog `total`; the
+  rest are issued in parallel, so a deep read costs one extra round-trip rather than N. New
+  `exhaustive` reads a whole catalog, and `maxRequests` (default 12) bounds how deep any single
+  call may dig.
+
+  **Defaults are unchanged and the shallow wire is byte-identical** — a `limit` at or below the
+  ceiling still costs one request and still sends no `offset` key, which is why the existing
+  suite passed untouched and why this needed tests asserting request COUNTS and OFFSETS rather
+  than result counts.
+
+- **Termination measured the wrong number, capping 402 Index at 193 results.** The first cut of
+  the paging loop treated a short page as end-of-catalog, but measured the array AFTER the
+  x402-only filter. 402 Index is protocol-mixed, so a full 200-row page carrying L402 and MPP
+  entries yields far fewer x402 rows, and page one read as "the catalog ended" every time. The
+  walk now terminates on the RAW row count the index served. Live: 193 to 3,586.
+
+- **Deep reads no longer fire unbounded parallel requests at a free directory.** A full read of
+  402 Index is 500+ pages. Issuing those as one `Promise.all` is how a well-meaning agent
+  becomes a denial-of-service against an unauthenticated index that is doing us a favour by
+  existing, and how PipRail's User-Agent gets blocked for everyone. Pages now go out in waves of
+  6 per source, and the walk stops as soon as the caller's limit is satisfied.
+
+- **`chain: 'xrplevm'` was routed to the XRP Ledger driver.** Family routing matched the chain
+  name with a bare `startsWith`, so any EVM preset whose NAME begins with a non-EVM family name
+  went to the wrong driver. The XRPL EVM Sidechain is an ordinary EVM chain (id 1440000) and was
+  delivered to the XRP Ledger, which then reported that it "didn't recognise this chain input" —
+  an error pointing at the driver rather than at the routing that misdelivered it. Routing now
+  matches the family name exactly, or as the namespace of a CAIP-2 id, and a test walks every
+  built-in preset so the next colliding name fails at build time.
+
+### Added
+
+- **CDP Bazaar's semantic search, which the SDK believed needed a CDP key.** A comment in
+  `indexes.ts` said the `/search` endpoint "answers 200 but returns nothing" without one, so
+  every Bazaar query was filtered client-side by substring. Re-probed 2026-09-10: it works,
+  keylessly, and it is a HYBRID semantic index. `"forecast temperature"` returns an endpoint
+  named `/forecast`; `"what is the price of ethereum"` returns an ETH price feed. Neither
+  matches a token.
+
+  It is used as a precision pass UNIONED with the paged list, not a replacement: it caps at
+  ~20 rows (`limit=50` answers 400) and ignores `offset`, `page` and `cursor`, so alone it
+  would make a deep query-shaped search shallower. Where a resource appears in both, the
+  semantic record wins, because it carries the `serviceName`, `description` and `tags` the list
+  endpoint omits.
+
+  One trap is now pinned by a test: **`?q=` is accepted and silently IGNORED**, returning the
+  same rows for every query including nonsense. Only `?query=` filters. An integration built on
+  `q=` looks like it works and ranks plausibly while answering a question nobody asked.
+
+- **Circle's queries and filters now run at the index.** Its OpenAPI declares `query`,
+  `category`, `asset`, `scheme`, `network` and `maxUsdPrice`, and PipRail was pulling pages and
+  filtering them locally instead. Note the spelling, since getting it wrong fails silently:
+  Circle wants `maxUsdPrice` where 402 Index wants `max_price_usd`.
+
+- **The local ranker was about to throw away every semantic result.** `rankResources` scores by
+  token overlap and DROPS anything scoring zero, which is correct for a substring filter and
+  ruinous for an index that matches meaning: a feed described as "live ETH to USD" shares no
+  word with "what is the price of ethereum". Results an index selected are now marked
+  `indexMatched: true`, floored below any literal match, and never filtered away. Found by a
+  test that failed for the right reason before the fix existed.
+
+- **Circle's and Bazaar-search's names were being dropped.** The catalogue mapper read only
+  `metadata.name`, but Bazaar's search puts `serviceName`/`description` at the top level and
+  Circle nests them under `metadata.provider`. Resources still resolved and still paid, they
+  just arrived anonymous, so an agent choosing between endpoints by name saw a bare URL. All
+  three shapes are read, and `tags` are carried through.
+
+- **Circle's Agent Marketplace is now a default discovery source.** It is largely DISJOINT from
+  CDP Bazaar rather than redundant: measured 2026-09-10, the two overlap on 102 resources, and
+  **1,122 of Circle's 1,246 appear in no other index PipRail reads**. Reading two catalogs and
+  calling it "the x402 web" was leaving roughly a thousand payable endpoints invisible to every
+  agent using this SDK. Free, keyless, read-only; `DiscoverySource` gains `'circle'` and
+  `DIRECTORY_INFO` describes it like the rest.
+
+  It shares Bazaar's envelope and item shape, so both are read through one adapter (Circle nests
+  its human fields under `metadata.provider`). One difference is load-bearing: **Circle rejects
+  an over-sized page with HTTP 400 where Bazaar caps silently**, and since index reads never
+  throw, a wrong ceiling would make the source contribute nothing at all with no error anywhere.
+  Its 200-row ceiling is pinned by a test for that reason.
+
+- **`assetDiscovery: 'onchain'` pays rails whose token the registry has never heard of.**
+  `describeAsset` is a synchronous registry lookup, and an `exact` rail quoting anything outside
+  it was refused outright. Against the live Bazaar catalogue that is **1,008 rails on chains
+  PipRail already supports**, nearly all X Layer's USD₮0, a contract that answers EIP-3009
+  perfectly well. The SDK was declining money it was fully able to move for want of a table
+  entry.
+
+  Opt in and the client asks the token contract for its own `symbol()`/`decimals()` and prices
+  from that. **Default stays `'registry'`**, because the registry is an allowlist as much as a
+  decimals table: on `'onchain'` the SERVER picks the contract you read, and a spend cap is
+  denominated in that token's units. The SDK narrows it rather than removing the risk. It reads
+  two fields only, refuses decimals outside 0 to 36, refuses non-contracts and unparseable ids
+  (two live rails quote near-miss Arbitrum and Polygon USDC addresses that answer nothing, and
+  stay unpayable), caps against what the CONTRACT said rather than `extra.decimals` from the
+  wire, and remembers refusals so a hostile host cannot force a read per request. New optional
+  driver method `readAssetOnchain`, and an `asset-resolved` event so the moment a cap starts
+  trusting a server-chosen contract is loggable.
+
+- **Seven chains, 31 to 37, every one shipping ZERO stablecoin presets.** Added because the live
+  x402 catalogue advertises them: **X Layer** (973 rails, 85 hosts), **MegaETH** (26),
+  **peaq** (13), **SKALE Base** (7), **XRPL EVM** (6), **XDC** (3), **Etherlink** (2).
+
+  All were already payable via `{ id, rpcUrl }`, since presets are convenience and not an
+  allowlist. What was broken is that an unpreseted chain reports its gas token as ETH, so every
+  gas estimate on these chains read in the wrong unit: they are OKB, PEAQ, CREDIT, XRP, XDC and
+  XTZ respectively.
+
+  The empty token maps are deliberate and each was verified on-chain 2026-09-10. X Layer's
+  `0x779Ded…` is USD₮0, the LayerZero-bridged Tether (891 of its rails); MegaETH's is MegaUSD
+  (`USDm`, 18 decimals, no EIP-3009); SKALE Base's names itself `Bridged USDC (SKALE Bridge)`;
+  Etherlink's answers neither EIP-3009 nor EIP-2612. peaq's and X Layer's both report
+  `name: 'USD Coin'`, `symbol: 'USDC'`, 6 decimals and EIP-3009 `version: 2` — Circle's exact
+  metadata — while neither chain is on Circle's native-issuance list. A bytecode or symbol check
+  ships those two; only the issuer list catches them. All remain payable by address with
+  `assetDiscovery: 'onchain'`.
+
 ## [3.1.2] — 2026-09-09 — a balance says what it means
 
 ### Fixed
@@ -358,7 +488,7 @@ versions follow [Semantic Versioning](https://semver.org/).
   (`source.kind: 'provider'`) is **Solana via Jupiter**, **9 live-probed EVM chains via KyberSwap**,
   **Sui via Aftermath**, **NEAR via Ref Finance**, **Algorand via Vestige**, **Aptos via
   Hyperion**, **TON via STON.fi** and **Tron via SunSwap V2**, because those chains have no
-  protocol-level swap. **Ten routes across 18 of the 30 chains.** On a chain with no route,
+  protocol-level swap. **Ten routes across 18 of the 37 chains.** On a chain with no route,
   `quoteSwap()` answers `null` and `swap()` throws `UnsupportedNetworkError` naming every venue
   that does exist, read from the registry rather than typed into the message.
 

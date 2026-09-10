@@ -84,11 +84,11 @@ export const posts: Post[] = [
     slug: 'x402-chains',
     title: 'Every Chain PipRail Supports for x402 Payments',
     seoTitle:
-      'x402 supported chains: 29 networks, one parameter',
+      'x402 supported chains: 37 networks, one parameter',
     description:
-      'One chain: parameter, 30 chains. Every major EVM network plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar and XRPL, and the tokens on each.',
+      'One chain: parameter, 37 chains. Every major EVM network plus Solana, TON, Tron, NEAR, Sui, Aptos, Algorand, Stellar and XRPL, and the tokens on each.',
     excerpt:
-      'Name a chain, get paid. PipRail covers 30 chains across ten families from a single parameter. Here’s every network it supports, the tokens on each, and how it pays without an allowlist.',
+      'Name a chain, get paid. PipRail covers 37 chains across ten families from a single parameter. Here’s every network it supports, the tokens on each, and how it pays without an allowlist.',
     author: authors.john,
     published: '2026-06-22',
     readingTime: 7,

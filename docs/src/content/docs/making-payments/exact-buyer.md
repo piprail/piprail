@@ -332,6 +332,78 @@ with a one-line remedy: enable the rail with `schemes: ['onchain-proof', 'exact'
 `fetch(url, { schemes: ['exact'] })`).
 :::
 
+## Tokens the SDK has never heard of: `assetDiscovery`
+
+By default, an `exact` rail is payable only when its token is one the SDK ships a preset for.
+The reason is the spend policy: a cap is denominated in the token's own units, so PipRail
+refuses to sign for an asset whose decimals it cannot vouch for. `describeAsset` is that
+check, and it is a plain registry lookup.
+
+The cost of that is reach. Measured against the live CDP Bazaar catalogue on 2026-09-10,
+**1,008 `exact` rails sit on chains PipRail already supports but quote a token it does not
+preset**, nearly all of them X Layer's USD₮0, a contract that answers EIP-3009 perfectly well.
+The SDK was declining money it was fully able to move, for want of a table entry.
+
+`assetDiscovery: 'onchain'` closes that. When the registry does not recognise a rail's asset,
+the client asks the token contract for its own `symbol()` and `decimals()`, and prices the
+payment from what the contract said.
+
+```ts
+const client = new PipRailClient({
+  chain: 'xlayer',
+  wallet: { key: process.env.PRIVATE_KEY! },
+  schemes: ['onchain-proof', 'exact'],
+  assetDiscovery: 'onchain',        // default is 'registry'
+  policy: { maxAmount: '0.50' },    // still capped, in the resolved decimals
+})
+```
+
+### Read this before enabling it
+
+The registry is an **allowlist** as much as a decimals table. A preset means a person checked
+the token is what it claims to be. On `'onchain'`, the server chooses which contract you read.
+
+The SDK narrows the risk rather than removing it:
+
+- it reads `symbol()` and `decimals()` only, nothing else;
+- it refuses anything reporting decimals outside 0 to 36;
+- it refuses an unparseable id, a non-contract address, or a contract with no ERC-20 metadata
+  (two rails in the live corpus quote near-miss Arbitrum and Polygon USDC addresses that answer
+  nothing at all, and they stay unpayable);
+- it caps against what the **contract** reported, never `extra.decimals` from the wire;
+- it resolves each asset once per client and remembers refusals, so a hostile host cannot force
+  an RPC read on every request.
+
+What it cannot do is tell you the token is worth anything. A contract may report
+`symbol: 'USDC'` and six decimals and still be worthless. Keep a `maxAmount` you would accept
+losing, and prefer the default `'registry'` wherever the token set is known ahead of time.
+
+### What it does not change
+
+`'onchain'` only ever **adds** a fallback for assets the registry missed. A recognised token is
+still priced from the registry and triggers no RPC read at all, the native coin is never
+resolved as a token, and an asset on a network this client is not bound to is never read.
+
+If the driver has no on-chain lookup, or the RPC is unreachable, the asset stays unrecognised
+and the rail is skipped: the pre-existing behaviour. A dead RPC costs reach, never correctness.
+
+### Watching it happen
+
+Each resolution emits an `asset-resolved` event, which is worth logging: it is the moment a
+spend cap starts trusting a contract the server chose.
+
+```ts
+new PipRailClient({
+  // …
+  assetDiscovery: 'onchain',
+  onEvent: (e) => {
+    if (e.kind === 'asset-resolved') {
+      console.log(e.unresolved ? `refused ${e.asset}` : `${e.asset} = ${e.symbol} @ ${e.decimals}dp`)
+    }
+  },
+})
+```
+
 ## Failure modes worth knowing
 
 The `exact` pay path is deliberately more conservative than the `onchain-proof` retry loop: the

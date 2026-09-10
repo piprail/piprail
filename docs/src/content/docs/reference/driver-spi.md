@@ -80,6 +80,7 @@ transient RPC read.
 | `supports(network)` | both | Does this bound network handle that CAIP-2 string? |
 | `resolveToken(token)` | both | Turn a `TokenInput` into a `ResolvedToken`. |
 | `describeAsset(asset)` | both | The SDK's *own* trusted decimals/symbol for a known asset, or `null`. Pure, no RPC. |
+| `readAssetOnchain(asset)` | payer | **Optional.** Async: the token contract's own `symbol()`/`decimals()`, for assets the registry missed. Opt-in via `assetDiscovery`. Never throws. |
 | `assertValidPayTo(payTo)` | both | Throw if `payTo` is invalid for this family. (A general family-validity check; called server-side today.) |
 | `bindWallet(wallet)` | payer | Validate + wrap the user's wallet into a `WalletHandle`. |
 | `send(wallet, accept)` | payer | Broadcast payment; resolve to the proof ref (tx hash / signature). |
@@ -164,6 +165,31 @@ that matches its family:
 own decimals/symbol, used to enforce the spend budget against a token's true decimals (so a
 server can't understate a price by lying about `extra.decimals`) and to flag symbol mismatches.
 It returns `null` for an asset the SDK can't safely price.
+
+### `readAssetOnchain(asset)`, optional
+
+A driver may also implement `readAssetOnchain(asset)`, an **async** lookup of the same two
+fields off the chain itself, for assets `describeAsset` returned `null` for. It exists because
+the registry is a build-time allowlist, and a rail quoting anything outside it was refused
+outright: 1,008 live `exact` rails on chains PipRail already supports (measured 2026-09-10).
+
+It is only ever called when the client opted into `assetDiscovery: 'onchain'`, and a driver
+that omits it simply keeps the registry-only behaviour.
+
+The contract for an implementer is narrow, because the spend cap is denominated in whatever this
+returns:
+
+- read `symbol()` and `decimals()` and nothing else;
+- **resolve `null`, never throw**, for an unparseable id, a non-contract address, a contract with
+  no ERC-20 metadata, or an unreachable RPC;
+- reject implausible decimals rather than passing them through.
+
+`null` means "still unrecognised", and the rail is skipped exactly as before. That is what keeps
+a typo'd or fabricated asset unpayable, and it is not hypothetical: two rails in the live corpus
+quote near-miss Arbitrum and Polygon USDC addresses that are not contracts at all.
+
+See [the buyer-side guide](/making-payments/exact-buyer/) for the caller's view and the risk
+that comes with enabling it.
 
 ## The cost estimate
 
