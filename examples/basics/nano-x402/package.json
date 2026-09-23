@@ -1,0 +1,19 @@
+{
+  "name": "@piprail/example-nano-x402",
+  "private": true,
+  "type": "module",
+  "version": "0.0.1",
+  "description": "PipRail merchant that also accepts Nano (XNO) via the x402 exact scheme — feeless, sub-second settlement beside EVM-USDC.",
+  "scripts": {
+    "merchant": "node merchant.mjs",
+    "buyer": "node buyer.mjs",
+    "test": "node test.mjs"
+  },
+  "dependencies": {
+    "@piprail/sdk": "^2.7.0",
+    "@x402nano/exact": "^0.3.0",
+    "@x402nano/helper": "^0.2.0",
+    "express": "^4"
+  },
+  "comment": "Nano needs no peer chain library: the Nano exact scheme (@x402nano/exact + @x402nano/helper) talks to the ledger over its plain HTTP RPC with no per-tx gas."
+}
