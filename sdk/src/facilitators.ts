@@ -318,6 +318,13 @@ export const KNOWN_FACILITATORS: Readonly<Record<Caip2, ReadonlyArray<KnownFacil
       settles: ['permit2'],
       note: 'Dexter: keyless, gas-sponsored. Robinhood USDG (EIP-712 domain name "Global Dollar" version "1", which matches the on-chain DOMAIN_SEPARATOR we recomputed). Enforces a ~$0.0066 dynamic floor (minPaymentAmountAtomic 6554), so a sub-cent payment is rejected. LIVE-settled on Robinhood mainnet 2026-09-08 (tx 0x1ba66e3dfd60e1d32fe4e38b68368a064a20b57858d6311feb08b4d0ba988d99): buyer and merchant paid 0 ETH, replay rejected. A 2nd keyless Robinhood facilitator (failover for UVD).',
     },
+    {
+      url: 'https://x402.t0ll.xyz',
+      keyless: true,
+      schemes: ['exact'],
+      settles: ['eip3009', 'permit2'],
+      note: 'Toll: keyless, no fee, gas-sponsored (Robinhood USDG, EIP-3009 and Permit2; /supported also lists upto, auth-capture and batch-settlement). Checks each payTo against the seller's ERC-8004 agent wallet. LIVE-settled on Robinhood mainnet 2026-11-11: EIP-3009 (tx 0xe2e0265d9dcc3ff8f347e682458d5bfa121a7ebabc38f6d60dd478c70896fcee) and Permit2 (tx 0xadbbd59058626bdc41172376fbf4714006d54834b01b08759d67cf85dc83067f), buyer paid 0 ETH for the payment.',
+    },
   ],
   // Solana (mainnet-beta). Keyless fee-payer sponsors for the SVM exact rail, each LIVE-settled
   // by us (a real SPL TransferChecked, buyer paid zero SOL) on the dated day — beyond a /supported
